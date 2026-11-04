@@ -361,3 +361,21 @@ tests/test_followup_successor.py
 tests/test_followup_migration.py
 
 </details>
+
+## Landing onto main
+
+### Rulings
+
+- R1: "F7 has reopened twice on which exits leave prepared things open, so under the stuck-loop rule the case-by-case goes: every move to a terminal workflow state runs through one function that withdraws whatever the workflow prepared and makes the move in one commit. A test fails on any other writer of a terminal state. After this, a further exit on this class is Low unless it realistically re-serves a retired probe or strands Next."
+- R2: "F9: the blocking-check lookup gets the workflow's learning object, at both the retry check and the post-authoring check."
+- R3: "Causes from exam work, and causes without a complete current record in a vault holding exam material, take the practice lane, because exam protection stands. The smoke counts how often this happens on real copies and the owner is told. If it would stop most real probes, stop and report before landing."
+- R3 (superseded, owner Nov 4 2026, answering the linear_algebra result of 0 of 14): "Only reserved questions: exam protection for probes covers exam questions still reserved or withheld. Past exam answers can inform causes, and an incomplete older record no longer blocks by itself. Reserved questions stay out of the generator's context, and a machine check compares each cause and each generated question against them; a match sends that miss to the practice lane."
+- R4: "The single-use identity is not backfilled onto pi_gen items already in a vault at this landing. The smoke counts them and the owner is asked."
+- R5: "Low under the proportionate bar, and not fixed here: a probe with no workflow burned before any presentation commits can reopen until answered or skipped; a retry whose author repeats a crashed run's question gets no question and Next goes on; the inspector can show an attempt's raw record while feedback is held."
+- R6: "Adversarial review of each generated probe stays off until a real-latency run on a copy."
+- R7: "A workflow that drew a decision and then leaves by newer_grade or the practice lane appends no outcome against that decision. Verify job 20261104-032603-9wdSdZ found this an honest gap: without an item binding the action outcome reads not applicable, not failed or unanswered. It stays as recorded."
+- R8: "The corrected hard_refusal also applies to the first decision, beyond R2's two checks. Accepted: a genuine blocker ends the workflow and releases Next."
+- R9: "A new miss with two or more distinct concrete causes gets a factor on the FG1 workflow path at the tag, even with no target_ref, no repair mapping, a repair aimed at another criterion, or only a trivial error type. FG1 writes its question from the causes and doesn't need a repair class. Weak cases, local slips among them, are the router's to decide, as the owner said on Nov 3: 'The router will decide for weak cases.' No_intervention is how it declines them."
+- R10: "The leakage gate keeps its shingle order of 6, the ingest gate's own value. A false match costs a paid call and the learner's question, so two structural changes reduce that without a new constant: phrases that source text outside held-out spans already shows are subtracted, as ordinary items' are; and a generated question that matches gets the workflow's existing one retry, naming only the author's own matching phrase, before the practice lane."
+
+Verify job `20261104-032603-9wdSdZ` (gpt-6.1-sol) confirmed F7 and F9 fixed: VERDICT CLEAN. The gate, the smoke and what the owner runs follow here at landing.

@@ -1005,3 +1005,48 @@ Targeted only; the full gate hasn't resumed. The earlier full run was on `ec8343
 - `--durable-sqlite` on the `test_followup_*` files: **205 passed**.
 - `lint-imports --no-cache`: **42 kept, 0 broken**.
 - No model call; every model-backed test and smoke run uses fakes.
+
+## R9 and R10
+
+The rulings are verbatim in `docs/reviews/followup-fg1.md`, under "Landing onto main". Spec §4 and §8 amended, with the date.
+
+### R9: rival causes get a factor (`7d730fa39d`)
+
+`lanes.open_rival_factor`, just before `select_lane`, behind `generate_and_serve_on`. Tests: `tests/test_followup_rival_factor.py`; every shape failed first with no question and `no_open_factor`. Two older tests relied on the default fake's two causes settling on the practice lane, and now say which lane they mean.
+
+- **All four shapes** (no `target_ref`, no repair suggestion, a repair aimed at another criterion, a trivial error type), with the router on ask now and on `no_intervention`. On the fixture: factor opens, question prepared and served, its answer closes the factor, feedback released, Next goes on. A decline makes no authoring call.
+- **On the real copies**, with a plan and fake models, all 4 shapes on all 3 vaults: 23 of 24 runs pass every check. The other is linear_algebra's trivial shape with the router unforced: its floor drew `continue_current`, so the driver's "still held" check didn't apply. That is the wait arm working, not a fault. New model receipts: 0. Non-loopback sockets: 0. No Codex process.
+- **A mark.** The factor carries `followup_rival_causes_v1`. The machine check sweep skips it, since it owes no mapping and a check would refuse its question.
+- **Beyond the ruling's words: it closes when its question won't be asked.** On `no_intervention`, a refusal, a skip or the practice lane it closes as `retired`, `followup_declined`, in the move's commit. Left open it would hold the topic in the plan's repair lane with nothing to serve. A failed workflow keeps it for its need (§6.2), and an answered one resolves or stays open like any factor.
+- **One concrete cause stays as it was.** So does an attempt that has had a factor of any status, or a grade held for review.
+
+**Measurement.** Opening the factor leaves the rebuild's own facet, mastery and schedule snapshot and the certification rows unchanged. After an answered probe, facet and mastery match a mapped factor's run, compared to four places because mastery decays by the wall clock.
+
+**Downstream, with no repair class.** No machine check owed, no cold retry or remediation opened (on a mapped factor either). The one difference is that a mapped factor has a `causal_probe_decision_receipts` row and this one has none, since the receipt is written on the post-attempt path before the factor exists. Nothing found requires it.
+
+**What the learner sees after answering.** The worked answer and the causal feedback are released, with causes labelled "Possible explanation — not yet confirmed", as on a mapped factor. Repair suggestions appear if the diagnoser wrote any, with no common repair offer and no guided redo. Next goes on. With `no_repair` there is no repair text at all.
+
+**Trivial-only misses do spend more.** Before R9, none. Now one authoring call per such miss when the diagnoser names two or more causes and the router asks, plus the retry on a reserved match, or one later call for the need if the workflow fails. On real history: 11 of 22 misses are trivial-only (linear_algebra 9 of 16, probability 2 of 3, arxiv_v2 0 of 3), but none was diagnosed and none has any cause on record, so **0 of them would spend a call as they stand**. The rate for new misses isn't measurable here.
+
+**A limit of "the router decides".** With no plan there is no draw, so a weak case always gets its question (§5.1). With a plan and unreachable models the staged rule drew ask now at 98%. The router only declines weak cases when its models answer.
+
+### R10: fewer false matches (`fa2f73234b`)
+
+Reproduced first (`test_r10_*`). A matched phrase is asked of `source_block_fts`, whose porter tokenizer also counts a plural as the same word; one shown in a block `withheld.exam` doesn't cover no longer counts. A whole stem always counts. An index that can't answer shows nothing, so the check stands.
+
+**Cost.** One index query per phrase that matched, memoized for the check; none for a question that matches nothing. Median 0.01 ms on linear_algebra (972 blocks), 0.08 ms on arxiv_v2 (4606), worst 13 ms. Building the reserved list: 11 ms, reading `withheld_items`: 25 ms.
+
+| linear_algebra, 84 ordinary items as new questions, order 6 | Items that would match | Phrases matched |
+|---|---|---|
+| Before: ordinary items subtracted | 21 | 45 |
+| After: source text outside held-out spans also subtracted | **21** | 44 |
+
+**The subtraction barely helps on this copy.** It works (tested both ways), and no block here is held out. But the copy's 972 source blocks don't show these phrases: they are formulas and item-writers' wording (`where f is r or c`, `for all u v w v`). A vault with more of the book indexed may do better; that isn't measured.
+
+**So the retry is what saves the question.** A draft that matches runs again at once, no backoff, told only the stretches of its own draft that matched, read back from a workflow note so a crash keeps them. `MAX_GENERATION_ATTEMPTS` stays 2 in all: a second match, or a match on an attempt that is already the second, settles as `question_matches_reserved_question`. A false match now costs one more paid call and usually keeps the question, if a real author avoids the phrase; a real run has to show that.
+
+**Real questions, after both.** Linear_algebra's 15 stems and 15 keys all still match themselves. A real stem quoted in a cause settles with no author call. An author echoing one on both tries makes 2 calls, writes no identity, and settles on the practice lane, with feedback released and Next going on.
+
+### Gate for this section
+
+Numbers below are for the tip's code; the full gate hasn't resumed, and the references are stale until it does.

@@ -119,8 +119,12 @@ def test_each_shape_opens_a_factor_serves_a_question_and_its_answer_closes_it(de
     })
     assert wf.get(repository, row["id"])["state"] == wf.SETTLED
     assert repository.unresolved_cause_factor(factor["id"])["status"] == "resolved"
+    # Nothing downstream waits on a repair class: no mapping owed, no cold retry or remediation opened.
+    assert not repository.causal_machine_checks(status="pending", factor_id=factor["id"])
+    assert not repository.open_followup_tasks_of_kind("cold_retry")
     released = _call(desk.ctx, "get_feedback", {"attemptId": attempt_id})
     assert released["followup"]["held"] is False
+    assert released["answeredExpectedAnswer"] and released["causalFeedback"]
     assert _call(desk.ctx, "followup_next", {"attemptId": attempt_id})["action"] == "continue"
     assert row["practice_item_id"] in identity.closed_probe_ids(repository)
 
