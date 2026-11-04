@@ -221,8 +221,15 @@ def _state(vault, repository):
 
 
 def test_an_answered_probe_moves_the_same_measurement_with_or_without_a_mapped_repair(tmp_path, monkeypatch):
-    """Whatever an answered probe does, a factor opened this way does no more and no less."""
+    """Whatever an answered probe does, a factor opened this way does no more and no less. The clock
+    is frozen, because mastery decays by the wall clock and the two runs are moments apart."""
 
+    from datetime import timedelta
+
+    from learnloop.clock import SystemClock
+
+    instant = SystemClock().now()
+    monkeypatch.setattr(SystemClock, "now", lambda self: instant + timedelta(days=1))
     states = {}
     for shape in ("", "no_target"):
         paths, _vault, _repository = live_shape_vault(tmp_path / (shape or "mapped"))
@@ -259,9 +266,7 @@ def _shape_of_state(repository):
     out = {}
     for family in ("mastery", "facet"):
         out[family] = sorted(
-            # Four places: mastery decays by the wall clock, and the two runs are moments apart.
-            repr((key, sorted((name, round(value, 4) if isinstance(value, float) else str(value))
-                              for name, value in row.items() if not any(mark in name for mark in drop))))
+            repr((key, sorted((name, str(value)) for name, value in row.items() if not any(mark in name for mark in drop))))
             for key, row in snapshot[family].items()
         )
     with repository.connection() as connection:
