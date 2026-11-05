@@ -713,9 +713,30 @@ def r_for(connection: Any, *, local_date: str, closure: Closure | None = None,
     return (ledger or Ledger(connection)).r_for(local_date, closure or Closure.through(local_date))
 
 
+def support_at(connection: Any, at: str, *, days: Sequence[Mapping[str, Any]] | None = None
+               ) -> tuple[dict[str, float], str]:
+    """RO6's landing ruling R7: each topic's check support for the days after ``at``, as known at ``at`` (a stop
+    coin's draw): ``r_L`` of the latest day drawn as of ``Closure.at(at)``, every draw admitted through
+    :meth:`Closure.admits` (RO1's availability predicate on its assignment row), the last draw standing for the days
+    after it, as :meth:`Ledger.r_for` reads a day not yet drawn. ``({}, "none")`` with no draw yet. ``days``: the day
+    assignment rows (:attr:`Ledger.days`), read once for many moments."""
+
+    closure = Closure.at(at)
+    if days is None:
+        if not A.present(connection):
+            return {}, "none"
+        days = [row for row in A.rows(connection, A.CHECK) if row["unit_id"].count(":") == 1]
+    drawn = [row for row in days if row["unit_id"][len(DAY_PREFIX):] <= closure.local_date
+             and closure.admits(row["created_at"])]
+    if not drawn:
+        return {}, "none"
+    latest = max(drawn, key=lambda row: row["unit_id"])
+    return dict(latest["detail"].get("r") or {}), "latest_draw"
+
+
 __all__ = [
     "Closure", "DAY_PREFIX", "DISPLACED", "Day", "Ledger", "NOT_ANSWERED", "NO_PRACTICE_SLOT", "NO_SESSION",
     "OPEN", "ORIGIN", "Placement", "RESOLVER_VERSION", "Resolved", "SKIPPED", "VERSION", "administered", "completion",
     "day_record", "day_seed", "day_unit", "draw", "draw_day", "place", "r_for", "resolve",
-    "slot_unit",
+    "slot_unit", "support_at",
 ]

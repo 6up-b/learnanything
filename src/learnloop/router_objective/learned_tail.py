@@ -50,6 +50,15 @@ P(rank > 0 at that fill)``. With no missing term this is the estimate above exac
 bound tightens by itself. No threshold, minimum sample or observation model. The estimate with the missing terms
 left out (the unbounded one) is kept beside it, shown only.
 
+**The measurable target** (RO6's landing ruling R7). The bound applies to terms whose observation is decided after
+the coin's draw. A use whose topic had no check support as of the draw (``r = 0`` in the latest check draw known
+then, read through RO1's availability predicate) is not a missing outcome but outside the measurable target: it is
+left out of both arms' realized return and, where the value decomposes by term (the tail's rollouts keep each
+topic's share apart), out of the tail's predicted contrast too. That exclusion is a function only of what was known
+before randomization, so it cannot select on the arm. The residual's prediction cannot be restricted to the same
+terms: its unrestricted prediction is used, which attenuates the slope toward zero (the record says so). ``ŵ`` is
+calibrated on the measurable part of the return only.
+
 **The partial-history cross-check** (:func:`partial_history`, report only): importance weights of the improvement
 step (the mix with the numeric policy's argmax taken on ``Q_tail + ρ``) against the logger's served distribution,
 one step and over each decision's window, near the logger where the weights stay usable.
@@ -70,7 +79,7 @@ import numpy as np
 
 FEATURES_VERSION = "ro6_belief_features_v2"
 FIT_VERSION = "ro6_fqe_ridge_v1"
-WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v4"
+WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v5"
 #: ``ŵ``'s bound (RO6's landing ruling R1): the least favourable fill of the missing terms, or none to fill
 LEAST_FAVOURABLE = "least_favourable_fill"
 NO_BOUND = "none"
@@ -336,6 +345,8 @@ class Contrast:
     realized_lo: float | None = None
     realized_hi: float | None = None
     missing: int = 0
+    #: R7: the window's terms no check could measure as of the draw, left out of ``realized`` (outside the target)
+    excluded: int = 0
 
     @property
     def bounds(self) -> tuple[float, float]:
@@ -364,6 +375,9 @@ class WeightFit:
     missing_contrasts: int = 0
     missing_terms: int = 0
     unbounded: Mapping[str, Any] | None = None
+    #: R7: the terms left out as unsupported at the draw (outside the measurable target), and where
+    excluded_contrasts: int = 0
+    excluded_terms: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         own = {"w_hat": self.w_hat, "slope_mean": self.slope_mean, "slope_sd": self.slope_sd,
@@ -371,6 +385,8 @@ class WeightFit:
         return {**own, "n": self.n, "forced": self.forced, "prior_sd": self.prior_sd, "source": self.source,
                 "version": self.version, "bound": self.bound,
                 "missing": {"contrasts": self.missing_contrasts, "terms": self.missing_terms},
+                "excluded": {"contrasts": self.excluded_contrasts, "terms": self.excluded_terms},
+                "target": "the measurable part of the return only (terms a check could measure as of the draw)",
                 "unbounded": dict(self.unbounded) if self.unbounded is not None else dict(own)}
 
 
@@ -449,7 +465,9 @@ def residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str |
                      p_rank=estimate["p_rank"], sigma2=estimate["sigma2"], prior_sd=float(prior_sd), source=source,
                      bound=bound, missing_contrasts=sum(1 for row in rows if row.missing > 0),
                      missing_terms=sum(int(row.missing) for row in rows),
-                     unbounded=shown if open_rows else None)
+                     unbounded=shown if open_rows else None,
+                     excluded_contrasts=sum(1 for row in rows if row.excluded > 0),
+                     excluded_terms=sum(int(row.excluded) for row in rows))
 
 
 def _noise(x: np.ndarray, y: np.ndarray, precision: np.ndarray, sigma2: float) -> tuple[float, np.ndarray]:
@@ -514,6 +532,8 @@ class CoinDraw:
     lo: float = 0.0
     hi: float = 0.0
     missing: int = 0
+    #: R7: the window's terms left out as unsupported at the draw (outside the measurable target)
+    excluded: int = 0
 
 
 OFFER_STOP = "offer_stop"
@@ -545,9 +565,9 @@ def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str,
             assigned[draw.arm] += 1
             if draw.value is not None:
                 observed[draw.arm] += 1
-                if draw.missing:
+                if draw.missing or draw.excluded:
                     windows.append({"decision_id": draw.decision_id, "arm": draw.arm, "missing": int(draw.missing),
-                                    "lo": float(draw.lo), "hi": float(draw.hi)})
+                                    "lo": float(draw.lo), "hi": float(draw.hi), "excluded": int(draw.excluded)})
         into = reasons if draw.value is None else notes
         if draw.value is None or draw.reason:
             by_arm = into.setdefault(str(draw.arm), {})
@@ -556,8 +576,12 @@ def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str,
                 by_arm[key] = by_arm.get(key, 0) + 1
     record: dict[str, Any] = {"cohort": len(draws), "assigned": dict(assigned), "observed": dict(observed),
                               "unobserved": reasons, "notes": notes,
-                              "missing": {"windows": len(windows), "terms": sum(entry["missing"] for entry in windows),
+                              "missing": {"windows": sum(1 for entry in windows if entry["missing"]),
+                                          "terms": sum(entry["missing"] for entry in windows),
                                           "by_window": windows},
+                              # R7: unsupported at the draw, outside the measurable target (forced windows)
+                              "excluded": {"windows": sum(1 for entry in windows if entry["excluded"]),
+                                           "terms": sum(entry["excluded"] for entry in windows)},
                               "assumption": "no observation model: each missing term bounded by its structural range "
                                             "(performance in [0, 1] times its weight; costs observed), w^ read at "
                                             "the least favourable fill"}
@@ -574,16 +598,16 @@ def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str,
         weight = coin_contrast(draw.arm, draw.rate)
         forced = draw.arm in assigned
         if weight == 0.0 or draw.value is None:
-            realized, ends, missing = 0.0, None, 0
+            realized, ends, missing, excluded = 0.0, None, 0, 0
         else:
             realized = weight * float(draw.value)
             ends = sorted((weight * (float(draw.value) + float(draw.lo)), weight * (float(draw.value) + float(draw.hi))))
-            missing = int(draw.missing)
+            missing, excluded = int(draw.missing), int(draw.excluded)
         out.append(Contrast(decision_id=draw.decision_id, decided_at=draw.decided_at,
                             window_closes_at=draw.window_closes_at, realized=realized, tail=draw.tail,
                             residual=draw.residual, forced=forced, forced_probability=2.0 * float(draw.rate),
                             realized_lo=ends[0] if ends and missing else None,
-                            realized_hi=ends[1] if ends and missing else None, missing=missing))
+                            realized_hi=ends[1] if ends and missing else None, missing=missing, excluded=excluded))
     return out, record
 
 

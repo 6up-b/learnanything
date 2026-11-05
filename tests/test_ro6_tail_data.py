@@ -184,13 +184,17 @@ def test_a_few_weeks_on_a_copy_shaped_synthetic_vault(tmp_path):
                 "fit_n": entry["fit"].get("n"), "sigma2": entry["fit"].get("sigma2"),
                 "condition": entry["fit"].get("condition")} for entry in report["versions"]],
         "w_hat": {key: report["w_hat"][key] for key in ("w_hat", "slope_mean", "slope_sd", "n", "forced", "rank",
-                                                         "p_rank", "source", "bound", "missing", "unbounded")},
-        # (day, ŵ served, contrasts, missing terms, contrasts with one, the bound, ŵ with the missing terms left out)
+                                                         "p_rank", "source", "bound", "missing", "excluded",
+                                                         "unbounded")},
+        # (day, ŵ served, contrasts, missing terms, contrasts with one, the bound, ŵ with the missing terms left out,
+        # terms excluded as unsupported at the draw (R7), contrasts with one, the bound's slope, the unbounded slope)
         "w_hat_path": [(day["local_date"], day["w_hat_last"], day["contrasts"], day.get("missing_terms"),
-                        day.get("missing_contrasts"), day.get("bound"), day.get("w_hat_unbounded"))
+                        day.get("missing_contrasts"), day.get("bound"), day.get("w_hat_unbounded"),
+                        day.get("excluded_terms"), day.get("excluded_contrasts"), day.get("slope_mean"),
+                        day.get("slope_unbounded"))
                        for day in report["w_hat_history"]],
         "contrasts_record": {key: report["w_hat"]["contrasts_censored"].get(key)
-                             for key in ("status", "cohort", "assigned", "observed", "notes")},
+                             for key in ("status", "cohort", "assigned", "observed", "notes", "prediction")},
         "serving": report["serving"], "cross_check": report["cross_check"]["partial_history"].get("one_step"),
         "fit_projection": report["cross_check"]["fit_projection"],
     }

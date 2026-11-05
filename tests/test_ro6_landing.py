@@ -32,7 +32,8 @@ from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import tail_data as TD
 from learnloop.router_objective import tail_serve as TS
 
-from tests.test_ro6_codex_review import CFG, FAR, STOP, _logged, _quiet, _row, _trace, utc  # noqa: F401
+from tests.test_ro6_codex_review import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
+                                         _value_inputs, utc)
 
 RATE = 0.05
 
@@ -84,7 +85,8 @@ def _sigmoid(x: float) -> float:
 
 
 def _selective(monkeypatch, n: int = 8000, *, seed: int = 11, rate: float = 0.05, censor: float = 0.6,
-               mode: str = "dated", planted: float | None = None) -> tuple[list, dict]:
+               mode: str = "dated", planted: float | None = None, beside: int = 0,
+               lost_in_arm: str | None = None) -> tuple[list, dict]:
     """Codex's final-verify reproduction (job 20261105-152054-h2C3A5, F1) through the real path
     ``scores.observed_returns(complete=True) → tail_data.contrasts → learned_tail.residual_weight``, with synthetic
     read adapters: a balanced coin at ``rate``, the residual's predicted contrast ``x``, zero costs and baselines,
@@ -92,7 +94,9 @@ def _selective(monkeypatch, n: int = 8000, *, seed: int = 11, rate: float = 0.05
     control, ``Y = 0.5 ± planted·x/2`` by arm, complete, so the true contrast is ``planted·x``). With probability
     ``censor`` the term goes missing for negative-``x`` offer-stop draws and positive-``x`` present-next draws:
     ``mode`` ``dated`` (an exam result not known as of the window's closure) or ``unsupported`` (the window's undated
-    use has no check support, ``r = 0``)."""
+    use had check support at the draw, frozen in the trace as the serve freezes it, and has none on its day,
+    ``r = 0``: support lost after the draw). R7: ``beside`` undated uses per window whose topics had no check support
+    at the draw (nor on the day); ``lost_in_arm``: the support of every window of that arm is lost after the draw."""
 
     rng = random.Random(seed)
     rows, traces, exams, support, resolved = [], {}, {}, {}, {}
@@ -117,12 +121,16 @@ def _selective(monkeypatch, n: int = 8000, *, seed: int = 11, rate: float = 0.05
                                              "omega": 1.0, "m0": 0.0}]}
             exams[lo] = None if missing else y
         else:
-            uses = {"topics": [{"lo": lo, "c": 1.0, "m0": [0.0]}], "dated": []}
-            if not missing:
+            others = [f"u_{i:05d}_{j}" for j in range(beside)]
+            uses = {"topics": [{"lo": topic, "c": 1.0, "m0": [0.0]} for topic in (lo, *others)], "dated": []}
+            if not missing and arm != lost_in_arm:
                 support[lo] = 1.0
                 resolved[(DAY, lo)] = C.Resolved(assignment_id=f"a{i}", local_date=DAY, topic=lo, r=1.0,
                                                   status=C.COMPLETED, outcome=y)
         traces[decision_id] = {"evaluation": {"window_days": 1, "c0": 0.0, "uses": uses}}
+        if mode != "dated":
+            # The support as of the draw, frozen by the serve (residual.measurable): this window's own topic only.
+            traces[decision_id]["residual"] = {"measurable": {"support": {lo: 1.0}}}
 
     def context(_connection, *, at=None):
         return lambda closes_at: S.AsOf(closure=C.Closure.at(closes_at), resolved=resolved, rate=1.0,
@@ -165,6 +173,84 @@ def test_r1_complete_outcomes_recover_the_planted_slope_and_equal_the_unbounded_
     found, _record = _selective(monkeypatch, censor=0.0)
     null = LT.residual_weight(found, prior_sd=1.0, at=AT)
     assert null.w_hat < 0.15 and abs(null.slope_mean) < 3 * null.slope_sd + 1e-9
+
+
+# -- R7: terms unsupported at the draw are outside the measurable target, not missing ------------------------------
+
+
+def test_r7_a_planted_slope_on_supported_terms_is_recovered_beside_many_unsupported_at_the_draw(monkeypatch):
+    found, record = _selective(monkeypatch, censor=0.0, planted=0.4, mode="unsupported", beside=30)
+    weight = LT.residual_weight(found, prior_sd=1.0, at=AT)
+    # Before the fix: the 30 unsupported uses of each forced window were bounded missing terms (width 30), the
+    # least favourable fill sent the slope far below zero and ŵ was 0.
+    assert abs(weight.slope_mean - 0.4) < 4 * weight.slope_sd and weight.w_hat > 0.25
+    as_dict = weight.as_dict()
+    assert as_dict["bound"] == "none" and as_dict["missing"]["terms"] == 0
+    forced = record["assigned"][SC.OFFER_STOP] + record["assigned"][SC.PRESENT_NEXT]
+    assert record["excluded"]["terms"] == 30 * forced and record["missing"]["terms"] == 0
+    assert as_dict["excluded"]["terms"] == 30 * forced and "measurable part" in as_dict["target"]
+
+
+def test_r7_codexs_reproductions_still_give_w_hat_zero(monkeypatch):
+    # Support at the draw, lost afterwards selectively (and an exam not known at closure): still missing, bounded.
+    for mode in ("dated", "unsupported"):
+        found, record = _selective(monkeypatch, mode=mode, beside=5 if mode == "unsupported" else 0)
+        weight = LT.residual_weight(found, prior_sd=1.0, at=AT)
+        assert weight.w_hat == 0.0 and weight.as_dict()["bound"] == LT.LEAST_FAVOURABLE, mode
+
+
+def test_r7_support_removed_after_the_draw_in_one_arm_only_stays_bounded(monkeypatch):
+    found, record = _selective(monkeypatch, censor=0.0, mode="unsupported", beside=3, lost_in_arm=SC.OFFER_STOP)
+    offers = record["assigned"][SC.OFFER_STOP]
+    windows = [entry for entry in record["missing"]["by_window"] if entry["missing"]]
+    assert len(windows) == offers and all(entry["arm"] == SC.OFFER_STOP and entry["missing"] == 1
+                                          and entry["hi"] - entry["lo"] == pytest.approx(1.0) for entry in windows)
+    assert all(entry["excluded"] == 3 for entry in record["missing"]["by_window"])  # beside, both arms alike
+    weight = LT.residual_weight(found, prior_sd=1.0, at=AT)
+    assert weight.as_dict()["bound"] == LT.LEAST_FAVOURABLE and weight.missing_terms == offers
+
+
+def test_r7_the_rollouts_keep_each_unmeasured_topics_share_apart_on_the_same_paths():
+    from learnloop.router_objective import value as V
+
+    inputs, actions = _value_inputs(), _value_actions()
+    plain = V.evaluate(inputs, actions, draws=16, seed="r7")
+    los = [topic.lo for topic in inputs.topics]
+    by_one = [V.evaluate(inputs, actions, draws=16, seed="r7", unmeasured={lo}) for lo in los]
+    both = V.evaluate(inputs, actions, draws=16, seed="r7", unmeasured=set(los))
+    none = V.evaluate(inputs, actions, draws=16, seed="r7", unmeasured=set())
+    for i, row in enumerate(plain.valued):
+        # Q̄ and the choice are unchanged; mvp-0.48's terms carry no new key.
+        assert [one.valued[i].q for one in by_one] == [row.q] * len(los) and both.valued[i].q == row.q
+        assert "unmeasured_reward" not in row.terms and none.valued[i].terms["unmeasured_reward"] == 0.0
+        # By term: the topics' shares add up to the share of both, on the same paths.
+        assert sum(one.valued[i].terms["unmeasured_reward"] for one in by_one) == pytest.approx(
+            both.valued[i].terms["unmeasured_reward"], rel=1e-9, abs=1e-12)
+    assert any(both.valued[i].terms["unmeasured_reward"] > 0 for i in range(len(plain.valued)))
+
+
+def test_r7_a_served_decision_freezes_its_support_and_the_measurable_tail(tmp_path):
+    from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+    from learnloop.db.stores import router_objective as store
+
+    from tests.router_mixture_helpers import mixture_env, run
+    from tests.router_model_fakes import FakeLLM, fake_runtime
+    from tests.test_ro4_objective_serving import policy_answer
+
+    env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer)),
+                      version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+    run(env, steps=4)
+    with env.repository.connection() as connection:
+        rows = [(row, store.trace(connection, row["decision_id"])["trace"]) for row in store.traces(connection)
+                if row["decision_kind"] == "plan_block"]
+        logged = {row.decision_id: row for row in TD.logged(connection, env.vault.config, at="2100-01-01T00:00:00Z")}
+        for row, trace in rows:
+            measurable = trace["residual"]["measurable"]
+            assert measurable["support"] == pytest.approx(C.support_at(connection, row["created_at"])[0], abs=1e-6)
+            assert all(entry["terms"]["unmeasured_reward"] is not None for entry in trace["candidates"].values())
+            q = {ref: entry["terms"]["q"] - entry["terms"]["unmeasured_reward"]
+                 for ref, entry in trace["candidates"].items()}
+            assert logged[row["decision_id"]].q_measurable == pytest.approx(q)
 
 
 # -- R2: the objective's definition is part of the generator; a change censors objective_changed ----------------

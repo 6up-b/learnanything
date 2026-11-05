@@ -42,7 +42,7 @@ LOG = logging.getLogger(__name__)
 VERSION = "ro6_learned_tail_v1"
 
 
-SNAPSHOT_VERSION = "ro6_tail_snapshot_v1"
+SNAPSHOT_VERSION = "ro6_tail_snapshot_v2"
 
 
 def snapshot(repository: Any, *, now_iso: str) -> dict[str, Any]:
@@ -52,9 +52,13 @@ def snapshot(repository: Any, *, now_iso: str) -> dict[str, Any]:
     the decision's features. The caller takes it in the decision's own thread, before any asynchronous work, and
     hands it to :func:`residual`."""
 
+    from learnloop.router_objective import checks as C
     from learnloop.router_objective import decision_state as DS
 
     with repository.connection() as connection:
+        # RO6's landing ruling R7: each topic's check support as of the decision (the coin's draw), so the terms no
+        # check could measure are left out of both the realized and the predicted contrast.
+        support, support_basis = C.support_at(connection, now_iso)
         pending = DS._pending_reports(connection, now_iso)
         mastery: dict[str, dict[str, Any]] = {}
         if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'learning_object_mastery'"
@@ -62,7 +66,23 @@ def snapshot(repository: Any, *, now_iso: str) -> dict[str, Any]:
             for lo, mean, variance in connection.execute(
                     "SELECT learning_object_id, logit_mean, logit_variance FROM learning_object_mastery"):
                 mastery[str(lo)] = {"logit_mean": DS._round(mean), "logit_variance": DS._round(variance)}
-    return {"version": SNAPSHOT_VERSION, "at": now_iso, "pending_reports": dict(pending), "los": mastery}
+    return {"version": SNAPSHOT_VERSION, "at": now_iso, "pending_reports": dict(pending), "los": mastery,
+            "support": {str(lo): float(r) for lo, r in sorted(support.items())}, "support_basis": support_basis}
+
+
+def measurable(frozen: Mapping[str, Any] | None, inputs: Any, *, now_iso: str) -> dict[str, Any] | None:
+    """RO6's landing ruling R7: the decision's measurable terms, from its :func:`snapshot`: each topic's check
+    support as of the draw, and the valued topics with none (``unmeasured``: their undated uses are outside the
+    measurable target, left out of the realized return and, through ``value.evaluate``'s ``unmeasured``, out of the
+    tail's predicted contrast). None with no decision-time snapshot holding the support."""
+
+    if not isinstance(frozen, Mapping) or frozen.get("at") != now_iso or not isinstance(frozen.get("support"), Mapping):
+        return None
+    support = {str(lo): float(r) for lo, r in frozen["support"].items()}
+    unmeasured = sorted(topic.lo for topic in inputs.topics if support.get(topic.lo, 0.0) <= 0.0)
+    return {"support": support, "basis": frozen.get("support_basis"), "unmeasured": unmeasured,
+            "label": "w^ is calibrated on the measurable part of the return only (terms a check could measure as of "
+                     "the draw)"}
 
 
 def features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any],
@@ -254,5 +274,6 @@ def candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -
 
 
 __all__ = ["CARRIED", "NOT_ON_THE_SERVING_PATH", "PAST_CUTOFF", "SAME_CUTOFF", "SNAPSHOT_VERSION", "VERSION",
-           "applied", "candidate_terms", "carried_cutoff", "features", "not_on_the_serving_path", "previous_cutoff",
+           "applied", "candidate_terms", "carried_cutoff", "features", "measurable", "not_on_the_serving_path",
+           "previous_cutoff",
            "residual", "shifted", "snapshot", "with_carried_values"]

@@ -823,7 +823,17 @@ differs from §10:
   this is the estimate above exactly; as missingness shrinks the bound tightens by itself. No threshold, minimum
   sample or observation model. A forced draw with no return at all is an unbounded missing term: the contrast is
   `unidentified` (`ŵ` zero, said). The trace and the report give the missing terms per window, the bound used and
-  the estimate with the missing terms left out beside it (shown only). The returns admit an import only once it was
+  the estimate with the missing terms left out beside it (shown only). **The measurable target** (landing ruling
+  R7): the bound applies to terms whose observation is decided after the coin's draw. A use whose topic had no check
+  support as of the draw (`r = 0` in the latest check draw known then, `checks.support_at`, through RO1's
+  availability predicate; frozen in the trace's `residual.measurable`) is outside the measurable target, not a
+  missing outcome: left out of both arms' realized return and, since the tail's rollouts keep each such topic's
+  share of `Q̄` apart on the same paths (`value.evaluate(unmeasured=…)`, `terms.unmeasured_reward`), out of the
+  tail's predicted contrast too. That exclusion is a function only of what was known before randomization. The
+  residual's prediction cannot be restricted to the same terms: its unrestricted prediction is used and the record
+  notes the attenuation (toward zero). A term that had support at the draw but went unobserved afterwards stays
+  missing and bounded. `ŵ` is calibrated on the measurable part of the return only, as the report states. The
+  returns admit an import only once it was
   known at the cutoff (`scores.exam_result_known`, Codex review F5) and as of the window's closure (RO5's
   `checks.Closure`, landing ruling R4).
 - **How it enters** (`router_objective/tail_serve.py`, `objective_chooser.run_numeric`): at a `plan_block`

@@ -61,7 +61,7 @@ A leaf: numpy and the standard library; every number it reads is in :class:`Inpu
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 import hashlib
 import math
@@ -342,7 +342,7 @@ class _State:
 
 
 _LEDGER_FIELDS = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
-                  "terminal_cost")
+                  "terminal_cost", "unmeasured")
 
 
 @dataclass
@@ -356,10 +356,14 @@ class _Ledger:
     tail_cost: np.ndarray       # the tail's attention cost to C
     terminal_reward: np.ndarray  # valued uses past C (T_C's reward)
     terminal_cost: np.ndarray    # attention cost past C (T_C's cost)
+    #: RO6's landing ruling R7: the part of the undated uses' reward (inside ``undated_action``, ``tail_reward`` and
+    #: ``terminal_reward``) from the topics the model was told are unmeasured, on the same paths; not added to ``q``
+    #: again (zero unless :class:`_Model` has ``unmeasured``)
+    unmeasured: np.ndarray
 
     @classmethod
     def zeros(cls, k: int) -> "_Ledger":
-        return cls(*(np.zeros(k) for _ in range(7)))
+        return cls(*(np.zeros(k) for _ in _LEDGER_FIELDS))
 
     def copy(self) -> "_Ledger":
         return _Ledger(*(np.array(getattr(self, name), copy=True) for name in _LEDGER_FIELDS))
@@ -381,23 +385,23 @@ class _Ledger:
 
     @staticmethod
     def mix(p: np.ndarray, a: "_Ledger", b: "_Ledger") -> "_Ledger":
-        names = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
-                 "terminal_cost")
-        return _Ledger(*(p * getattr(a, n) + (1 - p) * getattr(b, n) for n in names))
+        return _Ledger(*(p * getattr(a, n) + (1 - p) * getattr(b, n) for n in _LEDGER_FIELDS))
 
     @staticmethod
     def select(mask: np.ndarray, a: "_Ledger", b: "_Ledger") -> "_Ledger":
-        names = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
-                 "terminal_cost")
-        return _Ledger(*(np.where(mask, getattr(a, n), getattr(b, n)) for n in names))
+        return _Ledger(*(np.where(mask, getattr(a, n), getattr(b, n)) for n in _LEDGER_FIELDS))
 
 
 class _Model:
     """One decision's rollouts: the frozen inputs, the draws, and the streams."""
 
-    def __init__(self, inputs: Inputs, draws: int, seed: str, cutoff: float | None = None) -> None:
+    def __init__(self, inputs: Inputs, draws: int, seed: str, cutoff: float | None = None,
+                 unmeasured: Collection[str] | None = None) -> None:
         self.inputs = inputs
         self.seed = seed
+        #: RO6's landing ruling R7: topics whose undated uses no randomized check could measure as of the decision;
+        #: their share of the undated reward is kept apart on the same paths (``_Ledger.unmeasured``). None: not kept.
+        self.unmeasured = frozenset(unmeasured) if unmeasured is not None else None
         #: RO6 (Codex re-review F3): a cutoff carried from an earlier decision (days from this one), in place of the
         #: inputs' own: every rollout (the tail's ranking, a probe's branch choice in the belief's world, the
         #: quadrature's boundaries, the end ``C + H``) then runs at it. None: the inputs' own cutoff (RO4's model).
@@ -413,6 +417,9 @@ class _Model:
         self.slots = max(int(inputs.tail_block_items), 1) * max(self._blocks_per_session(), 1) + 64
         self.streams = _Streams(seed, self.k, max(self.n, 1), self.days, self.slots)
         self.c = np.array([topic.undated_density for topic in inputs.topics], dtype=np.float64)
+        self.c_unmeasured = (np.array([topic.undated_density if topic.lo in self.unmeasured else 0.0
+                                       for topic in inputs.topics], dtype=np.float64)
+                             if self.unmeasured is not None else None)
         self.mbar = max(float(inputs.price.remembered), 1e-9)
         self.kappa0 = float(inputs.price.kappa0)
         self.theta = self._draw_theta()
@@ -744,6 +751,8 @@ class _Model:
                     ledger.terminal_reward += reward
                 else:
                     ledger.tail_reward += reward
+                if self.c_unmeasured is not None:
+                    ledger.unmeasured += (p * self.c_unmeasured[None, :]).sum(axis=1) * width
             if recorder is not None and 1 <= day <= int(recorder.get("days", 0)):
                 recorder.setdefault("daily", {})[day] = self.performance(state, day_start + 0.5).mean(axis=0)
             if day_end >= self.end:
@@ -779,9 +788,14 @@ class _Model:
         within = np.clip((self.cutoff - start) * MINUTES_PER_DAY, 0.0, minutes)
         ledger.kappa_action += self.cost(m + spent, within)
         ledger.terminal_cost += self.cost(m + spent + within, minutes - within)
-        rate = (self.performance(state, start) * self.c[None, :]).sum(axis=1)
+        performance = self.performance(state, start)
+        rate = (performance * self.c[None, :]).sum(axis=1)
         ledger.undated_action += rate * np.maximum(np.minimum(end, self.cutoff) - start, 0.0)
         ledger.terminal_reward += rate * np.maximum(np.minimum(end, self.end) - np.maximum(start, self.cutoff), 0.0)
+        if self.c_unmeasured is not None:
+            ledger.unmeasured += (performance * self.c_unmeasured[None, :]).sum(axis=1) * (
+                np.maximum(np.minimum(end, self.cutoff) - start, 0.0)
+                + np.maximum(np.minimum(end, self.end) - np.maximum(start, self.cutoff), 0.0))
         for index, use in enumerate(self.dated):
             crossed = ~dated_done[:, index] & (use.at_days <= end + 1e-12)
             if crossed.any() and use.lo in self.index:
@@ -1024,8 +1038,8 @@ class Evaluation:
         return self.reference.q if self.reference is not None else 0.0
 
 
-def _terms(ledger: _Ledger) -> dict[str, float]:
-    return {
+def _terms(ledger: _Ledger, model: "_Model | None" = None) -> dict[str, float]:
+    terms = {
         "crossed_date_reward": float(ledger.crossed.mean()),
         "undated_reward": float(ledger.undated_action.mean()),
         "kappa_integral": float(ledger.kappa_action.mean()),
@@ -1034,25 +1048,32 @@ def _terms(ledger: _Ledger) -> dict[str, float]:
         "tail_cost": float(ledger.tail_cost.mean()),
         "terminal": float(ledger.terminal.mean()),
     }
+    if model is not None and model.unmeasured is not None:
+        # RO6's landing ruling R7: the unmeasured topics' share of q (the measurable part is q minus it).
+        terms["unmeasured_reward"] = float(ledger.unmeasured.mean())
+    return terms
 
 
 def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None = None,
              keep_going: Callable[[], bool] | None = None, deadline: float | None = None,
              clock: Callable[[], float] = time.monotonic,
              on_complete: Callable[[Evaluation], None] | None = None,
-             cutoff: float | None = None) -> Evaluation:
+             cutoff: float | None = None, unmeasured: Collection[str] | None = None) -> Evaluation:
     """``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more
     while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s). An evaluation
     that could not finish its first batch by the deadline is ``complete = False``; a refinement the deadline cuts
     short returns the latest complete batch (F7). ``on_complete`` sees each complete batch as it finishes.
 
     ``cutoff`` (RO6; None: the inputs' own ``C``): the cutoff every rollout runs at, in days from the decision, for
-    the value of this state at an earlier decision's carried cutoff (§3.2; Codex re-review F3)."""
+    the value of this state at an earlier decision's carried cutoff (§3.2; Codex re-review F3). ``unmeasured``
+    (RO6's landing ruling R7; None: not kept): topics whose share of each ``Q`` is kept apart on the same paths
+    (``terms.unmeasured_reward``), so the measurable part ``q − unmeasured_reward`` decomposes by term exactly;
+    ``q`` itself is unchanged."""
 
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
-    model = _Model(inputs, total, seed, cutoff=cutoff)
+    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured)
     latest: Evaluation | None = None
     while True:
         rows: list[Valued] = []
@@ -1064,7 +1085,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
                 break
             ledger, extra = model.value(action)
             rows.append(Valued(ref=action.ref, kind=action.kind, q_draws=tuple(float(v) for v in ledger.q),
-                               terms=_terms(ledger), extra=extra, choosable=action.choosable))
+                               terms=_terms(ledger, model), extra=extra, choosable=action.choosable))
         if not complete:
             break
         latest = Evaluation(valued=tuple(row for row in rows if row.ref != REFERENCE_REF), draws=model.k,
@@ -1076,7 +1097,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
         if not more or total >= limit or (deadline is not None and clock() > deadline):
             break
         total = min(total * 2, limit)
-        model = _Model(inputs, total, seed, cutoff=cutoff)
+        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured)
     if latest is not None:
         return replace(latest, elapsed_ms=int(round((clock() - started) * 1000)))
     return Evaluation(valued=(), draws=model.k, cutoff=model.cutoff, seed=seed,

@@ -81,13 +81,15 @@ class Bounded:
     observed terms' bracket (the cost included: costs are always observed); the return lies in
     ``[value + lo, value + hi]``, the sums of the ``missing`` terms' bounds (:class:`MissingTerm`). ``value`` None: no
     return at all (unbounded). ``reason``: the missing terms counted by reason (``dated_missing:n``,
-    ``no_check_support:n``)."""
+    ``no_check_support:n``). ``excluded`` (landing ruling R7): the undated uses whose topic had no check support as of
+    the draw, outside the measurable target and left out of ``value`` and the bounds alike."""
 
     value: float | None
     reason: str | None = None
     lo: float = 0.0
     hi: float = 0.0
     missing: int = 0
+    excluded: int = 0
 
 
 def _distribution(trace: Mapping[str, Any]) -> tuple[dict[str, float], dict[str, float], str | None, float | None]:
@@ -340,7 +342,8 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
                     r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
                     gap_minutes: float,
                     exam_result: Callable[[Any, str, str], float | None] | None = None,
-                    complete: bool = False) -> tuple[float | None, str | None] | Bounded:
+                    complete: bool = False,
+                    support: Mapping[str, float] | None = None) -> tuple[float | None, str | None] | Bounded:
     """RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action
     contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
     ``(None, reason)`` when a dated use has no result or no use has ``r > 0`` (effort alone is no return).
@@ -352,7 +355,13 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
     probabilities) with the dated uses whose result is known as of the window's closure, and the cost (always
     observed). Missing, each bounded by its structural range (performance in ``[0, 1]`` times its known weight, less
     its frozen baseline, :class:`MissingTerm`): a dated use whose result is not known as of the closure
-    (``dated_missing``) and a use no check could observe, ``r = 0`` (``no_check_support``)."""
+    (``dated_missing``) and a use no check could observe, ``r = 0`` (``no_check_support``).
+
+    ``support`` (``complete`` only; landing ruling R7): each topic's check support as of the coin's draw
+    (:func:`checks.support_at`, or the decision's frozen snapshot). A use whose topic had none is outside the
+    measurable target: left out of the return and its bounds (``excluded``), never a missing outcome, since the
+    exclusion is fixed before randomization. A use whose topic had support at the draw and none on its day (support
+    lost afterwards) stays a bounded missing term. None: no exclusion (an unknown support)."""
 
     missing: list[MissingTerm] | None = [] if complete else None
     found_uses = window_uses(connection, row, trace, resolved=resolved, completion_rate=completion_rate,
@@ -360,6 +369,11 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
     if found_uses is None:
         return None, W.NO_RESULT
     uses, _assessments = found_uses
+    excluded = 0
+    if complete and support is not None:
+        kept = [use for use in uses if not use.key.startswith("L:")
+                or float(support.get(use.key[2:].rsplit(":", 1)[0]) or 0.0) > 0.0]
+        excluded, uses = len(uses) - len(kept), kept
     if not complete and not any(use.r > 0 for use in uses):
         return None, W.NO_RANDOMIZED_USE
     cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
@@ -374,7 +388,7 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
         counts[term.reason] = counts.get(term.reason, 0) + 1
     notes = ";".join(f"{reason}:{count}" for reason, count in sorted(counts.items())) or None
     return Bounded(value=value, reason=notes, lo=sum(term.lo for term in terms), hi=sum(term.hi for term in terms),
-                   missing=len(terms))
+                   missing=len(terms), excluded=excluded)
 
 
 #: RO6's missing terms of a bounded return (landing ruling R1; :func:`observed_return`'s ``complete``)
@@ -422,7 +436,22 @@ def _context(connection: Any, *, at: str | None = None) -> Callable[[str], AsOf]
                                    prices=_day_prices(connection, closure, price_rows))
         return by_closure[cut]
 
+    def support_at(decided_at: str) -> dict[str, float]:
+        """R7: each topic's check support as of a decision's draw, over the same snapshot."""
+
+        return C.support_at(connection, decided_at, days=ledger.days)[0]
+
+    as_of.support_at = support_at  # type: ignore[attr-defined]
     return as_of
+
+
+def frozen_support(trace: Mapping[str, Any]) -> Mapping[str, float] | None:
+    """R7: the check support a decision froze at its draw (``residual.measurable.support``), or None."""
+
+    residual = trace.get("residual") if isinstance(trace.get("residual"), Mapping) else {}
+    measurable = residual.get("measurable") if isinstance(residual.get("measurable"), Mapping) else {}
+    support = measurable.get("support")
+    return {str(lo): float(r) for lo, r in support.items()} if isinstance(support, Mapping) else None
 
 
 def observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Mapping[str, Any]],
@@ -434,12 +463,14 @@ def observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Ma
     closure admits it on its occurrence and received time (:func:`exam_result_known`; Codex review of RO6, F5; RO5's
     landing ruling R10: an import that arrives after the window closed is never that window's).
     ``complete``: as :func:`observed_return` (the stop coin's contrasts: each value a :class:`Bounded`; else a
-    ``(value, reason)`` pair)."""
+    ``(value, reason)`` pair), with each decision's check support as of its draw (R7): the support it froze
+    (:func:`frozen_support`), else :func:`checks.support_at` as of its moment."""
 
     closed = [row for row in rows if row.get("window_closes_at") and str(row["window_closes_at"]) < at]
     if not closed:
         return {}
     as_of = _context(connection, at=at)
+    support_at = getattr(as_of, "support_at", None)
     gap = float(config.router_objective.session_gap_minutes)
     out: dict[str, Any] = {}
     for row in closed:
@@ -448,9 +479,15 @@ def observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Ma
         def known(conn: Any, lo: str, on: str, closure: C.Closure = found.closure) -> float | None:
             return exam_result_known(conn, config, lo, on, at, closure)
 
+        support = None
+        if complete:
+            support = frozen_support(row["trace"])
+            if support is None and support_at is not None:
+                support = support_at(str(row["created_at"]))
         out[str(row["decision_id"])] = observed_return(
             connection, row, row["trace"], resolved=found.resolved, completion_rate=found.rate,
-            r_lookup=found.r_lookup, prices=found.prices, gap_minutes=gap, exam_result=known, complete=complete)
+            r_lookup=found.r_lookup, prices=found.prices, gap_minutes=gap, exam_result=known, complete=complete,
+            support=support)
     return out
 
 

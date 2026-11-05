@@ -210,6 +210,9 @@ class Logged:
     phi_at_previous: Mapping[str, tuple[float, ...]] | None = None
     #: the hash of the objective the decision valued (:func:`trace_objective_hash`; landing ruling R2)
     objective: str = ""
+    #: landing ruling R7: each candidate's ``Q̄`` less the share of the topics no check could measure as of the draw
+    #: (``q − terms.unmeasured_reward``, on the same rollouts); None unless every candidate of the support has it
+    q_measurable: Mapping[str, float] | None = None
 
 
 def _topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]:
@@ -329,6 +332,10 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
     q = {ref: float((entry.get("terms") or {})["q"]) for ref, entry in candidates.items()
          if (entry.get("terms") or {}).get("q") is not None}
     q_tail = q if support and all(ref in q for ref in support) else None
+    unmeasured = {ref: float((entry.get("terms") or {})["unmeasured_reward"]) for ref, entry in candidates.items()
+                  if (entry.get("terms") or {}).get("unmeasured_reward") is not None}
+    q_measurable = ({ref: q_tail[ref] - unmeasured[ref] for ref in support}
+                    if q_tail is not None and all(ref in unmeasured for ref in support) else None)
     residual = trace.get("residual") if isinstance(trace.get("residual"), Mapping) else None
     frozen = (residual or {}).get("candidates") or {}
     width = len(LT.NAMES)
@@ -397,7 +404,8 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         previous_id=str(previous["decision_id"]) if previous and previous.get("decision_id") else None,
         previous_cutoff_days=(float(previous["cutoff_days"]) if previous and previous.get("cutoff_days") is not None
                               else None),
-        q_at_previous=q_at_previous, phi_at_previous=phi_at_previous, objective=trace_objective_hash(trace))
+        q_at_previous=q_at_previous, phi_at_previous=phi_at_previous, objective=trace_objective_hash(trace),
+        q_measurable=q_measurable)
 
 
 def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
@@ -655,7 +663,12 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
     return read with its missing terms carried as missing and bounded (``scores.observed_return``'s ``complete``, a
     ``scores.Bounded``; RO6's landing ruling R1), and :func:`learned_tail.residual_weight` reads them at the fill
     least favourable to the residual. The record says how many were left out before the coin and why, each arm's
-    notes on its returns, and each forced window's missing terms with their bounds."""
+    notes on its returns, and each forced window's missing terms with their bounds.
+
+    Landing ruling R7: the terms no check could measure as of the draw are outside the measurable target, left out of
+    the realized return (``scores.Bounded.excluded``) and of the tail's predicted contrast where its value decomposes
+    by term (``Logged.q_measurable``); where it cannot (the residual's prediction always, an earlier trace's tail),
+    the unrestricted prediction stands and the record counts the attenuation (toward zero)."""
 
     eligible = [row for row in rows if row.coin and row.q_tail is not None and _frozen_residual(row) is not None
                 and row.window_closes_at and str(row.window_closes_at) < at and STOP in row.support]
@@ -663,12 +676,15 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
     returns = S.observed_returns(connection, config, at=at, rows=_with_traces(connection, eligible), complete=True)
     draws: list[LT.CoinDraw] = []
     before_coin: Counter[str] = Counter()
+    prediction: Counter[str] = Counter()
     for row in eligible:
-        tail = LT.predicted_contrast(row.q_tail or {}, row.mu, STOP)
+        tail = LT.predicted_contrast(row.q_measurable or row.q_tail or {}, row.mu, STOP)
         residual = LT.predicted_contrast(_frozen_residual(row) or {}, row.mu, STOP)
         if tail is None or residual is None:
             before_coin["no_block_in_support"] += 1  # frozen before the coin: not a selection on the outcome
             continue
+        prediction["tail_measurable" if row.q_measurable is not None else "tail_unrestricted"] += 1
+        prediction["residual_unrestricted"] += 1
         found = returns.get(row.decision_id)
         if isinstance(found, tuple):  # a (value, reason) pair: no missing term
             found = S.Bounded(value=found[0], reason=found[1])
@@ -679,9 +695,12 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
                                  rate=float((row.coin or {}).get("rate") or 0.0),
                                  value=float(found.value) if found.value is not None else None, reason=found.reason,
                                  tail=tail, residual=residual, lo=float(found.lo), hi=float(found.hi),
-                                 missing=int(found.missing)))
+                                 missing=int(found.missing), excluded=int(found.excluded)))
     out, record = LT.coin_contrasts(draws)
     record["before_coin"] = dict(before_coin)
+    record["prediction"] = {**dict(prediction),
+                            "note": "the realized contrast is the measurable part of the return (R7); a prediction "
+                                    "not restricted to the same terms attenuates the slope toward zero"}
     return out, record
 
 

@@ -340,6 +340,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         inputs, actions, sources = OI.build(vault, repository, state=state, support=support, candidates=candidates,
                                             now_iso=now_iso, sequences=sequences)
         residual_record: Mapping[str, Any] | None = None
+        unmeasured: frozenset[str] | None = None
         from learnloop.router_objective_switches import learned_tail_on
 
         if learned_tail and learned_tail_on(config):
@@ -354,6 +355,13 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                                   clock=clock)
             residual_record = {**residual_record,
                                "objective": {"hash": objective, "version": TD.OBJECTIVE_DEFINITION_VERSION}}
+            # Landing ruling R7: the topics no check could measure as of the draw; their share of each Q̄ is kept
+            # apart on the same rollouts (terms.unmeasured_reward), so the tail's predicted contrast can be
+            # restricted to the measurable terms; Q̄ and the choice are unchanged.
+            measurable = tail_serve.measurable(tail_snapshot, inputs, now_iso=now_iso)
+            if measurable is not None:
+                unmeasured = frozenset(measurable["unmeasured"])
+                residual_record = {**residual_record, "measurable": measurable}
         local_date = _local_date(now_iso)
         # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
         # of two large sums; at 8 draws its noise is of the order of the signal).
@@ -385,8 +393,10 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         if publish is not None:
             def on_complete(evaluation: V.Evaluation) -> None:
                 publish(answered(evaluation, inputs, actions, False))
+        # (``unmeasured`` only at RO6's tag with the learned tail on; None leaves the evaluation as mvp-0.48's)
+        measured = {"unmeasured": unmeasured} if unmeasured is not None else {}
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
-                                deadline=deadline, clock=clock, on_complete=on_complete)
+                                deadline=deadline, clock=clock, on_complete=on_complete, **measured)
         corrected = False
         if evaluation.complete and forecasts is not None and bool(section.sensors_in_value):
             got = forecasts()
@@ -399,7 +409,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                                  float(section.effect_slope_prior_variance)))
                     with_llm = replace(inputs, effect=effect, reference_forecast=float(reference))
                     acts = [replace(action, forecast=by_ref.get(action.ref)) for action in actions]
-                    again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock)
+                    again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
+                                       **measured)
                     if again.complete:
                         evaluation, inputs, actions, corrected = again, with_llm, acts, True
         if not evaluation.complete:

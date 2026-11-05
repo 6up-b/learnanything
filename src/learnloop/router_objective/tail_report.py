@@ -71,7 +71,10 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         weight = record.get("weight") or {}
         unbounded = weight.get("unbounded") if isinstance(weight.get("unbounded"), Mapping) else {}
         missing = weight.get("missing") if isinstance(weight.get("missing"), Mapping) else {}
+        excluded = weight.get("excluded") if isinstance(weight.get("excluded"), Mapping) else {}
         days[str(local_date)].append({"at": created_at, "w_hat": record.get("w_hat"), "n": weight.get("n"),
+                                      "excluded_terms": excluded.get("terms"),
+                                      "excluded_contrasts": excluded.get("contrasts"),
                                       "slope_mean": weight.get("slope_mean"), "slope_sd": weight.get("slope_sd"),
                                       "rank": weight.get("rank"), "p_rank": weight.get("p_rank"),
                                       "bound": weight.get("bound"), "missing_contrasts": missing.get("contrasts"),
@@ -91,6 +94,7 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
                 "contrasts": rows[-1]["n"], "slope_mean": rows[-1]["slope_mean"], "slope_sd": rows[-1]["slope_sd"],
                 "rank": rows[-1]["rank"], "p_rank": rows[-1]["p_rank"], "bound": rows[-1]["bound"],
                 "missing_contrasts": rows[-1]["missing_contrasts"], "missing_terms": rows[-1]["missing_terms"],
+                "excluded_terms": rows[-1]["excluded_terms"], "excluded_contrasts": rows[-1]["excluded_contrasts"],
                 "w_hat_unbounded": rows[-1]["w_hat_unbounded"], "slope_unbounded": rows[-1]["slope_unbounded"],
                 "fit_basis": rows[-1]["fit_basis"],
                 "transitions": rows[-1]["transitions"]} for day, rows in sorted(days.items())]
@@ -138,7 +142,9 @@ def build(connection: Any, vault: Any, *, now: str) -> dict[str, Any]:
         "transitions": {"n": len(fitted.steps.transitions), "censored": dict(fitted.steps.censored),
                         "returns_censored": dict(fitted.steps.returns_censored), "decisions": fitted.decisions},
         "w_hat": {**weight.as_dict(), "contrasts_censored": censored_contrasts,
-                  "label": "moved only by randomized stop-coin contrasts observed through the randomized checks"},
+                  "label": "moved only by randomized stop-coin contrasts observed through the randomized checks; "
+                           "calibrated on the measurable part of the return only (the terms a check could measure "
+                           "as of the coin's draw; landing ruling R7)"},
         "w_hat_history": history, "serving": summary,
         "cross_check": {"partial_history": TD.cross_check(connection, config, rows, at=now),
                         "fit_projection": TD.predicted_improvement(rows),
@@ -154,6 +160,9 @@ def lines(report: Mapping[str, Any]) -> list[str]:
            f"- w^ {weight['w_hat']:.4f} (slope {weight['slope_mean']:+.4f} sd {weight['slope_sd']:.4f}, rank "
            f"{weight['rank']}, P(rank > 0) {weight['p_rank']:.3f}, {weight['n']} randomized contrasts, "
            f"{weight['forced']} forced; {weight['source']})",
+           "- w^ is calibrated on the measurable part of the return only: the terms a check could measure as of the "
+           f"coin's draw ({weight['excluded']['terms']} terms in {weight['excluded']['contrasts']} contrasts were "
+           "outside it, unsupported at the draw)",
            f"- missing terms: {weight['missing']['terms']} in {weight['missing']['contrasts']} contrasts; bound "
            f"{weight['bound']}; with the missing terms left out (shown only, never served) w^ "
            f"{weight['unbounded']['w_hat']:.4f}, slope {weight['unbounded']['slope_mean']:+.4f}",
@@ -165,7 +174,8 @@ def lines(report: Mapping[str, Any]) -> list[str]:
                    f"decisions {entry.get('first')} .. {entry.get('last')}): fit n {fit.get('n')}, {fit.get('source')}")
     for day in report["w_hat_history"]:
         out.append(f"- {day['local_date']}: w^ {day['w_hat_first']} -> {day['w_hat_last']} over {day['decisions']} "
-                   f"decisions ({day['contrasts']} contrasts, {day['missing_terms']} missing terms in "
+                   f"decisions ({day['contrasts']} contrasts, {day['excluded_terms']} terms unsupported at the draw "
+                   f"in {day['excluded_contrasts']}, {day['missing_terms']} missing terms in "
                    f"{day['missing_contrasts']}, bound {day['bound']}, unbounded w^ {day['w_hat_unbounded']}; "
                    f"{day['transitions']} transitions, {day['fit_basis']})")
     serving = report["serving"]
