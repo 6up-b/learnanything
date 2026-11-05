@@ -290,6 +290,15 @@ only its policy's share to it; both failed, `μ = (1 − k·ε)·π_S + ε`). `w
 The design is `objective_mixture`; `drawn_component ∈ {staged, llm, numeric, uniform}`. Off, or below the tag, the
 mixture above exactly. §15.2 is unchanged.
 
+*Amended at router objective RO5 (2026-11-05; `docs/specs/spec_router_objective_v1.md` §9, §9.1; successor
+`mvp-0.48`):* at a reversible boundary a **stop coin**, drawn on its own uniform before the mix's draw, offers stop
+(`p` = 0.05), presents a block where the mix drew stop (`p`), or serves the mix's draw (`1 − 2p`); the ledger logs
+the served distribution `p·1[stop] + p·μ_ns + (1 − 2p)·μ` exactly (`mixture.pi`, the mix's own `μ` as `mix_pi`), and
+the arm in `policy_experiment_assignments` (`ro5_stop_coin:v1`). A decision whose coin overrode the mix carries no
+§8.7 score. `S = 0.75 R_cold + 0.25 R_next`'s `α` is labelled **provisional** like the one-day coldness rule
+(`router.outcomes.S_ALPHA_STATUS`), and a randomized check's presentation is never a block decision's action in
+`router_outcomes`.
+
 ### 7.4 What the learner sees
 
 The "why" follows whichever component's draw selected the block:
@@ -425,7 +434,8 @@ R1's `router_outcomes` defines `R_cold` provisionally as "≥ 1 day since any at
   - the FSRS-predicted retrievability at attempt time;
   - the reveal-ledger amount since the last attempt.
 
-  The 1-day flag stays as a provisional label.
+  The 1-day flag stays as a provisional label, and so does `S`'s `α = 0.75` (router objective RO5, §9 item 4): a
+  learned coldness reads the same covariates.
 - **Fit coldness in R3.** Score outcomes by how much they tell us about long-term retention: weight success by `1 − R_pred` (a correct answer when forgetting was likely is the signal) instead of a binary cold/warm cut. Validate against certified cold measurements (`coldness_receipts`) where they exist.
 - **Flag the data problem.** Cold outcomes arrive days to weeks after the decision, and cold retrieval is part of what the router optimizes. So:
   - the router needs **surrogate outcomes** to learn at a useful speed: `R_next` plus the FSRS-predicted retention gain;

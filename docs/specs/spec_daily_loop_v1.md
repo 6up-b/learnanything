@@ -631,6 +631,18 @@ reversible block boundary**; a drawn stop is an offer: the plan completes with i
 minutes are a suggestion ("About 25 minutes suggested today", "About 6 minutes past today's suggested time"). G13's
 minutes clause holds below the tag and with the switch off, where the predecessor frame stands.
 
+*Amended at router objective RO5 (2026-11-05; `spec_router_objective_v1.md` §9, §9.1; successor `mvp-0.48`):* with the
+objective serving, two randomized arms enter the frame, each with an exact logged assignment in
+`policy_experiment_assignments`. **The stop coin** (rule 4): at a reversible boundary, before the mix's draw and
+independent of it, stop is offered with probability `stop_coin` (0.05) and, separately with 0.05, a next block is
+presented where the mix drew stop; the learner's "keep going" stays the override. **The randomized check** (rules 2-3):
+the day's first plan decision draws one valued topic uniformly among those with an eligible unseen item
+(`check_rate = "embedded"`, `embedded_checks_per_day` 1), and the frame places that check at position 1 of the day's
+first session's first practice block, replacing the block's last chooser item (which stays in the pool); it is an
+ordinary question to the learner (shown with the chooser's origin), outside the mix and outside `μ`, and its plan
+origin `randomized_check` keeps it out of AD's slot and out of the block decision's action. `stop_coin = 0` and
+`check_rate = "off"` restore mvp-0.47's frame exactly.
+
 **DL1's implementations:**
 - **`legacy_lanes_v1` (the source).** It classifies the scheduler's ranked eligible list into lanes (§6.1) and groups each lane's items by LO, in the scheduler's order. It then packs the groups into blocks of up to 15 estimated minutes:
   - **Never larger** than its lane's remaining minutes or the plan's.

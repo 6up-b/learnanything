@@ -1,6 +1,6 @@
 # Router objective (RO): one objective, two policies, a dataset that can test it
 
-**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6); RO4 built Nov 5 2026 (§8.11). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
+**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6); RO4 built Nov 5 2026 (§8.11); RO5 built Nov 5 2026 (§9.1). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
 
 ## 1. The owner's decisions
 
@@ -614,6 +614,92 @@ A7 was dropped as a separate stage (owner decision, Nov 4 2026); its probe-versu
    **What this identifies.** The effect of leaving a pick open, including on repair targeting, since no provisional belief forms. Agreement between picks and probes is conditional: open factors are probe targets only under further restrictions, such as open-set coverage and divergent repair classes (`diagnosis/probe_targeting.py:383`, `:429`), and the VOI gate may decline (`scheduling/staged_policy.py:595`). So easy picks stay unprobed and ambiguous ones get probed. `learnloop data-capture report` records assignment, eligibility, gate reasons, administration, completion and intervening instruction separately, and labels agreement as conditional on being probed. Agreement against delayed performance is reported for all picks, labelled self-selected. Seeing the list can itself change later performance, which RO0's exposure rows make visible.
 
    FG1c's marks stay separate: on the probe lane they replace the tap and resolve nothing.
+
+### 9.1 As built (Nov 5 2026, `router/ro5-calibration`; `docs/reviews/router-ro5.md`)
+
+Built as successor `mvp-0.48` (`ROUTER_CALIBRATION_ALGORITHM_VERSION`, upgrade `learnloop.router_calibration_upgrade`, a
+projection activation: nothing recorded changes) on RO4's branch (`59a0de9832`, mvp-0.47, migration 246). **No
+migration**: every arm's assignment is a row of the existing `policy_experiment_assignments` (migration 098) under its
+own `experiment_id` (`ro5_stop_coin:v1`, `ro5_randomized_check:v1`, `ro5_open_pick:v1`; `decision_id` NULL, the unit in
+`unit_id`, design `mrt_reversible`), a check's administration is its `item_planned` receipt's `ro5_check` entry, and
+completion is a versioned read (`router_objective.checks.resolve`). New keys under `[router_objective]`: the arms
+`stop_coin` (0.05), `check_rate` (`"embedded"`), `embedded_checks_per_day` (1), `pick_open_share` (0.1), each a
+declared price for information whose zero (`"off"`) serves mvp-0.47 exactly; the labelled priors
+`kappa_prior_log_sd` (0.7), `return_slope_prior_sd` (0.5), `goal_transfer_prior_sd` (1.0); the switch
+`fitted_models` (true). Where it differs from §9:
+
+- **The stop coin** (item 1; `router_objective/stop_coin.py`, `objective_chooser._decide_objective`): the coin's own
+  uniform (stream `stop_coin`), drawn after the mix's draw is computed and independent of it; arms `offer_stop`
+  `present_next` `policy` at `p, p, 1 − 2p`. `present_next` overrides only a drawn stop, with a block drawn from `μ`
+  restricted to the blocks (its own uniform). The served distribution is logged exactly (the router ledger's
+  `mixture.pi`; the mix's `μ` as `mix_pi`, which G3 still recomputes), and a decision whose coin overrode the mix
+  carries no score (`stop_coin_forced`). Availability (session minutes, the plan's remembered, budgeted and remaining
+  minutes, RO0's availability receipt) is frozen into the assignment before the coin's uniform is read; the row is
+  written with the decision, in its transaction (the `plan_block` logger). The coin applies at every reversible
+  boundary, the session's first included (the spec's words): in the synthetic first week an offer at minute 0, which
+  nobody overrode there, ended a day.
+- **κ0's hand-over** (item 1, §8.6): the daily re-centring ends at the first randomized offer with a response (an
+  `end` accepting it or a `stop_response` overriding it). From then on `κ0 = exp(E[log κ0 | data])` on a log grid,
+  prior `log κ0 ~ N(log κ_s, kappa_prior_log_sd²)` with `κ_s` the seed in force at that first randomized offer
+  (frozen, so the seed's prior is folded in for good; with no observation the posterior is the seed exactly), and
+  the likelihood Luce's form of §8.6's logistic choice on the log ratio, `P(continue | offered stop) = G/(G + κ0·c)`,
+  `G` the best block's forecast value before its own price minus the accepted stop's (the trace's), `c = ((m+d)² −
+  m²)/(2m̄)`. Every offered stop with a response enters (randomized ones and the mix's own); voluntary stops do not.
+  The tail's own attention cost stays at the decision's κ0 inside `G` (first-order, said in the code). No threshold
+  anywhere. Availability is logged with each observation; its coefficient is not fitted (follow-up).
+- **The return model** (item 1): the learner's own gaps shifted by `exp(b·(x − m̄)/m̄)`, `x` the session's active
+  minutes at its end, `b` a θ draw from a conjugate regression of the log return gap on `(x − m̄)/m̄` over the sessions
+  a coin was drawn in (the observational form over all sessions is rejected, T9), prior `N(0, return_slope_prior_sd²)`.
+  It enters `V` (only today's session's gap moves: the tail's later sessions run `m̄`) once one such session has an
+  observed return, and only with the coin on. The stop row's split shows the **return effect** (accepted with the model
+  minus without, display only) and says when the model **dropped out**: no draw's day of return moved on the daily grid.
+- **Randomized checks** (item 2; `router_objective/checks.py`, `daily_plan/engine._boundary`): drawn at the day's
+  first plan decision (before its `decide`, so before any action draw) over §8.7's population (active goals' scopes
+  and retention commitments) with an eligible item: never attempted, no reveal row, no help row, not in any routine
+  serving exclusion (exam-reserved, held out, generated probes, cold-check reserved, recently revealed), not withheld,
+  servable. `r_L = k/N_d` exactly; a topic with none gets `r_L = 0` and a pending `intervention_needs` row (the
+  diagnostic practice generator's queue; nothing is generated or asked here). A number in `check_rate` draws each
+  eligible topic independently at it and adds the check instead of replacing one. Placement is position 1 of the
+  first practice block of the day's first session; the embedded check replaces the block's last chooser item (it
+  stays in the pool); its item, if no longer eligible or not in the plan's pool, is redrawn within the topic among the
+  pool's eligible items, else the slot waits for the next practice block. Its plan origin `randomized_check` keeps it
+  out of AD's slot (`slot_applies` needs `chooser`), out of the decision's logged items and out of the block
+  decision's action in `router_outcomes`; the learner's view shows `chooser`. Completion is §6.2's label (AD's
+  unassisted success; any help on the item between its planning and its answer makes it a non-success). Noncompletion
+  reasons: `not_administered:no_session`, `not_administered:no_practice_slot`, `displaced`, `skipped`,
+  `not_answered`. The completion gap counts every day with no session since the first draw as that day's expected
+  checks, uncompleted; a day with no draw takes the last earlier draw's `r` (labelled `last_draw_stands`).
+- **The weight** (item 2 into §8.7; `router_objective/scores.py`, `objective_chooser.current_weight`): at the tag with
+  any check assigned, each closed `plan_block` window forms `D̂_i` from its frozen uses: each population topic-day of the
+  window with `r = r_L(d) ×` the running completion rate, observed when that day's check of `L` completed, `Y` its
+  label, `m⁰` the trace's frozen per-day baseline; dated uses in the window from the imported result on the date
+  (`r = 1`; a missing one censors the score `no_result`); the cost from the window's sessions at each day's κ0. RO4's
+  posterior then moves `w`. In a week no window closes (`B` = 14), so `w` stays at 0.8 (first-week record).
+- **The goal-date read** (item 3; `router_objective/goal_read.py`): reported in `objective-report`'s calibration
+  section, not yet a sensor inside `V`. The pool forecast is the traces' frozen `m⁰` at the check's own lag,
+  recalibrated on completed checks (logistic, prior `a = 0, b = 1`, variance 1 each, labelled); the transfer slope per
+  goal type (`exam` when the goal sits an exam, else `dated`) on exam imports (`exam_evidence`) and sittings
+  (`exam_attempt`) on the date, prior `α ~ N(0, s²)`, `β ~ N(1, s²)`. "Am I ready?" Check once reads are listed
+  self-selected, never fitted, and counted as exposures on a pair whose forecast preceded them.
+- **Item 4**: `router.outcomes.S_ALPHA_STATUS = "provisional"` beside `R_COLD_RULE`; the module and its docstring say so.
+- **Item 5**: `calibration_report.floor_section` reads FG1's `plan_interrupt` decisions with `no_intervention` in the
+  support: counts, the share drawn to it and to the probe, each arm's `r_cold` (observed and inverse-propensity
+  weighted, exploratory). The leave-alone arm is not built (§12 D1); the higher no-probe share is not built, and the
+  report says "follow-up" when the floor's count is zero on a typical day (it is on the synthetic vault, which has no
+  follow-up workflows).
+- **Item 6** (`router_objective/picks.py`, `diagnosis.causal_attribution.record_unresolved_cause_self_report`): the arm
+  is drawn from the factor's seed and written in the report's transaction (`repository.atomic()`), an existing
+  assignment reused; only a pick that would resolve is eligible. The capture report's `open_picks` section counts
+  assignment, eligibility, gate reasons (`causal_probe_decision_receipts`), administration and completion
+  (`causal_discriminating_observations`), intervening instruction (reveals on the LO before the probe), pick-probe
+  agreement (the picked hypothesis in the probe's classification, labelled conditional on being probed) and delayed
+  performance (the next unassisted attempt on the LO, labelled self-selected).
+- **Item 7** (RO4's follow-ups, `fitted_models`): the rollouts read AD's subject-view posterior moments of `γ` and the
+  reading curve (`readiness.decision_state_fields(learning_moments=True)`), each parameter its prior where AD has
+  none; the memory combiner is the Laplace fit on resolved checks' frozen sensors (AD's predictive and FSRS
+  retrievability at the administration) against the label, its labelled prior with none.
+- **The report**: `learnloop router objective-report` adds `calibration` at the tag (each arm per day with its minutes,
+  the price's regime, the return model, the weight's scores, the goal-date read, the floor).
 
 ## 10. RO6: a learned tail
 
