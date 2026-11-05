@@ -318,6 +318,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_raw_section_membership_in_the_dose_arm`
 - [tests/test_ad_protected_tables.py](../../../../../../tests/test_ad_protected_tables.py) — direct import
   - `test_every_derived_column_has_a_treatment`
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_registry_restates_the_figure_source_grammar`
 - [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import

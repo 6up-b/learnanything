@@ -3142,6 +3142,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
   - `test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval`
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+- [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
+  - `test_the_reading_map_answers_inside_the_operation_what_the_incumbent_answers_outside`
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`

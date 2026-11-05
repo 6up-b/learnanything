@@ -145,6 +145,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
+  - `test_a_span_anchored_reader_question_does_not_poison_the_card_build`
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_a_capped_ancestry_read_leaves_its_unread_parents_unknown`
   - `test_an_anchor_mapped_inquiry_behind_the_recent_limit_is_missing_and_the_card_says_so`

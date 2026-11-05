@@ -752,6 +752,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_state_has_each_candidate_items_belief_and_minutes`
   - `test_the_state_has_each_candidate_los_belief`
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_a_guard_denial_in_ads_serve_leaves_the_learners_serve_unchanged`
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_the_audit_dry_run_calls_and_writes_nothing`

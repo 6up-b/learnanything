@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/section_map.py"
 source_paths:
   - "src/learnloop/section_map.py"
-source_commit: "6df9761722934fe9a15e17c92a3b74cb50b9425c"
-source_commit_timestamp: "2026-11-03T19:25:26-05:00"
+source_commit: "c170f020f00b682d1058a7ebe4e248a3e90e921f"
+source_commit_timestamp: "2026-11-05T03:13:27-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/section_map.py](../../../../../src/learnloop/section_map.py) |
-| Source lines | 339 |
+| Source lines | 381 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `6df9761722934fe9a15e17c92a3b74cb50b9425c` |
-| Commit timestamp | `2026-11-03T19:25:26-05:00` |
+| Source commit | `c170f020f00b682d1058a7ebe4e248a3e90e921f` |
+| Commit timestamp | `2026-11-05T03:13:27-05:00` |
 
 ## Public API
 
@@ -65,10 +65,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `span_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], translator: Any=None, accept_moved: bool=False) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 58) — The span of the viewed reading a provenance ref names, or None.
 - `anchor_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], translator: Any=None) -> tuple[str, str] | None` ([source](../../../../../src/learnloop/section_map.py), line 79) — ``(span id, "current" | "needs_reanchor")`` for a ref on the viewed reading.
 - `extraction_sections(ir: Any) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]` ([source](../../../../../src/learnloop/section_map.py), line 140) — Derive the Reader's guide sections from one extraction's IR.
-- `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 180) — Resolve one reader span to its containing normalized section.
-- `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 193) — Provenance-linked Learning Objects available as promotion targets.
-- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 215) — Active Learning Objects whose provenance cites spans inside the section.
-- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../src/learnloop/section_map.py), line 277) — Every section of an extraction with its provenance-linked Learning Objects.
+- `section_id_in_ir(ir: Any, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 188) — The normalized section of ``ir`` holding one reader span.
+- `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 196) — Resolve one reader span to its containing normalized section (loads the IR; outside AD).
+- `learning_objects_for_span_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 207) — :func:`learning_objects_for_span` over a given IR.
+- `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 224) — Provenance-linked Learning Objects available as promotion targets (loads the IR; outside AD).
+- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 239) — Active Learning Objects whose provenance cites spans inside the section (loads the IR; outside AD).
+- `learning_objects_for_section_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 259) — Active Learning Objects whose provenance cites spans inside the section of ``ir``.
+- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../src/learnloop/section_map.py), line 319) — Every section of an extraction with its provenance-linked Learning Objects.
 
 ### Module constants
 
@@ -88,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`; statically calls `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; statically calls `learning_objects_for_section`, `learning_objects_for_span`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `ANCHOR_CURRENT`, `ANCHOR_MOVED`, `SPAN_LOCATOR_RE`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`, `span_for_ref`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_by_section`, `learning_objects_for_section`, `learning_objects_for_span`, `section_id_for_span`; statically calls `learning_objects_for_section`, `section_id_for_span`
@@ -112,26 +116,14 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]], [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]], [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
-- [tests/test_data_capture_a3_time_metric.py](../../../../../tests/test_data_capture_a3_time_metric.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
-- [tests/test_data_capture_codex_rereview.py](../../../../../tests/test_data_capture_codex_rereview.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
-- [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
-- [tests/test_data_capture_landing_review.py](../../../../../tests/test_data_capture_landing_review.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
-- [tests/test_ad_protected_readings.py](../../../../../tests/test_ad_protected_readings.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../tests/test_curriculum_c1_plan_follows_path.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_daily_plan_reading.py](../../../../../tests/test_daily_plan_reading.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_exam_protection.py](../../../../../tests/test_exam_protection.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_passage_links.py](../../../../../tests/test_passage_links.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_reader_active_reading.py](../../../../../tests/test_reader_active_reading.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_reader_cue_holdout.py](../../../../../tests/test_reader_cue_holdout.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_the_raw_loading_wrappers_stay_for_callers_outside_ad`
 
 ## Modification guidance
 
