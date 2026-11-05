@@ -134,6 +134,15 @@ def explain(row: Mapping[str, Any]) -> list[str]:
                      "you can keep going.")
     elif coin.get("arm") == "present_next" and coin.get("served") != (trace.get("mixing") or {}).get("drawn_chosen"):
         lines.append("A next block was shown here at random instead of an offer to stop (about 1 in 20 breaks).")
+    residual = trace.get("residual") or {}
+    if residual.get("status") == "applied":
+        w_hat = float(residual.get("w_hat") or 0.0)
+        if w_hat > 0:
+            lines.append(f"A correction learned from how earlier choices worked out counts for {_pct(w_hat)} of the "
+                         "estimate, as far as the random breaks have shown it helps.")
+        else:
+            lines.append("A correction learned from how earlier choices worked out is calculated but not used yet: "
+                         "it counts only once the random breaks show it helps.")
     if session.get("guard_crossed"):
         lines.append("This session ran long, so stopping was offered among the options; you can keep going.")
     frontier = trace.get("frontier") or {}

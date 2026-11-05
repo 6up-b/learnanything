@@ -1200,8 +1200,8 @@
     "sha256": "2ff2b2944e521a70cdeb67167d28ceb42435dcc13c400bde5e3f7f2891691a2c"
   },
   "router": {
-    "bytes": 3876,
-    "sha256": "2597e9af6f9dbd7afadc4a8e2e93cf3a270c91c8d31b12635ed89ae9ae3e0cac"
+    "bytes": 4046,
+    "sha256": "bbe671857ae4064557a759ef6b0366477177b9d247fac5e193745cf02b56df35"
   },
   "router card": {
     "bytes": 1376,
@@ -1216,8 +1216,8 @@
     "sha256": "b7d83a953bd8a13c55fee2f8af55c7c4ccdec01030ebb8d1ed7b5a9cb5943a3e"
   },
   "router objective-report": {
-    "bytes": 1531,
-    "sha256": "5a9de6758c6ebcdee69c78709d1fd7a6d614535a13f263e1d942962c3e5ace9c"
+    "bytes": 1693,
+    "sha256": "e7cb3bdbf874740ec3baefa2e246cad81610e8b2078a6678ecd420be9884809d"
   },
   "router report": {
     "bytes": 1449,
@@ -1392,8 +1392,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 14446,
-    "sha256": "c989bf26e5cef9b463e6f1e26b937048b42b7d2306b8abf4fc31340ec15fff5f"
+    "bytes": 14531,
+    "sha256": "bdeedbd1abce48e24231ed81445e37063caeaebfac509ffc86ff777c5b4ac157"
   },
   "usage": {
     "bytes": 1546,

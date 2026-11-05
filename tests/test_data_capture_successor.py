@@ -65,8 +65,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     # their switches and seeds, inert below their tags.
     from tests.test_ro4_successor import RO4_KEYS
     from tests.test_ro5_successor import RO5_KEYS
+    from tests.test_ro6_successor import RO6_KEYS
 
-    for key in (*RO4_KEYS, *RO5_KEYS):
+    for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS):
         section.pop(key)
     assert section == {"receipts": True, "available_at_reads": True, "self_report_not_validated": True}
     dumped["ai"]["routing"].pop("followup_probe_author", None)
@@ -146,8 +147,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
 
     # The chain's latest completion hands an earlier link's journal on.
-    assert "learnloop.router_calibration_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_calibration_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
     assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
 

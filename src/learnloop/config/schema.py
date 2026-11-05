@@ -4185,6 +4185,10 @@ class RouterObjectiveConfig(BaseModel):
     ``pick_open_share``), each a declared price for information whose zero (``"off"`` for the checks) serves
     mvp-0.47 exactly; the calibration's labelled priors (``kappa_prior_log_sd``, ``return_slope_prior_sd``,
     ``goal_transfer_prior_sd``); ``fitted_models`` for RO4's follow-ups.
+
+    RO6 (mvp-0.49, §10): ``learned_tail`` (the kill switch; off serves mvp-0.48 exactly) and the learned tail's
+    labelled priors (``residual_prior_sd`` on the fitted Q evaluation's coefficients, ``residual_weight_prior_sd``
+    on its calibration slope ``ŵ``, which starts at zero).
     """
 
     receipts: bool = True
@@ -4263,6 +4267,16 @@ class RouterObjectiveConfig(BaseModel):
     #: §9 item 7 (RO4's follow-ups): the rollouts read AD's fitted learning posterior (γ and the reading
     #: curve) and the memory combiner fitted on resolved randomized checks; off, RO4's priors.
     fitted_models: bool = True
+    #: RO6 (mvp-0.49, §10): the learned tail's kill switch. On at the tag, the numeric policy values each
+    #: candidate with ``Ṽ = V_tail + ŵ·V_residual`` (``ŵ`` a learned weight starting at zero); off, mvp-0.48.
+    learned_tail: bool = True
+    #: §10: the fitted Q evaluation's prior sd on each coefficient of its standardized features, in
+    #: use-equivalents (a seed, labelled: about one block's effect, as ``delta_prior_sd``), centred on zero
+    #: (no residual); the fit's regularization.
+    residual_prior_sd: float = Field(default=0.01, gt=0.0, le=10.0)
+    #: §10: the prior sd of the residual's calibration slope ``ŵ``, centred on zero (a seed, labelled: one
+    #: residual's worth either way); only randomized stop-coin contrasts move it.
+    residual_weight_prior_sd: float = Field(default=1.0, gt=0.0, le=10.0)
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

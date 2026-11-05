@@ -247,7 +247,8 @@ OCCURRENCE_TIME_READS: dict[tuple[str, str], str] = {
         "router objective RO4 (§8.6): the attention price's session minutes are active minutes when they happened "
         "(RO0's clock, two clocks never blended); an imported exam row carries no session latency. RO5's realized "
         "window cost (§8.7, router_objective.scores) reads the same spans (Codex review F4): an outcome of the "
-        "decision, never a decision-time read",
+        "decision, never a decision-time read. RO6's transition rewards (§10, router_objective.tail_data) charge the "
+        "same cost between two decisions: an outcome too, never a feature",
     ("learnloop/db/repositories.py", "list_recent_attempts_by_practice_item"):
         "FSRS and replay: the ledger before the attempt being recomputed (before=), and a historical "
         "writer's instant (until=, serve_eligibility Q33, exam seeding)",
@@ -344,6 +345,11 @@ def test_the_decision_time_readers_ask_the_predicate():
         ("learnloop/confidence_events.py", "learner_events"),
         ("learnloop/learner_context.py", "_traces"),
         ("learnloop/reader_learner_state.py", "_build"),
+        # Router objective RO6 (§10): every feature read of the learned tail (the traces and RO0's receipts it
+        # rebuilds features from) and the dated reward's imported result ask the predicate.
+        ("learnloop/router_objective/tail_data.py", "logged"),
+        ("learnloop/router_objective/tail_data.py", "_receipt"),
+        ("learnloop/router_objective/tail_data.py", "_exam_result_known"),
     }
     asking = set()
     for path in sorted(SRC.rglob("*.py")):

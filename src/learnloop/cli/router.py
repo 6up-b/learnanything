@@ -371,8 +371,9 @@ def router_objective_report(
     """Router objective RO4's report (spec §8.9): serving (stop's share at each boundary, session length, each
     policy's share, by day), and the forecast, action-value and recommendation-value evaluations kept apart, with
     counts and versioned comparators; at RO5's tag, its calibration (the arms per day and their minutes, the price,
-    the return model, the weight's scores, the goal-date read, the no_intervention floor). Read-only; no model
-    call."""
+    the return model, the weight's scores, the goal-date read, the no_intervention floor); at RO6's tag, the learned
+    tail (its narrow claim, the fits by version and their change points, w^'s history, the partial-history
+    cross-check). Read-only; no model call."""
 
     from learnloop.clock import utc_now_iso
     from learnloop.router_objective import objective_report
@@ -394,6 +395,14 @@ def router_objective_report(
                 from learnloop.router_objective import calibration_report
 
                 report["calibration"] = calibration_report.build(connection, loaded, now=now)
+            from learnloop.router_objective_switches import learned_tail_tag
+
+            if learned_tail_tag(loaded.config) and report.get("status") != "no_traces_table":
+                # Router objective RO6 (spec §10): the narrow claim, the fits by version and their change points,
+                # w^'s history, the residual's share and the partial-history cross-check.
+                from learnloop.router_objective import tail_report
+
+                report["learned_tail"] = tail_report.build(connection, loaded, now=now)
         if json_output:
             _emit({"algorithm_version": loaded.config.algorithms.algorithm_version, "router_objective": report}, True)
         else:
@@ -403,6 +412,11 @@ def router_objective_report(
                 from learnloop.router_objective import calibration_report
 
                 for line in calibration_report.lines(report["calibration"]):
+                    typer.echo(line)
+            if "learned_tail" in report:
+                from learnloop.router_objective import tail_report
+
+                for line in tail_report.lines(report["learned_tail"]):
                     typer.echo(line)
     except (ValueError, OSError, sqlite3.Error) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)

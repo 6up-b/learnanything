@@ -44,9 +44,9 @@ RO4_KEYS = {
 
 def test_the_successor_is_one_constant_after_ro1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.46"
-    # Router objective RO5 (mvp-0.48) landed after it and keeps it.
-    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.48"
-    assert ROUTER_OBJECTIVE_VERSIONS == frozenset({TAG, "mvp-0.48"})
+    # Router objective RO5 (mvp-0.48) and RO6 (mvp-0.49) landed after it and keep it.
+    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.49"
+    assert ROUTER_OBJECTIVE_VERSIONS == frozenset({TAG, "mvp-0.48", "mvp-0.49"})
 
 
 def test_the_seeds_are_the_specs_and_validated():
@@ -71,8 +71,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     section = dumped["router_objective"]
     # Router objective RO5's keys (mvp-0.48; tests/test_ro5_successor.py) are in every snapshot, inert below it.
     from tests.test_ro5_successor import RO5_KEYS
+    from tests.test_ro6_successor import RO6_KEYS
 
-    for key in (*RO4_KEYS, *RO5_KEYS):
+    for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS):
         section.pop(key)
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "5c2ab89bfcb757cbc3038bd6c776bb968ff9688addd7becd4778e489ac461cb4"
@@ -106,11 +107,12 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    # RO5's link (mvp-0.48) is the chain's latest: it hands this link's journal to this link's completion.
+    # RO6's link (mvp-0.49) is the chain's latest; it hands earlier journals to RO5's link, which hands this
+    # link's journal to this link's completion.
     from learnloop import router_calibration_upgrade
 
-    assert "learnloop.router_calibration_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_calibration_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.router_objective_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_calibration_upgrade)
 

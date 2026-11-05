@@ -75,9 +75,9 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    # The chain's latest completion (router objective RO5's) is installed; it hands an earlier link's journal on.
-    assert "learnloop.router_calibration_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_calibration_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    # The chain's latest completion (router objective RO6's) is installed; it hands an earlier link's journal on.
+    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_kill_switch_reads_off_a_vault_at_the_tag(tmp_path):

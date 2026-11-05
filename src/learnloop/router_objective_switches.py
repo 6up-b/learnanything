@@ -22,6 +22,9 @@ serving (the coin and the checks live in its frame; the open picks only need the
 :func:`stop_coin_rate` (0: no coin), :func:`check_mode` (``"embedded"``, ``"rate"`` or ``"off"``),
 :func:`pick_open_share`; :func:`fitted_models_on` for RO4's follow-ups (§9 item 7).
 
+Router objective RO6's (§10; ``ROUTER_LEARNED_TAIL_VERSIONS``, mvp-0.49): :func:`learned_tail_on` (the tag, the
+objective serving and ``[router_objective] learned_tail``).
+
 :func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
 snapshot, §5.5), so ``doctor`` can say when persisted due dates were derived under another setting.
 """
@@ -34,6 +37,7 @@ from typing import Any
 from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_VERSIONS,
     ROUTER_CALIBRATION_VERSIONS,
+    ROUTER_LEARNED_TAIL_VERSIONS,
     ROUTER_OBJECTIVE_VERSIONS,
 )
 
@@ -228,6 +232,22 @@ def fitted_models_on(config: Any) -> bool:
     return calibration_tag(config) and objective_on(config) and bool(getattr(section, "fitted_models", False))
 
 
+def learned_tail_tag(config: Any) -> bool:
+    """RO6 (§10): the vault is at the learned tail's successor (mvp-0.49) or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in ROUTER_LEARNED_TAIL_VERSIONS
+
+
+def learned_tail_on(config: Any) -> bool:
+    """RO6 (§10): the numeric policy values its candidates with the learned tail's residual (the tag, the
+    objective serving and ``[router_objective] learned_tail``). Off, or below the tag, mvp-0.48 exactly: nothing
+    is fitted, read or traced."""
+
+    section = getattr(config, "router_objective", None)
+    return learned_tail_tag(config) and objective_on(config) and bool(getattr(section, "learned_tail", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -251,6 +271,8 @@ __all__ = [
     "check_mode",
     "fitted_models_on",
     "interval_factor_removed",
+    "learned_tail_on",
+    "learned_tail_tag",
     "pick_open_share",
     "stop_coin_rate",
     "known_at",

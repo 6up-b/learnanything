@@ -784,6 +784,19 @@ ROUTER_OBJECTIVE_ALGORITHM_VERSION = "mvp-0.47"
 # learning posterior and the combiner fed resolved checks; off, RO4's priors.
 ROUTER_CALIBRATION_ALGORITHM_VERSION = "mvp-0.48"
 
+# mvp-0.49 (router objective RO6; owner decisions 2026-11-03 and 2026-11-04;
+# docs/specs/spec_router_objective_v1.md §10), on top of mvp-0.48 (the chain
+# stays linear). A learned tail: fitted Q evaluation of a frozen logger
+# version on low-dimensional belief features from RO0's decision-time
+# snapshots, days to go and pending reports, its reward the objective's own R
+# (never S); it enters the numeric policy's value as a residual,
+# V~ = V_tail + w^ * V_residual, w^ a learned weight starting at zero that
+# only RO5's randomized stop-coin contrasts (observed through the randomized
+# checks) move, by slope and rank. No promotion step, no threshold, no
+# minimum sample. [router_objective] learned_tail (default true) is its kill
+# switch: off, or below the tag, mvp-0.48 serves exactly.
+ROUTER_LEARNED_TAIL_ALGORITHM_VERSION = "mvp-0.49"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -831,6 +844,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     INTERVAL_FACTOR_ALGORITHM_VERSION,
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
+    ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
 )
 
 
@@ -1055,6 +1069,12 @@ ROUTER_OBJECTIVE_VERSIONS: frozenset[str] = successors_from(ROUTER_OBJECTIVE_ALG
 # posterior, the weight's scores), each arm behind its own rate. Every later
 # successor keeps them; gates must use this set, never equality.
 ROUTER_CALIBRATION_VERSIONS: frozenset[str] = successors_from(ROUTER_CALIBRATION_ALGORITHM_VERSION)
+
+# Versions whose numeric policy values its candidates with RO6's learned tail
+# (the fitted Q evaluation's residual, phased in by its learned weight), behind
+# ``router_objective.learned_tail``. Every later successor keeps them; gates
+# must use this set, never equality.
+ROUTER_LEARNED_TAIL_VERSIONS: frozenset[str] = successors_from(ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

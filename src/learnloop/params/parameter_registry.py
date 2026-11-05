@@ -294,6 +294,12 @@ MODULE_INVENTORY: dict[str, str] = {
     "router_objective_scores": "src/learnloop/router_objective/scores.py",
     "router_objective_goal_read": "src/learnloop/router_objective/goal_read.py",
     "router_objective_picks": "src/learnloop/router_objective/picks.py",
+    # Router objective RO6 (spec_router_objective_v1 §10): the learned tail (pure fit and weight, its data reads,
+    # its serving step and its report). Its priors are config keys; the modules' numbers are numerical resolution.
+    "router_objective_learned_tail": "src/learnloop/router_objective/learned_tail.py",
+    "router_objective_tail_data": "src/learnloop/router_objective/tail_data.py",
+    "router_objective_tail_serve": "src/learnloop/router_objective/tail_serve.py",
+    "router_objective_tail_report": "src/learnloop/router_objective/tail_report.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -1557,6 +1563,20 @@ _reg_const("router_objective_goal_read:CALIBRATION_PRIOR_MEAN", "prior", owner="
            "the forecast taken at its word; the randomized checks' Laplace fit moves it.")
 _reg_const("router_objective_goal_read:CALIBRATION_PRIOR_VARIANCE", "prior", owner="router_objective_goal_read",
            rationale="seed (judgment, labelled; RO5 §9 item 3): the recalibration prior's variance per coefficient, 1.")
+# Router objective RO6 (spec_router_objective_v1 §10): numerical resolution and a resource bound, no judgement.
+_reg_const("router_objective_learned_tail:_FIT_PASSES", "numerical", kind="structural",
+           owner="router_objective_learned_tail",
+           rationale="numerical: the most refinements of the plug-in noise variance in the fit and in w^'s slope.")
+_reg_const("router_objective_learned_tail:_FIT_TOLERANCE", "numerical", kind="structural",
+           owner="router_objective_learned_tail",
+           rationale="numerical: the relative change at which the noise variance's refinement stops.")
+_reg_const("router_objective_learned_tail:_TINY", "numerical", kind="structural",
+           owner="router_objective_learned_tail",
+           rationale="numerical: a floor under a variance before a division.")
+_reg_const("router_objective_tail_data:_CACHE_LIMIT", "constraint", kind="structural",
+           owner="router_objective_tail_data",
+           rationale="keep (resource bound): the parsed immutable traces kept per process before the cache is cleared; "
+           "it changes no number, only how often a trace is parsed again.")
 
 # ---------------------------------------------------------------------------
 # Inventory A -- config-leaf classification rules (ordered; first match wins).
@@ -1888,6 +1908,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("router_objective.fitted_models"), "structural", "operational",
         "kill switch for RO5's successor mvp-0.48 (§9 item 7): the rollouts read AD's fitted learning posterior "
         "and the combiner fed resolved randomized checks; off, RO4's priors."),
+    # Router objective RO6 (mvp-0.49; spec_router_objective_v1 §10): a kill switch and two labelled priors that
+    # the data move (no promotion step, threshold or minimum sample: owner, Nov 4).
+    _ConfigRule(_exact("router_objective.learned_tail"), "structural", "operational",
+        "kill switch for RO6's successor mvp-0.49 (§10): the numeric policy values each candidate with the learned "
+        "tail's residual, V~ = V_tail + w^ * V_residual; off, mvp-0.48 exactly (nothing fitted, read or traced)."),
+    _ConfigRule(_exact(
+        "router_objective.residual_prior_sd", "router_objective.residual_weight_prior_sd",
+    ), "decision", "prior",
+        "RO6 §10 seeded priors (mvp-0.49), chosen by judgment and labelled: the fitted Q evaluation's Gaussian "
+        "prior sd on each standardized coefficient (0.01 use-equivalents, about one block's effect, as "
+        "delta_prior_sd; its regularization, centred on no residual), and the residual's calibration slope w^'s "
+        "prior sd (1.0, centred on zero, so w^ starts at zero); only randomized stop-coin contrasts move w^."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

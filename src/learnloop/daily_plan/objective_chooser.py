@@ -287,12 +287,28 @@ class NumericPolicy:
     #: ``final`` (the job's last answer), or ``published_uncorrected`` (served from the job's earlier publication
     #: while it was still waiting on the LLM policy's forecasts: F1)
     stage: str = "final"
+    #: RO6 (§10): the learned tail's residual record (:mod:`learnloop.router_objective.tail_serve`); None below the
+    #: tag, with the switch off, or on a decision it does not value (a mid-block follow-up)
+    residual: Mapping[str, Any] | None = None
+
+
+def generator_now(config: Any) -> str:
+    """RO6: the generator version a decision made now is logged under (``tail_data.generator`` over its trace)."""
+
+    from learnloop.router_objective import tail_data as TD
+
+    seeds = W.Seeds.from_config(config)
+    return TD.generator_key(TD.generator_payload(
+        algorithm_version=str(config.algorithms.algorithm_version), objective=V.OBJECTIVE_VERSION,
+        tail=V.TAIL_VERSION, terminal=V.TERMINAL_VERSION, horizon_days=float(config.router_objective.horizon_days),
+        llm_schema=rq.LLM_POLICY_SCHEMA, seeds=_seed_record(seeds), epsilon=float(config.router.epsilon_min)))
 
 
 def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],
                 candidates: Mapping[str, BlockCandidate], now_iso: str, seed: str, deadline: float | None,
                 keep_going: Any = None, forecasts: Any = None, clock: Any = time.monotonic, publish: Any = None,
-                sequences: Mapping[str, Sequence[BlockCandidate]] | None = None) -> NumericPolicy:
+                sequences: Mapping[str, Sequence[BlockCandidate]] | None = None,
+                learned_tail: bool = False) -> NumericPolicy:
     """π_Q end to end: the frozen inputs, the day's price, ``Q̄`` with common random numbers (more draws while
     ``keep_going()``), then, once the LLM policy's forecasts are in (``forecasts()``: None while out), the effect
     correction; the argmax with the tie rule; the evaluation's baselines.
@@ -300,7 +316,11 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
     ``publish(policy)`` receives each complete uncorrected answer as soon as it exists, before any wait on the LLM
     policy, so the numeric policy's availability never depends on the LLM's (Codex review F1); the correction is
     applied opportunistically after. ``sequences``: candidates valued as ordered sub-actions (§8.3's mid-block
-    alternatives, F5)."""
+    alternatives, F5).
+
+    ``learned_tail`` (RO6, §10; a ``plan_block`` decision): at the tag with the switch on, the argmax and its tie
+    rule run on ``Ṽ = V_tail + ŵ·V_residual`` (:mod:`learnloop.router_objective.tail_serve`), computed before the
+    rollouts; ``Q̄`` and every term stay the tail's."""
 
     started = clock()
     config = vault.config
@@ -308,6 +328,14 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
     try:
         inputs, actions, sources = OI.build(vault, repository, state=state, support=support, candidates=candidates,
                                             now_iso=now_iso, sequences=sequences)
+        residual_record: Mapping[str, Any] | None = None
+        from learnloop.router_objective_switches import learned_tail_on
+
+        if learned_tail and learned_tail_on(config):
+            from learnloop.router_objective import tail_serve
+
+            residual_record = tail_serve.residual(repository, config, inputs=inputs, actions=actions, now_iso=now_iso,
+                                                  generator_now=generator_now(config), clock=clock)
         local_date = _local_date(now_iso)
         # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
         # of two large sums; at 8 draws its noise is of the order of the signal).
@@ -318,7 +346,14 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         cached: dict[str, Any] = {}
 
         def answered(evaluation: V.Evaluation, used: V.Inputs, acts: Sequence[V.Action], corrected: bool) -> NumericPolicy:
-            choice, tie = V.numeric_choice(evaluation, support)
+            if residual_record is not None and residual_record.get("status") == "applied":
+                from learnloop.router_objective import tail_serve
+
+                choice, tie = V.numeric_choice(tail_serve.shifted(evaluation, residual_record), support)
+                tie = {**tie, "on": "v_tilde = v_tail + w_hat * v_residual",
+                       "tail_argmax": V.numeric_choice(evaluation, support)[1]["argmax"]}
+            else:
+                choice, tie = V.numeric_choice(evaluation, support)
             if "baselines" not in cached:
                 # The pre-action belief under the tail: no action and no correction enters it.
                 cached["baselines"] = V.baselines(used, int(section.evaluation_window_days),
@@ -326,7 +361,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=used,
                                  actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
                                  baselines=cached["baselines"], corrected=corrected,
-                                 latency_ms=int(round((clock() - started) * 1000)))
+                                 latency_ms=int(round((clock() - started) * 1000)), residual=residual_record)
 
         on_complete = None
         if publish is not None:
@@ -469,7 +504,7 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
             now_iso=material["decided_at"], seed=material["numeric_seed"], deadline=entry.deadline,
             keep_going=lambda: LLM in entry.events and not entry.events[LLM].is_set() and runtime.clock() < entry.deadline,
             forecasts=(lambda: _wait_llm(entry, runtime)) if LLM in entry.events else None, clock=runtime.clock,
-            publish=publish)
+            publish=publish, learned_tail=True)
         with entry.lock:
             entry.components[NUMERIC] = ComponentResult(name=NUMERIC, status=numeric.status, parsed=numeric,  # type: ignore[arg-type]
                                                         latency_ms=numeric.latency_ms, error=numeric.error)
@@ -547,6 +582,8 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
     topic_by_lo = {topic.lo: topic for topic in (inputs.topics if inputs is not None else ())}
     actions = {action.ref: action for action in (numeric.actions if numeric is not None else ())}
     llm_parsed = getattr(llm, "parsed", None) if llm is not None and llm.status == ANSWERED else None
+    residual_record = numeric.residual if numeric is not None else None
+    residual_applied = bool(residual_record) and residual_record.get("status") == "applied"  # type: ignore[union-attr]
     candidates: dict[str, Any] = {}
     for ref in support:
         valued = rows.get(ref)
@@ -570,6 +607,11 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                      "q_minus_v": (valued.q - v) if v is not None else None,
                      "q_minus_stop": (valued.q - stop_q) if stop_q is not None else None,
                      "paired_se_vs_top": V.paired_standard_error(top, valued) if top is not None and top.ref != ref else 0.0}
+            if residual_applied:
+                # RO6 (§10): ŵ, V_tail (the tail's Q̄ above), V_residual and Ṽ per candidate.
+                from learnloop.router_objective import tail_serve
+
+                terms.update(tail_serve.candidate_terms(numeric.residual, ref, valued.q))  # type: ignore[union-attr, arg-type]
         candidates[ref] = {
             "label": labels.get(ref, ref), "kind": action.kind if action is not None else None,
             # The option's main topic, the one the LLM policy's forecasts are about (§8.9's binding).
@@ -611,7 +653,21 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
     mbar = inputs.price.remembered if inputs is not None else None
     kappa0 = price["kappa0"] if price else 0.0
     c0 = (window * kappa0 * float(mbar) / 2.0) if mbar else None
+    extra: dict[str, Any] = {}
+    if residual_record is not None:
+        # RO6 (§10): the learned tail's record, frozen (ŵ with its slope and rank, the fit, each candidate's features,
+        # V_tail, V_residual and Ṽ), so the terms recompute from the trace alone.
+        section_record = dict(residual_record)
+        if residual_applied:
+            from learnloop.router_objective import tail_serve
+
+            section_record["candidates"] = {
+                ref: {**dict(entry), **tail_serve.candidate_terms(residual_record, ref,
+                                                                    rows[ref].q if ref in rows else None)}
+                for ref, entry in (residual_record.get("candidates") or {}).items()}
+        extra["residual"] = section_record
     return {
+        **extra,
         "candidates": candidates,
         "reference": ({"ref": evaluation.reference.ref, "q": evaluation.reference.q,
                        "terms": dict(evaluation.reference.terms)} if evaluation is not None and evaluation.reference else None),
@@ -720,7 +776,7 @@ class ObjectiveChooser(RouterChooser):
             numeric = run_numeric(self.vault, self.repository, state=state, support=support, candidates=by_id,
                                   now_iso=now_iso, seed=_hash({"numeric": key}),
                                   deadline=self.runtime.clock() + float(config.router.timeout_seconds),
-                                  clock=self.runtime.clock)
+                                  clock=self.runtime.clock, learned_tail=True)
             entry = _NoModels(key, {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
                                     "decided_at": now_iso, "numeric": numeric}, self.runtime.clock())
         self._freeze_objective(record, staged, feasible, support)
