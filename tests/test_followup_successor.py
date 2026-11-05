@@ -75,8 +75,10 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.interval_factor_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.interval_factor_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    # The openers install the chain's latest link (router objective RO4's mvp-0.47 since its landing), which hands an
+    # earlier link's journal down the chain, this one's included (as tests/test_ro4_successor.py pins).
+    assert "learnloop.router_objective_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.router_objective_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_kill_switch_reads_off_a_vault_at_the_tag(tmp_path):
