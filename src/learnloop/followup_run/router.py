@@ -289,8 +289,8 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                                        at=now)
             if decision_id is not None and serving_on(vault.config) and not decision.refused:
                 offered = (decision.record or {}).get("objective_followup")
-                # At the tag the objective offers no ``no_intervention`` arm (R5 (1)): the frozen support is the
-                # decision's own; below it, FG1's three arms as before.
+                # At the tag the frozen support is the objective decision's own (R5 (1), R8: the three arms, or
+                # ask-now alone with no room to wait); below it, FG1's arms as before.
                 support = (list(offered["support"]) if isinstance(offered, Mapping) and offered.get("support")
                            else [ASK_NOW, *([WAIT] if decision.wait_feasible else []), NO_INTERVENTION])
                 arm = {WAIT: objectives.ARM_WAIT, NO_INTERVENTION: objectives.ARM_NO_INTERVENTION}.get(

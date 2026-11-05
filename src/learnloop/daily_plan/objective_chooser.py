@@ -44,6 +44,7 @@ from learnloop.daily_plan import objective_inputs as OI
 from learnloop.daily_plan.router_chooser import (
     INSERT_NOW,
     MODE as MIXTURE_MODE,
+    NO_INTERVENTION,
     FollowupGate,
     RestraintGate,
     RestraintOutcome,
@@ -984,24 +985,36 @@ class ObjectiveRestraintGate(RestraintGate):
 
     def _mixed(self, state: PlanState, candidates: list[BlockCandidate], *, key: str, readiness: Mapping[str, Any],
                ready: tuple[str, ...], topic: str, options: Sequence[Any], extra: Sequence[str],
-               valued: Mapping[str, BlockCandidate] | None = None) -> RestraintOutcome:
-        """The two-policy mix over ``{insert_now, continue_current}`` (§8.3), drawn and traced. ``candidates`` are
-        what the cards show; ``valued`` (default: the same) what ``π_Q`` values."""
+               valued: Mapping[str, BlockCandidate] | None = None,
+               support: Sequence[str] = (INSERT_NOW, CONTINUE_CURRENT),
+               sequences: Mapping[str, Sequence[BlockCandidate]] | None = None, start: Any = None,
+               llm_schema: str = rq.LLM_POLICY_RESTRAINT_SCHEMA) -> RestraintOutcome:
+        """The two-policy mix over ``support`` (§8.3; by default ``{insert_now, continue_current}``), drawn and
+        traced. ``candidates`` are what the cards show; ``valued`` (default: the same) what ``π_Q`` values, as
+        ``sequences`` where given (default: the two orders). ``llm_schema``: the restraint's ``intervene_now``
+        (two options) or ``router_llm_choice_v3`` (a probability per option, FG1's three at RO5's tag, ruling R8)."""
 
         base: dict[str, Any] = {"mode": MODE, "why_version": WHY_VERSION}
         config = self.vault.config
         settings = router_settings(config)
-        support = [INSERT_NOW, CONTINUE_CURRENT]
+        support = list(support)
         by_id = {candidate.candidate_id: candidate for candidate in candidates}
         now_iso = __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock)
         # π_Q: the follow-up now (a repair block before the rest) or after the rest (at the next boundary).
         values = dict(valued) if valued is not None else by_id
-        insert, cont = values[INSERT_NOW], values[CONTINUE_CURRENT]
-        numeric = self._numeric_restraint(state, insert, cont, now_iso, key)
+        if sequences is None:
+            insert, cont = values[INSERT_NOW], values[CONTINUE_CURRENT]
+            numeric = self._numeric_restraint(state, insert, cont, now_iso, key)
+        else:
+            numeric = run_numeric(self.vault, self.repository, state=state, support=support,
+                                  candidates={ref: values[ref] for ref in support}, now_iso=now_iso,
+                                  seed=_hash({"numeric": key}),
+                                  deadline=self.runtime.clock() + float(config.router.timeout_seconds),
+                                  clock=self.runtime.clock, sequences=sequences)
         if ready:
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:
-                entry = self._start_policy(key, state, candidates, topic, options, extra, ready)
+                entry = (start or self._start_policy)(key, state, candidates, topic, options, extra, ready)
             from learnloop.daily_plan.router_chooser import _await as await_entry
 
             await_entry(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
@@ -1012,8 +1025,16 @@ class ObjectiveRestraintGate(RestraintGate):
         for name in (DECIDER, LLM):
             results.setdefault(name, ComponentResult(name=name, status=NOT_READY, error=str(readiness.get(name) or "not_ready")))
         llm = results[LLM]
-        llm_dist = ({INSERT_NOW: float(llm.p_yes), CONTINUE_CURRENT: 1.0 - float(llm.p_yes)}
-                    if llm.status == ANSWERED and llm.p_yes is not None and 0.0 < float(llm.p_yes) < 1.0 else None)
+        rationale = llm.rationale
+        if llm_schema == rq.LLM_POLICY_SCHEMA:
+            parsed = llm.parsed if llm.status == ANSWERED else None
+            llm_dist = ({ref: float(parsed.distribution[ref]) for ref in support}
+                        if isinstance(parsed, rq.ParsedPolicy) and set(parsed.distribution) == set(support)
+                        and all(float(value) > 0.0 for value in parsed.distribution.values()) else None)
+            rationale = parsed.rationale if isinstance(parsed, rq.ParsedPolicy) else None
+        else:
+            llm_dist = ({INSERT_NOW: float(llm.p_yes), CONTINUE_CURRENT: 1.0 - float(llm.p_yes)}
+                        if llm.status == ANSWERED and llm.p_yes is not None and 0.0 < float(llm.p_yes) < 1.0 else None)
         numeric_ok = numeric.status == ANSWERED and numeric.choice in support
         failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
         w, weight_record = current_weight(self.repository, config, at=now_iso)
@@ -1025,12 +1046,13 @@ class ObjectiveRestraintGate(RestraintGate):
         card = entry.material["card"]
         decider = results.get(DECIDER)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        trace = _trace(support=support, by_id=by_id, feasible=candidates, titles=titles, numeric=numeric, llm=None,
+        trace = _trace(support=support, by_id={**by_id, **(dict(valued) if valued is not None else {})},
+                       feasible=candidates, titles=titles, numeric=numeric, llm=None,
                        decider=None, staged_ref=INSERT_NOW, weight=(w, weight_record), effective=effective,
                        pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso, guard={},
                        stop_in_support=False, card_version=card.version)
-        trace["policies"]["llm"] = {"status": llm.status, "distribution": llm_dist, "rationale": llm.rationale,
-                                    "schema": rq.LLM_POLICY_RESTRAINT_SCHEMA, "model": llm.model}
+        trace["policies"]["llm"] = {"status": llm.status, "distribution": llm_dist, "rationale": rationale,
+                                    "schema": llm_schema, "model": llm.model}
         trace["policies"]["decider"] = {"status": decider.status if decider is not None else NOT_READY,
                                         "advice": ({"intervene_now": decider.p_yes} if decider is not None and
                                                    decider.status == ANSWERED else None)}
@@ -1045,14 +1067,14 @@ class ObjectiveRestraintGate(RestraintGate):
                      "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
                      "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                      "models": {name: result.summary() for name, result in sorted(results.items())},
-                     "rationale": {"text": llm.rationale}},
+                     "rationale": {"text": rationale}},
             mixture_weights={"configured": {"w": w}, "effective": effective},
             model_distributions={"llm": llm_dist, "numeric": parts.get(mix.NUMERIC),
                                  "decider": ({INSERT_NOW: decider.p_yes, CONTINUE_CURRENT: 1 - decider.p_yes}
                                              if decider is not None and decider.status == ANSWERED and decider.p_yes is not None
                                              else None)},
             question_set_version=rq.RESTRAINT_QUESTION_SET,
-            model_ids={"decider": results[DECIDER].model, "llm": llm.model, "llm_schema_version": rq.LLM_POLICY_RESTRAINT_SCHEMA},
+            model_ids={"decider": results[DECIDER].model, "llm": llm.model, "llm_schema_version": llm_schema},
             latency_ms=max(latencies) if latencies else None, cost_usd=round(sum(costs), 8) if costs else 0.0,
             payloads=_payloads(results), objective_trace=trace, **_card_fields(card),
         )
@@ -1124,11 +1146,14 @@ FOLLOWUP_PLACEHOLDER_PREFIX = "followup:"
 @dataclass
 class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
     """§8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item
-    exists, on the same two-policy mix as every mid-block follow-up, over ``{insert_now, continue_current}``, with its
-    trace and ``μ`` recomputable (``mix.recompute``). ``π_L`` is the LLM policy's ``intervene_now`` on the restraint
-    card (``router_llm_restraint_v3``; R2b's ``RouterLLMAnswerV1`` request is not sent), ``π_Q`` the two orders
-    valued as one repair question on the workflow's LO now or after the current block's remaining questions. The
-    Decider's ``P(yes)`` is advice. ``wait_feasible = False`` asks now deterministically, no model asked; FG1's hard
+    exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable
+    (``mix.recompute``). Its support is ``{insert_now, continue_current, no_intervention}`` (landing ruling R8: the
+    owner's FG1 decision of Nov 3, the router may choose no intervention for weak cases). ``π_L`` is the LLM policy's
+    probability per option (``router_llm_choice_v3`` over the three, a reference row for the block's rest; R2b's
+    ``RouterLLMAnswerV1`` request is not sent); ``π_Q`` values the three as one repair question on the workflow's LO
+    before the current block's remaining questions, after them, or none at all (no probe served, the workflow's
+    hypotheses left as they are). The Decider's ``P(yes)`` (the restraint request) is advice.
+    ``wait_feasible = False`` asks now deterministically, no model asked; FG1's hard
     refusals come first (``followup_run.router.hard_refusal``), and its serve-at-once and single-use rules follow
     the chosen arm as before. Below the tag, or with ``[router_objective] enabled = false``, FG1's
     :class:`~learnloop.daily_plan.router_chooser.FollowupGate` serves exactly as before
@@ -1137,8 +1162,9 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
     def decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool,
                         facts: Sequence[str] = ()) -> RestraintOutcome:
         state, candidates = self._followup_state(record, current, workflow)
-        offered = {"support": [INSERT_NOW, CONTINUE_CURRENT] if wait_feasible else [INSERT_NOW],
-                   "workflow_id": workflow.get("id"), "version": "ro5_followup_objective_v1"}
+        support = [INSERT_NOW, CONTINUE_CURRENT, NO_INTERVENTION]
+        offered = {"support": support if wait_feasible else [INSERT_NOW],
+                   "workflow_id": workflow.get("id"), "version": "ro5_followup_objective_v2"}
         if not wait_feasible:
             outcome = self._no_room(state, candidates)
             outcome.record["objective_followup"] = offered
@@ -1162,15 +1188,62 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
                 f"Finish the current block first ({len(cont.item_ids)} questions left, about "
                 f"{max(1, round(cont.est_minutes))} min); the new question then opens the next block, and the "
                 "learner sees the answer now, so it can no longer settle the cause.")),
+            rq.BlockOption(NO_INTERVENTION, rq.NO_INTERVENTION_DESCRIPTION),
         ]
         extra = [f"A question on {topic} was just missed.", *facts]
-        valued = {INSERT_NOW: replace(insert, item_ids=(f"{FOLLOWUP_PLACEHOLDER_PREFIX}{workflow.get('id')}",),
-                                      est_minutes=self._followup_minutes(workflow, current)),
-                  CONTINUE_CURRENT: cont}
+        probe = replace(insert, item_ids=(f"{FOLLOWUP_PLACEHOLDER_PREFIX}{workflow.get('id')}",),
+                        est_minutes=self._followup_minutes(workflow, current))
+        rest = replace(cont, candidate_id=NO_INTERVENTION, reason="the current block's remaining questions, no "
+                                                                  "follow-up question")
+        valued = {INSERT_NOW: probe, CONTINUE_CURRENT: cont, NO_INTERVENTION: rest}
+        sequences = {INSERT_NOW: (probe, cont), CONTINUE_CURRENT: (cont, probe), NO_INTERVENTION: (rest,)}
         outcome = self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic,
-                              options=options, extra=extra, valued=valued)
+                              options=options, extra=extra, valued=valued, support=support, sequences=sequences,
+                              start=self._start_choice, llm_schema=rq.LLM_POLICY_SCHEMA)
         outcome.record["objective_followup"] = offered
         return replace(outcome, wait_feasible=True)
+
+    def _start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
+                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
+        """The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and
+        the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current
+        block's rest, the continuation ``π_Q``'s tail assumes)."""
+
+        config = self.vault.config
+        card = _build_card(self.card_builder, state, candidates)
+        options = list(options)
+        state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
+        material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
+        reference = rq.BlockOption(V.REFERENCE_REF, "the current block's remaining questions, then the plan's usual "
+                                                    "next step, with no follow-up question")
+
+        def job(entry: Prefetch) -> None:
+            from learnloop.daily_plan.router_chooser import _run_components
+            from learnloop.db.repositories import Repository
+
+            repository = Repository.attach(self.repository.sqlite_path)
+            with self.runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
+                decider_request = rq.RestraintRequest(topic=topic, state=state_text)
+                policy_request = rq.PolicyRequest(options=tuple(options), reference=reference, state=state_text,
+                                                  evidence=tuple(rq.evidence_from_card(card.json)))
+                entry.request = decider_request
+
+                class _Both:
+                    """The Decider reads the R2c restraint request; the LLM policy its v3 choice over three."""
+
+                    question_set_version = decider_request.question_set_version
+                    llm_schema_version = policy_request.llm_schema_version
+                    decider_questions = decider_request.decider_questions
+                    llm_prompt = policy_request.llm_prompt
+                    state = state_text
+
+                _run_components(self.runtime, entry, self.vault, repository, _Both(),
+                                {DECIDER: lambda raw, _request: rq.parse_decider_restraint(raw),
+                                 LLM: lambda raw, _request: rq.parse_llm_policy(raw, policy_request)},
+                                card.card_hash)
+
+        return self.runtime.start(self.scope, key, kind="plan_interrupt", budget=float(config.router.prefetch_timeout_seconds),
+                                  material=material, components=ready, job=job)
 
     def _followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float:
         """The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on

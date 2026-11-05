@@ -405,30 +405,86 @@ def test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace(tmp_path
     from learnloop.followup_run import router
     from learnloop.router import requests as rq
 
-    env, llm = _fg1_env(tmp_path)
+    from tests.router_model_fakes import FakeLLM, options_in
+    from tests.test_ro4_objective_serving import policy_answer
+
+    env, llm = _fg1_env(tmp_path, llm=FakeLLM(answer=policy_answer))
     before = len(llm.requests)
     row, gate, decision = _fg1_decide(env, monkeypatch)
     # Pre-fix: FG1's FollowupGate (R2b's mixture over three arms, the RouterLLMAnswerV1 request, no trace).
     assert type(gate) is not FollowupGate and gate.__class__.__name__ == "ObjectiveFollowupGate"
     mixture = decision.record["mixture"]
-    assert mixture["support"] == [INSERT_NOW, CONTINUE_CURRENT] and decision.chosen_ref in mixture["support"]
+    # Ruling R8: no_intervention stays in the support at the tag, beside asking now and waiting (pre-R8: two arms).
+    assert mixture["support"] == [INSERT_NOW, CONTINUE_CURRENT, router.NO_INTERVENTION]
+    assert decision.chosen_ref in mixture["support"]
     assert mix.recompute(mixture) == pytest.approx(mixture["pi"])
     assert decision.propensity == pytest.approx(mixture["pi"][decision.chosen_ref])
+    # The LLM policy answers over all three (router_llm_choice_v3, every option listed, a reference row).
+    assert set(mixture["llm_distribution"]) == set(mixture["support"]) and not mixture["failed"]
     sent = llm.requests[before:]
     assert sent and all(not issubclass(request.result_model, rq.RouterLLMAnswerV1) for request in sent)
-    assert {request.result_model for request in sent} == {rq.RouterLLMRestraintV3}
+    assert {request.result_model for request in sent} == {rq.RouterLLMChoiceV3}
+    assert options_in(sent[0].prompt) == mixture["support"]
     logged = router.record_decision(env.vault, env.repository, row, decision, clock=env.clock)
     ledger = rows(env, "plan_interrupt")[-1]
     assert ledger["id"] == logged.decision_id and ledger["chosen_ref"] == decision.chosen_ref
     assert mix.recompute(ledger["detail_json"]["mixture"]) == pytest.approx(mixture["pi"])
     assert ledger["propensity"] == pytest.approx(decision.propensity)
     refs = {entry["ref"]: entry for entry in ledger["candidates_json"]}
-    assert not refs[router.NO_INTERVENTION]["feasible"]  # not offered at the tag
+    assert refs[router.NO_INTERVENTION]["feasible"]  # offered at the tag (R8)
     with env.repository.connection() as connection:
         trace = store.trace(connection, logged.decision_id)
     assert trace is not None and trace["decision_kind"] == "plan_interrupt"
     assert trace["trace"]["mixing"]["mu"] == pytest.approx(mixture["pi"])
-    assert trace["trace"]["policies"]["llm"]["schema"] == rq.LLM_POLICY_RESTRAINT_SCHEMA
+    assert trace["trace"]["policies"]["llm"]["schema"] == rq.LLM_POLICY_SCHEMA
+    # π_Q values no_intervention too (no probe served: the current block's remaining questions alone).
+    assert router.NO_INTERVENTION in trace["trace"]["candidates"]
+
+
+def test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe(tmp_path):
+    from types import SimpleNamespace
+
+    from learnloop.daily_plan.engine import advance
+    from learnloop.daily_plan.router_chooser import CONTINUE_CURRENT, INSERT_NOW
+    from learnloop.followup_run import router
+    from learnloop.followup_serve import identity
+
+    from tests.router_model_fakes import FakeLLM
+    from tests.test_followup_router import _row, _workflow
+    from tests.test_ro4_objective_serving import policy_answer
+
+    env, _llm = _fg1_env(tmp_path, llm=FakeLLM(answer=policy_answer))
+    runtime = env.policy.restraint.runtime
+    row = {**_row(), "session_id": env.session_id}
+    _env, record, gate = router._plan_context(env.vault, env.repository, row,
+                                              clients=SimpleNamespace(runtime=runtime), clock=env.clock)
+    first = gate.decide_followup(record, record.current_block(), row, wait_feasible=True)
+    support, pi = first.record["mixture"]["support"], first.record["mixture"]["pi"]
+    assert support == [INSERT_NOW, CONTINUE_CURRENT, router.NO_INTERVENTION]
+    assert all(pi[ref] > 0 for ref in support) and sum(pi.values()) == pytest.approx(1.0)
+    drawn: dict[str, object] = {}
+    for index in range(400):
+        runtime.seed = lambda _key, _decision, seed=f"r8-{index}": seed
+        outcome = gate.decide_followup(record, record.current_block(), row, wait_feasible=True)
+        assert mix.recompute(outcome.record["mixture"]) == pytest.approx(outcome.record["mixture"]["pi"])
+        assert outcome.propensity == pytest.approx(outcome.record["mixture"]["pi"][outcome.chosen_ref])
+        drawn.setdefault(outcome.chosen_ref, outcome)
+        if len(drawn) == 3:
+            break
+    assert set(drawn) == set(support), sorted(drawn)
+    # Choosing no_intervention serves no probe and strands no Next: the plan's next question is the block's own.
+    held = drawn[router.NO_INTERVENTION]
+    workflow = _workflow(env)
+    decision = router.FollowupDecision(held.chosen_ref, held.chosen_ref, str(held.record["decided_by"]),
+                                       propensity=held.propensity, record=dict(held.record),
+                                       block_id=record.current_block().id, plan_id=record.id, plan_kind=record.kind,
+                                       local_date=str(record.row.get("local_date") or ""))
+    logged = router.record_decision(env.vault, env.repository, workflow, decision, clock=env.clock)
+    assert logged.decision_id and rows(env, "plan_interrupt")[-1]["chosen_ref"] == router.NO_INTERVENTION
+    after, step = advance(env, serve=True)
+    assert step is not None and step["kind"] == "item"
+    assert step["practice_item_id"] in {item.practice_item_id for item in after.current_block().items}
+    assert identity.generated_probe_ids(env.repository) == frozenset()
 
 
 def test_r5_1_no_room_to_wait_asks_now_deterministically_and_asks_no_model(tmp_path):
