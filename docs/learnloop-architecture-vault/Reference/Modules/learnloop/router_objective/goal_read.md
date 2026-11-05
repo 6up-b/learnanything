@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/goal_read.py"
 source_paths:
   - "src/learnloop/router_objective/goal_read.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a"
+source_commit_timestamp: "2026-11-05T08:45:43-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -49,31 +49,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py) |
-| Source lines | 214 |
+| Source lines | 224 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a` |
+| Commit timestamp | `2026-11-05T08:45:43-05:00` |
 
 ## Public API
 
-- `calibration_rows(connection: Any, *, through: str) -> list[tuple[float, None, float, int]]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 68) — ``(logit forecast, None, Y, lag)`` for each completed randomized check with a frozen forecast at its lag.
-- `calibration(connection: Any, *, through: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 87)
-- `calibrated(forecast: float, fit: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 99)
-- `goal_type(goal: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 103)
-- `transfer(connection: Any, goals: Sequence[Any], fit: Mapping[str, Any], *, prior_sd: float, ready: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 135) — The transfer slope per goal type, on each past dated goal's results paired with the calibrated pool forecast of the newest trace before its date.
-- `read(connection: Any, vault: Any, *, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 179) — Each active dated goal's read now, with both sensors' versions; and the ready reads, self-selected.
+- `calibration_rows(connection: Any, *, through: str) -> list[tuple[float, None, float, int]]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 74) — ``(logit forecast, None, Y, lag)`` for each completed randomized check with a frozen forecast at its lag.
+- `calibration(connection: Any, *, through: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 93)
+- `calibrated(forecast: float, fit: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 105)
+- `goal_type(goal: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 109)
+- `transfer(connection: Any, goals: Sequence[Any], fit: Mapping[str, Any], *, prior_sd: float, ready: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 141) — The transfer slope per goal type, on each past dated goal's results paired with the calibrated pool forecast of the newest trace before its date.
+- `read(connection: Any, vault: Any, *, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 187) — Each active dated goal's read now, with both sensors' versions; and the ready reads, self-selected.
 
 ### Module constants
 
-- `CALIBRATION_VERSION` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 31)
-- `TRANSFER_VERSION` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 32)
-- `CALIBRATION_PRIOR_MEAN` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 34)
-- `CALIBRATION_PRIOR_VARIANCE` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 35)
-- `READY_VIA` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 36)
-- `SELF_SELECTED` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 37)
+- `CALIBRATION_VERSION` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 32)
+- `TRANSFER_VERSION` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 33)
+- `CALIBRATION_PRIOR_MEAN` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 35)
+- `CALIBRATION_PRIOR_VARIANCE` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 36)
+- `READY_VIA` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 37)
+- `SELF_SELECTED` ([src/learnloop/router_objective/goal_read.py](../../../../../../src/learnloop/router_objective/goal_read.py), line 38)
 
 ### Explicit exports
 
@@ -92,12 +92,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 40)
-- `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 44)
-- `_sigmoid(x: float) -> float` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 49)
-- `_traces(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 53)
-- `_ready_reads(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 107) — Every "Am I ready?" Check once (its goal, LO, creation) and its first answer, flagged self-selected.
-- `_results(connection: Any, lo: str, on: str) -> list[float]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 129)
+- `_parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 41)
+- `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 45)
+- `_sigmoid(x: float) -> float` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 50)
+- `_traces(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 54)
+- `_ready_reads(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 113) — Every "Am I ready?" Check once (its goal, LO, creation) and its first answer, flagged self-selected.
+- `_results(connection: Any, lo: str, on: str) -> list[float]` ([source](../../../../../../src/learnloop/router_objective/goal_read.py), line 135)
 
 ## Who imports or calls it
 
@@ -112,6 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; calls `resolve`
 - [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] — imports `module`; calls `Combiner`, `fit_combiner`
+- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; calls `goal_date`
 
 ### Platform and third-party dependencies
 
@@ -133,6 +134,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_the_goal_read_on_a_vault_with_no_results_is_its_priors_and_labels_ready_reads`
   - `test_the_pool_recalibration_moves_with_overconfident_checks`
+- [tests/test_ro5_codex_review.py](../../../../../../tests/test_ro5_codex_review.py) — direct import
+  - `test_f7_the_goal_date_read_reads_a_goal_past_the_evaluation_window`
 
 ## Modification guidance
 

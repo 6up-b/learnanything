@@ -3,8 +3,8 @@ title: "router_objective_traces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
-source_commit_timestamp: "2026-11-05T08:37:49-05:00"
+source_commit: "9a47277b99a9e26c348ea9fea39644fe8799654a"
+source_commit_timestamp: "2026-11-05T08:45:43-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_objective_traces"
@@ -133,6 +133,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ro4_traces_migration.py`
+- `tests/test_ro5_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

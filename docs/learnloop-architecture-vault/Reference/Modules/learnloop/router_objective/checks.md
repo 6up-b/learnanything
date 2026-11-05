@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/checks.py"
 source_paths:
   - "src/learnloop/router_objective/checks.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a"
+source_commit_timestamp: "2026-11-05T08:45:43-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,48 +50,56 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py) |
-| Source lines | 451 |
+| Source lines | 545 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a` |
+| Commit timestamp | `2026-11-05T08:45:43-05:00` |
 
 ## Public API
 
-- `day_unit(local_date: str) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 69)
-- `slot_unit(local_date: str, slot: int) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 73)
-- `day_seed(local_date: str) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 77)
-- `class Day` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 93)
-  - `as_dict(self) -> dict[str, Any]` (line 104; public)
-- `draw(local_date: str, mode: str, value: float, eligible: Mapping[str, Sequence[str]], topics: Iterable[str]) -> Day` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 111) — The pure draw: same date and eligible set, same draw; it reads no decision.
-- `day_record(connection: Any, local_date: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 165)
-- `draw_day(vault: Any, repository: Any, *, local_date: str, now_iso: str, topics: Mapping[str, float] | Any, eligible_items: Eligible) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 170) — The day's draw, once (idempotent: a drawn day returns its record).
-- `administered(connection: Any) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 223) — Each administered slot's ``item_planned`` receipt (its block, item and frozen sensors), by assignment id.
-- `class Placement` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 238)
-- `place(vault: Any, repository: Any, *, local_date: str, session_id: str | None, pool: Sequence[Any], planned: Iterable[str], chooser_items: Sequence[Any], lane: str | None, eligible_items: Eligible) -> list[Placement]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 246) — The slots this practice block administers: the day's undelivered checks, in the day's first session only.
-- `class Resolved` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 309)
-  - `assessment_key(self) -> str` (line 321; public) — One completed check counts once however many decisions' windows hold it (§8.9).
-- `resolve(connection: Any, *, through: str) -> list[Resolved]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 351) — Every assigned slot through ``through`` (a local date), with its status (module docstring).
-- `completion(connection: Any, *, through: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 403) — The running completion rate, pooled and never conditioned on an action: completed checks over the assigned ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap).
-- `r_for(connection: Any, *, local_date: str) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 432) — ``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the last earlier one's (labelled: its eligible set stands for a day with no session).
+- `day_unit(local_date: str) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 81)
+- `slot_unit(local_date: str, slot: int) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 85)
+- `day_seed(local_date: str) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 89)
+- `class Day` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 105)
+  - `as_dict(self) -> dict[str, Any]` (line 116; public)
+- `draw(local_date: str, mode: str, value: float, eligible: Mapping[str, Sequence[str]], topics: Iterable[str]) -> Day` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 123) — The pure draw: same date and eligible set, same draw; it reads no decision.
+- `day_record(connection: Any, local_date: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 177)
+- `draw_day(vault: Any, repository: Any, *, local_date: str, now_iso: str, topics: Mapping[str, float] | Any, eligible_items: Eligible) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 182) — The day's draw, once (idempotent: a drawn day returns its record).
+- `administered(connection: Any) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 235) — Each administered slot's ``item_planned`` receipt (its block, item and frozen sensors), by assignment id.
+- `class Placement` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 250)
+- `place(vault: Any, repository: Any, *, local_date: str, session_id: str | None, pool: Sequence[Any], planned: Iterable[str], chooser_items: Sequence[Any], lane: str | None, eligible_items: Eligible) -> list[Placement]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 258) — The slots this practice block administers: the day's undelivered checks, in the day's first session only.
+- `class Resolved` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 333)
+  - `assessment_key(self) -> str` (line 345; public) — One completed check counts once however many decisions' windows hold it (§8.9).
+- `exclusion(connection: Any, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 411) — Why the check's answer carries no label as its grade stands NOW (Codex review F1), else None: the existing assessment rules, read as AD's slot reads them.
+- `resolve(connection: Any, *, through: str) -> list[Resolved]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 436) — Every assigned slot through ``through`` (a local date), with its status (module docstring).
+- `completion(connection: Any, *, through: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 493) — The running completion rate, pooled and never conditioned on an action: completed checks over the assigned ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap).
+- `r_for(connection: Any, *, local_date: str) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 526) — ``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the last earlier one's (labelled: its eligible set stands for a day with no session).
 
 ### Module constants
 
-- `LOG` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 52)
-- `VERSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 54)
-- `RESOLVER_VERSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 55)
-- `ORIGIN` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 56)
-- `DAY_PREFIX` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 57)
-- `NEED_TRIGGER` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 58)
-- `NEED_BLOCKED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 59)
-- `NO_SESSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 61)
-- `NO_PRACTICE_SLOT` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 62)
-- `DISPLACED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 63)
-- `SKIPPED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 64)
-- `NOT_ANSWERED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 65)
-- `OPEN` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 66)
+- `LOG` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 56)
+- `VERSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 58)
+- `RESOLVER_VERSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 59)
+- `ORIGIN` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 60)
+- `DAY_PREFIX` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 61)
+- `NEED_TRIGGER` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 62)
+- `NEED_BLOCKED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 63)
+- `NO_SESSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 65)
+- `NO_PRACTICE_SLOT` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 66)
+- `DISPLACED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 67)
+- `SKIPPED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 68)
+- `NOT_ANSWERED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 69)
+- `OPEN` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 70)
+- `COMPLETED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 71)
+- `EXCLUDED_PREFIX` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 73)
+- `EXCLUDED_TYPE` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 74)
+- `EXCLUDED_UNASSESSED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 75)
+- `EXCLUDED_QUARANTINED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 76)
+- `EXCLUDED_UNGRADED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 77)
+- `EXCLUDED_LABEL` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 78)
 
 ### Explicit exports
 
@@ -124,10 +132,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_raise_need(vault: Any, repository: Any, lo: str, now_iso: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 146) — A topic with no eligible item: one pending generation need through the existing path (deduplicated on the LO, intent and facets by ``upsert_intervention_need``).
-- `_first_session_today(connection: Any, local_date: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 212)
-- `_sessions_by_day(connection: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 327)
-- `_label(row: Mapping[str, Any], assisted: bool) -> float | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 338) — §6.2's label: AD's unassisted success (help of any kind makes it a non-success).
+- `_raise_need(vault: Any, repository: Any, lo: str, now_iso: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 158) — A topic with no eligible item: one pending generation need through the existing path (deduplicated on the LO, intent and facets by ``upsert_intervention_need``).
+- `_first_session_today(connection: Any, local_date: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 224)
+- `_sessions_by_day(connection: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 351)
+- `_label(row: Mapping[str, Any], assisted: bool) -> float | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 362) — §6.2's label: AD's unassisted success (help of any kind makes it a non-success, as RO2's resolver reads it); None where AD excludes the attempt (no correctness): never read as a zero (Codex review F1).
+- `_current_epoch_unassessed(connection: Any, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 375) — PF-c over the attempt's current grading epoch (``grading_epochs.current_epoch``), AD's own rule (``adaptive_difficulty.replay._current_grade_unassessed``): every criterion's latest live row in that epoch recorded unverified, so the grade measures nothing whatever it schedules as.
+- `_quarantined(connection: Any, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 398) — The attempt's active grade interpretation (its newest observation's) is quarantined.
 
 ## Who imports or calls it
 
@@ -146,6 +156,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] — imports `module`; calls `AttemptFacts`, `category`, `unassisted_success`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
+- [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] — imports `current_epoch`; calls `current_epoch`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`; calls `held_for_review_attempts`
+- [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `GRADE_HELD_FOR_REVIEW`, `unverified_evidence_row`; calls `unverified_evidence_row`
 - [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `module`; calls `uniform`
 - [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] — imports `module`; calls `by_unit`, `insert`, `present`, `rows`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `CHECKS_EMBEDDED`, `CHECKS_OFF`, `check_mode`; calls `check_mode`
@@ -181,6 +194,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_draw_is_uniform_over_topics_across_dates`
   - `test_the_same_date_and_eligible_set_draw_the_same_and_r_is_exact`
   - `test_the_score_is_unbiased_for_a_planted_delta_on_a_synthetic_log`
+- [tests/test_ro5_codex_review.py](../../../../../../tests/test_ro5_codex_review.py) — direct import
+  - `test_a_closed_scores_completion_rate_is_the_one_at_its_close`
+  - `test_f1_a_current_epoch_that_assesses_nothing_is_no_observation`
+  - `test_f1_a_held_grade_is_no_check_observation_and_no_completion`
+  - `test_f1_a_missing_label_is_excluded_never_a_zero`
+  - `test_f2_the_check_is_administered_whatever_the_policy_chose`
 
 ## Modification guidance
 

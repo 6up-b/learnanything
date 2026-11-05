@@ -290,11 +290,14 @@ def _return_model(connection: Any, config: Any) -> tuple[tuple[float, float] | N
     section = config.router_objective
     rows = SC.return_rows(connection, gap_minutes=float(section.session_gap_minutes))
     slope = SC.fit_return_slope(rows, float(section.return_slope_prior_sd))
-    record = {**slope.as_dict(), "in_value": bool(rows),
-              "basis": "sessions a stop coin was drawn in, with an observed return (the observational form over all "
-                       "sessions is rejected, T9)"}
-    if not rows:
-        record["note"] = "no randomized return observed yet: the prior mean, no return effect"
+    identified = slope.source == "posterior_randomized_coin"
+    record = {**slope.as_dict(), "in_value": identified, "rows": len(rows),
+              "contrasted": sum(1 for row in rows if row.weight != 0.0),
+              "basis": "the stop coin's randomized offer against present-next as an instrument for the session's "
+                       "minutes, availability before the draw as covariates (realized minutes are never the "
+                       "treatment: Codex review F3; the observational form is rejected, T9)"}
+    if not identified:
+        record["note"] = "no randomized contrast with an observed return yet: the prior mean, no return effect"
         return None, record
     return (slope.mean, slope.variance), record
 

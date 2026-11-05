@@ -3,8 +3,8 @@ title: "activity_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
-source_commit_timestamp: "2026-11-05T08:37:49-05:00"
+source_commit: "9a47277b99a9e26c348ea9fea39644fe8799654a"
+source_commit_timestamp: "2026-11-05T08:45:43-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_observations"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/field/outcomes.py"
-  - "src/learnloop/substrate/compat/activity_backfill.py"
+  - "src/learnloop/router_objective/checks.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/cli/grading.py"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/router_objective/checks.py`
 
 ### Direct SQL writers
 

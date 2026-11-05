@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a"
+source_commit_timestamp: "2026-11-05T08:45:43-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 255 |
+| Source lines | 264 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a` |
+| Commit timestamp | `2026-11-05T08:45:43-05:00` |
 
 ## Public API
 
@@ -74,9 +74,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `calibration_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 172) — RO5 (§9): the vault is at the calibration successor (mvp-0.48) or later.
 - `stop_coin_rate(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 179) — RO5 §9 item 1: the stop coin's probability each way at a reversible boundary (0: no coin drawn).
 - `check_mode(config: Any) -> tuple[str, float]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 192) — RO5 §9 item 2: ``(mode, value)``: ``("embedded", checks per day)``, ``("rate", per topic per day)`` or ``("off", 0)``.
-- `pick_open_share(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 208) — RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag).
-- `fitted_models_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 216) — RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks.
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 223) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `calibrated_weight_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 208) — RO5 §9 item 2 into §8.7: the randomized checks' comparison scores move ``w``.
+- `pick_open_share(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 216) — RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag).
+- `fitted_models_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 224) — RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks.
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 231) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
@@ -104,6 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `CHECKS_OFF`
 - `CHECKS_RATE`
 - `available_at_reads_on`
+- `calibrated_weight_on`
 - `calibration_tag`
 - `check_mode`
 - `fitted_models_on`
@@ -135,7 +137,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `calibration_tag`; statically calls `calibration_tag`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHECKS_OFF`, `check_mode`; statically calls `check_mode`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `calibration_tag`, `check_mode`, `objective_scores_on`, `stop_coin_rate`; statically calls `calibration_tag`, `check_mode`, `objective_scores_on`, `stop_coin_rate`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `objective_scores_on`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `objective_scores_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `fitted_models_on`, `stop_coin_rate`; statically calls `fitted_models_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `objective_on`; statically calls `objective_on`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `attempt_time_sql`, `objective_on`; statically calls `attempt_time_sql`, `objective_on`

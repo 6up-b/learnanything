@@ -205,6 +205,14 @@ def check_mode(config: Any) -> tuple[str, float]:
     return CHECKS_RATE, float(rate)
 
 
+def calibrated_weight_on(config: Any) -> bool:
+    """RO5 §9 item 2 into §8.7: the randomized checks' comparison scores move ``w``. The check arm's own switch
+    (Codex review F5): with ``check_rate = "off"`` the weight is RO4's calculation exactly, even after checks and
+    scores accumulated."""
+
+    return check_mode(config)[0] != CHECKS_OFF
+
+
 def pick_open_share(config: Any) -> float:
     """RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag)."""
 
@@ -238,6 +246,7 @@ __all__ = [
     "CHECKS_OFF",
     "CHECKS_RATE",
     "available_at_reads_on",
+    "calibrated_weight_on",
     "calibration_tag",
     "check_mode",
     "fitted_models_on",

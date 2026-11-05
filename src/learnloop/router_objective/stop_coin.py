@@ -35,14 +35,17 @@ The tail's own attention cost stays at the decision's ``κ0`` in ``G`` (a first-
 trace). Availability is logged beside each observation; its coefficient is not fitted at this version.
 
 **The return model.** Stop's return distribution given session minutes: the learner's own gaps (RO4) shifted by
-``exp(b·(x − m̄)/m̄)``, ``x`` the session's active minutes at its end, ``b ~ N(b̂, s²)`` from a conjugate regression
-of the log return gap on ``(x − m̄)/m̄`` over the sessions a coin was drawn in (the coin moves where sessions end;
-the observational form over all sessions is rejected, T9), prior ``N(0, return_slope_prior_sd²)``. It enters
-``V`` once it holds a randomized observation; before, it is its prior mean (no effect) and the trace says so. On
-the rollouts' daily grid a shift that never changes the day of return has no effect at all: the trace then says
-the model dropped out ("attendance near-deterministic").
+``exp(b·(x − m̄)/m̄)``, ``x`` the session's active minutes at its end, ``b ~ N(b̂, s²)``. ``b`` is identified by the
+coin alone (Codex review F3): the randomized offer against present-next, in its logged probabilities, is an
+instrument for where the session ends, with the availability frozen before the draw as covariates
+(:func:`fit_return_slope`); realized minutes are never treated as randomized, so acceptance and overrides stay
+inside the outcome and a busy day that shortens the session and lengthens the gap cancels in the contrast (the
+observational form is rejected, T9). Prior ``N(0, return_slope_prior_sd²)``. It enters ``V`` once the coin's
+contrast has an observed return; before, it is its prior mean (no effect) and the trace says so. On the rollouts'
+daily grid a shift that never changes the day of return has no effect at all: the trace then says the model
+dropped out ("attendance near-deterministic").
 
-A leaf: the standard library only; the reads take a connection.
+A leaf: the standard library (numpy for one least-squares fit); the reads take a connection.
 """
 
 from __future__ import annotations
@@ -58,7 +61,7 @@ from learnloop.router import mixture as mx
 
 VERSION = "ro5_stop_coin_v1"
 KAPPA_VERSION = "kappa_posterior_luce_v1"
-RETURN_VERSION = "return_slope_conjugate_v1"
+RETURN_VERSION = "return_slope_coin_instrument_v2"
 OFFER_STOP = "offer_stop"
 PRESENT_NEXT = "present_next"
 POLICY = "policy"
@@ -317,33 +320,113 @@ class ReturnSlope:
                 "version": RETURN_VERSION}
 
 
-def fit_return_slope(rows: Sequence[tuple[float, float]], prior_sd: float) -> ReturnSlope:
-    """Conjugate: ``y = log gap`` on ``z = (x − m̄)/m̄`` (both centred), noise variance the sample variance of the
-    centred ``y`` (at least two rows), prior ``N(0, prior_sd²)``."""
+@dataclass(frozen=True)
+class ReturnRow:
+    """One randomized coin with its session's outcome, as the return model reads it (Codex review F3).
+
+    ``weight`` is the coin's contrast in its logged probabilities, ``1[offer_stop]/p − 1[present_next]/p`` (0 for
+    ``policy``), so its mean over draws is exactly zero whatever came before the draw; ``covariates`` are the
+    availability frozen before the draw (the session's minutes and the minutes offered, each over ``m̄``); ``z`` is
+    the session's final active minutes ``(x − m̄)/m̄`` and ``y`` the log return gap: both outcomes, acceptance and
+    "keep going" inside them."""
+
+    decision_id: str
+    session_id: str
+    arm: str
+    weight: float
+    covariates: tuple[float, ...]
+    z: float
+    y: float
+
+
+def _residuals(values: Sequence[float], design: Sequence[Sequence[float]]) -> list[float]:
+    """``values`` less their least-squares fit on the pre-draw ``design`` (with an intercept): availability's own
+    part of the outcome, removed for precision only (the coin's mean-zero contrast is independent of it)."""
+
+    import numpy as np
+
+    x = np.array([[1.0, *row] for row in design], dtype=np.float64)
+    v = np.array(values, dtype=np.float64)
+    coefficients, *_ = np.linalg.lstsq(x, v, rcond=None)
+    return [float(r) for r in v - x @ coefficients]
+
+
+def fit_return_slope(rows: Sequence[ReturnRow], prior_sd: float) -> ReturnSlope:
+    """``b``, the log return gap per remembered session of extra minutes, identified by the randomized coin alone
+    (Codex review F3): the coin is an instrument for where the session ends. With ``w`` each coin's mean-zero
+    contrast and ``ỹ``, ``z̃`` the outcomes less their fit on the pre-draw availability,
+
+    ``mean(w·ỹ) − b·mean(w·z̃) ~ N(0, V(b))``  (the offer's effect on the return gap is ``b`` times its effect on
+    the session's minutes)
+
+    the Anderson-Rubin form, valid however weakly the offer moves the minutes: ``V(b)`` is the pooled residual
+    variance of ``ỹ − b·z̃`` over every coin times ``Σ_s (Σ_{i∈s} w_i)² / n²`` (one session's coins share its
+    outcome). The posterior over ``b`` is that likelihood times the prior ``N(0, prior_sd²)`` on a grid; it serves
+    its mean and variance. Realized minutes are never the treatment: a learner's busy day that shortens the session
+    and lengthens the gap moves both outcomes equally under every arm, so it cancels in the contrast. With no
+    randomized contrast (no offer or present-next coin in two sessions, or one that moved no minutes) the
+    posterior is the prior, and an offer that barely moves minutes leaves it near the prior. Assumption, labelled:
+    the offer moves the return only through the session's minutes."""
 
     prior = ReturnSlope(mean=0.0, variance=float(prior_sd) ** 2, n=len(rows), source="prior")
-    if len(rows) < 2:
+    contrasted = [row for row in rows if row.weight != 0.0]
+    if len(rows) < 2 or len({row.session_id for row in contrasted}) < 2:
         return prior
-    zs = [row[0] for row in rows]
-    ys = [row[1] for row in rows]
-    zbar, ybar = sum(zs) / len(zs), sum(ys) / len(ys)
-    zc = [z - zbar for z in zs]
-    yc = [y - ybar for y in ys]
-    noise = sum(y * y for y in yc) / (len(yc) - 1)
-    sxx = sum(z * z for z in zc)
-    if noise <= 0 or sxx <= 0:
-        return ReturnSlope(mean=0.0, variance=prior.variance, n=len(rows), source="prior_no_spread")
-    precision = 1.0 / prior.variance + sxx / noise
-    mean = (sum(z * y for z, y in zip(zc, yc)) / noise) / precision
-    return ReturnSlope(mean=mean, variance=1.0 / precision, n=len(rows), source="posterior")
+    design = [row.covariates for row in rows]
+    ys = _residuals([row.y for row in rows], design)
+    zs = _residuals([row.z for row in rows], design)
+    n = len(rows)
+    a = sum(row.weight * y for row, y in zip(rows, ys)) / n
+    b = sum(row.weight * z for row, z in zip(rows, zs)) / n
+    if b == 0.0:
+        return ReturnSlope(mean=0.0, variance=prior.variance, n=n, source="prior_no_first_stage")
+    sums: dict[str, float] = {}
+    for row in rows:
+        sums[row.session_id] = sums.get(row.session_id, 0.0) + row.weight
+    spread = sum(value * value for value in sums.values()) / (n * n)
+    dof = max(n - len(design[0]) - 2, 1)  # the intercept, the covariates and b
+
+    def variance_at(slope: float) -> float:
+        return max(sum((y - slope * z) ** 2 for y, z in zip(ys, zs)) / dof * spread, _TINY)
+
+    # The grid spans the prior and the ratio estimate with its first-order spread (numerical resolution only).
+    sd = math.sqrt(prior.variance)
+    wald = a / b
+    wald_sd = math.sqrt(variance_at(wald)) / abs(b)
+    low, high = min(-6.0 * sd, wald - 6.0 * wald_sd), max(6.0 * sd, wald + 6.0 * wald_sd)
+    grid = [low + (high - low) * j / 400 for j in range(401)]
+    logs = []
+    for slope in grid:
+        v = variance_at(slope)
+        logs.append(-0.5 * (slope / sd) ** 2 - 0.5 * math.log(v) - 0.5 * (a - slope * b) ** 2 / v)
+    top = max(logs)
+    weights = [math.exp(value - top) for value in logs]
+    norm = sum(weights)
+    mean = sum(slope * w for slope, w in zip(grid, weights)) / norm
+    variance = sum((slope - mean) ** 2 * w for slope, w in zip(grid, weights)) / norm
+    return ReturnSlope(mean=mean, variance=variance, n=n, source="posterior_randomized_coin")
 
 
 def _parse(stamp: str) -> datetime:
     return datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
 
 
-def return_rows(connection: Any, *, gap_minutes: float) -> list[tuple[float, float]]:
-    """``(z, log gap days)`` for each session a coin was drawn in, with its return observed."""
+def _contrast(arm: str, detail: Mapping[str, Any], propensity: float) -> float:
+    """The coin's mean-zero contrast in its logged probabilities (offer against present-next)."""
+
+    arms = detail.get("arms") or {}
+    if arm == OFFER_STOP:
+        p = float(arms.get(OFFER_STOP, propensity) or 0.0)
+        return 1.0 / p if p > 0 else 0.0
+    if arm == PRESENT_NEXT:
+        p = float(arms.get(PRESENT_NEXT, propensity) or 0.0)
+        return -1.0 / p if p > 0 else 0.0
+    return 0.0
+
+
+def return_rows(connection: Any, *, gap_minutes: float) -> list[ReturnRow]:
+    """Every coin drawn in a session whose return is observed: its arm's contrast, the availability frozen before
+    its draw, and its session's final minutes and return gap (:class:`ReturnRow`)."""
 
     from learnloop.router_objective import assignments as A
     from learnloop.router_objective import price as P
@@ -351,35 +434,48 @@ def return_rows(connection: Any, *, gap_minutes: float) -> list[tuple[float, flo
     coins = A.rows(connection, A.STOP_COIN)
     if not coins:
         return []
-    seen: set[str] = set()
+    sessions: dict[str, tuple[float, float] | None] = {}
     out = []
     for coin in coins:
         trace = connection.execute(
             "SELECT session_id, remembered_minutes FROM router_objective_traces WHERE decision_id = ?",
             (coin["unit_id"],)).fetchone()
         session_id = trace[0] if trace is not None else None
-        if not session_id or session_id in seen:
+        if not session_id:
             continue
-        seen.add(str(session_id))
-        session = connection.execute("SELECT started_at, ended_at FROM sessions WHERE id = ?", (session_id,)).fetchone()
-        if session is None or not session[1]:
-            continue
-        later = connection.execute("SELECT MIN(started_at) FROM sessions WHERE started_at >= ? AND id != ?",
-                                   (session[1], session_id)).fetchone()
-        if later is None or not later[0]:
-            continue
-        gap_days = (_parse(later[0]) - _parse(session[1])).total_seconds() / 86400.0
-        if gap_days <= 0:
-            continue
-        minutes, _start, _basis = P.session_active_minutes(connection, now=str(session[1]), gap_minutes=gap_minutes)
         mbar = max(float(trace[1] or 1.0), 1e-9)
-        out.append(((minutes - mbar) / mbar, math.log(gap_days)))
+        session_id = str(session_id)
+        if session_id not in sessions:
+            sessions[session_id] = None
+            session = connection.execute("SELECT started_at, ended_at FROM sessions WHERE id = ?",
+                                         (session_id,)).fetchone()
+            later = connection.execute("SELECT MIN(started_at) FROM sessions WHERE started_at >= ? AND id != ?",
+                                       (session[1], session_id)).fetchone() if session is not None and session[1] else None
+            if later is not None and later[0]:
+                gap_days = (_parse(later[0]) - _parse(session[1])).total_seconds() / 86400.0
+                if gap_days > 0:
+                    minutes, _start, _basis = P.session_active_minutes(connection, now=str(session[1]),
+                                                                       gap_minutes=gap_minutes)
+                    sessions[session_id] = (minutes, math.log(gap_days))
+        outcome = sessions[session_id]
+        if outcome is None:
+            continue
+        detail = coin.get("detail") or {}
+        availability = detail.get("availability") or {}
+        receipt = availability.get("receipt") if isinstance(availability.get("receipt"), Mapping) else {}
+        offered = (receipt or {}).get("minutes_offered")
+        if offered is None:
+            offered = availability.get("minutes_budget")
+        covariates = (float(availability.get("session_minutes") or 0.0) / mbar, float(offered or 0.0) / mbar)
+        out.append(ReturnRow(decision_id=str(coin["unit_id"]), session_id=session_id, arm=str(coin["variant"]),
+                             weight=_contrast(str(coin["variant"]), detail, float(coin["propensity"])),
+                             covariates=covariates, z=(outcome[0] - mbar) / mbar, y=outcome[1]))
     return out
 
 
 __all__ = [
     "ARMS", "Coin", "FORCED", "KAPPA_VERSION", "OFFER_STOP", "Offer", "POLICY", "POSTERIOR", "POSTERIOR_REGIME",
-    "PRESENT_NEXT", "RETURN_VERSION", "ReturnSlope", "SEED_REGIME", "VERSION", "arm_probabilities", "eligible",
+    "PRESENT_NEXT", "RETURN_VERSION", "ReturnRow", "ReturnSlope", "SEED_REGIME", "VERSION", "arm_probabilities", "eligible",
     "fit_return_slope", "flip", "handed_over", "kappa_posterior", "offer_log_likelihood", "offers",
     "pending_assignment", "return_rows", "served_distribution",
 ]

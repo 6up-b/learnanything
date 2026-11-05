@@ -167,7 +167,10 @@ def build(connection: Any, vault: Any, *, now: str, weight: Mapping[str, Any] | 
                        "version": PK.VERSION},
         "price": {"regime": "posterior" if kappa is not None else "seed", "posterior": kappa},
         "return_model": {**SC.fit_return_slope(slope_rows, float(vault.config.router_objective.return_slope_prior_sd)
-                                               ).as_dict(), "sessions": len(slope_rows)},
+                                               ).as_dict(), "coins": len(slope_rows),
+                         "sessions": len({row.session_id for row in slope_rows}),
+                         "contrasted": sum(1 for row in slope_rows if row.weight != 0.0),
+                         "basis": "the coin's offer against present-next as an instrument (Codex review F3)"},
         "weight": {"closed_scores": sum(1 for detail in details if detail.scored.value is not None),
                    "censored": dict(Counter(detail.scored.reason for detail in details
                                             if detail.scored.value is None)),

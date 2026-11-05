@@ -48,17 +48,21 @@ def _parse(stamp: str) -> datetime:
     return datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
 
 
-def session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> tuple[float, str | None, dict[str, Any]]:
-    """The active minutes of the current objective session: activity (attempts at their completion with their
-    latency, Reader visits over their interval) walked back from ``now`` until a gap of ``gap_minutes``. Returns the
-    minutes, the session's start and how it was read."""
+#: How far back the session clock reads activity (a session is never longer than this).
+LOOKBACK_DAYS = 2
 
-    end = _parse(now)
-    since = (end - timedelta(days=2)).strftime(_STAMP)
+
+def activity_spans(connection: Any, *, since: str, until: str) -> list[tuple[datetime, datetime, float]]:
+    """The objective's activity clock: ``(began, finished, active seconds)`` for each attempt (at its completion,
+    with its latency) and each Reader visit (over its interval, its active seconds), finished in ``[since,
+    until]``. The serving clock (:func:`session_active_minutes`) and RO5's realized cost
+    (``router_objective.scores``) read this one list."""
+
+    end = _parse(until)
     spans: list[tuple[datetime, datetime, float]] = []
     for created, latency in connection.execute(
             "SELECT created_at, COALESCE(latency_seconds, 0) FROM practice_attempts WHERE created_at >= ? AND created_at <= ?",
-            (since, now)):
+            (since, until)):
         finish = _parse(created)
         seconds = max(float(latency or 0), 0.0)
         spans.append((finish - timedelta(seconds=seconds), finish, seconds))
@@ -74,6 +78,17 @@ def session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> 
             continue
         spent = float(active) + (float(idle) if isinstance(idle, (int, float)) and idle > 0 else 0.0)
         spans.append((closed - timedelta(seconds=spent), closed, float(active)))
+    return spans
+
+
+def session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> tuple[float, str | None, dict[str, Any]]:
+    """The active minutes of the current objective session: activity (attempts at their completion with their
+    latency, Reader visits over their interval) walked back from ``now`` until a gap of ``gap_minutes``. Returns the
+    minutes, the session's start and how it was read."""
+
+    end = _parse(now)
+    since = (end - timedelta(days=LOOKBACK_DAYS)).strftime(_STAMP)
+    spans = activity_spans(connection, since=since, until=now)
     spans.sort(key=lambda span: span[1], reverse=True)
     gap = timedelta(minutes=float(gap_minutes))
     cursor = end

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/calibration_report.py"
 source_paths:
   - "src/learnloop/router_objective/calibration_report.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a"
+source_commit_timestamp: "2026-11-05T08:45:43-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/calibration_report.py](../../../../../../src/learnloop/router_objective/calibration_report.py) |
-| Source lines | 209 |
+| Source lines | 212 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a` |
+| Commit timestamp | `2026-11-05T08:45:43-05:00` |
 
 ## Public API
 
@@ -64,7 +64,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `checks_section(connection: Any, *, through: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 75)
 - `floor_section(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 109) — §9 item 5: the probe-versus-continue contrast read from FG1's ``no_intervention`` floor.
 - `build(connection: Any, vault: Any, *, now: str, weight: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 149)
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 182)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 185)
 
 ### Module constants
 

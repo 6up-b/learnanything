@@ -648,11 +648,17 @@ declared price for information whose zero (`"off"`) serves mvp-0.47 exactly; the
   The tail's own attention cost stays at the decision's κ0 inside `G` (first-order, said in the code). No threshold
   anywhere. Availability is logged with each observation; its coefficient is not fitted (follow-up).
 - **The return model** (item 1): the learner's own gaps shifted by `exp(b·(x − m̄)/m̄)`, `x` the session's active
-  minutes at its end, `b` a θ draw from a conjugate regression of the log return gap on `(x − m̄)/m̄` over the sessions
-  a coin was drawn in (the observational form over all sessions is rejected, T9), prior `N(0, return_slope_prior_sd²)`.
-  It enters `V` (only today's session's gap moves: the tail's later sessions run `m̄`) once one such session has an
-  observed return, and only with the coin on. The stop row's split shows the **return effect** (accepted with the model
-  minus without, display only) and says when the model **dropped out**: no draw's day of return moved on the daily grid.
+  minutes at its end. `b` is identified by the coin alone (Codex review F3, which replaced a regression of the log gap
+  on realized minutes over coin sessions, still observational): each coin's mean-zero contrast in its logged
+  probabilities, `w = 1[offer_stop]/p − 1[present_next]/p`, is an instrument for where the session ends; the log return
+  gap and `(x − m̄)/m̄` are both outcomes (acceptance and "keep going" inside them), each less its least-squares fit on
+  the availability frozen before the draw (the session's minutes and the minutes offered, over `m̄`); the likelihood is
+  the Anderson-Rubin form `mean(w·ỹ) − b·mean(w·z̃) ~ N(0, V(b))` (pooled residual variance, sessions as clusters),
+  valid however weakly the offer moves minutes, times the prior `N(0, return_slope_prior_sd²)` on a grid. Labelled
+  assumption: the offer moves the return only through the session's minutes. It enters `V` (only today's session's gap
+  moves: the tail's later sessions run `m̄`) once offers or present-next coins in two sessions have observed returns,
+  and only with the coin on. The stop row's split shows the **return effect** (accepted with the model minus without,
+  display only) and says when the model **dropped out**: no draw's day of return moved on the daily grid.
 - **Randomized checks** (item 2; `router_objective/checks.py`, `daily_plan/engine._boundary`): drawn at the day's
   first plan decision (before its `decide`, so before any action draw) over §8.7's population (active goals' scopes
   and retention commitments) with an eligible item: never attempted, no reveal row, no help row, not in any routine
@@ -662,21 +668,33 @@ declared price for information whose zero (`"off"`) serves mvp-0.47 exactly; the
   eligible topic independently at it and adds the check instead of replacing one. Placement is position 1 of the
   first practice block of the day's first session; the embedded check replaces the block's last chooser item (it
   stays in the pool); its item, if no longer eligible or not in the plan's pool, is redrawn within the topic among the
-  pool's eligible items, else the slot waits for the next practice block. Its plan origin `randomized_check` keeps it
-  out of AD's slot (`slot_applies` needs `chooser`), out of the decision's logged items and out of the block
-  decision's action in `router_outcomes`; the learner's view shows `chooser`. Completion is §6.2's label (AD's
-  unassisted success; any help on the item between its planning and its answer makes it a non-success). Noncompletion
-  reasons: `not_administered:no_session`, `not_administered:no_practice_slot`, `displaced`, `skipped`,
-  `not_answered`. The completion gap counts every day with no session since the first draw as that day's expected
-  checks, uncompleted; a day with no draw takes the last earlier draw's `r` (labelled `last_draw_stands`).
+  pool's eligible items, else the slot waits for the next practice block. The chooser's own items are never excluded
+  from the check (Codex review F2): where the policy's block holds the drawn item, that slot is reclassified as the
+  check (the question it replaces), so the same frozen assignment administers the same item whatever the action. Its
+  plan origin `randomized_check` keeps it out of AD's slot (`slot_applies` needs `chooser`), out of the decision's
+  logged items and out of the block decision's action in `router_outcomes`; the learner's view shows `chooser`.
+  Completion is §6.2's label (AD's unassisted success; any help on the item between its planning and its answer makes
+  it a non-success) read through the existing assessment rules as the grade stands now (Codex review F1): a grade held
+  for review (`held_grades`), a current grading epoch that assesses nothing (PF-c), a quarantined interpretation, an
+  attempt type AD does not read or no correctness is `excluded:<reason>`, never a zero, and not a completion.
+  Noncompletion reasons: `not_administered:no_session`, `not_administered:no_practice_slot`, `displaced`, `skipped`,
+  `not_answered`, `excluded:*`. The completion gap counts every day with no session since the first draw as that day's
+  expected checks, uncompleted; a day with no draw takes the last earlier draw's `r` (labelled `last_draw_stands`).
 - **The weight** (item 2 into §8.7; `router_objective/scores.py`, `objective_chooser.current_weight`): at the tag with
-  any check assigned, each closed `plan_block` window forms `D̂_i` from its frozen uses: each population topic-day of the
-  window with `r = r_L(d) ×` the running completion rate, observed when that day's check of `L` completed, `Y` its
-  label, `m⁰` the trace's frozen per-day baseline; dated uses in the window from the imported result on the date
-  (`r = 1`; a missing one censors the score `no_result`); the cost from the window's sessions at each day's κ0. RO4's
-  posterior then moves `w`. In a week no window closes (`B` = 14), so `w` stays at 0.8 (first-week record).
+  any check assigned and the check arm on (`calibrated_weight_on`; with `check_rate = "off"` the weight is RO4's
+  calculation exactly, history or not: Codex review F5), each closed `plan_block` window forms `D̂_i` from its frozen
+  uses: each population topic-day of the window with `r = r_L(d) ×` the running completion rate as it stood at the
+  window's close (so a closed score does not move), observed when that day's check of `L` completed, `Y` its label,
+  `m⁰` the trace's frozen per-day baseline; dated uses in the window from the imported result on the goal's own date
+  (its frozen `due_at`, never truncated elapsed days: F6; `r = 1`; a missing one censors the score `no_result`); the
+  cost on the objective's own clock (F4: attempts and Reader visits, `price.activity_spans`, sessions by
+  `session_gap_minutes`), each session's `κ0·((m + d)² − m²)/(2m̄)` from the minutes `m` it had when the window opened,
+  at each day's κ0. RO4's posterior then moves `w`. In a week no window closes (`B` = 14), so `w` stays at 0.8
+  (first-week record).
 - **The goal-date read** (item 3; `router_objective/goal_read.py`): reported in `objective-report`'s calibration
-  section, not yet a sensor inside `V`. The pool forecast is the traces' frozen `m⁰` at the check's own lag,
+  section, not yet a sensor inside `V`. Each trace at the tag freezes every active dated goal's forecast at its date
+  (`goal_dates`: the memory model's `m⁰` and the goal's `due_at`, beyond the evaluation window too, up to the tail's
+  horizon: Codex review F7), and the read takes the newest trace's. The pool forecast is the traces' frozen `m⁰` at the check's own lag,
   recalibrated on completed checks (logistic, prior `a = 0, b = 1`, variance 1 each, labelled); the transfer slope per
   goal type (`exam` when the goal sits an exam, else `dated`) on exam imports (`exam_evidence`) and sittings
   (`exam_attempt`) on the date, prior `α ~ N(0, s²)`, `β ~ N(1, s²)`. "Am I ready?" Check once reads are listed

@@ -115,6 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `GRADE_CONTRACT_UNRECORDED`, `HELD_ROW_KEY`, `PFC_NOTHING_ASSESSED`, `PFC_PARTIALLY_ASSESSED`, `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`; statically calls `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `HELD_ROW_KEY`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `RETENTION_MIN_DELAY_SECONDS`, `retention_exclusions`; statically calls `retention_exclusions`
+- [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `GRADE_HELD_FOR_REVIEW`, `unverified_evidence_row`; statically calls `unverified_evidence_row`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `LABEL_VERSION`, `retention_exclusions`; statically calls `retention_exclusions`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `HELD_ROW_KEY`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `UNASSESSED_INTERPRETATION`, `UNVERIFIED_CRITERION_BLOCK`, `UNVERIFIED_INTERPRETATION_KEY`, `unassessed_evidence_row`, `unverified_evidence_row`; statically calls `unassessed_evidence_row`, `unverified_evidence_row`
@@ -142,7 +143,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 25 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 26 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -179,6 +180,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_regrade_contract_upgrade.py](../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_after_the_upgrade_a_rebuild_settles_and_stays`
   - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
+- [tests/test_ro5_codex_review.py](../../../../../tests/test_ro5_codex_review.py) — direct import
+  - `test_f1_a_current_epoch_that_assesses_nothing_is_no_observation`
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_live_nothing_located_and_nothing_validated_is_held`
 - [tests/test_sources_merge_composition.py](../../../../../tests/test_sources_merge_composition.py) — direct import

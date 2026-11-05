@@ -176,15 +176,22 @@ def test_kappa_stays_the_seed_until_a_randomized_offer_has_a_response(tmp_path):
 
 
 def test_a_planted_return_slope_is_recovered():
+    """Through the coin alone (Codex review F3): the offer moves where sessions end, the return follows the
+    minutes at a planted slope; ``tests/test_ro5_codex_review.py`` holds the confounded case."""
+
     import random
 
     rng = random.Random(7)
     rows_ = []
-    for _ in range(400):
-        z = rng.uniform(-1, 1)
-        rows_.append((z, 0.4 * z + rng.gauss(0, 0.3)))
+    for i in range(4000):
+        u = rng.random()
+        arm = SC.OFFER_STOP if u < 0.25 else (SC.PRESENT_NEXT if u < 0.5 else SC.POLICY)
+        z = rng.uniform(-1, 1) - (0.8 if arm == SC.OFFER_STOP else 0.0)
+        weight = 4.0 if arm == SC.OFFER_STOP else (-4.0 if arm == SC.PRESENT_NEXT else 0.0)
+        rows_.append(SC.ReturnRow(decision_id=f"d{i}", session_id=f"s{i}", arm=arm, weight=weight,
+                                  covariates=(0.0, 1.0), z=z, y=0.4 * z + rng.gauss(0, 0.3)))
     fitted = SC.fit_return_slope(rows_, 0.5)
-    assert fitted.source == "posterior" and fitted.mean == pytest.approx(0.4, abs=0.05)
+    assert fitted.source == "posterior_randomized_coin" and fitted.mean == pytest.approx(0.4, abs=0.08)
     assert SC.fit_return_slope(rows_[:1], 0.5).source == "prior"
 
 

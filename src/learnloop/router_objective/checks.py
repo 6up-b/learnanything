@@ -27,7 +27,11 @@ independent attempt under the existing evidence rules, with no label for the lea
 
 **Resolution** (:func:`resolve`, a read). Each slot is ``completed`` (the first attempt on the check's presentation,
 or on its item after it was planned, scored by §6.2's label: AD's unassisted success, so any help makes it a
-non-success), or not, with its reason: ``not_administered:no_session``, ``not_administered:no_practice_slot``
+non-success), ``excluded:<reason>`` (answered, but its grade carries no label as it stands now: held for review,
+a current grading epoch that assesses nothing, a quarantined interpretation, an attempt type AD does not read, no
+correctness, or a label AD censors; never read as a zero, Codex review F1; it counts as not completed in the
+completion rate, which is the rate of labelled completions), or not, with its reason:
+``not_administered:no_session``, ``not_administered:no_practice_slot``
 (the day had a session but its first session placed no check: no practice block, or no eligible item of the
 topic in the plan's pool), ``displaced``, ``skipped`` or ``not_answered``. A day with no session
 counts toward the completion gap (§8.7): the running completion rate is completed checks over assigned checks
@@ -64,6 +68,14 @@ DISPLACED = "displaced"
 SKIPPED = "skipped"
 NOT_ANSWERED = "not_answered"
 OPEN = "open"
+COMPLETED = "completed"
+#: Answered, but its grade carries no label now (Codex review F1): the reason follows the prefix.
+EXCLUDED_PREFIX = "excluded:"
+EXCLUDED_TYPE = "excluded:attempt_type"
+EXCLUDED_UNASSESSED = "excluded:unassessed"
+EXCLUDED_QUARANTINED = "excluded:quarantined"
+EXCLUDED_UNGRADED = "excluded:ungraded"
+EXCLUDED_LABEL = "excluded:no_label"
 
 
 def day_unit(local_date: str) -> str:
@@ -266,7 +278,11 @@ def place(vault: Any, repository: Any, *, local_date: str, session_id: str | Non
         done = administered(connection)
         slots = {row["unit_id"]: row for row in A.rows(connection, A.CHECK, unit_like=f"{day_unit(local_date)}:%")}
     by_id = {str(item.practice_item_id): item for item in pool}
-    taken = set(planned) | {str(item.practice_item_id) for item in chooser_items}
+    # Codex review F2: the reserved item is eligible whatever the chooser picked. The chooser's items are never
+    # excluded here: had they been, a check whose drawn item the policy also chose would go unadministered, so the
+    # assessment would depend on the action. A collision reclassifies that chooser slot as the check instead.
+    taken = set(planned)
+    chosen_ids = [str(item.practice_item_id) for item in chooser_items]
     placements: list[Placement] = []
     pending = [slots[key] for key in sorted(slots) if slots[key]["id"] not in done]
     if not pending:
@@ -288,16 +304,24 @@ def place(vault: Any, repository: Any, *, local_date: str, session_id: str | Non
         item = by_id[chosen]
         if lane is not None and getattr(item, "lane", None) != lane:
             item = dc_replace(item, lane=lane)
-        replaced = None
-        if bool(slot.get("replaces", True)):
-            # An embedded check replaces the block's last chooser item not already replaced (it stays in the pool).
-            used = sum(1 for placement in placements if placement.replaced)
-            if used < len(chooser_items):
-                replaced = str(chooser_items[-1 - used].practice_item_id)
+        replaced, collision = None, chosen in chosen_ids
+        if collision:
+            # The policy's block holds the check's own item: that slot becomes the check (it is the question the
+            # embedded check replaces; for a rate check, the check takes it rather than adding a second copy).
+            replaced = chosen
+        elif bool(slot.get("replaces", True)):
+            # An embedded check replaces the block's last chooser item not already replaced or taken by a check
+            # (it stays in the pool).
+            already = {placement.replaced for placement in placements if placement.replaced}
+            free = [item_id for item_id in chosen_ids if item_id not in already
+                    and item_id not in {str(p.item.practice_item_id) for p in placements}
+                    and item_id not in {str(r["detail"].get("item_id")) for r in pending}]
+            if free:
+                replaced = free[-1]
         placements.append(Placement(assignment_id=str(row["id"]), slot=slot, item=item, replaced=replaced,
                                     detail={"assignment_id": str(row["id"]), "slot": slot.get("slot"),
                                             "topic": topic, "r": slot.get("r"), "item_how": how,
-                                            "replaced": replaced, "version": VERSION}))
+                                            "replaced": replaced, "collision": collision, "version": VERSION}))
         still[topic] = [item_id for item_id in still.get(topic, []) if item_id != chosen]
     return placements
 
@@ -336,7 +360,8 @@ def _sessions_by_day(connection: Any) -> dict[str, list[str]]:
 
 
 def _label(row: Mapping[str, Any], assisted: bool) -> float | None:
-    """§6.2's label: AD's unassisted success (help of any kind makes it a non-success)."""
+    """§6.2's label: AD's unassisted success (help of any kind makes it a non-success, as RO2's resolver reads
+    it); None where AD excludes the attempt (no correctness): never read as a zero (Codex review F1)."""
 
     from learnloop.adaptive_difficulty import outcomes as O
 
@@ -344,8 +369,68 @@ def _label(row: Mapping[str, Any], assisted: bool) -> float | None:
                                                                              1 if assisted else 0),
                            primed=bool(row.get("primed")), bound_presentation=True,
                            stuck=str(row.get("attempt_type") or "") == "dont_know")
-    value = O.unassisted_success(O.category(facts))
-    return 0.0 if value is None else value
+    return O.unassisted_success(O.category(facts))
+
+
+def _current_epoch_unassessed(connection: Any, attempt_id: str) -> bool:
+    """PF-c over the attempt's current grading epoch (``grading_epochs.current_epoch``), AD's own rule
+    (``adaptive_difficulty.replay._current_grade_unassessed``): every criterion's latest live row in that epoch
+    recorded unverified, so the grade measures nothing whatever it schedules as."""
+
+    from learnloop.grading_epochs import current_epoch
+    from learnloop.outcome_contract import unverified_evidence_row
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'grading_evidence'"
+                          ).fetchone() is None:
+        return False
+    rows = [dict(zip(("id", "criterion_id", "attribution_json", "grading_revision", "assessment_contract_version_id",
+                      "created_at", "superseded_at"), row)) for row in connection.execute(
+        "SELECT id, criterion_id, attribution_json, grading_revision, assessment_contract_version_id, created_at, "
+        "superseded_at FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL "
+        "ORDER BY created_at, criterion_id, id", (attempt_id,))]
+    epoch = current_epoch(rows)
+    if epoch is None:
+        return False
+    latest = {str(row["criterion_id"]): row for row in sorted(epoch.rows, key=lambda r: r["grading_revision"] or -1)}
+    return bool(latest) and all(unverified_evidence_row(row["attribution_json"]) for row in latest.values())
+
+
+def _quarantined(connection: Any, attempt_id: str) -> bool:
+    """The attempt's active grade interpretation (its newest observation's) is quarantined."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'activity_observations'"
+                          ).fetchone() is None:
+        return False
+    row = connection.execute(
+        "SELECT gi.quarantine_state FROM activity_observations o JOIN grade_interpretations gi "
+        "ON gi.id = o.active_interpretation_id WHERE o.attempt_id = ? ORDER BY o.created_at DESC, o.id DESC LIMIT 1",
+        (attempt_id,)).fetchone()
+    return row is not None and row[0] == "quarantined"
+
+
+def exclusion(connection: Any, attempt: Mapping[str, Any]) -> str | None:
+    """Why the check's answer carries no label as its grade stands NOW (Codex review F1), else None: the existing
+    assessment rules, read as AD's slot reads them. A grade held for review (THE predicate,
+    ``held_grades.held_for_review_attempts``), a current grading epoch that assesses nothing (PF-c), a quarantined
+    interpretation, an attempt type AD does not read, or no correctness is no observation; a regrade or a release
+    is read on the next resolve."""
+
+    from learnloop.adaptive_difficulty import outcomes as O
+    from learnloop.held_grades import held_for_review_attempts
+    from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
+
+    attempt_id = str(attempt["id"])
+    if str(attempt.get("attempt_type") or "") not in O.ELIGIBLE_TYPES:
+        return EXCLUDED_TYPE
+    if attempt_id in held_for_review_attempts(connection, (attempt_id,)):
+        return f"{EXCLUDED_PREFIX}{GRADE_HELD_FOR_REVIEW}"
+    if _current_epoch_unassessed(connection, attempt_id):
+        return EXCLUDED_UNASSESSED
+    if _quarantined(connection, attempt_id):
+        return EXCLUDED_QUARANTINED
+    if attempt.get("correctness") is None and str(attempt.get("attempt_type") or "") != "dont_know":
+        return EXCLUDED_UNGRADED
+    return None
 
 
 def resolve(connection: Any, *, through: str) -> list[Resolved]:
@@ -394,7 +479,12 @@ def resolve(connection: Any, *, through: str) -> list[Resolved]:
                 "SELECT 1 FROM help_assists WHERE practice_item_id = ? AND COALESCE(shown_at, requested_at) <= ? "
                 "AND COALESCE(shown_at, requested_at) >= ? LIMIT 1",
                 (item_id, attempt["created_at"], planned["planned_at"])).fetchone() is not None
-        out.append(Resolved(**base, status="completed", outcome=_label(attempt, assisted),
+        # Codex review F1: the answer is an observation only where the assessment rules give it a label now.
+        excluded = exclusion(connection, attempt)
+        label = _label(attempt, assisted) if excluded is None else None
+        if excluded is None and label is None:
+            excluded = EXCLUDED_LABEL
+        out.append(Resolved(**base, status=excluded or COMPLETED, outcome=label,
                             attempt_id=str(attempt["id"]), item_id=item_id, replaced=planned.get("replaced"),
                             sensors=planned.get("sensors") or {}))
     return out
@@ -424,7 +514,11 @@ def completion(connection: Any, *, through: str) -> dict[str, Any]:
         slots = [entry for entry in resolved]
         per_day = (len(slots) / len(days)) if days else 0.0
     denominator = len(resolved) + per_day * len(missing_days)
+    statuses: dict[str, int] = {}
+    for entry in resolved:
+        statuses[entry.status] = statuses.get(entry.status, 0) + 1
     return {"completed": completed, "assigned": len(resolved), "days_without_session": len(missing_days),
+            "by_status": dict(sorted(statuses.items())),
             "checks_per_day": per_day, "rate": (completed / denominator) if denominator > 0 else None,
             "label": "pooled over every randomized check and every day with no session; never conditioned on an action"}
 

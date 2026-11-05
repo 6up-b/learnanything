@@ -1525,6 +1525,9 @@ _reg_const("router_objective_value:MINUTES_PER_DAY", "numerical", kind="structur
 _reg_const("router_objective_price:GUARD_MULTIPLE", "constraint", kind="structural", owner="router_objective_price",
            rationale="keep (RO4 §8.6): the runaway guard's default, 3 x the remembered minutes; a numerical safeguard "
            "that forces a stop offer into the support and is reported, never a budget.")
+_reg_const("router_objective_price:LOOKBACK_DAYS", "numerical", kind="structural", owner="router_objective_price",
+           rationale="structural (RO4 §8.6, named in RO5's Codex review F4): how far back the session clock reads "
+                     "activity, the literal RO4's serving clock already used; the realized window cost reads the same.")
 # Router objective RO5 (spec_router_objective_v1 §9): a labelled recalibration prior and numerical resolution.
 _reg_const("router_objective_stop_coin:_TINY", "numerical", kind="structural", owner="router_objective_stop_coin",
            rationale="numerical: a choice probability kept inside (0, 1) before its log in κ0's likelihood.")

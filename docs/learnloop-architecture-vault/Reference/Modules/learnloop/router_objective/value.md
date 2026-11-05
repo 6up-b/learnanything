@@ -208,6 +208,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_numeric_policy_is_argmax_with_ties_by_support_order`
   - `test_the_same_theta_draw_is_used_across_candidates`
   - `test_v_recomputed_from_the_logged_rows_is_the_tails_next_action`
+- [tests/test_ro5_codex_review.py](../../../../../../tests/test_ro5_codex_review.py) — direct import
+  - `test_f7_the_trace_freezes_every_dated_goals_forecast_beyond_the_window`
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_the_stop_branch_shows_the_return_effect_and_an_inert_shift_drops_out`
 

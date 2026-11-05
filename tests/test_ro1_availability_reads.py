@@ -243,12 +243,11 @@ _UPPER_BOUND = re.compile(
 #: Reads that keep occurrence time (spec §5.3: outcomes, FSRS, mastery and reports; and write paths,
 #: which label the attempt being written), each with its reason. ``(module, function)``.
 OCCURRENCE_TIME_READS: dict[tuple[str, str], str] = {
-    ("learnloop/router_objective/scores.py", "_sessions"):
-        "router objective RO5 (§9 item 2, §8.7): a closed window's realized attention cost is the sessions' active "
-        "minutes when they happened (RO4's session clock), an outcome of the decision, never a decision-time read",
-    ("learnloop/router_objective/price.py", "session_active_minutes"):
+    ("learnloop/router_objective/price.py", "activity_spans"):
         "router objective RO4 (§8.6): the attention price's session minutes are active minutes when they happened "
-        "(RO0's clock, two clocks never blended); an imported exam row carries no session latency",
+        "(RO0's clock, two clocks never blended); an imported exam row carries no session latency. RO5's realized "
+        "window cost (§8.7, router_objective.scores) reads the same spans (Codex review F4): an outcome of the "
+        "decision, never a decision-time read",
     ("learnloop/db/repositories.py", "list_recent_attempts_by_practice_item"):
         "FSRS and replay: the ledger before the attempt being recomputed (before=), and a historical "
         "writer's instant (until=, serve_eligibility Q33, exam seeding)",

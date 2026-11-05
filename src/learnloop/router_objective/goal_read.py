@@ -27,6 +27,7 @@ from typing import Any
 
 from learnloop.router_objective import checks as C
 from learnloop.router_objective import memory as M
+from learnloop.router_objective import scores as S
 
 CALIBRATION_VERSION = "ro5_pool_calibration_v1"
 TRANSFER_VERSION = "ro5_goal_transfer_v1"
@@ -58,10 +59,15 @@ def _traces(connection: Any) -> list[dict[str, Any]]:
     for decision_id, local_date, created_at, trace_json in connection.execute(
             "SELECT decision_id, local_date, created_at, trace_json FROM router_objective_traces "
             "WHERE decision_kind = 'plan_block' ORDER BY created_at, id"):
-        uses = (json.loads(trace_json).get("evaluation") or {}).get("uses") or {}
+        trace = json.loads(trace_json)
+        uses = (trace.get("evaluation") or {}).get("uses") or {}
+        sensors = trace.get("goal_dates")
         out.append({"decision_id": decision_id, "local_date": local_date, "created_at": created_at,
                     "topics": {str(t["lo"]): t.get("m0") or [] for t in uses.get("topics") or ()},
-                    "dated": list(uses.get("dated") or ())})
+                    # Codex review F7: RO5's traces freeze every active dated goal's forecast (``goal_dates``),
+                    # beyond the evaluation window too; an older trace has only the window's dated uses.
+                    "dated": list((sensors or {}).get("uses") or ()) if sensors is not None
+                    else list(uses.get("dated") or ())})
     return out
 
 
@@ -144,7 +150,9 @@ def transfer(connection: Any, goals: Sequence[Any], fit: Mapping[str, Any], *, p
         due = getattr(goal, "due_at", None)
         if not due:
             continue
-        on = _parse(str(due)).date().isoformat()
+        on = S.goal_date(due)  # the date the score's dated uses read (one rule)
+        if on is None:
+            continue
         before = [t for t in traces if str(t["created_at"]) < str(due)
                   and any(str(use.get("goal_id")) == str(goal.id) for use in t["dated"])]
         if not before:
@@ -177,7 +185,9 @@ def transfer(connection: Any, goals: Sequence[Any], fit: Mapping[str, Any], *, p
 
 
 def read(connection: Any, vault: Any, *, now: str) -> dict[str, Any]:
-    """Each active dated goal's read now, with both sensors' versions; and the ready reads, self-selected."""
+    """Each active dated goal's read now, with both sensors' versions; and the ready reads, self-selected. The
+    pool forecast at the goal's date is the newest trace's frozen ``goal_dates`` entry, written for every active
+    dated goal whatever its distance (Codex review F7), so a goal past the evaluation window is read too."""
 
     through = _parse(now).astimezone().date().isoformat()
     goals = [goal for goal in (getattr(vault, "goals", None) or ()) if getattr(goal, "due_at", None)]

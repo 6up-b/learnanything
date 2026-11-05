@@ -63,6 +63,16 @@ def _env(tmp_path, *, toml: str = CHECKS_ONLY, llm=None):
     return mixture_env(tmp_path, fake_runtime(llm=llm), version=TAG, toml=toml)
 
 
+def grade_checks(env, correctness: float) -> None:
+    """Grade every answered check (the fake run records ungraded answers)."""
+
+    with env.repository.atomic(), env.repository.connection() as connection:
+        for entry in C.resolve(connection, through="9999-12-31"):
+            if entry.attempt_id:
+                connection.execute("UPDATE practice_attempts SET correctness = ? WHERE id = ?",
+                                   (correctness, entry.attempt_id))
+
+
 def _check_rows(env) -> list[dict]:
     with env.repository.connection() as connection:
         return A.rows(connection, A.CHECK)
@@ -121,9 +131,14 @@ def test_completion_is_scored_by_the_label_and_help_makes_it_a_non_success(tmp_p
     env = _env(tmp_path)
     run(env)
     with env.repository.connection() as connection:
+        # The fake answers are ungraded: no label, never a zero (Codex review F1).
+        answered = [entry for entry in C.resolve(connection, through=env.today()) if entry.attempt_id]
+        assert answered and all(entry.status == C.EXCLUDED_UNGRADED and entry.outcome is None for entry in answered)
+    grade_checks(env, 1.0)
+    with env.repository.connection() as connection:
         resolved = [entry for entry in C.resolve(connection, through=env.today()) if entry.status == "completed"]
         assert resolved, "the run answered the check"
-        assert resolved[0].outcome in (0.0, 1.0)
+        assert resolved[0].outcome == 1.0
         assert C._label({"correctness": 1.0, "hints_used": 0}, assisted=False) == 1.0
         assert C._label({"correctness": 1.0, "hints_used": 1}, assisted=False) == 0.0
         assert C._label({"correctness": 1.0, "hints_used": 0}, assisted=True) == 0.0

@@ -7,9 +7,12 @@ plus each dated use in the window at ``ω``. A topic-day is observed when that d
 completed (§6.2's label is ``Y``); its observation probability is ``r = r_L(d) × the running completion rate``:
 ``r_L(d)`` the day's exact assignment probability (``1/N_d``; the last earlier draw's on a day with no session, which
 counts toward the completion gap as an assigned, uncompleted check), the completion rate pooled over every check and
-never conditioned on the action. A dated use's ``Y`` is the imported result on the goal's date with ``r = 1``; a
-date in the window with no import censors the score (``no_result``). The cost is the realized attention cost over the
-window (each session's ``κ0·x²/(2m̄)`` at the day's ``κ0``) against the frozen ``C⁰``.
+never conditioned on the action; it is the rate as it stood when the window closed, so a closed score does not move
+with later completions. A dated use's ``Y`` is the imported result on the goal's date (the goal's own date, frozen
+with its ``due_at``: Codex review F6) with ``r = 1``; a date in the window with no import censors the score
+(``no_result``). The cost is the realized attention cost over the window on the objective's own clock (Codex review
+F4: attempts and Reader visits, ``price.activity_spans``; each session's ``κ0·((m + d)² − m²)/(2m̄)`` from the
+minutes ``m`` it had when the window opened, at the day's ``κ0``) against the frozen ``C⁰``.
 
 What carries no score is RO4's rule (a fallback, agreement, no valued use with ``r > 0``) plus RO5's: a decision whose
 stop coin served something other than the mix's draw (``stop_coin_forced``). ``A_i`` is the mix's draw and ``μ_i``
@@ -70,34 +73,88 @@ def _distribution(trace: Mapping[str, Any]) -> tuple[dict[str, float], dict[str,
     return d, mu, taken, mu.get(taken)
 
 
-def _sessions(connection: Any, *, start: str, end: str, gap_minutes: float) -> list[tuple[str, float]]:
-    """``(local date, active minutes)`` of each session that ended in ``(start, end]`` (RO4's session clock: a gap
-    of ``gap_minutes`` ends one)."""
+@dataclass(frozen=True)
+class WindowSession:
+    """One objective session's share of an evaluation window: its local date (its first activity's), the active
+    minutes it had accumulated before the window opened (``carried``) and inside the window (``minutes``)."""
 
-    spans: list[tuple[datetime, datetime, float]] = []
-    for created, latency in connection.execute(
-            "SELECT created_at, COALESCE(latency_seconds, 0) FROM practice_attempts WHERE created_at > ? AND "
-            "created_at <= ?", (start, end)):
-        finish = _parse(created)
-        seconds = max(float(latency or 0), 0.0)
-        spans.append((finish - timedelta(seconds=seconds), finish, seconds))
-    spans.sort(key=lambda span: span[1])
-    out: list[tuple[str, float]] = []
-    current_end: datetime | None = None
-    minutes = 0.0
-    day = None
+    local_date: str
+    carried: float
+    minutes: float
+
+
+def _sessions(connection: Any, *, start: str, end: str, gap_minutes: float) -> list[WindowSession]:
+    """The window's sessions on the objective's own clock (Codex review F4): the activity the serving price reads
+    (``price.activity_spans``: attempts and Reader visits), split into sessions by a gap of ``gap_minutes``, read
+    from the serving clock's lookback before ``start`` so a session in progress at the decision carries the minutes
+    it had then. Activity finished at or before ``start`` is carried, after it (through ``end``) is the window's."""
+
+    since = (_parse(start) - timedelta(days=P.LOOKBACK_DAYS)).strftime(_STAMP)
+    spans = sorted(P.activity_spans(connection, since=since, until=end), key=lambda span: span[1])
+    opened = _parse(start)
     gap = timedelta(minutes=float(gap_minutes))
+    out: list[WindowSession] = []
+    current_end: datetime | None = None
+    day: str | None = None
+    carried = minutes = 0.0
     for began, finished, seconds in spans:
         if current_end is not None and began - current_end >= gap:
-            out.append((day, minutes))  # type: ignore[arg-type]
-            minutes = 0.0
-        if current_end is None or began - current_end >= gap:
-            day = finished.astimezone().date().isoformat()
-        minutes += seconds / 60.0
-        current_end = finished
-    if current_end is not None:
-        out.append((day, minutes))  # type: ignore[arg-type]
+            if minutes > 0:
+                out.append(WindowSession(str(day), carried, minutes))
+            carried = minutes = 0.0
+            current_end = None
+        if current_end is None:
+            day = began.astimezone().date().isoformat()
+        if finished <= opened:
+            carried += seconds / 60.0
+        else:
+            minutes += seconds / 60.0
+        current_end = finished if current_end is None else max(current_end, finished)
+    if current_end is not None and minutes > 0:
+        out.append(WindowSession(str(day), carried, minutes))
     return out
+
+
+def window_cost(connection: Any, *, start: str, end: str, gap_minutes: float,
+                prices: Mapping[str, tuple[float, float]], own: tuple[float, float]) -> float:
+    """``C_i``: the attention cost the objective charges (§8.6) over ``(start, end]``, integrated from each
+    session's minutes at the window's start, ``κ0·((m + d)² − m²)/(2m̄)``, at the ``(κ0, m̄)`` in force on the
+    session's day (``own``, the decision's, on a day with no trace)."""
+
+    cost = 0.0
+    for session in _sessions(connection, start=start, end=end, gap_minutes=gap_minutes):
+        kappa0, mbar = prices.get(session.local_date, own)
+        total = session.carried + session.minutes
+        cost += kappa0 * (total * total - session.carried * session.carried) / (2.0 * mbar)
+    return cost
+
+
+def goal_date(due_at: Any) -> str | None:
+    """A goal's date as written (the date of its ``due_at`` in the offset it carries; ``goals/exam_seeding``
+    stamps an import on that date), or None."""
+
+    if not due_at:
+        return None
+    try:
+        return _parse(str(due_at)).date().isoformat()
+    except ValueError:
+        return None
+
+
+def dated_use_date(trace: Mapping[str, Any], row: Mapping[str, Any], dated: Mapping[str, Any]) -> str:
+    """The calendar date a frozen dated use is scored on (Codex review F6): the goal's own date, frozen in the
+    trace with its ``due_at`` (the goal's sources, or the use's own ``due_at`` at RO5's tag), never one rebuilt
+    from truncated elapsed days; failing both, the decision's moment plus its exact delay."""
+
+    own = goal_date(dated.get("due_at"))
+    if own:
+        return own
+    goals = (trace.get("inputs_sources") or {}).get("goals") or {}
+    frozen = goal_date((goals.get(str(dated.get("goal_id"))) or {}).get("due_at"))
+    if frozen:
+        return frozen
+    moment = _parse(str(row["created_at"])) + timedelta(days=float(dated.get("at_days") or 0.0))
+    return moment.date().isoformat()
 
 
 def _day_prices(connection: Any) -> dict[str, tuple[float, float]]:
@@ -154,7 +211,7 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
             uses.append(W.Use(key=f"L:{lo}:{day}", weight=float(topic.get("c") or 0.0), baseline=float(baseline),
                               r=r_assign * rate, observed=observed, outcome=found.outcome if observed else None))
     for dated in (evaluation.get("uses") or {}).get("dated") or ():
-        on = (start + timedelta(days=int(float(dated.get("at_days") or 0.0)))).isoformat()
+        on = dated_use_date(trace, row, dated)
         result = _exam_result(connection, str(dated["lo"]), on)
         if result is None:
             return Detail(scored=W.Scored(**base, value=None, reason=W.NO_RESULT))
@@ -168,11 +225,9 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
     if not mu_taken:
         return Detail(scored=W.Scored(**base, value=None, reason="no_logged_probability"), **counts)
     end = (_parse(str(row["created_at"])) + timedelta(days=window)).strftime(_STAMP)
-    cost = 0.0
     own = (float(row.get("kappa0") or 0.0), max(float(row.get("remembered_minutes") or 1.0), 1e-9))
-    for day, minutes in _sessions(connection, start=str(row["created_at"]), end=end, gap_minutes=gap_minutes):
-        kappa0, mbar = prices.get(day, own)
-        cost += kappa0 * minutes * minutes / (2.0 * mbar)
+    cost = window_cost(connection, start=str(row["created_at"]), end=end, gap_minutes=gap_minutes, prices=prices,
+                       own=own)
     c0 = float(evaluation.get("c0") or 0.0)
     value = W.score(d_taken=d.get(taken, 0.0), mu_taken=float(mu_taken), uses=uses, cost=cost, cost_baseline=c0)
     return Detail(scored=W.Scored(**base, value=value), cost=cost, cost_baseline=c0, **counts)
@@ -187,7 +242,16 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
         return []
     through = _parse(at).astimezone().date().isoformat()
     resolved = {(entry.local_date, entry.topic): entry for entry in C.resolve(connection, through=through)}
-    completion = C.completion(connection, through=through)
+    rates: dict[str, float | None] = {}
+
+    def completion_at(closes_at: str) -> float | None:
+        # The running completion rate as it stood when the window closed: a closed score does not move with later
+        # completions or later sessionless days (Codex review, "closed scores never change").
+        day = min(_parse(closes_at).astimezone().date().isoformat(), through)
+        if day not in rates:
+            rates[day] = C.completion(connection, through=day).get("rate")
+        return rates[day]
+
     cache: dict[str, dict[str, float]] = {}
 
     def r_lookup(day: str) -> dict[str, float]:
@@ -205,9 +269,11 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
         record = dict(row)
         trace = json.loads(record.pop("trace_json"))
         out.append(score_decision(connection, record, trace, resolved=resolved,
-                                  completion_rate=completion.get("rate"), r_lookup=r_lookup, prices=prices,
+                                  completion_rate=completion_at(str(record["window_closes_at"])), r_lookup=r_lookup,
+                                  prices=prices,
                                   gap_minutes=gap))
     return out
 
 
-__all__ = ["Detail", "VERSION", "score_decision", "scores"]
+__all__ = ["Detail", "VERSION", "WindowSession", "dated_use_date", "goal_date", "score_decision", "scores",
+           "window_cost"]

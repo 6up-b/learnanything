@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/stop_coin.py"
 source_paths:
   - "src/learnloop/router_objective/stop_coin.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a"
+source_commit_timestamp: "2026-11-05T08:45:43-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,49 +50,50 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py) |
-| Source lines | 385 |
+| Source lines | 481 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a` |
+| Commit timestamp | `2026-11-05T08:45:43-05:00` |
 
 ## Public API
 
-- `arm_probabilities(rate: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 78)
-- `class Coin` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 84)
-  - `as_dict(self) -> dict[str, Any]` (line 97; public)
-- `eligible(support: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 103) — A reversible boundary the coin applies at: stop beside at least one block.
-- `served_distribution(mu: Mapping[str, float], rate: float, support: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 109) — ``P(served = a)`` under the coin and the mix together (module docstring), exactly.
-- `flip(seed: str, rate: float, *, support: Sequence[str], mu: Mapping[str, float], drawn: str, availability: Mapping[str, Any]) -> Coin` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 122) — The coin for one decision: its arm from its own uniform (never the mix's), and what is served.
-- `pending_assignment(coin: Coin, *, seed: str, support: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 147) — The coin's ``policy_experiment_assignments`` row, frozen on the chooser's record and written with the decision (``assignments.record_pending``).
-- `class Offer` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 165) — One offered stop with a response, as the likelihood reads it.
-- `offer_log_likelihood(kappa0: float, offers: Sequence[Offer]) -> float` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 176) — Luce's form: ``P(continue) = G / (G + κ0·c)``; an offer whose forecast gain is not positive carries no information about ``κ0`` (the same probability on every grid point) and is skipped.
-- `kappa_posterior(seed: float, log_sd: float, offers: Sequence[Offer]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 191) — The posterior over ``log κ0`` on a grid around the frozen seed; serves ``exp(E[log κ0])``.
-- `offers(connection: Any) -> list[Offer]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 252) — Every offered stop with a response, from the traces (the decision's forecast) and RO0's receipts.
-- `handed_over(connection: Any, config: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 281) — κ0's posterior once a randomized offer has a response, else None (the daily seed stands).
-- `class ReturnSlope` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 307) — ``b``'s posterior: the log return gap per remembered session of extra minutes.
-  - `as_dict(self) -> dict[str, Any]` (line 315; public)
-- `fit_return_slope(rows: Sequence[tuple[float, float]], prior_sd: float) -> ReturnSlope` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 320) — Conjugate: ``y = log gap`` on ``z = (x − m̄)/m̄`` (both centred), noise variance the sample variance of the centred ``y`` (at least two rows), prior ``N(0, prior_sd²)``.
-- `return_rows(connection: Any, *, gap_minutes: float) -> list[tuple[float, float]]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 345) — ``(z, log gap days)`` for each session a coin was drawn in, with its return observed.
+- `arm_probabilities(rate: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 81)
+- `class Coin` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 87)
+  - `as_dict(self) -> dict[str, Any]` (line 100; public)
+- `eligible(support: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 106) — A reversible boundary the coin applies at: stop beside at least one block.
+- `served_distribution(mu: Mapping[str, float], rate: float, support: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 112) — ``P(served = a)`` under the coin and the mix together (module docstring), exactly.
+- `flip(seed: str, rate: float, *, support: Sequence[str], mu: Mapping[str, float], drawn: str, availability: Mapping[str, Any]) -> Coin` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 125) — The coin for one decision: its arm from its own uniform (never the mix's), and what is served.
+- `pending_assignment(coin: Coin, *, seed: str, support: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 150) — The coin's ``policy_experiment_assignments`` row, frozen on the chooser's record and written with the decision (``assignments.record_pending``).
+- `class Offer` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 168) — One offered stop with a response, as the likelihood reads it.
+- `offer_log_likelihood(kappa0: float, offers: Sequence[Offer]) -> float` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 179) — Luce's form: ``P(continue) = G / (G + κ0·c)``; an offer whose forecast gain is not positive carries no information about ``κ0`` (the same probability on every grid point) and is skipped.
+- `kappa_posterior(seed: float, log_sd: float, offers: Sequence[Offer]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 194) — The posterior over ``log κ0`` on a grid around the frozen seed; serves ``exp(E[log κ0])``.
+- `offers(connection: Any) -> list[Offer]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 255) — Every offered stop with a response, from the traces (the decision's forecast) and RO0's receipts.
+- `handed_over(connection: Any, config: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 284) — κ0's posterior once a randomized offer has a response, else None (the daily seed stands).
+- `class ReturnSlope` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 310) — ``b``'s posterior: the log return gap per remembered session of extra minutes.
+  - `as_dict(self) -> dict[str, Any]` (line 318; public)
+- `class ReturnRow` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 324) — One randomized coin with its session's outcome, as the return model reads it (Codex review F3).
+- `fit_return_slope(rows: Sequence[ReturnRow], prior_sd: float) -> ReturnSlope` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 354) — ``b``, the log return gap per remembered session of extra minutes, identified by the randomized coin alone (Codex review F3): the coin is an instrument for where the session ends.
+- `return_rows(connection: Any, *, gap_minutes: float) -> list[ReturnRow]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 427) — Every coin drawn in a session whose return is observed: its arm's contrast, the availability frozen before its draw, and its session's final minutes and return gap (:class:`ReturnRow`).
 
 ### Module constants
 
-- `VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 59)
-- `KAPPA_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 60)
-- `RETURN_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 61)
-- `OFFER_STOP` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 62)
-- `PRESENT_NEXT` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 63)
-- `POLICY` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 64)
-- `ARMS` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 65)
-- `STOP` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 66)
-- `FORCED` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 68)
-- `SEED_REGIME` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 70)
-- `POSTERIOR_REGIME` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 71)
-- `POSTERIOR` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 72)
-- `GRID` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 74)
-- `_TINY` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 75)
+- `VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 62)
+- `KAPPA_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 63)
+- `RETURN_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 64)
+- `OFFER_STOP` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 65)
+- `PRESENT_NEXT` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 66)
+- `POLICY` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 67)
+- `ARMS` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 68)
+- `STOP` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 69)
+- `FORCED` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 71)
+- `SEED_REGIME` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 73)
+- `POSTERIOR_REGIME` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 74)
+- `POSTERIOR` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 75)
+- `GRID` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 77)
+- `_TINY` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 78)
 
 ### Explicit exports
 
@@ -109,6 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `POSTERIOR_REGIME`
 - `PRESENT_NEXT`
 - `RETURN_VERSION`
+- `ReturnRow`
 - `ReturnSlope`
 - `SEED_REGIME`
 - `VERSION`
@@ -126,9 +128,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_decision_stop_responses(connection: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 213) — Each stop decision's response: ``overridden`` (a stop_response naming it) or ``accepted`` (an end naming it, the offered stop taken).
-- `_gain(trace: Mapping[str, Any]) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 232) — The next block's forecast gain before its own price, over the accepted stop, and that price per κ0.
-- `_parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 341)
+- `_decision_stop_responses(connection: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 216) — Each stop decision's response: ``overridden`` (a stop_response naming it) or ``accepted`` (an end naming it, the offered stop taken).
+- `_gain(trace: Mapping[str, Any]) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 235) — The next block's forecast gain before its own price, over the accepted stop, and that price per κ0.
+- `_residuals(values: Sequence[float], design: Sequence[Sequence[float]]) -> list[float]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 342) — ``values`` less their least-squares fit on the pre-draw ``design`` (with an intercept): availability's own part of the outcome, removed for precision only (the coin's mean-zero contrast is independent of it).
+- `_parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 410)
+- `_contrast(arm: str, detail: Mapping[str, Any], propensity: float) -> float` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 414) — The coin's mean-zero contrast in its logged probabilities (offer against present-next).
 
 ## Who imports or calls it
 
@@ -151,7 +155,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### Platform and third-party dependencies
 
 - Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `json`, `math`, `typing`
-- Third party: none imported directly
+- Third party: `numpy`
 
 ## Larger workflow participation
 
@@ -166,6 +170,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro5_codex_review.py](../../../../../../tests/test_ro5_codex_review.py) — direct import
+  - `test_f3_a_confounded_return_is_not_read_as_a_return_effect`
+  - `test_f3_a_planted_causal_slope_is_recovered_through_the_coin`
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_a_planted_return_slope_is_recovered`
   - `test_kappa_stays_the_seed_until_a_randomized_offer_has_a_response`

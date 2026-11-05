@@ -221,9 +221,11 @@ def current_weight(repository: Any, config: Any, *, at: str) -> tuple[float, dic
     from learnloop.db.stores import router_objective as store
 
     seeds = W.Seeds.from_config(config)
-    from learnloop.router_objective_switches import calibration_tag, objective_scores_on
+    from learnloop.router_objective_switches import calibrated_weight_on, objective_scores_on
 
-    if calibration_tag(config) and _randomized_checks_exist(repository):
+    # Codex review F5: RO5's scores move w only while the check arm is on (its switch, not the tag and history):
+    # with check_rate "off" the weight is RO4's calculation exactly, whatever checks were assigned before.
+    if calibrated_weight_on(config) and _randomized_checks_exist(repository):
         # RO5 (§9 item 2): the randomized checks observe the uses, so closed windows form scores and w can move.
         if not objective_scores_on(config):
             posterior = W.posterior([], seeds, at=at)
@@ -506,6 +508,27 @@ def _score_note(config: Any) -> str:
         return ("forms when the window closes, from the randomized checks it holds (r = the day's assignment "
                 "probability x the running completion rate)")
     return "none forms until RO5's randomized checks: no valued use has r > 0"
+
+
+def _goal_dates(numeric: "NumericPolicy | None") -> dict[str, Any]:
+    """RO5 §9 item 3's sensor input: each active dated goal's uses with the memory model's frozen forecast at the
+    goal's date (``m⁰``, from the pre-action belief under the tail, the same number the policy comparison logs) and
+    the goal's absolute ``due_at``, for every dated goal the rollouts value, beyond the evaluation window too
+    (Codex review F7). A date past the tail's horizon has no forecast and says so."""
+
+    inputs = numeric.inputs if numeric is not None else None
+    if inputs is None:
+        return {"uses": [], "status": "no_inputs"}
+    baselines = (numeric.baselines or {}).get("dated") or {} if numeric is not None else {}
+    goals = (numeric.sources or {}).get("goals") or {} if numeric is not None else {}
+    uses = []
+    for use in inputs.dated:
+        m0 = baselines.get(f"{use.goal_id}:{use.lo}")
+        uses.append({"goal_id": use.goal_id, "lo": use.lo, "at_days": use.at_days,
+                     "due_at": (goals.get(use.goal_id) or {}).get("due_at"), "m0": m0,
+                     **({} if m0 is not None else {"status": "no_forecast_beyond_horizon"})})
+    return {"uses": uses, "horizon_days": float(inputs.horizon_days),
+            "basis": "the pre-action belief under the tail, at each goal's date (sensor for the goal-date read)"}
 
 
 def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate],
@@ -801,6 +824,12 @@ class ObjectiveChooser(RouterChooser):
                        decider=results.get(DECIDER), staged_ref=staged_ref, weight=(w, weight_record),
                        effective=effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso,
                        guard=guard_state, stop_in_support=STOP_FOR_TODAY in support, card_version=card.version)
+        from learnloop.router_objective_switches import calibration_tag
+
+        if calibration_tag(config):
+            # RO5 §9 item 3 (Codex review F7): every active dated goal's frozen forecast, for the goal-date read,
+            # whatever its distance; the policy comparison's uses keep only the window's.
+            trace["goal_dates"] = _goal_dates(numeric)
         pending_assignments: list[dict[str, Any]] = []
         if coin is not None:
             # RO5: what was served and its exact probability under the coin and the mix together; the mix's own

@@ -133,6 +133,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `contract_unrecorded_attempts`; statically calls `contract_unrecorded_attempts`
 - [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
+- [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
@@ -170,7 +171,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] and 44 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] and 45 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -200,6 +201,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
 - [tests/test_ro1_upgrade_report.py](../../../../../tests/test_ro1_upgrade_report.py) — direct import
   - `test_serving_reads_the_anchor_past_a_primed_retry_and_a_held_grade`
+- [tests/test_ro5_codex_review.py](../../../../../tests/test_ro5_codex_review.py) — direct import
+  - `test_f1_a_held_grade_is_no_check_observation_and_no_completion`
 - [tests/test_router_card.py](../../../../../tests/test_router_card.py) — direct import
 - [tests/test_router_r2c_teach_back.py](../../../../../tests/test_router_r2c_teach_back.py) — direct import
   - `test_a_held_teach_back_is_never_summarized`

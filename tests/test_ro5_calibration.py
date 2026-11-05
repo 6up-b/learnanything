@@ -183,6 +183,23 @@ def _week_env(tmp_path, runtime):
     return env
 
 
+def _grade_answers(env, day: int) -> None:
+    """The fake run records ungraded answers; a real day's are graded. Each answer of the day graded correct or not
+    from a seeded draw (a synthetic learner at about 70%), so the checks resolve to labels (Codex review F1: an
+    ungraded answer is no label)."""
+
+    import random
+
+    rng = random.Random(f"ro5-week-{day}")
+    with env.repository.connection() as connection:
+        ids = [row[0] for row in connection.execute(
+            "SELECT id FROM practice_attempts WHERE correctness IS NULL ORDER BY created_at, id")]
+        for attempt_id in ids:
+            connection.execute("UPDATE practice_attempts SET correctness = ? WHERE id = ?",
+                               (1.0 if rng.random() < 0.7 else 0.0, attempt_id))
+        connection.commit()
+
+
 def test_the_first_week_on_a_copy_shaped_synthetic_vault(tmp_path):
     """Seven days at the default arms (coin 0.05 each way, one embedded check a day), both policies answering, one
     day with no session. Printed for the stage record; the assertions are the arms' accounting."""
@@ -194,6 +211,7 @@ def test_the_first_week_on_a_copy_shaped_synthetic_vault(tmp_path):
         if day != 3:
             session_id = _new_session(env, runtime, day)
             run(env, steps=60)
+            _grade_answers(env, day)
             _end_session(env, session_id)
             sessions += 1
         env.clock.advance(24 * 60)
