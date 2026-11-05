@@ -14,7 +14,10 @@ IN_PROCESS_FORECASTERS = ("mastery_ekf", "lo_general+composite")
 LLM_V1 = "llm_v1:item"
 LLM_V3_LLM = "llm_v3:llm"
 LLM_V3_DECIDER = "llm_v3:decider"
-OUTSIDE_FORECASTERS = (LLM_V1, LLM_V3_LLM, LLM_V3_DECIDER)
+#: Router objective RO2 (spec_router_objective_v1 §6): the frontier LLM full-history forecaster, per
+#: presentation, after the serve (background), beside ``llm_v3:llm`` on the same machinery.
+LLM_HISTORY = "llm_history_v1"
+OUTSIDE_FORECASTERS = (LLM_V1, LLM_V3_LLM, LLM_V3_DECIDER, LLM_HISTORY)
 
 
 def _section(config: Any) -> Any:
@@ -61,6 +64,7 @@ def any_background_work(config: Any) -> bool:
 
 __all__ = [
     "IN_PROCESS_FORECASTERS",
+    "LLM_HISTORY",
     "LLM_V1",
     "LLM_V3_DECIDER",
     "LLM_V3_LLM",

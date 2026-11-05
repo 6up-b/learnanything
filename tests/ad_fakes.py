@@ -161,6 +161,11 @@ class ForecastLLM:
             raise self.fail
         if request.result_model.__name__ == "FeatureAuditV1":
             return request.result_model.model_validate(self.audit)
+        if request.result_model.__name__ == "HistoryForecastV1":
+            # Router objective RO2's llm_history_v1: p_now and the cold curve, and a rationale.
+            return request.result_model.model_validate({
+                "p_now": self.p_correct, "p_cold_1": 0.7, "p_cold_7": 0.6, "p_cold_30": 0.5,
+                "rationale": "The learner answered attempt:x correctly. Help was rare. One. Two."})
         return request.result_model.model_validate({"p_correct": self.p_correct})
 
 

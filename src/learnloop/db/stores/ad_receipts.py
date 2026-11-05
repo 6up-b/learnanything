@@ -28,6 +28,13 @@ from learnloop.ids import new_ulid
 SERVE_INPUTS = "item_serve_inputs"
 READING = "ad_reading_opportunities"
 PAYLOADS = "item_forecast_payloads"
+#: Router objective RO2 (migration 245): the seeded draw of the lower rung beside H3 per presentation.
+HISTORY_DRAWS = "ad_history_forecast_draws"
+HISTORY_DRAW_COLUMNS = (
+    "id", "draw_key", "plan_presentation_id", "practice_item_id", "learning_object_id", "draw_version", "seed", "u",
+    "anchor_rung", "drawn_rung", "propensity", "propensities_json", "card_version", "frozen_json",
+    "protection_epoch", "served_at", "created_at",
+)
 
 SERVE_INPUT_COLUMNS = (
     "id", "receipt_key", "presentation_kind", "plan_presentation_id", "probe_presentation_id",
@@ -208,6 +215,22 @@ def insert_payload(connection: sqlite3.Connection, *, owner_key: str, forecaster
     return payload_id if cursor.rowcount > 0 else None
 
 
+def insert_history_draw(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str | None:
+    """Append one ``ad_history_forecast_draws`` row (once per draw key); the caller owns the transaction."""
+
+    values = dict(row)
+    values.setdefault("id", new_ulid())
+    for name in ("propensities_json", "frozen_json"):
+        if not isinstance(values.get(name), str):
+            values[name] = _dumps(values.get(name))
+    cursor = connection.execute(
+        f"INSERT OR IGNORE INTO {HISTORY_DRAWS}({', '.join(HISTORY_DRAW_COLUMNS)}) "
+        f"VALUES ({', '.join('?' for _ in HISTORY_DRAW_COLUMNS)})",
+        tuple(values.get(name) for name in HISTORY_DRAW_COLUMNS),
+    )
+    return str(values["id"]) if cursor.rowcount > 0 else None
+
+
 def prune_payloads(connection: sqlite3.Connection, *, before: str) -> int:
     """Delete payloads stored before ``before`` (``router.payload_retention_days``)."""
 
@@ -233,11 +256,14 @@ def payloads(connection: sqlite3.Connection, owner_keys: Iterable[str] | None = 
 
 
 __all__ = [
+    "HISTORY_DRAWS",
+    "HISTORY_DRAW_COLUMNS",
     "PAYLOADS",
     "READING",
     "SERVE_INPUTS",
     "content_hash",
     "has_table",
+    "insert_history_draw",
     "insert_item_snapshot",
     "insert_payload",
     "insert_reading_opportunity",

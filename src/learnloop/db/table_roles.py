@@ -192,6 +192,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("decision_state_receipts", TableRole.RECEIPT),
     ("goal_lifecycle_events", TableRole.RECEIPT),
     ("reading_exposure_receipts", TableRole.RECEIPT),
+    # Router objective RO2 (migration 245; spec_router_objective_v1 §6.3): the seeded draw of the
+    # lower rung asked beside H3 per presentation, with its propensity and what each frozen card
+    # holds. Immutable, written in the serve transaction; replay and rebuild never touch it.
+    ("ad_history_forecast_draws", TableRole.RECEIPT),
     # Deliverable curriculum C0b (migration 228): the learner's scope inputs
     # (their own words, append-only), the resolver's resolutions and the
     # curated path's rows with the learner's verdicts (paid outputs, never

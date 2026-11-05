@@ -76,8 +76,13 @@ ITEM_UNASSISTED_SUCCESS = "item_unassisted_success"
 #: outcome that also resolves the learned lesson-check weight).
 LESSON_CHECK_CORRECT = "lesson_check_correct"
 LESSON_STEP_RETAINED = "lesson_step_retained"
+#: Router objective RO2 (spec_router_objective_v1 §6.2): ``llm_history_v1``'s forecast of unassisted
+#: success on an unseen item of the presentation's LO, L days after its block (L in 1, 7, 30), had the
+#: learner no exposure to the LO in between. One receipt per lag, each carrying the whole curve;
+#: resolved by ``adaptive_difficulty.history_resolve`` (two bindings, scored at the realized lag).
+LO_COLD_SUCCESS = "lo_cold_success"
 FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME, ITEM_UNASSISTED_SUCCESS,
-                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED)
+                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED, LO_COLD_SUCCESS)
 
 SCOPES = ("next_observation", "followup_task", "presentation", "item", "lesson_check", "lesson_node")
 
@@ -91,9 +96,12 @@ FIRST_PRESENTATION = "first_presentation"
 #: (``learner.lesson_weight.qualifying_outcomes``).
 LESSON_CHECK_ATTEMPT = "lesson_check_attempt"
 LESSON_COLD_OUTCOME = "lesson_cold_outcome"
+#: Router objective RO2: the first qualifying outcome on the LO after the forecast's block (the versioned
+#: resolver's per-protocol and intention-to-treat bindings, ``adaptive_difficulty.history_resolve``).
+LO_COLD_AFTER_BLOCK = "lo_cold_after_block"
 NO_BINDING = "none"
 BINDING_KINDS = (PRESENTED_ATTEMPT_ON_FACET, FOLLOWUP_TASK, "plan_presentation", "probe_presentation",
-                 FIRST_PRESENTATION, LESSON_CHECK_ATTEMPT, LESSON_COLD_OUTCOME, NO_BINDING)
+                 FIRST_PRESENTATION, LESSON_CHECK_ATTEMPT, LESSON_COLD_OUTCOME, LO_COLD_AFTER_BLOCK, NO_BINDING)
 
 #: ``serve`` (AD1): a presentation's forecasts, in-process in the serve
 #: transaction or from an outside forecaster after it; ``item_prepare`` (AD1):
@@ -287,6 +295,8 @@ __all__ = [
     "LESSON_CHECK_CORRECT",
     "LESSON_COLD_OUTCOME",
     "LESSON_STEP_RETAINED",
+    "LO_COLD_AFTER_BLOCK",
+    "LO_COLD_SUCCESS",
     "ForecastReceipt",
     "NO_BINDING",
     "PRESENTED_ATTEMPT_ON_FACET",

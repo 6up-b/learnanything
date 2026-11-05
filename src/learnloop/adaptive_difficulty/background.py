@@ -1,7 +1,8 @@
 """AD1's background jobs: never on a request path (spec §8.1 "off the critical path").
 
 * :func:`schedule_presentation_forecasts`: after a plan serve's response is
-  built, ``llm_v3:llm`` and ``llm_v3:decider`` for the presentation.
+  built, ``llm_v3:llm`` and ``llm_v3:decider`` for the presentation, then
+  router objective RO2's ``llm_history_v1`` (its two frozen rungs).
 * :func:`schedule_item_preparation`: after an item revision is published,
   imported or edited (the sidecar's reload and file-watcher refresh, Codex
   review F10) and, as the recovery path, after a plan is built or read (the
@@ -40,6 +41,7 @@ from typing import Any
 from learnloop.adaptive_difficulty import spend as ad_spend
 from learnloop.adaptive_difficulty.outside import Clients, forecast_item, forecast_presentation
 from learnloop.adaptive_difficulty.switches import (
+    LLM_HISTORY,
     LLM_V1,
     LLM_V3_DECIDER,
     LLM_V3_LLM,
@@ -119,7 +121,7 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
     and record is checked against (fix round 4, V1)."""
 
     try:
-        chosen = {LLM_V3_LLM, LLM_V3_DECIDER} & set(outside_forecasters(vault.config))
+        chosen = {LLM_V3_LLM, LLM_V3_DECIDER, LLM_HISTORY} & set(outside_forecasters(vault.config))
         if not chosen or not presentation_id:
             return None
         if ad_spend.models_off() and not _injected(clients):
@@ -129,8 +131,16 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
             from learnloop.db.repositories import Repository
 
             repository = Repository.attach(Path(sqlite_path))
-            forecast_presentation(vault, repository, presentation_id, clients=clients, clock=clock, fence=fence,
-                                  live_vault=live_vault)
+            if chosen - {LLM_HISTORY}:
+                forecast_presentation(vault, repository, presentation_id, clients=clients, clock=clock, fence=fence,
+                                      live_vault=live_vault)
+            if LLM_HISTORY in chosen and fence.live():
+                # Router objective RO2: llm_history_v1's frozen rungs, after llm_v3's pair, in the same
+                # job (one presentation's job in flight per process), under its own claim.
+                from learnloop.adaptive_difficulty.history_forecast import forecast_history_presentation
+
+                forecast_history_presentation(vault, repository, presentation_id, clients=clients, clock=clock,
+                                              fence=fence, live_vault=live_vault)
 
         return _launch(sqlite_path, f"presentation:{presentation_id}", job, builds=builds,
                        name=f"learnloop-ad-forecast-{presentation_id}")

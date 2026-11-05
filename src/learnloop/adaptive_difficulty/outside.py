@@ -191,7 +191,8 @@ def answer_excerpts_enabled(vault: Any) -> bool:
 
 
 def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any,
-                 incumbent: Mapping[str, Any] | None, answers: bool = False) -> dict[str, Any]:
+                 incumbent: Mapping[str, Any] | None, answers: bool = False,
+                 attempts_read: list[dict[str, Any]] | None = None, evidence_ids: bool = False) -> dict[str, Any]:
     """The learner's history on the item's LO and its prerequisites, as of the serve, read through
     the serve's material view (no withheld item's attempt is ever on the card). The card is frozen
     with the view's protection epoch: it is sent only at that epoch (the AD23 redesign, E2).
@@ -199,13 +200,18 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view
     ``answers`` (learner-blindness relax, ``history_answer_excerpts``): each attempt listed also
     carries ``answer_excerpt``, at most :data:`HISTORY_ANSWER_LIMIT` characters of the learner's
     answer as the view hands it out (a withheld attempt is never listed at all). False: the card of
-    before, exactly."""
+    before, exactly.
+
+    RO2's rung H0 (spec_router_objective_v1 §6.3) builds this same card from ``attempts_read``, its
+    bounded read through the same view, instead of every visible attempt, and with
+    ``evidence_ids`` each entry names its attempt (``attempt:<id>``). ``llm_v3`` passes neither,
+    so its card is unchanged."""
 
     lo = vault.learning_objects.get(item.learning_object_id)
     scope = [item.learning_object_id, *[str(prerequisite) for prerequisite in (getattr(lo, "prerequisites", None) or [])]]
     scope = list(dict.fromkeys(scope))
     served = parse_utc(served_at)
-    found = [attempt for attempt in view.attempts(connection)
+    found = [attempt for attempt in (view.attempts(connection) if attempts_read is None else attempts_read)
              if str(attempt.get("learning_object_id")) in scope and attempt.get("attempt_type") != "self_report"]
     found.sort(key=lambda attempt: (str(attempt.get("created_at") or ""), str(attempt["id"])), reverse=True)
     rows = [(a["id"], a["practice_item_id"], a["learning_object_id"], a.get("attempt_type"), a.get("correctness"),
@@ -235,6 +241,8 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view
         })
         if answers and str(row[8] or "").strip():
             attempts[-1]["answer_excerpt"] = _excerpt(row[8], HISTORY_ANSWER_LIMIT)
+        if evidence_ids:
+            attempts[-1]["evidence_id"] = f"attempt:{row[0]}"
         if len(attempts) >= HISTORY_LIMIT:
             break
     topics = [vault.learning_objects[lo_id].title for lo_id in scope if lo_id in vault.learning_objects]

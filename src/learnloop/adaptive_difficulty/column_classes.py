@@ -247,6 +247,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id kind case_kind source_attempt_id remediation_episode_id expires_at status selected_item_id "
         "consumed_attempt_id learning_object_id created_at updated_at measurement_opportunity_id",
         "case_ref not_before context_json"),
+    # Router objective RO2 (migration 245).
+    "ad_history_forecast_draws": (
+        "id draw_key plan_presentation_id practice_item_id learning_object_id draw_version seed u anchor_rung "
+        "drawn_rung propensity propensities_json card_version protection_epoch served_at created_at",
+        "frozen_json"),
     "forecast_receipts": (
         "id receipt_key kind forecaster forecaster_version scope decision_kind decision_ref "
         "source_attempt_id learning_object_id facet_id practice_item_id item_content_hash binding_kind "
@@ -504,6 +509,25 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "proposed_patches": (
         "id agent_run_id purpose status_cache created_at updated_at",
         "source_refs_json summary"),
+    # Router objective RO2: the learner's help (rung H1).
+    "help_assists": (
+        "id surface assist_kind practice_item_id practice_item_hash practice_session_id workbench_session_id "
+        "attempt_id submission_id hint_kind level offered_level level_source horizon route_id from_node_id "
+        "target_node_id map_id authored_index work_hash work_chars chooser propensity seed policy_version "
+        "question_set_version state_hash shown counted_by model prompt_version input_hash latency_ms "
+        "requested_at shown_at submitted_at submit_latency_seconds first_questionable_step_id about_step_id "
+        "continue_from_step_id eig_nats feedback_step_id figure_id",
+        "strategy body_md placement_json options_json probabilities_json drawn_option_json request feedback_text "
+        "feedback_shortcut contract_failures_json leak_flags_json step_snapshot_json step_verdicts_json "
+        "error_kind_guess rivals_json predicted_answers_json cited_span_ids_json retrieval_manifest_json "
+        "alternatives_json work_md"),
+    # Router objective RO2: the gaps named from the learner's text (rung H3).
+    "learner_text_gaps": (
+        "id source_kind source_id attempt_id practice_item_id anchor_learning_object_id subject_id chooser "
+        "context_judge context_kind decider_kind kind action target_kind target_id target_subject_id "
+        "match_basis edge_id created_concept_id created_learning_object_id seed_practice_item_id seed_status "
+        "algorithm_version pipeline_version created_at",
+        "learner_text decider_json named_json detail_json"),
     "question_events": (
         "id note_id practice_item_id attempt_id session_id question_type hint_equivalent leak_suspected "
         "rating seconds_into_attempt provider created_at answer_status saved_note_id scaffold_level "
@@ -551,6 +575,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id extraction_id section_id learning_object_id treatment origin candidate_rank learner_override "
         "section_hash lo_hash state_key ledger_id model prompt_version created_at",
         "roles_json assumes_json notation_md learner_text"),
+    # Router objective RO2: a Reader session's digest (rung H2).
+    "reader_session_digests": (
+        "id extraction_id session_key visit_ids_json started_at ended_at status followup_commitment_ids_json "
+        "revalued_on cited_event_ids_json model prompt_version dismissed_at created_at updated_at",
+        "summary_json valuation_json revaluation_json narrative_md"),
     "reveal_events": (
         "id practice_item_id learning_object_id remediation_episode_id source_kind amount "
         "question_event_id attempt_id created_at",

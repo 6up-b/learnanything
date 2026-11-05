@@ -257,15 +257,19 @@ class MaterialView:
     # -- the registry's rule (``protected_tables.COLUMNS``) ------------------------------------------
 
     def rows(self, connection: Any, table: str, where: str = "", args: Iterable[Any] = (), *,
-             order: str = "") -> list[dict[str, Any]]:
+             order: str = "", limit: int | None = None) -> list[dict[str, Any]]:
         """The rows of a protected table AD may read: every column, the rows any of whose references
         resolves to a withheld entity left out (:meth:`keep`), a reading receipt's doses without the
-        facets only withheld material names. Empty while unavailable or without the table."""
+        facets only withheld material names. Empty while unavailable or without the table.
+
+        ``limit`` (RO2's bounded retrieval, spec_router_objective_v1 §6.3): at most this many rows are
+        read before the rule filters them, so the read's work is bounded; a withheld row read under
+        the limit is left out, never replaced by a later one."""
 
         if not self.available or not _has_table(connection, table):
             return []
         sql = f"/* ad-rules */ SELECT {_select(table)} FROM {table}" + (f" WHERE {where}" if where else "") + (
-            f" ORDER BY {order}" if order else "")
+            f" ORDER BY {order}" if order else "") + (f" LIMIT {int(limit)}" if limit is not None else "")
         return self.filter(connection, table, _rows(connection, sql, args))
 
     def filter(self, connection: Any, table: str, rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -463,6 +467,18 @@ class MaterialView:
                                                  for found in administrations)
         if table == "proposed_patch_items":
             return self._proposal_withheld(row)
+        if table == "help_assists":
+            # Router objective RO2: a help row's text may quote the source spans it cites or retrieved,
+            # as an item's own provenance does: one in withheld material withholds the row, judged
+            # block by block (``keys_withheld``, the item-provenance rule, not the whole-reading
+            # rule); an unreadable citation list is withheld (fail closed).
+            try:
+                cited = _json(row.get("cited_span_ids_json"), [])
+                manifest = _json(row.get("retrieval_manifest_json"), {})
+                keys, whole = reference_keys({"cited": cited, "manifest": manifest})
+            except Exception:  # noqa: BLE001 - fail closed
+                return True
+            return self.keys_withheld(keys, whole)
         raise ValueError(f"no self rule for {table}")
 
     def _proposal_withheld(self, row: Mapping[str, Any]) -> bool:

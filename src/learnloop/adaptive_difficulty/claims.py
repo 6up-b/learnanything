@@ -85,6 +85,12 @@ def presentation_key(presentation_id: str) -> str:
     return f"{CLAIM_TASK}:llm_v3:{presentation_id}"
 
 
+def history_key(presentation_id: str) -> str:
+    """Router objective RO2: ``llm_history_v1``'s claim on one presentation (apart from ``llm_v3``'s)."""
+
+    return f"{CLAIM_TASK}:llm_history_v1:{presentation_id}"
+
+
 class FencedRepository:
     """The repository a claimed unit of work writes through (see the module docstring)."""
 
@@ -222,4 +228,4 @@ def claimed(repository: Any, key: str, *, fence: Any = None) -> Iterator[Worker 
 
 
 __all__ = ["CLAIM_TASK", "DispatchStopped", "FencedRepository", "LeaseLost", "PRODUCER", "ReceiptLeaseLost",
-           "ReceiptWriteFailed", "Worker", "audit_key", "claimed", "item_forecast_key", "presentation_key"]
+           "ReceiptWriteFailed", "Worker", "audit_key", "claimed", "history_key", "item_forecast_key", "presentation_key"]

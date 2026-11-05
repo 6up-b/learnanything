@@ -46,6 +46,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("ad_commission_results", PROTECTED),
     ("ad_coupling_versions", PROTECTED),
     ("ad_dose_offers", PROTECTED),
+    # Router objective RO2 (migration 245): the seeded draw of the lower rung beside H3, per presentation.
+    ("ad_history_forecast_draws", PROTECTED),
     ("ad_reading_opportunities", PROTECTED),
     ("ad_relatedness_runs", PROTECTED),
     ("ad_selections", PROTECTED),
@@ -106,6 +108,11 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("grader_calibration_alphas", NEUTRAL),
     ("grader_calibration_models", NEUTRAL),
     ("grading_evidence", DENIED),
+    # Router objective RO2 (spec_router_objective_v1 §6.1, §6.3): the learner's ordered help (hints,
+    # workbench feedback, Socratic moves) is rung H1 of llm_history_v1's card. A row names an item and
+    # an attempt, and its text may cite reading spans (its own rule: a citation into withheld material
+    # withholds the row).
+    ("help_assists", PROTECTED),
     ("hypothesis_recurrence_groups", DENIED),
     ("hypothesis_recurrence_review", DENIED),
     ("hypothesis_recurrence_state", DENIED),
@@ -141,6 +148,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("lesson_weight_trace", DENIED),
     ("lessons", DENIED),
     ("learner_text_gap_reversals", DENIED),
+    # Router objective RO2 (§6.3, rung H3 "gaps"): the gaps named from the learner's own text; a row
+    # names its attempt, its item and what it matched or made.
+    ("learner_text_gaps", PROTECTED),
     ("learning_object_mastery", DENIED),
     ("lo_probe_state", DENIED),
     ("measurement_contract_corrections", NEUTRAL),
@@ -173,6 +183,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("reader_path_depths", NEUTRAL),
     ("reader_path_sections", PROTECTED),
     ("reader_section_progress", PROTECTED),
+    # Router objective RO2 (§6.3, rung H2 "digests"): a Reader session's digest names its reading.
+    ("reader_session_digests", PROTECTED),
     ("reveal_events", PROTECTED),
     ("rung_variant_requests", DENIED),
     ("scheduler_slate_candidates", DENIED),
@@ -283,6 +295,13 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     },
         values="draw_key visit_id learning_object_ids_json feasible_json infeasible_json base_version floor "
                "propensities_json seed u forecast_p detail_json created_at"),
+    # Router objective RO2 (migration 245): the draw names its presentation and item; the frozen
+    # cards' ids, hashes, sizes and what the budget left out are values (counts and ids, no content).
+    "ad_history_forecast_draws": _table({
+        "plan_presentation_id": "presentation", "practice_item_id": "item", "protection_epoch": "epoch",
+    },
+        values="id draw_key learning_object_id draw_version seed u anchor_rung drawn_rung propensity "
+               "propensities_json card_version frozen_json served_at created_at"),
     "ad_reading_opportunities": _table({
         "source_id": "source@source_table", "dose_offer_id": "dose_draw", "protection_epoch": "epoch",
     },
@@ -325,6 +344,19 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "render_view_id annotation_id commitment_id activity_id payload_hash "
                "client_idempotency_key privacy_locality consent_context producer_version app_version policy_version "
                "supersedes_event_id"),
+    # Router objective RO2: a help row stands or falls by its item, its attempt and its own rule (the
+    # reading spans it cites and its retrieval manifest: one in withheld material withholds the row).
+    "help_assists": _table({"practice_item_id": "item", "attempt_id": "attempt", "cited_span_ids_json": "self",
+                            "retrieval_manifest_json": "self"},
+        values="id surface assist_kind practice_item_hash practice_session_id workbench_session_id submission_id "
+               "hint_kind level offered_level level_source horizon route_id from_node_id target_node_id map_id "
+               "strategy body_md authored_index work_hash work_chars placement_json chooser options_json "
+               "probabilities_json drawn_option_json propensity seed policy_version question_set_version "
+               "state_hash request feedback_text feedback_shortcut contract_failures_json leak_flags_json shown "
+               "counted_by model prompt_version input_hash latency_ms requested_at shown_at submitted_at "
+               "submit_latency_seconds step_snapshot_json step_verdicts_json first_questionable_step_id "
+               "error_kind_guess about_step_id continue_from_step_id rivals_json predicted_answers_json eig_nats "
+               "feedback_step_id alternatives_json work_md figure_id"),
     "item_forecast_payloads": _table({"content_hash": "revision"},
         values="id owner_key forecaster kind content_json created_at"),
     "item_forecast_scores": _table({
@@ -457,6 +489,16 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="id note_id note_key target_kind learning_object_id goal_id authorship status ledger_id model "
                "prompt_version created_at",
         derived="target_key how how_line state_key"),
+    # Router objective RO2: a named gap stands or falls by its attempt, its item, the item it seeded and
+    # what it targets (by kind); the learner's words and the judge's record are values of a kept row.
+    "learner_text_gaps": _table({
+        "attempt_id": "attempt", "practice_item_id": "item", "seed_practice_item_id": "item",
+        "target_id": "entity@target_kind", "source_id": "entity@source_kind",
+    },
+        values="id source_kind anchor_learning_object_id subject_id learner_text chooser context_judge "
+               "context_kind decider_kind decider_json kind named_json action target_kind target_subject_id "
+               "match_basis edge_id created_concept_id created_learning_object_id seed_status detail_json "
+               "algorithm_version pipeline_version created_at"),
     "learner_notes": _table({},
         values="id note_key line content_hash captured_on origin truncated created_at vault_ref_kind vault_ref_id",
         derived="path heading_path title heading text_md"),
@@ -464,6 +506,11 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     # the learner's words are never read as stored.
     "deliverable_scope_inputs": _table({"extraction_id": "extraction", "span_ids_json": "spans@extraction_id"},
         values="id goal_id kind created_at", derived="text_md context_json"),
+    # Router objective RO2: a Reader session's digest is a READING row of its reading.
+    "reader_session_digests": _table({"extraction_id": "extraction"},
+        values="id session_key visit_ids_json started_at ended_at status summary_json followup_commitment_ids_json "
+               "valuation_json revaluation_json revalued_on narrative_md cited_event_ids_json model prompt_version "
+               "dismissed_at created_at updated_at"),
     "reveal_events": _table({
         "practice_item_id": "item", "attempt_id": "attempt", "question_event_id": "question_event",
     },
@@ -502,6 +549,7 @@ EPOCH: Mapping[str, str] = MappingProxyType({
     "ad_coupling_versions": "free: the owner's adoption of runs, each epoch-scoped (a run of another epoch "
                             "is out of force, so an adopted coupling resets with the epoch: E2)",
     "ad_dose_offers": "column:protection_epoch",
+    "ad_history_forecast_draws": "column:protection_epoch",
     "ad_reading_opportunities": "column:protection_epoch",
     "ad_relatedness_runs": "json:units_json:protection:epoch",
     "ad_selections": "column:protection_epoch",
@@ -539,6 +587,7 @@ ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
 AD_WRITABLE = frozenset({
     "ad_attempt_trace", "ad_commission_results", "ad_coupling_versions", "ad_dose_offers",
     "ad_reading_opportunities", "ad_relatedness_runs", "ad_selections", "ad_state", "forecast_receipts",
+    "ad_history_forecast_draws",
     "item_forecast_payloads", "item_forecast_scores", "item_serve_inputs", "judgment_ledger",
     "judgment_work_claims", "model_call_receipts", "model_work_checkpoints", "practice_item_snapshots",
     "source_service_spend",
@@ -628,6 +677,8 @@ READING = frozenset({
     "deliverable_path_sections", "deliverable_scope_inputs",
     # Curriculum C2: the note links (display only, never evidence).
     "learner_note_links",
+    # Router objective RO2: a Reader session's digest.
+    "reader_session_digests",
 })
 #: Tables with extraction-like references that are ITEM provenance, not reading: judged by the
 #: withheld material itself, as before (an item's own sources), each with why.

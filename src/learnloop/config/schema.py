@@ -4482,7 +4482,7 @@ class AskConfig(BaseModel):
 
 
 #: Adaptive difficulty AD1's outside forecasters (spec_adaptive_difficulty_v1 §8.2, D4).
-AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider")
+AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider", "llm_history_v1")
 
 
 class AdaptiveDifficultyConfig(BaseModel):
@@ -4508,7 +4508,13 @@ class AdaptiveDifficultyConfig(BaseModel):
       ``llm_v1:item`` once per item revision when it is prepared for the plan's
       pool (background), ``llm_v3:llm`` and ``llm_v3:decider`` per
       presentation (background, after the serve). Off the critical path; an
-      empty list (or false) runs none.
+      empty list (or false) runs none. Router objective RO2 adds
+      ``llm_history_v1`` (spec_router_objective_v1 §6): per presentation, its
+      rung H3 and one drawn rung of H0-H2, each one call, in the background
+      after the serve; receipts only, never evidence (A2, A12).
+    * ``history_card_token_budget`` (RO2, ``keep``): the size bound of one
+      ``llm_history_v1`` card in UTF-8 bytes; over it, entries are trimmed
+      oldest first within each rung and the card says what it left out.
     * ``rating_tap``: the practice screen's optional "Felt: easy / about right
       / hard" beside Submit, stored on the attempt only when tapped (§12).
     * ``feature_audit``: one Decider judgment per audited task-feature
@@ -4563,7 +4569,7 @@ class AdaptiveDifficultyConfig(BaseModel):
 
     enabled: bool = True
     forecast_receipts: bool = True
-    outside_forecasters: list[Literal["llm_v1:item", "llm_v3:llm", "llm_v3:decider"]] = Field(
+    outside_forecasters: list[Literal["llm_v1:item", "llm_v3:llm", "llm_v3:decider", "llm_history_v1"]] = Field(
         default_factory=lambda: list(AD_OUTSIDE_FORECASTERS)
     )
     rating_tap: bool = True
@@ -4593,6 +4599,11 @@ class AdaptiveDifficultyConfig(BaseModel):
     #: work). Its frozen state is ``ad-forecast-state-v2``. Off: the card and
     #: state version of before, exactly.
     history_answer_excerpts: bool = True
+    #: Router objective RO2 (spec_router_objective_v1 §6.3): the ``keep`` prompt-size bound on one
+    #: ``llm_history_v1`` card, counted as UTF-8 bytes (an upper bound on its tokens). Over it, the
+    #: card's entries are trimmed oldest first within each rung and the card states what it left
+    #: out. A size bound, never a judgement: nothing weights it.
+    history_card_token_budget: int = Field(default=48_000, ge=4_000)
     priors: Literal["ad_priors_v1"] = "ad_priors_v1"
     hyper: Literal["ad_hyper_v1"] = "ad_hyper_v1"
     ladder: Literal["ad_ladder_v1"] = "ad_ladder_v1"
