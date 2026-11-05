@@ -297,6 +297,38 @@ def test_r6_the_lag_join_reads_the_newest_trace_before_the_check_at_its_lag():
     assert by_lag[1] == (pytest.approx(math.log(0.3 / 0.7)), None, 0.0, 1) and set(by_lag) == {1, 2}
 
 
+_STAGE_OR_SYMBOL = __import__("re").compile(r"\b(RO|TE|FG|AD|RW|LP|UX|PF|S)\d\w*\b|\bw\b|[μπκΔθσεωαβγ]|\bmvp\b")
+
+
+@pytest.mark.parametrize("version", ["ro4", "ro5"])
+def test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols(tmp_path, version):
+    """RO4's open item 3: the why surface printed the trace's weight note verbatim ("no randomized checks exist
+    before RO5, so no score forms and w stays at its prior"). Pre-fix this fails on both versions' traces."""
+
+    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
+    from learnloop.db.stores import router_objective as store
+    from learnloop.router import why
+    from learnloop.router_objective.trace import explain
+
+    env = mixture_env(tmp_path, fake_runtime(), version=TAG if version == "ro5" else ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+    run(env)
+    with env.repository.connection() as connection:
+        traces = [store.trace(connection, row["decision_id"]) for row in store.traces(connection)]
+    assert traces
+    for trace in traces:
+        lines = explain(trace)
+        text = " ".join(lines)
+        assert lines and why.jargon_in(text) == [], text
+        assert not _STAGE_OR_SYMBOL.search(text), (_STAGE_OR_SYMBOL.search(text), text)
+        assert any("split" in line for line in lines)
+    # The moved case reads in plain words too.
+    moved = {**traces[0], "trace": {**traces[0]["trace"], "mixing": {
+        **traces[0]["trace"]["mixing"], "w": 0.6, "weight_note": "w moved on closed scores",
+        "posterior": {"source": "posterior", "n": 12}}}}
+    text = " ".join(explain(moved))
+    assert why.jargon_in(text) == [] and not _STAGE_OR_SYMBOL.search(text) and "moved" in text
+
+
 def test_r6_the_return_models_assumption_is_labelled_in_the_trace_and_the_report():
     # The return model's record (the trace's ``inputs.return_model`` and the report's ``return_model``) is
     # ReturnSlope.as_dict: the assumption travels with it, fitted or at its prior.
