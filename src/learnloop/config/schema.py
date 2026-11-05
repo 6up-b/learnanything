@@ -4180,6 +4180,11 @@ class RouterObjectiveConfig(BaseModel):
 
     RO4 (mvp-0.47, §8): ``enabled`` and its seeds, each shown in the trace and changeable without a code change.
     Every seed is chosen by judgment and labelled so (§12); the ``keep`` bounds are numerical safeguards.
+
+    RO5 (mvp-0.48, §9): the arms (``stop_coin``, ``check_rate`` with ``embedded_checks_per_day``,
+    ``pick_open_share``), each a declared price for information whose zero (``"off"`` for the checks) serves
+    mvp-0.47 exactly; the calibration's labelled priors (``kappa_prior_log_sd``, ``return_slope_prior_sd``,
+    ``goal_transfer_prior_sd``); ``fitted_models`` for RO4's follow-ups.
     """
 
     receipts: bool = True
@@ -4233,6 +4238,31 @@ class RouterObjectiveConfig(BaseModel):
     #: §8.3 the LLM policy's decision card bound (UTF-8 bytes, ``keep``), one shared budget over the
     #: union of the candidates' topics, as RO2's card's.
     llm_card_token_budget: int = Field(default=48_000, ge=2_000, le=400_000)
+    #: RO5 (mvp-0.48, §9, §12): the arms. Each probability is a declared price for information, not a
+    #: statistical fact; the report shows what each costs in minutes. ``stop_coin``: at a reversible block
+    #: boundary, the chance of offering stop and, separately, of presenting the next block instead of a
+    #: drawn stop (so 0.05 each way); 0 draws no coin.
+    stop_coin: float = Field(default=0.05, ge=0.0, le=0.45)
+    #: §9 item 2: ``"embedded"`` (default) replaces one ordinary question of the day's first session with
+    #: ``embedded_checks_per_day`` randomized cold checks; a number selects extra checks at that rate per
+    #: valued topic per day; ``"off"`` schedules none.
+    check_rate: Literal["embedded", "off"] | float = "embedded"
+    embedded_checks_per_day: int = Field(default=1, ge=0, le=16)
+    #: §9 item 6: the seeded share of misconception picks left open (recorded as attributed opinion, no
+    #: provisional belief, the factor open); 0 leaves none open.
+    pick_open_share: float = Field(default=0.1, ge=0.0, le=0.5)
+    #: §9 item 1, §8.6: the prior sd of log kappa0 around the seed it is handed from once randomized stop
+    #: offers exist (a seed, labelled: about a factor of two either way).
+    kappa_prior_log_sd: float = Field(default=0.7, gt=0.0, le=10.0)
+    #: §9 item 1: the return model's prior sd on its slope (log return gap per remembered session of extra
+    #: minutes), centred on no effect (a seed, labelled).
+    return_slope_prior_sd: float = Field(default=0.5, gt=0.0, le=10.0)
+    #: §9 item 3: the pool-to-goal transfer's wide prior sd (logit scale, slope centred on 1 and intercept
+    #: on 0) per goal type (a seed, labelled).
+    goal_transfer_prior_sd: float = Field(default=1.0, gt=0.0, le=10.0)
+    #: §9 item 7 (RO4's follow-ups): the rollouts read AD's fitted learning posterior (γ and the reading
+    #: curve) and the memory combiner fitted on resolved randomized checks; off, RO4's priors.
+    fitted_models: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":
@@ -4243,6 +4273,8 @@ class RouterObjectiveConfig(BaseModel):
                              "1 - numeric_min_share")
         if self.rollout_theta_draws_max < self.rollout_theta_draws:
             raise ValueError("router_objective.rollout_theta_draws_max must be at least rollout_theta_draws")
+        if not isinstance(self.check_rate, str) and not 0.0 <= float(self.check_rate) <= 1.0:
+            raise ValueError("router_objective.check_rate must be \"embedded\", \"off\" or a rate in [0, 1]")
         return self
 
 

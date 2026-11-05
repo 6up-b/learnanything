@@ -17,6 +17,11 @@ Router objective RO4's (§8; ``ROUTER_OBJECTIVE_VERSIONS``, mvp-0.47): :func:`ob
 ``[router_objective] enabled``), :func:`objective_scores_on` (and RO0's receipts: a comparison score needs
 them) and :func:`sensors_in_value_on`.
 
+Router objective RO5's (§9; ``ROUTER_CALIBRATION_VERSIONS``, mvp-0.48): each arm is the tag, the objective
+serving (the coin and the checks live in its frame; the open picks only need the tag) and its own rate:
+:func:`stop_coin_rate` (0: no coin), :func:`check_mode` (``"embedded"``, ``"rate"`` or ``"off"``),
+:func:`pick_open_share`; :func:`fitted_models_on` for RO4's follow-ups (§9 item 7).
+
 :func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
 snapshot, §5.5), so ``doctor`` can say when persisted due dates were derived under another setting.
 """
@@ -26,7 +31,11 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from learnloop.algorithm_versions import INTERVAL_FACTOR_VERSIONS, ROUTER_OBJECTIVE_VERSIONS
+from learnloop.algorithm_versions import (
+    INTERVAL_FACTOR_VERSIONS,
+    ROUTER_CALIBRATION_VERSIONS,
+    ROUTER_OBJECTIVE_VERSIONS,
+)
 
 #: The resolution-id prefix a learner's own report carries (``record_unresolved_cause_self_report``).
 LEARNER_REPORT_PREFIX = "learner_report:"
@@ -160,6 +169,57 @@ def sensors_in_value_on(config: Any) -> bool:
     return objective_on(config) and bool(getattr(section, "sensors_in_value", False))
 
 
+def calibration_tag(config: Any) -> bool:
+    """RO5 (§9): the vault is at the calibration successor (mvp-0.48) or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in ROUTER_CALIBRATION_VERSIONS
+
+
+def stop_coin_rate(config: Any) -> float:
+    """RO5 §9 item 1: the stop coin's probability each way at a reversible boundary (0: no coin drawn)."""
+
+    if not (calibration_tag(config) and objective_on(config)):
+        return 0.0
+    return float(getattr(getattr(config, "router_objective", None), "stop_coin", 0.0) or 0.0)
+
+
+CHECKS_EMBEDDED = "embedded"
+CHECKS_RATE = "rate"
+CHECKS_OFF = "off"
+
+
+def check_mode(config: Any) -> tuple[str, float]:
+    """RO5 §9 item 2: ``(mode, value)``: ``("embedded", checks per day)``, ``("rate", per topic per day)`` or
+    ``("off", 0)``. Below the tag or with the objective off, off."""
+
+    section = getattr(config, "router_objective", None)
+    if not (calibration_tag(config) and objective_on(config)):
+        return CHECKS_OFF, 0.0
+    rate = getattr(section, "check_rate", CHECKS_OFF)
+    if rate == CHECKS_EMBEDDED:
+        per_day = int(getattr(section, "embedded_checks_per_day", 0) or 0)
+        return (CHECKS_EMBEDDED, float(per_day)) if per_day > 0 else (CHECKS_OFF, 0.0)
+    if isinstance(rate, str) or float(rate) <= 0.0:
+        return CHECKS_OFF, 0.0
+    return CHECKS_RATE, float(rate)
+
+
+def pick_open_share(config: Any) -> float:
+    """RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag)."""
+
+    if not calibration_tag(config):
+        return 0.0
+    return float(getattr(getattr(config, "router_objective", None), "pick_open_share", 0.0) or 0.0)
+
+
+def fitted_models_on(config: Any) -> bool:
+    """RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks."""
+
+    section = getattr(config, "router_objective", None)
+    return calibration_tag(config) and objective_on(config) and bool(getattr(section, "fitted_models", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -174,8 +234,16 @@ __all__ = [
     "RECEIVED_AT_RECORDED",
     "attempt_time_sql",
     "available_at",
+    "CHECKS_EMBEDDED",
+    "CHECKS_OFF",
+    "CHECKS_RATE",
     "available_at_reads_on",
+    "calibration_tag",
+    "check_mode",
+    "fitted_models_on",
     "interval_factor_removed",
+    "pick_open_share",
+    "stop_coin_rate",
     "known_at",
     "objective_on",
     "objective_scores_on",

@@ -509,7 +509,16 @@ def hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, reposit
 
 def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str,
                  success_correctness: float) -> dict[str, Any]:
-    return {
+    from learnloop.router_objective_switches import calibration_tag
+
+    extra: dict[str, Any] = {}
+    if calibration_tag(vault.config):
+        # Router objective RO5 (spec §9 item 6): the open picks' assignment, eligibility, gate reasons,
+        # administration, completion and intervening instruction, each apart; agreement labelled.
+        from learnloop.router_objective import picks as ro5_picks
+
+        extra["open_picks"] = ro5_picks.section(connection)
+    return {**{
         "report_version": REPORT_VERSION,
         "as_of": as_of,
         "algorithm_version": vault.config.algorithms.algorithm_version,
@@ -525,7 +534,7 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
             "switch_on": hypothesis_marks_on(vault.config),
             **hypothesis_marks_section(connection, vault, repository, success_correctness=success_correctness),
         },
-    }
+    }, **extra}
 
 
 def lines(report: Mapping[str, Any]) -> list[str]:
@@ -604,6 +613,17 @@ def lines(report: Mapping[str, Any]) -> list[str]:
         out.append(f"  by display position: {position['by_position']}; {position['label']}")
     else:
         out.append(f"Marks on possible causes: unavailable ({marks.get('reason')})")
+    picks = report.get("open_picks")
+    if picks is not None and picks.get("available"):
+        out.append(f"Open picks (router objective RO5 §9 item 6): assigned {picks['assignments']}, eligibility "
+                   f"{picks['eligibility']}, administered {picks['administered']}, completed {picks['completed']}")
+        out.append(f"  gate reasons {picks['gate_reasons']}; intervening instruction (reveals) "
+                   f"{picks['intervening_instruction_reveals']}")
+        agreement = picks["pick_probe_agreement"]
+        out.append(f"  pick-probe agreement: open {agreement['open']}, resolve {agreement['resolve']}; "
+                   f"{agreement['label']}")
+        delayed = picks["delayed_performance"]
+        out.append(f"  delayed performance: open {delayed['open']}, resolve {delayed['resolve']}; {delayed['label']}")
     return out
 
 

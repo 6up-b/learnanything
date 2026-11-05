@@ -44,10 +44,10 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
     # Follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-8:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", LATEST_ALGORITHM_VERSION) == (
-        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47")
+    assert SUCCESSOR_CHAIN[-9:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", LATEST_ALGORITHM_VERSION) == (
+        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48")
     assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47"})
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48"})
 
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
@@ -216,7 +216,7 @@ def test_the_cli_installs_this_links_completion():
 
     # Teacher TE1b's mvp-0.43 is the chain's latest: the CLI installs its completion, which hands an
     # earlier journal to follow-ups Nov 2's, which hands this link's journal to this link's completion.
-    assert "learnloop.router_objective_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.router_calibration_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.help_fold_attach_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_suggestions_upgrade)
     assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(

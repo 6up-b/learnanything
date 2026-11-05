@@ -3,7 +3,11 @@
 The Pipeline plan's outcome (``docs/brainstorming/Pipeline Augmentation
 Plan.md``, "Outcome and cost contract"):
 
-    S = alpha R_cold + (1 - alpha) R_next,   alpha = 0.75
+    S = alpha R_cold + (1 - alpha) R_next,   alpha = 0.75 (provisional)
+
+``alpha`` is labelled provisional (router objective RO5, spec §9 item 4), like
+the one-day coldness rule below: a declared weight until a learned coldness
+(router §15.2) reads the same covariates each outcome already records.
 
 * ``R_next``: success on the first fresh, unassisted, independently attempted
   item on the decision's learning object after the action. Fresh = a different
@@ -156,8 +160,16 @@ BINDING_PRESENTATION = "presentation"
 BINDING_CANDIDATE = "candidate"
 BINDING_SESSION_RULE = "session_rule"
 
-#: The Pipeline plan's declared policy weight on durable retrieval.
+#: The Pipeline plan's declared policy weight on durable retrieval. Provisional (router objective RO5, spec §9
+#: item 4), exactly as the one-day coldness rule (:data:`R_COLD_RULE`): a declared weight, not a measured one,
+#: until a learned coldness (router §15.2) is fitted on the covariates each outcome records for both its R_next
+#: and its R_cold attempts (``COVARIATE_NAMES``, ``coldness_candidates_json``); RO6's reward is the objective's
+#: ``R``, never ``S``.
 S_ALPHA = 0.75
+S_ALPHA_STATUS = "provisional"
+#: Router objective RO5's randomized check's plan origin (``router_objective.checks.ORIGIN``; repeated because the
+#: router leaf never imports the objective's package, a test pins the two equal).
+_RANDOMIZED_CHECK_ORIGIN = "randomized_check"
 
 #: A frozen objective's arms with no action of their own (``data_capture.objectives``, where they are
 #: named; repeated here because the router leaf never imports it: a test pins the two equal).
@@ -582,10 +594,15 @@ def _presentation_is_the_decisions(decision: Mapping[str, Any], presentation: Ma
     A ``plan_interrupt`` decision's action is its own follow-up: the one
     presentation of its block and its chosen item. A ``plan_block``
     decision's is any presentation of its block except one another decision
-    placed (an inserted follow-up names its ``plan_interrupt`` decision)."""
+    placed (an inserted follow-up names its ``plan_interrupt`` decision), and
+    except a randomized cold check the frame placed in it (router objective
+    RO5, spec §9 item 2: outside the mix, neither policy's action; its plan
+    origin says so, and only RO5's checks carry it)."""
 
     if decision.get("decision_kind") == _INTERRUPT_KIND:
         return str(presentation.get("practice_item_id")) == str(decision.get("chosen_practice_item_id"))
+    if presentation.get("origin") == _RANDOMIZED_CHECK_ORIGIN:
+        return False
     owner = presentation.get("router_decision_id")
     return not owner or str(owner) == str(decision.get("id"))
 

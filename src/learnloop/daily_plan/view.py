@@ -82,7 +82,8 @@ def _item_row(env: PlanEnv, item: PlannedItem) -> dict[str, Any]:
         "lane": item.lane,
         "est_minutes": round(item.est_minutes, 4),
         "state": item.state,
-        "origin": item.origin,
+        # Router objective RO5 (§9 item 2): a randomized check is a normal question to the learner, no label.
+        "origin": "chooser" if item.origin == "randomized_check" else item.origin,
         "served_at": item.served_at,
         "done_at": item.done_at,
     }

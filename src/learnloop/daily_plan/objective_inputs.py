@@ -119,10 +119,13 @@ def _mastery(connection: Any, los: Sequence[str]) -> dict[str, tuple[float, floa
         f"WHERE learning_object_id IN ({marks})", list(los)) if row[1] is not None and row[2] is not None}
 
 
-def _ad(vault: Any, repository: Any, los: Sequence[str]) -> dict[str, Any]:
+def _ad(vault: Any, repository: Any, los: Sequence[str], *, learning_moments: bool = False) -> dict[str, Any]:
     try:
         from learnloop.adaptive_difficulty.readiness import decision_state_fields
 
+        if learning_moments:
+            # RO5 §9 item 7: AD's fitted γ and reading curve beside the predictive (one read of the snapshot).
+            return dict(decision_state_fields(vault, repository, list(los), reading_doses=True, learning_moments=True))
         return dict(decision_state_fields(vault, repository, list(los), reading_doses=True))
     except Exception:  # noqa: BLE001 - AD unavailable: the mastery posterior stands in, and the trace says so
         LOG.warning("router objective: adaptive difficulty's predictive was not read", exc_info=True)
@@ -157,6 +160,143 @@ def _stop_accept(connection: Any, prior: tuple[float, float]) -> tuple[tuple[flo
     except Exception:  # noqa: BLE001 - below migration 243: the prior alone
         return prior, counts
     return (prior[0] + counts["accepted"], prior[1] + counts["overridden"]), counts
+
+
+def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_priors: Any, dose_scales: Any) -> V.Learning:
+    """AD's learning parameters for the rollouts: RO4's prior means and variances, or (RO5 §9 item 7, at the tag with
+    ``fitted_models``) the subject view's fitted posterior moments of ``γ`` and the reading curve, each parameter
+    falling back to its prior where AD has none."""
+
+    prior = V.Learning(gamma=(gamma_prior[1], gamma_prior[2]),
+                       gbar=((reading_priors[0][1], reading_priors[0][2]), (reading_priors[1][1], reading_priors[1][2])),
+                       dose_scales=tuple(dose_scales), source="adaptive_difficulty.priors (prior means: the "
+                                                              "posterior is not read at this version)")
+    moments = ad.get("learning") if fitted else None
+    if not moments:
+        return prior
+    gamma = tuple(moments.get("gamma") or prior.gamma)
+    gbar = (tuple(moments.get("gbar:1") or prior.gbar[0]), tuple(moments.get("gbar:2") or prior.gbar[1]))
+    return V.Learning(gamma=(float(gamma[0]), float(gamma[1])),
+                      gbar=((float(gbar[0][0]), float(gbar[0][1])), (float(gbar[1][0]), float(gbar[1][1]))),
+                      dose_scales=tuple(dose_scales),
+                      source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)")
+
+
+def _combiner(repository: Any) -> M.Combiner:
+    """RO5 §9 item 7: the memory model's Bayesian logistic combination fitted on resolved randomized checks (each
+    check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior."""
+
+    from learnloop.router_objective import checks as C
+
+    try:
+        with repository.connection() as connection:
+            resolved = C.resolve(connection, through="9999-12-31")
+    except Exception:  # noqa: BLE001 - the prior stands in, and the trace says so
+        LOG.warning("router objective RO5: the combiner's checks were not read", exc_info=True)
+        return M.Combiner()
+    rows = []
+    for entry in resolved:
+        sensors = entry.sensors or {}
+        if entry.status != "completed" or entry.outcome is None or sensors.get("eta") is None:
+            continue
+        rows.append((float(sensors["eta"]), sensors.get("retrievability"), int(entry.outcome >= 0.5)))
+    if not rows:
+        return M.Combiner(source="prior (no resolved randomized check yet)")
+    fitted = M.fit_combiner(rows)
+    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n,
+                      source="laplace_fit on resolved randomized checks")
+
+
+def population(vault: Any, repository: Any, now_iso: str) -> dict[str, float]:
+    """§8.7's population at ``now_iso`` with each LO's undated density: the active goals' scopes and the retention
+    commitments (LOs with FSRS memory), never the candidates (RO5's checks draw over it, the traces' uses freeze
+    it)."""
+
+    now = parse_utc(now_iso) or datetime.now().astimezone()
+    densities, _dated, _goals, goal_order = _goal_uses(vault, repository, now)
+    with repository.connection() as connection:
+        _by_lo, practiced_order = _practiced(connection, vault)
+    default_c = float(vault.config.router_objective.undated_use_density)
+    return {lo: float(densities.get(lo, default_c)) for lo in dict.fromkeys([*goal_order, *practiced_order])
+            if lo in getattr(vault, "learning_objects", {})}
+
+
+def check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclude: Any = ()) -> dict[str, list[str]]:
+    """RO5 §9 item 2's eligibility rule, per LO in id order: unseen (never attempted), unrevealed (no reveal row at
+    all), unassisted so far (no help row), not exam-reserved, held out or protected, nor in any routine serving
+    exclusion, and servable (the delayed checks' candidate rule)."""
+
+    from learnloop import delayed_checks as D
+    from learnloop.learner_protection import withheld_items
+    from learnloop.scheduling.serving_exclusions import routine_serving_exclusions
+
+    with repository.connection() as connection:
+        attempted = {str(r[0]) for r in connection.execute("SELECT DISTINCT practice_item_id FROM practice_attempts")}
+        revealed = {str(r[0]) for r in connection.execute(
+            "SELECT DISTINCT practice_item_id FROM reveal_events WHERE practice_item_id IS NOT NULL")}
+        assisted: set[str] = set()
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'").fetchone():
+            assisted = {str(r[0]) for r in connection.execute(
+                "SELECT DISTINCT practice_item_id FROM help_assists WHERE practice_item_id IS NOT NULL")}
+    withheld = withheld_items(vault, repository)
+    excluded = set(routine_serving_exclusions(vault, repository).out_of_timing_item_ids) | assisted | set(exclude)
+    out: dict[str, list[str]] = {}
+    for lo in los:
+        items = D.candidates(vault, repository, lo, exclude=excluded, withheld=withheld, attempted=attempted,
+                             revealed=revealed)
+        out[lo] = [str(item.id) for item in items if getattr(item, "status", "active") == "active"]
+    return out
+
+
+def check_sensors(vault: Any, repository: Any, lo: str, now_iso: str) -> dict[str, Any]:
+    """RO5: a topic's sensors at a randomized check's administration (§9 item 7: the combiner is fitted on these
+    against the check's outcome): AD's predictive on the logit scale and the FSRS retrievability of the LO's
+    practised items (the decisions' own reads)."""
+
+    out: dict[str, Any] = {"lo": lo}
+    try:
+        ad = _ad(vault, repository, [lo])
+        raw = ((ad.get("los") or {}).get(lo) or {}).get("p_bar_at_top_raw")
+        out["eta"] = _logit(float(raw)) if raw is not None else None
+        with repository.connection() as connection:
+            by_lo, _order = _practiced(connection, vault)
+        memory = by_lo.get(lo) or []
+        out["retrievability"] = None
+        if memory:
+            import numpy as np
+
+            from learnloop.params.fitted_params import resolve_fsrs_weights
+
+            now = parse_utc(now_iso) or datetime.now().astimezone()
+            stability = median(row["s"] for row in memory)
+            elapsed = median(_days(now, parse_utc(row["last"]) or now) for row in memory)
+            r = M.Fsrs(tuple(resolve_fsrs_weights(repository))).retrievability(np.array([stability]), np.array([elapsed]))
+            out["retrievability"] = float(r[0])
+    except Exception:  # noqa: BLE001 - sensors are context for the combiner, never block the check
+        LOG.warning("router objective RO5: the check's sensors for %s were not read", lo, exc_info=True)
+        out["status"] = "unavailable"
+    return out
+
+
+def _return_model(connection: Any, config: Any) -> tuple[tuple[float, float] | None, dict[str, Any] | None]:
+    """RO5 §9 item 1: stop's return model, from the sessions a stop coin was drawn in. None while the coin is off
+    (the predecessor's frame) or before any such session has an observed return (its prior mean: no effect)."""
+
+    from learnloop.router_objective import stop_coin as SC
+    from learnloop.router_objective_switches import stop_coin_rate
+
+    if stop_coin_rate(config) <= 0:
+        return None, None
+    section = config.router_objective
+    rows = SC.return_rows(connection, gap_minutes=float(section.session_gap_minutes))
+    slope = SC.fit_return_slope(rows, float(section.return_slope_prior_sd))
+    record = {**slope.as_dict(), "in_value": bool(rows),
+              "basis": "sessions a stop coin was drawn in, with an observed return (the observational form over all "
+                       "sessions is rejected, T9)"}
+    if not rows:
+        record["note"] = "no randomized return observed yet: the prior mean, no return effect"
+        return None, record
+    return (slope.mean, slope.variance), record
 
 
 def _duration_spread(connection: Any) -> tuple[float, int]:
@@ -251,6 +391,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         session_minutes, session_start, session_basis = P.session_active_minutes(
             connection, now=now_iso, gap_minutes=float(section.session_gap_minutes))
         gaps = _return_gaps(connection, float(section.session_gap_minutes))
+        return_slope, return_record = _return_model(connection, config)
         accept, accept_counts = _stop_accept(connection, (float(section.stop_accept_prior_a),
                                                           float(section.stop_accept_prior_b)))
         spread, spread_n = _duration_spread(connection)
@@ -264,7 +405,10 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         ordered = list(dict.fromkeys([*candidate_los, *reading_los, *dated_los, *goal_order, *practiced_order]))
         kept = ordered[:TOPIC_LIMIT]
         mastery = _mastery(connection, kept)
-    ad = _ad(vault, repository, kept)
+    from learnloop.router_objective_switches import fitted_models_on
+
+    fitted = fitted_models_on(config)
+    ad = _ad(vault, repository, kept, learning_moments=True) if fitted else _ad(vault, repository, kept)
     ad_los = ad.get("los") or {}
     from learnloop.adaptive_difficulty.priors import COLD_START_VARIANCE, DOSE_SCALES, GAMMA_PRIOR, READING_PRIORS
 
@@ -326,11 +470,9 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                       regime=P.SEED),
         tail_block_minutes=float(block_minutes), tail_block_items=int(block_items),
         horizon_days=float(section.horizon_days), fsrs_weights=tuple(resolve_fsrs_weights(repository)),
-        return_gaps_days=tuple(gaps), stop_accept=accept, combiner=M.Combiner(),
-        learning=V.Learning(gamma=(GAMMA_PRIOR[1], GAMMA_PRIOR[2]),
-                            gbar=((READING_PRIORS[0][1], READING_PRIORS[0][2]), (READING_PRIORS[1][1], READING_PRIORS[1][2])),
-                            dose_scales=tuple(DOSE_SCALES), source="adaptive_difficulty.priors (prior means: the "
-                                                                   "posterior is not read at this version)"),
+        return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,
+        combiner=_combiner(repository) if fitted else M.Combiner(),
+        learning=_learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES),
     )
     sources = {
         "topics": topic_sources, "topic_limit": TOPIC_LIMIT, "topics_left_out": max(len(ordered) - len(kept), 0),
@@ -340,7 +482,8 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         "session": {"minutes": session_minutes, "start": session_start, **session_basis},
         "return_gaps": {"n": len(gaps), "model": "empirical gaps, the same after every session's end (no return model "
                                                  "before RO5: the return effect is zero by construction)"
-                        if gaps else "next day (no history)"},
+                        if gaps else "next day (no history)",
+                        **({"return_model": return_record} if return_record is not None else {})},
         "stop_accept": {"prior": [float(section.stop_accept_prior_a), float(section.stop_accept_prior_b)],
                         "posterior": list(accept), **accept_counts},
         "durations": {"log_sd": spread_used, "n": spread_n,

@@ -81,8 +81,10 @@ from learnloop.router import requests as rq
 from learnloop.router import why as router_why
 from learnloop.router_objective import mix
 from learnloop.router_objective import price as P
+from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import value as V
 from learnloop.router_objective import weight as W
+from learnloop.router_objective_switches import stop_coin_rate
 
 LOG = logging.getLogger(__name__)
 
@@ -115,12 +117,57 @@ def _local_date(now_iso: str) -> str:
 # -- the price, the weight -------------------------------------------------------------------------------
 
 
-def day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int, seed: str) -> tuple[P.Seeded, dict[str, Any]]:
+def _frontier(inputs: V.Inputs, *, draws: int, seed: str) -> tuple[dict[float, float], dict[str, Any]]:
+    mbar = float(inputs.price.remembered)
+    d = float(inputs.tail_block_minutes)
+    points = sorted({0.0, mbar, mbar + d, 2 * mbar})
+    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier")
+    return curve, {"points": [{"minutes": m, "gain": curve[m]} for m in points],
+                   "display": "; ".join(f"{m:.0f} minutes: predicted gain {curve[m]:+.3f}" for m in points if m > 0)
+                   + " (predictions)"}
+
+
+def _posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_date: str, draws: int,
+                     seed: str) -> tuple[P.Seeded, dict[str, Any]] | None:
+    """RO5 §9 item 1: once a randomized stop offer has a response, κ0 is the posterior the seed is folded into
+    (:mod:`learnloop.router_objective.stop_coin`) and the daily re-centring ends; the frontier is still drawn once a
+    day, for display. None in the seed regime (the coin off, or no randomized response yet)."""
+
+    from learnloop.db.stores import router_objective as store
+    from learnloop.router_objective import stop_coin as SC
+    from learnloop.router_objective_switches import stop_coin_rate
+
+    if config is None or stop_coin_rate(config) <= 0:
+        return None
+    with repository.connection() as connection:
+        posterior = SC.handed_over(connection, config)
+        if posterior is None or float(posterior.get("kappa0") or 0.0) <= 0:
+            return None
+        today = connection.execute(
+            "SELECT decision_id FROM router_objective_traces WHERE local_date = ? AND kappa_how = ? "
+            "AND decision_kind = 'plan_block' ORDER BY created_at, id LIMIT 1", (local_date, SC.POSTERIOR)
+        ).fetchone() if store.table_present(connection, store.TRACES) else None
+    if today is not None or not inputs.topics:
+        frontier: dict[str, Any] = {"carried_from": today[0]} if today is not None else {"status": "no_topics"}
+        gain: dict[str, float] = {}
+    else:
+        curve, frontier = _frontier(inputs, draws=draws, seed=seed)
+        gain = {str(k): v for k, v in curve.items()}
+    return P.Seeded(kappa0=float(posterior["kappa0"]), how=SC.POSTERIOR, regime=SC.POSTERIOR_REGIME, gain=gain,
+                    local_date=local_date, posterior=posterior), frontier
+
+
+def day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int, seed: str,
+              config: Any = None) -> tuple[P.Seeded, dict[str, Any]]:
     """κ0 for this decision (§8.6): the day's first decision computes the seed from the gain curve, later ones
-    carry it. Returns the price and the frontier (G against minutes) it came from."""
+    carry it. Returns the price and the frontier (G against minutes) it came from. At RO5's tag with the stop coin
+    on, the posterior from offered stops once a randomized one has a response (:func:`_posterior_price`)."""
 
     from learnloop.db.stores import router_objective as store
 
+    handed = _posterior_price(repository, inputs, config, local_date=local_date, draws=draws, seed=seed)
+    if handed is not None:
+        return handed
     today = None
     last_positive = None
     with repository.connection() as connection:
@@ -163,12 +210,38 @@ def _randomized_checks_exist(repository: Any) -> bool:
         ).fetchone() is not None
 
 
+def _seed_record(seeds: W.Seeds) -> dict[str, float]:
+    return {"w0": seeds.w0, "ell_l": seeds.ell_l, "ell_q": seeds.ell_q, "s0": seeds.s0, "p0": seeds.p0,
+            "m0": seeds.m0}
+
+
 def current_weight(repository: Any, config: Any, *, at: str) -> tuple[float, dict[str, Any]]:
     """``w_i`` (§8.7) from the scores whose windows closed before ``at``; with no randomized check, none forms."""
 
     from learnloop.db.stores import router_objective as store
 
     seeds = W.Seeds.from_config(config)
+    from learnloop.router_objective_switches import calibration_tag, objective_scores_on
+
+    if calibration_tag(config) and _randomized_checks_exist(repository):
+        # RO5 (§9 item 2): the randomized checks observe the uses, so closed windows form scores and w can move.
+        if not objective_scores_on(config):
+            posterior = W.posterior([], seeds, at=at)
+            return W.weight(posterior.p, seeds), {
+                "posterior": posterior.as_dict(), "seeds": _seed_record(seeds),
+                "note": "RO0's receipts are off: no comparison score is formed, so w stays at its prior"}
+        from learnloop.router_objective import scores as S
+
+        with repository.connection() as connection:
+            details = S.scores(connection, config, at=at)
+        posterior = W.posterior([detail.scored for detail in details], seeds, at=at)
+        unique = W.unique_assessments((key, detail.scored.decision_id) for detail in details
+                                      for key in detail.assessments)
+        note = ("w moved on closed scores from randomized checks" if posterior.source == "posterior" else
+                f"randomized checks exist; w stays at its prior ({posterior.source}: {posterior.n} closed scores)")
+        return W.weight(posterior.p, seeds), {"posterior": posterior.as_dict(), "seeds": _seed_record(seeds),
+                                              "note": note, "unique_assessments": unique,
+                                              "scores_version": S.VERSION}
     scores: list[W.Scored] = []
     with repository.connection() as connection:
         rows = [row for row in store.traces(connection) if row.get("window_closes_at")
@@ -237,7 +310,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
         # of two large sums; at 8 draws its noise is of the order of the signal).
         priced, frontier = day_price(repository, inputs, local_date=local_date,
-                                     draws=int(section.rollout_theta_draws_max), seed=seed)
+                                     draws=int(section.rollout_theta_draws_max), seed=seed, config=config)
         inputs = replace(inputs, price=replace(inputs.price, kappa0=priced.kappa0, regime=priced.regime))
         draws, ceiling = int(section.rollout_theta_draws), int(section.rollout_theta_draws_max)
         cached: dict[str, Any] = {}
@@ -426,6 +499,15 @@ def _support_labels(support: Sequence[str], by_id: Mapping[str, BlockCandidate],
     return out
 
 
+def _score_note(config: Any) -> str:
+    from learnloop.router_objective_switches import CHECKS_OFF, check_mode
+
+    if check_mode(config)[0] != CHECKS_OFF:
+        return ("forms when the window closes, from the randomized checks it holds (r = the day's assignment "
+                "probability x the running completion rate)")
+    return "none forms until RO5's randomized checks: no valued use has r > 0"
+
+
 def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate],
            titles: Mapping[str, str], numeric: NumericPolicy | None, llm: ComponentResult | None,
            decider: ComponentResult | None, staged_ref: str, weight: tuple[float, Mapping[str, Any]],
@@ -470,9 +552,14 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
             # The option's main topic, the one the LLM policy's forecasts are about (§8.9's binding).
             "main_lo": (action.item_los[0] if action is not None and action.item_los else None),
             "minutes": action.minutes if action is not None else None, "sensors": sensors, "terms": terms,
-            "split": {"learning": None, "information": (valued.extra.get("information") if valued is not None else None),
-                      "return_effect": 0.0, "note": "display only, never added; the return effect is zero until RO5 "
-                                                    "fits a return model"},
+            "split": ({"learning": None, "information": valued.extra.get("information"),
+                       "return_effect": valued.extra["return_effect"], "return_model": valued.extra.get("return_model"),
+                       "note": "display only, never added: the return effect is the return model's difference to "
+                               "stopping now, inside the accepted branch's transition"}
+                      if valued is not None and "return_effect" in valued.extra else
+                      {"learning": None, "information": (valued.extra.get("information") if valued is not None else None),
+                       "return_effect": 0.0, "note": "display only, never added; the return effect is zero until RO5 "
+                                                     "fits a return model"}),
             "branches": dict(valued.extra.get("branches") or {}) if valued is not None else None,
         }
     filtered = {candidate.candidate_id: ("beyond_top_k" if (candidate.annotations or {}).get("reversible", True)
@@ -541,7 +628,7 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
         "evaluation": {"uses": uses, "window_days": window, "window_closes_at": window_closes, "c0": c0,
                        "c0_basis": "the tail's cost at the remembered minutes (no earlier window of costs at this version)",
                        "objective_version": V.OBJECTIVE_VERSION,
-                       "score": "none forms until RO5's randomized checks: no valued use has r > 0"},
+                       "score": _score_note(config)},
         "frontier": dict(numeric.frontier) if numeric is not None else {},
         "inputs_sources": {key: value for key, value in sources.items() if key != "population"},
         "versions": {"objective": V.OBJECTIVE_VERSION, "tail": V.TAIL_VERSION, "terminal": V.TERMINAL_VERSION,
@@ -680,7 +767,15 @@ class ObjectiveChooser(RouterChooser):
         decision_id = new_ulid()
         seed = self._seed(entry.key, decision_id)
         drawn = mix.draw(list(support), parts, effective, float(settings["epsilon_min"]), seed)
-        chosen = by_id.get(drawn.chosen)
+        # RO5 §9 item 1: the stop coin, on its own uniform, never the mix's; the availability it is frozen with is
+        # read before that uniform. ``policy`` serves the mix's draw.
+        coin = None
+        rate = stop_coin_rate(config)
+        if rate > 0 and SC.eligible(support):
+            coin = SC.flip(seed, rate, support=list(support), mu=drawn.pi, drawn=drawn.chosen,
+                           availability=self._availability(state, numeric))
+        served_ref = coin.served if coin is not None else drawn.chosen
+        chosen = by_id.get(served_ref)
         code, rule = _rule_sentence(chosen, state) if chosen is not None else ("stop_offer", router_why.sentence("stop_offer"))
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         rationale = getattr(llm.parsed, "rationale", None) if llm_dist is not None else None
@@ -692,8 +787,11 @@ class ObjectiveChooser(RouterChooser):
         if guard is None and drawn.component == mix.LLM and drawn.chosen != favoured:
             guard = "another_option"
         shown = drawn.component == mix.LLM and guard is None
-        why, why_kind = router_why.objective_why(drawn.component, rule, option_count=len(support), rationale=rationale,
-                                                 rationale_shown=shown)
+        if coin is not None and served_ref != drawn.chosen:
+            # The coin, not the mix, chose what is served: no model's rationale is shown for it.
+            shown = False
+        why, why_kind = router_why.objective_why(drawn.component if served_ref == drawn.chosen else mix.STAGED, rule,
+                                                 option_count=len(support), rationale=rationale, rationale_shown=shown)
         session_minutes = numeric.inputs.session_minutes if numeric is not None and numeric.inputs is not None else None
         mbar = numeric.inputs.price.remembered if numeric is not None and numeric.inputs is not None else None
         guard_at = P.guard_minutes(config, float(mbar)) if mbar else None
@@ -703,6 +801,15 @@ class ObjectiveChooser(RouterChooser):
                        decider=results.get(DECIDER), staged_ref=staged_ref, weight=(w, weight_record),
                        effective=effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso,
                        guard=guard_state, stop_in_support=STOP_FOR_TODAY in support, card_version=card.version)
+        pending_assignments: list[dict[str, Any]] = []
+        if coin is not None:
+            # RO5: what was served and its exact probability under the coin and the mix together; the mix's own
+            # draw and μ stay beside it (a ``policy`` decision's score reads μ, exact given the independent coin).
+            trace["mixing"].update(drawn_chosen=drawn.chosen, chosen=served_ref, propensity=coin.served_propensity)
+            trace["stop_coin"] = coin.as_dict()
+            if coin.arm != SC.POLICY:
+                trace["evaluation"]["score"] = f"none: {SC.FORCED} (the coin chose what was served)"
+            pending_assignments.append(SC.pending_assignment(coin, seed=seed, support=support))
         decider = results.get(DECIDER)
         decider_dist = (dict(decider.parsed.distribution) if decider is not None and decider.status == ANSWERED
                         and getattr(decider, "parsed", None) is not None else None)
@@ -742,12 +849,49 @@ class ObjectiveChooser(RouterChooser):
             objective_trace=trace,
             **_card_fields(card),
         )
+        if coin is not None:
+            # The router's ledger logs each candidate's probability of being served: under the coin, the served
+            # distribution (exact); the mix's own μ stays beside it.
+            record["mixture"]["stop_coin"] = coin.as_dict()
+            record["mixture"]["served"] = served_ref
+            record["mixture"]["mix_pi"] = dict(drawn.pi)
+            record["mixture"]["pi"] = SC.served_distribution(drawn.pi, coin.rate, list(support))
+            record["ro5_assignments"] = pending_assignments
+            return BlockChoice(candidate_id=served_ref, chosen_by="mixture", propensity=coin.served_propensity,
+                               why=why or staged.why, why_kind=why_kind,  # type: ignore[arg-type]
+                               router_record=record)
         return BlockChoice(
             candidate_id=drawn.chosen, chosen_by="mixture",
             propensity=1.0 if drawn.deterministic else drawn.propensity,
             why=why or staged.why, why_kind=why_kind,  # type: ignore[arg-type]
             router_record=record,
         )
+
+    def _availability(self, state: PlanState, numeric: "NumericPolicy | None") -> dict[str, Any]:
+        """RO5 §9 item 1: what the learner had when the coin was drawn, read before its uniform: the session's active
+        minutes, the plan's remembered, budgeted and remaining minutes, and the session's availability receipt (RO0
+        row 8: the minutes offered and their source)."""
+
+        inputs = numeric.inputs if numeric is not None else None
+        out: dict[str, Any] = {
+            "session_minutes": inputs.session_minutes if inputs is not None else None,
+            "remembered_minutes": inputs.price.remembered if inputs is not None else None,
+            "minutes_budget": round(float(state.minutes_budget), 4), "minutes_left": round(float(state.minutes_left), 4),
+            "session_id": self.session_id, "receipt": None,
+        }
+        if self.session_id:
+            try:
+                from learnloop.db.stores import router_objective as store
+
+                with self.repository.connection() as connection:
+                    if store.table_present(connection, store.SESSION_RECEIPTS):
+                        found = store.session_receipt(connection, str(self.session_id), "availability")
+                        if found is not None:
+                            out["receipt"] = {key: found.get(key) for key in (
+                                "id", "minutes_offered", "minutes_source", "local_time", "time_zone", "device")}
+            except Exception:  # noqa: BLE001 - availability is recorded as missing, never blocks the coin
+                out["receipt"] = "unreadable"
+        return out
 
 
 # -- the restraint (plan_interrupt) ---------------------------------------------------------------------------

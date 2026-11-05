@@ -370,7 +370,9 @@ def router_objective_report(
 ) -> None:
     """Router objective RO4's report (spec §8.9): serving (stop's share at each boundary, session length, each
     policy's share, by day), and the forecast, action-value and recommendation-value evaluations kept apart, with
-    counts and versioned comparators. Read-only; no model call."""
+    counts and versioned comparators; at RO5's tag, its calibration (the arms per day and their minutes, the price,
+    the return model, the weight's scores, the goal-date read, the no_intervention floor). Read-only; no model
+    call."""
 
     from learnloop.clock import utc_now_iso
     from learnloop.router_objective import objective_report
@@ -381,14 +383,27 @@ def router_objective_report(
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
         now = utc_now_iso()
+        from learnloop.router_objective_switches import calibration_tag
+
         with closing(connect(path, read_only=True)) as connection:
             forecasts = _objective_forecasts(connection, loaded, path, now)
             report = objective_report.build(connection, now=now, forecasts=forecasts)
+            if calibration_tag(loaded.config) and report.get("status") != "no_traces_table":
+                # Router objective RO5 (spec §9): each arm per day and its minutes, the price, the return model, the
+                # weight's scores, the goal-date read and the no_intervention floor.
+                from learnloop.router_objective import calibration_report
+
+                report["calibration"] = calibration_report.build(connection, loaded, now=now)
         if json_output:
             _emit({"algorithm_version": loaded.config.algorithms.algorithm_version, "router_objective": report}, True)
         else:
             for line in objective_report.lines(report):
                 typer.echo(line)
+            if "calibration" in report:
+                from learnloop.router_objective import calibration_report
+
+                for line in calibration_report.lines(report["calibration"]):
+                    typer.echo(line)
     except (ValueError, OSError, sqlite3.Error) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
         raise typer.Exit(code=1) from exc

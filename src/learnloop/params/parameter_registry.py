@@ -286,6 +286,14 @@ MODULE_INVENTORY: dict[str, str] = {
     "router_objective_value": "src/learnloop/router_objective/value.py",
     "router_objective_price": "src/learnloop/router_objective/price.py",
     "router_objective_weight": "src/learnloop/router_objective/weight.py",
+    # Router objective RO5 (spec_router_objective_v1 §9): the stop coin and κ0's posterior, the randomized checks,
+    # their scores, the goal-date read and the open picks. The arms' rates are config keys (declared prices for
+    # information); the modules' numbers are labelled seeds or numerical resolution.
+    "router_objective_stop_coin": "src/learnloop/router_objective/stop_coin.py",
+    "router_objective_checks": "src/learnloop/router_objective/checks.py",
+    "router_objective_scores": "src/learnloop/router_objective/scores.py",
+    "router_objective_goal_read": "src/learnloop/router_objective/goal_read.py",
+    "router_objective_picks": "src/learnloop/router_objective/picks.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -1517,6 +1525,14 @@ _reg_const("router_objective_value:MINUTES_PER_DAY", "numerical", kind="structur
 _reg_const("router_objective_price:GUARD_MULTIPLE", "constraint", kind="structural", owner="router_objective_price",
            rationale="keep (RO4 §8.6): the runaway guard's default, 3 x the remembered minutes; a numerical safeguard "
            "that forces a stop offer into the support and is reported, never a budget.")
+# Router objective RO5 (spec_router_objective_v1 §9): a labelled recalibration prior and numerical resolution.
+_reg_const("router_objective_stop_coin:_TINY", "numerical", kind="structural", owner="router_objective_stop_coin",
+           rationale="numerical: a choice probability kept inside (0, 1) before its log in κ0's likelihood.")
+_reg_const("router_objective_goal_read:CALIBRATION_PRIOR_MEAN", "prior", owner="router_objective_goal_read",
+           rationale="seed (judgment, labelled; RO5 §9 item 3): the pool forecast's recalibration prior (a, b) = (0, 1), "
+           "the forecast taken at its word; the randomized checks' Laplace fit moves it.")
+_reg_const("router_objective_goal_read:CALIBRATION_PRIOR_VARIANCE", "prior", owner="router_objective_goal_read",
+           rationale="seed (judgment, labelled; RO5 §9 item 3): the recalibration prior's variance per coefficient, 1.")
 
 # ---------------------------------------------------------------------------
 # Inventory A -- config-leaf classification rules (ordered; first match wins).
@@ -1825,6 +1841,29 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "with declared minimum shares 0.1 each (prices for information), the Gaussian prior sd s0 = 0.01 over "
         "Δ that the scores move, the effect slope β_v ~ N(0.2, 0.04) (AD's alpha:z_v1) learned from "
         "randomized assignments, and p_accept ~ Beta(1, 1) updated from §4 row 7."),
+    # Router objective RO5 (mvp-0.48; spec_router_objective_v1 §9, §12): the arms are declared prices for
+    # information (an exact logged probability each, the report shows each arm's minutes), the calibration's
+    # spreads are labelled seeds a posterior moves, and fitted_models is a kill switch.
+    _ConfigRule(_exact(
+        "router_objective.stop_coin", "router_objective.check_rate", "router_objective.embedded_checks_per_day",
+        "router_objective.pick_open_share",
+    ), "decision", "shaping_weight",
+        "RO5 §9 items 1, 2, 6 and §12 (mvp-0.48): declared prices for information, not statistical facts: the stop "
+        "coin 0.05 each way at a reversible boundary (offer stop / present the next block), one embedded randomized "
+        "cold check a day (or a rate per valued topic per day; off schedules none), a 0.1 share of misconception "
+        "picks left open. Each assignment is logged with its exact probability in policy_experiment_assignments; "
+        "zero (off) serves mvp-0.47 exactly; the router objective report shows the minutes each arm costs."),
+    _ConfigRule(_exact(
+        "router_objective.kappa_prior_log_sd", "router_objective.return_slope_prior_sd",
+        "router_objective.goal_transfer_prior_sd",
+    ), "decision", "prior",
+        "RO5 §9 items 1 and 3 seeded priors (mvp-0.48), chosen by judgment and labelled: kappa0's prior spread on the "
+        "log scale around the seed it is handed from (randomized stop offers move it), the return model's slope "
+        "prior centred on no effect (randomized stop offers move it), and the pool-to-goal transfer's wide prior "
+        "(imported exam results and sittings move it)."),
+    _ConfigRule(_exact("router_objective.fitted_models"), "structural", "operational",
+        "kill switch for RO5's successor mvp-0.48 (§9 item 7): the rollouts read AD's fitted learning posterior "
+        "and the combiner fed resolved randomized checks; off, RO4's priors."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

@@ -770,6 +770,20 @@ INTERVAL_FACTOR_ALGORITHM_VERSION = "mvp-0.46"
 # below the tag nothing is computed.
 ROUTER_OBJECTIVE_ALGORITHM_VERSION = "mvp-0.47"
 
+# mvp-0.48 (router objective RO5; owner decisions 2026-11-03 and 2026-11-04;
+# docs/specs/spec_router_objective_v1.md §9), on top of mvp-0.47 (the chain
+# stays linear). Return and calibration: a stop coin at each reversible block
+# boundary (offer stop or present the next block, 0.05 each way, an exact
+# logged assignment) that trains stop's return model and hands kappa0 from its
+# daily seed to a posterior; one randomized cold check a day embedded in the
+# day's first practice slot (r = 1/N_d exact), whose scores move the weight w
+# off its prior; a small seeded share of misconception picks left open. Each
+# arm is a declared price for information: stop_coin = 0, check_rate = "off"
+# and pick_open_share = 0 serve mvp-0.47 exactly; below the tag nothing is
+# drawn. [router_objective] fitted_models (default true) reads AD's fitted
+# learning posterior and the combiner fed resolved checks; off, RO4's priors.
+ROUTER_CALIBRATION_ALGORITHM_VERSION = "mvp-0.48"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -816,6 +830,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
+    ROUTER_CALIBRATION_ALGORITHM_VERSION,
 )
 
 
@@ -1034,6 +1049,12 @@ INTERVAL_FACTOR_VERSIONS: frozenset[str] = successors_from(INTERVAL_FACTOR_ALGOR
 # ``router_objective.enabled``. Every later successor keeps them; gates must use
 # this set, never equality.
 ROUTER_OBJECTIVE_VERSIONS: frozenset[str] = successors_from(ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+
+# Versions whose objective runs RO5's arms (the stop coin, the randomized
+# checks, the open picks) and reads their calibration (the return model, kappa0's
+# posterior, the weight's scores), each arm behind its own rate. Every later
+# successor keeps them; gates must use this set, never equality.
+ROUTER_CALIBRATION_VERSIONS: frozenset[str] = successors_from(ROUTER_CALIBRATION_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

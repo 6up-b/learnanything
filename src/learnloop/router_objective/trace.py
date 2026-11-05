@@ -125,6 +125,15 @@ def explain(row: Mapping[str, Any]) -> list[str]:
     if price.get("regime") == "seed":
         lines.append("The cost of a minute is still the starting estimate: it is re-set each day from what the next "
                      "minutes are expected to add, until there is evidence of how long you like to study.")
+    elif price.get("regime") == "posterior":
+        lines.append("The cost of a minute now comes from how you answered offers to stop (including a few made at "
+                     "random); it is no longer re-set each day.")
+    coin = trace.get("stop_coin") or {}
+    if coin.get("arm") == "offer_stop":
+        lines.append("Stopping was offered here at random (about 1 in 20 breaks), to learn how long you like to study; "
+                     "you can keep going.")
+    elif coin.get("arm") == "present_next" and coin.get("served") != (trace.get("mixing") or {}).get("drawn_chosen"):
+        lines.append("A next block was shown here at random instead of an offer to stop (about 1 in 20 breaks).")
     if session.get("guard_crossed"):
         lines.append("This session ran long, so stopping was offered among the options; you can keep going.")
     frontier = trace.get("frontier") or {}

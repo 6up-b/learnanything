@@ -120,7 +120,7 @@ def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
 @entry(read_only=True)
 def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequence[str], *,
                           snapshot: RP.Snapshot | None = None, view: Any = None,
-                          reading_doses: bool = False) -> dict[str, Any]:
+                          reading_doses: bool = False, learning_moments: bool = False) -> dict[str, Any]:
     """RO0 row 9 (spec_router_objective_v1 §4): the card's numbers for each candidate LO at one decision, and the state
     they were read from. A receipt, not a claim: an untested cell keeps its mark beside its raw prediction, which no
     display reads. Through the material view, so a protected item never shapes it (A8).
@@ -128,7 +128,11 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
     ``reading_doses`` (router objective RO4, Codex review F8): each LO also carries ``reading_dose``, its main facet's
     position on AD's ``reading`` dose curve (the subject view's open window, averaged over the bank's rows: reading
     since the facet's last graded attempt), so a rollout's next dose takes AD's diminishing increment. Off for every
-    other caller, whose rows stay as they were."""
+    other caller, whose rows stay as they were.
+
+    ``learning_moments`` (router objective RO5, §9 item 7): also the subject view's fitted ``γ`` and reading curve
+    (``learning``: each parameter's posterior mean and variance), so the rollouts read the posterior and not the
+    prior means. Off for every other caller."""
 
     if not subject_view_live(vault.config):
         return {"status": "not_live"}
@@ -144,7 +148,34 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
             if reading_doses:
                 window = snapshot.subject.windows.get(("reading", fields["cell"][0]))
                 los[learning_object_id]["reading_dose"] = float(window.mean()) if window is not None else 0.0
-    return {"status": "live", "state_hash": snapshot.state_hash(), "los": los}
+    out: dict[str, Any] = {"status": "live", "state_hash": snapshot.state_hash(), "los": los}
+    if learning_moments:
+        out["learning"] = _learning_moments(snapshot.subject)
+    return out
+
+
+#: Router objective RO5 (§9 item 7): the learning parameters whose fitted moments the rollouts read.
+LEARNING_PARAMETERS: tuple[str, ...] = ("gamma", "gbar:1", "gbar:2")
+
+
+def _learning_moments(subject: Any) -> dict[str, list[float]]:
+    """The subject view's posterior mean and variance of ``γ`` and the reading curve's ``γ̄_1, γ̄_2``: the mixture's
+    moments over the bank's first group (``dose_report.coefficient_draws``'s rows), a read, never a write."""
+
+    bank = subject.bank
+    weights = bank.weights()[0]
+    rows = len(weights)
+    out: dict[str, list[float]] = {}
+    for name in LEARNING_PARAMETERS:
+        index = bank.index.get(name)
+        if index is None:
+            continue
+        mu = bank.mu[:rows, index]
+        var = bank.S[:rows, index, index]
+        mean = float((weights * mu).sum())
+        second = float((weights * (var + mu * mu)).sum())
+        out[name] = [mean, max(second - mean * mean, 0.0)]
+    return out
 
 
 def _lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id: str) -> dict[str, Any] | None:

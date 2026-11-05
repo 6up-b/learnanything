@@ -51,9 +51,9 @@ SWITCHES = ("scheduler.surprise.remove_interval_factor", "router_objective.avail
 
 def test_the_successor_is_one_constant_after_fg1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.45"
-    # Router objective RO4 (mvp-0.47) landed after it and keeps it.
-    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.47"
-    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47"})
+    # Router objective RO4 (mvp-0.47) and RO5 (mvp-0.48) landed after it and keep it.
+    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.48"
+    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47", "mvp-0.48"})
 
 
 def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
@@ -67,8 +67,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert (section.pop("available_at_reads"), section.pop("self_report_not_validated")) == (True, True)
     # Router objective RO4 (mvp-0.47): its switch and seeds are in every snapshot, inert below its tag.
     from tests.test_ro4_successor import RO4_KEYS
+    from tests.test_ro5_successor import RO5_KEYS
 
-    for key in RO4_KEYS:
+    for key in (*RO4_KEYS, *RO5_KEYS):
         section.pop(key)
     assert section == {"receipts": True}  # RO0's switch stays
     assert dumped["scheduler"]["surprise"].pop("remove_interval_factor") is True
@@ -109,8 +110,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.router_objective_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_objective_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.router_calibration_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.router_calibration_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval(tmp_path):

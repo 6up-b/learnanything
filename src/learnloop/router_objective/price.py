@@ -103,10 +103,19 @@ class Seeded:
     gain: Mapping[str, float] = field(default_factory=dict)
     local_date: str | None = None
 
+    #: RO5: the posterior κ0 was handed to (None in the seed regime)
+    posterior: Mapping[str, Any] | None = None
+
     def as_dict(self) -> dict[str, Any]:
-        return {"kappa0": self.kappa0, "how": self.how, "regime": self.regime, "gain": dict(self.gain),
-                "local_date": self.local_date, "version": PRICE_VERSION,
-                "note": "until RO5's randomized stop offers, kappa is the seed (re-centred daily)"}
+        out = {"kappa0": self.kappa0, "how": self.how, "regime": self.regime, "gain": dict(self.gain),
+               "local_date": self.local_date, "version": PRICE_VERSION,
+               "note": "until RO5's randomized stop offers, kappa is the seed (re-centred daily)"}
+        if self.posterior is not None:
+            # RO5 §9 item 1: the daily re-centring has ended; the seed is folded into the prior.
+            out["posterior"] = dict(self.posterior)
+            out["note"] = ("kappa is the posterior from offered stops (randomized ones included); the seed in force at "
+                           "the first randomized offer is its prior's centre, and the daily re-centring has ended")
+        return out
 
 
 def seed_from_gain(gain: Mapping[float, float], *, remembered: float, block_minutes: float,

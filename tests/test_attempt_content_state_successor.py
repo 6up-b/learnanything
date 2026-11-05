@@ -145,9 +145,9 @@ def test_mvp037_is_one_constant_after_mvp036():
 
     # Built as mvp-0.36 after mvp-0.35; the kept replaced claims' mvp-0.36 landed first, so the landing renumbered it.
     # The cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-13:-10] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.47" and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert ATTEMPT_CONTENT_STATE_VERSIONS == frozenset({TAG, "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47"})
+    assert SUCCESSOR_CHAIN[-14:-11] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.48" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert ATTEMPT_CONTENT_STATE_VERSIONS == frozenset({TAG, "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48"})
     assert PracticeConfig().attempt_keeps_content_state is True
     rule = classify_config_path("practice.attempt_keeps_content_state")
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale

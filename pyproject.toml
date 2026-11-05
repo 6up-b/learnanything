@@ -645,6 +645,7 @@ source_modules = [
     "learnloop.router_staged_upgrade",
     "learnloop.router_objective_switches",
     "learnloop.router_objective_upgrade",
+    "learnloop.router_calibration_upgrade",
     "learnloop.route_rules_upgrade",
     "learnloop.scheduling",
     "learnloop.serve_eligibility",
@@ -1093,6 +1094,10 @@ ignore_imports = [
     "learnloop.sim.ad_synthetic -> learnloop.curriculum.depth_rungs",
     "learnloop.sim.ad_synthetic -> learnloop.learner.mastery",
     "learnloop.sim.ad_synthetic -> learnloop.scheduling.randomization_layer",
+    # Router objective RO5 (spec §9 item 2): the randomized check is scored by §6.2's label, AD's own binary
+    # event (adaptive_difficulty.outcomes, over AD's priors and model and delayed_completion), read
+    # function-locally; AD never imports the objective's package.
+    "learnloop.router_objective.checks -> learnloop.adaptive_difficulty.outcomes",
     # AD2+AD3's pure reads of the firewall's carve-out and the default trajectory.
     "learnloop.adaptive_difficulty.reading -> learnloop.attempts.salience_firewall",
     "learnloop.adaptive_difficulty.replay -> learnloop.attempts.salience_firewall",

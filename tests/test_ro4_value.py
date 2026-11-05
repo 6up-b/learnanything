@@ -366,7 +366,9 @@ def _permute_world(world, perm):
         if isinstance(array, np.ndarray):
             setattr(world.streams, name, array[perm].copy())
     for name, array in vars(world.theta).items():
-        setattr(world.theta, name, array[perm].copy())
+        # RO5's return model leaves its fields None when there is none.
+        if isinstance(array, np.ndarray):
+            setattr(world.theta, name, array[perm].copy())
 
 
 def test_f2_reopened_the_branch_is_chosen_on_the_average_over_imagined_outcomes():

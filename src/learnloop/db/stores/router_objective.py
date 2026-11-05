@@ -211,6 +211,23 @@ def insert_goal_event(connection: sqlite3.Connection, row: Mapping[str, Any]) ->
     return _append(connection, GOAL_EVENTS, GOAL_COLUMNS, row)
 
 
+#: Router objective RO5 (§9): the arms' rows in migration 098's ``policy_experiment_assignments``, through its existing
+#: ``experiment_id`` (``router_objective.assignments``).
+ASSIGNMENTS = "policy_experiment_assignments"
+ASSIGNMENT_COLUMNS: tuple[str, ...] = (
+    "id", "experiment_id", "decision_id", "unit_kind", "unit_id", "variant", "propensity", "seed", "draw",
+    "epsilon_margin", "near_equivalent", "design", "grade", "candidate_refs_json", "detail_json", "created_at",
+)
+
+
+def insert_assignment(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
+    """One RO5 assignment, in its own savepoint; False (a warning) when refused."""
+
+    if not table_present(connection, ASSIGNMENTS):
+        return False
+    return _append(connection, ASSIGNMENTS, ASSIGNMENT_COLUMNS, row)
+
+
 def latest_goal_events(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
     """Each goal's newest lifecycle row, what the next load compares its YAML against."""
 
@@ -221,6 +238,9 @@ def latest_goal_events(connection: sqlite3.Connection) -> dict[str, dict[str, An
 
 
 __all__ = [
+    "ASSIGNMENTS",
+    "ASSIGNMENT_COLUMNS",
+    "insert_assignment",
     "DECISION_STATE",
     "TRACES",
     "TRACE_COLUMNS",

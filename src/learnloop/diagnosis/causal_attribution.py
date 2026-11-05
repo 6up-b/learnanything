@@ -3575,29 +3575,49 @@ def record_unresolved_cause_self_report(
     report_id = new_ulid()
     observation_id = f"learner_report:{report_id}"
     attempt_id = str(factor["attempt_id"])
-    repository.insert_causal_attribution_report(
-        report_id=report_id,
-        factor_id=factor_id,
-        attempt_id=attempt_id,
-        response=response,
-        candidate_index=candidate_index,
-        payload={"observation_id": observation_id},
-        clock=clock,
-    )
-
-    provisional_belief_id: str | None = None
-    #: Set when the confirmed belief is a `causal_hypotheses` chain, so the
-    #: returned id can be re-resolved to the live head after re-materialization.
-    confirmed_episode_key: str | None = None
-    resolved = False
-    if selected is not None and trace_consistent(
+    resolves = selected is not None and trace_consistent(
         vault,
         repository,
         attempt_id,
         # The veto is scoped to the hypothesis the learner confirmed; a rival
         # hypothesis's contradicted claim says nothing about this one (§5.6).
         hypothesis_id=str(selected.get("hypothesis_id") or "") or None,
-    ):
+    )
+    # Router objective RO5 (spec §9 item 6, owner Nov 4): a seeded share of the
+    # picks that would resolve stays open; the arm is assigned with the report,
+    # in its transaction, and an existing one for the factor is reused (a retry).
+    open_pick: dict[str, Any] | None = None
+    from learnloop.router_objective_switches import pick_open_share
+
+    share = pick_open_share(vault.config)
+    with repository.atomic():
+        repository.insert_causal_attribution_report(
+            report_id=report_id,
+            factor_id=factor_id,
+            attempt_id=attempt_id,
+            response=response,
+            candidate_index=candidate_index,
+            payload={"observation_id": observation_id},
+            clock=clock,
+        )
+        if resolves and share > 0:
+            from learnloop.clock import utc_now_iso
+            from learnloop.router_objective import picks as ro5_picks
+
+            with repository.connection() as connection:
+                open_pick = ro5_picks.assign(
+                    connection, factor_id=factor_id, share=share, report_id=report_id, at=utc_now_iso(clock),
+                    eligibility={"response": response, "candidate_index": candidate_index,
+                                 "hypothesis_id": (selected or {}).get("hypothesis_id"),
+                                 "trace_consistent": True, "concrete": True})
+
+    provisional_belief_id: str | None = None
+    #: Set when the confirmed belief is a `causal_hypotheses` chain, so the
+    #: returned id can be re-resolved to the live head after re-materialization.
+    confirmed_episode_key: str | None = None
+    resolved = False
+    if resolves and not (open_pick is not None and open_pick["variant"] == "open"):
+        assert selected is not None
         attempt = repository.fetch_practice_attempt(attempt_id) or {}
         learning_object_id = str(attempt.get("learning_object_id") or "")
         learning_object = vault.learning_objects.get(learning_object_id)
@@ -3745,4 +3765,7 @@ def record_unresolved_cause_self_report(
         "resolved": resolved,
         "provisional_belief_id": provisional_belief_id,
         "observation_id": observation_id,
+        # RO5: only where the pick was assigned an arm (the factor's seed, logged with its probability).
+        **({"open_pick": {"variant": open_pick["variant"], "propensity": open_pick["propensity"]}}
+           if open_pick is not None else {}),
     }

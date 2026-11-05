@@ -203,6 +203,10 @@ class Inputs:
     fsrs_weights: tuple[float, ...]
     return_gaps_days: tuple[float, ...] = ()
     stop_accept: tuple[float, float] = (1.0, 1.0)
+    #: RO5 §9 item 1: the return model's slope ``b`` (posterior mean, variance): the gap after a session that
+    #: ended at ``x`` active minutes is the learner's own gap times ``exp(b·(x − m̄)/m̄)``. None: no return model
+    #: (RO4's: the same gaps after every session's end, the return effect zero by construction).
+    return_slope: tuple[float, float] | None = None
     combiner: Combiner = field(default_factory=Combiner)
     learning: Learning = field(default_factory=Learning)
     #: None: the effect correction is off by hand, or a forecast is missing
@@ -309,6 +313,9 @@ class _Theta:
     effect: np.ndarray       # (K, 2) alpha, beta
     stop_accept: np.ndarray  # (K,)
     return_days: np.ndarray  # (K, S) whole days to the next session after the j-th session's end
+    #: RO5: the gaps before rounding up to whole days, and the return model's slope per draw (None: no model)
+    return_raw: np.ndarray | None = None
+    return_b: np.ndarray | None = None
 
 
 @dataclass
@@ -408,6 +415,10 @@ class _Model:
         self.dated = sorted(inputs.dated, key=lambda use: use.at_days)
         self.dated_weight = np.zeros(self.n)
         self.effect_on = inputs.effect is not None
+        #: RO5: whether the return model moved any draw's day of return (False: it dropped out of V), and a
+        #: switch the stop branch's return-effect display turns it off with.
+        self.return_days_moved = False
+        self._return_model_off = False
 
     # θ ---------------------------------------------------------------------------------------------
     def _blocks_per_session(self) -> int:
@@ -436,8 +447,14 @@ class _Model:
         gaps = np.array(sorted(max(float(g), 1.0) for g in inputs.return_gaps_days) or [1.0], dtype=np.float64)
         picks = np.minimum((st.return_u * len(gaps)).astype(int), len(gaps) - 1)
         return_days = np.ceil(gaps[picks])
+        return_b = None
+        if inputs.return_slope is not None:
+            # RO5: the return model's slope, a parameter draw (its own stream, so no other draw moves).
+            bm, bv = inputs.return_slope
+            z = np.random.default_rng(_seed_int(self.seed, "theta:return_slope")).standard_normal(self.k)
+            return_b = float(bm) + math.sqrt(max(float(bv), 0.0)) * z
         return _Theta(eta=eta, coef=coef, gamma=gamma, gbar=gbar, effect=effect, stop_accept=accept,
-                      return_days=return_days)
+                      return_days=return_days, return_raw=gaps[picks], return_b=return_b)
 
     def initial(self) -> _State:
         inputs = self.inputs
@@ -671,7 +688,21 @@ class _Model:
         gaps = self.theta.return_days
         # The session that ended at the action's end (today's) is the 0th; its gap is column 0.
         ended = np.zeros(k, dtype=int)
-        next_session = np.floor(after) + gaps[:, 0]
+        first_gap = gaps[:, 0]
+        if self.theta.return_b is not None and not self._return_model_off:
+            # RO5 §9 item 1: today's session's gap follows its length (the tail's later sessions run m̄ minutes,
+            # where the shift is one).
+            if today_minutes is None:
+                ended_at = np.full(k, float(self.inputs.session_minutes))
+            else:
+                start = np.broadcast_to(np.asarray(today_minutes, dtype=np.float64), (k,))
+                d = float(self.inputs.tail_block_minutes)
+                goal = self.mbar if today_target is None else float(today_target)
+                ended_at = start + (np.ceil(np.maximum(goal - start, 0.0) / d - 1e-9) * d if d > 0 and self.n else 0.0)
+            shift = np.exp(self.theta.return_b * (ended_at - self.mbar) / self.mbar)
+            first_gap = np.maximum(np.ceil(self.theta.return_raw[:, 0] * shift - 1e-9), 1.0)
+            self.return_days_moved = bool(np.any(first_gap != gaps[:, 0])) or self.return_days_moved
+        next_session = np.floor(after) + first_gap
         pending = list(enumerate(self.dated))
         boundaries = sorted({0.0, self.cutoff, self.end, *[float(j) for j in range(1, self.days + 1)]})
         boundaries = [b for b in boundaries if b <= self.end + 1e-12]
@@ -821,11 +852,26 @@ class _Model:
 
         extra: dict[str, Any] = {}
         if action.kind == STOP:
+            self.return_days_moved = False
             accepted = self._stop_accepted()
+            moved = self.return_days_moved
             overridden, _state, _minutes = self._do(self.tail_action(), stream=1)
+            self.return_days_moved = moved
             p = self.theta.stop_accept
             extra["branches"] = {"accepted": float(accepted.q.mean()), "overridden": float(overridden.q.mean()),
                                  "p_accept": float(p.mean())}
+            if self.theta.return_b is not None:
+                # RO5 §9 item 1: the return effect, the return model's difference to stopping now (display only:
+                # it is already inside the accepted branch's transition, never added).
+                self._return_model_off = True
+                try:
+                    without = self._stop_accepted()
+                finally:
+                    self._return_model_off = False
+                extra["return_effect"] = float(accepted.q.mean() - without.q.mean())
+                extra["return_model"] = ("active" if self.return_days_moved else
+                                         "dropped: the day of return is the same under every draw (attendance "
+                                         "near-deterministic on the daily grid)")
             return _Ledger.mix(p, accepted, overridden), extra
         if action.accept is not None:
             a, b = action.accept
