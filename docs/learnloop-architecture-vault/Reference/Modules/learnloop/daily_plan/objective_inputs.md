@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/objective_inputs.py"
 source_paths:
   - "src/learnloop/daily_plan/objective_inputs.py"
-source_commit: "workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a"
-source_commit_timestamp: "2026-11-05T08:45:43-05:00"
-source_worktree_state: "modified"
+source_commit: "d309ea5cbc6940c4347638b1049d66e7abeb6cd0"
+source_commit_timestamp: "2026-11-05T09:46:02-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a` |
-| Commit timestamp | `2026-11-05T08:45:43-05:00` |
+| Worktree state | `clean` |
+| Source commit | `d309ea5cbc6940c4347638b1049d66e7abeb6cd0` |
+| Commit timestamp | `2026-11-05T09:46:02-05:00` |
 
 ## Public API
 

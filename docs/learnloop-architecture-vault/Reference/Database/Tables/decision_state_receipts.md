@@ -3,8 +3,8 @@ title: "decision_state_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
-source_commit_timestamp: "2026-11-05T08:37:49-05:00"
+source_commit: "017c3ed22ddf583d5cddfe612d4e1ac32dc70950"
+source_commit_timestamp: "2026-11-05T12:03:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_state_receipts"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/243_router_objective_receipts.sql"
   - "src/learnloop/db/stores/router_objective.py"
   - "src/learnloop/router_objective/report.py"
+  - "src/learnloop/router_objective/tail_data.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -100,6 +101,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/router_objective.py`
 - `src/learnloop/router_objective/report.py`
+- `src/learnloop/router_objective/tail_data.py`
 
 ### Direct SQL writers
 

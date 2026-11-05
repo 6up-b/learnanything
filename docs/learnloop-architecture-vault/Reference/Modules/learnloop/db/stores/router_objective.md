@@ -146,6 +146,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/router_objective/question_state|learnloop.router_objective.question_state]] — imports `module`; statically calls `column_present`, `table_present`
 - [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]] — imports `module`; statically calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `module`; statically calls `insert_session_receipt`, `table_present`
+- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; statically calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] — imports `module`; statically calls `decision_state`, `insert_trace`, `table_present`
 - [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] — imports `module`; statically calls `table_present`, `trace`
 
@@ -167,7 +168,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]], [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] and 12 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]], [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -187,6 +188,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_arm_off_at_the_tag_is_mvp_047_exactly`
   - `test_kappa_stays_the_seed_until_a_randomized_offer_has_a_response`
   - `test_serving_records_each_coin_with_its_exact_probability_and_availability`
+- [tests/test_ro6_serving.py](../../../../../../../tests/test_ro6_serving.py) — direct import
+  - `test_the_features_frozen_at_serve_equal_the_rebuild_from_the_trace_and_ro0s_receipt`
+- [tests/test_ro6_tail_data.py](../../../../../../../tests/test_ro6_tail_data.py) — direct import
+  - `test_a_row_received_after_the_moment_never_enters_a_feature`
 
 ## Modification guidance
 

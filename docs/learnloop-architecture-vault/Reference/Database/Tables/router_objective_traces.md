@@ -3,8 +3,8 @@ title: "router_objective_traces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "054b8a0652045fad6cf66e7b53909f395070095d"
-source_commit_timestamp: "2026-11-05T10:30:41-05:00"
+source_commit: "017c3ed22ddf583d5cddfe612d4e1ac32dc70950"
+source_commit_timestamp: "2026-11-05T12:03:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_objective_traces"
@@ -118,6 +118,8 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/objective_report.py`
 - `src/learnloop/router_objective/scores.py`
 - `src/learnloop/router_objective/stop_coin.py`
+- `src/learnloop/router_objective/tail_data.py`
+- `src/learnloop/router_objective/tail_report.py`
 
 ### Direct SQL writers
 

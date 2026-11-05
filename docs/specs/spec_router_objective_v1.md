@@ -1,6 +1,6 @@
 # Router objective (RO): one objective, two policies, a dataset that can test it
 
-**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6); RO4 built Nov 5 2026 (§8.11); RO5 built Nov 5 2026 (§9.1). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
+**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6); RO4 built Nov 5 2026 (§8.11); RO5 built Nov 5 2026 (§9.1); RO6 built Nov 5 2026 (§10.1). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
 
 ## 1. The owner's decisions
 
@@ -749,6 +749,66 @@ y_i = R_i + Σ_{a′} π_ref(a′ | x′_i) Q̂(x′_i, a′)        with the ti
 
 **No improvement guarantee is claimed.** A `2δ` per-decision bound needs a uniform `Q` error bound and an expected-value update whose feasible set contains the baseline. Calibration slopes and rank agreement don't establish those, so the report keeps showing §8.9's evaluations.
 
+### 10.1 As built (Nov 5 2026, `router/ro6-learned-tail`; `docs/reviews/router-ro6.md`)
+
+Built as successor `mvp-0.49` (`ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, upgrade `learnloop.router_learned_tail_upgrade`,
+a projection activation: nothing recorded changes) on RO5's branch (`5f02be6eb2`, mvp-0.48). **No migration**: the fit
+is recomputed from the traces and RO0's receipts as of each decision and frozen into that decision's trace. New keys
+under `[router_objective]`: the kill switch `learned_tail` (true; off, or below the tag, mvp-0.48 exactly) and the
+labelled priors `residual_prior_sd` (0.01) and `residual_weight_prior_sd` (1.0). No model request is added. Where it
+differs from §10:
+
+- **Features** (`router_objective/learned_tail.py`; read by `router_objective/tail_data.py`): thirteen numbers, the
+  same function at serve time and over a trace. The state: the session's load `m/m̄`, days to go to the nearest active
+  dated goal as `exp(−days/H)`, `log(1 + pending reports)` and the candidates' mastery (mean `sigmoid` of RO0's logit
+  mean and its mean logit variance; RO0 row 9's numbers, read at serve time by `decision_state`'s own readers). The
+  candidate: stop, reading or probe, its minutes over `m̄`, its topics' AD predictive, their FSRS lag
+  `log(1 + elapsed/S)` (monotone in retrievability and free of the FSRS weights, which a trace does not hold), and
+  stop and the minutes each times the load. No intercept: with no discount the backup cancels a level. At the tag the
+  features are frozen in the trace; for an earlier trace they are rebuilt from its frozen belief numbers and RO0's
+  receipt. Every read passes the availability predicate (`known_at` over the trace and the receipt;
+  `attempt_time_sql` for an imported result), named in `tests/test_ro1_availability_reads.py`.
+- **Trajectories**: §4 row 12's links (`trajectory.rows`) walked from each traced `plan_block` decision to the next
+  one. The reward of `(t_i, t_{i+1}]` is this objective's `R`: minus the attention cost the objective charges over
+  it (`scores.window_cost`), plus each randomized check completed in it at `c_L·Y/r` (`r` the day's assignment
+  probability times the completion rate as it stood at the interval's end: unbiased for `Σ_L c_L·P`), plus each dated
+  use whose date falls in it at `ω·Y` (the import known by the moment). Censored by reason: `no_later_decision`,
+  `change_point`, `value_missing`, `past_cutoff`, `reward_open`, `no_result`. §3.2's time handling: the next state's
+  `V_tail` is moved back to the decision's own cutoff, `V(x′; C) = V(x′; C′) − (C′ − C)·T_{C′}(x′)/H`; a next decision
+  past `C` is censored rather than bootstrapped.
+- **The fitted Q evaluation**: `Q̂ = Q_tail + ρ`, `ρ` linear in the standardized features, at FQE's fixed point under
+  the Gaussian prior (closed form, the noise refined from the Bellman residuals): Bayesian linear regression, because
+  one learner's log is one long dependent trajectory of hundreds of decisions a month, and a linear residual's every
+  term can be read in the trace. One fit per **generator version** (the objective's, tail's and terminal's versions,
+  `H`, the LLM policy's schema, the mix's seeds and floor, the algorithm version) from its own transitions; the
+  logger's `μ` (under the stop coin) at each decision is `π_ref`. It is refit at every decision, so every mixture
+  change is followed by a refit; serving uses the current version's fit, or with none of its transitions yet the
+  latest earlier version's ("version `k+1` uses the result"). "Never fitted to TD loss alone" is read as: the fit is
+  TD's fixed point **plus a labelled prior**, and its share of the value is never set by its TD fit but by `ŵ`.
+- **`ŵ`** (`learned_tail.residual_weight`): at each stop-coin decision with a frozen residual and a closed window,
+  `Ĉ = (1[offer]/p − 1[present_next]/p)·Ĝ` with `Ĝ` §8.7's bracket observed through the randomized checks
+  (`scores.observed_return`), against the frozen predicted contrasts (stop minus the blocks at the mix's shares) of
+  the tail and of the residual. Slope: `Ĉ ≈ a·ΔV_tail + b·ΔV_residual`, `a` flat (the window is shorter than the
+  cutoff, so the tail's contrast is not on `Ĉ`'s scale), `b ~ N(0, residual_weight_prior_sd²)`. Rank: Spearman's
+  correlation of `ΔV_residual` with the forced arms' contrast less the tail's part, read as `P(rank > 0)` by its
+  normal approximation (one half with fewer than three). `ŵ = clip(E[b], 0, 1)·P(rank > 0)`, from windows closed
+  before the decision; with no contrast it is zero. The mix's own floor draws are also randomized with logged
+  probabilities and are not used here (the spec names the coin and the checks).
+- **How it enters** (`router_objective/tail_serve.py`, `objective_chooser.run_numeric`): at a `plan_block`
+  decision, before the rollouts; `π_Q`'s argmax and tie rule run on `Ṽ`, each candidate's draws shifted by the
+  constant `ŵ·V_residual`, so the paired precision is the tail's. `Q̄` (`terms.q`) stays `V_tail`, so RO5's readers
+  (κ0's likelihood, the scores) are unchanged. The mid-block follow-up (`plan_interrupt`) has no residual (a different
+  action space). The trace's `residual` holds `ŵ` with its slope, rank and count, the fit (its standardization and
+  coefficients kept exactly, as strings, so `V_residual` recomputes to float precision), and per candidate the
+  features, `V_tail`, `V_residual` and `Ṽ`; `terms` gain the same four.
+- **Partial-history weights** (`tail_data.cross_check`, report only): the improvement step is the mix with the numeric
+  policy's argmax taken on `Q_tail + ρ` under the same coin; its ratio to the logger's served probability, one step and
+  as the product over each decision's window, weights the window's observed return; beside it the fit's own
+  projection of the same step (a different horizon, labelled).
+- **The report** (`router_objective/tail_report.py`): `learnloop router objective-report`'s `learned_tail` section at
+  the tag: the claim, no guarantee, the kept evaluations, the fits by version with change points and censoring, `ŵ`
+  now and its history, the residual's share of `Ṽ`, how often it moved the argmax, serving time, the cross-check.
+
 ## 11. Not in this spec
 
 | Item | Why | Trigger |
@@ -779,4 +839,6 @@ y_i = R_i + Σ_{a′} π_ref(a′ | x′_i) Q̂(x′_i, a′)        with the ti
 
 ## 13. Specs amended at landing
 
-`spec_action_router_v1.md` §7.3 (the two-policy mix, stop eligibility; §15.2 unchanged), `plan_router_r2_v1.md`, `spec_daily_loop_v1.md` (minutes as a soft limit and lane shares no longer excluding, RO4), `daily_loop_frictionless_defaults.md` if its plan wording changes, overview §9.2 and its finite-plan wording, `spec_adaptive_difficulty_v1.md` §8 (the new forecaster and kind), `spec_followup_generate_serve_v1.md` §7 (shared exposure table), `docs/algorithm-change-playbook.md` (RO1's recorded effect on `due_at`).
+`spec_action_router_v1.md` §7.3 (the two-policy mix, stop eligibility; §15.2 unchanged), `plan_router_r2_v1.md`, `spec_daily_loop_v1.md` (minutes as a soft limit and lane shares no longer excluding, RO4), `daily_loop_frictionless_defaults.md` if its plan wording changes, overview §9.2 and its finite-plan wording, `spec_adaptive_difficulty_v1.md` §8 (the new forecaster and kind), `spec_followup_generate_serve_v1.md` §7 (shared exposure table), `docs/algorithm-change-playbook.md` (RO1's recorded effect on `due_at`). RO6 touches only `spec_action_router_v1.md`
+§7.3 (`π_Q`'s value is `Ṽ` at the tag; amended); the daily loop's frame, the playbook's chain rules and the other
+specs are unchanged by it.

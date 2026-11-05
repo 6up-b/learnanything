@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a"
-source_commit_timestamp: "2026-11-05T08:45:43-05:00"
-source_worktree_state: "modified"
+source_commit: "017c3ed22ddf583d5cddfe612d4e1ac32dc70950"
+source_commit_timestamp: "2026-11-05T12:03:53-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -50,45 +50,47 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 264 |
+| Source lines | 286 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 9a47277b99a9e26c348ea9fea39644fe8799654a` |
-| Commit timestamp | `2026-11-05T08:45:43-05:00` |
+| Worktree state | `clean` |
+| Source commit | `017c3ed22ddf583d5cddfe612d4e1ac32dc70950` |
+| Commit timestamp | `2026-11-05T12:03:53-05:00` |
 
 ## Public API
 
-- `interval_factor_removed(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 60) — §5.1: True when the FSRS interval carries no surprise factor (the tag and the switch).
-- `available_at_reads_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 68) — §5.3: True when decision-time attempt reads use the availability time.
-- `self_report_not_validated_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 75) — §5.4: True when a learner's pick is not counted as validated evidence.
-- `available_at(row: Mapping[str, Any]) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 82) — ``coalesce(received_at, created_at)``: when the attempt became known to the system.
-- `attempt_time_sql(config: Any, connection: Any=None, *, alias: str | None=None) -> str` ([source](../../../../../src/learnloop/router_objective_switches.py), line 95) — THE availability predicate's SQL form: the expression a decision-time read of ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
-- `known_at(row: Mapping[str, Any], config: Any) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 117) — THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time cutoff compares with.
-- `validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 132) — The resolution ids that count as validated evidence: all of them below the tag or with the switch off; otherwise all but a learner's own reports (§5.4).
-- `objective_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 142) — RO4 (§8): the vault is at the router objective's successor (mvp-0.47) or later.
-- `objective_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 149) — RO4 (§8.3): the objective serves: the tag and ``[router_objective] enabled``.
-- `objective_scores_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 157) — RO4 (§8.3, §8.7): a comparison score can be formed: the objective serves AND RO0's receipts are on (with receipts off the objective serves and no score forms).
-- `sensors_in_value_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 165) — RO4 (§8.4): the LLM's effect-slope correction enters the value (by hand off).
-- `calibration_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 172) — RO5 (§9): the vault is at the calibration successor (mvp-0.48) or later.
-- `stop_coin_rate(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 179) — RO5 §9 item 1: the stop coin's probability each way at a reversible boundary (0: no coin drawn).
-- `check_mode(config: Any) -> tuple[str, float]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 192) — RO5 §9 item 2: ``(mode, value)``: ``("embedded", checks per day)``, ``("rate", per topic per day)`` or ``("off", 0)``.
-- `calibrated_weight_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 208) — RO5 §9 item 2 into §8.7: the randomized checks' comparison scores move ``w``.
-- `pick_open_share(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 216) — RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag).
-- `fitted_models_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 224) — RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks.
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 231) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `interval_factor_removed(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 64) — §5.1: True when the FSRS interval carries no surprise factor (the tag and the switch).
+- `available_at_reads_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 72) — §5.3: True when decision-time attempt reads use the availability time.
+- `self_report_not_validated_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 79) — §5.4: True when a learner's pick is not counted as validated evidence.
+- `available_at(row: Mapping[str, Any]) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 86) — ``coalesce(received_at, created_at)``: when the attempt became known to the system.
+- `attempt_time_sql(config: Any, connection: Any=None, *, alias: str | None=None) -> str` ([source](../../../../../src/learnloop/router_objective_switches.py), line 99) — THE availability predicate's SQL form: the expression a decision-time read of ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
+- `known_at(row: Mapping[str, Any], config: Any) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 121) — THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time cutoff compares with.
+- `validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 136) — The resolution ids that count as validated evidence: all of them below the tag or with the switch off; otherwise all but a learner's own reports (§5.4).
+- `objective_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 146) — RO4 (§8): the vault is at the router objective's successor (mvp-0.47) or later.
+- `objective_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 153) — RO4 (§8.3): the objective serves: the tag and ``[router_objective] enabled``.
+- `objective_scores_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 161) — RO4 (§8.3, §8.7): a comparison score can be formed: the objective serves AND RO0's receipts are on (with receipts off the objective serves and no score forms).
+- `sensors_in_value_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 169) — RO4 (§8.4): the LLM's effect-slope correction enters the value (by hand off).
+- `calibration_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 176) — RO5 (§9): the vault is at the calibration successor (mvp-0.48) or later.
+- `stop_coin_rate(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 183) — RO5 §9 item 1: the stop coin's probability each way at a reversible boundary (0: no coin drawn).
+- `check_mode(config: Any) -> tuple[str, float]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 196) — RO5 §9 item 2: ``(mode, value)``: ``("embedded", checks per day)``, ``("rate", per topic per day)`` or ``("off", 0)``.
+- `calibrated_weight_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 212) — RO5 §9 item 2 into §8.7: the randomized checks' comparison scores move ``w``.
+- `pick_open_share(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 220) — RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag).
+- `fitted_models_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 228) — RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks.
+- `learned_tail_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 235) — RO6 (§10): the vault is at the learned tail's successor (mvp-0.49) or later.
+- `learned_tail_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 242) — RO6 (§10): the numeric policy values its candidates with the learned tail's residual (the tag, the objective serving and ``[router_objective] learned_tail``).
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 251) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
-- `LEARNER_REPORT_PREFIX` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 41)
-- `AVAILABLE_AT_SQL` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 44)
-- `RECEIVED_AT_RECORDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 48)
-- `RECEIVED_AT_INFERRED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 49)
-- `INTERVAL_FACTOR_SNAPSHOT_KEY` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 52)
-- `CHECKS_EMBEDDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 187)
-- `CHECKS_RATE` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 188)
-- `CHECKS_OFF` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 189)
+- `LEARNER_REPORT_PREFIX` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 45)
+- `AVAILABLE_AT_SQL` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 48)
+- `RECEIVED_AT_RECORDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 52)
+- `RECEIVED_AT_INFERRED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 53)
+- `INTERVAL_FACTOR_SNAPSHOT_KEY` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 56)
+- `CHECKS_EMBEDDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 191)
+- `CHECKS_RATE` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 192)
+- `CHECKS_OFF` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 193)
 
 ### Explicit exports
 
@@ -110,6 +112,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `check_mode`
 - `fitted_models_on`
 - `interval_factor_removed`
+- `learned_tail_on`
+- `learned_tail_tag`
 - `pick_open_share`
 - `stop_coin_rate`
 - `known_at`
@@ -123,8 +127,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_at_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 55)
-- `_has_received_at(connection: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 128)
+- `_at_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 59)
+- `_has_received_at(connection: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 132)
 
 ## Who imports or calls it
 
@@ -134,10 +138,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `known_at`; statically calls `known_at`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `interval_factor_removed`; statically calls `interval_factor_removed`
-- [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `calibration_tag`; statically calls `calibration_tag`
+- [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `calibration_tag`, `learned_tail_tag`; statically calls `calibration_tag`, `learned_tail_tag`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHECKS_OFF`, `check_mode`; statically calls `check_mode`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `objective_scores_on`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `objective_scores_on`, `stop_coin_rate`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `learned_tail_on`, `objective_scores_on`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `learned_tail_on`, `objective_scores_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `fitted_models_on`, `stop_coin_rate`; statically calls `fitted_models_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `objective_on`; statically calls `objective_on`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `attempt_time_sql`, `objective_on`; statically calls `attempt_time_sql`, `objective_on`
@@ -149,6 +153,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `INTERVAL_FACTOR_SNAPSHOT_KEY`, `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `CHECKS_EMBEDDED`, `CHECKS_OFF`, `check_mode`; statically calls `check_mode`
+- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `attempt_time_sql`, `known_at`; statically calls `attempt_time_sql`, `known_at`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `objective_on`; statically calls `objective_on`
@@ -157,7 +162,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `INTERVAL_FACTOR_VERSIONS`, `ROUTER_CALIBRATION_VERSIONS`, `ROUTER_OBJECTIVE_VERSIONS`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `INTERVAL_FACTOR_VERSIONS`, `ROUTER_CALIBRATION_VERSIONS`, `ROUTER_LEARNED_TAIL_VERSIONS`, `ROUTER_OBJECTIVE_VERSIONS`
 
 ### Platform and third-party dependencies
 
@@ -171,7 +176,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] and 16 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -201,6 +206,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_same_date_and_eligible_set_draw_the_same_and_r_is_exact`
 - [tests/test_ro5_successor.py](../../../../../tests/test_ro5_successor.py) — direct import
   - `test_the_gates_read_off_below_the_tag_and_at_zero`
+- [tests/test_ro6_successor.py](../../../../../tests/test_ro6_successor.py) — direct import
+  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
 
 ## Modification guidance
 

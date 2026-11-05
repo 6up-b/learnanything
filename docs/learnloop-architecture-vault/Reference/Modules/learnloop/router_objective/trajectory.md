@@ -85,6 +85,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]] — imports `module`; statically calls `rows`
+- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; statically calls `rows`
 
 ## Dependencies
 
@@ -104,7 +105,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]].
+Static participation evidence comes from [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]], [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

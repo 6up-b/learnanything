@@ -299,6 +299,13 @@ the arm in `policy_experiment_assignments` (`ro5_stop_coin:v1`). A decision whos
 (`router.outcomes.S_ALPHA_STATUS`), and a randomized check's presentation is never a block decision's action in
 `router_outcomes`.
 
+*Amended at router objective RO6 (2026-11-05; `docs/specs/spec_router_objective_v1.md` §10 and its "As built";
+successor `mvp-0.49`):* at a block decision `π_Q` is the argmax of `Ṽ = V_tail + ŵ·V_residual`, `V_tail` the
+objective's `Q̄` and `V_residual` a fitted Q evaluation of the frozen logger version (belief features, the objective's
+own reward, never `S`); `ŵ` starts at zero and only the stop coin's randomized contrasts move it, so until they do
+`π_Q` is RO5's exactly. The mix, the floor, the staged fallback and the mid-block follow-up are unchanged. With
+`[router_objective] learned_tail = false`, or below the tag, RO5's mixture exactly.
+
 ### 7.4 What the learner sees
 
 The "why" follows whichever component's draw selected the block:
