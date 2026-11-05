@@ -3,13 +3,13 @@ title: "activity_card_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
-source_commit_timestamp: "2026-11-04T18:38:52-05:00"
+source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_card_state"
   - "table activity_card_state"
-schema_head: 243
+schema_head: 244
 table_name: "activity_card_state"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/075_card_lineage_state.sql"
+  - "src/learnloop/daily_plan/schedule_effects.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/substrate/card_lineage.py"
   - "src/learnloop/substrate/compat/substrate_cutover.py"
@@ -120,6 +121,8 @@ Indexes and uniqueness:
 - `tests/test_field_cli.py`
 - `tests/test_journey6.py`
 - `tests/test_progression.py`
+- `tests/test_ro1_upgrade_report.py`
+- `tests/test_shadow_rebuild.py`
 - `tests/test_substrate_cutover.py`
 - `tests/test_table_roles.py`
 

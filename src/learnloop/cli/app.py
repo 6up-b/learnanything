@@ -18,6 +18,7 @@ from learnloop.algorithm_versions import (
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     DATA_CAPTURE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
+    INTERVAL_FACTOR_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -112,8 +113,8 @@ def upgrade(
                 f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, "
                 f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, "
                 f"{TEACHER_ALGORITHM_VERSION}, {HELP_FOLD_ATTACH_ALGORITHM_VERSION}, "
-                f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION} or "
-                f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}); default: the latest."
+                f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
+                f"{FOLLOWUP_SERVE_ALGORITHM_VERSION} or {INTERVAL_FACTOR_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -427,6 +428,10 @@ def upgrade(
         from learnloop.followup_serve_upgrade import upgrade_to_followup_serve
 
         result = upgrade_to_followup_serve(_root(vault))
+    elif to == INTERVAL_FACTOR_ALGORITHM_VERSION:
+        from learnloop.interval_factor_upgrade import upgrade_to_interval_factor
+
+        result = upgrade_to_interval_factor(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -438,8 +443,8 @@ def upgrade(
             f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, "
             f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, "
             f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION} or "
-            f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION} or "
-            f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}."
+            f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
+            f"{FOLLOWUP_SERVE_ALGORITHM_VERSION} or {INTERVAL_FACTOR_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -3256,8 +3261,19 @@ def rebuild_command(
         raise typer.Exit(code=2)
 
     loaded = load_vault(_root(vault))
+    observe = None
+    if json_output:
+        # Router objective RO1 (spec §5.5; codex review F2, F3): serving's own read of each side
+        # at one instant, for the upgrade's report below.
+        from functools import partial
+
+        from learnloop.clock import SystemClock
+        from learnloop.daily_plan.schedule_effects import serving_schedule
+
+        as_of = SystemClock().now()
+        observe = partial(serving_schedule, as_of=as_of)
     try:
-        result = shadow_rebuild(loaded, assignments=set_values or ())
+        result = shadow_rebuild(loaded, assignments=set_values or (), observe=observe)
     except ShadowRebuildError as exc:
         if json_output:
             typer.echo(
@@ -3274,7 +3290,16 @@ def rebuild_command(
         raise typer.Exit(code=1)
 
     if json_output:
-        typer.echo(_dump({"version": 1, "shadow_rebuild": result.as_dict()}))
+        # Router objective RO1 (spec §5.5): the schedule change's serving effects, the upgrade's report.
+        from learnloop.daily_plan.schedule_effects import schedule_effects
+
+        payload = result.as_dict()
+        payload["schedule_effects"] = schedule_effects(
+            result.schedule_before, result.schedule_after, as_of=as_of,
+            horizon_days=int(loaded.config.plan.load_horizon_days),
+            serving_before=result.observed_before, serving_after=result.observed_after,
+        )
+        typer.echo(_dump({"version": 1, "shadow_rebuild": payload}))
         return
     summary = result.learner_state_diff["summary"]
     typer.echo(

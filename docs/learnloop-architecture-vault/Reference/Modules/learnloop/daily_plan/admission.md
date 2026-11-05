@@ -102,6 +102,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `new_item_daily_cost`; statically calls `new_item_daily_cost`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `NewCandidate`, `ReviewItem`, `admit_new_material`, `more_new_tradeoff`, `projected_review_load`; statically calls `NewCandidate`, `ReviewItem`, `admit_new_material`, `more_new_tradeoff`, `projected_review_load`
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `ReviewItem`, `projected_review_load`; statically calls `ReviewItem`, `projected_review_load`
+- [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] — imports `ReviewItem`, `projected_review_load`; statically calls `projected_review_load`
 
 ## Dependencies
 
@@ -121,7 +122,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]], [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -134,6 +135,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_review_load_counts_reviews_in_the_horizon`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f5_a_primed_retry_changes_neither_the_cost_preview_nor_the_review_load`
+- [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+  - `test_a_primed_retry_after_the_review_is_not_the_intervals_anchor`
+  - `test_the_report_counts_the_queue_and_load_admission_counts`
 
 ## Modification guidance
 

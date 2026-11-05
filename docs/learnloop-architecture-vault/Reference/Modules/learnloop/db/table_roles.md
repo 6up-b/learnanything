@@ -256,6 +256,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_after_the_upgrade_a_rebuild_settles_and_stays`
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_table_roles_and_the_one_replayer`
+- [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+  - `test_244_is_the_head_and_the_head_fixture_holds_its_empty_columns`
 - [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import
   - `test_243_exists_and_its_tables_are_receipts`
 - [tests/test_rw2d_receipts_migration.py](../../../../../../tests/test_rw2d_receipts_migration.py) — direct import

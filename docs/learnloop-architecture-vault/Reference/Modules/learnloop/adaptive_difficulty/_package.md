@@ -47,7 +47,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/successor.py"
   - "src/learnloop/adaptive_difficulty/switches.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T09:25:40-05:00"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -103,7 +103,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/monitoring|learnloop.adaptive_difficulty.monitoring]] | [[Reference/Modules/learnloop/adaptive_difficulty/monitoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] | [[Reference/Modules/learnloop/adaptive_difficulty/operation#^module-purpose|purpose]] | `ACTIVE` | 24 | 17 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] | [[Reference/Modules/learnloop/adaptive_difficulty/outcomes#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] | [[Reference/Modules/learnloop/adaptive_difficulty/outside#^module-purpose|purpose]] | `ACTIVE` | 3 | 15 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] | [[Reference/Modules/learnloop/adaptive_difficulty/outside#^module-purpose|purpose]] | `ACTIVE` | 3 | 16 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] | [[Reference/Modules/learnloop/adaptive_difficulty/predict#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] | [[Reference/Modules/learnloop/adaptive_difficulty/priors#^module-purpose|purpose]] | `ACTIVE` | 12 | 5 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/projection|learnloop.adaptive_difficulty.projection]] | [[Reference/Modules/learnloop/adaptive_difficulty/projection#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
@@ -130,8 +130,8 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
+- [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 25 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 24 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 24 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 9 static module edges
@@ -183,7 +183,7 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_field["learnloop.field"]
     n_learnloop -->|2| center
-    center -->|24| n_learnloop
+    center -->|25| n_learnloop
     center -->|25| n_learnloop_ai
     center -->|24| n_learnloop_db_stores
     center -->|16| n_learnloop_db

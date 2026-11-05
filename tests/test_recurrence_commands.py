@@ -47,7 +47,7 @@ from tests.recurrence_fakes import (
 )
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_243"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_244"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {
@@ -163,6 +163,7 @@ def test_successor_vocabulary():
         LESSON_SUGGESTIONS_ALGORITHM_VERSION,
         "mvp-0.44",
         "mvp-0.45",
+        "mvp-0.46",
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -193,7 +194,7 @@ def test_successor_vocabulary():
     assert TEACHER_ALGORITHM_VERSION == "mvp-0.41"
     # Teacher TE1b (mvp-0.43, after follow-ups Nov 2's mvp-0.42; renumbered at its landing), then data capture.
     assert LESSON_SUGGESTIONS_ALGORITHM_VERSION == "mvp-0.43"
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.45"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.46"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

@@ -193,6 +193,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_rows9_13_decision_state.py](../../../../../../tests/test_ro0_rows9_13_decision_state.py) — direct import
   - `test_a_path_that_reads_no_ad_says_so`
   - `test_ad_failing_is_said_and_everything_else_is_kept`
+- [tests/test_ro1_interval_factor.py](../../../../../../tests/test_ro1_interval_factor.py) — direct import
+  - `test_at_the_tag_due_at_follows_interval_for_retention_of_stability`
+  - `test_below_the_tag_and_switched_off_the_factor_stretches_the_interval_as_before`
+- [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
+  - `test_at_the_tag_a_rebuild_moves_every_eligible_due_date_to_the_unstretched_interval`
+- [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
+  - `test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import

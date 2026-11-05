@@ -90,6 +90,7 @@ from learnloop.adaptive_difficulty.protection import guard
 from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard, refusal_status
 from learnloop.adaptive_difficulty.switches import LLM_V1, LLM_V3_DECIDER, LLM_V3_LLM, outside_forecasters
 from learnloop.adaptive_difficulty.material_view import current_view
+from learnloop.router_objective_switches import known_at
 
 LOG = logging.getLogger(__name__)
 
@@ -208,11 +209,18 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view
              if str(attempt.get("learning_object_id")) in scope and attempt.get("attempt_type") != "self_report"]
     found.sort(key=lambda attempt: (str(attempt.get("created_at") or ""), str(attempt["id"])), reverse=True)
     rows = [(a["id"], a["practice_item_id"], a["learning_object_id"], a.get("attempt_type"), a.get("correctness"),
-             a.get("hints_used"), a.get("primed"), a.get("created_at"), a.get("learner_answer_md")) for a in found]
+             a.get("hints_used"), a.get("primed"), a.get("created_at"), a.get("learner_answer_md"),
+             known_at(a, getattr(vault, "config", None))) for a in found]
     attempts = []
     for row in rows:
         stamp = parse_utc(str(row[7])) if row[7] else None
         if stamp is None or served is None or stamp >= served:
+            continue
+        # RO1 (landing ruling R1): only what was known at the serve (``known_at``: the availability
+        # time at the tag with available_at_reads on, else created_at, as the predecessor); listed and
+        # dated by when it happened.
+        known = parse_utc(str(row[9])) if row[9] else None
+        if known is None or known >= served:
             continue
         past = view.item(row[1])
         attempts.append({

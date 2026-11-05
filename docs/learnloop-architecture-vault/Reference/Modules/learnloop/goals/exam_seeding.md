@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/exam_seeding.py"
 source_paths:
   - "src/learnloop/goals/exam_seeding.py"
-source_commit: "3c5f0cbca89cb041f04a3cb38c3c023783cd4bda"
-source_commit_timestamp: "2026-10-17T00:14:05-04:00"
+source_commit: "025a420fa5a95a2aae196da71e84bb416b795cf8"
+source_commit_timestamp: "2026-11-04T17:57:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,41 +49,41 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py) |
-| Source lines | 458 |
+| Source lines | 467 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `3c5f0cbca89cb041f04a3cb38c3c023783cd4bda` |
-| Commit timestamp | `2026-10-17T00:14:05-04:00` |
+| Source commit | `025a420fa5a95a2aae196da71e84bb416b795cf8` |
+| Commit timestamp | `2026-11-04T17:57:15-05:00` |
 
 ## Public API
 
-- `class ExamSeedingError(ValueError)` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 69)
-- `exam_ingest_instructions(extra_instructions: str | None=None) -> str` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 73) — Canonical-ingestor instructions for ingesting a past practice exam.
-- `class ExamOutcome` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 101)
-- `class ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 109)
-- `class ExamSeedEntry` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 115)
-  - `as_dict(self) -> dict[str, Any]` (line 126; public)
-- `class ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 141)
-  - `as_dict(self) -> dict[str, Any]` (line 151; public)
-- `parse_exam_outcomes(payload: Mapping[str, Any], *, exam_date_override: str | None=None) -> ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 164) — Parse an outcomes file payload.
-- `exam_question_from_tags(item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 239)
-- `find_exam_items(vault: LoadedVault, *, subject: str | None=None) -> dict[str, PracticeItem]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 248) — Map exam question number -> practice item (tagged ``exam_q:<n>``).
-- `seed_exam_attempts(vault: LoadedVault, repository: Repository, *, outcomes: ExamOutcomesFile, subject: str | None=None, dry_run: bool=False) -> ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 285) — Seed backdated ``exam_evidence`` attempts from per-question outcomes.
+- `class ExamSeedingError(ValueError)` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 74)
+- `exam_ingest_instructions(extra_instructions: str | None=None) -> str` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 78) — Canonical-ingestor instructions for ingesting a past practice exam.
+- `class ExamOutcome` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 106)
+- `class ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 114)
+- `class ExamSeedEntry` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 120)
+  - `as_dict(self) -> dict[str, Any]` (line 131; public)
+- `class ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 146)
+  - `as_dict(self) -> dict[str, Any]` (line 156; public)
+- `parse_exam_outcomes(payload: Mapping[str, Any], *, exam_date_override: str | None=None) -> ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 169) — Parse an outcomes file payload.
+- `exam_question_from_tags(item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 244)
+- `find_exam_items(vault: LoadedVault, *, subject: str | None=None) -> dict[str, PracticeItem]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 253) — Map exam question number -> practice item (tagged ``exam_q:<n>``).
+- `seed_exam_attempts(vault: LoadedVault, repository: Repository, *, outcomes: ExamOutcomesFile, subject: str | None=None, dry_run: bool=False, clock: Clock | None=None) -> ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 290) — Seed backdated ``exam_evidence`` attempts from per-question outcomes.
 
 ### Module constants
 
-- `EXAM_ATTEMPT_TYPE` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 60)
-- `EXAM_QUESTION_TAG` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 61)
-- `EXAM_QUESTION_TAG_PREFIX` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 62)
-- `_EXAM_SEED_HOUR_UTC` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 66)
+- `EXAM_ATTEMPT_TYPE` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 65)
+- `EXAM_QUESTION_TAG` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 66)
+- `EXAM_QUESTION_TAG_PREFIX` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 67)
+- `_EXAM_SEED_HOUR_UTC` ([src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py), line 71)
 
 ## Internal implementation anchors
 
-- `_validated_score(question: str, value: Any) -> float` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 229)
-- `_question_sort_key(question: str) -> tuple[int, float | str, str]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 268)
-- `_has_exam_attempt_on_date(repository: Repository, practice_item_id: str, exam_date: date) -> bool` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 275)
+- `_validated_score(question: str, value: Any) -> float` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 234)
+- `_question_sort_key(question: str) -> tuple[int, float | str, str]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 273)
+- `_has_exam_attempt_on_date(repository: Repository, practice_item_id: str, exam_date: date) -> bool` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 280)
 
 ## Who imports or calls it
 
@@ -99,7 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `ResolvedGrade`, `apply_attempt`, `calculate_rubric_score`; calls `ApplyAttemptInput`, `AttemptDraft`, `ResolvedGrade`, `apply_attempt`, `calculate_rubric_score`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `FrozenClock`; calls `FrozenClock`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `utc_now_iso`; calls `FrozenClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `RebuildResult`, `rebuild_derived_state`; calls `rebuild_derived_state`
@@ -135,6 +135,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seeded_exam_interleaves_before_later_live_attempt`
   - `test_subject_scoping_excludes_other_subjects`
   - `test_unmatched_outcome_key_errors`
+- [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+  - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
+- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
+- [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
+  - `test_availability_moves_no_due_date_or_mastery`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import

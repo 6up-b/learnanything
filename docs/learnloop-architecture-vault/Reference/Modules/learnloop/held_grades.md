@@ -198,6 +198,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_regrade_contract_upgrade.py](../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_a_failed_activation_leaves_the_predecessor_exactly_as_it_was`
   - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
+- [tests/test_ro1_upgrade_report.py](../../../../../tests/test_ro1_upgrade_report.py) — direct import
+  - `test_serving_reads_the_anchor_past_a_primed_retry_and_a_held_grade`
 - [tests/test_router_card.py](../../../../../tests/test_router_card.py) — direct import
 - [tests/test_router_r2c_teach_back.py](../../../../../tests/test_router_r2c_teach_back.py) — direct import
   - `test_a_held_teach_back_is_never_summarized`

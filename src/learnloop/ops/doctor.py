@@ -429,6 +429,7 @@ def _check_database_state(
         _check_sql_state(vault, repository, issues)
     if _has_tables(database_tables, "practice_attempts", "derived_state_rebuilds"):
         _check_derived_state_rebuild_marker(vault, repository, issues)
+        _check_projection_switches(vault, repository, issues)
     if "proposed_patch_items" in database_tables:
         _check_invalid_proposals(repository, issues)
     if _has_tables(database_tables, "practice_attempts", "attempt_surprise"):
@@ -1561,6 +1562,41 @@ def _check_derived_state_rebuild_marker(vault: LoadedVault, repository: Reposito
             "sql:derived_state_rebuild_stale",
             message,
             repository.sqlite_path,
+        )
+    )
+
+
+def _check_projection_switches(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None:
+    """Router objective RO1 (spec §5.5): persisted due dates were derived under a switch the config no longer says.
+
+    A switch change on the schedule is a projection change: live reviews follow the config at once, but the
+    stored due dates of every other item keep the setting of the last whole-vault rebuild, whose receipt
+    records it. A vault whose rebuilds predate the record (or that never had one) is not compared."""
+
+    if not repository.sqlite_path.exists() or not repository.learning_object_ids_with_attempts():
+        return
+    from learnloop.router_objective_switches import INTERVAL_FACTOR_SNAPSHOT_KEY, projection_switches
+
+    marker = repository.latest_whole_vault_rebuild()
+    recorded = (marker or {}).get("projection_switches")
+    if not isinstance(recorded, dict) or INTERVAL_FACTOR_SNAPSHOT_KEY not in recorded:
+        return
+    current = projection_switches(vault.config)[INTERVAL_FACTOR_SNAPSHOT_KEY]
+    if bool(recorded[INTERVAL_FACTOR_SNAPSHOT_KEY]) == current:
+        return
+    applied = "without" if recorded[INTERVAL_FACTOR_SNAPSHOT_KEY] else "with"
+    wanted = "without" if current else "with"
+    issues.append(
+        _issue(
+            "warning",
+            "sql:projection_switches_stale",
+            (
+                f"Stored due dates were last derived {applied} the surprise interval factor, and the config now "
+                f"says {wanted} it ([scheduler.surprise] remove_interval_factor at {vault.config.algorithms.algorithm_version}); "
+                "run rebuild-derived-state to re-derive them"
+            ),
+            repository.sqlite_path,
+            details={"recorded": dict(recorded), "config": projection_switches(vault.config)},
         )
     )
 

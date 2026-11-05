@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/context.py"
 source_paths:
   - "src/learnloop_sidecar/context.py"
-source_commit: "edf84b3a35ee45f993d029bfcdb5290569e1881e"
-source_commit_timestamp: "2026-11-04T09:28:50-05:00"
+source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `edf84b3a35ee45f993d029bfcdb5290569e1881e` |
-| Commit timestamp | `2026-11-04T09:28:50-05:00` |
+| Source commit | `eff30f881a7d3ea5b06e0a10156b37049285cf52` |
+| Commit timestamp | `2026-11-04T20:48:34-05:00` |
 
 ## Public API
 
@@ -229,10 +229,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `recover_pending_workflows`; calls `recover_pending_workflows`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `pending_jobs`; calls `pending_jobs`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `settle_open_when_off`; calls `settle_open_when_off`
-- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `schedule_certification_cold_probes`; calls `schedule_certification_cold_probes`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `BackgroundBuilds`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `reconcile_outcome_placements`; calls `reconcile_outcome_placements`
+- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `mastery_diagnostic_view`; calls `mastery_diagnostic_view`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`; calls `display_mastery`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`; calls `run_startup_maintenance`
@@ -556,6 +556,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_row4_exposure_initiator.py](../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
   - `test_the_span_view_handler_records_the_mapped_initiator`
 - [tests/test_ro0_rows7_8_sessions.py](../../../../../tests/test_ro0_rows7_8_sessions.py) — direct import
+- [tests/test_ro1_successor.py](../../../../../tests/test_ro1_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_router_offer_log.py](../../../../../tests/test_router_offer_log.py) — direct import
 - [tests/test_router_outcomes.py](../../../../../tests/test_router_outcomes.py) — direct import
   - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`

@@ -6929,6 +6929,22 @@ class Repository(
             ).fetchall()
         return [_decode_learning_outcome_label(row) for row in rows]
 
+    def _has_projection_switches_column(self) -> bool:
+        """Whether ``derived_state_rebuilds`` has migration 244's column (an older test database may not)."""
+
+        with self.connection() as connection:
+            return any(row[1] == "projection_switches_json"
+                       for row in connection.execute("PRAGMA table_info(derived_state_rebuilds)"))
+
+    def latest_whole_vault_rebuild(self) -> dict[str, Any] | None:
+        """The latest rebuild that replayed every learning object (scope ``all``), or None."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM derived_state_rebuilds WHERE scope = 'all' ORDER BY created_at DESC, id DESC LIMIT 1"
+            ).fetchone()
+        return _decode_derived_state_rebuild(row) if row is not None else None
+
     def record_derived_state_rebuild(
         self,
         *,
@@ -6939,32 +6955,39 @@ class Repository(
         replayed_attempts: int,
         canonical_projection_version: str | None = None,
         coverage_denominator_version: str | None = None,
+        projection_switches: Mapping[str, Any] | None = None,
         clock: Clock | None = None,
     ) -> str:
         rebuild_id = new_ulid()
         created_at = utc_now_iso(clock)
+        columns = [
+            "id", "scope", "learning_object_ids_json", "algorithm_version",
+            "rebuilt_learning_objects", "replayed_attempts",
+            "canonical_projection_version", "coverage_denominator_version", "created_at",
+        ]
+        values: list[Any] = [
+            rebuild_id,
+            scope,
+            _json(learning_object_ids),
+            algorithm_version,
+            rebuilt_learning_objects,
+            replayed_attempts,
+            canonical_projection_version,
+            coverage_denominator_version,
+            created_at,
+        ]
+        if projection_switches is not None and self._has_projection_switches_column():
+            # Router objective RO1 (migration 244): the switches a replay derived
+            # persisted state under, the projection's defaults snapshot. Written
+            # only by a rebuild that replays attempts, and only when given, so a
+            # database below 242 still records every rebuild.
+            columns.append("projection_switches_json")
+            values.append(_json(dict(sorted(projection_switches.items()))))
         with self.connection() as connection:
             connection.execute(
-                """
-                INSERT INTO derived_state_rebuilds(
-                  id, scope, learning_object_ids_json, algorithm_version,
-                  rebuilt_learning_objects, replayed_attempts,
-                  canonical_projection_version, coverage_denominator_version,
-                  created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    rebuild_id,
-                    scope,
-                    _json(learning_object_ids),
-                    algorithm_version,
-                    rebuilt_learning_objects,
-                    replayed_attempts,
-                    canonical_projection_version,
-                    coverage_denominator_version,
-                    created_at,
-                ),
+                f"INSERT INTO derived_state_rebuilds({', '.join(columns)}) "
+                f"VALUES ({', '.join('?' for _ in columns)})",
+                values,
             )
             connection.commit()
         return rebuild_id
@@ -18727,6 +18750,12 @@ class Repository(
             # says something, like declared_stuck.
             columns.append("reference_status")
             values.append(attempt["reference_status"])
+        if attempt.get("received_at") is not None:
+            # Router objective RO1 (migration 244): when the attempt became
+            # known, written only where created_at is not the write time (exam
+            # seeding). Written only when set, like the AD1 columns below.
+            columns.extend(("received_at", "received_at_source"))
+            values.extend((attempt["received_at"], attempt.get("received_at_source") or "recorded"))
         for column in ("difficulty_rating", "first_hint_progress"):
             if attempt.get(column) is not None:
                 # Adaptive difficulty AD1 (migration 213): written only when
@@ -27141,6 +27170,8 @@ def _decode_item_parameter_state(row: sqlite3.Row) -> ItemParameterState:
 def _decode_derived_state_rebuild(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["learning_object_ids"] = _loads(payload.pop("learning_object_ids_json"), [])
+    if "projection_switches_json" in payload:
+        payload["projection_switches"] = _loads(payload.pop("projection_switches_json"), None)
     return payload
 
 

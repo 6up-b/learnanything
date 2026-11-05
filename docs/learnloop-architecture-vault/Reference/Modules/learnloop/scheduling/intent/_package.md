@@ -13,7 +13,7 @@ source_paths:
   - "src/learnloop/scheduling/intent/resolution.py"
   - "src/learnloop/scheduling/intent/serving.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-31T21:18:38-04:00"
+source_commit_timestamp: "2026-11-04T17:56:52-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling.intent"
@@ -53,9 +53,9 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]] | [[Reference/Modules/learnloop/scheduling/intent/feasibility#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] | [[Reference/Modules/learnloop/scheduling/intent/followup_gate#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 | [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] | [[Reference/Modules/learnloop/scheduling/intent/model#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
-| [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] | [[Reference/Modules/learnloop/scheduling/intent/recall_targets#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
+| [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] | [[Reference/Modules/learnloop/scheduling/intent/recall_targets#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] | [[Reference/Modules/learnloop/scheduling/intent/resolution#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
-| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 8 | 16 |
+| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 9 | 16 |
 
 ## Cross-package dependencies
 
@@ -72,8 +72,8 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 9 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 8 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 4 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 3 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
@@ -86,9 +86,9 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.scheduling.intent"]
+    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop["learnloop"]
     n_learnloop_intent["learnloop.intent"]
-    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_scheduling["learnloop.scheduling"]
@@ -96,9 +96,9 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_sources["learnloop.content.sources"]
+    n_learnloop_daily_plan -->|9| center
     center -->|8| n_learnloop
     n_learnloop_intent -->|8| center
-    n_learnloop_daily_plan -->|7| center
     center -->|5| n_learnloop_db_stores
     n_learnloop_instructional -->|4| center
     n_learnloop_scheduling -->|1| center

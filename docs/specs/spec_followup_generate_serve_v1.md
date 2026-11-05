@@ -224,7 +224,7 @@ The learner reads the possible causes and marks them. It's an imperfect sensor, 
 
 **Persisted meaning:** a successor after data capture's `mvp-0.44`, with a kill switch `followup.generate_and_serve`. Off: behaviour matches the predecessor from an equivalent starting state, background work and UI included, and the stored `auto_generate_on_entry` is what applies. Burns persist after a rollback, and open FG1 workflows settle as skipped. New tables get a role in `table_roles.py`, per CLAUDE.md. Numbers are claimed at landing.
 
-**Queue position:** as soon as possible, per the owner: ahead of A7 and the TE2/TE3 re-spec. A7's probe arm needs a question to serve, and it can reuse this path.
+**Queue position:** as soon as possible, per the owner: ahead of the TE2/TE3 re-spec. A7 was planned next, and its probe arm would have reused this path. Owner decision, Nov 4 2026: A7 is dropped as a separate stage ("I agree with you reccomendation to drop it"). Its probe-versus-continue contrast is read from the router's logged `no_intervention` floor (§5, §11). If that proves too thin, a higher no-probe share is a possible RO5 arm (`spec_router_objective_v1.md` §9).
 
 **Phone.** Phone submit rejects `probe_presentation_id`, so a generated probe can't be answered there yet. A miss on the phone follows the existing behaviour for what it can serve, and a pending probe is handed to the desktop with a line saying so. The phone's feedback doesn't hold what it can't follow with a probe. Phone probe answers are a follow-up. Phone files are in the owner's working tree at the time of writing, so the build merges whatever lands.
 
@@ -245,10 +245,10 @@ The learner reads the possible causes and marks them. It's an imperfect sensor, 
 
 > Yes, the router should be able to choose no intervention. The router will decide for weak cases. Yes, you should have the hypothesis hidden by default and if read it should be marked as not independent. We should have it run as soon as possible since this is a big user experience gap
 
-- **No intervention** is a router option (§5). Its logged random floor gives the probe-versus-no-probe contrast A7 wants.
+- **No intervention** is a router option (§5). Its logged random floor gives the probe-versus-no-probe contrast. A7 was dropped as a separate stage (owner, Nov 4 2026), so this floor is where that contrast is read; a higher no-probe share is a possible RO5 arm if it proves too thin.
 - **No threshold** on hypothesis strength. The router decides weak cases.
 - **Causes stay hidden** until the probe is answered. Reading them first marks the probe's answer as not independent (§7).
-- **Priority:** as soon as possible, ahead of A7 and the TE2/TE3 re-spec.
+- **Priority:** as soon as possible, ahead of the TE2/TE3 re-spec (A7, also listed here at the time, was dropped as a stage on Nov 4).
 
 ## 12. Build defaults awaiting the owner's word
 

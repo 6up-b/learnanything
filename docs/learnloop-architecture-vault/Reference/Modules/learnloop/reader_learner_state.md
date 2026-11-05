@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader_learner_state.py"
 source_paths:
   - "src/learnloop/reader_learner_state.py"
-source_commit: "a2d2176b105ab0dc48837944ad2d6663280cc4d2"
-source_commit_timestamp: "2026-11-01T16:13:42-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,42 +49,42 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py) |
-| Source lines | 279 |
+| Source lines | 282 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a2d2176b105ab0dc48837944ad2d6663280cc4d2` |
-| Commit timestamp | `2026-11-01T16:13:42-05:00` |
+| Source commit | `4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
-- `enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/reader_learner_state.py), line 96) — The kill switch, ``reader_tutor.learner_state_enabled`` (default on).
-- `class ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 109) — What one Reader question's tutor context gains (or why it gains nothing).
-  - `apply(self, context: Any) -> Any` (line 123; public) — The tutor context with the state (unchanged when there is none).
-  - `receipt(self) -> dict[str, Any]` (line 130; public) — What the question's ``source_context`` records (no text).
-  - `manifest(self) -> dict[str, Any]` (line 143; public) — The manifest's record: the receipt and exactly what the tutor was given.
-- `omitted(reason: str, learning_object_ids: Sequence[str]=()) -> ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 149)
-- `build(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], now_iso: str) -> ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 178) — The learner state on these learning objects strictly before ``now_iso``.
+- `enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/reader_learner_state.py), line 97) — The kill switch, ``reader_tutor.learner_state_enabled`` (default on).
+- `class ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 110) — What one Reader question's tutor context gains (or why it gains nothing).
+  - `apply(self, context: Any) -> Any` (line 124; public) — The tutor context with the state (unchanged when there is none).
+  - `receipt(self) -> dict[str, Any]` (line 131; public) — What the question's ``source_context`` records (no text).
+  - `manifest(self) -> dict[str, Any]` (line 144; public) — The manifest's record: the receipt and exactly what the tutor was given.
+- `omitted(reason: str, learning_object_ids: Sequence[str]=()) -> ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 150)
+- `build(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], now_iso: str) -> ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 179) — The learner state on these learning objects strictly before ``now_iso``.
 
 ### Module constants
 
-- `_LOG` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 53)
-- `VERSION` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 56)
-- `NOTE` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 57)
-- `TOPIC_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 64)
-- `ATTEMPT_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 65)
-- `EXCHANGE_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 66)
-- `TEXT_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 67)
-- `READINESS_WORDS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 69)
-- `READINESS_UNREAD` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 75)
-- `READINESS_INACTIVE` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 76)
-- `OMITTED_COLD` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 79)
-- `OMITTED_NO_TOPICS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 80)
-- `OMITTED_UNREADABLE` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 81)
-- `OMITTED_UNGUARDED_BINDING` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 84)
-- `_RESULT_WORDS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 86)
-- `_EXCHANGE_CONTEXTS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 93)
+- `_LOG` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 54)
+- `VERSION` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 57)
+- `NOTE` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 58)
+- `TOPIC_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 65)
+- `ATTEMPT_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 66)
+- `EXCHANGE_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 67)
+- `TEXT_LIMIT` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 68)
+- `READINESS_WORDS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 70)
+- `READINESS_UNREAD` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 76)
+- `READINESS_INACTIVE` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 77)
+- `OMITTED_COLD` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 80)
+- `OMITTED_NO_TOPICS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 81)
+- `OMITTED_UNREADABLE` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 82)
+- `OMITTED_UNGUARDED_BINDING` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 85)
+- `_RESULT_WORDS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 87)
+- `_EXCHANGE_CONTEXTS` ([src/learnloop/reader_learner_state.py](../../../../../src/learnloop/reader_learner_state.py), line 94)
 
 ### Explicit exports
 
@@ -108,10 +108,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_excerpt(text: Any, limit: int=TEXT_LIMIT) -> str` ([source](../../../../../src/learnloop/reader_learner_state.py), line 103)
-- `_readiness(vault: Any, repository: Any, los: Sequence[str], now_iso: str) -> dict[str, str]` ([source](../../../../../src/learnloop/reader_learner_state.py), line 153)
-- `_attempt_text(row: Mapping[str, Any], held: frozenset[str]) -> str` ([source](../../../../../src/learnloop/reader_learner_state.py), line 166)
-- `_build(vault: Any, repository: Any, los: list[str], now_iso: str) -> ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 194)
+- `_excerpt(text: Any, limit: int=TEXT_LIMIT) -> str` ([source](../../../../../src/learnloop/reader_learner_state.py), line 104)
+- `_readiness(vault: Any, repository: Any, los: Sequence[str], now_iso: str) -> dict[str, str]` ([source](../../../../../src/learnloop/reader_learner_state.py), line 154)
+- `_attempt_text(row: Mapping[str, Any], held: frozenset[str]) -> str` ([source](../../../../../src/learnloop/reader_learner_state.py), line 167)
+- `_build(vault: Any, repository: Any, los: list[str], now_iso: str) -> ReaderLearnerState` ([source](../../../../../src/learnloop/reader_learner_state.py), line 195)
 
 ## Who imports or calls it
 
@@ -129,6 +129,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `module`; calls `classify_learning_objects`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `module`; calls `PastWork`, `attempt_result`, `withheld_items`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 
 ### Platform and third-party dependencies
 
@@ -160,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_module_never_reads_stored_answer_text`
   - `test_with_both_rw1c_switches_off_a_bound_session_carries_no_learner_state`
   - `test_with_both_rw1c_switches_off_a_cold_bound_session_carries_none_as_cold`
+- [tests/test_ro1_availability_reads.py](../../../../../tests/test_ro1_availability_reads.py) — direct import
+  - `test_the_readers_learner_state_excludes_an_attempt_not_yet_known`
 
 ## Modification guidance
 

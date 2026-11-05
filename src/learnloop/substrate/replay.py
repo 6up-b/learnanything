@@ -455,6 +455,7 @@ def rebuild_derived_state(
     # content-addressed on the effective frontier, so an ordinary rebuild that
     # changes no cells re-stamps the same value and emits no entry.
     from learnloop.learner.facet_diagnostics import coverage_denominator_version
+    from learnloop.router_objective_switches import projection_switches
 
     marker_id = None
     if record_receipt:
@@ -466,6 +467,8 @@ def rebuild_derived_state(
             replayed_attempts=replayed_attempts,
             canonical_projection_version=CANONICAL_PROJECTION_VERSION,
             coverage_denominator_version=coverage_denominator_version(vault, repository),
+            # Router objective RO1 (spec §5.5): what this replay derived due dates under.
+            projection_switches=projection_switches(vault.config),
             clock=clock,
         )
     return RebuildResult(

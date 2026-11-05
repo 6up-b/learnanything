@@ -169,6 +169,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `VaultPaths`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -250,7 +251,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 125 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 126 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -390,6 +391,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
 - [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
   - `test_each_row_reports_what_was_written_and_measured_bytes`
+- [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
+- [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
+  - `test_availability_moves_no_due_date_or_mastery`
+- [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2bc_landing.py](../../../../../../tests/test_router_r2bc_landing.py) — direct import
   - `test_router_embeddings_and_the_source_backfill_each_answer_to_their_own_guard`

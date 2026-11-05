@@ -294,6 +294,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_note_capture_is_idempotent_across_rematerialization`
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
   - `test_an_invalid_generated_repair_is_never_shown_as_a_different_approach`
+- [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
 - [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — direct import
   - `test_queue_is_stratified_contests_first_then_abstentions`
 

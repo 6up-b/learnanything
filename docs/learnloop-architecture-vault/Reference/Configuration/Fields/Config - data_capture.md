@@ -3,8 +3,8 @@ title: "Config - data_capture"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
-source_commit_timestamp: "2026-11-04T18:38:52-05:00"
+source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml data_capture"
@@ -51,8 +51,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `data_capture.receipts` | `true` | boolean | modeled default or validator seed | Turns receipts behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4147`; `src/learnloop/ai/plan_fallback.py:138` |
-| `data_capture.serving` | `true` | boolean | modeled default or validator seed | Turns serving behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4148`; `src/learnloop/ai/plan_fallback.py:138` |
+| `data_capture.receipts` | `true` | boolean | modeled default or validator seed | Turns receipts behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4155`; `src/learnloop/ai/plan_fallback.py:138` |
+| `data_capture.serving` | `true` | boolean | modeled default or validator seed | Turns serving behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4156`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

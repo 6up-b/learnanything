@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/column_classes.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
-source_commit: "f5f64a43a037dc77d24058d3432f60b6f6b87a9d"
-source_commit_timestamp: "2026-11-04T09:01:45-05:00"
+source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f5f64a43a037dc77d24058d3432f60b6f6b87a9d` |
-| Commit timestamp | `2026-11-04T09:01:45-05:00` |
+| Source commit | `eff30f881a7d3ea5b06e0a10156b37049285cf52` |
+| Commit timestamp | `2026-11-04T20:48:34-05:00` |
 
 ## Public API
 

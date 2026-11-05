@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/split/live.py"
 source_paths:
   - "src/learnloop/diagnosis/split/live.py"
-source_commit: "b476193089d878c66a13b53ff18e690e04ba07c2"
-source_commit_timestamp: "2026-11-04T11:07:40-05:00"
+source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b476193089d878c66a13b53ff18e690e04ba07c2` |
-| Commit timestamp | `2026-11-04T11:07:40-05:00` |
+| Source commit | `eff30f881a7d3ea5b06e0a10156b37049285cf52` |
+| Commit timestamp | `2026-11-04T20:48:34-05:00` |
 
 ## Public API
 

@@ -340,6 +340,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_head_fixture_holds_220_in_rollback_mode`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
+- [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+  - `test_244_adds_exactly_its_columns_and_changes_nothing_else`
+  - `test_244_is_the_head_and_the_head_fixture_holds_its_empty_columns`
+  - `test_244_on_the_durability_lane`
+  - `test_the_backfill_reads_an_imported_exam_rows_ulid_time_and_leaves_bad_ids_null`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`
 - [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import

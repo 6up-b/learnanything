@@ -58,9 +58,12 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert dumped.pop("data_capture") == {"receipts": True, "serving": True}
     # FG1's keys, in every snapshot and inert below its tag.
     dumped.pop("followup")
-    dumped.pop("router_objective")  # RO0's switch (no successor; every snapshot moved)
+    # RO0's switch (no successor; every snapshot moved) and RO1's keys (mvp-0.46; tests/test_ro1_successor.py), in
+    # every snapshot and inert below its tag.
+    assert dumped.pop("router_objective") == {"receipts": True, "available_at_reads": True, "self_report_not_validated": True}
     dumped["ai"]["routing"].pop("followup_probe_author", None)
     dumped["ui"].pop("show_router_decisions")
+    assert dumped["scheduler"]["surprise"].pop("remove_interval_factor") is True
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "08840dbd600321a4a8d52fafb969bfacb6ace0e53d3166f5bdb12f81be6b34f3"
 
@@ -132,8 +135,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
 
     # The chain's latest completion hands an earlier link's journal on.
-    assert "learnloop.followup_serve_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.followup_serve_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.interval_factor_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.interval_factor_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
     assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
 

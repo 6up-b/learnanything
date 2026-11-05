@@ -742,6 +742,7 @@ def rebuild_all_derived_state(
     # Receipt ownership stays centralized here.  The LO replay run from this
     # umbrella suppresses its own marker; direct callers of
     # ``rebuild_derived_state`` still record one.
+    from learnloop.router_objective_switches import projection_switches
     from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
     scope = "learning_object" if learning_object_ids else "all"
     marker_id = repository.record_derived_state_rebuild(
@@ -752,6 +753,9 @@ def rebuild_all_derived_state(
         replayed_attempts=learning.replayed_attempts,
         canonical_projection_version=CANONICAL_PROJECTION_VERSION,
         coverage_denominator_version=coverage_denominator_version(vault, repository),
+        # Router objective RO1 (spec §5.5): the switches this replay derived
+        # persisted state under, the projection's defaults snapshot doctor reads.
+        projection_switches=projection_switches(vault.config),
         clock=clock,
     )
     return OrchestratedRebuildResult(

@@ -155,6 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_off_arm_is_todays_context_and_the_on_arm_refeeds_earlier_analyses`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_later_diagnosis_cannot_cite_an_unassessed_shortfall_as_a_recurrence`
+- [tests/test_ro1_projection.py](../../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_workbench_trace.py](../../../../../../../tests/test_workbench_trace.py) — direct import
   - `test_a_workbench_attempt_carries_its_trace_under_the_suffix_and_never_a_map`
   - `test_every_other_attempt_renders_exactly_as_before`

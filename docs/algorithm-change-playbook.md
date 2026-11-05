@@ -111,6 +111,21 @@ longer give a cold reading is ended with a typed disposition when a serve sees
 it, never re-timed into a check the practice answer would contaminate. See
 `docs/reviews/serve-eligibility-decision-codex-review.md`.
 
+Recorded rule, 2026-11-04 (router objective RO1, successor mvp-0.46;
+`docs/specs/spec_router_objective_v1.md` §5, `docs/reviews/router-ro1.md`): a
+config switch that changes how a projection is derived is a projection change.
+Live writes follow the config at once, but stored state written before the
+switch keeps its old derivation until a whole-vault rebuild, so the rebuild's
+receipt records the switches it derived under
+(`derived_state_rebuilds.projection_switches_json`) and `doctor` warns while
+the config and that record disagree. RO1's effect on `due_at`: the surprise
+interval factor is no longer applied, so each reviewed item's stored interval
+becomes `interval_for_retention(S)`, its old interval divided by the factor it
+carried (a ratio within `[1/f_max, 1/f_min]`). The upgrade activates with a
+whole-vault rebuild, and `learnloop rebuild --shadow --json` reports the due-date
+shifts, the queue due now and admission's review load before and after
+(`schedule_effects`) on a copy first.
+
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never
 folded into an algorithm bump as incidental cleanup.

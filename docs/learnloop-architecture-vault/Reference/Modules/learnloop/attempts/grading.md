@@ -312,6 +312,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
   - `test_f14_a_generated_update_quoting_the_sentence_is_stored_verbatim_and_the_block_rendered`
   - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`
+- [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import

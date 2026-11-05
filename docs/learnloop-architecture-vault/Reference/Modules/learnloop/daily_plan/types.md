@@ -183,6 +183,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_a_reading_target_is_stored_as_the_predecessors_unless_the_path_chose_it`
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
+- [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
 - [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
   - `test_a_chooser_naming_an_infeasible_or_unknown_id_falls_back`
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import

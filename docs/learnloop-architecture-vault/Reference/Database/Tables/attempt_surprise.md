@@ -3,13 +3,13 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
-source_commit_timestamp: "2026-11-04T18:38:52-05:00"
+source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
   - "table attempt_surprise"
-schema_head: 243
+schema_head: 244
 table_name: "attempt_surprise"
 table_role: "derived"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/signal_quantiles.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/evsi_calibration/live_report.py"
-  - "src/learnloop/learner/lesson_weight.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
@@ -154,6 +154,8 @@ Indexes and uniqueness:
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_ro1_interval_factor.py`
+- `tests/test_ro1_projection.py`
 - `tests/test_signal_quantiles.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
@@ -166,8 +168,6 @@ Indexes and uniqueness:
 - `tests/test_cli_attempt.py`
 - `tests/test_cli_generate_practice.py`
 - `tests/test_codex_attempt_flow.py`
-- `tests/test_e2e_codex_mock.py`
-- `tests/test_e2e_local.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

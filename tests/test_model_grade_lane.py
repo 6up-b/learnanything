@@ -162,21 +162,18 @@ def test_rebuild_moves_only_learning_objects_with_model_graded_attempts(tmp_path
     diff = shadow_rebuild(vault).learner_state_diff
 
     # Replay reads each attempt's stored grading source: only the AI-graded
-    # attempt's learning object and item move. Its mastery is less certain,
-    # and the due date that mastery feeds shifts with it; the self-graded
-    # control and every facet projection are unchanged.
-    assert diff["summary"] == {"mastery": 1, "facet": 0, "schedule": 1}
+    # attempt's learning object moves. Its mastery is less certain; the
+    # self-graded control and every facet projection are unchanged. Below
+    # router objective RO1's mvp-0.46 the due date shifted with that mastery
+    # (through the surprise interval factor); from it the due date is
+    # interval_for_retention(S) alone, which mastery does not feed.
+    assert diff["summary"] == {"mastery": 1, "facet": 0, "schedule": 0}
     (mastery_change,) = diff["mastery"]["changes"]
     assert mastery_change["key"]["learning_object_id"] == LO_ID
     assert mastery_change["after"]["logit_variance"] > mastery_change["before"]["logit_variance"]
     assert mastery_change["after"]["logit_mean"] == pytest.approx(
         mastery_change["before"]["logit_mean"], abs=0.05
     )
-    (schedule_change,) = diff["schedule"]["changes"]
-    assert schedule_change["key"]["practice_item_id"] == ITEM_ID
-    changed_fields = {
-        field
-        for field, value in schedule_change["after"].items()
-        if schedule_change["before"][field] != value
-    }
-    assert changed_fields == {"due_at"}
+    # Below the tag the item's due date moved with that mastery (one schedule change, due_at only);
+    # tests/test_ro1_projection.py pins the predecessor's schedule byte for byte.
+    assert diff["schedule"]["changes"] == []

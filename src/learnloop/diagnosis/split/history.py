@@ -48,6 +48,7 @@ from learnloop import confidence_events
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.router_objective_switches import attempt_time_sql, known_at, validated_resolution_ids
 from learnloop.substrate.canonical_projection import (
     UNVERIFIED_CRITERION_BLOCK,
     held_for_review_attempts,
@@ -703,6 +704,11 @@ class VaultHistoryStore:
         self._attempts: list[HistoryAttempt] = []
         self._by_id: dict[str, HistoryAttempt] = {}
         self._order: dict[str, tuple[str, str]] = {}
+        #: RO1 §5.3 (landing ruling R1): when an attempt became known (``known_at``), held only at the
+        #: tag with ``available_at_reads`` on and only for an attempt received after it happened (an
+        #: exam import). A cutoff shows such an attempt only once it was known; empty, every read is
+        #: the predecessor's.
+        self._known: dict[str, datetime] = {}
         self._error_event_attempt: dict[str, str] = {}
         #: Each attempt's grading identity as this store read it (diagnosis
         #: input provenance, codex re-review F3: ``write_provenance.grading_marks``):
@@ -774,10 +780,14 @@ class VaultHistoryStore:
             tap_column = ("answer_confidence" if "answer_confidence" in
                           {info[1] for info in connection.execute("PRAGMA table_info(practice_attempts)")}
                           else "NULL AS answer_confidence")
+            # RO1 (landing ruling R1): the loader feeding the as-of cutoff selects received_at at the
+            # tag with available_at_reads on; otherwise the predecessor's SQL, byte for byte.
+            received_column = (", received_at" if attempt_time_sql(vault.config, connection) != "created_at"
+                               else "")
             attempts = [dict(row) for row in connection.execute(
                 "SELECT id, practice_item_id, learning_object_id, attempt_type, "
                 "learner_answer_md, rubric_score, correctness, hints_used, primed, "
-                f"created_at, {tap_column} FROM practice_attempts ORDER BY created_at, id"
+                f"created_at, {tap_column}{received_column} FROM practice_attempts ORDER BY created_at, id"
             )]
             # TE0: the grader's hedge read of each attempt's current grading
             # (none read with the kill switch off: the history is its predecessor's).
@@ -848,6 +858,10 @@ class VaultHistoryStore:
 
         for row in attempts:
             attempt_type = str(row.get("attempt_type") or "")
+            if row.get("received_at"):
+                known = _instant(known_at(row, vault.config))
+                if known is not None:
+                    self._known[str(row["id"])] = known
             if attempt_type in NON_MEASURING_ATTEMPT_TYPES:
                 continue
             attempt_id = str(row["id"])
@@ -939,7 +953,11 @@ class VaultHistoryStore:
                         lifecycle=_FACTOR_LIFECYCLE.get(status, status),
                         learning_object_id=source.learning_object_id if source else None,
                         source_attempt_id=attempt_id or None,
-                        validated_evidence_count=len(_decode_json(row.get("resolution_observation_ids_json"), []) or []),
+                        # Router objective RO1 (mvp-0.46, spec §5.4): a learner's
+                        # own pick (learner_report:*) resolves the factor but is no
+                        # validated evidence at the tag; the factor and its ids stay.
+                        validated_evidence_count=len(validated_resolution_ids(
+                            _decode_json(row.get("resolution_observation_ids_json"), []) or [], vault.config)),
                         last_updated=str(row.get("updated_at") or row.get("created_at") or "") or None,
                     ),
                     _instant(row.get("created_at")),
@@ -1228,23 +1246,39 @@ class VaultHistoryStore:
         self._load()
         return dict(self._grading_marks)
 
+    def _cutoff(self, before: AttemptRef) -> datetime | None:
+        """When the decision at ``before`` was made: when its attempt became known (an import's
+        receipt), else when it happened."""
+
+        return self._known.get(before.attempt_id) or _instant(before.completed_at)
+
+    def _known_by(self, attempt_id: str, cutoff: datetime | None) -> bool:
+        """RO1 §5.3: True unless the attempt became known after the cutoff (always True with the
+        gate off or below the tag, where nothing is held in ``_known``)."""
+
+        known = self._known.get(attempt_id)
+        return known is None or cutoff is None or known <= cutoff
+
     def attempts_before(
         self, before: AttemptRef, learning_object_ids: Sequence[str] | None = None
     ) -> list[HistoryAttempt]:
         self._load()
         wanted = set(learning_object_ids) if learning_object_ids is not None else None
+        cutoff = self._cutoff(before) if self._known else None
         return [
             _marks_as_of(attempt, before)
             for attempt in self._attempts
             if attempt.key() < before.key()
             and (wanted is None or attempt.learning_object_id in wanted)
+            and self._known_by(attempt.attempt_id, cutoff)
         ]
 
     def _source_before(self, source_attempt_id: str | None, before: AttemptRef) -> bool:
         if source_attempt_id is None:
             return False
         order = self._order.get(source_attempt_id)
-        return order is not None and order < before.key()
+        return (order is not None and order < before.key()
+                and (not self._known or self._known_by(source_attempt_id, self._cutoff(before))))
 
     def hypotheses_before(
         self, before: AttemptRef, learning_object_ids: Sequence[str]
@@ -1279,8 +1313,12 @@ class VaultHistoryStore:
         ]
 
     def lagged_attempts(self, before: AttemptRef) -> int:
+        """Attempts the cutoff does not show: after it, and (RO1 §5.3) before it but not yet known."""
+
         self._load()
-        return sum(1 for attempt in self._attempts if attempt.key() > before.key())
+        cutoff = self._cutoff(before) if self._known else None
+        return sum(1 for attempt in self._attempts if attempt.key() > before.key()
+                   or (attempt.key() < before.key() and not self._known_by(attempt.attempt_id, cutoff)))
 
 
 @dataclass
