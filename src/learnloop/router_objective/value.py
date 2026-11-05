@@ -16,8 +16,15 @@ The **tail** (the seed continuation ``π_Q`` values actions under, §8.1): flat 
 ``m̄`` per day, one session a day, with topic allocation adaptive to the belief (each session ranks the valued
 topics by their remaining use weight times the believed chance of failing, and practises the top ones), so
 information can matter. A session ends when today's active minutes reach ``m̄``; the next one begins after a
-return gap drawn from this learner's own gaps (next day with none), the same distribution after every session's
-end, so the return effect is zero until RO5 fits one, and the trace says so.
+return gap drawn from this learner's own gaps (next day with none), a fresh draw from the same distribution after
+every session's end (one common-random-number column per session), so the return effect is zero until RO5 fits
+one, and the trace says so.
+
+**One clock** (Codex review F3): an action is a chronological sequence of segments (one, or a probe and its repair,
+or a mid-block alternative's ordered sub-actions). Each segment charges its minutes from the session minutes it
+starts at, earns the undated uses over its own interval and every dated use it crosses, both on the state before
+its effect, and only then applies its effect; the tail starts at the last segment's end, and no interval before it
+(on any day) and no session before it is counted again.
 
 **Sampling** (§8.1). ``K`` parameter draws θ (AD's posterior on each topic's ability, the combiner's and the
 effect slope's posteriors, AD's learning increments, the stop offer's acceptance), each shared across every
@@ -28,16 +35,21 @@ the draws.
 **Action interfaces** (§8.1's table): review, new practice, repair and teach-back are practice opportunities
 (AD's ``γ`` at their evidence mass, FSRS's update over the rating distribution from AD's predictive, a graded
 attempt that updates the belief); reading is AD's dose curve and no FSRS effect (the firewall), observing
-nothing; a probe is scored **as a bundle**: on each result, the repair or no repair, whichever the updated
-belief prefers, then the tail (the branch is in the trace); a lesson is AD's ``γ`` at the lesson's learned mass;
+nothing; a probe is scored **as a bundle**: on each result, the repair or no repair, whichever the posterior right
+after the probe prefers, then the tail (the branch is in the trace). The choice is valued in the belief's own world
+(ability drawn from the updated belief, the believed parameters, noise independent of the true world's), so it
+integrates over the repair's possible outcomes and never sees the simulated repair's result or the true path's
+noise (Codex review F2); the chosen repair is simulated afterwards. A lesson is AD's ``γ`` at the lesson's learned
+mass;
 an offer-type action is valued accepted and declined **as branches**, ``Q = p·E[R+V | acc] + (1−p)·E[R+V | dec]``;
 the stop offer is two branches, accepted (no more today; the next session after a drawn return gap) and
 overridden (the tail's next non-stop block at the same session minutes, so its value is never defined in terms
 of itself), with ``p_accept`` drawn from its Beta posterior. Durations are sampled, never averaged: with the
 quadratic cost, ``E[C(m, D)] = C(m, E[D]) + κ0/(2m̄)·Var(D)``.
 
-**The effect correction** (§8.4): ``ΔG = α_v + β_v·f(a)`` on the logit scale, ``f(a)`` the LLM's forecast for
-``a`` minus its forecast for the tail's next action (the reference row), added to the action's topics after its
+**The effect correction** (§8.4): ``ΔG = α_v + β_v·f(a)`` on the logit scale, ``f(a)`` the LLM's forecast
+probability for ``a`` minus its forecast probability for the tail's next action (the reference row; a difference
+of probabilities, never of logits: Codex review F6), added to the action's topics after its
 own effect: a correction to the memory rollout's learning effect, never a replacement. It applies only when every
 candidate and the reference have a forecast; a missing one drops it for the decision.
 
@@ -55,7 +67,7 @@ from typing import Any
 
 import numpy as np
 
-from learnloop.router_objective.memory import Combiner, Fsrs, logit, perform, sigmoid
+from learnloop.router_objective.memory import Combiner, Fsrs, perform, sigmoid
 
 OBJECTIVE_VERSION = "router_objective_v1"
 TAIL_VERSION = "flat_load_adaptive_v1"
@@ -70,8 +82,11 @@ REPAIR = "repair"
 TEACH_BACK = "teach_back"
 LESSON = "lesson"
 STOP = "stop"
+#: An ordered sequence of sub-actions (a mid-block alternative, §8.3): each step keeps its own kind, duration,
+#: observation and effect, valued one after another on the one clock (Codex review F5).
+SEQUENCE = "sequence"
 PRACTICE_KINDS = frozenset({REVIEW, NEW_PRACTICE, REPAIR, TEACH_BACK})
-KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LESSON, STOP})
+KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LESSON, STOP, SEQUENCE})
 #: The reference row's ref: the tail's next action, sent to the LLM policy as a non-choosable row.
 REFERENCE_REF = "tail_next"
 MINUTES_PER_DAY = 1440.0
@@ -158,10 +173,16 @@ class Action:
     #: the LLM policy's forecast for this option (a probability), the effect correction's input
     forecast: float | None = None
     choosable: bool = True
+    #: a :data:`SEQUENCE`'s ordered sub-actions (none of them a sequence, a stop or an offer)
+    steps: tuple["Action", ...] = ()
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
             raise ValueError(f"unknown action kind {self.kind!r}")
+        if (self.kind == SEQUENCE) != bool(self.steps):
+            raise ValueError("a sequence (and only a sequence) has steps")
+        if any(step.kind in (SEQUENCE, STOP) or step.accept is not None for step in self.steps):
+            raise ValueError("a sequence's steps are plain actions")
 
 
 @dataclass(frozen=True)
@@ -223,7 +244,8 @@ class _Streams:
         self.accept_u = gen("theta:stop_accept").random(draws)
         self.offer_u = gen("theta:offer_accept").random(draws)
         self.duration_z = gen("noise:duration").standard_normal((draws, 4))
-        self.return_u = gen("noise:return").random(draws)
+        # One return gap per session end (column j: the gap after the j-th session's end; F4).
+        self.return_u = gen("noise:return").random((draws, days + 2))
         # Outcomes: one uniform per (day, slot) for the tail, and per slot for the action itself.
         self.outcome_u = gen("noise:outcome").random((draws, days + 1, slots))
         self.action_u = gen("noise:action_outcome").random((draws, 4, 64))
@@ -283,7 +305,7 @@ class _Theta:
     gbar: np.ndarray         # (K, 2)
     effect: np.ndarray       # (K, 2) alpha, beta
     stop_accept: np.ndarray  # (K,)
-    return_days: np.ndarray  # (K,) whole days to the next session after one ends
+    return_days: np.ndarray  # (K, S) whole days to the next session after the j-th session's end
 
 
 @dataclass
@@ -309,6 +331,10 @@ class _State:
                         ("eta", "bel", "bel_var", "d", "s", "practiced", "last", "reading")))
 
 
+_LEDGER_FIELDS = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
+                  "terminal_cost")
+
+
 @dataclass
 class _Ledger:
     """Per draw: the terms of one path (§8.8's per-candidate terms)."""
@@ -324,6 +350,9 @@ class _Ledger:
     @classmethod
     def zeros(cls, k: int) -> "_Ledger":
         return cls(*(np.zeros(k) for _ in range(7)))
+
+    def copy(self) -> "_Ledger":
+        return _Ledger(*(np.array(getattr(self, name), copy=True) for name in _LEDGER_FIELDS))
 
     @property
     def q(self) -> np.ndarray:
@@ -358,6 +387,8 @@ class _Model:
 
     def __init__(self, inputs: Inputs, draws: int, seed: str) -> None:
         self.inputs = inputs
+        self.seed = seed
+        self._belief: "_Model | None" = None
         self.k = int(draws)
         self.index = {topic.lo: i for i, topic in enumerate(inputs.topics)}
         self.n = len(inputs.topics)
@@ -399,9 +430,9 @@ class _Model:
             effect[:, 1] = bm + math.sqrt(max(bv, 0.0)) * st.effect_z[:, 1]
         a, b = inputs.stop_accept
         accept = _beta_draw(st.accept_u, float(a), float(b))
-        gaps = sorted(max(float(g), 1.0) for g in inputs.return_gaps_days) or [1.0]
+        gaps = np.array(sorted(max(float(g), 1.0) for g in inputs.return_gaps_days) or [1.0], dtype=np.float64)
         picks = np.minimum((st.return_u * len(gaps)).astype(int), len(gaps) - 1)
-        return_days = np.ceil(np.array([gaps[i] for i in picks], dtype=np.float64))
+        return_days = np.ceil(gaps[picks])
         return _Theta(eta=eta, coef=coef, gamma=gamma, gbar=gbar, effect=effect, stop_accept=accept,
                       return_days=return_days)
 
@@ -425,8 +456,13 @@ class _Model:
         )
 
     # the memory forecast ---------------------------------------------------------------------------
-    def performance(self, state: _State, at: float, *, belief: bool = False) -> np.ndarray:
-        r = self.fsrs.retrievability(state.s, at - state.last)
+    def performance(self, state: _State, at: float | np.ndarray, *, belief: bool = False) -> np.ndarray:
+        """``P(perform)`` per draw and topic at time ``at`` (a scalar, or one time per draw)."""
+
+        when = np.asarray(at, dtype=np.float64)
+        if when.ndim == 1:
+            when = when[:, None]
+        r = self.fsrs.retrievability(state.s, when - state.last)
         eta = state.bel if belief else state.eta
         return perform(self.theta.coef, eta, r, state.practiced)
 
@@ -566,16 +602,6 @@ class _Model:
             active = (lap + np.arange(width))[None, :] < count[:, None]
             self._practice_batch(state, cols, float(at), u[:, slots], active)
 
-    def _score_interval(self, state: _State, ledger: _Ledger, a: float, b: float) -> None:
-        if b <= a:
-            return
-        p = self.performance(state, (a + b) / 2)
-        reward = (p * self.c[None, :]).sum(axis=1) * (b - a)
-        if a >= self.cutoff - 1e-12:
-            ledger.terminal_reward += reward
-        else:
-            ledger.tail_reward += reward
-
     def _score_dated(self, state: _State, ledger: _Ledger, use: DatedUse, mask: np.ndarray | None = None) -> None:
         lo = self.index.get(use.lo)
         if lo is None:
@@ -586,27 +612,36 @@ class _Model:
     def run_tail(self, state: _State, ledger: _Ledger, *, today_minutes: np.ndarray | None, after: np.ndarray,
                  dated_done: np.ndarray, today_target: float | None = None,
                  recorder: dict[str, Any] | None = None) -> None:
-        """The tail from the action's end: today's session continues to ``m̄`` unless ``today_minutes`` is None
-        (the session ended), then a session after each return gap until ``C + H``. ``dated_done``: per draw and
-        dated use, whether it was already scored (crossed during the action)."""
+        """The tail from the action's end ``after`` (per draw): today's session continues to ``m̄`` unless
+        ``today_minutes`` is None (the session ended), then a session after each return gap until ``C + H``, a
+        fresh gap from the learner's own distribution after every session's end (F4). Nothing before ``after`` is
+        counted on any day, and no session starts before it (F3). ``dated_done``: per draw and dated use, whether
+        it was already scored (crossed during the action)."""
 
         k = self.k
+        after = np.broadcast_to(np.asarray(after, dtype=np.float64), (k,)).copy()
         if today_minutes is not None:
-            self._session(state, ledger, 0.0, np.ones(k, dtype=bool), today_minutes, 0, past_cutoff=False,
-                          target=today_target)
-        next_session = self.theta.return_days.copy()
+            today = after < 1.0
+            if today.any():
+                self._session(state, ledger, float(after[today].max()), today, today_minutes, 0, past_cutoff=False,
+                              target=today_target)
+        rows = np.arange(k)
+        gaps = self.theta.return_days
+        # The session that ended at the action's end (today's) is the 0th; its gap is column 0.
+        ended = np.zeros(k, dtype=int)
+        next_session = np.floor(after) + gaps[:, 0]
         pending = list(enumerate(self.dated))
         boundaries = sorted({0.0, self.cutoff, self.end, *[float(j) for j in range(1, self.days + 1)]})
         boundaries = [b for b in boundaries if b <= self.end + 1e-12]
-        start = after
         for day in range(0, self.days + 1):
             day_start = float(day)
             if day >= 1:
-                mask = next_session <= day_start + 1e-9
+                mask = (next_session <= day_start + 1e-9) & (after <= day_start + 1e-9)
                 if mask.any():
                     self._session(state, ledger, day_start, mask, np.zeros(k), day,
                                   past_cutoff=day_start >= self.cutoff - 1e-12)
-                    next_session = np.where(mask, day_start + 1.0, next_session)
+                    ended = np.where(mask, np.minimum(ended + 1, gaps.shape[1] - 1), ended)
+                    next_session = np.where(mask, day_start + gaps[rows, ended], next_session)
             day_end = min(day_start + 1.0, self.end)
             # Dated uses on this day, after its session, on the state then.
             for index, use in list(pending):
@@ -618,21 +653,19 @@ class _Model:
                         recorder.setdefault("dated", {})[f"{use.goal_id}:{use.lo}"] = float(
                             self.performance(state, use.at_days)[:, self.index[use.lo]].mean())
                     pending.remove((index, use))
-            # Undated uses over this day's pieces (split at C), from the action's end on day 0.
+            # Undated uses over this day's pieces (split at C), from the action's end on every day.
             cuts = [b for b in boundaries if day_start < b < day_end]
             edges = [day_start, *cuts, day_end]
             for a, b in zip(edges[:-1], edges[1:]):
-                if day == 0:
-                    lo_edge = np.maximum(start, a)
-                    width = np.maximum(b - lo_edge, 0.0)
-                    p = self.performance(state, (a + b) / 2)
-                    reward = (p * self.c[None, :]).sum(axis=1) * width
-                    if a >= self.cutoff - 1e-12:
-                        ledger.terminal_reward += reward
-                    else:
-                        ledger.tail_reward += reward
+                width = np.maximum(b - np.maximum(after, a), 0.0)
+                if not (width > 0).any():
+                    continue
+                p = self.performance(state, (a + b) / 2)
+                reward = (p * self.c[None, :]).sum(axis=1) * width
+                if a >= self.cutoff - 1e-12:
+                    ledger.terminal_reward += reward
                 else:
-                    self._score_interval(state, ledger, a, b)
+                    ledger.tail_reward += reward
             if recorder is not None and 1 <= day <= int(recorder.get("days", 0)):
                 recorder.setdefault("daily", {})[day] = self.performance(state, day_start + 0.5).mean(axis=0)
             if day_end >= self.end:
@@ -645,44 +678,75 @@ class _Model:
         ref = self.inputs.reference_forecast
         if action.forecast is None or ref is None:
             return None
-        f = float(logit(action.forecast) - logit(ref))
+        # §8.4: f(a) is the difference of the two forecast probabilities; ΔG = α + β·f is on the logit scale.
+        f = float(action.forecast) - float(ref)
         return self.theta.effect[:, 0] + self.theta.effect[:, 1] * f
 
     def _durations(self, action: Action, stream: int = 0) -> np.ndarray:
         z = self.streams.duration_z[:, stream % 4]
         return float(action.minutes) * np.exp(float(action.minutes_log_sd) * z)
 
+    def _segment(self, state: _State, ledger: _Ledger, action: Action, *, start: np.ndarray, spent: np.ndarray,
+                 minutes: np.ndarray, dated_done: np.ndarray, stream: int,
+                 correction: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        """One segment of an action on the one clock, from ``start`` (days, per draw) at ``spent`` minutes into the
+        action: its κ integral (minutes past ``C`` are ``T_C``'s), the undated uses over its interval and every
+        dated use it crosses, both on the state **before** its effect, then its effect at its end (a probe's: the
+        observation). Returns its end, the minutes spent after it, and a probe's result per draw."""
+
+        m = float(self.inputs.session_minutes)
+        tau = minutes / MINUTES_PER_DAY
+        end = start + tau
+        within = np.clip((self.cutoff - start) * MINUTES_PER_DAY, 0.0, minutes)
+        ledger.kappa_action += self.cost(m + spent, within)
+        ledger.terminal_cost += self.cost(m + spent + within, minutes - within)
+        rate = (self.performance(state, start) * self.c[None, :]).sum(axis=1)
+        ledger.undated_action += rate * np.maximum(np.minimum(end, self.cutoff) - start, 0.0)
+        ledger.terminal_reward += rate * np.maximum(np.minimum(end, self.end) - np.maximum(start, self.cutoff), 0.0)
+        for index, use in enumerate(self.dated):
+            crossed = ~dated_done[:, index] & (use.at_days <= end + 1e-12)
+            if crossed.any() and use.lo in self.index:
+                p = self.performance(state, use.at_days)[:, self.index[use.lo]] * use.weight
+                ledger.crossed += np.where(crossed, p, 0.0)
+            dated_done[:, index] |= crossed
+        everyone = np.ones(self.k, dtype=bool)
+        good = None
+        if action.kind == PROBE:
+            lo = self.index.get(action.item_los[0]) if action.item_los else None
+            if lo is not None:
+                good = self._observe(state, lo, self.streams.action_u[:, stream % 4, 0], everyone)
+        else:
+            self.apply(state, action, end, everyone, stream=stream, correction=correction)
+        return end, spent + minutes, good
+
+    def _steps(self, action: Action, stream: int) -> list[tuple[Action, int]]:
+        """An action's segments with their noise streams: a sequence's steps each keep the stream of their place
+        in the sorted refs, so the same step draws the same outcomes and duration in either order (common random
+        numbers across orders)."""
+
+        if not action.steps:
+            return [(action, stream)]
+        order = sorted(step.ref for step in action.steps)
+        return [(step, order.index(step.ref) % 4) for step in action.steps]
+
     def _do(self, action: Action, *, stream: int = 0) -> tuple[_Ledger, _State, np.ndarray]:
-        """The action from the decision's state: its own terms, then the tail. Returns the ledger, the state
-        after the action's effect (before the tail) and its minutes per draw."""
+        """The action from the decision's state: its segments in order on one clock, then the tail. Returns the
+        ledger, the state after the action's effect (before the tail) and its minutes per draw."""
 
         k = self.k
         ledger = _Ledger.zeros(k)
         state = self.initial()
-        m = np.full(k, float(self.inputs.session_minutes))
-        minutes = self._durations(action, stream)
-        tau = minutes / MINUTES_PER_DAY
-        sigma = np.minimum(tau, self.cutoff)
-        # The action's κ integral: minutes before σ are the action's; any past C is T_C's.
-        before = np.minimum(minutes, sigma * MINUTES_PER_DAY)
-        ledger.kappa_action += self.cost(m, before)
-        ledger.terminal_cost += self.cost(m + before, minutes - before)
-        # Undated uses during the action, on the state before its effect.
-        p0 = self.performance(state, 0.0)
-        ledger.undated_action += (p0 * self.c[None, :]).sum(axis=1) * sigma
-        # Dated uses crossed during the action: scored at their date, on the state before its effect.
+        at, spent = np.zeros(k), np.zeros(k)
         dated_done = np.zeros((k, len(self.dated)), dtype=bool)
-        for index, use in enumerate(self.dated):
-            crossed = use.at_days <= tau
-            if crossed.any() and use.lo in self.index:
-                p = self.performance(state, use.at_days)[:, self.index[use.lo]] * use.weight
-                ledger.crossed += np.where(crossed, p, 0.0)
-                dated_done[:, index] = crossed
-        everyone = np.ones(k, dtype=bool)
-        self.apply(state, action, tau, everyone, stream=stream, correction=self._effect_correction(action))
+        correction = None if action.steps else self._effect_correction(action)
+        for step, step_stream in self._steps(action, stream):
+            at, spent, _good = self._segment(state, ledger, step, start=at, spent=spent,
+                                             minutes=self._durations(step, step_stream), dated_done=dated_done,
+                                             stream=step_stream, correction=correction)
         effect_state = state.copy()
-        self.run_tail(state, ledger, today_minutes=m + minutes, after=tau, dated_done=dated_done)
-        return ledger, effect_state, minutes
+        self.run_tail(state, ledger, today_minutes=float(self.inputs.session_minutes) + spent, after=at,
+                      dated_done=dated_done)
+        return ledger, effect_state, spent
 
     def _stop_accepted(self) -> _Ledger:
         k = self.k
@@ -733,56 +797,76 @@ class _Model:
         ledger, _state, _minutes = self._do(action)
         return ledger, extra
 
+    def _belief_model(self) -> "_Model":
+        """The belief's own world for a probe's branch choice: the believed parameters (each posterior's mean, no
+        parameter draw), and noise streams of its own, independent of the true world's, so a choice made in it
+        integrates over outcomes it cannot know (F2)."""
+
+        if self._belief is None:
+            inputs, learning = self.inputs, self.inputs.learning
+            believed = replace(
+                inputs,
+                combiner=replace(inputs.combiner, variance=(0.0, 0.0, 0.0)),
+                learning=replace(learning, gamma=(learning.gamma[0], 0.0),
+                                 gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
+                effect=None, stop_accept=(1.0, 1.0))
+            self._belief = _Model(believed, self.k, f"{self.seed}:belief")
+        return self._belief
+
+    def _probe_choice(self, state: _State, *, at: np.ndarray, spent: np.ndarray, dated_done: np.ndarray,
+                      repair: Action) -> np.ndarray:
+        """Per draw, whether the posterior right after the probe prefers the repair: each branch valued in the
+        belief's world (ability drawn from the updated belief; the repair's outcomes, durations and the tail's
+        noise drawn there), from the probe's end. Nothing of the true path after the probe enters."""
+
+        world = self._belief_model()
+        values = {}
+        for branch in ("none", "repair"):
+            imagined = state.copy()
+            imagined.eta = imagined.bel + np.sqrt(np.maximum(imagined.bel_var, 0.0)) * world.streams.eta_z[:, : self.n]
+            ledger = _Ledger.zeros(self.k)
+            done = dated_done.copy()
+            end, used = at, spent
+            if branch == "repair":
+                end, used, _good = world._segment(imagined, ledger, repair, start=end, spent=used,
+                                                  minutes=world._durations(repair, stream=2), dated_done=done,
+                                                  stream=2)
+            world.run_tail(imagined, ledger, today_minutes=float(self.inputs.session_minutes) + used, after=end,
+                           dated_done=done)
+            values[branch] = ledger.q
+        return values["repair"] > values["none"]
+
     def _probe(self, action: Action) -> tuple[_Ledger, dict[str, Any]]:
-        """§8.1: the probe, then on its result the repair or no repair, whichever ``Q̄`` on the updated belief
-        prefers, then the tail. Two branches per draw under θ; the choice is made on the belief alone."""
+        """§8.1: the probe, then on its result the repair or no repair, whichever the posterior right after the
+        probe prefers (:meth:`_probe_choice`), then the tail. The probe's own segment is shared by both branches;
+        the chosen repair is simulated afterwards on the true path, on the same clock."""
 
         k = self.k
         repair = action.repair or Action(ref=f"{action.ref}:repair", kind=REPAIR, item_los=action.item_los[:1],
                                          minutes=action.minutes)
-        lo_name = action.item_los[0] if action.item_los else None
-        lo = self.index.get(lo_name) if lo_name else None
-        minutes = self._durations(action)
-        m = np.full(k, float(self.inputs.session_minutes))
-        tau = minutes / MINUTES_PER_DAY
+        state = self.initial()
+        ledger = _Ledger.zeros(k)
+        dated_done = np.zeros((k, len(self.dated)), dtype=bool)
+        at, spent, good = self._segment(state, ledger, action, start=np.zeros(k), spent=np.zeros(k),
+                                        minutes=self._durations(action), dated_done=dated_done, stream=0)
+        choose_repair = self._probe_choice(state, at=at, spent=spent, dated_done=dated_done, repair=repair)
         results: dict[str, _Ledger] = {}
-        believed: dict[str, np.ndarray] = {}
         for branch in ("none", "repair"):
-            ledger = _Ledger.zeros(k)
-            state = self.initial()
-            ledger.kappa_action += self.cost(m, minutes)
-            p0 = self.performance(state, 0.0)
-            ledger.undated_action += (p0 * self.c[None, :]).sum(axis=1) * np.minimum(tau, self.cutoff)
-            good = None
-            if lo is not None:
-                good = self._observe(state, lo, self.streams.action_u[:, 0, 0], np.ones(k, dtype=bool))
-            at = tau.copy()
-            spent = minutes.copy()
+            path, terms, done = state.copy(), ledger.copy(), dated_done.copy()
+            end, used = at, spent
             if branch == "repair":
-                extra_minutes = self._durations(repair, stream=2)
-                ledger.kappa_action += self.cost(m + spent, extra_minutes)
-                spent = spent + extra_minutes
-                at = spent / MINUTES_PER_DAY
-                self.apply(state, repair, at, np.ones(k, dtype=bool), stream=2)
-            # The branch's value on the updated belief: the same path with the true ability replaced by it.
-            belief_state = state.copy()
-            belief_state.eta = belief_state.bel.copy()
-            belief_ledger = _Ledger.zeros(k)
-            self.run_tail(belief_state, belief_ledger, today_minutes=m + spent, after=at,
-                          dated_done=np.zeros((k, len(self.dated)), dtype=bool))
-            believed[branch] = belief_ledger.q - ledger.kappa_action
-            self.run_tail(state, ledger, today_minutes=m + spent, after=at,
-                          dated_done=np.zeros((k, len(self.dated)), dtype=bool))
-            results[branch] = ledger
-            if good is not None:
-                believed[f"{branch}:good"] = good
-        choose_repair = believed["repair"] > believed["none"]
+                end, used, _good = self._segment(path, terms, repair, start=end, spent=used,
+                                                 minutes=self._durations(repair, stream=2), dated_done=done, stream=2)
+            self.run_tail(path, terms, today_minutes=float(self.inputs.session_minutes) + used, after=end,
+                          dated_done=done)
+            results[branch] = terms
         chosen = _Ledger.select(choose_repair, results["repair"], results["none"])
         fixed = max(float(results["none"].q.mean()), float(results["repair"].q.mean()))
+        missed = ~good if good is not None else np.zeros(k, dtype=bool)
         extra = {"branches": {"none": float(results["none"].q.mean()), "repair": float(results["repair"].q.mean()),
                               "repair_share": float(choose_repair.mean()),
-                              "repair_after_miss": float(choose_repair[~believed.get("none:good", np.zeros(k, bool))].mean())
-                              if (~believed.get("none:good", np.zeros(k, bool))).any() else None},
+                              "repair_after_miss": float(choose_repair[missed].mean()) if missed.any() else None,
+                              "choice": "the posterior after the probe, in the belief's own world"},
                  "information": float(chosen.q.mean()) - fixed}
         return chosen, extra
 
@@ -840,15 +924,18 @@ def _terms(ledger: _Ledger) -> dict[str, float]:
 
 def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None = None,
              keep_going: Callable[[], bool] | None = None, deadline: float | None = None,
-             clock: Callable[[], float] = time.monotonic) -> Evaluation:
+             clock: Callable[[], float] = time.monotonic,
+             on_complete: Callable[[Evaluation], None] | None = None) -> Evaluation:
     """``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more
     while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s). An evaluation
-    that could not finish its first batch by the deadline is ``complete = False``."""
+    that could not finish its first batch by the deadline is ``complete = False``; a refinement the deadline cuts
+    short returns the latest complete batch (F7). ``on_complete`` sees each complete batch as it finishes."""
 
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
     model = _Model(inputs, total, seed)
+    latest: Evaluation | None = None
     while True:
         rows: list[Valued] = []
         complete = True
@@ -862,15 +949,20 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
                                terms=_terms(ledger), extra=extra, choosable=action.choosable))
         if not complete:
             break
+        latest = Evaluation(valued=tuple(row for row in rows if row.ref != REFERENCE_REF), draws=model.k,
+                            cutoff=model.cutoff, seed=seed, elapsed_ms=int(round((clock() - started) * 1000)),
+                            complete=True, reference=next((row for row in rows if row.ref == REFERENCE_REF), None))
+        if on_complete is not None:
+            on_complete(latest)
         more = keep_going() if keep_going is not None else False
         if not more or total >= limit or (deadline is not None and clock() > deadline):
             break
         total = min(total * 2, limit)
         model = _Model(inputs, total, seed)
-    reference = next((row for row in rows if row.ref == REFERENCE_REF), None) if complete else None
-    return Evaluation(valued=tuple(row for row in rows if row.ref != REFERENCE_REF), draws=model.k,
-                      cutoff=model.cutoff, seed=seed, elapsed_ms=int(round((clock() - started) * 1000)),
-                      complete=complete, reference=reference)
+    if latest is not None:
+        return replace(latest, elapsed_ms=int(round((clock() - started) * 1000)))
+    return Evaluation(valued=(), draws=model.k, cutoff=model.cutoff, seed=seed,
+                      elapsed_ms=int(round((clock() - started) * 1000)), complete=False, reference=None)
 
 
 def paired_standard_error(a: Valued, b: Valued) -> float:
@@ -942,7 +1034,7 @@ def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: 
 
 __all__ = [
     "Action", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
-    "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW", "STOP",
+    "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW", "SEQUENCE", "STOP",
     "TAIL_VERSION", "TEACH_BACK", "TERMINAL_VERSION", "Topic", "Valued", "cutoff_for", "evaluate", "gain",
     "numeric_choice", "paired_standard_error",
 ]

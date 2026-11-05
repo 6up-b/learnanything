@@ -205,3 +205,150 @@ def test_the_gain_curve_rises_with_todays_minutes():
                      combiner=M.Combiner(), learning=V.Learning(), horizon_days=30.0, session_minutes=0.0)
     g = V.gain(inputs, [0.0, 10.0, 20.0], draws=4, seed="g")
     assert g[0.0] < g[10.0] < g[20.0]
+
+
+# -- Codex review (router-ro4, job 20261105-044310-mIr8Nh): each fails on the pre-fix value estimator ------------
+
+
+def _probe_case():
+    inputs = _inputs(topics=(V.Topic("lo_a", 0.0, 2.0, undated_density=0.5),), session_minutes=0.0,
+                     combiner=M.Combiner(mean=(0.0, 1.0, 0.0), variance=(0.0, 0.0, 0.0)),
+                     learning=V.Learning(gamma=(0.6, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))), horizon_days=10.0)
+    probe = V.Action(ref="probe", kind=V.PROBE, item_los=("lo_a",), minutes=2.0,
+                     repair=V.Action(ref="repair", kind=V.REPAIR, item_los=("lo_a", "lo_a"), minutes=6.0))
+    return inputs, probe
+
+
+def test_f2_the_probe_branch_never_sees_the_repairs_future_result():
+    """The repair-or-not choice is a function of the probe's result and the posterior after it: flipping every
+    outcome the true path draws after the probe (the repair's graded attempts, its duration, the tail's outcomes)
+    leaves the choice of every draw unchanged."""
+
+    inputs, probe = _probe_case()
+    # A price at which the repair is worth it after some results and not others.
+    inputs = replace_inputs(inputs, price=V.Price(kappa0=0.05, remembered=10.0))
+    model = V._Model(inputs, 64, "f2")
+    _ledger, extra = model.value(probe)
+    flipped = V._Model(inputs, 64, "f2")
+    flipped.streams.action_u[:, 2, :] = 1.0 - flipped.streams.action_u[:, 2, :]
+    flipped.streams.outcome_u[:] = 1.0 - flipped.streams.outcome_u
+    flipped.streams.duration_z[:, 2] = -flipped.streams.duration_z[:, 2]
+    _again, extra_flipped = flipped.value(probe)
+    assert extra["branches"]["repair_share"] == extra_flipped["branches"]["repair_share"]
+    assert extra["branches"]["repair_after_miss"] == extra_flipped["branches"]["repair_after_miss"]
+    # Still a real choice: it depends on the probe's own result (a miss makes the repair likelier).
+    assert 0.0 < extra["branches"]["repair_share"] < 1.0
+    assert extra["branches"]["repair_after_miss"] > extra["branches"]["repair_share"]
+
+
+def test_f3_a_date_crossed_by_a_probe_is_scored_on_the_state_before_it_and_its_repair():
+    """A ten-minute probe crosses a goal date five minutes away, then a ten-minute repair: the date is scored at
+    the pre-action performance (0.5), never on the post-repair state, as an ordinary action's is."""
+
+    learning = V.Learning(gamma=(2.0, 0.0), gbar=((0.0, 0.0), (0.0, 0.0)))
+    inputs = _inputs(topics=(V.Topic("lo_a", 0.0, 0.0),), dated=(V.DatedUse("exam", "lo_a", 5.0 / 1440.0, 1.0),),
+                     price=V.Price(kappa0=0.0, remembered=10.0), learning=learning, session_minutes=0.0,
+                     horizon_days=1.0)
+    probe = V.Action(ref="probe", kind=V.PROBE, item_los=("lo_a",), minutes=10.0,
+                     repair=V.Action(ref="repair", kind=V.REPAIR, item_los=("lo_a",), minutes=10.0))
+    review = V.Action(ref="review", kind=V.REVIEW, item_los=("lo_a",), minutes=10.0)
+    out = V.evaluate(inputs, [probe, review], draws=8, seed="f3").by_ref()
+    for ref in ("probe", "review"):
+        assert out[ref].terms["crossed_date_reward"] == pytest.approx(0.5), ref
+        assert out[ref].q == pytest.approx(0.5), ref  # no undated use, no price: the date is all of Q
+
+
+def test_f3_a_multi_day_action_counts_no_interval_twice_and_no_session_before_its_end():
+    """Constant performance 0.5 with density 1 over C + H = 10 days is worth 5.0 whatever the action's length; a
+    day-and-a-half action leaves no tail session before it ends."""
+
+    flat = V.Learning(gamma=(0.0, 0.0), gbar=((0.0, 0.0), (0.0, 0.0)))
+    topic = V.Topic("lo_a", 0.0, 0.0, undated_density=1.0)
+    two_days = V.Action(ref="long", kind=V.REVIEW, item_los=("lo_a",), minutes=1.5 * 1440.0)
+    free = _inputs(topics=(topic,), price=V.Price(kappa0=0.0, remembered=10.0), learning=flat, session_minutes=10.0,
+                   horizon_days=5.0, return_gaps_days=())
+    assert V.evaluate(free, [two_days], draws=2, seed="f3b").by_ref()["long"].q == pytest.approx(5.0)
+    priced = replace_inputs(free, price=V.Price(kappa0=0.1, remembered=10.0))
+    row = V.evaluate(priced, [two_days], draws=2, seed="f3b").by_ref()["long"]
+    per_session = 0.1 * 10.0 ** 2 / (2 * 10.0)
+    assert row.terms["tail_cost"] == pytest.approx(3 * per_session)  # days 2, 3 and 4 (C = 5), none on day 1 (it ends at 1.5)
+
+
+def replace_inputs(inputs, **changes):
+    from dataclasses import replace
+
+    return replace(inputs, **changes)
+
+
+def test_f4_the_return_gap_follows_every_session_end():
+    """With an empirical three-day gap, C + H = 6 days holds one tail session (day 3), not one on day 3 and then
+    daily ones."""
+
+    flat = V.Learning(gamma=(0.0, 0.0), gbar=((0.0, 0.0), (0.0, 0.0)))
+    inputs = _inputs(topics=(V.Topic("lo_a", 0.0, 0.0),), price=V.Price(kappa0=0.1, remembered=10.0),
+                     learning=flat, session_minutes=10.0, horizon_days=3.0, return_gaps_days=(3.0,))
+    row = V.evaluate(inputs, [V.Action(ref="r", kind=V.REVIEW, item_los=("lo_a",), minutes=1.0)], draws=2,
+                     seed="f4").by_ref()["r"]
+    per_session = 0.1 * 10.0 ** 2 / (2 * 10.0)
+    # Day 3 is at C: its session's cost is T_C's; no undated use, so the terminal term is that cost alone.
+    assert row.terms["tail_cost"] == pytest.approx(0.0)
+    assert -row.terms["terminal"] == pytest.approx(per_session)
+
+
+def test_f5_a_sequence_values_its_steps_in_order_with_their_own_kinds():
+    """"Follow-up now, then the rest" and the reverse differ when timing matters: a date between the two steps is
+    scored after the first step's effect and before the second's."""
+
+    learning = V.Learning(gamma=(1.0, 0.0), gbar=((0.0, 0.0), (0.0, 0.0)))
+    inputs = _inputs(topics=(V.Topic("lo_a", 0.0, 0.0), V.Topic("lo_b", 0.0, 0.0)),
+                     dated=(V.DatedUse("exam", "lo_a", 15.0 / 1440.0, 1.0),), price=V.Price(kappa0=0.0, remembered=10.0),
+                     learning=learning, session_minutes=0.0, horizon_days=1.0)
+    follow = V.Action(ref="follow_up", kind=V.REPAIR, item_los=("lo_a",), minutes=10.0)
+    rest = V.Action(ref="remaining", kind=V.REVIEW, item_los=("lo_b",), minutes=10.0)
+    now = V.Action(ref="now", kind=V.SEQUENCE, steps=(follow, rest), item_los=("lo_a", "lo_b"), minutes=20.0)
+    later = V.Action(ref="later", kind=V.SEQUENCE, steps=(rest, follow), item_los=("lo_b", "lo_a"), minutes=20.0)
+    out = V.evaluate(inputs, [now, later], draws=4, seed="f5").by_ref()
+    assert out["now"].terms["crossed_date_reward"] == pytest.approx(M.sigmoid(1.0).item())
+    assert out["later"].terms["crossed_date_reward"] == pytest.approx(0.5)
+    assert out["now"].q > out["later"].q
+    # A probe step keeps its kind: it observes and changes no ability (its information reaches the tail).
+    probe_step = V.Action(ref="p", kind=V.PROBE, item_los=("lo_a",), minutes=10.0)
+    observe = V.Action(ref="obs", kind=V.SEQUENCE, steps=(probe_step, rest), item_los=("lo_a", "lo_b"), minutes=20.0)
+    assert V.evaluate(inputs, [observe], draws=4, seed="f5").by_ref()["obs"].terms["crossed_date_reward"] == \
+        pytest.approx(0.5)
+    with pytest.raises(ValueError):
+        V.Action(ref="bad", kind=V.SEQUENCE, steps=(now,))
+
+
+def test_f6_the_effect_feature_is_the_difference_of_forecast_probabilities():
+    """§8.4: f = 0.99 − 0.5 and ΔG = α + β·f; with α = 0 and β = 0.2 the correction is 0.098 on the logit scale."""
+
+    inputs = _inputs(effect=V.EffectSlope(alpha=(0.0, 0.0), beta=(0.2, 0.0)), reference_forecast=0.5)
+    model = V._Model(inputs, 4, "f6")
+    correction = model._effect_correction(V.Action(ref="a", kind=V.REVIEW, item_los=("lo_a",), minutes=5.0,
+                                                   forecast=0.99))
+    assert correction == pytest.approx(np.full(4, 0.2 * 0.49))
+
+
+def test_f7_a_refinement_cut_by_the_deadline_keeps_the_last_complete_batch():
+    inputs = _inputs(topics=(V.Topic("lo_a", 0.3, 0.2, undated_density=1 / 90),), combiner=M.Combiner(),
+                     horizon_days=10.0)
+    actions = [V.Action(ref="a", kind=V.REVIEW, item_los=("lo_a",), minutes=5.0), V.Action(ref="stop_for_today",
+                                                                                          kind=V.STOP)]
+    ticks = {"since_keep": None}
+
+    def clock() -> float:
+        if ticks["since_keep"] is None:
+            return 0.0
+        ticks["since_keep"] += 1
+        return 0.0 if ticks["since_keep"] <= 1 else 100.0  # the deadline passes inside the larger batch
+
+    def keep_going() -> bool:
+        ticks["since_keep"] = 0
+        return True
+
+    seen = []
+    out = V.evaluate(inputs, actions, draws=4, seed="f7", max_draws=8, keep_going=keep_going, deadline=50.0,
+                     clock=clock, on_complete=seen.append)
+    assert out.complete and out.draws == 4 and {row.ref for row in out.valued} == {"a", "stop_for_today"}
+    assert out.reference is not None and len(seen) == 1
