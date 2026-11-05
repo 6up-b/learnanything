@@ -206,8 +206,12 @@ def test_ad_replayer_reads_the_receipt_only_through_the_carve_out() -> None:
     # and hands the replayer rows that still pass only through the carve-out).
     # protected_tables.py classifies the table for the AD guard (the AD23 redesign), and
     # column_classes.py its columns (round 5); they read nothing.
+    # Router objective RO2: the full-history card lists a receipt's kind, LO and time as a prompt entry, and
+    # the cold resolver reads its LO and time as an exposure that censors a per-protocol outcome; neither
+    # puts a dose into the state.
     assert set(readers) <= {"reading.py", "replay.py", "dose.py", "serving.py", "data_check.py", "backfill.py",
-                            "material_view.py", "protected_tables.py", "column_classes.py"}
+                            "material_view.py", "protected_tables.py", "column_classes.py", "history_card.py",
+                            "history_resolve.py"}
 
 
 # -- Reader workbench RW3b: discovered cues (stage reader-rw3b) --------------------------------------

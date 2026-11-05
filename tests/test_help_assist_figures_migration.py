@@ -54,7 +54,8 @@ def test_232_is_the_figures_migration_and_help_assists_stays_a_raw_ledger():
     assert names[232] == "232_help_assist_figures.sql"
     assert names[230] == "230_help_assist_work_md.sql"
     assert role_for_table("help_assists") == TableRole.RAW_LEDGER
-    assert "help_assists" not in PT.ROLES
+    # Router objective RO2 registered it for AD's reads (rung H1 of llm_history_v1's card).
+    assert PT.ROLES["help_assists"] == PT.PROTECTED
 
 
 def _at_231(tmp_path: Path) -> Path:

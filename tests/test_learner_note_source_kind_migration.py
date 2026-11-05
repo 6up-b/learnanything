@@ -187,11 +187,14 @@ def test_231_classifies_nothing_new():
     sql = next(m for m in discover_migrations() if m.version == 231).path.read_text()
     created = {line.split()[2] for line in sql.splitlines() if line.startswith("CREATE TABLE")}
     assert created == {"learner_text_gaps__231", "learner_text_gap_jobs__231"}  # renamed onto the old names
-    # AD's guard (spec §9.4): no AD operation reaches the gap tables (unclassified there, so
-    # an AD read of one is refused as unclassified), and the notes' own tables stay PROTECTED.
+    # AD's guard (spec §9.4): no AD operation reaches the gap jobs (unclassified there, so an AD read
+    # of one is refused as unclassified); router objective RO2 registered the gaps themselves for its
+    # card's rung H3 (PROTECTED: read only by the rules), and the notes' own tables stay PROTECTED.
     from learnloop.adaptive_difficulty import protected_tables as PT
 
-    for table in ("learner_text_gaps", "learner_text_gap_jobs"):
+    assert PT.role("learner_text_gaps") == PT.PROTECTED
+    assert PT.read_verdict("learner_text_gaps", rules=None) is not None
+    for table in ("learner_text_gap_jobs",):
         assert PT.role(table) is None, table
         assert PT.read_verdict(table, rules=None) == "an unclassified table"
     for table in ("learner_notes", "learner_note_links"):

@@ -63,7 +63,8 @@ def test_230_is_the_work_md_migration_and_help_assists_stays_a_raw_ledger():
     assert names[229] == "229_learner_notes.sql"
     assert role_for_table("help_assists") == TableRole.RAW_LEDGER
     # Not a table an AD operation reads (so no column class is needed).
-    assert "help_assists" not in PT.ROLES
+    # Router objective RO2 registered it for AD's reads (rung H1 of llm_history_v1's card).
+    assert PT.ROLES["help_assists"] == PT.PROTECTED
 
 
 def _at_229(tmp_path: Path) -> Path:

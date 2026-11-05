@@ -66,6 +66,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert (section.pop("available_at_reads"), section.pop("self_report_not_validated")) == (True, True)
     assert section == {"receipts": True}  # RO0's switch stays
     assert dumped["scheduler"]["surprise"].pop("remove_interval_factor") is True
+    # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
+    dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
+    assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "ec22e2fc1e80ca9df220fe21ca66c5bb1166aedee8ce48b7eea38793e9ef83f7"
 
