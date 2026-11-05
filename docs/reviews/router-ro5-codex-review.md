@@ -324,3 +324,49 @@ Test files added or changed, for the landing gate:
 - **The stage record** (`docs/reviews/router-ro5.md`) still describes the embedded placement and its first week. The
   rerun above supersedes both.
 - C2's planted seven-day recalibration test and the return model's availability coefficient stand as listed above.
+
+## Final verify (job `20261105-104749-57ysh9`) and the landing's step 0
+
+The final verify confirmed F1-F9 fixed, reopened F10 on historical reads and raised F11 (Medium). The orchestrator's
+landing rulings (verbatim in `docs/reviews/router-ro5.md`, "Landing onto main") took F10 structural (R1) and F11 to
+an integration adapted to the posterior (R2), with R4 (the coin's opening boundary), R5 (RO4's open items 1-3) and
+R6 (the lag join's test). Each was reproduced first in `tests/test_ro5_landing.py`, failing on `5f02be6eb2`, then
+fixed in its own commit. Fakes, in-memory SQLite and synthetic vaults only; no model request was made or added.
+
+| id / ruling | severity | verdict | commit | test (pre-fix result) |
+|---|---|---|---|---|
+| F10 / R1 | Medium (reopened) | fixed, structurally | `e16d1253e8` | `test_r1_f10_a_later_skip_never_moves_a_past_completion_rate` (Codex's reproduction 1: rate 1.0 → 0.5, assigned 1 → 2 after a skip dated after the cutoff); `test_r1_f10_a_closed_score_never_moves_with_an_answer_after_its_closure` (reproduction 2: a closed score 0 → −1.92 with one observation after a later answer); `test_r1_an_answer_received_after_the_closure_is_not_seen_at_it`; `test_r1_one_function_reads_every_counted_event_as_of_its_closure` |
+| F11 / R2 | Medium | fixed | `eebca9b33b` | `test_r2_f11_the_dominant_posterior_peak_outside_the_priors_reach_is_integrated` (Codex's reproduction: mean 0.000275, variance 1.0e-4 as `posterior_randomized_coin`; now 0.4196, variance < 1e-6); `test_r2_a_planted_slope_is_recovered_at_a_narrow_and_at_a_wide_prior` (prior sd 0.01 and 1.0, slope 0.3); a weak-instrument guard; the unconverged label |
+| R4 | — | fixed | `a5e12c2d7f` | `test_r4_the_coin_is_not_drawn_before_any_active_minute_of_the_session` (the synthetic week's minute-0 offer: the day's first decision drew `offer_stop`) |
+| R5 (1) | — (RO4 open item 1) | fixed | `29464fb3f9` | `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace` (pre-fix: FG1's `FollowupGate`, three arms, `RouterLLMAnswerV1`, no trace); no room to wait; below the tag and objective off unchanged |
+| R5 (2) | — (RO4 open item 2) | fixed | `3c78b28fa3` | `test_r5_2_the_objective_report_prints_w_and_its_posterior` (pre-fix `w None`) |
+| R5 (3) | — (RO4 open item 3) | fixed | `cdcc7537c4` | `test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols` (pre-fix: the weight note verbatim, and "proposal" on the copy deny-list) |
+| R6 | — | test added | `8fd2a5a8ba` | `test_r6_the_lag_join_reads_the_newest_trace_before_the_check_at_its_lag` (coverage; passes pre-fix); the return model's assumption labelled in `ReturnSlope.as_dict` (trace and report) |
+
+**R1** (`checks.Closure`, `checks.Ledger`, `scores.scores`, `objective_inputs._combiner`):
+- `Closure` is the one cutoff: the check's (`through`, the end of a local date) or the window's (`at`, its closing
+  moment). `Closure.admits(occurred, received)` is the one test.
+- `Ledger` reads every counted event once with its times: the slots and days drawn, the sessions, the
+  administrations, the skips and displacements, the help shown, and the answers, an answer on both its occurrence
+  and its received time (RO1's availability predicate).
+- `resolve`, `completion` and `r_for` take a closure; `through=` keeps its meaning (the end of that date).
+- `scores` reads each decision as of its own window's closure: the checks it observes, its completion rate, its `r`
+  and the dated uses' imported results (an import after the closure is not seen; the use is censored `no_result`).
+- The combiner reads the checks as of the decision.
+- Intended and named in `Closure`'s docstring: a grade and its hold read as they stand now (F1).
+- Not changed: the realized cost reads activity through the window's end on occurrence time
+  (`price.activity_spans`, shared with the serving clock bit for bit, F4).
+
+**R2** (`stop_coin.fit_return_slope`): nodes over the prior to 40 sds, around the likelihood's peak to 8 of its
+spreads wherever it falls, and across bounds that start past both. The bounds widen (at most 40 times, by half the
+span on a failing side) until the mass past them, bounded by the prior's kernel since `AR ≥ 0`, is below 1e-9 of
+the mass inside; then the grid is refined until the moments agree. Convergence needs both; else the labelled prior.
+Vectorized with numpy. New registered constants: `_PEAK_SPREADS`, `_SPAN_NODES`, `_WIDENINGS`, `_TAIL_TOLERANCE`.
+
+**R4**: `stop_coin.eligible(support, session_minutes=...)` requires the session's active minutes above zero (unknown
+is not above zero), read on the serving clock at the decision before the coin's uniform and frozen in the coin's
+availability.
+
+**R5 (1)**: see `docs/reviews/router-ro5.md`, "Landing onto main".
+
+**R3**: the stage record describes the placement as built (choice 6) and the first week rerun at landing.
