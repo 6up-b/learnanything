@@ -205,6 +205,17 @@ class VaultReadingMap:
         return self.view.lo_facets(lo)
 
 
+@entry(read_only=True)
+def section_learning_objects(vault: Any, repository: Any, extraction_id: str, section_id: str, *,
+                             view: Any = None) -> list[str]:
+    """Router objective RO4 (landing, after RO2's ruling R6): a reading section's LOs as AD maps them, for the
+    rollouts' reading action, so its doses land on the LOs AD's reading curve (``reading_dose``) counts: through
+    the map's ``MaterialView.document_ir`` after the sweep's withheld rule (a reading the withheld material
+    touches maps to nothing), inside a read-only AD operation."""
+
+    return list(VaultReadingMap(vault, repository, view).los_for_section(extraction_id, section_id))
+
+
 @dataclass
 class SweepResult:
     written: int = 0
@@ -379,5 +390,6 @@ __all__ = [
     "SweepResult",
     "VaultReadingMap",
     "listed_events",
+    "section_learning_objects",
     "sweep",
 ]

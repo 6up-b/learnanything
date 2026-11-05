@@ -26,7 +26,19 @@ ROOTS = frozenset({
     "learnloop/adaptive_difficulty/reading.py",
     "learnloop/reading_sources.py",
     "learnloop/adaptive_difficulty/dose.py",
+    # Router objective RO4 (its landing, after R6): the rollouts' inputs (a reading action's LOs, AD's
+    # predictive and reading doses), the objective chooser that builds them and the decision-level card,
+    # and AD's decision-state reader.
+    "learnloop/daily_plan/objective_inputs.py",
+    "learnloop/daily_plan/objective_chooser.py",
+    "learnloop/adaptive_difficulty/readiness.py",
 })
+#: Functions the walk does not enter, each with why: they run only with AD off, where no AD operation
+#: exists and the raw-loading wrapper is every outside caller's.
+OUTSIDE_AD: dict[tuple[str, str], str] = {
+    ("learnloop/daily_plan/objective_inputs.py", "_reading_los_outside_ad"):
+        "RO4's reading LOs with adaptive_difficulty.enabled false (no AD operation, no reading curve)",
+}
 #: Raw loaders of a reading's stored structure (each reads ``source_document_*`` outside the chokepoint).
 RAW_LOADERS = frozenset({"load_document_ir", "document_blocks", "document_blocks_on_pages"})
 #: The one place AD may load it: the reading chokepoint (inside Scope.DERIVE, after the withheld rule).
@@ -102,7 +114,7 @@ def _reachable_raw_loads() -> tuple[set[tuple[str, str]], list[str]]:
     raw: list[str] = []
     while pending:
         key = pending.pop()
-        if key in seen or key == CHOKEPOINT:
+        if key in seen or key == CHOKEPOINT or key in OUTSIDE_AD:
             continue
         seen.add(key)
         rel, qualified = key
@@ -126,8 +138,15 @@ def test_no_code_reached_from_ads_operation_calls_a_raw_document_loader():
     assert ("learnloop/adaptive_difficulty/reading.py", "VaultReadingMap.los_for_span") in seen
     assert ("learnloop/adaptive_difficulty/reading.py", "VaultReadingMap.los_for_section") in seen
     assert ("learnloop/section_map.py", "learning_objects_for_section_in_ir") in seen
+    # RO4's rollout inputs are walked too (fails before RO4's landing fix: objective_inputs._reading_los
+    # reached section_map.learning_objects_for_section, which calls repository.load_document_ir).
+    assert ("learnloop/daily_plan/objective_inputs.py", "_reading_los") in seen
+    assert ("learnloop/adaptive_difficulty/reading.py", "section_learning_objects") in seen
+    assert ("learnloop/adaptive_difficulty/history_card.py", "decision_sections") in seen
+    assert ("learnloop/adaptive_difficulty/readiness.py", "decision_state_fields") in seen
     assert raw == [], raw
     assert set(PROJECTED_ONLY) <= seen, sorted(set(PROJECTED_ONLY) - seen)  # no stale entry
+    assert set(OUTSIDE_AD) <= set(_Index().functions), sorted(set(OUTSIDE_AD) - set(_Index().functions))
 
 
 def test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint(tmp_path, monkeypatch):
@@ -238,3 +257,50 @@ def test_a_guard_denial_in_ads_serve_leaves_the_learners_serve_unchanged(tmp_pat
     assert strip(denied_step) == strip(step) and denied_presented == presented
     assert ad_rows["forecast_receipts"] > 0 and ad_rows["ad_history_forecast_draws"] == 1
     assert denied_rows == {"forecast_receipts": 0, "item_serve_inputs": 0, "ad_history_forecast_draws": 0}
+
+
+def test_ro4s_reading_action_maps_its_section_through_the_chokepoint(tmp_path, monkeypatch):
+    """RO4's landing (after R6): at mvp-0.47 with AD on, a reading candidate's LOs for the rollouts are AD's
+    (``VaultReadingMap.los_for_section``) and every document IR load inside ``MaterialView.document_ir``; with
+    AD off, the plan's own mapping, the same LOs. Fails before the fix (the raw wrapper loaded the IR)."""
+
+    from learnloop.adaptive_difficulty.material_view import MaterialView
+    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
+    from learnloop.daily_plan import objective_inputs as OI
+    from learnloop.daily_plan.types import BlockCandidate, ReadingTarget
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import load_vault
+    from tests.test_ro2_ad_document_ir import _textbook_with_span_question
+
+    paths, repository, extraction, _span, unit = _textbook_with_span_question(tmp_path, ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+    inside = {"depth": 0}
+    loads: list[bool] = []
+    raw_load = Repository.load_document_ir
+    chokepoint = MaterialView.document_ir
+
+    def counted_load(self, extraction_id):
+        loads.append(inside["depth"] > 0)
+        return raw_load(self, extraction_id)
+
+    def counted_chokepoint(self, repository, extraction_id):
+        inside["depth"] += 1
+        try:
+            return chokepoint(self, repository, extraction_id)
+        finally:
+            inside["depth"] -= 1
+
+    monkeypatch.setattr(Repository, "load_document_ir", counted_load)
+    monkeypatch.setattr(MaterialView, "document_ir", counted_chokepoint)
+    candidate = BlockCandidate(
+        candidate_id="read_1", lane="new", action="read", subtype=None, learning_object_ids=(), item_ids=(),
+        reading=ReadingTarget(source_id="src_text", extraction_id=extraction, section_id=unit,
+                              section_title="A section", words_left=400),
+        est_minutes=6.0, planner_value=0.1, reason="next section")
+    vault = load_vault(paths.root)
+    assert vault.config.adaptive_difficulty.enabled
+    assert OI._reading_los(vault, repository, candidate) == ("lo_matrices",)
+    assert loads and all(loads), loads
+    vault.config.adaptive_difficulty.enabled = False
+    loads.clear()
+    assert OI._reading_los(vault, repository, candidate) == ("lo_matrices",)
+    assert loads and not any(loads)  # outside AD: the raw wrapper, as every caller outside AD
