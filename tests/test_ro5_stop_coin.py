@@ -64,7 +64,10 @@ def test_the_coin_never_depends_on_the_mix_or_either_policy():
         b = SC.flip(seed, 0.05, support=SUPPORT, mu={"a": 0.1, "b": 0.1, SC.STOP: 0.8}, drawn=SC.STOP,
                     availability={"x": 1})
         assert (a.arm, a.u) == (b.arm, b.u)
-    assert not SC.eligible(["a", "b"]) and not SC.eligible([SC.STOP]) and SC.eligible(SUPPORT)
+    assert not SC.eligible(["a", "b"], session_minutes=5.0) and not SC.eligible([SC.STOP], session_minutes=5.0)
+    assert SC.eligible(SUPPORT, session_minutes=5.0)
+    # Landing ruling R4: the session's opening boundary (no active minute) is not a stop decision.
+    assert not SC.eligible(SUPPORT, session_minutes=0.0)
 
 
 def test_present_next_overrides_only_a_drawn_stop():
@@ -87,10 +90,11 @@ def test_serving_records_each_coin_with_its_exact_probability_and_availability(t
     run(env)
     decided = [row for row in rows(env) if row["policy"] == mix.POLICY]
     coins = {row["unit_id"]: row for row in _assignments(env)}
-    assert decided and set(coins) == {row["id"] for row in decided}
+    # Every decision but the session's opening one (landing ruling R4: no active minute yet) carries its coin.
+    assert decided and decided[0]["id"] not in coins and set(coins) == {row["id"] for row in decided[1:]}
     with env.repository.connection() as connection:
         traces = {row["decision_id"]: store.trace(connection, row["decision_id"]) for row in store.traces(connection)}
-    for row in decided:
+    for row in decided[1:]:
         coin = coins[row["id"]]
         assert coin["experiment_id"] == A.STOP_COIN and coin["design"] == "mrt_reversible"
         assert coin["propensity"] == pytest.approx({SC.OFFER_STOP: 0.45, SC.PRESENT_NEXT: 0.45, SC.POLICY: 0.1}

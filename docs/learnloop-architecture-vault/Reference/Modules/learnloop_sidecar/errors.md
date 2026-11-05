@@ -533,6 +533,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
   - `test_e1_bytes_that_match_nowhere_refuse_plainly_and_register_nothing`
   - `test_rereview_f10_a_place_is_translated_onto_the_reading_the_reader_has_open`
+- [tests/test_ro4_goals.py](../../../../../tests/test_ro4_goals.py) — direct import
+  - `test_create_goal_copies_the_asked_use_weight_or_the_default_when_left_alone`
 - [tests/test_rw4_kill_switches.py](../../../../../tests/test_rw4_kill_switches.py) — direct import
   - `test_every_rw4a_rpc_refuses_and_writes_nothing`
   - `test_reader_compare_off_removes_compare_only`

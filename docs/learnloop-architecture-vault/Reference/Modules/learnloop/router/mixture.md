@@ -164,6 +164,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start`
   - `test_the_floor_binds_where_the_models_put_no_mass`
   - `test_the_mixture_draws_over_the_same_candidates_in_every_session`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_the_arms_have_exact_probabilities_and_the_served_distribution_is_exact`
 - [tests/test_router_g3_propensity.py](../../../../../../tests/test_router_g3_propensity.py) — direct import

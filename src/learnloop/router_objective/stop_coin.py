@@ -1,7 +1,9 @@
 """RO5 §9 item 1: the stop coin, stop's return model and the hand-over of ``κ0`` from its seed to a posterior.
 
 **The coin.** At a reversible block boundary of the objective's frame (stop in the support beside at least one
-block), before the mix's draw and independent of it (its own seeded uniform, stream ``stop_coin``), one arm:
+block) once the session holds active minutes (landing ruling R4: the session's opening boundary is not a stop
+decision, the learner has just chosen to start), before the mix's draw and independent of it (its own seeded
+uniform, stream ``stop_coin``), one arm:
 
 | Arm | Probability | Served |
 |---|---|---|
@@ -47,7 +49,8 @@ contrast has an observed return; before, it is its prior mean (no effect) and th
 daily grid a shift that never changes the day of return has no effect at all: the trace then says the model
 dropped out ("attendance near-deterministic").
 
-A leaf: the standard library (numpy for one least-squares fit); the reads take a connection.
+A leaf: the standard library (numpy for one least-squares fit and the slope's integration); the reads take a
+connection.
 """
 
 from __future__ import annotations
@@ -64,6 +67,9 @@ from learnloop.router import mixture as mx
 VERSION = "ro5_stop_coin_v1"
 KAPPA_VERSION = "kappa_posterior_luce_v1"
 RETURN_VERSION = "return_slope_coin_instrument_v3"
+#: The return model's identifying assumption, labelled wherever it is read (the trace's return model, the report):
+#: landing ruling R6.
+RETURN_ASSUMPTION = "the offer changes the return gap only through the session's minutes (an exclusion restriction)"
 OFFER_STOP = "offer_stop"
 PRESENT_NEXT = "present_next"
 POLICY = "policy"
@@ -105,10 +111,13 @@ class Coin:
                 "availability": dict(self.availability), "arms": arm_probabilities(self.rate)}
 
 
-def eligible(support: Sequence[str]) -> bool:
-    """A reversible boundary the coin applies at: stop beside at least one block."""
+def eligible(support: Sequence[str], *, session_minutes: float | None) -> bool:
+    """A reversible boundary the coin applies at: stop beside at least one block, and the session already holds
+    active minutes (landing ruling R4: an offer before any active minute in the session isn't a stop decision, since
+    the learner has just chosen to start; unknown minutes are not above zero)."""
 
-    return STOP in support and any(ref != STOP for ref in support)
+    return (STOP in support and any(ref != STOP for ref in support)
+            and session_minutes is not None and float(session_minutes) > 0.0)
 
 
 def served_distribution(mu: Mapping[str, float], rate: float, support: Sequence[str]) -> dict[str, float]:
@@ -319,7 +328,7 @@ class ReturnSlope:
 
     def as_dict(self) -> dict[str, Any]:
         return {"mean": self.mean, "variance": self.variance, "n": self.n, "source": self.source,
-                "version": RETURN_VERSION}
+                "version": RETURN_VERSION, "assumption": RETURN_ASSUMPTION}
 
 
 @dataclass(frozen=True)
@@ -358,13 +367,19 @@ def _residuals(values: Sequence[float], design: Sequence[Sequence[float]]) -> li
     return [float(r) for r in v - x @ coefficients]
 
 
-#: The integration's reach and refinement (numerical resolution, not a judgement): nodes span the prior to
-#: ``_REACH`` sds (beyond, its density underflows double precision), refined until the moments agree.
+#: The integration's resolution (numerical, not a judgement; landing ruling R2, Codex final verify F11): nodes over
+#: the prior to ``_REACH`` sds, around the likelihood's peak to ``_PEAK_SPREADS`` of its spread, and across the
+#: bounds (both peaks and the region between), refined until the moments agree; the bounds widen (at most
+#: ``_WIDENINGS`` times) until the tail mass beyond them is below ``_TAIL_TOLERANCE`` of the mass inside.
 _REACH = 40.0
+_PEAK_SPREADS = 8.0
 _PRIOR_NODES = 801
 _LOCAL_NODES = 401
+_SPAN_NODES = 801
 _REFINEMENTS = 6
+_WIDENINGS = 40
 _TOLERANCE = 1e-6
+_TAIL_TOLERANCE = 1e-9
 _COLLINEAR = 1e-12
 
 
@@ -415,29 +430,54 @@ def _session_moments(rows: Sequence[ReturnRow]) -> tuple[_Moments, int]:
     return moments, sum(1 for w in weights if w != 0.0)
 
 
-def _integrate(nodes: Sequence[float], log_density: Any) -> tuple[float, float, float]:
-    """Trapezoidal mass, mean and variance of ``exp(log_density)`` over sorted ``nodes`` (unequal spacing kept)."""
+def _integrate(nodes: Any, log_density: Any) -> tuple[float, float, float]:
+    """Trapezoidal log mass, mean and variance of ``exp(log_density)`` over sorted ``nodes`` (an array; unequal
+    spacing kept). The log mass is on ``log_density``'s own scale, so it compares with a tail bound on that scale."""
 
-    logs = [log_density(x) for x in nodes]
-    top = max(logs)
-    f = [math.exp(value - top) for value in logs]
-    mass = first = second = 0.0
-    for i in range(len(nodes) - 1):
-        h = nodes[i + 1] - nodes[i]
-        mass += 0.5 * h * (f[i] + f[i + 1])
-        first += 0.5 * h * (nodes[i] * f[i] + nodes[i + 1] * f[i + 1])
-    mean = first / mass
-    for i in range(len(nodes) - 1):
-        h = nodes[i + 1] - nodes[i]
-        second += 0.5 * h * ((nodes[i] - mean) ** 2 * f[i] + (nodes[i + 1] - mean) ** 2 * f[i + 1])
-    return mass, mean, second / mass
+    import numpy as np
+
+    logs = log_density(nodes)
+    top = float(np.max(logs))
+    f = np.exp(logs - top)
+    h = np.diff(nodes)
+    mass = float(np.sum(0.5 * h * (f[:-1] + f[1:])))
+    xf = nodes * f
+    mean = float(np.sum(0.5 * h * (xf[:-1] + xf[1:]))) / mass
+    vf = (nodes - mean) ** 2 * f
+    variance = float(np.sum(0.5 * h * (vf[:-1] + vf[1:]))) / mass
+    return math.log(mass) + top if mass > 0 else -math.inf, mean, variance
 
 
-def _refine(nodes: Sequence[float]) -> list[float]:
-    out = []
-    for i in range(len(nodes) - 1):
-        out += [nodes[i], 0.5 * (nodes[i] + nodes[i + 1])]
-    return out + [nodes[-1]]
+def _refine(nodes: Any) -> Any:
+    import numpy as np
+
+    out = np.empty(2 * len(nodes) - 1)
+    out[0::2] = nodes
+    out[1::2] = 0.5 * (nodes[:-1] + nodes[1:])
+    return out
+
+
+def _log_prior_tail(beyond: float, sd: float) -> float:
+    """``log ∫_beyond^∞ exp(−x²/(2sd²)) dx``: the posterior's unnormalized density is at most the prior's kernel
+    (``AR ≥ 0``), so this bounds the mass the integration leaves out past a bound on the log density's own scale.
+    Exact through ``erfc`` while it holds a double, then the Mills bound ``(sd/x)·exp(−x²/2)``."""
+
+    x = beyond / sd
+    tail = sd * math.sqrt(math.pi / 2.0) * math.erfc(x / math.sqrt(2.0))
+    if tail > 0.0:
+        return math.log(tail)
+    return math.log(sd / x) - 0.5 * x * x
+
+
+def _nodes(sd: float, peak: tuple[float, float] | None, low: float, high: float) -> Any:
+    """The prior's range, the likelihood's peak neighbourhood and the span between the bounds, merged and sorted."""
+
+    import numpy as np
+
+    parts = [np.linspace(-_REACH * sd, _REACH * sd, _PRIOR_NODES), np.linspace(low, high, _SPAN_NODES)]
+    if peak is not None:
+        parts.append(np.linspace(peak[0], peak[1], _LOCAL_NODES))
+    return np.unique(np.clip(np.concatenate(parts), low, high))
 
 
 def fit_return_slope(rows: Sequence[ReturnRow], prior_sd: float) -> ReturnSlope:
@@ -452,9 +492,12 @@ def fit_return_slope(rows: Sequence[ReturnRow], prior_sd: float) -> ReturnSlope:
     the weights): valid however weakly the offer moves the minutes, and bounded by the number of sessions, so a
     vanishing first stage leaves a flat likelihood (Codex re-review F8: the prior stands, never a certain slope) and
     a few sessions move the prior only by what they can carry. The posterior is that likelihood times the prior
-    ``N(0, prior_sd²)``, integrated on nodes that keep the prior's resolution whatever the instrument's strength
-    (the prior's range to ``_REACH`` sds, plus the ratio estimate's neighbourhood where it falls inside it), refined
-    until the mean and variance agree; one that does not converge serves the prior and says so.
+    ``N(0, prior_sd²)``, integrated on nodes adapted to it (landing ruling R2, Codex final verify F11): the prior's
+    range to ``_REACH`` sds, the likelihood's peak (the ratio estimate) to ``_PEAK_SPREADS`` of its spread wherever
+    it falls, and the span between bounds that start past both and widen until the mass beyond them (bounded by the
+    prior's kernel, since ``AR ≥ 0``) is below ``_TAIL_TOLERANCE`` of the mass inside; then refined until the mean
+    and variance agree. Convergence needs both; one that does not converge serves the prior and says so
+    (``prior_integration_unconverged``).
 
     Realized minutes are never the treatment: a learner's busy day that shortens the session and lengthens the gap
     moves both outcomes under every arm, so it cancels in the contrast. With no randomized contrast (sessions whose
@@ -474,27 +517,55 @@ def fit_return_slope(rows: Sequence[ReturnRow], prior_sd: float) -> ReturnSlope:
         # at every slope but one point, so the sessions carry no information about b and the prior stands.
         return ReturnSlope(mean=0.0, variance=prior.variance, n=len(rows), source="prior_no_information")
     sd = float(prior_sd)
-    reach = _REACH * sd
+    unconverged = ReturnSlope(mean=0.0, variance=prior.variance, n=len(rows), source="prior_integration_unconverged")
 
-    def log_density(slope: float) -> float:
-        return -0.5 * (slope / sd) ** 2 - 0.5 * moments.ar(slope)
+    def log_density(slope: Any) -> Any:
+        import numpy as np
 
-    nodes = {-reach + 2.0 * reach * j / (_PRIOR_NODES - 1) for j in range(_PRIOR_NODES)}
+        numerator = (moments.sa - slope * moments.sb) ** 2
+        denominator = moments.saa - 2.0 * slope * moments.sab + slope * slope * moments.sbb
+        safe = np.where(denominator > 0.0, denominator, 1.0)
+        ar = np.where(denominator > 0.0, np.minimum(numerator / safe, float(moments.sessions)), 0.0)
+        return -0.5 * (slope / sd) ** 2 - 0.5 * ar
+
+    # Landing ruling R2 (Codex final verify F11): the grid covers the prior's peak (0), the likelihood's (the ratio
+    # estimate, where AR is 0) and the region between; its bounds start past both and widen until the mass they leave
+    # out is negligible against the mass inside, and convergence needs both that and the refinement's agreement.
     wald = moments.sa / moments.sb
     spread = math.sqrt(max(moments.saa - 2.0 * wald * moments.sab + wald * wald * moments.sbb, 0.0)) / abs(moments.sb)
-    if math.isfinite(wald) and math.isfinite(spread) and spread > 0 and abs(wald) < reach:
-        low, high = max(wald - 8.0 * spread, -reach), min(wald + 8.0 * spread, reach)
-        nodes |= {low + (high - low) * j / (_LOCAL_NODES - 1) for j in range(_LOCAL_NODES)}
-    grid = sorted(nodes)
-    _mass, mean, variance = _integrate(grid, log_density)
-    for _ in range(_REFINEMENTS):
-        grid = _refine(grid)
-        _mass, finer_mean, finer_variance = _integrate(grid, log_density)
-        scale = math.sqrt(max(finer_variance, 0.0)) or sd
-        if abs(finer_mean - mean) <= _TOLERANCE * scale and abs(finer_variance - variance) <= _TOLERANCE * scale ** 2:
-            return ReturnSlope(mean=finer_mean, variance=finer_variance, n=len(rows), source="posterior_randomized_coin")
-        mean, variance = finer_mean, finer_variance
-    return ReturnSlope(mean=0.0, variance=prior.variance, n=len(rows), source="prior_integration_unconverged")
+    peak = ((wald - _PEAK_SPREADS * spread, wald + _PEAK_SPREADS * spread)
+            if math.isfinite(wald) and math.isfinite(spread) and spread > 0 else None)
+    low, high = -_REACH * sd, _REACH * sd
+    if peak is not None:
+        low, high = min(low, peak[0]), max(high, peak[1])
+    log_tolerance = math.log(_TAIL_TOLERANCE)
+    for _attempt in range(_WIDENINGS + 1):
+        grid = _nodes(sd, peak, low, high)
+        log_mass, mean, variance = _integrate(grid, log_density)
+        left, right = _log_prior_tail(-low, sd), _log_prior_tail(high, sd)
+        if max(left, right) - log_mass > log_tolerance - math.log(2.0):
+            # Too much may lie past a bound: widen that side by half the span (the coarse grid's mass suffices
+            # for the comparison; the refinement below decides the moments).
+            span = high - low
+            if left - log_mass > log_tolerance - math.log(2.0):
+                low -= 0.5 * span
+            if right - log_mass > log_tolerance - math.log(2.0):
+                high += 0.5 * span
+            continue
+        for _ in range(_REFINEMENTS):
+            grid = _refine(grid)
+            log_mass, finer_mean, finer_variance = _integrate(grid, log_density)
+            scale = math.sqrt(max(finer_variance, 0.0)) or sd
+            if (abs(finer_mean - mean) <= _TOLERANCE * scale
+                    and abs(finer_variance - variance) <= _TOLERANCE * scale ** 2):
+                tail = max(_log_prior_tail(-low, sd), _log_prior_tail(high, sd)) + math.log(2.0)
+                if tail - log_mass > log_tolerance:  # pragma: no cover - the coarse mass already passed
+                    return unconverged
+                return ReturnSlope(mean=finer_mean, variance=finer_variance, n=len(rows),
+                                   source="posterior_randomized_coin")
+            mean, variance = finer_mean, finer_variance
+        return unconverged
+    return unconverged
 
 
 def _parse(stamp: str) -> datetime:
@@ -565,7 +636,7 @@ def return_rows(connection: Any, *, gap_minutes: float) -> list[ReturnRow]:
 
 __all__ = [
     "ARMS", "Coin", "FORCED", "KAPPA_VERSION", "OFFER_STOP", "Offer", "POLICY", "POSTERIOR", "POSTERIOR_REGIME",
-    "PRESENT_NEXT", "RETURN_VERSION", "ReturnRow", "ReturnSlope", "SEED_REGIME", "VERSION", "arm_probabilities", "eligible",
+    "PRESENT_NEXT", "RETURN_ASSUMPTION", "RETURN_VERSION", "ReturnRow", "ReturnSlope", "SEED_REGIME", "VERSION", "arm_probabilities", "eligible",
     "fit_return_slope", "flip", "handed_over", "kappa_posterior", "offer_log_likelihood", "offers",
     "pending_assignment", "return_rows", "served_distribution",
 ]

@@ -196,6 +196,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resume_clears_a_pause`
   - `test_settings_payload_lists_plan_profiles_and_their_routes`
   - `test_sign_in_from_the_desktop_without_a_vault`
+- [tests/test_followup_fg1d_panel_read.py](../../../../../tests/test_followup_fg1d_panel_read.py) — direct import
 - [tests/test_ingest_latency_journey.py](../../../../../tests/test_ingest_latency_journey.py) — direct import
   - `test_synthetic_markdown_import_reaches_ready_library_and_outline`
 - [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — direct import

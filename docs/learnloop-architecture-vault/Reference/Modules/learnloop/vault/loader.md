@@ -1462,6 +1462,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_verify_the_settled_exit_adds_no_question_of_its_own`
   - `test_f9_a_refused_retry_doesnt_leave_what_the_crash_pinned`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
+  - `test_a_generated_probes_answer_on_its_presentation_reads_zero_in_the_shadow`
+  - `test_an_answer_without_its_presentation_is_incidental_on_both_sides`
+  - `test_the_capability_cell_the_answer_feeds_agrees_with_a_rebuild_too`
+  - `test_the_diagnosis_job_after_the_answer_changes_nothing_further`
 - [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
@@ -2825,6 +2830,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_observer_reads_the_live_database_read_only_with_commitments`
   - `test_the_shadow_rebuild_reports_the_upgrades_schedule_effects`
   - `test_with_the_factor_kept_the_shadow_reports_no_schedule_change`
+- [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
+  - `test_a_span_anchored_reader_question_does_not_poison_the_card_build`
+  - `test_the_reading_map_answers_inside_the_operation_what_the_incumbent_answers_outside`
+  - `test_the_serve_records_its_ad_rows_with_a_span_anchored_question`
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
+  - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_a_gap_whose_source_is_marked_held_out_after_it_was_named_is_withheld`

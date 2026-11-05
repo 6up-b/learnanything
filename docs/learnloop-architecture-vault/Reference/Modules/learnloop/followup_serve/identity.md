@@ -221,6 +221,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_first_serve_is_one_atomic_claim`
 - [tests/test_followup_workflow.py](../../../../../../tests/test_followup_workflow.py) — direct import
   - `test_a_generated_probe_attempt_opens_no_workflow`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 
 ## Modification guidance
 

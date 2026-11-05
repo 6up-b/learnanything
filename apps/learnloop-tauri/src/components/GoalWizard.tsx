@@ -34,6 +34,10 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
   const [dueDate, setDueDate] = useState("");
   const [feasibility, setFeasibility] = useState<GoalFeasibilityResult | null>(null);
   const [feasibilityLoading, setFeasibilityLoading] = useState(false);
+  // Router objective RO4 (§8.5, landing ruling R2): the date's use weight, optional; null = left alone, so the
+  // sidecar copies its default. The field shows only where the sidecar names a default (the objective is on).
+  const [useWeightRaw, setUseWeightRaw] = useState<string | null>(null);
+  const useWeightDefault = feasibility?.useWeightDefault ?? null;
 
   // step 4
   const [examEnabled, setExamEnabled] = useState(true);
@@ -143,8 +147,12 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
     if (submitting) return;
     setSubmitting(true);
     setCreateError(null);
+    const askedWeight = useWeightRaw == null || useWeightRaw.trim() === "" ? NaN : Number(useWeightRaw);
+    const datedUseWeight =
+      !openEnded && useWeightDefault != null && Number.isFinite(askedWeight) && askedWeight >= 0 ? askedWeight : undefined;
     try {
       const created = await api.createGoal({
+        ...(datedUseWeight !== undefined ? { datedUseWeight } : {}),
         title: title.trim(),
         intentSentence: intentSentence.trim() || undefined,
         targetRecall,
@@ -277,6 +285,9 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
               generating={generatingPractice}
               generatedBatch={starterBatchId}
               generateError={generateError}
+              useWeightDefault={useWeightDefault}
+              useWeightValue={useWeightRaw ?? (useWeightDefault != null ? String(useWeightDefault.dated) : "")}
+              onUseWeight={setUseWeightRaw}
             />
           ) : (
             <StepExam
@@ -438,7 +449,10 @@ function StepByWhen({
   onGenerateStarterPractice,
   generating,
   generatedBatch,
-  generateError
+  generateError,
+  useWeightDefault,
+  useWeightValue,
+  onUseWeight
 }: {
   openEnded: boolean;
   onOpenEnded: (v: boolean) => void;
@@ -451,6 +465,9 @@ function StepByWhen({
   generating: boolean;
   generatedBatch: string | null;
   generateError: string | null;
+  useWeightDefault: { dated: number } | null;
+  useWeightValue: string;
+  onUseWeight: (v: string) => void;
 }) {
   const gaps = feasibility?.materialGaps ?? [];
   return (
@@ -471,6 +488,27 @@ function StepByWhen({
       {!stepValid ? (
         <div style={{ marginTop: 8, fontSize: 12, color: COLOR.amber }}>
           pick a date, or tick open-ended, to continue.
+        </div>
+      ) : null}
+
+      {/* RO4 §8.5: asked once, here, and fine to leave alone. */}
+      {!openEnded && useWeightDefault != null ? (
+        <div style={{ marginTop: 16 }}>
+          <label htmlFor="goal-date-use-weight" style={{ display: "block" }}>
+            <Label>how much this date counts · optional</Label>
+          </label>
+          <input
+            id="goal-date-use-weight"
+            type="number"
+            min={0}
+            step={0.5}
+            value={useWeightValue}
+            onChange={(e) => onUseWeight(e.target.value)}
+            style={{ ...inputStyle, width: 90 }}
+          />
+          <Faint style={{ display: "block", marginTop: 6, fontSize: 11, lineHeight: 1.5 }}>
+            {useWeightDefault.dated} is the usual weight. Higher puts this date ahead of keeping things fresh for later; leave it if unsure.
+          </Faint>
         </div>
       ) : null}
 

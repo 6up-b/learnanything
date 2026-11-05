@@ -128,7 +128,10 @@ def test_a_row_received_after_the_moment_never_enters_a_feature(tmp_path):
     assert early is None and known is not None and "state" in known
 
 
-@pytest.mark.parametrize("toml, sees_exam", [(None, False), ("[router_objective]\navailable_at_reads = false\n", True)],
+# RO6's landing (ruling R4): the transitions' reads go through RO5's closure, which admits a result on its received
+# time as well as its occurrence time whatever ``available_at_reads`` says (as RO5's scores read it), so an import
+# received after the moment is no reward yet with the switch off too.
+@pytest.mark.parametrize("toml, sees_exam", [(None, False), ("[router_objective]\navailable_at_reads = false\n", False)],
                          ids=["tag", "switched_off"])
 def test_an_exam_imported_after_the_moment_is_no_reward_yet(tmp_path, toml, sees_exam):
     from tests.test_ro1_availability_reads import AFTER, CUTOFF, LO, _seeded

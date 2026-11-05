@@ -83,10 +83,21 @@ def _logged(row: dict, trace: dict) -> TD.Logged:
 def _quiet(monkeypatch, links: dict[str, str | None], *, exam: float | None = 1.0) -> None:
     """``transitions``' reads replaced: the chain's links, no checks, no attention cost, ``exam`` for every import."""
 
+    class _NoChecks:  # RO6's landing (R4): transitions read RO5's checks through one ledger and its closures
+        def __init__(self, _connection):
+            pass
+
+        def resolve(self, _closure):
+            return []
+
+        def completion(self, _closure):
+            return {"rate": None}
+
     monkeypatch.setattr(TD, "_next_links", lambda _connection, ids: ({key: links.get(key) for key in ids}, {}))
-    monkeypatch.setattr(TD.C, "resolve", lambda _connection, through: [])
+    monkeypatch.setattr(TD.C, "Ledger", _NoChecks)
     monkeypatch.setattr(TD.C, "administered", lambda _connection: {})
-    monkeypatch.setattr(TD.S, "_day_prices", lambda _connection: {})
+    monkeypatch.setattr(TD.S, "_price_rows", lambda _connection: [])
+    monkeypatch.setattr(TD.S, "_day_prices", lambda *_a, **_k: {})
     monkeypatch.setattr(TD.S, "window_cost", lambda *_a, **_k: 0.0)
     monkeypatch.setattr(TD, "_exam_result_known", lambda _connection, _config, _lo, _on, _at: exam)
 
@@ -242,13 +253,17 @@ def test_f5_the_contrasts_return_reader_admits_an_import_only_once_known(tmp_pat
     trace = {"evaluation": {"window_days": 9, "c0": 0.0, "uses": {"topics": [], "dated": [
         {"goal_id": "g", "lo": LO, "due_at": "2026-05-01T09:00:00Z", "omega": 1.0, "m0": 0.0}]}}}
     row = {**_row("d1", "2026-04-25T10:00:00Z", closes="2026-05-04T10:00:00Z"), "trace": trace}
+    # RO6's landing (ruling R4 on RO5's R1 and R10): a window reads as of its own closure, so the import (received
+    # May 19) is d1's never (its window closed May 4) and d2's, whose window closes after it, once read after that.
+    late = {**_row("d2", "2026-05-10T10:00:00Z", closes="2026-05-19T20:00:00Z"), "trace": trace}
     with repository.connection() as connection:
         before = S.observed_returns(connection, vault.config, at=CUTOFF, rows=[row])
-        after = S.observed_returns(connection, vault.config, at=AFTER, rows=[row])
+        after = S.observed_returns(connection, vault.config, at=AFTER, rows=[row, late])
         known = TD._exam_result_known(connection, vault.config, LO, "2026-05-01", CUTOFF)
     assert known is None
     assert before["d1"] == (None, "no_result")  # imported May 19: no return on May 5
-    assert after["d1"][0] is not None
+    assert after["d1"] == (None, "no_result")  # a closed window never moves with a later import
+    assert after["d2"][0] is not None
 
 
 # -- F6 -------------------------------------------------------------------------------------------------------

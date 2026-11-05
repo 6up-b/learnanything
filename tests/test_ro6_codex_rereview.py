@@ -109,9 +109,11 @@ def test_f1_a_complete_return_leaves_an_unknown_dated_use_out_and_keeps_a_window
     value, note = before["d1"]
     # The exam imported later is left out; no checkable use: the bracket is the cost term alone (−(C − C⁰)).
     assert value == pytest.approx(-cost) and note == "dated_left_out:1;no_randomized_use"
+    # RO6's landing (ruling R4 on RO5's R1 and R10): each window reads as of its own closure, so an import received
+    # after the window closed (May 19, the window May 4) is never that window's, however late the read.
     later_value, later_note = after["d1"]
-    # The import known: the dated use is in the sum (observed, r = 1), as RO6's reader had it.
-    assert later_value == pytest.approx(default_after["d1"][0]) and later_note is None
+    assert later_value == pytest.approx(value) and later_note == note
+    assert default_after["d1"] == (None, "no_result")
 
 
 # -- F3 -------------------------------------------------------------------------------------------------------
@@ -172,13 +174,20 @@ def test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff(tmp_pa
     from tests.router_model_fakes import FakeLLM, fake_runtime
     from tests.test_ro4_objective_serving import policy_answer
 
-    env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer)),
-                      version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
-    # Enough items for a second block decision whatever the blocks' sizes (the first has no earlier decision).
-    run(env, steps=16)
-    with env.repository.connection() as connection:
-        traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
-                  if row["decision_kind"] == "plan_block"]
+    # Enough items for a second block decision whatever the blocks' sizes (the first has no earlier decision). The
+    # mix's draw is seeded by the plan's random id, so a run whose first draw is stop ends after one decision (no
+    # earlier decision to carry; RO4's why-surface test has the same flake): such a run is redone in a fresh vault
+    # (RO6's landing; a test-only change, the property asserted is unchanged).
+    for attempt in range(6):
+        (tmp_path / f"run{attempt}").mkdir()
+        env = mixture_env(tmp_path / f"run{attempt}", fake_runtime(llm=FakeLLM(answer=policy_answer)),
+                          version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+        run(env, steps=16)
+        with env.repository.connection() as connection:
+            traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
+                      if row["decision_kind"] == "plan_block"]
+        if len(traces) >= 2:
+            break
     carried = [trace for trace in traces if ((trace.get("residual") or {}).get("previous") or {}).get("status")
                == TS.CARRIED]
     assert carried, [((trace.get("residual") or {}).get("status"), (trace.get("residual") or {}).get("previous"),

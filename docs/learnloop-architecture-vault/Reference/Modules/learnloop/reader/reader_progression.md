@@ -78,7 +78,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
-- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `learning_objects_for_section`, `learning_objects_for_span`; statically calls `learning_objects_for_section`, `learning_objects_for_span`
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
@@ -122,7 +121,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] and 16 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -138,6 +137,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_mapped_lo_does_not_suppress_the_attribution`
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
   - `test_the_guide_and_lo_highlights_survive_with_moved_passages_flagged`
+- [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
+  - `test_the_reading_map_answers_inside_the_operation_what_the_incumbent_answers_outside`
 - [tests/test_router_reader_activity.py](../../../../../../tests/test_router_reader_activity.py) — direct import
   - `test_a_narrative_written_after_the_cutoff_is_not_shown_at_it`
   - `test_a_real_missed_prediction_reaches_the_section_through_its_figure`

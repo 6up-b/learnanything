@@ -136,6 +136,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pool_recalibration_moves_with_overconfident_checks`
 - [tests/test_ro5_codex_review.py](../../../../../../tests/test_ro5_codex_review.py) — direct import
   - `test_f7_the_goal_date_read_reads_a_goal_past_the_evaluation_window`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r6_the_lag_join_reads_the_newest_trace_before_the_check_at_its_lag`
 
 ## Modification guidance
 

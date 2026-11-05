@@ -363,6 +363,24 @@ def _objective_forecasts(connection: Any, loaded: Any, path: Path, now: str) -> 
         return None
 
 
+def _objective_weight(loaded: Any, path: Path, now: str) -> dict[str, Any] | None:
+    """RO4's open item 2 (landing ruling R5): the weight the next decision would serve and its posterior, read by the
+    chooser's own ``current_weight`` over a read-only repository; None when it cannot be read (the report then
+    prints none), never a failed report."""
+
+    from learnloop.daily_plan.objective_chooser import current_weight
+    from learnloop.db.repositories import Repository
+
+    try:
+        w, record = current_weight(Repository.attach(path, read_only=True), loaded.config, at=now)
+        return {"w": w, "posterior": record.get("posterior") or {}, "note": record.get("note")}
+    except Exception:  # noqa: BLE001 - one evaluation never fails the report
+        import logging
+
+        logging.getLogger(__name__).warning("router objective: the weight was not read", exc_info=True)
+        return None
+
+
 @router_app.command("objective-report")
 def router_objective_report(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root (read-only).")],
@@ -388,7 +406,8 @@ def router_objective_report(
 
         with closing(connect(path, read_only=True)) as connection:
             forecasts = _objective_forecasts(connection, loaded, path, now)
-            report = objective_report.build(connection, now=now, forecasts=forecasts)
+            report = objective_report.build(connection, now=now, forecasts=forecasts,
+                                            weight=_objective_weight(loaded, path, now))
             if calibration_tag(loaded.config) and report.get("status") != "no_traces_table":
                 # Router objective RO5 (spec §9): each arm per day and its minutes, the price, the return model, the
                 # weight's scores, the goal-date read and the no_intervention floor.

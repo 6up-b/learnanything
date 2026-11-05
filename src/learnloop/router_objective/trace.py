@@ -81,6 +81,18 @@ def _pct(value: Any) -> str:
     return f"{float(value) * 100:.0f}%" if isinstance(value, (int, float)) else "unknown"
 
 
+def _split_sentence(mixing: Mapping[str, Any]) -> str:
+    """Whether the split between the two suggestions has moved, in plain words (from the weight's own source)."""
+
+    source = str(((mixing.get("posterior") or {}) if isinstance(mixing.get("posterior"), Mapping) else {}
+                  ).get("source") or "")
+    if source == "posterior":
+        return ("The split has moved with what the random check questions showed about whose suggestions helped "
+                "more; it keeps moving slowly as more of them are answered.")
+    return ("The split has not moved from where it started: it moves only once enough random check questions have "
+            "been answered to compare the two suggestions.")
+
+
 def explain(row: Mapping[str, Any]) -> list[str]:
     """The trace in plain words, for the learner who asks how a block was chosen (glass box on request)."""
 
@@ -90,14 +102,16 @@ def explain(row: Mapping[str, Any]) -> list[str]:
     candidates = trace.get("candidates") or {}
     chosen = str(mixing.get("chosen") or row.get("chosen_ref") or "")
     lines: list[str] = []
-    who = {"llm": "the language model's proposal", "numeric": "LearnLoop's estimate of what helps most",
+    who = {"llm": "the language model's suggestion", "numeric": "LearnLoop's estimate of what helps most",
            "staged": "the usual rule (a model was not available)", "uniform": "a small chance of varying the order"}
     lines.append(f"This was chosen by {who.get(str(mixing.get('drawn_component')), 'the plan')}, "
                  f"which had a {_pct(mixing.get('propensity'))} chance of picking it.")
     w = mixing.get("w")
     if isinstance(w, (int, float)):
-        lines.append(f"The language model's proposal counts for {_pct(w)} and the estimate for {_pct(1 - w)}; "
-                     f"{mixing.get('weight_note') or 'the split has not moved from where it started.'}")
+        # RO4's open item 3 (landing ruling R5): the split in plain words, never the trace's weight note (an
+        # internal sentence naming stages and symbols; it stays in the trace and the report).
+        lines.append(f"The language model's suggestion counts for {_pct(w)} and the estimate for {_pct(1 - w)}. "
+                     f"{_split_sentence(mixing)}")
     numeric = policies.get("numeric") or {}
     if numeric.get("choice"):
         label = (candidates.get(numeric["choice"]) or {}).get("label") or numeric["choice"]

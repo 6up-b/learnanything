@@ -415,9 +415,10 @@ def _next_links(connection: Any, logged_ids: set[str]) -> tuple[dict[str, str | 
 
 def _exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None:
     """A dated use's ``Y``: the results imported for the goal's date, known by ``at`` (THE availability predicate;
-    the one reader the contrasts' returns share, ``scores.exam_result_known``)."""
+    the one reader the contrasts' returns share, ``scores.exam_result_known``), and admitted through RO5's closure
+    at ``at`` on its occurrence and received time (RO6's landing ruling R4)."""
 
-    return S.exam_result_known(connection, config, lo, on, at)
+    return S.exam_result_known(connection, config, lo, on, at, C.Closure.at(at))
 
 
 @dataclass(frozen=True)
@@ -428,32 +429,37 @@ class Steps:
     returns_censored: Mapping[str, int]
 
 
-def _local(stamp: str) -> str:
-    return _parse(stamp).astimezone().date().isoformat()
-
-
 def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> Steps:
     """Every logged decision's step to the next one, with its reward (module docstring)."""
 
     ordered = sorted(rows, key=lambda row: (row.created_at, row.decision_id))
     by_id = {row.decision_id: row for row in ordered}
     nxt, returns = _next_links(connection, set(by_id)) if ordered else ({}, {})
-    through = _local(at)
-    resolved = C.resolve(connection, through=through) if ordered else []
+    # RO6's landing ruling R4: every read of RO5's checks and prices goes through RO5's landed closure (the as-of
+    # cutoff on occurrence and received time, :class:`checks.Closure`): the checks as they stood at ``at`` (an
+    # answer received later is still open), and each interval's completion rate and daily prices as of its own end.
+    ledger = C.Ledger(connection) if ordered else None
+    reading = C.Closure.at(at)
+    resolved = ledger.resolve(reading) if ledger is not None else []
     planned = C.administered(connection) if ordered else {}
     checks = []
     for entry in resolved:
         when = (planned.get(entry.assignment_id) or {}).get("planned_at")
-        if when is not None and str(when) <= at:
+        if when is not None and reading.admits(when):
             checks.append((str(when), entry))
-    rates: dict[str, float | None] = {}
+    price_rows = S._price_rows(connection) if ordered else []
+    by_end: dict[str, tuple[float | None, dict[str, tuple[float, float]]]] = {}
 
-    def rate(day: str) -> float | None:
-        if day not in rates:
-            rates[day] = C.completion(connection, through=min(day, through)).get("rate")
-        return rates[day]
+    def as_of_end(end: str) -> tuple[float | None, dict[str, tuple[float, float]]]:
+        """The interval's completion rate and daily prices as of its end (never later than ``at``)."""
 
-    prices = S._day_prices(connection) if ordered else {}
+        cut = min(str(end), str(at))
+        if cut not in by_end:
+            closure = C.Closure.at(cut)
+            by_end[cut] = (ledger.completion(closure).get("rate") if ledger is not None else None,
+                           S._day_prices(connection, closure, price_rows))
+        return by_end[cut]
+
     gap = float(config.router_objective.session_gap_minutes)
     censored: Counter[str] = Counter()
     change_points: list[dict[str, Any]] = []
@@ -477,6 +483,7 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
             censored[PAST_CUTOFF] += 1
             continue
         start, end = row.created_at, later.created_at
+        rate_at_end, prices = as_of_end(end)
         reward = -S.window_cost(connection, start=start, end=end, gap_minutes=gap, prices=prices,
                                 own=(row.kappa0, row.remembered))
         observed = 0
@@ -489,7 +496,7 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
                 break
             if entry.status != C.COMPLETED or entry.outcome is None:
                 continue
-            r = float(entry.r) * float(rate(_local(end)) or 0.0)
+            r = float(entry.r) * float(rate_at_end or 0.0)
             c = float(row.population.get(entry.topic, 0.0))
             if r > 0 and c > 0:
                 reward += c * float(entry.outcome) / r

@@ -292,6 +292,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_frozen_state_version_follows_the_switch`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once`
+- [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
+  - `test_a_span_anchored_reader_question_does_not_poison_the_card_build`
+  - `test_the_reading_map_answers_inside_the_operation_what_the_incumbent_answers_outside`
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
 

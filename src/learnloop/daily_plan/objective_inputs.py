@@ -182,15 +182,16 @@ def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_pri
                       source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)")
 
 
-def _combiner(repository: Any) -> M.Combiner:
+def _combiner(repository: Any, now_iso: str) -> M.Combiner:
     """RO5 §9 item 7: the memory model's Bayesian logistic combination fitted on resolved randomized checks (each
-    check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior."""
+    check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior. The
+    checks stand as of the decision (landing ruling R1: ``checks.Closure`` at ``now_iso``)."""
 
     from learnloop.router_objective import checks as C
 
     try:
         with repository.connection() as connection:
-            resolved = C.resolve(connection, through="9999-12-31")
+            resolved = C.resolve(connection, closure=C.Closure.at(now_iso))
     except Exception:  # noqa: BLE001 - the prior stands in, and the trace says so
         LOG.warning("router objective RO5: the combiner's checks were not read", exc_info=True)
         return M.Combiner()
@@ -320,12 +321,27 @@ def _reading_los(vault: Any, repository: Any, candidate: BlockCandidate) -> tupl
     if reading is None:
         return ()
     try:
-        from learnloop.section_map import learning_objects_for_section
+        from learnloop.adaptive_difficulty.switches import ad_enabled
 
-        return tuple(learning_objects_for_section(vault, repository, extraction_id=reading.extraction_id,
-                                                  section_id=reading.section_id))
+        if not ad_enabled(getattr(vault, "config", None)):
+            return _reading_los_outside_ad(vault, repository, reading)
+        # AD on (RO2's ruling R6 at RO4's landing): the section's LOs as AD maps them, through the reading
+        # chokepoint after the withheld rule, so the doses land where AD's reading curve counts them.
+        from learnloop.adaptive_difficulty.reading import section_learning_objects
+
+        return tuple(section_learning_objects(vault, repository, reading.extraction_id, reading.section_id))
     except Exception:  # noqa: BLE001 - an unmapped section has no topic: its value is its cost alone, said so
         return ()
+
+
+def _reading_los_outside_ad(vault: Any, repository: Any, reading: Any) -> tuple[str, ...]:
+    """AD off: no AD operation, no reading curve; the plan's own mapping (the raw-loading wrapper, as every
+    caller outside AD)."""
+
+    from learnloop.section_map import learning_objects_for_section
+
+    return tuple(learning_objects_for_section(vault, repository, extraction_id=reading.extraction_id,
+                                              section_id=reading.section_id))
 
 
 def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practiced: set[str],
@@ -474,7 +490,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         tail_block_minutes=float(block_minutes), tail_block_items=int(block_items),
         horizon_days=float(section.horizon_days), fsrs_weights=tuple(resolve_fsrs_weights(repository)),
         return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,
-        combiner=_combiner(repository) if fitted else M.Combiner(),
+        combiner=_combiner(repository, now_iso) if fitted else M.Combiner(),
         learning=_learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES),
     )
     sources = {

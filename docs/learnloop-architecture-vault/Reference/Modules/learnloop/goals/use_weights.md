@@ -95,7 +95,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `for_goal`; statically calls `for_goal`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `COPIED`, `copy_at_creation`, `for_goal`; statically calls `copy_at_creation`, `for_goal`
-- [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `copy_at_creation`; statically calls `copy_at_creation`
+- [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `config_defaults`, `copy_at_creation`; statically calls `config_defaults`, `copy_at_creation`
 - [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] — imports `for_goal`; statically calls `for_goal`
 
 ## Dependencies
@@ -123,6 +123,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
   - `test_a_copy_made_at_creation_is_read_and_a_config_change_does_not_move_it`
+  - `test_create_goal_copies_the_asked_use_weight_or_the_default_when_left_alone`
   - `test_the_stated_default_for_a_goal_with_no_contract_and_no_copy`
 
 ## Modification guidance

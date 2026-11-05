@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/goals.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/goals.py"
-source_commit: "93929d6875bd7cf04bfe5e375527a1d2f805fd7e"
-source_commit_timestamp: "2026-11-05T04:02:41-05:00"
+source_commit: "ec988ae03e20db860136ef7dc97571476f44e364"
+source_commit_timestamp: "2026-11-05T06:05:03-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/goals.py](../../../../../../src/learnloop_sidecar/handlers/goals.py) |
-| Source lines | 707 |
+| Source lines | 722 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `93929d6875bd7cf04bfe5e375527a1d2f805fd7e` |
-| Commit timestamp | `2026-11-05T04:02:41-05:00` |
+| Source commit | `ec988ae03e20db860136ef7dc97571476f44e364` |
+| Commit timestamp | `2026-11-05T06:05:03-05:00` |
 
 ## Public API
 
@@ -64,22 +64,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class ForecastTrackRecordInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 62)
 - `class OptionalGoalInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 66)
 - `class CreateGoalInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 70)
-- `class UpdateGoalStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 85)
-- `class UpdateGoalIntentInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 90)
-- `class GoalFeasibilityInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 95)
-- `goals_list(ctx: SidecarContext, params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 317)
-- `get_goal_report(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 327)
-- `get_goal_report_series(ctx: SidecarContext, params: GoalSeriesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 342)
-- `goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 374) — Wizard live read: projected standing of a not-yet-created goal.
-- `get_forecast_track_record(ctx: SidecarContext, params: ForecastTrackRecordInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 421)
-- `get_overconfidence_list(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 429) — F5 overconfidence list (§4.3): Ready-high / Demonstrated-false facets.
-- `get_reentry_summary(ctx: SidecarContext, params: OptionalGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 441) — F7 welcome-back diff (§4.4): survival-first re-entry summary for a goal.
-- `get_decay_pressure(ctx: SidecarContext, params: OptionalGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 471) — F7 no-goal fallback (§4.5): facets ranked by soonest target crossing.
-- `create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 487)
-- `class GenerateStarterPracticeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 601)
-- `generate_starter_practice(ctx: SidecarContext, params: GenerateStarterPracticeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 607) — Author practice for named learning objects that have none yet.
-- `update_goal_status(ctx: SidecarContext, params: UpdateGoalStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 652)
-- `update_goal_intent(ctx: SidecarContext, params: UpdateGoalIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 676) — Add, replace, or clear a learner's larger purpose after creation.
+- `class UpdateGoalStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 88)
+- `class UpdateGoalIntentInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 93)
+- `class GoalFeasibilityInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 98)
+- `goals_list(ctx: SidecarContext, params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 320)
+- `get_goal_report(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 330)
+- `get_goal_report_series(ctx: SidecarContext, params: GoalSeriesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 345)
+- `goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 377) — Wizard live read: projected standing of a not-yet-created goal.
+- `get_forecast_track_record(ctx: SidecarContext, params: ForecastTrackRecordInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 433)
+- `get_overconfidence_list(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 441) — F5 overconfidence list (§4.3): Ready-high / Demonstrated-false facets.
+- `get_reentry_summary(ctx: SidecarContext, params: OptionalGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 453) — F7 welcome-back diff (§4.4): survival-first re-entry summary for a goal.
+- `get_decay_pressure(ctx: SidecarContext, params: OptionalGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 483) — F7 no-goal fallback (§4.5): facets ranked by soonest target crossing.
+- `create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 499)
+- `class GenerateStarterPracticeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 616)
+- `generate_starter_practice(ctx: SidecarContext, params: GenerateStarterPracticeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 622) — Author practice for named learning objects that have none yet.
+- `update_goal_status(ctx: SidecarContext, params: UpdateGoalStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 667)
+- `update_goal_intent(ctx: SidecarContext, params: UpdateGoalIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 691) — Add, replace, or clear a learner's larger purpose after creation.
 
 ### Module constants
 
@@ -89,13 +89,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_find_goal(vault: LoadedVault, goal_id: str) -> Goal` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 105)
-- `_nearest_active_goal(vault: LoadedVault) -> Goal | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 112) — The active goal with the nearest due date (ties -> higher priority).
-- `_latest_exam_dto(repository: Repository, goal: Goal) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 127)
-- `_report_dto(vault: LoadedVault, report: GoalReport, *, include_facets: bool, repository: Repository | None=None, goal: Goal | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 137)
-- `_practicable_item_count(vault: LoadedVault, goal: Goal, repository: Repository | None) -> int | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 244) — Active, non-exam-reserved Practice Items inside the goal's scope.
-- `_goal_dto(vault: LoadedVault, goal: Goal, report: GoalReport | None, repository: Repository | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 282)
-- `_slugify(title: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 481)
+- `_find_goal(vault: LoadedVault, goal_id: str) -> Goal` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 108)
+- `_nearest_active_goal(vault: LoadedVault) -> Goal | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 115) — The active goal with the nearest due date (ties -> higher priority).
+- `_latest_exam_dto(repository: Repository, goal: Goal) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 130)
+- `_report_dto(vault: LoadedVault, report: GoalReport, *, include_facets: bool, repository: Repository | None=None, goal: Goal | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 140)
+- `_practicable_item_count(vault: LoadedVault, goal: Goal, repository: Repository | None) -> int | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 247) — Active, non-exam-reserved Practice Items inside the goal's scope.
+- `_goal_dto(vault: LoadedVault, goal: Goal, report: GoalReport | None, repository: Repository | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 285)
+- `_slugify(title: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/goals.py), line 493)
 
 ## Who imports or calls it
 
@@ -118,7 +118,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] — imports `compute_goal_pace`; calls `compute_goal_pace`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `GoalReport`, `goal_material_gaps`, `goal_report`, `resolve_goal_scope`; calls `goal_material_gaps`, `goal_report`, `resolve_goal_scope`
 - [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `goal_report_series`; calls `goal_report_series`
-- [[Reference/Modules/learnloop/goals/use_weights|learnloop.goals.use_weights]] — imports `copy_at_creation`; calls `copy_at_creation`
+- [[Reference/Modules/learnloop/goals/use_weights|learnloop.goals.use_weights]] — imports `config_defaults`, `copy_at_creation`; calls `config_defaults`, `copy_at_creation`
 - [[Reference/Modules/learnloop/learner/measurement_state|learnloop.learner.measurement_state]] — imports `require_measurement_state`; calls `require_measurement_state`
 - [[Reference/Modules/learnloop/learner/overconfidence|learnloop.learner.overconfidence]] — imports `overconfidence_facets`; calls `overconfidence_facets`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `objective_on`; calls `objective_on`

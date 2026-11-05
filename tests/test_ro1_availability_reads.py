@@ -345,6 +345,8 @@ def test_the_decision_time_readers_ask_the_predicate():
         ("learnloop/confidence_events.py", "learner_events"),
         ("learnloop/learner_context.py", "_traces"),
         ("learnloop/reader_learner_state.py", "_build"),
+        # RO2: the full-history forecaster's card (its scope's attempts and the other topics').
+        ("learnloop/adaptive_difficulty/history_card.py", "attempts"),
         # Router objective RO6 (§10): every feature read of the learned tail (the traces and RO0's receipts it
         # rebuilds features from) and the dated reward's imported result ask the predicate; the imported result is
         # read by one as-of reader the transitions and the contrasts' returns share (Codex review of RO6, F5).
@@ -359,3 +361,40 @@ def test_the_decision_time_readers_ask_the_predicate():
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _calls(node) & PREDICATE:
                 asking.add((str(path.relative_to(SRC)), node.name))
     assert expected <= asking, sorted(expected - asking)
+
+
+def _table_named_cutoff_reads() -> Iterator[tuple[str, str, int, bool]]:
+    """(module, function, line, asks the predicate) for each call that names ``practice_attempts`` as a
+    table argument beside a WHERE literal with an upper time bound on ``created_at``: reads through a
+    material view's ``rows(connection, table, where, ...)`` or a bounded wrapper (RO2's history card),
+    which carry no ``FROM practice_attempts`` for :func:`_cutoff_reads` to see."""
+
+    for path in sorted(SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            literals = [_literal(arg) for arg in node.args]
+            if "practice_attempts" not in literals:
+                continue
+            if not any(text and _UPPER_BOUND.search(text) for text in literals):
+                continue
+            function: ast.AST = node
+            while function in parents and not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                function = parents[function]
+            name = getattr(function, "name", "<module>")
+            yield str(path.relative_to(SRC)), name, node.lineno, bool(_calls(function) & PREDICATE)
+
+
+def test_table_named_cutoff_reads_of_attempts_ask_the_predicate():
+    """RO2's landing: the structural guard covers reads that name the table rather than spell its SQL
+    (the history card's bounded reads through the serve's material view). Each asks the predicate, and
+    the history card's is among them (no stale scan)."""
+
+    reads = list(_table_named_cutoff_reads())
+    unexplained = [f"{module}:{line} {function}" for module, function, line, asks in reads
+                   if not asks and (module, function) not in OCCURRENCE_TIME_READS]
+    assert unexplained == [], unexplained
+    assert ("learnloop/adaptive_difficulty/history_card.py", "attempts") in {
+        (module, function) for module, function, _line, _asks in reads}

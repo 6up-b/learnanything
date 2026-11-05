@@ -145,7 +145,7 @@ def _plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *,
     """The session's standing plan and its router gate, or None (no plan, no timing decision)."""
 
     from learnloop.daily_plan.engine import PlanEnv, get_or_create_today, plan_active
-    from learnloop.daily_plan.policy import mixture_active, policy_for, router_active
+    from learnloop.daily_plan.policy import mixture_active, objective_active, policy_for, router_active
 
     session_id = row.get("session_id")
     if not session_id or not plan_active(vault):
@@ -160,8 +160,16 @@ def _plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *,
         # §5: the restraint off means the plan never waits, as DL1's rules.
         return env, record, None
     from learnloop.daily_plan.router_chooser import FollowupGate
+    from learnloop.router_objective_switches import calibration_tag
 
-    gate = FollowupGate(
+    gate_class: Any = FollowupGate
+    if calibration_tag(vault.config) and objective_active(vault):
+        # Router objective RO5, landing ruling R5 (1) (spec §8.3): at the tag, with the objective serving, the
+        # follow-up's decision is the two-policy mix's; below it, or with the objective off, FG1's gate as before.
+        from learnloop.daily_plan.objective_chooser import ObjectiveFollowupGate
+
+        gate_class = ObjectiveFollowupGate
+    gate = gate_class(
         vault, repository, policy.restraint.runtime, frame=policy.restraint.frame,
         card_builder=policy.restraint.card_builder, session_id=str(session_id), clock=clock, may_defer=False,
     )
@@ -271,8 +279,20 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
             if decision_id is not None:
                 decision_state.record(connection, decision_id=decision_id, decision_kind="plan_interrupt", material=state,
                                       config=vault.config, at=now)
+                # RO5 landing ruling R5 (1): at the tag the objective's decision carries its trace (none below it,
+                # where the record holds no ``objective_trace``: nothing is written).
+                from learnloop.router_objective import trace as objective_trace
+
+                objective_trace.record(connection, decision_id=decision_id, decision_kind="plan_interrupt",
+                                       router_record=decision.record, config=vault.config,
+                                       local_date=str(decision.local_date or ""), session_id=row.get("session_id"),
+                                       at=now)
             if decision_id is not None and serving_on(vault.config) and not decision.refused:
-                support = [ASK_NOW, *([WAIT] if decision.wait_feasible else []), NO_INTERVENTION]
+                offered = (decision.record or {}).get("objective_followup")
+                # At the tag the frozen support is the objective decision's own (R5 (1), R8: the three arms, or
+                # ask-now alone with no room to wait); below it, FG1's arms as before.
+                support = (list(offered["support"]) if isinstance(offered, Mapping) and offered.get("support")
+                           else [ASK_NOW, *([WAIT] if decision.wait_feasible else []), NO_INTERVENTION])
                 arm = {WAIT: objectives.ARM_WAIT, NO_INTERVENTION: objectives.ARM_NO_INTERVENTION}.get(
                     decision.chosen_ref, objectives.ARM_INSERT)
                 objectives.record(
