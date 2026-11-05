@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/router.py"
 source_paths:
   - "src/learnloop/cli/router.py"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25"
+source_commit_timestamp: "2026-11-05T04:42:23-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -52,13 +52,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/router.py](../../../../../../src/learnloop/cli/router.py) |
-| Source lines | 431 |
+| Source lines | 451 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
-| Commit timestamp | `2026-11-05T04:03:05-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25` |
+| Commit timestamp | `2026-11-05T04:42:23-05:00` |
 
 ## Public API
 
@@ -66,14 +66,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `router_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 207) — Lesson suggestions (teacher TE1b) by randomized arm (card shown or not): offered, accepted, opened and completed over every decision (intention to treat), and the mean R_cold on the drawn topic among outcomes observed so far (descriptive, not an ITT estimate), weighted by the lo…
 - `router_card(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], decision: Annotated[str, typer.Option('--decision', help='A router decision id (learnloop router log).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 264) — The learner-state card a decision stored (router R2a): its text, or with --json the typed card.
 - `router_trace(decision: Annotated[str, typer.Argument(help='A router decision id (learnloop router log), or a trace id.')], vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 312) — Router objective RO4's trace of one decision (spec §8.8): each sensor, the objective's terms, both policies, the mix and the output; in plain words, or with --json the whole trace (read-only).
-- `router_objective_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 349) — Router objective RO4's report (spec §8.9): serving (stop's share at each boundary, session length, each policy's share, by day), and the forecast, action-value and recommendation-value evaluations kept apart, with counts and versioned comparators.
-- `router_embed_decisions(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Count the decisions without a vector and estimate calls, tokens and cost; send and write nothing.')]=False, limit: Annotated[int | None, typer.Option('--limit', min=1, help='Embed at most this many decisions.')]=None, batch_size: Annotated[int, typer.Option('--batch-size', min=1, max=256)]=32, max_candidates: Annotated[int, typer.Option('--max-candidates', min=0)]=2000, max_calls: Annotated[int, typer.Option('--max-calls', min=0)]=100, max_retries: Annotated[int, typer.Option('--max-retries', min=0)]=2, max_tokens: Annotated[int, typer.Option('--max-tokens', min=0)]=2000000, max_cost_usd: Annotated[float, typer.Option('--max-cost-usd', min=0)]=0.25, price_per_million: Annotated[float | None, typer.Option('--price-per-million', min=0, help='Positive USD input-token estimate for an unknown/changed model price; still subject to the cost cap.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 378) — Backfill the decision/context vectors similar-decision retrieval reads (router R2c).
+- `router_objective_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 367) — Router objective RO4's report (spec §8.9): serving (stop's share at each boundary, session length, each policy's share, by day), and the forecast, action-value and recommendation-value evaluations kept apart, with counts and versioned comparators.
+- `router_embed_decisions(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Count the decisions without a vector and estimate calls, tokens and cost; send and write nothing.')]=False, limit: Annotated[int | None, typer.Option('--limit', min=1, help='Embed at most this many decisions.')]=None, batch_size: Annotated[int, typer.Option('--batch-size', min=1, max=256)]=32, max_candidates: Annotated[int, typer.Option('--max-candidates', min=0)]=2000, max_calls: Annotated[int, typer.Option('--max-calls', min=0)]=100, max_retries: Annotated[int, typer.Option('--max-retries', min=0)]=2, max_tokens: Annotated[int, typer.Option('--max-tokens', min=0)]=2000000, max_cost_usd: Annotated[float, typer.Option('--max-cost-usd', min=0)]=0.25, price_per_million: Annotated[float | None, typer.Option('--price-per-million', min=0, help='Positive USD input-token estimate for an unknown/changed model price; still subject to the cost cap.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 398) — Backfill the decision/context vectors similar-decision retrieval reads (router R2c).
 
 ## Internal implementation anchors
 
 - `_reader_exposures(connection: sqlite3.Connection, loaded: Any, path: Path) -> list[tuple[str, str]] | None` ([source](../../../../../../src/learnloop/cli/router.py), line 40) — What this vault's outcome version reads of the Reader (read-only, like everything here).
 - `_emit(payload: dict, json_output: bool) -> None` ([source](../../../../../../src/learnloop/cli/router.py), line 51)
 - `_summary(row: dict[str, Any], outcome: dict[str, Any] | None, *, candidates: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/router.py), line 55)
+- `_objective_forecasts(connection: Any, loaded: Any, path: Path, now: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/cli/router.py), line 348) — RO4 §8.9's forecast evaluation (the LLM policy's forecasts through RO2's resolver); None when it cannot be read here (the report says so), never a failed report.
 
 ## Who imports or calls it
 
@@ -86,6 +87,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `resolve_curves`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendCaps`; calls `SpendCaps`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `module`; calls `backfill`
@@ -97,6 +99,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `decisions`, `releases`, `responses`, `tables_present`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/router/suggestion_report|learnloop.router.suggestion_report]] — imports `itt_split`, `lines`; calls `itt_split`, `lines`
+- [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] — imports `module`; calls `resolve`
 - [[Reference/Modules/learnloop/router_objective/objective_report|learnloop.router_objective.objective_report]] — imports `module`; calls `build`, `lines`
 - [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] — imports `explain`; calls `explain`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `held_for_review_attempts`, `pfc_assessments`; calls `held_for_review_attempts`, `pfc_assessments`
@@ -105,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `json`, `pathlib`, `sqlite3`, `typing`
+- Standard library: `__future__`, `contextlib`, `json`, `logging`, `pathlib`, `sqlite3`, `typing`
 - Third party: `typer`
 
 ## Larger workflow participation

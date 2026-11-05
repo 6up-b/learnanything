@@ -119,10 +119,16 @@ def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
 
 @entry(read_only=True)
 def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequence[str], *,
-                          snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any]:
+                          snapshot: RP.Snapshot | None = None, view: Any = None,
+                          reading_doses: bool = False) -> dict[str, Any]:
     """RO0 row 9 (spec_router_objective_v1 §4): the card's numbers for each candidate LO at one decision, and the state
     they were read from. A receipt, not a claim: an untested cell keeps its mark beside its raw prediction, which no
-    display reads. Through the material view, so a protected item never shapes it (A8)."""
+    display reads. Through the material view, so a protected item never shapes it (A8).
+
+    ``reading_doses`` (router objective RO4, Codex review F8): each LO also carries ``reading_dose``, its main facet's
+    position on AD's ``reading`` dose curve (the subject view's open window, averaged over the bank's rows: reading
+    since the facet's last graded attempt), so a rollout's next dose takes AD's diminishing increment. Off for every
+    other caller, whose rows stay as they were."""
 
     if not subject_view_live(vault.config):
         return {"status": "not_live"}
@@ -135,6 +141,9 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
         fields = _lo_fields(vault, view, snapshot, learning_object_id)
         if fields is not None:
             los[learning_object_id] = {key: fields[key] for key in ("p_band_next", "p_bar_at_top_raw", "untested", "cell")}
+            if reading_doses:
+                window = snapshot.subject.windows.get(("reading", fields["cell"][0]))
+                los[learning_object_id]["reading_dose"] = float(window.mean()) if window is not None else 0.0
     return {"status": "live", "state_hash": snapshot.state_hash(), "los": los}
 
 

@@ -2834,6 +2834,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
   - `test_the_permuted_run_sends_another_presentations_history`
   - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f8_ad_reports_the_reading_dose_position_only_when_asked`
+  - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
   - `test_the_contract_is_copied_at_confirmation_at_the_tag_and_adjustable`
 - [tests/test_ro4_successor.py](../../../../../../tests/test_ro4_successor.py) — direct import

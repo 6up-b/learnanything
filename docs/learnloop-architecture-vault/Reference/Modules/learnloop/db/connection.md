@@ -788,6 +788,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f8_ad_reports_the_reading_dose_position_only_when_asked`
+  - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_proof_item_is_graded_in_exactly_one_model_call`
   - `test_f5_a_joint_regrade_supersedes_a_route_verdict`

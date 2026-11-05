@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/history_resolve.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/history_resolve.py"
-source_commit: "8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b"
-source_commit_timestamp: "2026-11-05T00:29:18-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25"
+source_commit_timestamp: "2026-11-05T04:42:23-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -50,18 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py) |
-| Source lines | 264 |
+| Source lines | 284 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b` |
-| Commit timestamp | `2026-11-05T00:29:18-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25` |
+| Commit timestamp | `2026-11-05T04:42:23-05:00` |
 
 ## Public API
 
 - `interpolate(curve: Mapping[str, Any], lag_days: float) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 74) — The curve's probability at ``lag_days``: linear in log time between the stated lags; the first lag's value below it; None past the last (censored ``beyond_measured_lag``).
 - `resolve(connection: Any, vault: Any, repository: Any, *, now: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 164) — Every ``lo_cold_success`` curve resolved under both bindings (pure reads; zero model calls).
+- `resolve_curves(connection: Any, vault: Any, repository: Any, groups: Sequence[Mapping[str, Any]], *, now: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 175) — The same event's curves stated outside ``forecast_receipts`` (router objective RO4's per-option policy forecasts on its traces, Codex review F9), resolved by exactly these bindings: each group names its ``plan_presentation_id`` (the block's), ``learning_object_id``, ``forecaster…
 
 ### Module constants
 
@@ -81,6 +82,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PER_PROTOCOL`
 - `RESOLVER_VERSION`
 - `interpolate`
+- `resolve_curves`
 - `resolve`
 
 ## Internal implementation anchors
@@ -90,7 +92,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class _Uncapped` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 112) — The material view as the reading collectors see it, with nothing on record: each source event is listed whether or not a sweep recorded (or a cap refused) its receipt.
 - `_opportunities(connection: Any, vault: Any, repository: Any, view: Any, *, now: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 132) — Every learning opportunity on any LO up to ``now`` (``id``, ``learning_object_id``, ``at``): the uncapped source events and AD's receipts, one per source row and LO.
 - `_outcome_state(row: Mapping[str, Any], category: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 155) — The outcome's help state beside its binary label (spec §6.2: A4's states stay distinct).
-- `_log_loss(p: float | None, y: float | None) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 257)
+- `_resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, groups: Sequence[Mapping[str, Any]], *, now: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 189)
+- `_log_loss(p: float | None, y: float | None) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 277)
 
 ## Who imports or calls it
 
@@ -98,6 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `module`; statically calls `resolve`
+- [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `resolve_curves`
 
 ## Dependencies
 
@@ -127,7 +131,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -135,6 +139,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_log_time_interpolation`
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 
 ## Modification guidance
 

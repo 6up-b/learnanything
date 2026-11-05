@@ -20,6 +20,7 @@ Every number's source is in ``sources``; nothing here writes.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime, timedelta
 import json
 import logging
@@ -83,7 +84,7 @@ def _goal_uses(vault: Any, repository: Any, now: datetime) -> tuple[dict[str, fl
         due = parse_utc(str(goal.due_at)) if getattr(goal, "due_at", None) else None
         days = _days(due, now) if due is not None else None
         goals[str(goal.id)] = {**weights.as_dict(), "due_at": getattr(goal, "due_at", None), "days_to_date": days,
-                               "scope": len(scope)}
+                               "scope": len(scope), "los": list(scope)}
         for lo in scope:
             densities[lo] = max(densities.get(lo, 0.0), weights.undated_density)
             if due is not None and due > now:
@@ -122,7 +123,7 @@ def _ad(vault: Any, repository: Any, los: Sequence[str]) -> dict[str, Any]:
     try:
         from learnloop.adaptive_difficulty.readiness import decision_state_fields
 
-        return dict(decision_state_fields(vault, repository, list(los)))
+        return dict(decision_state_fields(vault, repository, list(los), reading_doses=True))
     except Exception:  # noqa: BLE001 - AD unavailable: the mastery posterior stands in, and the trace says so
         LOG.warning("router objective: adaptive difficulty's predictive was not read", exc_info=True)
         return {"status": "unavailable"}
@@ -217,10 +218,25 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
     return V.Action(ref=candidate.candidate_id, kind=kind, item_los=item_los, minutes=minutes, minutes_log_sd=spread)
 
 
+def _step(action: V.Action) -> V.Action:
+    """A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence,
+    then the tail, is what uses the information), never a nested repair bundle."""
+
+    return replace(action, repair=None) if action.kind == V.PROBE else action
+
+
 def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],
           candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float = 0.0,
-          kappa_how: str = "unset") -> tuple[V.Inputs, list[V.Action], dict[str, Any]]:
-    """The decision's frozen inputs, its actions in support order, and the sources the trace records."""
+          kappa_how: str = "unset",
+          sequences: Mapping[str, Sequence[BlockCandidate]] | None = None) -> tuple[V.Inputs, list[V.Action], dict[str, Any]]:
+    """The decision's frozen inputs, its actions in support order, and the sources the trace records.
+
+    ``sequences``: a ref valued as the ordered sub-actions of these blocks (each its own interface: a mid-block
+    alternative, §8.3; Codex review F5) instead of as its candidate alone.
+
+    ``sources["population"]`` is §8.7's evaluation population, frozen from the active goals' scopes and the
+    retention commitments (the LOs with FSRS memory) alone, so candidate support never changes it (F11); a
+    candidate's LO outside it is still valued in the rollouts (at the config's density), and listed apart."""
 
     from learnloop.params.fitted_params import resolve_fsrs_weights
     from learnloop.router_objective import price as P
@@ -275,18 +291,29 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         in_goal = lo in densities
         enrolled = in_goal or practiced or lo in candidate_los or lo in reading_los
         c = densities.get(lo, default_c) if enrolled else 0.0
+        dose = fields.get("reading_dose")
         topics.append(V.Topic(lo=lo, eta_mean=float(eta), eta_var=float(max(variance, 1e-9)), practiced=practiced,
                               difficulty=float(difficulty), stability=float(stability), elapsed_days=float(elapsed),
-                              undated_density=float(c)))
+                              undated_density=float(c), reading_count=float(dose or 0.0)))
         topic_sources[lo] = {"eta": eta_source, "fsrs_items": len(memory),
-                             "density": "goal" if in_goal else ("config" if enrolled else "not_enrolled"),
-                             "ad_cell": fields.get("cell")}
+                             "density": "goal" if in_goal else ("config" if practiced else
+                                                                ("candidate_only" if enrolled else "not_enrolled")),
+                             "ad_cell": fields.get("cell"),
+                             "reading_dose": ("ad_reading_window" if dose is not None else "none_read: 0")}
+    # §8.7's population: the active goals' scopes and the retention commitments, never the candidates (F11).
+    population = {lo: float(densities.get(lo, default_c)) for lo in dict.fromkeys([*goal_order, *practiced_order])}
     spread_used = spread if spread_n >= 2 else 0.0
     practiced_set = {topic.lo for topic in topics if topic.practiced}
     actions: list[V.Action] = []
     for ref in support:
         if ref == STOP_FOR_TODAY:
             actions.append(V.Action(ref=ref, kind=V.STOP))
+        elif sequences is not None and ref in sequences:
+            steps = tuple(_step(action_for(vault, repository, part, practiced=practiced_set, spread=spread_used))
+                          for part in sequences[ref])
+            actions.append(V.Action(ref=ref, kind=V.SEQUENCE, steps=steps,
+                                    item_los=tuple(lo for step in steps for lo in step.item_los),
+                                    minutes=sum(step.minutes for step in steps)))
         elif ref in candidates:
             actions.append(action_for(vault, repository, candidates[ref], practiced=practiced_set, spread=spread_used))
     blocks = [candidates[ref] for ref in support if ref in candidates]
@@ -307,6 +334,8 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
     )
     sources = {
         "topics": topic_sources, "topic_limit": TOPIC_LIMIT, "topics_left_out": max(len(ordered) - len(kept), 0),
+        "population": {"los": population, "basis": "active goals' scopes and retention commitments (LOs with FSRS "
+                                                   "memory) at the decision; never the candidates"},
         "goals": goals, "remembered_minutes": remembered, "remembered_source": remembered_source,
         "session": {"minutes": session_minutes, "start": session_start, **session_basis},
         "return_gaps": {"n": len(gaps), "model": "empirical gaps, the same after every session's end (no return model "

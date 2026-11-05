@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/objective_card.py"
 source_paths:
   - "src/learnloop/daily_plan/objective_card.py"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25"
+source_commit_timestamp: "2026-11-05T04:42:23-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py) |
-| Source lines | 110 |
+| Source lines | 125 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
-| Commit timestamp | `2026-11-05T04:03:05-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25` |
+| Commit timestamp | `2026-11-05T04:42:23-05:00` |
 
 ## Public API
 
-- `decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, goals: Mapping[str, Any], session: Mapping[str, Any], budget: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 77) — The frozen card (the state), its evidence ids and what the budget left out.
+- `decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, goals: Mapping[str, Any], session: Mapping[str, Any], budget: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 93) — The frozen card (the state), its evidence ids and what the budget left out.
 
 ### Module constants
 
-- `CARD_VERSION` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 22)
-- `_SECTION_ORDER` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 24)
+- `CARD_VERSION` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 24)
+- `_SECTION_ORDER` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 26)
 
 ### Explicit exports
 
@@ -76,9 +76,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_size(state: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 30)
-- `_merged(built: Sequence[Mapping[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], list[str], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 34)
-- `_trim(state: dict[str, Any], budget: int) -> dict[str, dict[str, int]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 55) — Oldest first within each section, one entry per non-empty section per round, until it fits.
+- `_size(state: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 32)
+- `_merged(built: Sequence[Mapping[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], list[str], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 36)
+- `_trim(state: dict[str, Any], budget: int) -> dict[str, dict[str, int]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 57) — Oldest first within each section, one entry per non-empty section per round, until it fits.
+- `_goal_entry(goal: Mapping[str, Any], titles: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 79) — One goal as the policy sees it (Codex review F10): its date, its use weights and which topics it covers, with each topic's effective weight at the date (``dated``, unless ``topic_weights`` names the topic), the same weights the numeric policy's scoring reads.
 
 ## Who imports or calls it
 
@@ -112,6 +113,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f10_the_policy_card_names_each_goals_topics_and_their_weights`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_protection_holds_on_the_llm_policys_card`
 

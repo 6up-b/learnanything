@@ -2,8 +2,9 @@
 
 No evaluation here gates anything. Four questions, none standing in for another:
 
-* **Forecast**: did the models predict observed outcomes? (the LLM policy's per-option forecasts and the memory
-  model's, against resolved cold outcomes; conditional on observation);
+* **Forecast**: did the models predict observed outcomes? (the LLM policy's forecasts for the drawn option, bound to
+  RO2's versioned resolver by :mod:`learnloop.router_objective.forecast_resolve`, per binding and comparator;
+  conditional on observation. The memory model's own curve is not on the trace at this version);
 * **Action value**: did predicted differences between actions match randomized outcome differences? (needs
   RO5's randomized checks; none exist before it);
 * **Recommendation value**: did one policy's next recommendation produce more of the common return, under the live
@@ -33,8 +34,13 @@ def _share(counter: Counter, total: int) -> dict[str, float]:
     return {key: round(value / total, 4) for key, value in sorted(counter.items())} if total else {}
 
 
-def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """The report over every trace (``connection`` read-only; the traces table at migration 246)."""
+def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
+          forecasts: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The report over every trace (``connection`` read-only; the traces table at migration 246). ``forecasts``: the
+    LLM policy's forecasts resolved against observed outcomes (:func:`learnloop.router_objective.forecast_resolve.
+    resolve`), reported as the forecast evaluation, apart from the others."""
+
+    from learnloop.router_objective import forecast_resolve as FR
 
     from learnloop.db.stores import router_objective as store
 
@@ -102,9 +108,7 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None)
             "note": "successful LLM calls and the deployed policy with its fallbacks are both counted: a decision "
                     "where a policy fell back keeps its row",
         },
-        "forecast": {"label": "observed outcomes, conditional on observation (natural checks are selected)",
-                     "status": "not scored at this version: the forecasts are on each trace, resolved by RO2's "
-                               "resolver when outcomes arrive"},
+        "forecast": FR.summary(forecasts),
         "action_value": {"status": "needs RO5's randomized checks; none exist", "randomized_contrasts": 0},
         "recommendation_value": {
             "decisions_evaluated": len(closed), "pending": pending, "unique_completed_assessments": 0,
@@ -145,7 +149,16 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     out.append(f"recommendation value: evaluated {value['decisions_evaluated']}, pending {value['pending']}, closed "
                f"scores {value['closed_scores']}, censored {value['censored']}; w {value['w']} ({value['note']})")
     out.append(f"action value: {report['action_value']['status']}")
-    out.append(f"forecast: {report['forecast']['status']}")
+    forecast = report["forecast"]
+    if "comparators" not in forecast:
+        out.append(f"forecast: {forecast.get('status')}")
+    else:
+        out.append(f"forecast ({forecast['binding_version']}, {forecast['label']}): unique assessments "
+                   f"{forecast['unique_assessments']}, censored at birth {forecast['censored_at_birth']}")
+        for row in forecast["comparators"]:
+            out.append(f"- {row['binding']} / {row['model']} / {row['prompt_version']}: scored {row['scored']}, pending "
+                       f"{row['pending']}, censored {row['censored']}, mean forecast {row['mean_forecast']}, observed "
+                       f"{row['observed_rate']}, log loss {row['mean_log_loss']}, Brier {row['brier']}")
     for row in report["comparators"]:
         out.append(f"comparator {row['llm_model']} / {row['llm_schema']} / {row['card']} / {row['objective']}: "
                    f"{row['decisions']} decisions, LLM answered {row['llm_answered']}, numeric {row['numeric_answered']}")

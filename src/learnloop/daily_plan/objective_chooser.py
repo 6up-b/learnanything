@@ -87,6 +87,9 @@ from learnloop.router_objective import weight as W
 LOG = logging.getLogger(__name__)
 
 NUMERIC = "numeric"
+#: The prefetch material's key for the numeric policy's latest complete uncorrected answer (F1): a serve that finds
+#: the job still waiting on the LLM policy's forecasts uses it instead of a timeout.
+PUBLISHED = "numeric_published"
 MODE = "objective"
 KEY_VERSION = 1
 WHY_VERSION = "router_why_v3"
@@ -206,21 +209,30 @@ class NumericPolicy:
     corrected: bool = False
     latency_ms: int | None = None
     error: str | None = None
+    #: ``final`` (the job's last answer), or ``published_uncorrected`` (served from the job's earlier publication
+    #: while it was still waiting on the LLM policy's forecasts: F1)
+    stage: str = "final"
 
 
 def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],
                 candidates: Mapping[str, BlockCandidate], now_iso: str, seed: str, deadline: float | None,
-                keep_going: Any = None, forecasts: Any = None, clock: Any = time.monotonic) -> NumericPolicy:
+                keep_going: Any = None, forecasts: Any = None, clock: Any = time.monotonic, publish: Any = None,
+                sequences: Mapping[str, Sequence[BlockCandidate]] | None = None) -> NumericPolicy:
     """π_Q end to end: the frozen inputs, the day's price, ``Q̄`` with common random numbers (more draws while
     ``keep_going()``), then, once the LLM policy's forecasts are in (``forecasts()``: None while out), the effect
-    correction; the argmax with the tie rule; the evaluation's baselines."""
+    correction; the argmax with the tie rule; the evaluation's baselines.
+
+    ``publish(policy)`` receives each complete uncorrected answer as soon as it exists, before any wait on the LLM
+    policy, so the numeric policy's availability never depends on the LLM's (Codex review F1); the correction is
+    applied opportunistically after. ``sequences``: candidates valued as ordered sub-actions (§8.3's mid-block
+    alternatives, F5)."""
 
     started = clock()
     config = vault.config
     section = config.router_objective
     try:
         inputs, actions, sources = OI.build(vault, repository, state=state, support=support, candidates=candidates,
-                                            now_iso=now_iso)
+                                            now_iso=now_iso, sequences=sequences)
         local_date = _local_date(now_iso)
         # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
         # of two large sums; at 8 draws its noise is of the order of the signal).
@@ -228,8 +240,25 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                      draws=int(section.rollout_theta_draws_max), seed=seed)
         inputs = replace(inputs, price=replace(inputs.price, kappa0=priced.kappa0, regime=priced.regime))
         draws, ceiling = int(section.rollout_theta_draws), int(section.rollout_theta_draws_max)
+        cached: dict[str, Any] = {}
+
+        def answered(evaluation: V.Evaluation, used: V.Inputs, acts: Sequence[V.Action], corrected: bool) -> NumericPolicy:
+            choice, tie = V.numeric_choice(evaluation, support)
+            if "baselines" not in cached:
+                # The pre-action belief under the tail: no action and no correction enters it.
+                cached["baselines"] = V.baselines(used, int(section.evaluation_window_days),
+                                                  draws=min(evaluation.draws, 8), seed=seed)
+            return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=used,
+                                 actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
+                                 baselines=cached["baselines"], corrected=corrected,
+                                 latency_ms=int(round((clock() - started) * 1000)))
+
+        on_complete = None
+        if publish is not None:
+            def on_complete(evaluation: V.Evaluation) -> None:
+                publish(answered(evaluation, inputs, actions, False))
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
-                                deadline=deadline, clock=clock)
+                                deadline=deadline, clock=clock, on_complete=on_complete)
         corrected = False
         if evaluation.complete and forecasts is not None and bool(section.sensors_in_value):
             got = forecasts()
@@ -249,11 +278,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             return NumericPolicy(status=TIMEOUT, inputs=inputs, actions=tuple(actions), sources=sources, price=priced,
                                  frontier=frontier, latency_ms=int(round((clock() - started) * 1000)),
                                  error="no answer within the budget")
-        choice, tie = V.numeric_choice(evaluation, support)
-        base = V.baselines(inputs, int(section.evaluation_window_days), draws=min(evaluation.draws, 8), seed=seed)
-        return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=inputs,
-                             actions=tuple(actions), sources=sources, price=priced, frontier=frontier, baselines=base,
-                             corrected=corrected, latency_ms=int(round((clock() - started) * 1000)))
+        return answered(evaluation, inputs, actions, corrected)
     except Exception as exc:  # noqa: BLE001 - a failed policy's share goes to the staged rule
         LOG.warning("router objective: the numeric policy failed", exc_info=True)
         return NumericPolicy(status=FAILED, error=f"{type(exc).__name__}: {str(exc)[:200]}",
@@ -359,11 +384,17 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
                 entry.events[LLM].set()
         with entry.lock:
             entry.started_components.add(NUMERIC)
+
+        def publish(policy: NumericPolicy) -> None:
+            with entry.lock:
+                entry.material[PUBLISHED] = policy
+
         numeric = run_numeric(
             vault, repository, state=material["state"], support=material["support"], candidates=material["by_id"],
             now_iso=material["decided_at"], seed=material["numeric_seed"], deadline=entry.deadline,
             keep_going=lambda: LLM in entry.events and not entry.events[LLM].is_set() and runtime.clock() < entry.deadline,
-            forecasts=(lambda: _wait_llm(entry, runtime)) if LLM in entry.events else None, clock=runtime.clock)
+            forecasts=(lambda: _wait_llm(entry, runtime)) if LLM in entry.events else None, clock=runtime.clock,
+            publish=publish)
         with entry.lock:
             entry.components[NUMERIC] = ComponentResult(name=NUMERIC, status=numeric.status, parsed=numeric,  # type: ignore[arg-type]
                                                         latency_ms=numeric.latency_ms, error=numeric.error)
@@ -436,6 +467,8 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                      "paired_se_vs_top": V.paired_standard_error(top, valued) if top is not None and top.ref != ref else 0.0}
         candidates[ref] = {
             "label": labels.get(ref, ref), "kind": action.kind if action is not None else None,
+            # The option's main topic, the one the LLM policy's forecasts are about (§8.9's binding).
+            "main_lo": (action.item_los[0] if action is not None and action.item_los else None),
             "minutes": action.minutes if action is not None else None, "sensors": sensors, "terms": terms,
             "split": {"learning": None, "information": (valued.extra.get("information") if valued is not None else None),
                       "return_effect": 0.0, "note": "display only, never added; the return effect is zero until RO5 "
@@ -452,9 +485,14 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
     decided = parse_utc(now_iso)
     window_closes = (decided + timedelta(days=window)).strftime("%Y-%m-%dT%H:%M:%SZ") if decided is not None else None
     baselines = numeric.baselines if numeric is not None else {}
+    sources = dict(numeric.sources) if numeric is not None else {}
+    # §8.7's population, frozen from the goals and retention commitments alone (F11): a candidate-only topic is
+    # valued in the rollouts but is not one of the uses either policy is scored on.
+    population = (sources.get("population") or {}).get("los") or {}
     uses = {
-        "topics": [{"lo": topic.lo, "c": topic.undated_density, "m0": (baselines.get("topics") or {}).get(topic.lo)}
-                   for topic in (inputs.topics if inputs is not None else ()) if topic.undated_density > 0],
+        "topics": [{"lo": lo, "c": c, "m0": (baselines.get("topics") or {}).get(lo)}
+                   for lo, c in population.items() if c > 0],
+        "population_basis": (sources.get("population") or {}).get("basis"),
         "dated": [{"goal_id": use.goal_id, "lo": use.lo, "at_days": use.at_days, "omega": use.weight,
                    "m0": (baselines.get("dated") or {}).get(f"{use.goal_id}:{use.lo}")}
                   for use in (inputs.dated if inputs is not None else ()) if use.at_days <= window],
@@ -487,6 +525,7 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                         "choice": numeric.choice if numeric is not None else None,
                         "tie": dict(numeric.tie) if numeric is not None else None,
                         "corrected_by_llm_forecasts": bool(numeric.corrected) if numeric is not None else False,
+                        "stage": numeric.stage if numeric is not None else None,
                         "latency_ms": numeric.latency_ms if numeric is not None else None,
                         "error": numeric.error if numeric is not None else None},
             "staged": {"advice": staged_ref},
@@ -504,7 +543,7 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                        "objective_version": V.OBJECTIVE_VERSION,
                        "score": "none forms until RO5's randomized checks: no valued use has r > 0"},
         "frontier": dict(numeric.frontier) if numeric is not None else {},
-        "inputs_sources": dict(numeric.sources) if numeric is not None else {},
+        "inputs_sources": {key: value for key, value in sources.items() if key != "population"},
         "versions": {"objective": V.OBJECTIVE_VERSION, "tail": V.TAIL_VERSION, "terminal": V.TERMINAL_VERSION,
                      "horizon_days": float(section.horizon_days), "memory_model": inputs.combiner.as_dict()
                      if inputs is not None else None, "kappa": price,
@@ -613,8 +652,22 @@ class ObjectiveChooser(RouterChooser):
         numeric_result = results.get(NUMERIC)
         numeric: NumericPolicy | None = material.get("numeric")
         if numeric is None and numeric_result is not None:
-            numeric = numeric_result.parsed if isinstance(numeric_result.parsed, NumericPolicy) else NumericPolicy(
-                status=numeric_result.status, error=numeric_result.error)
+            lock = getattr(entry, "lock", None)
+            if lock is not None:
+                with lock:
+                    published = material.get(PUBLISHED)
+            else:
+                published = material.get(PUBLISHED)
+            if isinstance(numeric_result.parsed, NumericPolicy):
+                numeric = numeric_result.parsed
+            elif numeric_result.status == TIMEOUT and isinstance(published, NumericPolicy):
+                # F1: the job answered and is still waiting on the LLM policy's forecasts for its optional
+                # correction; its uncorrected answer serves, labelled.
+                numeric = replace(published, stage="published_uncorrected")
+                results[NUMERIC] = ComponentResult(name=NUMERIC, status=ANSWERED, parsed=numeric,  # type: ignore[arg-type]
+                                                   latency_ms=numeric.latency_ms)
+            else:
+                numeric = NumericPolicy(status=numeric_result.status, error=numeric_result.error)
         llm = results[LLM]
         llm_dist = (dict(llm.parsed.distribution) if llm.status == ANSWERED and isinstance(llm.parsed, rq.ParsedPolicy)
                     else None)
@@ -794,20 +847,16 @@ class ObjectiveRestraintGate(RestraintGate):
 
     def _numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str,
                            key: str) -> NumericPolicy:
-        """π_Q on the two orders, valued as two blocks each; one cutoff, the same draws."""
+        """π_Q on the two orders, each an ordered sequence of the two blocks (the follow-up, then the remaining
+        questions; or the reverse), every step valued with its own kind, duration, observation and effect on one
+        clock; one cutoff, the same draws, each step its own noise in either order (F5)."""
 
-        follow_minutes = float(insert.est_minutes)
-        now_first = replace(insert, item_ids=(*insert.item_ids, *cont.item_ids),
-                            est_minutes=follow_minutes + float(cont.est_minutes),
-                            learning_object_ids=tuple(dict.fromkeys((*insert.learning_object_ids, *cont.learning_object_ids))))
-        later = replace(cont, item_ids=(*cont.item_ids, *insert.item_ids),
-                        est_minutes=follow_minutes + float(cont.est_minutes),
-                        learning_object_ids=tuple(dict.fromkeys((*cont.learning_object_ids, *insert.learning_object_ids))))
         return run_numeric(self.vault, self.repository, state=state, support=[INSERT_NOW, CONTINUE_CURRENT],
-                           candidates={INSERT_NOW: now_first, CONTINUE_CURRENT: later}, now_iso=now_iso,
+                           candidates={INSERT_NOW: insert, CONTINUE_CURRENT: cont}, now_iso=now_iso,
                            seed=_hash({"numeric": key}),
                            deadline=self.runtime.clock() + float(self.vault.config.router.timeout_seconds),
-                           clock=self.runtime.clock)
+                           clock=self.runtime.clock,
+                           sequences={INSERT_NOW: (insert, cont), CONTINUE_CURRENT: (cont, insert)})
 
     def _start(self, key: str, state: PlanState, candidates: list[BlockCandidate], item: Any,
                ready: tuple[str, ...]) -> Prefetch:

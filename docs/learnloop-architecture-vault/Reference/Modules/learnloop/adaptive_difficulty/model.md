@@ -208,6 +208,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_subject_view_mixture_keeps_propensities_exact`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_a_helped_answer_of_unknown_timing_scores_as_a_delayed_failure`
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f8_a_reading_candidate_starts_from_ads_dose_position`
 - [tests/test_teacher_te1_weight.py](../../../../../../tests/test_teacher_te1_weight.py) — direct import
   - `test_the_adf_quadrature_is_ads`
 

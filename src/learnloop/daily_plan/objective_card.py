@@ -9,7 +9,8 @@ transaction, and frozen with the decision's boundary key. Every read goes throug
 ``learner_protection`` exactly as RO2's card (no reference solution, key or rubric; no stem of an unattempted item;
 exam work keeps its result only; a probe shows no question or answer), so the card's rules hold on it as on v3.
 
-Beside the history: the goals, their dates and use weights, the session, and the declared objective.
+Beside the history: the goals, their dates, their use weights and the topics each covers (with each topic's effective
+weight), the session, and the declared objective.
 """
 
 from __future__ import annotations
@@ -19,7 +20,8 @@ from contextlib import closing
 import json
 from typing import Any
 
-CARD_VERSION = "router-policy-card-v1 (ad-forecast-state-v3 H3, decision level)"
+#: v2 (Codex review F10): each goal lists its topics and their effective weights.
+CARD_VERSION = "router-policy-card-v2 (ad-forecast-state-v3 H3, decision level)"
 #: H3's sections, every rung's (RO2's ladder), in its order.
 _SECTION_ORDER: tuple[str, ...] = (
     "recent_attempts", "whole_answers", "help", "questions", "reveals", "reading", "inquiries", "self_checks",
@@ -74,6 +76,20 @@ def _trim(state: dict[str, Any], budget: int) -> dict[str, dict[str, int]]:
     return left_out
 
 
+def _goal_entry(goal: Mapping[str, Any], titles: Mapping[str, str]) -> dict[str, Any]:
+    """One goal as the policy sees it (Codex review F10): its date, its use weights and which topics it covers, with
+    each topic's effective weight at the date (``dated``, unless ``topic_weights`` names the topic), the same weights
+    the numeric policy's scoring reads."""
+
+    entry = {key: value for key, value in goal.items() if key in (
+        "due_at", "days_to_date", "dated", "undated_density", "source", "scope")}
+    los = [str(lo) for lo in goal.get("los") or ()]
+    per_lo = goal.get("per_lo") or {}
+    entry["topics"] = [titles.get(lo, lo) for lo in los]
+    entry["topic_weights"] = {titles.get(lo, lo): float(per_lo[lo]) for lo in los if lo in per_lo}
+    return entry
+
+
 def decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str,
                   goals: Mapping[str, Any], session: Mapping[str, Any], budget: int) -> dict[str, Any]:
     """The frozen card (the state), its evidence ids and what the budget left out."""
@@ -93,8 +109,7 @@ def decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, ser
         "topics": [titles.get(lo, lo) for lo in scope],
         "history": history,
         "row_limits_reached": limits,
-        "goals": {goal_id: {key: value for key, value in goal.items() if key in (
-            "due_at", "days_to_date", "dated", "undated_density", "source", "scope")} for goal_id, goal in goals.items()},
+        "goals": {goal_id: _goal_entry(goal, titles) for goal_id, goal in goals.items()},
         "session": dict(session),
         "not_recorded": ("Hedges (the grader's reading of an answer's tone) are not on this card; a tutor's answers "
                          "are summarized by the learner's questions only."),

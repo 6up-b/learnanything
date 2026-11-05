@@ -106,7 +106,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Combiner`
-- [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `Combiner`, `Fsrs`, `logit`, `perform`, `sigmoid`; statically calls `Fsrs`, `logit`, `perform`, `sigmoid`
+- [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `Combiner`, `Fsrs`, `perform`, `sigmoid`; statically calls `Fsrs`, `perform`, `sigmoid`
 
 ## Dependencies
 
@@ -135,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro4_value.py](../../../../../../tests/test_ro4_value.py) — direct import
   - `test_a_date_inside_a_long_action_is_scored_at_the_date_on_the_state_before_it`
   - `test_a_probe_is_scored_through_its_repair_branches`
+  - `test_f5_a_sequence_values_its_steps_in_order_with_their_own_kinds`
+  - `test_f7_a_refinement_cut_by_the_deadline_keeps_the_last_complete_batch`
   - `test_the_combiner_is_its_prior_without_outcomes_and_learns_with_them`
   - `test_the_gain_curve_rises_with_todays_minutes`
   - `test_the_same_theta_draw_is_used_across_candidates`

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/objective_inputs.py"
 source_paths:
   - "src/learnloop/daily_plan/objective_inputs.py"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25"
+source_commit_timestamp: "2026-11-05T04:42:23-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -50,27 +50,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py) |
-| Source lines | 325 |
+| Source lines | 354 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
-| Commit timestamp | `2026-11-05T04:03:05-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25` |
+| Commit timestamp | `2026-11-05T04:42:23-05:00` |
 
 ## Public API
 
-- `plan_minutes(repository: Any, plan_id: str | None) -> tuple[float, str]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 54) — ``m̄`` and where it came from (the plan's remembered minutes: the learner's choice, carried, or a default).
-- `action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practiced: set[str], spread: float) -> V.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 187) — §8.1's interface for one candidate block.
-- `build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float=0.0, kappa_how: str='unset') -> tuple[V.Inputs, list[V.Action], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 220) — The decision's frozen inputs, its actions in support order, and the sources the trace records.
+- `plan_minutes(repository: Any, plan_id: str | None) -> tuple[float, str]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 55) — ``m̄`` and where it came from (the plan's remembered minutes: the learner's choice, carried, or a default).
+- `action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practiced: set[str], spread: float) -> V.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 188) — §8.1's interface for one candidate block.
+- `build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float=0.0, kappa_how: str='unset', sequences: Mapping[str, Sequence[BlockCandidate]] | None=None) -> tuple[V.Inputs, list[V.Action], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 228) — The decision's frozen inputs, its actions in support order, and the sources the trace records.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 35)
-- `TOPIC_LIMIT` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 38)
-- `RETURN_GAP_LIMIT` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 40)
-- `DURATION_LIMIT` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 41)
-- `_PROBE_MODES` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 42)
+- `LOG` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 36)
+- `TOPIC_LIMIT` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 39)
+- `RETURN_GAP_LIMIT` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 41)
+- `DURATION_LIMIT` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 42)
+- `_PROBE_MODES` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 43)
 
 ### Explicit exports
 
@@ -85,16 +85,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 45)
-- `_days(later: datetime, earlier: datetime) -> float` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 50)
-- `_goal_uses(vault: Any, repository: Any, now: datetime) -> tuple[dict[str, float], list[V.DatedUse], dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 66)
-- `_practiced(connection: Any, vault: Any) -> tuple[dict[str, list[dict[str, Any]]], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 95)
-- `_mastery(connection: Any, los: Sequence[str]) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 112)
-- `_ad(vault: Any, repository: Any, los: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 121)
-- `_return_gaps(connection: Any, gap_minutes: float) -> list[float]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 131)
-- `_stop_accept(connection: Any, prior: tuple[float, float]) -> tuple[tuple[float, float], dict[str, int]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 143) — §4 row 7: an offered stop the learner took (an end, ``offered_stop_accepted``) or overrode (a ``stop_response``); Beta(a + taken, b + overridden).
-- `_duration_spread(connection: Any) -> tuple[float, int]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 161) — The pooled spread of the learner's own durations on the log scale (none observed: 0, the mean only).
-- `_reading_los(vault: Any, repository: Any, candidate: BlockCandidate) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 172)
+- `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 46)
+- `_days(later: datetime, earlier: datetime) -> float` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 51)
+- `_goal_uses(vault: Any, repository: Any, now: datetime) -> tuple[dict[str, float], list[V.DatedUse], dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 67)
+- `_practiced(connection: Any, vault: Any) -> tuple[dict[str, list[dict[str, Any]]], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 96)
+- `_mastery(connection: Any, los: Sequence[str]) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 113)
+- `_ad(vault: Any, repository: Any, los: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 122)
+- `_return_gaps(connection: Any, gap_minutes: float) -> list[float]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 132)
+- `_stop_accept(connection: Any, prior: tuple[float, float]) -> tuple[tuple[float, float], dict[str, int]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 144) — §4 row 7: an offered stop the learner took (an end, ``offered_stop_accepted``) or overrode (a ``stop_response``); Beta(a + taken, b + overridden).
+- `_duration_spread(connection: Any) -> tuple[float, int]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 162) — The pooled spread of the learner's own durations on the log scale (none observed: 0, the mean only).
+- `_reading_los(vault: Any, repository: Any, candidate: BlockCandidate) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 173)
+- `_step(action: V.Action) -> V.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 221) — A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence, then the tail, is what uses the information), never a nested repair bundle.
 
 ## Who imports or calls it
 
@@ -121,7 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `datetime`, `json`, `logging`, `math`, `statistics`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `json`, `logging`, `math`, `statistics`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -137,9 +138,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_ro4_objective_serving.py](../../../../../../tests/test_ro4_objective_serving.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]]
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f8_a_reading_candidate_starts_from_ads_dose_position`
 
 ## Modification guidance
 

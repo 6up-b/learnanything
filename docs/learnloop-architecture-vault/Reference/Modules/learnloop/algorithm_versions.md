@@ -488,6 +488,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro1_successor.py](../../../../../tests/test_ro1_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_fg1_and_the_latest`
 - [tests/test_ro1_upgrade_report.py](../../../../../tests/test_ro1_upgrade_report.py) — direct import
+- [tests/test_ro4_codex_review.py](../../../../../tests/test_ro4_codex_review.py) — direct import
 - [tests/test_ro4_goals.py](../../../../../tests/test_ro4_goals.py) — direct import
   - `test_the_contract_is_copied_at_confirmation_at_the_tag_and_adjustable`
 - [tests/test_ro4_objective_serving.py](../../../../../tests/test_ro4_objective_serving.py) — direct import

@@ -345,6 +345,24 @@ def router_trace(
         raise typer.Exit(code=1) from exc
 
 
+def _objective_forecasts(connection: Any, loaded: Any, path: Path, now: str) -> dict[str, Any] | None:
+    """RO4 §8.9's forecast evaluation (the LLM policy's forecasts through RO2's resolver); None when it cannot be
+    read here (the report says so), never a failed report."""
+
+    from learnloop.adaptive_difficulty.history_resolve import resolve_curves
+    from learnloop.db.repositories import Repository
+    from learnloop.router_objective import forecast_resolve
+
+    try:
+        return forecast_resolve.resolve(connection, loaded, Repository.attach(path, read_only=True), now=now,
+                                        resolve_curves=resolve_curves)
+    except Exception:  # noqa: BLE001 - one evaluation never fails the report
+        import logging
+
+        logging.getLogger(__name__).warning("router objective: the forecast evaluation was not read", exc_info=True)
+        return None
+
+
 @router_app.command("objective-report")
 def router_objective_report(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root (read-only).")],
@@ -362,8 +380,10 @@ def router_objective_report(
             raise ValueError("--vault must contain learnloop.toml")
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        now = utc_now_iso()
         with closing(connect(path, read_only=True)) as connection:
-            report = objective_report.build(connection, now=utc_now_iso())
+            forecasts = _objective_forecasts(connection, loaded, path, now)
+            report = objective_report.build(connection, now=now, forecasts=forecasts)
         if json_output:
             _emit({"algorithm_version": loaded.config.algorithms.algorithm_version, "router_objective": report}, True)
         else:

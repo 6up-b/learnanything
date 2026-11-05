@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/objective_report.py"
 source_paths:
   - "src/learnloop/router_objective/objective_report.py"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25"
+source_commit_timestamp: "2026-11-05T04:42:23-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py) |
-| Source lines | 155 |
+| Source lines | 168 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
-| Commit timestamp | `2026-11-05T04:03:05-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25` |
+| Commit timestamp | `2026-11-05T04:42:23-05:00` |
 
 ## Public API
 
-- `build(connection: Any, *, now: str, weight: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 36) — The report over every trace (``connection`` read-only; the traces table at migration 246).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 133)
+- `build(connection: Any, *, now: str, weight: Mapping[str, Any] | None=None, forecasts: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 37) — The report over every trace (``connection`` read-only; the traces table at migration 246).
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 137)
 
 ### Module constants
 
-- `REPORT_VERSION` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 29)
+- `REPORT_VERSION` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 30)
 
 ### Explicit exports
 
@@ -77,8 +77,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_share(counter: Counter, total: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 32)
-- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 128)
+- `_share(counter: Counter, total: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 33)
+- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 132)
 
 ## Who imports or calls it
 
@@ -92,6 +92,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `table_present`
+- [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] — imports `module`; calls `summary`
 
 ### Platform and third-party dependencies
 
@@ -111,6 +112,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_the_first_day_report_against_the_predecessor_on_a_synthetic_vault`
 

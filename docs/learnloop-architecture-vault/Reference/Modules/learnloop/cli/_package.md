@@ -63,7 +63,7 @@ source_paths:
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/cli/teacher.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit_timestamp: "2026-11-05T04:42:23-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -177,8 +177,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 12 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 11 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 10 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 10 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 9 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 8 static module edges
@@ -207,10 +207,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 3 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 3 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 3 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 3 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 2 static module edges
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 2 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge

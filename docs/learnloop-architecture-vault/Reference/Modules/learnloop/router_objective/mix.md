@@ -136,6 +136,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
+  - `test_f1_a_slow_llm_leaves_the_numeric_share_in_place`
 - [tests/test_ro4_objective_serving.py](../../../../../../tests/test_ro4_objective_serving.py) — direct import
   - `test_a_failed_llm_moves_only_its_share_to_staged`
   - `test_a_numeric_timeout_is_a_failure_and_both_failed_keeps_the_floor`

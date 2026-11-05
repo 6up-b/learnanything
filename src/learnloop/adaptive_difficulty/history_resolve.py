@@ -164,12 +164,32 @@ def _outcome_state(row: Mapping[str, Any], category: int) -> str:
 def resolve(connection: Any, vault: Any, repository: Any, *, now: str | None = None) -> list[dict[str, Any]]:
     """Every ``lo_cold_success`` curve resolved under both bindings (pure reads; zero model calls)."""
 
-    from learnloop.adaptive_difficulty import replay as RP
     from learnloop.adaptive_difficulty.material_view import material_view
 
-    now = now or utc_now_iso()
     view = material_view(vault, repository)
     groups = _groups(view.forecast_receipts(connection, kind=LO_COLD_SUCCESS))
+    return _resolve_groups(connection, vault, repository, view, groups, now=now or utc_now_iso())
+
+
+@entry(read_only=True)
+def resolve_curves(connection: Any, vault: Any, repository: Any, groups: Sequence[Mapping[str, Any]], *,
+                   now: str | None = None) -> list[dict[str, Any]]:
+    """The same event's curves stated outside ``forecast_receipts`` (router objective RO4's per-option policy
+    forecasts on its traces, Codex review F9), resolved by exactly these bindings: each group names its
+    ``plan_presentation_id`` (the block's), ``learning_object_id``, ``forecaster`` and ``curve`` (lag in days to
+    probability); every other key is carried onto its rows. Pure reads through the material view."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository)
+    usable = [dict(group) for group in groups if isinstance(group.get("curve"), Mapping) and group.get("plan_presentation_id")]
+    return _resolve_groups(connection, vault, repository, view, usable, now=now or utc_now_iso())
+
+
+def _resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, groups: Sequence[Mapping[str, Any]], *,
+                    now: str) -> list[dict[str, Any]]:
+    from learnloop.adaptive_difficulty import replay as RP
+
     if not groups:
         return []
     presentations = view.presentations(connection)
@@ -260,5 +280,5 @@ def _log_loss(p: float | None, y: float | None) -> float | None:
     return None if p is None or y is None else log_loss(p, y)
 
 
-__all__ = ["BINDINGS", "INTENTION_TO_TREAT", "MAX_LAG_DAYS", "PER_PROTOCOL", "RESOLVER_VERSION", "interpolate",
+__all__ = ["BINDINGS", "INTENTION_TO_TREAT", "MAX_LAG_DAYS", "PER_PROTOCOL", "RESOLVER_VERSION", "interpolate", "resolve_curves",
            "resolve"]

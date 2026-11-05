@@ -524,24 +524,41 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   the active-minute clock). The tail: one session a day of `m̄` minutes in blocks of the support's mean minutes and
   items; each session ranks the valued topics once by remaining use weight times the believed chance of failing and
   practises the top ones (adaptive to the belief: the rollout carries the belief apart from the drawn truth and updates
-  it from every simulated graded attempt). After any session's end the next one follows a return gap drawn from the
-  learner's own gaps (next day with none), the same after every end, so the return effect is zero until RO5 fits a
-  return model. `T_C` is the same tail for a further `H` past `C`. θ: each topic's ability from AD's predictive and its
-  variance, the combiner's coefficients, AD's `γ` and reading curve (their **prior** means and variances: AD's bank
-  posterior for them is not read at this version), the effect slope, `p_accept`. The probe's branch choice uses one
-  rollout on the updated belief per draw (not a nested `Q̄`); its information is reported as the gain over the better
-  fixed branch. The lesson interface exists but no lesson is a plan-block candidate; offer-type actions are valued
-  by branches (tested by hand) and none is in a plan block's support yet.
+  it from every simulated graded attempt). After every session's end the next one follows a fresh return gap drawn
+  from the learner's own gaps (next day with none; one common-random-number column per session end), the same
+  distribution after every end, so the return effect is zero until RO5 fits a return model. **One clock** (Codex
+  review F3): an action is a chronological list of segments (one block; a probe and its repair; a mid-block
+  alternative's two blocks); each segment charges its minutes from the session minutes it starts at, earns the
+  undated uses over its own interval and every dated use it crosses on the state before its effect, then applies its
+  effect; the tail starts at the last segment's end and counts no interval, and starts no session, before it. `T_C`
+  is the same tail for a further `H` past `C`. θ: each topic's ability from AD's predictive and its variance, the
+  combiner's coefficients, AD's `γ` and reading curve (their **prior** means and variances: AD's bank posterior for
+  them is not read at this version), the effect slope, `p_accept`. Reading starts from AD's dose-curve position for
+  the LO (the subject view's open `reading` window on its main facet, F8). The probe's branch choice is made on the
+  posterior right after the probe, in the belief's own world (ability drawn from the updated belief, the believed
+  parameters, noise independent of the true path's), one rollout per draw and branch (not a nested `Q̄`), so it
+  integrates over the repair's outcomes and never sees them (F2); the chosen repair is then simulated on the true
+  path. Its information is reported as the gain over the better fixed branch. A mid-block alternative (§8.3) is an
+  ordered **sequence** of its two blocks, each step its own interface, duration and observation, and the same step
+  draws the same noise in either order (F5). The lesson interface exists but no lesson is a plan-block candidate;
+  offer-type actions are valued by branches (tested by hand) and none is in a plan block's support yet.
 - **Draws** (§8.1): 8, doubling while the LLM policy is out, up to `rollout_theta_draws_max` (64, `keep`): "more until
-  the deadline" read as more while the other policy is still being waited for, never holding a serve.
+  the deadline" read as more while the other policy is still being waited for, never holding a serve. A refinement
+  the deadline cuts short returns the latest complete batch (F7). Every complete uncorrected answer is published to
+  the prefetch as soon as it exists; a serve that finds the numeric job still waiting on the LLM policy's forecasts
+  serves that answer (`policies.numeric.stage = published_uncorrected`), so the numeric policy's availability never
+  depends on the LLM's (F1).
 - **The frame** (§8.2): `PlanPolicy.soft_budget` and `PlanState.soft_budget` at the tag; the projection keeps the hard
   frame (the finite list as first shown). The staged rule's own pick is stop once fewer than 5 of the plan's minutes are
   left, so the failure fallback keeps the plan's minutes as its suggestion. A drawn stop closes the plan as before and
   "keep going" is its override (RO0's `stop_response` row).
 - **π_Q without a model set up** (§8.3): with no route ready there is no prefetch, so the numeric policy runs on the
   serving thread with `router.timeout_seconds` as its deadline.
-- **The LLM's forecasts in the value** (§8.4): the correction uses the 7-day forecast (`p_cold_7`) for `f(a)`; the
-  numeric job re-evaluates with it once the LLM policy answers inside the budget.
+- **The LLM's forecasts in the value** (§8.4): the correction uses the 7-day forecast (`p_cold_7`): `f(a)` is the
+  difference of the two forecast probabilities (the option's minus the reference row's), and `α + β·f` is added on
+  the logit scale (F6); the numeric job re-evaluates with it once the LLM policy answers inside the budget.
+- **The LLM policy's card** (`router-policy-card-v2`): each goal lists the topics it covers and their effective
+  weights at its date (`topic_weights` where `per_lo` overrides `dated`), the weights the numeric scoring reads (F10).
 - **Sensors** (§8.4): AD's predictive at the LO's main cell (`p_bar_at_top_raw`); the variance from the mastery
   posterior (AD's cold-start variance for an untested cell); FSRS as the median stability and difficulty of the LO's
   practised items. The combiner's prior is (0, 1, 0.5) with variance 0.25 each (`memory.COMBINER_PRIOR_*`, labelled);
@@ -554,7 +571,16 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   trace table; the frontier is `G` at 0, `m̄`, `m̄ + d̄` and `2m̄`, labelled predictions. The grid posterior and its
   likelihood are built and serve nothing.
 - **The weight** (§8.7): every closed window is censored `no_valued_use_with_r_positive` (no RO5 check exists), so `w`
-  is 0.8; `C⁰` is the tail's cost at `m̄` (no earlier window of costs is read at this version).
+  is 0.8; `C⁰` is the tail's cost at `m̄` (no earlier window of costs is read at this version). The frozen uses `𝒰_i`
+  are the active goals' scopes and the retention commitments (LOs with FSRS memory) at the decision, built apart from
+  the candidates: a candidate's topic outside them is valued in the rollouts at the config's density and is not a
+  use either policy is scored on (F11).
+- **The forecast evaluation** (§8.9; `router_objective/forecast_resolve.py`, binding `ro4-policy-forecast-binding-v1`):
+  the LLM policy's forecasts for the drawn option, its block the decision's first served presentation, its topic the
+  option's main LO, resolved at read time by RO2's resolver (`history_resolve.resolve_curves`, both bindings, the
+  realized lag); stop, a fallen-back LLM and a decision that served nothing are censored at birth. The report shows
+  scored, pending, censored, mean forecast against observed rate, log loss and Brier per binding and comparator,
+  labelled conditional on observation; it never enters `w` (F9). The memory model's own curve is not on the trace.
 - **The trace** (§8.8): `router_objective_traces`, one row per `plan_block` or `plan_interrupt` decision, written with
   the decision and RO0's state row; `learnloop router trace <decision>`; `learnloop router objective-report`; the
   desktop's "why" has "how was this chosen?" (`router_objective_explain`).
