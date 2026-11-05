@@ -81,24 +81,52 @@ def activity_spans(connection: Any, *, since: str, until: str) -> list[tuple[dat
     return spans
 
 
+def session_components(spans: Sequence[tuple[datetime, datetime, float]], *, gap_minutes: float) -> list[list[int]]:
+    """The objective's sessions over ``spans``: the connected components of activity, two spans in one session when
+    less than ``gap_minutes`` lie between them (a Reader interval spanning two attempts joins them). Each session is
+    the indices of its spans, sessions in time order. The serving clock (:func:`session_active_minutes`, the session
+    holding ``now``) and RO5's realized cost (``router_objective.scores``, every session of a window) read this one
+    construction (Codex re-review F4)."""
+
+    gap = timedelta(minutes=float(gap_minutes))
+    order = sorted(range(len(spans)), key=lambda i: (spans[i][0], spans[i][1], i))
+    out: list[list[int]] = []
+    end: datetime | None = None
+    for i in order:
+        began, finished, _active = spans[i]
+        if end is None or began - end >= gap:
+            out.append([])
+            end = finished
+        out[-1].append(i)
+        end = max(end, finished)
+    return out
+
+
 def session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> tuple[float, str | None, dict[str, Any]]:
     """The active minutes of the current objective session: activity (attempts at their completion with their
-    latency, Reader visits over their interval) walked back from ``now`` until a gap of ``gap_minutes``. Returns the
-    minutes, the session's start and how it was read."""
+    latency, Reader visits over their interval) in the session holding ``now`` (:func:`session_components`: less
+    than ``gap_minutes`` from its last activity). Returns the minutes, the session's start and how it was read.
+
+    The same minutes, start and summation order as walking back from ``now`` until a gap (RO4's form: the session
+    holding ``now`` is exactly the activity that walk reaches)."""
 
     end = _parse(now)
     since = (end - timedelta(days=LOOKBACK_DAYS)).strftime(_STAMP)
     spans = activity_spans(connection, since=since, until=now)
-    spans.sort(key=lambda span: span[1], reverse=True)
     gap = timedelta(minutes=float(gap_minutes))
-    cursor = end
+    sessions = session_components(spans, gap_minutes=gap_minutes)
+    current: set[int] = set()
+    if sessions:
+        last = sessions[-1]
+        if end - max(spans[i][1] for i in last) < gap:
+            current = set(last)
     seconds = 0.0
     start: datetime | None = None
-    for began, finished, active in spans:
-        if cursor - finished >= gap:
-            break
+    for i in sorted(range(len(spans)), key=lambda j: spans[j][1], reverse=True):
+        if i not in current:
+            continue
+        began, _finished, active = spans[i]
         seconds += active
-        cursor = min(cursor, began)
         start = began if start is None or began < start else start
     return seconds / 60.0, (start.strftime(_STAMP) if start else None), {
         "basis": "attempt_latency_plus_reader_active_seconds", "gap_minutes": float(gap_minutes), "spans": len(spans)}
@@ -182,5 +210,5 @@ def grid_posterior(seed: float, observations: Sequence[Mapping[str, float]]) -> 
 __all__ = [
     "CARRIED_DAY", "CARRIED_LAST", "DAY_SEED", "FLOORED", "GRID_MULTIPLES", "GUARD_MULTIPLE", "PRICE_VERSION", "SEED",
     "Seeded", "TAIL_AVERAGE", "choice_log_likelihood", "grid_posterior", "guard_minutes", "seed_from_gain",
-    "session_active_minutes",
+    "activity_spans", "session_active_minutes", "session_components",
 ]

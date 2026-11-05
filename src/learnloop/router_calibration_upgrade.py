@@ -9,7 +9,8 @@ link of the linear chain: everything the predecessor (RO4's mvp-0.47) means PLUS
   trains stop's return model and hands ``κ0`` from its daily seed to a posterior the seed is folded into;
 * **randomized cold checks**: one a day (``check_rate = "embedded"``, ``embedded_checks_per_day`` 1) drawn at the
   day's first decision uniformly over the valued topics with an eligible item (``r_L = 1/N_d`` exact), placed at
-  the day's first practice slot outside the mix, an ordinary attempt; their scores move ``w`` off its prior;
+  the day's first session as its own block before any decision of the day, outside the mix, an ordinary attempt;
+  their scores move ``w`` off its prior;
 * **open picks**: a seeded share of misconception picks (``pick_open_share``, 0.1) stays open;
 * **RO4's follow-ups** (``fitted_models``): AD's fitted learning posterior and the combiner fed resolved checks.
 

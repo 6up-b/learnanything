@@ -85,33 +85,22 @@ class WindowSession:
 
 def _sessions(connection: Any, *, start: str, end: str, gap_minutes: float) -> list[WindowSession]:
     """The window's sessions on the objective's own clock (Codex review F4): the activity the serving price reads
-    (``price.activity_spans``: attempts and Reader visits), split into sessions by a gap of ``gap_minutes``, read
-    from the serving clock's lookback before ``start`` so a session in progress at the decision carries the minutes
-    it had then. Activity finished at or before ``start`` is carried, after it (through ``end``) is the window's."""
+    (``price.activity_spans``: attempts and Reader visits), split into sessions by the serving clock's own
+    construction (``price.session_components``, Codex re-review F4: a Reader interval spanning two attempts makes one
+    session here as it does there), read from the serving clock's lookback before ``start`` so a session in progress
+    at the decision carries the minutes it had then. Activity finished at or before ``start`` is carried, after it
+    (through ``end``) is the window's; a session's date is its first activity's."""
 
     since = (_parse(start) - timedelta(days=P.LOOKBACK_DAYS)).strftime(_STAMP)
-    spans = sorted(P.activity_spans(connection, since=since, until=end), key=lambda span: span[1])
+    spans = P.activity_spans(connection, since=since, until=end)
     opened = _parse(start)
-    gap = timedelta(minutes=float(gap_minutes))
     out: list[WindowSession] = []
-    current_end: datetime | None = None
-    day: str | None = None
-    carried = minutes = 0.0
-    for began, finished, seconds in spans:
-        if current_end is not None and began - current_end >= gap:
-            if minutes > 0:
-                out.append(WindowSession(str(day), carried, minutes))
-            carried = minutes = 0.0
-            current_end = None
-        if current_end is None:
-            day = began.astimezone().date().isoformat()
-        if finished <= opened:
-            carried += seconds / 60.0
-        else:
-            minutes += seconds / 60.0
-        current_end = finished if current_end is None else max(current_end, finished)
-    if current_end is not None and minutes > 0:
-        out.append(WindowSession(str(day), carried, minutes))
+    for members in P.session_components(spans, gap_minutes=gap_minutes):
+        carried = sum(spans[i][2] for i in members if spans[i][1] <= opened) / 60.0
+        minutes = sum(spans[i][2] for i in members if spans[i][1] > opened) / 60.0
+        if minutes > 0:
+            first: datetime = min(spans[i][0] for i in members)
+            out.append(WindowSession(first.astimezone().date().isoformat(), carried, minutes))
     return out
 
 

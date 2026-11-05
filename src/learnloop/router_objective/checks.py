@@ -9,8 +9,7 @@ protected or reserved by any routine exclusion, and servable. Then:
 
 * ``check_rate = "embedded"``: ``k = embedded_checks_per_day`` topics without replacement, uniformly, so
   ``r_L = k/N_d`` exactly (``1/N_d`` at the default);
-* a number ``ρ``: each eligible topic independently with probability ``ρ`` (``r_L = ρ``), extra checks added to the
-  first practice slot rather than replacing a question;
+* a number ``ρ``: each eligible topic independently with probability ``ρ`` (``r_L = ρ``), as many checks as drawn;
 * a topic with no eligible item has ``r_L = 0`` that day, recorded, and raises a generation need through the
   existing path (``intervention_needs``, the diagnostic practice generator's queue; nothing is generated here).
 
@@ -18,9 +17,11 @@ The day's record (``check-day:<date>``: the mode, ``r`` per topic, the zero topi
 per drawn slot (``check-day:<date>:<slot>``: the topic, its item, ``r``) go to ``policy_experiment_assignments``.
 Same date, same eligible set: the same draw (the seed is the date's).
 
-**Serving** (:func:`place`). The frame places the check at the first practice slot of the day's first session
-(position 1 of the first non-reading block with items), outside the two-policy mix and outside ``μ``: an embedded
-check replaces the block's last chooser item (which stays in the pool), a rate check is added. It is an ordinary
+**Serving** (:func:`place`). The frame administers the day's checks at the first boundary of the day's first
+session, BEFORE that boundary's decision, as their own block placed by the rules (``daily_plan.engine.
+_randomized_check_block``, Codex re-review F2), so whether a check is administered never depends on what any
+decision draws (a practice block, a reading or a stop); outside the two-policy mix and outside ``μ``. Its minutes
+come off the plan's as any block's (the policy's first block follows, with that much less room). It is an ordinary
 independent attempt under the existing evidence rules, with no label for the learner (its plan origin is
 :data:`ORIGIN`, shown to the learner as an ordinary item). Its administration is the ``item_planned`` receipt's
 ``ro5_check`` entry, with the topic's sensors frozen at that moment for the combiner (§9 item 7).
@@ -32,8 +33,8 @@ a current grading epoch that assesses nothing, a quarantined interpretation, an 
 correctness, or a label AD censors; never read as a zero, Codex review F1; it counts as not completed in the
 completion rate, which is the rate of labelled completions), or not, with its reason:
 ``not_administered:no_session``, ``not_administered:no_practice_slot``
-(the day had a session but its first session placed no check: no practice block, or no eligible item of the
-topic in the plan's pool), ``displaced``, ``skipped`` or ``not_answered``. A day with no session
+(the day had a session but its first session placed no check: no eligible item of the topic in the plan's pool
+at any of its boundaries; the reason's name is kept from RO5's first build), ``displaced``, ``skipped`` or ``not_answered``. A day with no session
 counts toward the completion gap (§8.7): the running completion rate is completed checks over assigned checks
 plus the checks of every day with no session since the first draw.
 
@@ -180,10 +181,15 @@ def day_record(connection: Any, local_date: str) -> dict[str, Any] | None:
 
 
 def draw_day(vault: Any, repository: Any, *, local_date: str, now_iso: str,
-             topics: Mapping[str, float] | Any, eligible_items: Eligible) -> dict[str, Any] | None:
+             topics: Mapping[str, float] | Any, eligible_items: Eligible,
+             placeable: Any = None) -> dict[str, Any] | None:
     """The day's draw, once (idempotent: a drawn day returns its record). None with checks off. ``topics``: §8.7's
     population with each LO's undated density (``objective_inputs.population``), or a callable returning it (read
-    only when the day is drawn); ``eligible_items``: the eligibility rule."""
+    only when the day is drawn); ``eligible_items``: the eligibility rule; ``placeable``: ``item_id -> bool``, whether
+    the day's plan can serve the item (its pool, fixed before any of the day's action draws), or None for every
+    eligible item. Only placeable items are drawn (Codex re-review F2: a drawn check is then administered at the day's
+    first session whatever happens after the draw, and ``r_L = k/N_d`` counts the topics that can be served); a topic
+    with eligible items none of which the plan can serve has ``r_L = 0`` that day and raises no generation need."""
 
     from learnloop.router_objective_switches import CHECKS_OFF, check_mode
 
@@ -198,12 +204,19 @@ def draw_day(vault: Any, repository: Any, *, local_date: str, now_iso: str,
         return existing
     topics = dict(topics() if callable(topics) else topics)
     eligible = eligible_items(list(topics), ())
-    day = draw(local_date, mode, value, eligible, topics)
-    needs = {lo: need for lo in day.zero if (need := _raise_need(vault, repository, lo, now_iso)) is not None}
+    servable = eligible if placeable is None else {
+        lo: [item for item in items if placeable(item)] for lo, items in eligible.items()}
+    day = draw(local_date, mode, value, servable, topics)
+    needs = {lo: need for lo in day.zero if not eligible.get(lo)
+             and (need := _raise_need(vault, repository, lo, now_iso)) is not None}
     day = Day(**{**day.__dict__, "needs": needs})
     record = {**day.as_dict(), "densities": topics,
-              "eligible_items": {lo: len(items) for lo, items in eligible.items()},
+              "eligible_items": {lo: len(items) for lo, items in servable.items()},
               "fixed_before": "any action draw (the day's first plan decision; it reads no decision)"}
+    if placeable is not None:
+        record["eligible_outside_plan_pool"] = {lo: len(items) - len(servable.get(lo) or ())
+                                                for lo, items in eligible.items()
+                                                if len(items) > len(servable.get(lo) or ())}
     with repository.atomic(), repository.connection() as connection:
         if day_record(connection, local_date) is not None:  # a concurrent draw won
             return day_record(connection, local_date)
@@ -258,7 +271,8 @@ class Placement:
 def place(vault: Any, repository: Any, *, local_date: str, session_id: str | None, pool: Sequence[Any],
           planned: Iterable[str], chooser_items: Sequence[Any], lane: str | None,
           eligible_items: Eligible) -> list[Placement]:
-    """The slots this practice block administers: the day's undelivered checks, in the day's first session only.
+    """The slots this boundary administers (before its decision): the day's undelivered checks, in the day's first
+    session only. ``chooser_items`` (none from the engine since Codex re-review F2) are never excluded.
     An item no longer eligible is redrawn among the topic's eligible items in the plan's pool (its own uniform);
     with none, the slot waits for the next block."""
 
@@ -433,12 +447,22 @@ def exclusion(connection: Any, attempt: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _local_date(stamp: Any) -> str | None:
+    from learnloop.clock import parse_utc
+
+    moment = parse_utc(str(stamp)) if stamp else None
+    return moment.astimezone().date().isoformat() if moment is not None else None
+
+
 def resolve(connection: Any, *, through: str) -> list[Resolved]:
-    """Every assigned slot through ``through`` (a local date), with its status (module docstring)."""
+    """Every assigned slot through ``through`` (a local date), with its status (module docstring), as it stood at
+    the end of that date (Codex re-review F10): an administration or an answer on a later date is not seen, so a
+    historical read never moves with later activity (a grade's later hold or regrade still applies: F1)."""
 
     if not A.present(connection):
         return []
-    done = administered(connection)
+    done = {key: value for key, value in administered(connection).items()
+            if (_local_date(value.get("planned_at")) or "") <= through}
     sessions = _sessions_by_day(connection)
     out: list[Resolved] = []
     for row in A.rows(connection, A.CHECK):
@@ -466,6 +490,8 @@ def resolve(connection: Any, *, through: str) -> list[Resolved]:
             "SELECT a.* FROM practice_attempts a LEFT JOIN plan_presentations p ON p.id = a.plan_presentation_id "
             "WHERE a.practice_item_id = ? AND a.created_at >= ? AND (p.block_id = ? OR a.plan_presentation_id IS NULL) "
             "ORDER BY a.created_at, a.id LIMIT 1", (item_id, planned["planned_at"], planned["block_id"])).fetchone()
+        if attempt is not None and (_local_date(attempt["created_at"]) or "") > through:
+            attempt = None  # answered after the cutoff: not yet answered as of ``through``
         if attempt is None:
             status = DISPLACED if "item_displaced" in events else (SKIPPED if "item_skipped" in events else (
                 OPEN if local_date == through else NOT_ANSWERED))
@@ -492,11 +518,13 @@ def resolve(connection: Any, *, through: str) -> list[Resolved]:
 
 def completion(connection: Any, *, through: str) -> dict[str, Any]:
     """The running completion rate, pooled and never conditioned on an action: completed checks over the assigned
-    ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap)."""
+    ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap). Every
+    input stands as of ``through`` (Codex re-review F10): the assignments, the drawn days that set the checks per
+    day, and the answers (:func:`resolve`), so a rate read at a past date never moves with later assignments."""
 
     resolved = [entry for entry in resolve(connection, through=through) if entry.status != OPEN]
-    days = sorted({row["unit_id"][len(DAY_PREFIX):] for row in A.rows(connection, A.CHECK)
-                   if row["unit_id"].count(":") == 1})
+    days = sorted(day for day in {row["unit_id"][len(DAY_PREFIX):] for row in A.rows(connection, A.CHECK)
+                                  if row["unit_id"].count(":") == 1} if day <= through)
     completed = sum(1 for entry in resolved if entry.status == "completed")
     missing_days: list[str] = []
     per_day = 0.0

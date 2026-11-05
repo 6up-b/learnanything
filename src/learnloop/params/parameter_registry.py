@@ -1531,6 +1531,27 @@ _reg_const("router_objective_price:LOOKBACK_DAYS", "numerical", kind="structural
 # Router objective RO5 (spec_router_objective_v1 §9): a labelled recalibration prior and numerical resolution.
 _reg_const("router_objective_stop_coin:_TINY", "numerical", kind="structural", owner="router_objective_stop_coin",
            rationale="numerical: a choice probability kept inside (0, 1) before its log in κ0's likelihood.")
+_reg_const("router_objective_stop_coin:_REACH", "numerical", kind="structural", owner="router_objective_stop_coin",
+           rationale="numerical resolution (RO5 Codex re-review F8): the return slope's integration reaches 40 prior "
+                     "sds; beyond, the prior's density underflows double precision.")
+_reg_const("router_objective_stop_coin:_PRIOR_NODES", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (RO5 Codex re-review F8): the return slope's nodes over the prior's range.")
+_reg_const("router_objective_stop_coin:_LOCAL_NODES", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (RO5 Codex re-review F8): the return slope's nodes around the ratio "
+                     "estimate.")
+_reg_const("router_objective_stop_coin:_REFINEMENTS", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (RO5 Codex re-review F8): refinements before the integration is reported "
+                     "unconverged (the prior then stands).")
+_reg_const("router_objective_stop_coin:_TOLERANCE", "numerical", kind="structural", owner="router_objective_stop_coin",
+           rationale="numerical resolution (RO5 Codex re-review F8): the integration's convergence tolerance, relative "
+                     "to the posterior sd.")
+_reg_const("router_objective_stop_coin:_COLLINEAR", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (RO5 Codex re-review F9): proportional session contributions (no "
+                     "information about the slope) detected to double precision.")
 _reg_const("router_objective_goal_read:CALIBRATION_PRIOR_MEAN", "prior", owner="router_objective_goal_read",
            rationale="seed (judgment, labelled; RO5 §9 item 3): the pool forecast's recalibration prior (a, b) = (0, 1), "
            "the forecast taken at its word; the randomized checks' Laplace fit moves it.")

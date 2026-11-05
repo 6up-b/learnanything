@@ -37,10 +37,12 @@ trace). Availability is logged beside each observation; its coefficient is not f
 **The return model.** Stop's return distribution given session minutes: the learner's own gaps (RO4) shifted by
 ``exp(b·(x − m̄)/m̄)``, ``x`` the session's active minutes at its end, ``b ~ N(b̂, s²)``. ``b`` is identified by the
 coin alone (Codex review F3): the randomized offer against present-next, in its logged probabilities, is an
-instrument for where the session ends, with the availability frozen before the draw as covariates
-(:func:`fit_return_slope`); realized minutes are never treated as randomized, so acceptance and overrides stay
-inside the outcome and a busy day that shortens the session and lengthens the gap cancels in the contrast (the
-observational form is rejected, T9). Prior ``N(0, return_slope_prior_sd²)``. It enters ``V`` once the coin's
+instrument for where the session ends, with the availability frozen before the session's first coin as covariates
+(:func:`fit_return_slope`: one estimating contribution per session, its coins' contrasts summed, and the
+Anderson-Rubin likelihood, bounded by the number of sessions so neither a weak first stage nor a few sessions can
+make it certain: Codex re-review F8, F9); realized minutes are never treated as randomized, so acceptance and
+overrides stay inside the outcome and a busy day that shortens the session and lengthens the gap cancels in the
+contrast (the observational form is rejected, T9). Prior ``N(0, return_slope_prior_sd²)``. It enters ``V`` once the coin's
 contrast has an observed return; before, it is its prior mean (no effect) and the trace says so. On the rollouts'
 daily grid a shift that never changes the day of return has no effect at all: the trace then says the model
 dropped out ("attendance near-deterministic").
@@ -61,7 +63,7 @@ from learnloop.router import mixture as mx
 
 VERSION = "ro5_stop_coin_v1"
 KAPPA_VERSION = "kappa_posterior_luce_v1"
-RETURN_VERSION = "return_slope_coin_instrument_v2"
+RETURN_VERSION = "return_slope_coin_instrument_v3"
 OFFER_STOP = "offer_stop"
 PRESENT_NEXT = "present_next"
 POLICY = "policy"
@@ -341,70 +343,158 @@ class ReturnRow:
 
 def _residuals(values: Sequence[float], design: Sequence[Sequence[float]]) -> list[float]:
     """``values`` less their least-squares fit on the pre-draw ``design`` (with an intercept): availability's own
-    part of the outcome, removed for precision only (the coin's mean-zero contrast is independent of it)."""
+    part of the outcome, removed for precision only (the coin's mean-zero contrast is independent of it). With fewer
+    than two residual degrees of freedom the fit would be exact (every residual zero, or float noise): the values
+    are only centred then."""
 
     import numpy as np
 
-    x = np.array([[1.0, *row] for row in design], dtype=np.float64)
     v = np.array(values, dtype=np.float64)
+    columns = 1 + (len(design[0]) if design else 0)
+    if len(values) - columns < 2:
+        return [float(r) for r in v - v.mean()]
+    x = np.array([[1.0, *row] for row in design], dtype=np.float64)
     coefficients, *_ = np.linalg.lstsq(x, v, rcond=None)
     return [float(r) for r in v - x @ coefficients]
 
 
+#: The integration's reach and refinement (numerical resolution, not a judgement): nodes span the prior to
+#: ``_REACH`` sds (beyond, its density underflows double precision), refined until the moments agree.
+_REACH = 40.0
+_PRIOR_NODES = 801
+_LOCAL_NODES = 401
+_REFINEMENTS = 6
+_TOLERANCE = 1e-6
+_COLLINEAR = 1e-12
+
+
+@dataclass(frozen=True)
+class _Moments:
+    """The session-level sums the Anderson-Rubin statistic needs, ``U_s(b) = A_s − b·B_s``."""
+
+    sessions: int
+    sa: float
+    sb: float
+    saa: float
+    sab: float
+    sbb: float
+
+    def ar(self, slope: float) -> float:
+        """``(Σ_s U_s(b))² / Σ_s U_s(b)²``: bounded by the number of sessions (Cauchy-Schwarz), so a few sessions can
+        never make the likelihood certain; 0 where every session's contribution vanishes."""
+
+        numerator = (self.sa - slope * self.sb) ** 2
+        denominator = self.saa - 2.0 * slope * self.sab + slope * slope * self.sbb
+        if denominator <= 0.0:
+            return 0.0
+        return min(numerator / denominator, float(self.sessions))
+
+
+def _session_moments(rows: Sequence[ReturnRow]) -> tuple[_Moments, int]:
+    """One estimating contribution per session (Codex re-review F9). A session's coins share its outcome, so its
+    contribution is ``W_s·(ỹ_s − b·z̃_s)`` with ``W_s`` the sum of its coins' contrasts, and ``ỹ_s``, ``z̃_s`` its
+    outcomes less their fit on the availability frozen before its first coin (so an offer and a present-next in one
+    session cancel in the moment exactly as in its variance). Returns the sums and the sessions with a contrast."""
+
+    order: list[str] = []
+    by_session: dict[str, list[ReturnRow]] = {}
+    for row in rows:
+        if row.session_id not in by_session:
+            order.append(row.session_id)
+            by_session[row.session_id] = []
+        by_session[row.session_id].append(row)
+    weights = [sum(row.weight for row in by_session[s]) for s in order]
+    first = [by_session[s][0] for s in order]
+    design = [row.covariates for row in first]
+    ys = _residuals([row.y for row in first], design)
+    zs = _residuals([row.z for row in first], design)
+    a = [w * y for w, y in zip(weights, ys)]
+    b = [w * z for w, z in zip(weights, zs)]
+    moments = _Moments(sessions=len(order), sa=sum(a), sb=sum(b), saa=sum(x * x for x in a),
+                       sab=sum(x * y for x, y in zip(a, b)), sbb=sum(y * y for y in b))
+    return moments, sum(1 for w in weights if w != 0.0)
+
+
+def _integrate(nodes: Sequence[float], log_density: Any) -> tuple[float, float, float]:
+    """Trapezoidal mass, mean and variance of ``exp(log_density)`` over sorted ``nodes`` (unequal spacing kept)."""
+
+    logs = [log_density(x) for x in nodes]
+    top = max(logs)
+    f = [math.exp(value - top) for value in logs]
+    mass = first = second = 0.0
+    for i in range(len(nodes) - 1):
+        h = nodes[i + 1] - nodes[i]
+        mass += 0.5 * h * (f[i] + f[i + 1])
+        first += 0.5 * h * (nodes[i] * f[i] + nodes[i + 1] * f[i + 1])
+    mean = first / mass
+    for i in range(len(nodes) - 1):
+        h = nodes[i + 1] - nodes[i]
+        second += 0.5 * h * ((nodes[i] - mean) ** 2 * f[i] + (nodes[i + 1] - mean) ** 2 * f[i + 1])
+    return mass, mean, second / mass
+
+
+def _refine(nodes: Sequence[float]) -> list[float]:
+    out = []
+    for i in range(len(nodes) - 1):
+        out += [nodes[i], 0.5 * (nodes[i] + nodes[i + 1])]
+    return out + [nodes[-1]]
+
+
 def fit_return_slope(rows: Sequence[ReturnRow], prior_sd: float) -> ReturnSlope:
     """``b``, the log return gap per remembered session of extra minutes, identified by the randomized coin alone
-    (Codex review F3): the coin is an instrument for where the session ends. With ``w`` each coin's mean-zero
-    contrast and ``ỹ``, ``z̃`` the outcomes less their fit on the pre-draw availability,
+    (Codex review F3): the coin is an instrument for where the session ends. Per session ``s``, with ``W_s`` the sum
+    of its coins' mean-zero contrasts and ``ỹ_s``, ``z̃_s`` its outcomes less their fit on the availability frozen
+    before its first coin, ``U_s(b) = W_s·(ỹ_s − b·z̃_s)`` has mean zero at the true ``b`` (the offer's effect on
+    the return gap is ``b`` times its effect on the session's minutes).
 
-    ``mean(w·ỹ) − b·mean(w·z̃) ~ N(0, V(b))``  (the offer's effect on the return gap is ``b`` times its effect on
-    the session's minutes)
+    The likelihood is the Anderson-Rubin statistic's, ``exp(−AR(b)/2)`` with ``AR(b) = (Σ_s U_s(b))² / Σ_s U_s(b)²``
+    (Codex re-review F9: the variance is the sessions' own estimating contributions, never a pooled residual times
+    the weights): valid however weakly the offer moves the minutes, and bounded by the number of sessions, so a
+    vanishing first stage leaves a flat likelihood (Codex re-review F8: the prior stands, never a certain slope) and
+    a few sessions move the prior only by what they can carry. The posterior is that likelihood times the prior
+    ``N(0, prior_sd²)``, integrated on nodes that keep the prior's resolution whatever the instrument's strength
+    (the prior's range to ``_REACH`` sds, plus the ratio estimate's neighbourhood where it falls inside it), refined
+    until the mean and variance agree; one that does not converge serves the prior and says so.
 
-    the Anderson-Rubin form, valid however weakly the offer moves the minutes: ``V(b)`` is the pooled residual
-    variance of ``ỹ − b·z̃`` over every coin times ``Σ_s (Σ_{i∈s} w_i)² / n²`` (one session's coins share its
-    outcome). The posterior over ``b`` is that likelihood times the prior ``N(0, prior_sd²)`` on a grid; it serves
-    its mean and variance. Realized minutes are never the treatment: a learner's busy day that shortens the session
-    and lengthens the gap moves both outcomes equally under every arm, so it cancels in the contrast. With no
-    randomized contrast (no offer or present-next coin in two sessions, or one that moved no minutes) the
-    posterior is the prior, and an offer that barely moves minutes leaves it near the prior. Assumption, labelled:
-    the offer moves the return only through the session's minutes."""
+    Realized minutes are never the treatment: a learner's busy day that shortens the session and lengthens the gap
+    moves both outcomes under every arm, so it cancels in the contrast. With no randomized contrast (sessions whose
+    coins carry no net contrast in fewer than two sessions, or one that moved no minutes) the posterior is the prior.
+    Assumption, labelled: the offer moves the return only through the session's minutes."""
 
     prior = ReturnSlope(mean=0.0, variance=float(prior_sd) ** 2, n=len(rows), source="prior")
-    contrasted = [row for row in rows if row.weight != 0.0]
-    if len(rows) < 2 or len({row.session_id for row in contrasted}) < 2:
+    if len(rows) < 2 or prior_sd <= 0:
         return prior
-    design = [row.covariates for row in rows]
-    ys = _residuals([row.y for row in rows], design)
-    zs = _residuals([row.z for row in rows], design)
-    n = len(rows)
-    a = sum(row.weight * y for row, y in zip(rows, ys)) / n
-    b = sum(row.weight * z for row, z in zip(rows, zs)) / n
-    if b == 0.0:
-        return ReturnSlope(mean=0.0, variance=prior.variance, n=n, source="prior_no_first_stage")
-    sums: dict[str, float] = {}
-    for row in rows:
-        sums[row.session_id] = sums.get(row.session_id, 0.0) + row.weight
-    spread = sum(value * value for value in sums.values()) / (n * n)
-    dof = max(n - len(design[0]) - 2, 1)  # the intercept, the covariates and b
+    moments, contrasted = _session_moments(rows)
+    if contrasted < 2:
+        return prior
+    if moments.sb == 0.0:
+        return ReturnSlope(mean=0.0, variance=prior.variance, n=len(rows), source="prior_no_first_stage")
+    if moments.saa * moments.sbb - moments.sab ** 2 <= _COLLINEAR * moments.saa * moments.sbb:
+        # Every session's contribution is proportional (two sessions, centred, always are): the statistic is the same
+        # at every slope but one point, so the sessions carry no information about b and the prior stands.
+        return ReturnSlope(mean=0.0, variance=prior.variance, n=len(rows), source="prior_no_information")
+    sd = float(prior_sd)
+    reach = _REACH * sd
 
-    def variance_at(slope: float) -> float:
-        return max(sum((y - slope * z) ** 2 for y, z in zip(ys, zs)) / dof * spread, _TINY)
+    def log_density(slope: float) -> float:
+        return -0.5 * (slope / sd) ** 2 - 0.5 * moments.ar(slope)
 
-    # The grid spans the prior and the ratio estimate with its first-order spread (numerical resolution only).
-    sd = math.sqrt(prior.variance)
-    wald = a / b
-    wald_sd = math.sqrt(variance_at(wald)) / abs(b)
-    low, high = min(-6.0 * sd, wald - 6.0 * wald_sd), max(6.0 * sd, wald + 6.0 * wald_sd)
-    grid = [low + (high - low) * j / 400 for j in range(401)]
-    logs = []
-    for slope in grid:
-        v = variance_at(slope)
-        logs.append(-0.5 * (slope / sd) ** 2 - 0.5 * math.log(v) - 0.5 * (a - slope * b) ** 2 / v)
-    top = max(logs)
-    weights = [math.exp(value - top) for value in logs]
-    norm = sum(weights)
-    mean = sum(slope * w for slope, w in zip(grid, weights)) / norm
-    variance = sum((slope - mean) ** 2 * w for slope, w in zip(grid, weights)) / norm
-    return ReturnSlope(mean=mean, variance=variance, n=n, source="posterior_randomized_coin")
+    nodes = {-reach + 2.0 * reach * j / (_PRIOR_NODES - 1) for j in range(_PRIOR_NODES)}
+    wald = moments.sa / moments.sb
+    spread = math.sqrt(max(moments.saa - 2.0 * wald * moments.sab + wald * wald * moments.sbb, 0.0)) / abs(moments.sb)
+    if math.isfinite(wald) and math.isfinite(spread) and spread > 0 and abs(wald) < reach:
+        low, high = max(wald - 8.0 * spread, -reach), min(wald + 8.0 * spread, reach)
+        nodes |= {low + (high - low) * j / (_LOCAL_NODES - 1) for j in range(_LOCAL_NODES)}
+    grid = sorted(nodes)
+    _mass, mean, variance = _integrate(grid, log_density)
+    for _ in range(_REFINEMENTS):
+        grid = _refine(grid)
+        _mass, finer_mean, finer_variance = _integrate(grid, log_density)
+        scale = math.sqrt(max(finer_variance, 0.0)) or sd
+        if abs(finer_mean - mean) <= _TOLERANCE * scale and abs(finer_variance - variance) <= _TOLERANCE * scale ** 2:
+            return ReturnSlope(mean=finer_mean, variance=finer_variance, n=len(rows), source="posterior_randomized_coin")
+        mean, variance = finer_mean, finer_variance
+    return ReturnSlope(mean=0.0, variance=prior.variance, n=len(rows), source="prior_integration_unconverged")
 
 
 def _parse(stamp: str) -> datetime:

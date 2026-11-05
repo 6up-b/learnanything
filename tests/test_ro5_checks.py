@@ -108,23 +108,27 @@ def test_the_check_takes_the_first_practice_slot_outside_the_mix_with_no_label(t
     block = next(b for b in record.blocks if b.id == planned["block_id"])
     first = sorted(block.items, key=lambda item: item.position)[0]
     assert first.practice_item_id == planned["practice_item_id"] and first.origin == C.ORIGIN
-    # The first non-reading block of the day carries it.
-    practice_blocks = [b for b in sorted(record.blocks, key=lambda b: b.ordinal) if not b.is_reading and b.items]
-    assert practice_blocks[0].id == block.id
-    # Outside the mix: the router decision's items do not name it, and its μ is over blocks only.
+    # Codex re-review F2: the day's first block is the check's own, placed before any decision of the day.
+    ordered = sorted(record.blocks, key=lambda b: b.ordinal)
+    assert ordered[0].id == block.id and [item.origin for item in block.items] == [C.ORIGIN]
+    assert planned["placed"] == "before_the_boundary_decision" and planned["replaced"] is None
+    # Outside the mix: its decision is the rules' (deterministic, no mixture, no trace, the check not its item) ...
     decision = next(row for row in rows(env) if row["id"] == block.decision_ref)
+    assert decision["chosen_ref"] == f"forced:{C.ORIGIN}" and decision["propensity"] == 1.0
     assert decision.get("chosen_practice_item_id") != planned["practice_item_id"]
-    assert mix.recompute(decision["detail_json"]["mixture"])[decision["chosen_ref"]] == pytest.approx(
-        decision["propensity"])
+    assert "mixture" not in decision["detail_json"]
+    with env.repository.connection() as connection:
+        traced = {row[0] for row in connection.execute("SELECT decision_id FROM router_objective_traces")}
+    assert block.decision_ref not in traced
+    # ... and the policy's decisions come after it (a block or, as the mix may draw, a stop), each μ over blocks only.
+    later = [row for row in rows(env) if row["id"] != block.decision_ref and "mixture" in row["detail_json"]]
+    assert later and all(row["created_at"] >= decision["created_at"] for row in later)
+    for row in later:
+        assert mix.recompute(row["detail_json"]["mixture"])[row["chosen_ref"]] == pytest.approx(row["propensity"])
     # The learner sees an ordinary question.
     from learnloop.daily_plan.view import _item_row
 
     assert _item_row(env, first)["origin"] == "chooser"
-    # The replaced chooser item is not displaced: it stays in the plan's pool for later blocks.
-    replaced = planned.get("replaced")
-    if replaced:
-        assert replaced in record.split["universe"]
-        assert all(item.practice_item_id != replaced or item.block_id != block.id for item in record.items())
 
 
 def test_completion_is_scored_by_the_label_and_help_makes_it_a_non_success(tmp_path):

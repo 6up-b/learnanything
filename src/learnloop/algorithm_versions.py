@@ -775,8 +775,8 @@ ROUTER_OBJECTIVE_ALGORITHM_VERSION = "mvp-0.47"
 # stays linear). Return and calibration: a stop coin at each reversible block
 # boundary (offer stop or present the next block, 0.05 each way, an exact
 # logged assignment) that trains stop's return model and hands kappa0 from its
-# daily seed to a posterior; one randomized cold check a day embedded in the
-# day's first practice slot (r = 1/N_d exact), whose scores move the weight w
+# daily seed to a posterior; one randomized cold check a day, the day's first
+# block, before any decision (r = 1/N_d exact), whose scores move the weight w
 # off its prior; a small seeded share of misconception picks left open. Each
 # arm is a declared price for information: stop_coin = 0, check_rate = "off"
 # and pick_open_share = 0 serve mvp-0.47 exactly; below the tag nothing is

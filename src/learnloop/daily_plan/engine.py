@@ -2847,7 +2847,13 @@ def _boundary(
             minutes_left = max(minutes_left - item.est_minutes, 0.0)
     # Router objective RO5 (spec §9 item 2): the day's randomized checks are drawn before any action draw of the
     # day and independent of it (once a day, idempotent; off, below the tag or with the objective off, nothing).
-    _draw_randomized_checks(env, record)
+    _draw_randomized_checks(env, record, context)
+    # Codex re-review F2: the day's check is administered at this boundary before its decision, whatever the
+    # decision would draw, as its own block placed by the rules (none pending: nothing, the boundary as RO4's).
+    check_block = _randomized_check_block(env, record, context, forced=forced, forced_origin=forced_origin,
+                                          releases=releases)
+    if check_block is not None:
+        return check_block
     decision = decide(
         record,
         context,
@@ -2934,22 +2940,15 @@ def _boundary(
         return None
     items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
     by_id = {item.practice_item_id: item for item in context.pool}  # forced ids are not in it
-    ro5_checks: dict[str, dict[str, Any]] = {}
     if candidate is not None:
-        chooser_items = [by_id[item_id] for item_id in candidate.item_ids if item_id in by_id and item_id not in forced_ids]
-        check_minutes = 0.0
-        if candidate.reading is None and chooser_items:
-            # RO5 §9 item 2: the session's first practice slot carries the day's randomized check, outside the
-            # mix and outside μ: an embedded check replaces the block's last chooser item (back to the pool).
-            placed, chooser_items, check_minutes = _place_randomized_checks(env, record, context, chooser_items,
-                                                                            lane=candidate.lane)
-            for placement in placed:
-                items.append((placement.item, ro5_check_origin()))
-                ro5_checks[str(placement.item.practice_item_id)] = dict(placement.detail)
-        items.extend((item, ORIGIN_CHOOSER) for item in chooser_items)
+        items.extend(
+            (by_id[item_id], ORIGIN_CHOOSER)
+            for item_id in candidate.item_ids
+            if item_id in by_id and item_id not in forced_ids
+        )
         lane = candidate.lane
         action, subtype = candidate.action, candidate.subtype
-        est = candidate.est_minutes + forced_minutes + check_minutes
+        est = candidate.est_minutes + forced_minutes
         reading = candidate.reading
         los = list(candidate.learning_object_ids)
         chosen_by = choice.chosen_by
@@ -2994,9 +2993,7 @@ def _boundary(
                 session_id=env.session_id,
                 detail=detail,
                 chosen_by=chosen_by,
-                # RO5: a randomized check is neither policy's action, so it is not the decision's.
-                items=tuple((item.practice_item_id, item.learning_object_id) for item, origin in items
-                            if origin != ro5_check_origin()),
+                items=tuple((item.practice_item_id, item.learning_object_id) for item, _origin in items),
                 decided_at=env.now_iso(),
                 config=env.vault.config,
                 router_record=router_record,
@@ -3030,7 +3027,6 @@ def _boundary(
             decision_ref=decision_ref,
             releases=releases,
             block_id=block_id,
-            ro5_checks=ro5_checks or None,
         )
     _record_probe_value_forecasts(env, detail, block_id=block_id, decision_ref=decision_ref)
     return block_id
@@ -3044,8 +3040,10 @@ def ro5_check_origin() -> str:
     return ORIGIN
 
 
-def _draw_randomized_checks(env: PlanEnv, record: PlanRecord) -> None:
-    """RO5 §9 item 2: the day's draw, before the boundary's decision (fails soft: a plan never waits on it)."""
+def _draw_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolContext) -> None:
+    """RO5 §9 item 2: the day's draw, before the boundary's decision (fails soft: a plan never waits on it), over
+    the items this plan's pool can serve (Codex re-review F2: a drawn check is then administered at once, before
+    the decision; the pool is fixed before any of the day's action draws)."""
 
     from learnloop.router_objective_switches import CHECKS_OFF, check_mode
 
@@ -3056,57 +3054,101 @@ def _draw_randomized_checks(env: PlanEnv, record: PlanRecord) -> None:
         from learnloop.router_objective import checks
 
         now = env.now_iso()
+        in_pool = {str(item.practice_item_id) for item in context.pool}
         checks.draw_day(env.vault, env.repository, local_date=str(record.row.get("local_date") or env.today()),
                         now_iso=now, topics=lambda: objective_inputs.population(env.vault, env.repository, now),
                         eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
-                            env.vault, env.repository, los, exclude))
+                            env.vault, env.repository, los, exclude),
+                        placeable=lambda item_id: str(item_id) in in_pool)
     except Exception:  # noqa: BLE001 - the checks never block the plan
         import logging
 
         logging.getLogger(__name__).warning("router objective RO5: the day's checks were not drawn", exc_info=True)
 
 
-def _place_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolContext, chooser_items: list[Any], *,
-                             lane: str | None) -> tuple[list[Any], list[Any], float]:
-    """RO5 §9 item 2: the checks this block carries, the chooser's items left, and the minutes the checks add net
-    of the items they replace. Nothing with checks off or outside the day's first session (fails soft)."""
+#: Router objective RO5: the check block's plain "why" (the learner sees an ordinary question, §9 item 2).
+RO5_CHECK_WHY = "One question to start with."
+
+
+def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolContext, *, forced: Sequence[PoolItem],
+                            forced_origin: str, releases: Mapping[str, Mapping[str, Any] | None]) -> str | None:
+    """RO5 §9 item 2 (Codex re-review F2): the day's undelivered checks, administered at this boundary BEFORE its
+    decision, as their own block placed by the rules, so whether a check is administered never depends on what the
+    decision would draw (a practice block, a reading, a stop: the day's first session's first boundary serves the
+    check in every case, and the decision follows at the next boundary). Returns the block's id, or None (checks
+    off, outside the day's first session, nothing pending or no eligible item in the plan's pool; fails soft). The
+    boundary's forced items (requests, follow-ups) come first in it, as in any block. Its decision is the rules' own
+    (``forced:<origin>``, deterministic): neither policy's action, outside ``μ``, with no objective trace, no stop
+    coin and no score; the check's minutes come off the plan's as any block's (the cost of the arm)."""
 
     from learnloop.router_objective_switches import CHECKS_OFF, check_mode
 
     if check_mode(env.vault.config)[0] == CHECKS_OFF:
-        return [], chooser_items, 0.0
+        return None
     try:
         from learnloop.daily_plan import objective_inputs
         from learnloop.router_objective import checks
 
         placed = checks.place(env.vault, env.repository, local_date=str(record.row.get("local_date") or env.today()),
                               session_id=env.session_id, pool=context.pool, planned=record.planned_ids(),
-                              chooser_items=chooser_items, lane=lane,
+                              chooser_items=(), lane=None,
                               eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
                                   env.vault, env.repository, los, exclude))
+        if not placed:
+            return None
+        now = env.now_iso()
+        ro5_checks: dict[str, dict[str, Any]] = {}
+        for placement in placed:
+            # The topic's sensors at the administration, frozen for the combiner (§9 item 7), and the minutes the
+            # check takes (the report's cost of the arm).
+            entry = dict(placement.detail)
+            entry["sensors"] = objective_inputs.check_sensors(env.vault, env.repository, str(entry["topic"]), now)
+            entry["net_minutes"] = round(float(placement.item.est_minutes), 4)
+            entry["placed"] = "before_the_boundary_decision"
+            ro5_checks[str(placement.item.practice_item_id)] = entry
     except Exception:  # noqa: BLE001 - the checks never block the plan
         import logging
 
         logging.getLogger(__name__).warning("router objective RO5: the day's check was not placed", exc_info=True)
-        return [], chooser_items, 0.0
-    if not placed:
-        return [], chooser_items, 0.0
-    replaced = {placement.replaced for placement in placed if placement.replaced}
-    kept = [item for item in chooser_items if str(item.practice_item_id) not in replaced]
-    minutes = sum(float(p.item.est_minutes) for p in placed) - sum(
-        float(item.est_minutes) for item in chooser_items if str(item.practice_item_id) in replaced)
-    now = env.now_iso()
-    from learnloop.daily_plan import objective_inputs
-
-    by_id = {str(item.practice_item_id): item for item in chooser_items}
-    for placement in placed:
-        # The topic's sensors at the administration, frozen for the combiner (§9 item 7), and the minutes the
-        # check adds net of the question it replaced (the report's cost of the arm).
-        placement.detail["sensors"] = objective_inputs.check_sensors(  # type: ignore[index]
-            env.vault, env.repository, str(placement.detail["topic"]), now)
-        replaced_minutes = float(by_id[placement.replaced].est_minutes) if placement.replaced in by_id else 0.0
-        placement.detail["net_minutes"] = round(float(placement.item.est_minutes) - replaced_minutes, 4)  # type: ignore[index]
-    return placed, kept, minutes
+        return None
+    pending = [*forced, *(placement.item for placement in placed)]
+    lane = next((item.lane for item in pending if item.lane), None) or "maintain"
+    items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
+    items += [(item if item.lane else replace(item, lane=lane), ro5_check_origin())
+              for item in (placement.item for placement in placed)]
+    action, subtype = LANE_ACTIONS.get(lane, ("maintain", None))
+    detail: dict[str, Any] = {
+        "source": "ro5_randomized_check", "chooser": "rules", "chosen_by": "lane_quota", "candidate_id": None,
+        "propensity": 1.0, "why": RO5_CHECK_WHY, "why_kind": None, "decision_ref": None, "fallback": False,
+        "fallback_from": None, "fallback_reason": None, "stop_offered": False, "candidate_set": [],
+        "feasible_ids": [], "state": None, "redistribution": None,
+        "forced": [{"practice_item_id": item.practice_item_id, "origin": origin,
+                    "est_minutes": round(item.est_minutes, 4)} for item, origin in items],
+        "ro5_check_block": {"version": "ro5_check_before_decision_v1",
+                            "assignments": [placement.assignment_id for placement in placed]},
+    }
+    with env.repository.atomic(), env.repository.connection() as connection:
+        block_id = new_ulid()
+        decision_ref = _log_plan_decision(
+            connection,
+            PlanBlockDecision(
+                plan_id=record.id, plan_kind=record.kind, local_date=str(record.row.get("local_date") or ""),
+                block_id=block_id, session_id=env.session_id, detail=detail, chosen_by="lane_quota",
+                # A randomized check is neither policy's action, so it is not the decision's item.
+                items=tuple((item.practice_item_id, item.learning_object_id) for item, origin in items
+                            if origin != ro5_check_origin()),
+                decided_at=env.now_iso(), config=env.vault.config,
+            ),
+        )
+        if decision_ref is not None:
+            detail["decision_ref"] = decision_ref
+        _persist_block(env, connection, record, lane=lane, action=action, subtype=subtype, chosen_by="lane_quota",
+                       est_minutes=sum(float(item.est_minutes) for item, _origin in items), reading=None,
+                       reading_full=None,
+                       learning_object_ids=list(dict.fromkeys(item.learning_object_id for item, _origin in items)),
+                       detail=detail, items=items, decision_ref=decision_ref, releases=releases, block_id=block_id,
+                       ro5_checks=ro5_checks)
+    return block_id
 
 
 def _read_ad_fields(env: PlanEnv, learning_object_ids: Sequence[str]) -> Mapping[str, Any]:
