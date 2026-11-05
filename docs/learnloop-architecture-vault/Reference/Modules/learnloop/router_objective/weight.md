@@ -113,7 +113,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `Scored`, `posterior`, `weight`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `Scored`, `posterior`, `unique_assessments`, `weight`
+- [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]] — imports `module`; statically calls `posterior`, `unique_assessments`, `weight`
+- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; statically calls `Scored`, `Use`, `carries_score`, `score`
 
 ## Dependencies
 
@@ -133,7 +135,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]], [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -146,6 +148,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_scores_mean_matches_a_planted_delta_and_is_zero_under_a_null`
   - `test_w_reads_no_score_from_a_window_still_open_and_needs_two_bins`
   - `test_what_carries_no_score`
+- [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
+  - `test_a_coin_forced_decision_a_fallback_and_agreement_carry_no_score`
+  - `test_w_moves_off_its_prior_on_closed_scores_in_two_bins`
 
 ## Modification guidance
 

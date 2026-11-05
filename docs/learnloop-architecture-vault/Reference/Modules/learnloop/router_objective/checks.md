@@ -1,0 +1,196 @@
+---
+title: "learnloop.router_objective.checks"
+type: "module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+source_path: "src/learnloop/router_objective/checks.py"
+source_paths:
+  - "src/learnloop/router_objective/checks.py"
+source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
+source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_worktree_state: "clean"
+generated: true
+generated_at: "2026-11-02"
+package: "learnloop.router_objective"
+layer: "domain"
+concepts:
+  - "Architecture Overview"
+workflows:
+  - "Initialize a Vault"
+  - "Start a Learning Cycle"
+aliases:
+  - "learnloop.router_objective.checks module"
+  - "src/learnloop/router_objective/checks.py"
+tags:
+  - "docs/module"
+  - "architecture/reference"
+  - "refactor/active"
+  - "layer/domain"
+  - "package/learnloop-router-objective"
+---
+
+# `learnloop.router_objective.checks`
+
+> [!info] Generated source reference
+> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+
+Up: [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+`learnloop.router_objective.checks` exists within [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] to own the behavior summarized by its module contract: RO5 §9 item 2: randomized cold checks, embedded by default.
+
+The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
+
+^module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py) |
+| Source lines | 451 |
+| Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
+| Architecture layer | `domain` |
+| Refactor status | `ACTIVE` |
+| Worktree state | `clean` |
+| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
+| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+
+## Public API
+
+- `day_unit(local_date: str) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 69)
+- `slot_unit(local_date: str, slot: int) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 73)
+- `day_seed(local_date: str) -> str` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 77)
+- `class Day` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 93)
+  - `as_dict(self) -> dict[str, Any]` (line 104; public)
+- `draw(local_date: str, mode: str, value: float, eligible: Mapping[str, Sequence[str]], topics: Iterable[str]) -> Day` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 111) — The pure draw: same date and eligible set, same draw; it reads no decision.
+- `day_record(connection: Any, local_date: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 165)
+- `draw_day(vault: Any, repository: Any, *, local_date: str, now_iso: str, topics: Mapping[str, float] | Any, eligible_items: Eligible) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 170) — The day's draw, once (idempotent: a drawn day returns its record).
+- `administered(connection: Any) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 223) — Each administered slot's ``item_planned`` receipt (its block, item and frozen sensors), by assignment id.
+- `class Placement` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 238)
+- `place(vault: Any, repository: Any, *, local_date: str, session_id: str | None, pool: Sequence[Any], planned: Iterable[str], chooser_items: Sequence[Any], lane: str | None, eligible_items: Eligible) -> list[Placement]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 246) — The slots this practice block administers: the day's undelivered checks, in the day's first session only.
+- `class Resolved` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 309)
+  - `assessment_key(self) -> str` (line 321; public) — One completed check counts once however many decisions' windows hold it (§8.9).
+- `resolve(connection: Any, *, through: str) -> list[Resolved]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 351) — Every assigned slot through ``through`` (a local date), with its status (module docstring).
+- `completion(connection: Any, *, through: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 403) — The running completion rate, pooled and never conditioned on an action: completed checks over the assigned ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap).
+- `r_for(connection: Any, *, local_date: str) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 432) — ``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the last earlier one's (labelled: its eligible set stands for a day with no session).
+
+### Module constants
+
+- `LOG` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 52)
+- `VERSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 54)
+- `RESOLVER_VERSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 55)
+- `ORIGIN` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 56)
+- `DAY_PREFIX` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 57)
+- `NEED_TRIGGER` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 58)
+- `NEED_BLOCKED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 59)
+- `NO_SESSION` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 61)
+- `NO_PRACTICE_SLOT` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 62)
+- `DISPLACED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 63)
+- `SKIPPED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 64)
+- `NOT_ANSWERED` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 65)
+- `OPEN` ([src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py), line 66)
+
+### Explicit exports
+
+`__all__` declares:
+
+- `DAY_PREFIX`
+- `DISPLACED`
+- `Day`
+- `NOT_ANSWERED`
+- `NO_PRACTICE_SLOT`
+- `NO_SESSION`
+- `OPEN`
+- `ORIGIN`
+- `Placement`
+- `RESOLVER_VERSION`
+- `Resolved`
+- `SKIPPED`
+- `VERSION`
+- `administered`
+- `completion`
+- `day_record`
+- `day_seed`
+- `day_unit`
+- `draw`
+- `draw_day`
+- `place`
+- `r_for`
+- `resolve`
+- `slot_unit`
+
+## Internal implementation anchors
+
+- `_raise_need(vault: Any, repository: Any, lo: str, now_iso: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 146) — A topic with no eligible item: one pending generation need through the existing path (deduplicated on the LO, intent and facets by ``upsert_intervention_need``).
+- `_first_session_today(connection: Any, local_date: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 212)
+- `_sessions_by_day(connection: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 327)
+- `_label(row: Mapping[str, Any], assisted: bool) -> float | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 338) — §6.2's label: AD's unassisted success (help of any kind makes it a non-success).
+
+## Who imports or calls it
+
+> [!note] Static evidence boundary
+> “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
+
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `ORIGIN`, `module`; statically calls `append`, `draw_day`, `place`, `setdefault`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `resolve`
+- [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]] — imports `module`; statically calls `administered`, `completion`, `resolve`
+- [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]] — imports `module`; statically calls `resolve`
+- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; statically calls `completion`, `r_for`, `resolve`
+
+## Dependencies
+
+### LearnLoop dependencies
+
+- [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] — imports `module`; calls `AttemptFacts`, `category`, `unassisted_success`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
+- [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `module`; calls `uniform`
+- [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] — imports `module`; calls `by_unit`, `insert`, `present`, `rows`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `CHECKS_EMBEDDED`, `CHECKS_OFF`, `check_mode`; calls `check_mode`
+
+### Platform and third-party dependencies
+
+- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `hashlib`, `json`, `logging`, `typing`
+- Third party: none imported directly
+
+## Larger workflow participation
+
+Use this module in context through:
+
+- [[Initialize a Vault]]
+- [[Start a Learning Cycle]]
+
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]], [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]], [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]].
+
+The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
+
+## Tests that define behavior
+
+- [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
+  - `test_alpha_is_labelled_provisional_and_a_check_is_never_the_blocks_action`
+  - `test_the_combiner_is_fitted_on_resolved_checks_and_is_its_prior_with_none`
+- [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
+  - `test_a_closed_window_scores_from_a_completed_check_with_r_from_the_assignment_and_completion`
+  - `test_a_topic_with_no_eligible_item_has_r_zero_and_raises_a_generation_need`
+  - `test_completion_is_scored_by_the_label_and_help_makes_it_a_non_success`
+  - `test_off_draws_nothing_and_a_day_with_no_session_counts_toward_the_completion_gap`
+  - `test_the_check_takes_the_first_practice_slot_outside_the_mix_with_no_label`
+  - `test_the_draw_does_not_change_with_the_action_or_either_policys_output`
+  - `test_the_draw_is_uniform_over_topics_across_dates`
+  - `test_the_same_date_and_eligible_set_draw_the_same_and_r_is_exact`
+  - `test_the_score_is_unbiased_for_a_planted_delta_on_a_synthetic_log`
+
+## Modification guidance
+
+- Make changes here when the responsibility remains checks within learnloop.router_objective; otherwise move the behavior to its owning boundary.
+- Run the directly importing tests below, then the architecture/import-linter checks when imports or public ownership change.
+- Treat `__all__` as an intentional compatibility surface and update consumers and documentation when it changes.
+
+### Regeneration and review checklist
+
+1. Modify [src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py) and its owning tests.
+2. Regenerate [[Module Catalog]] so imports, symbols, source provenance, and test anchors remain current.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py`.
+4. If ownership or workflow behavior changed, update the linked canonical concept or workflow note—not a duplicate explanation here.

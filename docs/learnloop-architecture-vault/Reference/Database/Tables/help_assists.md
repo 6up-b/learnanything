@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
+source_commit_timestamp: "2026-11-05T08:37:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/attempts/hint_fold.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
-  - "src/learnloop/db/stores/approach_maps.py"
+  - "src/learnloop/daily_plan/objective_inputs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -153,6 +153,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/stores/help_assists.py`
 - `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/split/workbench_trace.py`
@@ -162,6 +163,7 @@ None found by exact static reference scan.
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/hints/report_workbench.py`
+- `src/learnloop/router_objective/checks.py`
 - `src/learnloop/router_objective/question_state.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop/workbench/check.py`

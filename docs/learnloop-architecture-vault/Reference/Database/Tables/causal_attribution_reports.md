@@ -3,8 +3,8 @@ title: "causal_attribution_reports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
+source_commit_timestamp: "2026-11-05T08:37:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_attribution_reports"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/diagnosis_adjudication.py"
+  - "src/learnloop/router_objective/picks.py"
   - "src/learnloop/tutor/durable_promotion.py"
   - "src/learnloop_sidecar/handlers/feedback.py"
   - "src/learnloop/attempts/attempts.py"
@@ -92,6 +93,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/router_objective/picks.py`
 
 ### Direct SQL writers
 
@@ -123,6 +125,7 @@ Indexes and uniqueness:
 
 - `tests/test_diagnosis_adjudication.py`
 - `tests/test_hypothesis_marks.py`
+- `tests/test_ro5_picks.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_attribution_p1.py`
@@ -140,7 +143,6 @@ Indexes and uniqueness:
 - `tests/test_followup_router.py`
 - `tests/test_grading_support.py`
 - `tests/test_probe_block_end.py`
-- `tests/test_recurrence_deferral.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

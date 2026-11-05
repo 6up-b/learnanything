@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/price.py"
 source_paths:
   - "src/learnloop/router_objective/price.py"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
+source_commit_timestamp: "2026-11-05T07:25:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,23 +50,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/price.py](../../../../../../src/learnloop/router_objective/price.py) |
-| Source lines | 162 |
+| Source lines | 171 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
-| Commit timestamp | `2026-11-05T04:03:05-05:00` |
+| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
+| Commit timestamp | `2026-11-05T07:25:07-05:00` |
 
 ## Public API
 
 - `session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> tuple[float, str | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 51) — The active minutes of the current objective session: activity (attempts at their completion with their latency, Reader visits over their interval) walked back from ``now`` until a gap of ``gap_minutes``.
 - `guard_minutes(config: Any, remembered: float) -> float` ([source](../../../../../../src/learnloop/router_objective/price.py), line 92)
 - `class Seeded` ([source](../../../../../../src/learnloop/router_objective/price.py), line 99)
-  - `as_dict(self) -> dict[str, Any]` (line 106; public)
-- `seed_from_gain(gain: Mapping[float, float], *, remembered: float, block_minutes: float, last_positive: float | None) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 112) — ``κ0`` from the day's gain curve: the marginal gain per minute at ``m̄``, floored at the last positive value; with none ever and no positive marginal, the tail's average marginal gain per minute.
-- `choice_log_likelihood(kappa0: float, observations: Iterable[Mapping[str, float]]) -> float` ([source](../../../../../../src/learnloop/router_objective/price.py), line 128) — The stated likelihood: ``P(continue) = σ(gain − price)`` per frontier choice, the price at that choice's session minutes (``κ0·x/m̄`` over the block); a stop says only that the forecast gain was below the price.
-- `grid_posterior(seed: float, observations: Sequence[Mapping[str, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 142) — The grid posterior over ``κ0``: a log-uniform grid around the seed, prior uniform on it.
+  - `as_dict(self) -> dict[str, Any]` (line 109; public)
+- `seed_from_gain(gain: Mapping[float, float], *, remembered: float, block_minutes: float, last_positive: float | None) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 121) — ``κ0`` from the day's gain curve: the marginal gain per minute at ``m̄``, floored at the last positive value; with none ever and no positive marginal, the tail's average marginal gain per minute.
+- `choice_log_likelihood(kappa0: float, observations: Iterable[Mapping[str, float]]) -> float` ([source](../../../../../../src/learnloop/router_objective/price.py), line 137) — The stated likelihood: ``P(continue) = σ(gain − price)`` per frontier choice, the price at that choice's session minutes (``κ0·x/m̄`` over the block); a stop says only that the forecast gain was below the price.
+- `grid_posterior(seed: float, observations: Sequence[Mapping[str, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 151) — The grid posterior over ``κ0``: a log-uniform grid around the seed, prior uniform on it.
 
 ### Module constants
 
@@ -112,6 +112,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `Seeded`, `guard_minutes`, `seed_from_gain`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `session_active_minutes`
+- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`
+- [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; statically calls `session_active_minutes`
 
 ## Dependencies
 
@@ -131,7 +133,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]], [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

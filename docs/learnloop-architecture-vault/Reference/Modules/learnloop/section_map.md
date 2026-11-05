@@ -122,6 +122,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_ro4_codex_review.py](../../../../../tests/test_ro4_codex_review.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]]
+- [tests/test_ro5_calibration.py](../../../../../tests/test_ro5_calibration.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]]
+- [tests/test_ro5_checks.py](../../../../../tests/test_ro5_checks.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]]
 - [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
 - [tests/test_data_capture_a3_time_metric.py](../../../../../tests/test_data_capture_a3_time_metric.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
 - [tests/test_data_capture_codex_rereview.py](../../../../../tests/test_data_capture_codex_rereview.py) — imports consumer [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]]
@@ -131,8 +133,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../tests/test_curriculum_c1_plan_follows_path.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
 - [tests/test_daily_plan_reading.py](../../../../../tests/test_daily_plan_reading.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
 - [tests/test_exam_protection.py](../../../../../tests/test_exam_protection.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_passage_links.py](../../../../../tests/test_passage_links.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
-- [tests/test_reader_active_reading.py](../../../../../tests/test_reader_active_reading.py) — imports consumer [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]]
 
 ## Modification guidance
 

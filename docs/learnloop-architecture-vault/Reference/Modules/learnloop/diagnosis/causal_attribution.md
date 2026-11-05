@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/causal_attribution.py"
 source_paths:
   - "src/learnloop/diagnosis/causal_attribution.py"
-source_commit: "7d730fa39dad134c438040691be1b8e84453d5fe"
-source_commit_timestamp: "2026-11-04T05:14:36-05:00"
+source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
+source_commit_timestamp: "2026-11-05T07:25:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py) |
-| Source lines | 3748 |
+| Source lines | 3771 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `7d730fa39dad134c438040691be1b8e84453d5fe` |
-| Commit timestamp | `2026-11-04T05:14:36-05:00` |
+| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
+| Commit timestamp | `2026-11-05T07:25:07-05:00` |
 
 ## Public API
 
@@ -205,6 +205,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `attempt_grade_held`; calls `attempt_grade_held`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `CriterionOutcome`, `localize_criterion_outcomes`; calls `CriterionOutcome`, `localize_criterion_outcomes`
+- [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `module`; calls `assign`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `pick_open_share`; calls `pick_open_share`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -295,6 +297,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
   - `test_an_invalid_generated_repair_is_never_shown_as_a_different_approach`
 - [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
+- [tests/test_ro5_picks.py](../../../../../../tests/test_ro5_picks.py) — direct import
 - [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — direct import
   - `test_queue_is_stratified_contests_first_then_abstentions`
 

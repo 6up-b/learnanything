@@ -149,6 +149,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start`
   - `test_the_mixture_draws_over_the_same_candidates_in_every_session`
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
+- [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
 - [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
   - `test_a_chooser_naming_an_infeasible_or_unknown_id_falls_back`

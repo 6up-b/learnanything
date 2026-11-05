@@ -237,6 +237,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_coupling_is_prediction_only`
   - `test_hyperparameters_learned_and_replayable`
   - `test_subject_view_mixture_keeps_propensities_exact`
+- [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
+  - `test_the_rollouts_read_ads_fitted_learning_posterior_at_the_tag_and_priors_otherwise`
 
 ## Modification guidance
 

@@ -105,7 +105,8 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Combiner`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Combiner`, `Fsrs`, `fit_combiner`
+- [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]] — imports `module`; statically calls `Combiner`, `fit_combiner`
 - [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `Combiner`, `Fsrs`, `perform`, `sigmoid`; statically calls `Fsrs`, `perform`, `sigmoid`
 
 ## Dependencies
@@ -126,7 +127,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]], [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -144,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_same_theta_draw_is_used_across_candidates`
   - `test_the_vectorized_fsrs_is_the_scalar_one`
   - `test_v_recomputed_from_the_logged_rows_is_the_tails_next_action`
+- [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
+  - `test_the_combiner_is_fitted_on_resolved_checks_and_is_its_prior_with_none`
 
 ## Modification guidance
 

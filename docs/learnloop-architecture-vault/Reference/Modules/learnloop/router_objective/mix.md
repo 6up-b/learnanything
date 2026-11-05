@@ -144,6 +144,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_both_policies_mix_with_exact_propensities_and_the_decider_is_advice`
   - `test_the_seed_reproduces_the_draw`
   - `test_with_no_model_the_numeric_policy_serves_with_stop_in_every_support`
+- [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
+  - `test_the_check_takes_the_first_practice_slot_outside_the_mix_with_no_label`
+- [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
+  - `test_serving_records_each_coin_with_its_exact_probability_and_availability`
 
 ## Modification guidance
 

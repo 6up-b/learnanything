@@ -3,8 +3,8 @@ title: "policy_experiment_assignments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
+source_commit_timestamp: "2026-11-05T08:37:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite policy_experiment_assignments"
@@ -21,8 +21,11 @@ source_paths:
   - "migrations/098_controller_randomization_and_outcomes.sql"
   - "src/learnloop/daily_plan/objective_chooser.py"
   - "src/learnloop/db/stores/router.py"
+  - "src/learnloop/db/stores/router_objective.py"
   - "src/learnloop/ops/capture_report.py"
-  - "src/learnloop/scheduling/controller_store.py"
+  - "src/learnloop/params/parameter_registry.py"
+  - "src/learnloop/router_calibration_upgrade.py"
+  - "src/learnloop/router_objective/assignments.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -95,6 +98,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/daily_plan/objective_chooser.py`
 - `src/learnloop/ops/capture_report.py`
+- `src/learnloop/router_objective/assignments.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
@@ -111,6 +115,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_randomization_layer.py`
+- `tests/test_ro5_stop_coin.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

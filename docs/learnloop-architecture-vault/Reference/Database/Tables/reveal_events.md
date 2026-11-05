@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
+source_commit_timestamp: "2026-11-05T08:37:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/reveal_ledger.py"
-  - "src/learnloop/daily_plan/router_card.py"
+  - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reveal_coverage.py"
@@ -100,6 +100,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -113,6 +114,7 @@ Database triggers:
 - `src/learnloop/learner_context.py`
 - `src/learnloop/practice_index/retrieval.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router_objective/picks.py`
 - `src/learnloop/router_objective/question_state.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/substrate/intervention_outcomes.py`

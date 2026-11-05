@@ -3157,6 +3157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
   - `test_the_contract_is_copied_at_confirmation_at_the_tag_and_adjustable`
+- [tests/test_ro5_picks.py](../../../../../../tests/test_ro5_picks.py) — direct import
+  - `test_a_retry_reuses_the_factors_assignment`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import

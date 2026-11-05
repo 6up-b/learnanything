@@ -121,7 +121,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `uniform`; statically calls `uniform`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `seed_for`; statically calls `seed_for`
 - [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] — imports `module`; statically calls `component_distributions`, `draw_with_uniforms`, `effective_weights`, `uniform`
+- [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; statically calls `uniform`
 - [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] — imports `module`; statically calls `Draw`, `_pick`, `normalized`, `uniform`
+- [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `module`; statically calls `uniform`
+- [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; statically calls `_pick`, `uniform`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `module`; statically calls `component_distributions`, `draw`, `effective_weights`
 
 ## Dependencies
@@ -142,7 +145,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]], [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]], [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]], [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -161,6 +164,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start`
   - `test_the_floor_binds_where_the_models_put_no_mass`
   - `test_the_mixture_draws_over_the_same_candidates_in_every_session`
+- [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
+  - `test_the_arms_have_exact_probabilities_and_the_served_distribution_is_exact`
 - [tests/test_router_g3_propensity.py](../../../../../../tests/test_router_g3_propensity.py) — direct import
   - `test_the_logged_propensity_is_reproducible_from_the_logged_components`
   - `test_the_two_stage_marginal_is_the_mixture`

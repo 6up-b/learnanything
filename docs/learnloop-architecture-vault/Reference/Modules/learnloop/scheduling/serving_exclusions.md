@@ -91,6 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `routine_serving_exclusions`; statically calls `routine_serving_exclusions`
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `out_of_timing_serving_exclusions`; statically calls `out_of_timing_serving_exclusions`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `out_of_timing_serving_exclusions`; statically calls `out_of_timing_serving_exclusions`
 - [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] — imports `out_of_timing_serving_exclusions`; statically calls `out_of_timing_serving_exclusions`
@@ -123,7 +124,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]], [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]], [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -147,6 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
   - `test_r1_every_gate_of_the_build_is_the_admission_predicates`
+- [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
+  - `test_no_protected_or_exam_reserved_item_is_ever_eligible`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
 

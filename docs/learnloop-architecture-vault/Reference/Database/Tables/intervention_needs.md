@@ -3,8 +3,8 @@ title: "intervention_needs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
+source_commit_timestamp: "2026-11-05T08:37:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite intervention_needs"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/007_recall_coverage_interventions.sql"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/router_objective/checks.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
@@ -115,6 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/followup_run/jobs.py`
 - `src/learnloop/instructional/needs.py`
+- `src/learnloop/router_objective/checks.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
@@ -143,9 +145,9 @@ Indexes and uniqueness:
 - `tests/test_question_promotions.py`
 - `tests/test_question_signal.py`
 - `tests/test_recall_coverage_interventions.py`
+- `tests/test_ro5_checks.py`
 - `tests/test_show.py`
 - `tests/test_sidecar_contract.py`
-- `tests/test_source_first_needs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
