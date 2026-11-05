@@ -47,6 +47,12 @@ allowance; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header b
 ok and `foreign_key_check` empty; copied into place with the backup API, with no companion files. No row
 changes. The head holds 229 through 245.
 
+At RO2's landing onto main (`79a1ce32a9`: RO1 and FG1d), main's tracked `migration_head_244/state.sqlite` is the
+same blob as the one this head was built from (`929b55ae0e`; FG1d added no migration), so the head stands. Checked by
+rebuilding it: a backup-API copy of main's 244 outside the checkout, `apply_migrations` under the scratch-copy
+allowance applied `[245]` only, and its `iterdump` matches this file line for line except the one
+`schema_migrations` row's `applied_at`.
+
 ## Router objective RO1 (migration 244), `router/ro1-interval`, 2026-11-04
 
 Renamed from `migration_head_243` at RO1's landing onto main (FG1c took 242, RO0 243). `244_availability_time.sql` (three

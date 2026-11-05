@@ -3,8 +3,8 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "5cbf9a8519c4191b0b47d7a9740a881a776fa948"
+source_commit_timestamp: "2026-11-05T01:44:06-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
@@ -152,6 +152,7 @@ Indexes and uniqueness:
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_passage_check.py`
 - `tests/test_reader_reconnect.py`
+- `tests/test_ro2_history_protection.py`
 - `tests/test_router_card_reading_gaps.py`
 - `tests/test_salience_firewall.py`
 - `tests/test_ad1_reading_opportunities.py`

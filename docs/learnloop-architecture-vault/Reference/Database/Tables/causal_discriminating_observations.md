@@ -3,8 +3,8 @@ title: "causal_discriminating_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "5cbf9a8519c4191b0b47d7a9740a881a776fa948"
+source_commit_timestamp: "2026-11-05T01:44:06-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_discriminating_observations"
@@ -142,6 +142,7 @@ None found by exact static reference scan.
 - `tests/test_failure_triage_causal_gate.py`
 - `tests/test_followup_fg1c_codex_review.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
+- `tests/test_followup_fg1d_probe_shadow.py`
 - `tests/test_followup_journey.py`
 - `tests/test_followup_next_matrix.py`
 - `tests/test_hypothesis_marks.py`

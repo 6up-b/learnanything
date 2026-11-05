@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/history_card.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/history_card.py"
-source_commit: "workspace/uncommitted @ HEAD cf1019a3cf0e24ca3b011d09dbd08393cf180bd7"
-source_commit_timestamp: "2026-11-05T01:31:44-05:00"
-source_worktree_state: "modified"
+source_commit: "44b78d615870abc5b1d8cf9ea62f88c08f57c679"
+source_commit_timestamp: "2026-11-05T01:42:45-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD cf1019a3cf0e24ca3b011d09dbd08393cf180bd7` |
-| Commit timestamp | `2026-11-05T01:31:44-05:00` |
+| Worktree state | `clean` |
+| Source commit | `44b78d615870abc5b1d8cf9ea62f88c08f57c679` |
+| Commit timestamp | `2026-11-05T01:42:45-05:00` |
 
 ## Public API
 

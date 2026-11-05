@@ -3,8 +3,8 @@ title: "ad_reading_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "5cbf9a8519c4191b0b47d7a9740a881a776fa948"
+source_commit_timestamp: "2026-11-05T01:44:06-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_reading_opportunities"
@@ -137,6 +137,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_data_capture_codex_rereview.py`
 - `tests/test_figure_predictions.py`
+- `tests/test_ro2_history_resolve.py`
 - `tests/test_salience_firewall.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
