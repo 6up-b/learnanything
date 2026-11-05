@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/disclosures.py"
 source_paths:
   - "src/learnloop/ai/disclosures.py"
-source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
-source_commit_timestamp: "2026-11-04T19:32:38-05:00"
-source_worktree_state: "modified"
+source_commit: "9c3c613bdf639f94146be3c1f47dcef04060668a"
+source_commit_timestamp: "2026-11-04T09:06:52-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
-| Commit timestamp | `2026-11-04T19:32:38-05:00` |
+| Worktree state | `clean` |
+| Source commit | `9c3c613bdf639f94146be3c1f47dcef04060668a` |
+| Commit timestamp | `2026-11-04T09:06:52-05:00` |
 
 ## Public API
 

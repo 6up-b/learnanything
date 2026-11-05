@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/instructional/interventions.py"
 source_paths:
   - "src/learnloop/instructional/interventions.py"
-source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
-source_commit_timestamp: "2026-11-04T19:32:38-05:00"
-source_worktree_state: "modified"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.instructional"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
-| Commit timestamp | `2026-11-04T19:32:38-05:00` |
+| Worktree state | `clean` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 

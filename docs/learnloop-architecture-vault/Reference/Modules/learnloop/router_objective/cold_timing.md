@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/cold_timing.py"
 source_paths:
   - "src/learnloop/router_objective/cold_timing.py"
-source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
-source_commit_timestamp: "2026-11-04T19:32:38-05:00"
-source_worktree_state: "modified"
+source_commit: "be63e3aa478ec034aa69874c8751395b507d09ed"
+source_commit_timestamp: "2026-11-04T09:28:50-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
-| Commit timestamp | `2026-11-04T19:32:38-05:00` |
+| Worktree state | `clean` |
+| Source commit | `be63e3aa478ec034aa69874c8751395b507d09ed` |
+| Commit timestamp | `2026-11-04T09:28:50-05:00` |
 
 ## Public API
 

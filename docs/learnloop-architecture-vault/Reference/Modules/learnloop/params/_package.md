@@ -10,7 +10,7 @@ source_paths:
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/params/sensitivity_certificates.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.params"
