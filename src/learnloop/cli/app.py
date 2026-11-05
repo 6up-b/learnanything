@@ -19,6 +19,7 @@ from learnloop.algorithm_versions import (
     DATA_CAPTURE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
+    ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -114,7 +115,8 @@ def upgrade(
                 f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, "
                 f"{TEACHER_ALGORITHM_VERSION}, {HELP_FOLD_ATTACH_ALGORITHM_VERSION}, "
                 f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
-                f"{FOLLOWUP_SERVE_ALGORITHM_VERSION} or {INTERVAL_FACTOR_ALGORITHM_VERSION}); default: the latest."
+                f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION} or "
+                f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -432,6 +434,10 @@ def upgrade(
         from learnloop.interval_factor_upgrade import upgrade_to_interval_factor
 
         result = upgrade_to_interval_factor(_root(vault))
+    elif to == ROUTER_OBJECTIVE_ALGORITHM_VERSION:
+        from learnloop.router_objective_upgrade import upgrade_to_router_objective
+
+        result = upgrade_to_router_objective(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -444,7 +450,8 @@ def upgrade(
             f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, "
             f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION} or "
             f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
-            f"{FOLLOWUP_SERVE_ALGORITHM_VERSION} or {INTERVAL_FACTOR_ALGORITHM_VERSION}."
+            f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION} or "
+            f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

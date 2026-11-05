@@ -757,6 +757,19 @@ FOLLOWUP_SERVE_ALGORITHM_VERSION = "mvp-0.45"
 # when the config and that record disagree.
 INTERVAL_FACTOR_ALGORITHM_VERSION = "mvp-0.46"
 
+# mvp-0.47 (router objective RO4; owner decisions 2026-11-03 and 2026-11-04;
+# docs/specs/spec_router_objective_v1.md §8), on top of mvp-0.46 (the chain
+# stays linear). The objective, live: the plan's minutes become a soft limit
+# (stop is supported at every reversible block boundary as an offer the learner
+# can override, a block can run past the remembered minutes, lane shares stop
+# excluding) and each block is drawn from a learned mix of two policies, the
+# frontier LLM's (router_llm_choice_v3) and the numeric expected-value policy
+# (argmax of the objective's Q-bar), with exact logged propensities and one
+# immutable trace per decision. Kill switch ``router_objective.enabled``
+# (default true at the tag): off serves mvp-0.46's mixture and frame exactly;
+# below the tag nothing is computed.
+ROUTER_OBJECTIVE_ALGORITHM_VERSION = "mvp-0.47"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -802,6 +815,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     DATA_CAPTURE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
+    ROUTER_OBJECTIVE_ALGORITHM_VERSION,
 )
 
 
@@ -1014,6 +1028,12 @@ FOLLOWUP_SERVE_VERSIONS: frozenset[str] = successors_from(FOLLOWUP_SERVE_ALGORIT
 # its own switch). Every later successor keeps them; gates must use this set,
 # never equality.
 INTERVAL_FACTOR_VERSIONS: frozenset[str] = successors_from(INTERVAL_FACTOR_ALGORITHM_VERSION)
+
+# Versions whose plan serves the router objective (router objective RO4: the
+# soft-budget frame, the two policies and their learned mix, the trace), behind
+# ``router_objective.enabled``. Every later successor keeps them; gates must use
+# this set, never equality.
+ROUTER_OBJECTIVE_VERSIONS: frozenset[str] = successors_from(ROUTER_OBJECTIVE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

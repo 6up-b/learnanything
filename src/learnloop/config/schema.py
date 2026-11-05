@@ -4177,11 +4177,73 @@ class RouterObjectiveConfig(BaseModel):
 
     Off, or below the tag, each of RO1's restores mvp-0.45 exactly. (The interval factor's switch lives with the
     factor, ``[scheduler.surprise] remove_interval_factor``.)
+
+    RO4 (mvp-0.47, §8): ``enabled`` and its seeds, each shown in the trace and changeable without a code change.
+    Every seed is chosen by judgment and labelled so (§12); the ``keep`` bounds are numerical safeguards.
     """
 
     receipts: bool = True
     available_at_reads: bool = True
     self_report_not_validated: bool = True
+    #: RO4's kill switch (mvp-0.47, §8.3): the soft-budget frame, the two policies and their learned mix,
+    #: the trace. Off, mvp-0.46's mixture and frame exactly; below the tag nothing is computed. With
+    #: ``receipts`` off the objective still serves and no comparison score is formed (§8.7).
+    enabled: bool = True
+    #: §8.4: the LLM's effect-slope correction ``ΔG = α_v + β_v·f(a)`` on the memory rollout's
+    #: learning effect. Off by hand, the value is the memory rollout's alone.
+    sensors_in_value: bool = True
+    #: §8.1: the parameter draws shared across every candidate (common random numbers), at least this
+    #: many, more while the LLM policy is still out, up to ``rollout_theta_draws_max`` (``keep``).
+    rollout_theta_draws: int = Field(default=8, ge=1, le=256)
+    rollout_theta_draws_max: int = Field(default=64, ge=1, le=1024)
+    #: §8.1 ``H`` (days): undated uses are counted to at least ``t + H`` (and to the latest active goal
+    #: date when that is further), and ``T_C`` continues the tail for a further ``H``. A config seed.
+    horizon_days: float = Field(default=90.0, gt=0.0, le=3650.0)
+    #: §8.5 ``c``: the daily density of undated uses per topic, copied into a goal's contract when it is
+    #: created (so a change here never rewrites a goal's history); topics outside any goal read this.
+    #: A preference, labelled a seed: one exam date is worth about 90 days of ongoing use.
+    undated_use_density: float = Field(default=1.0 / 90.0, ge=0.0, le=10.0)
+    #: §8.5 ``ω``: a dated goal's weight per topic of its scope at its date, the default asked at goal
+    #: creation and the stated default for a goal with no confirmed contract.
+    dated_use_weight: float = Field(default=1.0, ge=0.0, le=1000.0)
+    #: §8.6: a session ends after a gap of at least this many minutes (``keep``), so short restarts
+    #: cannot reset the attention price.
+    session_gap_minutes: float = Field(default=60.0, gt=0.0, le=1440.0)
+    #: §8.6 the runaway guard (``keep``, a numerical safeguard, not a budget): past this many session
+    #: minutes a stop offer is forced into the support and the crossing reported. None: 3 x the plan's
+    #: remembered minutes.
+    session_guard_minutes: float | None = Field(default=None, gt=0.0, le=1440.0)
+    #: §8.7 ``B`` (days): the evaluation window of a decision's common return.
+    evaluation_window_days: int = Field(default=14, ge=1, le=365)
+    #: §8.3 the weight's seeds, chosen by judgment and not measured: ``w`` starts at
+    #: ``llm_weight_prior``; ``ℓ_L``, ``ℓ_Q`` are the declared minimum shares (prices for information).
+    llm_weight_prior: float = Field(default=0.8, gt=0.0, lt=1.0)
+    llm_min_share: float = Field(default=0.1, ge=0.0, lt=0.5)
+    numeric_min_share: float = Field(default=0.1, ge=0.0, lt=0.5)
+    #: §8.7 ``s₀`` (use-equivalents): the prior sd of ``Δ``, about one block's effect over ``B`` days
+    #: of undated use at the default ``c``.
+    delta_prior_sd: float = Field(default=0.01, gt=0.0, le=10.0)
+    #: §8.4 the effect slope's prior ``β_v ~ N(mean, variance)``, as AD gives its item-only LLM signal
+    #: (``alpha:z_v1``); ``α_v`` is centred on zero with the same variance.
+    effect_slope_prior_mean: float = 0.2
+    effect_slope_prior_variance: float = Field(default=0.04, gt=0.0, le=100.0)
+    #: §8.1 the stop offer's acceptance, ``p_accept ~ Beta(a, b)`` updated from §4 row 7.
+    stop_accept_prior_a: float = Field(default=1.0, gt=0.0, le=1000.0)
+    stop_accept_prior_b: float = Field(default=1.0, gt=0.0, le=1000.0)
+    #: §8.3 the LLM policy's decision card bound (UTF-8 bytes, ``keep``), one shared budget over the
+    #: union of the candidates' topics, as RO2's card's.
+    llm_card_token_budget: int = Field(default=48_000, ge=2_000, le=400_000)
+
+    @model_validator(mode="after")
+    def _mins_leave_room(self) -> "RouterObjectiveConfig":
+        if self.llm_min_share + self.numeric_min_share >= 1.0:
+            raise ValueError("router_objective.llm_min_share + numeric_min_share must stay below 1")
+        if self.llm_weight_prior <= self.llm_min_share or self.llm_weight_prior >= 1.0 - self.numeric_min_share:
+            raise ValueError("router_objective.llm_weight_prior must lie strictly between llm_min_share and "
+                             "1 - numeric_min_share")
+        if self.rollout_theta_draws_max < self.rollout_theta_draws:
+            raise ValueError("router_objective.rollout_theta_draws_max must be at least rollout_theta_draws")
+        return self
 
 
 class FollowupServeConfig(BaseModel):

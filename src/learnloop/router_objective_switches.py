@@ -13,6 +13,10 @@ true; off, or below the tag, the predecessor's behaviour:
   ``tests/test_ro1_availability_reads.py``);
 * :func:`self_report_not_validated_on`: a ``learner_report:*`` resolution id is no validated evidence (§5.4).
 
+Router objective RO4's (§8; ``ROUTER_OBJECTIVE_VERSIONS``, mvp-0.47): :func:`objective_on` (the tag and
+``[router_objective] enabled``), :func:`objective_scores_on` (and RO0's receipts: a comparison score needs
+them) and :func:`sensors_in_value_on`.
+
 :func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
 snapshot, §5.5), so ``doctor`` can say when persisted due dates were derived under another setting.
 """
@@ -22,7 +26,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from learnloop.algorithm_versions import INTERVAL_FACTOR_VERSIONS
+from learnloop.algorithm_versions import INTERVAL_FACTOR_VERSIONS, ROUTER_OBJECTIVE_VERSIONS
 
 #: The resolution-id prefix a learner's own report carries (``record_unresolved_cause_self_report``).
 LEARNER_REPORT_PREFIX = "learner_report:"
@@ -126,6 +130,36 @@ def validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]:
     return [value for value in values if not str(value).startswith(LEARNER_REPORT_PREFIX)]
 
 
+def objective_tag(config: Any) -> bool:
+    """RO4 (§8): the vault is at the router objective's successor (mvp-0.47) or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in ROUTER_OBJECTIVE_VERSIONS
+
+
+def objective_on(config: Any) -> bool:
+    """RO4 (§8.3): the objective serves: the tag and ``[router_objective] enabled``. Off, or below the tag,
+    the predecessor's mixture and frame exactly (below the tag nothing is computed)."""
+
+    section = getattr(config, "router_objective", None)
+    return objective_tag(config) and bool(getattr(section, "enabled", False))
+
+
+def objective_scores_on(config: Any) -> bool:
+    """RO4 (§8.3, §8.7): a comparison score can be formed: the objective serves AND RO0's receipts are on
+    (with receipts off the objective serves and no score forms)."""
+
+    section = getattr(config, "router_objective", None)
+    return objective_on(config) and bool(getattr(section, "receipts", False))
+
+
+def sensors_in_value_on(config: Any) -> bool:
+    """RO4 (§8.4): the LLM's effect-slope correction enters the value (by hand off)."""
+
+    section = getattr(config, "router_objective", None)
+    return objective_on(config) and bool(getattr(section, "sensors_in_value", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -143,7 +177,11 @@ __all__ = [
     "available_at_reads_on",
     "interval_factor_removed",
     "known_at",
+    "objective_on",
+    "objective_scores_on",
+    "objective_tag",
     "projection_switches",
+    "sensors_in_value_on",
     "self_report_not_validated_on",
     "validated_resolution_ids",
 ]

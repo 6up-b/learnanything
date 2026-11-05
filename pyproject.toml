@@ -644,6 +644,7 @@ source_modules = [
     "learnloop.router_mixture_upgrade",
     "learnloop.router_staged_upgrade",
     "learnloop.router_objective_switches",
+    "learnloop.router_objective_upgrade",
     "learnloop.route_rules_upgrade",
     "learnloop.scheduling",
     "learnloop.serve_eligibility",

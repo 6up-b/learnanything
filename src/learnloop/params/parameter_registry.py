@@ -280,6 +280,10 @@ MODULE_INVENTORY: dict[str, str] = {
     "ad_history_resolve": "src/learnloop/adaptive_difficulty/history_resolve.py",
     "ad_history_audit": "src/learnloop/adaptive_difficulty/history_audit.py",
     "ad_scoring": "src/learnloop/adaptive_difficulty/scoring.py",
+    # Router objective RO4 (spec_router_objective_v1 §8): the value estimator, its memory model, the
+    # attention price and the weight's posterior. Every number is a labelled seed, a keep bound or numerical.
+    "router_objective_memory": "src/learnloop/router_objective/memory.py",
+    "router_objective_value": "src/learnloop/router_objective/value.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -1492,6 +1496,23 @@ _reg_const("shadow_components:COMPOSED_SELECTOR_TELEMETRY_HORIZON_DAYS", "thresh
            "selector telemetry retires after this horizon (secondary product, design §B step 6).")
 
 
+# Router objective RO4 (spec_router_objective_v1 §8.4, §8.6): the memory model's combiner prior is a labelled
+# seed the Bayesian logistic fit moves; the rest are numerical resolution or structural units.
+_reg_const("router_objective_memory:COMBINER_PRIOR_MEAN", "prior", owner="router_objective_memory",
+           rationale="seed (judgment, labelled; RO4 §8.4): the combiner's prior means (a0, aA, aR) = (0, 1, 0.5): AD's "
+           "predictive the baseline, FSRS's item memory moving it half its gap; the Laplace fit on realized cold "
+           "outcomes moves it.")
+_reg_const("router_objective_memory:COMBINER_PRIOR_VARIANCE", "prior", owner="router_objective_memory",
+           rationale="seed (judgment, labelled; RO4 §8.4): the combiner's prior variance per coefficient, 0.25.")
+_reg_const("router_objective_memory:_R_CLIP", "numerical", kind="structural", owner="router_objective_memory",
+           rationale="numerical: retrievability kept inside (0, 1) before its logit (an exact 1 right after a review).")
+_reg_const("router_objective_memory:_FIT_ITERATIONS", "numerical", kind="structural", owner="router_objective_memory",
+           rationale="numerical resolution of the combiner's damped Newton fit, never a judgement.")
+_reg_const("router_objective_memory:_FIT_TOLERANCE", "numerical", kind="structural", owner="router_objective_memory",
+           rationale="numerical resolution of the combiner's damped Newton fit, never a judgement.")
+_reg_const("router_objective_value:MINUTES_PER_DAY", "numerical", kind="structural", owner="router_objective_value",
+           rationale="structural unit: active minutes to days on the rollout's clock.")
+
 # ---------------------------------------------------------------------------
 # Inventory A -- config-leaf classification rules (ordered; first match wins).
 # Each rule maps a matcher to a (kind, param_class, lifecycle, status, rationale)
@@ -1758,6 +1779,47 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RO1's successor mvp-0.46: a learner's misconception pick (a learner_report:* "
         "resolution id) is not counted as validated evidence in the diagnoser's history; the factor's status "
         "and resolution ids are unchanged. Off, every resolution id counts, as the predecessor."),
+    # Router objective RO4 (mvp-0.47; spec_router_objective_v1 §8, §12): the successor's kill switches,
+    # its seeds and its keep bounds. No weight, margin or threshold is a hand-set constant: every seed is
+    # a labelled prior a posterior moves (w through the Gaussian posterior over Δ, β_v through the effect
+    # slopes, p_accept through §4 row 7, κ0 re-centred daily) or a stated preference (c, ω, H, B), and
+    # the bounds are numerical safeguards (keep).
+    _ConfigRule(_exact(
+        "router_objective.enabled", "router_objective.sensors_in_value",
+    ), "structural", "operational",
+        "kill switches for RO4's successor mvp-0.47: enabled serves the objective (soft-budget frame, the two "
+        "policies and their learned mix, the trace); off, mvp-0.46's mixture and frame exactly. "
+        "sensors_in_value: the LLM's effect-slope correction on the memory rollout's learning effect."),
+    _ConfigRule(_exact(
+        "router_objective.rollout_theta_draws", "router_objective.rollout_theta_draws_max",
+    ), "structural", "numerical",
+        "keep (RO4 §8.1, mvp-0.47): the parameter draws shared across candidates (at least the first, more while "
+        "the LLM policy is out, up to the second): a precision and work bound, never a judgement; the trace "
+        "reports the paired standard error of the top two."),
+    _ConfigRule(_exact(
+        "router_objective.horizon_days", "router_objective.undated_use_density",
+        "router_objective.dated_use_weight", "router_objective.evaluation_window_days",
+    ), "decision", "prior",
+        "RO4 §3.3, §8.5, §8.7 seeds (mvp-0.47), chosen by judgment and labelled: H (how far undated uses count), "
+        "c (the daily density of undated uses, copied into a goal at creation), ω (a dated goal's weight per "
+        "topic) and B (the evaluation window). Preferences, not learnable from outcomes; shown in every trace."),
+    _ConfigRule(_exact(
+        "router_objective.session_gap_minutes", "router_objective.session_guard_minutes",
+        "router_objective.llm_card_token_budget",
+    ), "structural", "constraint",
+        "keep (RO4 §8.6, §8.3, mvp-0.47): the gap that ends a session for the attention price, the runaway guard "
+        "(3 x the remembered minutes by default; a numerical safeguard that forces a stop offer into the "
+        "support and is reported, never a budget) and the LLM policy's card bound (prompt size)."),
+    _ConfigRule(_exact(
+        "router_objective.llm_weight_prior", "router_objective.llm_min_share",
+        "router_objective.numeric_min_share", "router_objective.delta_prior_sd",
+        "router_objective.effect_slope_prior_mean", "router_objective.effect_slope_prior_variance",
+        "router_objective.stop_accept_prior_a", "router_objective.stop_accept_prior_b",
+    ), "decision", "prior",
+        "RO4 §8.3, §8.4, §8.7, §8.1 seeded priors (mvp-0.47), chosen by judgment and not measured: w starts at 0.8 "
+        "with declared minimum shares 0.1 each (prices for information), the Gaussian prior sd s0 = 0.01 over "
+        "Δ that the scores move, the effect slope β_v ~ N(0.2, 0.04) (AD's alpha:z_v1) learned from "
+        "randomized assignments, and p_accept ~ Beta(1, 1) updated from §4 row 7."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded
