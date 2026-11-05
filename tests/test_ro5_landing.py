@@ -329,6 +329,30 @@ def test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols(
     assert why.jargon_in(text) == [] and not _STAGE_OR_SYMBOL.search(text) and "moved" in text
 
 
+@pytest.mark.parametrize("version", ["ro4", "ro5"])
+def test_r5_2_the_objective_report_prints_w_and_its_posterior(tmp_path, version):
+    """RO4's open item 2: the CLI never passed the weight, so the report printed ``w None`` and an empty posterior
+    while every trace recorded 0.8."""
+
+    import json
+
+    from typer.testing import CliRunner
+
+    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
+    from learnloop.cli import app
+
+    env = mixture_env(tmp_path, fake_runtime(), version=TAG if version == "ro5" else ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+    run(env)
+    runner = CliRunner()
+    shown = runner.invoke(app, ["router", "objective-report", "--vault", str(env.vault.root), "--json"])
+    assert shown.exit_code == 0, shown.output
+    value = json.loads(shown.output)["router_objective"]["recommendation_value"]
+    assert value["w"] == pytest.approx(0.8)
+    assert value["posterior"].get("source") and "mean" in value["posterior"]
+    words = runner.invoke(app, ["router", "objective-report", "--vault", str(env.vault.root)])
+    assert words.exit_code == 0 and "w 0.8" in words.output and "w None" not in words.output
+
+
 def test_r6_the_return_models_assumption_is_labelled_in_the_trace_and_the_report():
     # The return model's record (the trace's ``inputs.return_model`` and the report's ``return_model``) is
     # ReturnSlope.as_dict: the assumption travels with it, fitted or at its prior.
