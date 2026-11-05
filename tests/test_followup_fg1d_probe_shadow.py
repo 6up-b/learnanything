@@ -21,6 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
 from learnloop.clock import SystemClock
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_serve import workflow as wf
@@ -41,10 +42,11 @@ def _summary(result):
     return result.learner_state_diff["summary"]
 
 
-@pytest.fixture
-def desk(tmp_path, monkeypatch):
+@pytest.fixture(params=[FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION])
+def desk(tmp_path, monkeypatch, request):
+    # FG1's tag and RO1's successor: neither changes the fold, so the answer holds at both.
     monkeypatch.setattr(SystemClock, "now", lambda self: INSTANT)
-    paths, vault, repository = live_shape_vault(tmp_path)
+    paths, vault, repository = live_shape_vault(tmp_path, version=request.param)
     # The seeded vault predates the tag: rebuild it, as the owner does after an upgrade, so the
     # shadow starts at 0/0/0 and whatever it reads afterwards is the journey's.
     rebuild_derived_state(vault, repository)
