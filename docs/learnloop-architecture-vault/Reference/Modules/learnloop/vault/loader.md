@@ -446,6 +446,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
   - `test_coupling_is_prediction_only`
   - `test_readiness_numbers_from_subject_view_with_untested_cells`
+  - `test_ro0_decision_state_fields_read_the_cards_numbers_with_the_state_they_came_from`
   - `test_shadow_report_names_what_a_new_version_reinterprets`
 - [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — direct import
   - `test_a_successful_upgrade_archives_the_log_and_the_report_counts_from_zero`
@@ -1693,6 +1694,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_kill_switch_writes_nothing_and_the_rpc_is_a_no_op`
   - `test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it`
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
+- [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_a_rediagnosis_reads_the_marks_on_its_own_attempt`
+  - `test_with_the_switch_off_the_card_is_byte_identical_whatever_rows_exist`
 - [tests/test_hypothesis_sets.py](../../../../../../tests/test_hypothesis_sets.py) — direct import
   - `test_hypothesis_set_adds_active_misconception`
   - `test_hypothesis_set_always_has_mastered_and_unfamiliar`
@@ -2779,6 +2785,25 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_revealed_cold_item_cannot_burn_its_cold_measurement`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — direct import
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f1_a_refused_disclosure_write_leaves_the_question_and_warns`
+  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
+  - `test_f8_an_unchanged_load_takes_no_write_lock`
+  - `test_f8_two_loaders_sweeping_a_pause_write_it_once`
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_a_source_opening_stands_whatever_its_initiators_receipt_meets`
+  - `test_r1_an_answer_stands_whatever_its_questions_receipt_meets`
+  - `test_r2_an_opening_with_two_sessions_open_names_neither`
+  - `test_r2_off_a_visit_keeps_no_link`
+- [tests/test_ro0_gate.py](../../../../../../tests/test_ro0_gate.py) — direct import
+  - `test_rebuild_leaves_the_receipts_alone`
+- [tests/test_ro0_question_state.py](../../../../../../tests/test_ro0_question_state.py) — direct import
+- [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
+  - `test_each_row_reports_what_was_written_and_measured_bytes`
+- [tests/test_ro0_row11_goal_lifecycle.py](../../../../../../tests/test_ro0_row11_goal_lifecycle.py) — direct import
+  - `test_a_refused_row_rolls_back_alone`
+- [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
+- [tests/test_ro0_row5_event_times.py](../../../../../../tests/test_ro0_row5_event_times.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
 - [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import

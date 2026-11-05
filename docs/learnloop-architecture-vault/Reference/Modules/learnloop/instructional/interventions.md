@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/instructional/interventions.py"
 source_paths:
   - "src/learnloop/instructional/interventions.py"
-source_commit: "8e8f41d2ac4eb8b5ec5c23bef529c67de7ce38a7"
-source_commit_timestamp: "2026-10-13T16:04:01-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.instructional"
@@ -50,31 +50,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/interventions.py](../../../../../../src/learnloop/instructional/interventions.py) |
-| Source lines | 511 |
+| Source lines | 515 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `8e8f41d2ac4eb8b5ec5c23bef529c67de7ce38a7` |
-| Commit timestamp | `2026-10-13T16:04:01-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
-- `interventions_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 60)
-- `record_intervention(vault: LoadedVault, repository: Repository, *, kind: str, clock: Clock | None=None, existing: Callable[[Any], str | None] | None=None, **fields: Any) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 65) — Append one intervention row; None (nothing written) when the switch is off.
-- `seconds_since_related_exposure(verdicts: Sequence[Mapping[str, Any] | None], *, now: str) -> float | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 177) — Seconds from the most recent related exposure any verdict records to ``now`` (the delivery), or None when none records one (Codex third pass F13).
-- `record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str, practice_item_id: str | None=None, exercise: Mapping[str, Any] | None=None, serve_verdict: Mapping[str, Any] | None=None, session_id: str | None=None, router_decision_id: str | None=None, import_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 188) — A picked proposal delivered: an item (``practice_pick``) or an imported textbook exercise (``source_exercise``, with the item it became).
-- `record_tutor_citations(vault: LoadedVault, repository: Repository, event_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 253) — A tutor answer citing retrieved or pinned spans (``source_passage``).
-- `record_shown_spans(repository: Repository, keys: Sequence[str], *, context: str, entity_type: str, entity_id: str, source_versions: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 279) — One ``source_exposure_events`` row per span whose text became visible.
-- `record_offer_shown(vault: LoadedVault, repository: Repository, tool_call_id: str, *, span_keys: Sequence[str]=(), session_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 319) — A tool's passage offer opened (``source_passage``) or comparison shown (``comparison``).
-- `offer_shown(vault: LoadedVault, repository: Repository, tool_call_id: str, *, span_keys: Sequence[str]=(), session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 328) — The passages that became visible are recorded as exposure first, always; the intervention (when ``interventions`` is on) links those rows.
-- `record_remediation_delivery(vault: LoadedVault, repository: Repository, episode: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 367) — Ranked remediation passages delivered (``remediation_passage``); the fallback prescription is not retrieval.
-- `record_need_served(vault: LoadedVault, repository: Repository, need: Mapping[str, Any], *, practice_item_id: str, proposal_id: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 387) — A need fulfilled from the sources and then served (``source_exercise``).
-- `outcomes_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 428) — ``learnloop sources outcomes``: associations by intent, kind, caller and source.
+- `interventions_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 61)
+- `record_intervention(vault: LoadedVault, repository: Repository, *, kind: str, clock: Clock | None=None, existing: Callable[[Any], str | None] | None=None, **fields: Any) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 66) — Append one intervention row; None (nothing written) when the switch is off.
+- `seconds_since_related_exposure(verdicts: Sequence[Mapping[str, Any] | None], *, now: str) -> float | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 178) — Seconds from the most recent related exposure any verdict records to ``now`` (the delivery), or None when none records one (Codex third pass F13).
+- `record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str, practice_item_id: str | None=None, exercise: Mapping[str, Any] | None=None, serve_verdict: Mapping[str, Any] | None=None, session_id: str | None=None, router_decision_id: str | None=None, import_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 189) — A picked proposal delivered: an item (``practice_pick``) or an imported textbook exercise (``source_exercise``, with the item it became).
+- `record_tutor_citations(vault: LoadedVault, repository: Repository, event_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 254) — A tutor answer citing retrieved or pinned spans (``source_passage``).
+- `record_shown_spans(repository: Repository, keys: Sequence[str], *, context: str, entity_type: str, entity_id: str, source_versions: Mapping[str, Any] | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 280) — One ``source_exposure_events`` row per span whose text became visible.
+- `record_offer_shown(vault: LoadedVault, repository: Repository, tool_call_id: str, *, span_keys: Sequence[str]=(), session_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 321) — A tool's passage offer opened (``source_passage``) or comparison shown (``comparison``).
+- `offer_shown(vault: LoadedVault, repository: Repository, tool_call_id: str, *, span_keys: Sequence[str]=(), session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 330) — The passages that became visible are recorded as exposure first, always; the intervention (when ``interventions`` is on) links those rows.
+- `record_remediation_delivery(vault: LoadedVault, repository: Repository, episode: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 371) — Ranked remediation passages delivered (``remediation_passage``); the fallback prescription is not retrieval.
+- `record_need_served(vault: LoadedVault, repository: Repository, need: Mapping[str, Any], *, practice_item_id: str, proposal_id: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 391) — A need fulfilled from the sources and then served (``source_exercise``).
+- `outcomes_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 432) — ``learnloop sources outcomes``: associations by intent, kind, caller and source.
 
 ### Module constants
 
-- `ASSOCIATIONS_LABEL` ([src/learnloop/instructional/interventions.py](../../../../../../src/learnloop/instructional/interventions.py), line 56)
+- `ASSOCIATIONS_LABEL` ([src/learnloop/instructional/interventions.py](../../../../../../src/learnloop/instructional/interventions.py), line 57)
 
 ### Explicit exports
 
@@ -95,13 +95,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_pick_delivery(proposal_id: str, practice_item_id: str | None, import_id: str | None) -> Callable[[Any], str | None]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 87) — One delivery per picked proposal candidate (Codex re-review F10).
-- `_revision_ids(repository: Repository, extraction_ids: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 104)
-- `_check_entry(valuation: Mapping[str, Any] | None, ref: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 112) — The valued check (or valued candidate) for ``ref`` in a proposal's valuation receipt: the calibration fields (§11.4).
-- `_state_ref(valuation: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 148)
-- `_exposure_moments(verdict: Mapping[str, Any]) -> list[datetime]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 158) — When the verdict's related exposures happened: the persisted stamps, else (a verdict recorded before them) its check time less the age it measured then.
-- `_wilson(successes: int, n: int, z: float=1.96) -> list[float] | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 404)
-- `_rates(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 413)
+- `_pick_delivery(proposal_id: str, practice_item_id: str | None, import_id: str | None) -> Callable[[Any], str | None]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 88) — One delivery per picked proposal candidate (Codex re-review F10).
+- `_revision_ids(repository: Repository, extraction_ids: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 105)
+- `_check_entry(valuation: Mapping[str, Any] | None, ref: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 113) — The valued check (or valued candidate) for ``ref`` in a proposal's valuation receipt: the calibration fields (§11.4).
+- `_state_ref(valuation: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 149)
+- `_exposure_moments(verdict: Mapping[str, Any]) -> list[datetime]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 159) — When the verdict's related exposures happened: the persisted stamps, else (a verdict recorded before them) its check time less the age it measured then.
+- `_wilson(successes: int, n: int, z: float=1.96) -> list[float] | None` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 408)
+- `_rates(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/interventions.py), line 417)
 
 ## Who imports or calls it
 
@@ -132,6 +132,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `format_block_span`; calls `format_block_span`
 - [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] — imports `caller_for_question_event`; calls `caller_for_question_event`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`
 - [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] — imports `derive_policy`; calls `derive_policy`
 - [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] — imports `COLD_STATES`, `MEASURED_COLD_STATES`, `SUCCESS_CORRECTNESS`, `rebuild_intervention_outcomes`; calls `rebuild_intervention_outcomes`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`

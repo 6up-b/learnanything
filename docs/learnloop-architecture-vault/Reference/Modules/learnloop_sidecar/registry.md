@@ -329,6 +329,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_round3_review.py](../../../../../tests/test_required_method_round3_review.py) — direct import
   - `test_f3_adjudication_shows_the_question_the_answer_was_given`
 - [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
+- [tests/test_ro0_codex_review.py](../../../../../tests/test_ro0_codex_review.py) — direct import
+- [tests/test_ro0_gate.py](../../../../../tests/test_ro0_gate.py) — direct import
+- [tests/test_ro0_rows7_8_sessions.py](../../../../../tests/test_ro0_rows7_8_sessions.py) — direct import
 - [tests/test_router_offer_log.py](../../../../../tests/test_router_offer_log.py) — direct import
 - [tests/test_router_outcomes.py](../../../../../tests/test_router_outcomes.py) — direct import
   - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`

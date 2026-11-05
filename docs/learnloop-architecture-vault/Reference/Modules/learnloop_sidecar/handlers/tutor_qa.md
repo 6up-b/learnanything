@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/tutor_qa.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/tutor_qa.py"
-source_commit: "afb17672c627b4f4422c149ac63dd2addef98a9b"
-source_commit_timestamp: "2026-11-01T20:23:43-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -49,54 +49,54 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/tutor_qa.py](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py) |
-| Source lines | 959 |
+| Source lines | 963 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `afb17672c627b4f4422c149ac63dd2addef98a9b` |
-| Commit timestamp | `2026-11-01T20:23:43-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
 - `class AskTutorQuestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 41)
-- `class RateTutorAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 77)
-- `class SaveTutorAnswerNoteInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 82)
-- `class GetTutorTranscriptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 87)
-- `class PromoteTutorQuestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 100)
-- `class ListQuestionQueueInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 107)
-- `class ResolveQuestionEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 113)
-- `list_question_queue(ctx: SidecarContext, params: ListQuestionQueueInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 119) — The outstanding-question queue (newest first) + the open count.
-- `resolve_question_event(ctx: SidecarContext, params: ResolveQuestionEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 138) — Flip one question to open/resolved/dismissed (learner-owned queue state).
-- `ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 158)
-- `class PanelAsk` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 352) — What the server derives for one practice or feedback question while ``ask.panel_enabled`` (Reader CA2 §7.4, K5, K7; Codex review F3, F6, F10), never from the client's word: the answer mode, the validated workbench, the attempt's key and practice session, whether the item is unde…
-  - `bound(self) -> bool` (line 370; public)
-- `attempt_aliases(repository: Any, practice_item_id: str | None, submission_id: str | None, workbench_session_id: str | None) -> AttemptAliases | None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 442) — Astra batch review (Medium): the other identities of the attempt a practice question names (``reader.workbench.attempt_identities``: the answer box's draft handed into Work in Steps, resumed in the Reader), so its thread and its per-attempt budget are one in every host.
-- `tutor_practice_request(vault: Any, repository: Any, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 551) — The answer's practice request, or None when the offer is switched off.
-- `class PreviewTutorOpeningInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 565)
-- `preview_tutor_opening(ctx: SidecarContext, params: PreviewTutorOpeningInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 571) — A proactive tutor opening for a just-closed diagnostic block (§12.1).
-- `rate_tutor_answer(ctx: SidecarContext, params: RateTutorAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 595)
-- `save_tutor_answer_note(ctx: SidecarContext, params: SaveTutorAnswerNoteInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 603)
-- `promote_tutor_question(ctx: SidecarContext, params: PromoteTutorQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 624) — Persist and enqueue an answered tutor turn for durable promotion.
-- `get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 729)
+- `class RateTutorAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 80)
+- `class SaveTutorAnswerNoteInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 85)
+- `class GetTutorTranscriptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 90)
+- `class PromoteTutorQuestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 103)
+- `class ListQuestionQueueInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 110)
+- `class ResolveQuestionEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 116)
+- `list_question_queue(ctx: SidecarContext, params: ListQuestionQueueInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 122) — The outstanding-question queue (newest first) + the open count.
+- `resolve_question_event(ctx: SidecarContext, params: ResolveQuestionEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 141) — Flip one question to open/resolved/dismissed (learner-owned queue state).
+- `ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 161)
+- `class PanelAsk` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 356) — What the server derives for one practice or feedback question while ``ask.panel_enabled`` (Reader CA2 §7.4, K5, K7; Codex review F3, F6, F10), never from the client's word: the answer mode, the validated workbench, the attempt's key and practice session, whether the item is unde…
+  - `bound(self) -> bool` (line 374; public)
+- `attempt_aliases(repository: Any, practice_item_id: str | None, submission_id: str | None, workbench_session_id: str | None) -> AttemptAliases | None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 446) — Astra batch review (Medium): the other identities of the attempt a practice question names (``reader.workbench.attempt_identities``: the answer box's draft handed into Work in Steps, resumed in the Reader), so its thread and its per-attempt budget are one in every host.
+- `tutor_practice_request(vault: Any, repository: Any, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 555) — The answer's practice request, or None when the offer is switched off.
+- `class PreviewTutorOpeningInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 569)
+- `preview_tutor_opening(ctx: SidecarContext, params: PreviewTutorOpeningInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 575) — A proactive tutor opening for a just-closed diagnostic block (§12.1).
+- `rate_tutor_answer(ctx: SidecarContext, params: RateTutorAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 599)
+- `save_tutor_answer_note(ctx: SidecarContext, params: SaveTutorAnswerNoteInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 607)
+- `promote_tutor_question(ctx: SidecarContext, params: PromoteTutorQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 628) — Persist and enqueue an answered tutor turn for durable promotion.
+- `get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 733)
 
 ## Internal implementation anchors
 
-- `_ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: Any, *, transcript: bool=False) -> PanelAsk` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 374) — Reader CA2 (§7.4, K7): the :class:`PanelAsk` of a practice or feedback question (or transcript) while ``ask.panel_enabled``.
-- `_worked_help_check(answer_md: str, item: Any) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 460) — Codex review F2 (K9): the hint service's leak control at levels 1-3 (``hints.contracts.leak_flags``) for an Ask answer before it is shown.
-- `_item_cold(vault: Any, repository: Any, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 469) — Is the item under a cold administration now (an open cold follow-up or a held-out exam, ``instructional.policy.cold_administration_open``, or a "Check once" served cold)?
-- `_with_offers(vault: Any, repository: Any, response: dict[str, Any], event_id: str, tool_requests: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 484) — Canonical sources S0 (§6.2): a deterministic "Practice this" request the frontend runs once the answer is on screen.
-- `_stored_tool_requests(repository: Any, event_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 497)
-- `_record_citations(vault: Any, repository: Any, event_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 508) — S5: a tutor answer citing retrieved spans is an intervention (best effort).
-- `_span_provider(vault: Any, repository: Any, params: AskTutorQuestionInput, *, cold: bool=False) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 521)
-- `_tool_request_handler(vault: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 535)
-- `_tutor_intent_for(vault: Any, repository: Any, *, context: str, item: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 543) — Canonical sources S3: remediate when the item's LO has an active misconception.
-- `_tutor_route_subscription(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 799) — Is the tutor's route a subscription transport (Codex, the ChatGPT plan)?
-- `_help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: PanelAsk, thread: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 815) — Reader CA2 (§7.5, K8; Codex review F7): the attempt's help record as Submit will fold it, in order, read from what is stored (never the panel's memory): every question Submit counts (the item's window, which may hold a question asked on an earlier serving of the item), this atte…
-- `_draft_opened(repository: Any, session_id: str | None, item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 871)
-- `_shown_assists(repository: Any, item_id: str, session_id: str | None, submission_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 882) — The attempt's shown hints still unattached, under its key (``help_assists``).
-- `_earlier(vault: Any, repository: Any, params: GetTutorTranscriptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 916) — Reader CA2 (§7.3, K6, Q2): *earlier on this question*.
-- `_served_cold(vault: Any, repository: Any, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 944) — Is the item served as a check on your own now (a due "Check once" served cold, or a due cold follow-up)?
+- `_ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: Any, *, transcript: bool=False) -> PanelAsk` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 378) — Reader CA2 (§7.4, K7): the :class:`PanelAsk` of a practice or feedback question (or transcript) while ``ask.panel_enabled``.
+- `_worked_help_check(answer_md: str, item: Any) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 464) — Codex review F2 (K9): the hint service's leak control at levels 1-3 (``hints.contracts.leak_flags``) for an Ask answer before it is shown.
+- `_item_cold(vault: Any, repository: Any, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 473) — Is the item under a cold administration now (an open cold follow-up or a held-out exam, ``instructional.policy.cold_administration_open``, or a "Check once" served cold)?
+- `_with_offers(vault: Any, repository: Any, response: dict[str, Any], event_id: str, tool_requests: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 488) — Canonical sources S0 (§6.2): a deterministic "Practice this" request the frontend runs once the answer is on screen.
+- `_stored_tool_requests(repository: Any, event_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 501)
+- `_record_citations(vault: Any, repository: Any, event_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 512) — S5: a tutor answer citing retrieved spans is an intervention (best effort).
+- `_span_provider(vault: Any, repository: Any, params: AskTutorQuestionInput, *, cold: bool=False) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 525)
+- `_tool_request_handler(vault: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 539)
+- `_tutor_intent_for(vault: Any, repository: Any, *, context: str, item: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 547) — Canonical sources S3: remediate when the item's LO has an active misconception.
+- `_tutor_route_subscription(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 803) — Is the tutor's route a subscription transport (Codex, the ChatGPT plan)?
+- `_help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: PanelAsk, thread: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 819) — Reader CA2 (§7.5, K8; Codex review F7): the attempt's help record as Submit will fold it, in order, read from what is stored (never the panel's memory): every question Submit counts (the item's window, which may hold a question asked on an earlier serving of the item), this atte…
+- `_draft_opened(repository: Any, session_id: str | None, item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 875)
+- `_shown_assists(repository: Any, item_id: str, session_id: str | None, submission_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 886) — The attempt's shown hints still unattached, under its key (``help_assists``).
+- `_earlier(vault: Any, repository: Any, params: GetTutorTranscriptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 920) — Reader CA2 (§7.3, K6, Q2): *earlier on this question*.
+- `_served_cold(vault: Any, repository: Any, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/tutor_qa.py), line 948) — Is the item served as a check on your own now (a due "Check once" served cold, or a due cold follow-up)?
 
 ## Who imports or calls it
 

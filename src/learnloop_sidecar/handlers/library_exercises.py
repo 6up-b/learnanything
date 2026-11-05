@@ -420,6 +420,7 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
     from learnloop.db.stores.source_service import exercise_key
     from learnloop.instructional.exercises import exercise_label, imported_span_keys
     from learnloop.instructional.interventions import record_shown_spans
+    from learnloop.router_objective import exposure
 
     imported = imported_span_keys(vault, repository)
     candidates: list[dict[str, Any]] = []
@@ -474,7 +475,8 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
     recorded: dict[str, str] = {}
     if shown:
         ids = record_shown_spans(repository, shown, context="library", entity_type="library_exercises",
-                                 entity_id=str(hits.manifest.get("query_hash") or ""))
+                                 entity_id=str(hits.manifest.get("query_hash") or ""),
+                                 exposure_fields=exposure.fields(vault.config, repository, context="library"))
         recorded = dict(zip(dict.fromkeys(shown), ids))
     for candidate in candidates:
         # What "use this one" sends back (workbench.open's ``exercise_pick``):

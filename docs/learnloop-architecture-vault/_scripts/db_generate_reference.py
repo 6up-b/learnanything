@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_242/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_244/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_242" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_244" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 242
+SCHEMA_HEAD = 244
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -871,7 +871,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
     "router": "action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch",
     "followup": "follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped",
-    "router_objective": "the router objective (docs/specs/spec_router_objective_v1.md): RO1's kill switches of the successor mvp-0.46: decision-time attempt reads by availability time, and a learner's misconception pick not counted as validated evidence (the interval factor's switch is scheduler.surprise.remove_interval_factor)",
+    "router_objective": "the router objective (docs/specs/spec_router_objective_v1.md): RO0's receipts' switch, additive at every version, read by nothing serving, scheduling or certification; RO1's kill switches of the successor mvp-0.46: decision-time attempt reads by availability time, and a learner's misconception pick not counted as validated evidence (the interval factor's switch is scheduler.surprise.remove_interval_factor)",
     "data_capture": "data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
@@ -2162,7 +2162,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_242/state.sqlite",
+                "fixtures/migration_head_244/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

@@ -82,7 +82,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] | [[Reference/Modules/learnloop/curriculum/golden_path_confirm#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] | [[Reference/Modules/learnloop/curriculum/golden_path_fixture#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] | [[Reference/Modules/learnloop/curriculum/golden_path_restoration#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] | [[Reference/Modules/learnloop/curriculum/golden_path_run#^module-purpose|purpose]] | `ACTIVE` | 6 | 16 |
+| [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] | [[Reference/Modules/learnloop/curriculum/golden_path_run#^module-purpose|purpose]] | `ACTIVE` | 6 | 17 |
 | [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] | [[Reference/Modules/learnloop/curriculum/graph_edit_proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] | [[Reference/Modules/learnloop/curriculum/integration_backfill#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]] | [[Reference/Modules/learnloop/curriculum/pattern_ladder#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |

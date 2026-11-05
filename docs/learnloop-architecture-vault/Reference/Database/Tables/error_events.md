@@ -3,13 +3,13 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
   - "table error_events"
-schema_head: 242
+schema_head: 244
 table_name: "error_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -159,6 +159,7 @@ Indexes and uniqueness:
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_learner_data_relax_2.py`
 - `tests/test_migrations.py`
@@ -169,7 +170,6 @@ Indexes and uniqueness:
 - `tests/test_simulation.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
-- `tests/test_table_roles.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

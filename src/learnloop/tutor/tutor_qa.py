@@ -89,8 +89,10 @@ from learnloop.tutor.ai_contracts import (
     tutor_qa_prompt,
     reader_learner_state_on,
 )
+from learnloop.router_objective import question_state
 from learnloop.tutor import reader_modes
 from learnloop.config.schema import TutorQAConfig
+from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
@@ -960,6 +962,11 @@ def ask_question(
     # Outside the reader the row also lands before source retrieval (Slice 2
     # T6), so a slow or interrupted retrieval cannot lose the question either.
     qc = dict(question_context or {})
+    objective_receipts = objective_receipts_on(vault.config)
+    if not objective_receipts:
+        # RO0 (§4): off, none of its fields is written, whoever sent one.
+        for field_name in question_state.PROCESS_FIELDS:
+            qc.pop(field_name, None)
     question_row = {
         "id": question_event_id,
         "context": context,
@@ -1013,6 +1020,12 @@ def ask_question(
         question_row["practice_item_id"] = bound_item.id
         question_row["session_id"] = binding.practice_session_id
         question_row["assessment_contract_version_id"] = _question_contract(vault, repository, bound_item, None)
+    if objective_receipts:
+        # RO0 rows 1 to 3: the state this question was asked in, read before any model call.
+        question_row.update(question_state.fields_at_ask(
+            repository, context=context, practice_item_id=question_row["practice_item_id"], attempt_id=attempt_id,
+            session_id=question_row["session_id"], question_context=qc, workbench_session_id=workbench_session_id,
+        ))
     lookup_spans: list[dict[str, Any]] | None = None
     lookup_manifest: dict[str, Any] = {}
     # What the source delivery recorded (a trim, a drop, a reference followed

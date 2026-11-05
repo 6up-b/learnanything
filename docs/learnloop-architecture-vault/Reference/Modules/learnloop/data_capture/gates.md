@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/data_capture/gates.py"
 source_paths:
   - "src/learnloop/data_capture/gates.py"
-source_commit: "1d242b25e2e9fd03cada602956254bdc2e51ed25"
-source_commit_timestamp: "2026-11-03T16:06:38-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.data_capture"
@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]]
 
 ## Why this module exists
 
-`learnloop.data_capture.gates` exists within [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] to own the behavior summarized by its module contract: The two switches of data capture (``[data_capture]``).
+`learnloop.data_capture.gates` exists within [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] to own the behavior summarized by its module contract: The switches of data capture (``[data_capture]``) and of RO0's receipts.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,18 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/data_capture/gates.py](../../../../../../src/learnloop/data_capture/gates.py) |
-| Source lines | 32 |
+| Source lines | 39 |
 | Owning package | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `1d242b25e2e9fd03cada602956254bdc2e51ed25` |
-| Commit timestamp | `2026-11-03T16:06:38-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
 - `receipts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 18)
 - `serving_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 23)
+- `objective_receipts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 32) — RO0's additive receipts and columns (``[router_objective] receipts``): at every algorithm version.
 
 ### Module constants
 
@@ -72,6 +73,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 `__all__` declares:
 
 - `OUTCOME_VERSION_V3`
+- `objective_receipts_on`
 - `receipts_on`
 - `serving_on`
 
@@ -85,17 +87,24 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `serving_on`; statically calls `serving_on`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `receipts_on`, `serving_on`; statically calls `receipts_on`, `serving_on`
-- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `serving_on`; statically calls `serving_on`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `objective_receipts_on`, `receipts_on`, `serving_on`; statically calls `objective_receipts_on`, `receipts_on`, `serving_on`
+- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `objective_receipts_on`, `serving_on`; statically calls `objective_receipts_on`, `serving_on`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `serving_on`; statically calls `serving_on`
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `receipts_on`; statically calls `receipts_on`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `OUTCOME_VERSION_V3`, `receipts_on`, `serving_on`; statically calls `receipts_on`, `serving_on`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `serving_on`; statically calls `serving_on`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `serving_on`; statically calls `serving_on`
-- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `receipts_on`, `serving_on`; statically calls `receipts_on`, `serving_on`
+- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `objective_receipts_on`, `receipts_on`, `serving_on`; statically calls `objective_receipts_on`, `receipts_on`, `serving_on`
+- [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] — imports `objective_receipts_on`; statically calls `objective_receipts_on`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `OUTCOME_VERSION_V3`, `serving_on`; statically calls `serving_on`
+- [[Reference/Modules/learnloop/router_objective/ask_availability|learnloop.router_objective.ask_availability]] — imports `objective_receipts_on`; statically calls `objective_receipts_on`
+- [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `objective_receipts_on`; statically calls `objective_receipts_on`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `objective_receipts_on`; statically calls `objective_receipts_on`
+- [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] — imports `objective_receipts_on`; statically calls `objective_receipts_on`
+- [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `objective_receipts_on`; statically calls `objective_receipts_on`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `serving_on`; statically calls `serving_on`
-- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `receipts_on`; statically calls `receipts_on`
+- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `objective_receipts_on`; statically calls `objective_receipts_on`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `objective_receipts_on`, `receipts_on`; statically calls `objective_receipts_on`, `receipts_on`
 
 ## Dependencies
 
@@ -115,7 +124,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -125,6 +134,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_voi_flag_follows_the_successors_switch`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
   - `test_the_switches_are_on_by_default_and_the_gate_reads_the_tag`
+- [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import
+  - `test_the_switch_is_on_by_default_and_classified`
 
 ## Modification guidance
 

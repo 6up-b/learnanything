@@ -450,7 +450,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "cost_json judged_inputs_json"),
     "plan_presentations": (
         "id block_id router_decision_id controller_decision_id practice_item_id position origin "
-        "scheduler_candidate_id probe_presentation_id session_id served_at",
+        "scheduler_candidate_id probe_presentation_id session_id served_at ask_available",
         ""),
     # Reader RW5d P5 (migration 237): the plan's observed usage-limit pauses (DENIED to AD).
     "plan_usage_pauses": (
@@ -508,7 +508,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id note_id practice_item_id attempt_id session_id question_type hint_equivalent leak_suspected "
         "rating seconds_into_attempt provider created_at answer_status saved_note_id scaffold_level "
         "learner_mode hints_used_before direct_explanation_request leak_overlap remediation_episode_id "
-        "assessment_contract_version_id answered_at answer_mode",
+        "assessment_contract_version_id answered_at answer_mode reveal_state_json",
         "context question_md answer_md facets_json preceding_tutor_move warning_state "
         "question_opportunity attempt_progress signal_channel resolution source_context_json"),
     "question_promotions": (
@@ -587,7 +587,8 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "extraction_id unit_id parent_unit_id ordinal semantic_hash page_start page_end span_ids_json",
         "label locator_json"),
     "source_exposure_events": (
-        "id extraction_id span_id revision_id source_id entity_type entity_id page created_at",
+        "id extraction_id span_id revision_id source_id entity_type entity_id page created_at "
+        "initiator initiator_block_id initiator_session_id initiator_visit_id",
         "context locator section_path_json"),
     # A run's health counts its blocks by page and type, and its result hash digests the whole
     # reading, withheld blocks included (round 7's audit): counts and a hash, metadata by the

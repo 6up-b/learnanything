@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/causal_activity_policy.py"
 source_paths:
   - "src/learnloop/causal_activity_policy.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -50,25 +50,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py) |
-| Source lines | 76 |
+| Source lines | 82 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
-- `class CausalActivityPolicy` ([source](../../../../../src/learnloop/causal_activity_policy.py), line 27) — Resolved persistence policy for one contamination class.
-  - `as_dict(self) -> dict[str, Any]` (line 38; public)
-- `policy_for_class(contamination_class: str, *, near_clone: bool=False) -> CausalActivityPolicy` ([source](../../../../../src/learnloop/causal_activity_policy.py), line 52) — Return the versioned matrix row for one contamination class.
+- `class CausalActivityPolicy` ([source](../../../../../src/learnloop/causal_activity_policy.py), line 33) — Resolved persistence policy for one contamination class.
+  - `as_dict(self) -> dict[str, Any]` (line 44; public)
+- `policy_for_class(contamination_class: str, *, near_clone: bool=False) -> CausalActivityPolicy` ([source](../../../../../src/learnloop/causal_activity_policy.py), line 58) — Return the versioned matrix row for one contamination class.
 
 ### Module constants
 
-- `CAUSAL_ACTIVITY_POLICY_VERSION` ([src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py), line 14)
-- `CONTAMINATION_PRECEDENCE` ([src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py), line 17)
-- `CONTAMINATION_CLASSES` ([src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py), line 23)
+- `DISCRIMINATING_OUTCOMES` ([src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py), line 18)
+- `CAUSAL_ACTIVITY_POLICY_VERSION` ([src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py), line 20)
+- `CONTAMINATION_PRECEDENCE` ([src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py), line 23)
+- `CONTAMINATION_CLASSES` ([src/learnloop/causal_activity_policy.py](../../../../../src/learnloop/causal_activity_policy.py), line 29)
 
 ## Internal implementation anchors
 
@@ -81,6 +82,8 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CAUSAL_ACTIVITY_POLICY_VERSION`, `CONTAMINATION_PRECEDENCE`, `policy_for_class`; statically calls `policy_for_class`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `CAUSAL_ACTIVITY_POLICY_VERSION`, `CONTAMINATION_CLASSES`, `CONTAMINATION_PRECEDENCE`, `CausalActivityPolicy`, `policy_for_class`; statically calls `CausalActivityPolicy`, `policy_for_class`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `DISCRIMINATING_OUTCOMES`
+- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `DISCRIMINATING_OUTCOMES`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `CONTAMINATION_PRECEDENCE`
 
 ## Dependencies
@@ -101,7 +104,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]], [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]].
+Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]], [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

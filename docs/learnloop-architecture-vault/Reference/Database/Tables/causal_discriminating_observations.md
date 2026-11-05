@@ -3,13 +3,13 @@ title: "causal_discriminating_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_discriminating_observations"
   - "table causal_discriminating_observations"
-schema_head: 242
+schema_head: 244
 table_name: "causal_discriminating_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/130_causal_discriminating_observations.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_health.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop/diagnosis/failure_triage.py"
-  - "src/learnloop/diagnosis/scoreboard.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -114,7 +114,9 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/ops/capture_report.py`
 
 ### Direct SQL writers
 
@@ -138,8 +140,12 @@ None found by exact static reference scan.
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_failure_triage_causal_gate.py`
+- `tests/test_followup_fg1c_codex_review.py`
+- `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_journey.py`
 - `tests/test_followup_next_matrix.py`
+- `tests/test_hypothesis_marks.py`
+- `tests/test_hypothesis_marks_context.py`
 - `tests/test_pfc_unassessed_readers.py`
 - `tests/test_scoreboard.py`
 - `tests/test_voi_forecasts.py`

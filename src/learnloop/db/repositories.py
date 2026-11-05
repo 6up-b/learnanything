@@ -4469,8 +4469,16 @@ class Repository(
         records the item contract (revision) it was asked about: the one the
         caller names (the item as presented), else, for a question asked
         about a graded attempt, the attempt's pinned contract; None on no
-        item."""
+        item.
 
+        RO0's fields (rows 1 to 3: ``reveal_state_json`` and the generating
+        process it fills) are never in the row's insert (landing ruling R1):
+        they follow in their own savepoint, so a refused receipt leaves the
+        question, and the answer it waits for, standing."""
+
+        from learnloop.db.stores import router_objective as receipts
+
+        event, receipt = receipts.split_receipt("question_events", event)
         event_id = str(event.get("id") or new_ulid())
         now = event.get("created_at") or utc_now_iso(clock)
         with self.connection() as connection:
@@ -4535,14 +4543,23 @@ class Repository(
                     event.get("answer_mode"),
                 ),
             )
+            # RO0 rows 1 to 3, after the row: only a question RO0 read has them. Refused, the question stands without them.
+            receipts.fill_receipt(connection, "question_events", event_id, receipt)
             connection.commit()
         return event_id
 
     def insert_source_exposure_event(
         self, event: Mapping[str, Any], *, clock: Clock | None = None
     ) -> str:
-        """Record one Open-in-source view (§9.2). Called on every span view."""
+        """Record one Open-in-source view (§9.2). Called on every span view.
 
+        RO0 row 4's initiator fields (``router_objective.exposure``) are never in
+        the row's insert (landing ruling R1): they follow in their own savepoint,
+        so a refused receipt leaves the opening and its coldness exposure."""
+
+        from learnloop.db.stores import router_objective as receipts
+
+        event, receipt = receipts.split_receipt("source_exposure_events", event)
         event_id = str(event.get("id") or new_ulid())
         now = event.get("created_at") or utc_now_iso(clock)
         section_path = event.get("section_path") or []
@@ -4570,6 +4587,8 @@ class Repository(
                     now,
                 ),
             )
+            # RO0 row 4, after the row: who initiated it, only where that was read.
+            receipts.fill_receipt(connection, "source_exposure_events", event_id, receipt)
             connection.commit()
         return event_id
 
@@ -6911,7 +6930,7 @@ class Repository(
         return [_decode_learning_outcome_label(row) for row in rows]
 
     def _has_projection_switches_column(self) -> bool:
-        """Whether ``derived_state_rebuilds`` has migration 242's column (an older test database may not)."""
+        """Whether ``derived_state_rebuilds`` has migration 244's column (an older test database may not)."""
 
         with self.connection() as connection:
             return any(row[1] == "projection_switches_json"
@@ -6958,7 +6977,7 @@ class Repository(
             created_at,
         ]
         if projection_switches is not None and self._has_projection_switches_column():
-            # Router objective RO1 (migration 242): the switches a replay derived
+            # Router objective RO1 (migration 244): the switches a replay derived
             # persisted state under, the projection's defaults snapshot. Written
             # only by a rebuild that replays attempts, and only when given, so a
             # database below 242 still records every rebuild.
@@ -18732,7 +18751,7 @@ class Repository(
             columns.append("reference_status")
             values.append(attempt["reference_status"])
         if attempt.get("received_at") is not None:
-            # Router objective RO1 (migration 242): when the attempt became
+            # Router objective RO1 (migration 244): when the attempt became
             # known, written only where created_at is not the write time (exam
             # seeding). Written only when set, like the AD1 columns below.
             columns.extend(("received_at", "received_at_source"))

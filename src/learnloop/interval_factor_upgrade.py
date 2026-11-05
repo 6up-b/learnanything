@@ -27,7 +27,7 @@ The upgrade:
   ``schedule_effects`` is this upgrade's report (item and activity-card due-date shifts, the queue due now
   and admission's projected review load, before and after).
 
-Nothing is rewritten: attempts, grades and every ledger keep their rows; migration 242's
+Nothing is rewritten: attempts, grades and every ledger keep their rows; migration 244's
 ``practice_attempts.received_at`` is additive (imported exam rows backfilled from their ids, marked
 ``inferred``).
 

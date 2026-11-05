@@ -86,6 +86,7 @@ from learnloop.router.card import (
     EXCERPT_LIMIT,
     STATEMENT_LIMIT,
     STEM_LIMIT,
+    MARKS_SECTION,
     SUGGESTION_SECTION,
     CardInputs,
     LearnerStateCard,
@@ -206,7 +207,7 @@ class CardGatherer:
             # Router objective RO1 (spec §5.3): what the router could know at the
             # decision is read by availability time, coalesce(received_at,
             # created_at), at the tag with the switch on; otherwise, and on a
-            # database below migration 242, the predecessor's SQL byte for byte.
+            # database below migration 244, the predecessor's SQL byte for byte.
             known = attempt_time_sql(vault.config, connection)
             as_of = connection.execute(
                 f"SELECT id FROM practice_attempts WHERE {known} < ? ORDER BY {known} DESC, id DESC LIMIT 1",
@@ -225,6 +226,11 @@ class CardGatherer:
                 # Teacher TE1b (spec_teacher_v1 §15.1; codex review F5): the learner's answers to
                 # Today's lesson suggestion card as preference lines ("not now on X, Oct 24").
                 evidence_sections = {**evidence_sections, SUGGESTION_SECTION: preferences}
+            marks = self._hypothesis_marks(connection, candidate_los, titles, now_iso, unknowns, past, rule)
+            if marks:
+                # FG1c (spec_followup_generate_serve_v1 §7): the learner's own read of possible
+                # causes, attributed and unmeasured. Absent with none: the card stays as it was.
+                evidence_sections = {**evidence_sections, MARKS_SECTION: marks}
             recent = self._recent_work(attempts, held, past, rule, titles)
             confidence_7d, confidence_limit, confidence_omitted = (
                 self._confidence(connection, attempts, candidate_los, recent, held, now_iso, unknowns,
@@ -689,6 +695,55 @@ class CardGatherer:
             _LOG.warning("router R2a card: open problems not read", exc_info=True)
             unknowns.append("open problems could not be read")
         return entries[:OPEN_PROBLEM_LIMIT]
+
+    def _hypothesis_marks(
+        self, connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str],
+        past: PastWork, rule: CardText,
+    ) -> list[dict[str, Any]]:
+        """FG1c: the candidates' topics' marks, the latest per cause, newest first. A cause diagnosed
+        from protected work keeps its mark and never its statement or the learner's words about it,
+        the shared leakage rule, read as the open problems read it."""
+
+        from learnloop.db.stores import hypothesis_marks as marks_store
+        from learnloop.followup_serve import marks as opinion
+        from learnloop.followup_serve.gates import hypothesis_marks_on
+
+        if not los or not hypothesis_marks_on(self.vault.config):
+            return []
+        entries: list[dict[str, Any]] = []
+        try:
+            if not marks_store.present(connection):
+                return []
+            by_attempt: dict[str, list[dict[str, Any]]] = {}
+            for row in marks_store.marks_for_learning_objects(connection, los, before=now_iso):
+                by_attempt.setdefault(str(row["attempt_id"]), []).append(row)
+            latest = [row for rows in by_attempt.values() for row in opinion.latest_marks(rows).values()]
+            latest.sort(key=lambda row: (str(row["created_at"]), str(row["id"])), reverse=True)
+            shown = latest[:OPEN_PROBLEM_LIMIT]
+            behind = protection.hypothesis_answers(
+                connection, [str(row["hypothesis_version_id"]) for row in shown if row["hypothesis_version_id"]])
+            for row in shown:
+                lo = str(row["learning_object_id"])
+                answers = sorted(behind.get(str(row["hypothesis_version_id"]), frozenset()) | {str(row["attempt_id"])})
+                statement, _note, reason = statement_text(
+                    past, rule, "hypothesis", row["hypothesis_version_id"], row.get("hypothesis_statement"),
+                    STATEMENT_LIMIT, answers=answers, los=(lo,))
+                words, _note, words_reason = statement_text(
+                    past, rule, "hypothesis_mark", row["id"], row.get("free_text"), STATEMENT_LIMIT,
+                    answers=answers, los=(lo,))
+                entries.append({
+                    "at": row["created_at"], "attempt_id": row["attempt_id"], "learning_object_id": lo,
+                    "topic": titles.get(lo, lo), "mark": opinion.MARK_WORDS[str(row["mark"])],
+                    "hypothesis_id": row["hypothesis_version_id"],
+                    "statement": statement if row.get("hypothesis_statement") else None,
+                    "learner_text": words if row.get("free_text") else None,
+                    "withheld": reason or words_reason,
+                })
+        except Exception:  # noqa: BLE001 - a section that cannot be read is named, never guessed
+            _LOG.warning("router card: the learner's marks not read", exc_info=True)
+            unknowns.append("the learner's marks on possible causes could not be read")
+            return []
+        return entries
 
     def _self_reports(
         self, connection: Any, los: set[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str]

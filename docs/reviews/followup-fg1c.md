@@ -1,0 +1,216 @@
+# Learner marks on hypotheses, FG1c (`followup/fg1c-marks`, base `90f7def5e3`)
+
+Built from `docs/specs/spec_followup_generate_serve_v1.md` §7 and row 6 of `docs/specs/spec_router_objective_v1.md` §4, on the FG1 that
+landed. Migration 242 (recheck the number at landing: RO0 runs beside this and takes the next one too). No successor, so no tag claimed.
+
+## What exists now
+
+| Item | Where |
+|---|---|
+| (1) Exposure receipt | `hypothesis_list_exposures`, `hypothesis_exposure_probe_links` (RECEIPT); RPC `record_hypothesis_exposure`; `followup_run/marks.py::record_exposure`; the link is written in `followup_serve/workflow.py::probe_answered` |
+| (2) Raw marks ledger | `hypothesis_marks` (RAW_LEDGER); RPC `record_hypothesis_mark`; `followup_run/marks.py::record_mark`; store `db/stores/hypothesis_marks.py` |
+| (3) Display order | `followup_serve/marks.py::display_order`, `hypothesis_order_v1`, seed on every panel exposure and every mark |
+| (4) Desktop | `screens/feedback/HypothesisMarks.tsx`, mounted by `FeedbackScreen`; `DiagnosisCard`'s `hideTaps`; bundle key `hypothesisMarks`, added by `handlers/feedback.py::_with_hypothesis_marks` |
+| (5) Attributed opinion | `daily_plan/router_card.py::_hypothesis_marks` and `router/card.py` (`MARKS_SECTION`, version suffix `+marks`); `diagnosis/split/history.py`, `context.py`, `live.py`, `snapshot.py` (`learner_marks`) |
+| (6) Report | `ops/capture_report.py::hypothesis_marks_section`; `router/outcomes.py::delayed_outcomes_after` |
+| (7) Kill switch | `followup.hypothesis_marks`, default true, at every version; `followup_serve/gates.py::hypothesis_marks_on`; a `structural` rule in the parameter registry |
+
+**Import contract.** `graders-never-read-hypothesis-marks` (43 contracts now): `learnloop.attempts` imports neither the marks module nor their
+store. `post_attempt` passes the switch's value to `probe_answered` so the link needs neither.
+
+## The playbook: no successor
+
+Item 1 asks whether the change alters persisted meaning. It doesn't:
+
+- No score, schedule or projection reads the three tables, no mark reaches admissibility (one read of the exposure table does, by ruling R1 under *Landing onto main*), and `test_marks_change_no_row_outside_their_own_ledger` compares every
+  other table's every row through every kind of mark. `test_a_rebuild_ignores_marks_and_keeps_them` compares every DERIVED table with and without a mark.
+- The card and the diagnoser's context are empty until a mark exists, so an unmarked vault's are byte-identical. TE0's confidence events are the
+  precedent for context with no successor. A stored card says which model input it was through `+marks`, and the diagnoser's context hash is on its receipt.
+- Hiding the card's tap on the probe lane changes what the screen asks at a tag that already has the lane. The RPC behind the tap is unchanged, and
+  old records keep their meaning.
+
+Items 5, 6 and 8 still apply and are done: roles classified, neither ledger cleared by replay, head fixture at 242. Item 4: `[followup] hypothesis_marks` is a
+new default, so all 36 fingerprints in `DEFAULTS_SNAPSHOT_BY_ALGORITHM` were recomputed, as FG1 and data capture did for keys inert below their tags. A
+fingerprint is checked by tests and isn't stored in a vault, so no vault notices.
+
+## Where the build departs from the words, and why
+
+1. **The panel isn't inside `FollowupPanel`.** The stage text says "marks in FollowupPanel and the feedback screen". `FollowupPanel` sits above the verdict, so
+   the causes would come before what they're about, on every miss at the tag. The panel sits under the feedback surface, on the miss's own screen and on
+   the probe answer's, and `FollowupPanel`'s held line is still what says why the causes are hidden. Smallest alternative: mount it from `FollowupPanel`,
+   one line each in two files.
+2. **`cleared` is a fifth ledger value.** "All optional" needs a way back from a slip, and the spec's three marks can only be swapped. Tapping a mark again appends
+   `cleared`; the latest still counts, and the report skips it.
+3. **On the probe lane only the card's tap goes, plus `why?`'s "this doesn't sound right" when it would write that tap.** §7 says the self-report stays, and
+   it's the only place for *the item was unclear* and *the notation confused me*. It sits under *details*. If the owner reads "asked twice" more strictly, the
+   unresolved-cause card's question can go on that lane too, with `replacesCardTap` as the switch.
+4. **`no_intervention` counts as the probe lane for the tap.** The workflow's lane is `probe` though no question came, so the marks replace the tap there as well.
+5. **Row 6's switch is `followup.hypothesis_marks`,** as this stage's text says, not RO0's `[router_objective] receipts`. Recorded in the spec's row 6.
+6. **Exposure receipts cover four lists.** The marks panel, `why?`, the causal feedback and the unresolved-cause card, on the desktop only. They are sent only when the
+   bundle carries `hypothesisMarks`, which is how the client knows the switch is on and nothing is held. The server recomputes factor, diagnosis and probe state itself
+   and takes only the order from the client, after checking each id is a cause of that attempt. At the landing (R1) the inspector's read of an
+   attempt or an error event writes one too, on the surface `inspector`, from the sidecar.
+7. **Only the marks panel is shuffled.** The other three keep their order, and their receipts record it. Router objective §11 is amended to say so.
+8. **The free text reaches the diagnoser only as context.** §7 cites the Oct 12 rule on learner text, whose pipeline (`learner_text_gaps`) can create misconceptions and
+   prerequisites. The stage text says "and nothing else", so that pipeline doesn't read it.
+9. **A re-diagnosis of the same attempt reads its own marks; nothing triggers one.** A first diagnosis never has any.
+10. **A bundle from a rating or a regrade carries no list,** as it carries no `followup`. The screen keeps what it was showing for that attempt rather than lose the
+    panel on a rating tap. A mark made on a list a regrade has since replaced is refused quietly.
+
+## The report
+
+`learnloop data-capture report` gains `hypothesis_marks`:
+
+- **Exposure coverage:** rows by surface, attempts displayed against attempts with causes written since the first display, later links, rows and bytes per active day.
+- **Agreement with probe outcomes,** apart for independent answers (`admissible_as_independent`) and answers given after the causes were shown, with the full table by mark, outcome, independence and
+  timing. `my_gap` and `none_of_these` agree when the probe supports them, `not_it` when it doesn't, `partly` is reported and never scored. A cause the probe didn't
+  measure, a probe that didn't discriminate (the shared `DISCRIMINATING_OUTCOMES`) and *None of these* on a no-match that didn't measure every cause are counted apart.
+- **Agreement with delayed performance:** the first delayed answer on the topic under `delayed_completion_v1` that an opinion was held before, and that opinion. A named gap agrees with a later miss, ruling the whole list out (*None of these*, or *Not it* on every cause displayed) with a later success. `partly` and `rejected_some_causes` are reported and never scored. Marks made or changed after a delayed answer are counted apart in `marked_after_a_delayed_answer`.
+- **Mark rates by display position,** over the shuffled panel only.
+
+Each of the three carries a label starting "conditional on being observed". No threshold reads any of it.
+
+## Process notes
+
+- Early in the stage, file-only patch scripts run with the system `python3` and two `lint-imports` runs were outside `env -i`. They read and wrote text files in the worktree, and imported no
+  LearnLoop module that could reach a route. Later scripts, the generators and the fixture rebuild ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+- No real model call, no vault opened, no paid command, no desktop window. Synthetic vaults only.
+- `apps/learnloop-mobile`, `src/learnloop_mobile/allowlist.py`, `.gitignore` and `README.md` weren't touched; the new RPCs aren't on the phone's allowlist, so the phone can't reach them.
+
+## Gate (implementation step; the full suite runs once at the landing)
+
+Every pytest, vitest, npm and cargo command inside the memory-capped scope, pytest at most `-n 6`, heavy runs behind the lock.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | done |
+| `lint-imports --no-cache` (under `env -i`) | 43 kept, 0 broken; the frozen-cycles contract kept |
+| Targeted, 259 files (`docs/reviews/followup-fg1c.targeted-tests.txt`: every file naming a changed module or function, every changed test, the contract tests) | 5266 passed, 1 failed, 19 skipped, 5 xfailed (39:40) |
+| The one failure | `test_followup_journey.py::test_with_the_switch_off_the_replies_match_the_predecessor`: the marks panel's order hangs off episode keys that differ between two vaults. The comparison leaves that key to FG1c's own on-and-off test, and the seed no longer takes the factor id. Passed 3 of 3 alone |
+| Rerun after those fixes, 24 files | 873 passed, 0 failed: label audit `test_measurement_state_labels.py`, `test_cli_help_snapshot.py`, the process-launch list in `test_codex_lockdown_round3.py`, `test_architecture.py`, `test_desktop_rpc_contract.py`, `test_mobile_allowlist.py`, `test_sidecar_serializer_snapshot.py`, `test_config_refactor.py`, `test_table_roles.py`, `test_coordinated_migrations.py`, `test_tracked_fixture_databases.py`, `test_public_tip_guards.py`, `test_desktop_activation_audit.py`, `test_data_capture_report.py`, `test_followup_{journey,codex_review,successor,live_shape,rival_factor}.py`, `test_hypothesis_marks{,_context,_migration}.py`, `test_diagnosis_card.py`, `test_ux_phase4_feedback.py` |
+| Durability (`-m durability`: `test_hypothesis_marks_migration.py`, `test_followup_migration.py`, `test_data_capture_migration.py`, `test_coordinated_migrations.py`, `test_migrations.py`) | 4 passed, 76 deselected |
+| Desktop: `npm install`, `npm run typecheck` | exit 0 |
+| `vitest --maxWorkers=4`: `HypothesisMarks.test.tsx`, `FeedbackScreen.followup.test.tsx`, `FeedbackScreen.test.tsx`, `FeedbackScreen.phase4.test.tsx`, `RepairOverFeedback.phase4.test.tsx`, `DiagnosisCard.test.tsx` | 115 passed |
+| `npm run frontend:build`, `cargo check` (`commands.rs`, `main.rs` changed) | exit 0 |
+| References: `db_generate_reference`, `db_validate_reference`, `module_generate`, `module_validate`, `desktop_generate`, `desktop_validate`, `validate_vault` | `errors: []`; 319 TS and 6 Rust notes; 1:1 module coverage; vault validation passes |
+
+The 259-file run was before the seed fix and the panel's kept read in `FeedbackScreen.tsx`; the 24 files above and the vitest row are after them.
+
+## Open items
+
+- The panel has not been seen in a real window.
+- Sibling RO0 takes the next migration too. A landing that renumbers this one renames `242_hypothesis_marks.sql`, the head fixture, `SCHEMA_HEAD` in the two reference scripts and `MARKS_ADDED_OBJECTS`' callers.
+- Fingerprints and the leaf count in `Configuration.md` and `Database.md` move again if RO0 adds a config key.
+
+## Landing onto main
+
+Base `90f7def5e3` (main hadn't moved; migration 242 stands). Commits on top of `8a2792eb15`: `e352671bc5` (R1), `094836387e` (the same class with no display event), `6fefa06976` (references), and this record.
+
+### Rulings (orchestrator, verbatim)
+
+- R1: "The owner's rule on Nov 3 was that hypotheses read before the probe mark its answer as not independent. So a recorded exposure of a workflow's causes before its probe's answer makes that answer not independent, whatever surface showed them and whether or not feedback was held. A display event sent while feedback is held is recorded, not discarded. With marks off, Show anyway's existing flag still protects the answer."
+- R2: "F2 is rejected: no successor. Attributed text on the card and in the diagnoser's context takes none, as spec_teacher_v1 §15.2 decided for confidence taps. The shuffle exists only on a new panel, so no existing list changed order. The owner has been told and may overrule; the smallest change then is a tag gating the panel, card and context, with receipts staying additive."
+- R3: "The builder's three open questions stand as built: the panel sits under the feedback surface; the unresolved-cause self-report stays under details on the probe lane, as §7 says; and no_intervention keeps the probe lane, so the marks replace the card's tap there too."
+- R4: "Low under the proportionate bar, and not fixed: a mounted desktop screen keeps its cached panel until the next screen after marks are switched off live."
+- R5: "The fix for R1 is small and carries Codex's reproduction as its test, so there's no further Codex round. A further finding on this class is Low unless it's a reachable path where causes were on screen before a probe's answer and that answer still counts as independent."
+
+### R1, and two more paths
+
+`docs/reviews/followup-fg1c-codex-review.md` has the detail. `workflow.probe_answer_exposed` reads `hypothesis_list_exposures` for the workflow's attempt or factor before the answer and returns `followup_causes_shown_before_probe`. An unreadable table returns `followup_cause_exposures_unreadable` and never raises. A held display event is recorded. Codex's reproduction failed first and passes now. Checking R1's surfaces turned up two reachable paths of R5's kind. A door on a held screen (`add_error_event`, `rate_followup`, `trigger_followup`, `trigger_regrade` and its contest, the clarification and eliciting replies) returned the whole bundle with the causes in it. These now keep what is held. The inspector showed raw causes with no display event, and its read is now a receipt on the new surface `inspector`.
+
+### Gate, at `6fefa06976`
+
+| Lane | Result |
+|---|---|
+| Early: `test_measurement_state_labels.py`, `test_cli_help_snapshot.py`, `test_codex_lockdown_round3.py` (process-launch list), `test_config_refactor.py` (fingerprints), `test_table_roles.py` | 94 passed |
+| `lint-imports --no-cache` | 43 kept, 0 broken (frozen cycles kept) |
+| References: `db_generate_reference`, `db_validate_reference`, `desktop_generate`, `desktop_validate`, `module_generate`, `module_validate`, `validate_vault` | `errors: []`; 319 TS + 6 Rust notes; 1191 module notes, 1:1 coverage; vault validation passed |
+| Full suite (`-n 8`, worksteal, 10G scope) | 26028 passed, 0 failed, 90 skipped, 47 xfailed (49:23). A session restart killed the first run at 37%; it was rerun whole |
+| Durability (`-m durability`) | 400 passed, 1 skipped |
+| Owner lane, fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 2 failed, 4 skipped. The two failures are the known pair: `test_activity_backfill…duration`, `placement_fixture_copies[arxiv_v2]` |
+| Desktop: typecheck, build; mobile: `npm ci`, typecheck, build; `cargo check` | exit 0 |
+| Desktop vitest, whole, `--maxWorkers=4` | 2746 passed, 1 failed: `SketchFigure.test.tsx > draws a new sample with another seed` (a 2 s QuickJS draw, run while the smoke journeys loaded the machine). Alone, 3 of 3 passed (19 of 19). FG1c touches no figure code |
+
+### Smoke on fresh copies of `~/learnloop-backups/mvp043-20261103-copy`
+
+Every AI route at `127.0.0.1:9`, and every model an in-process fake (`BlindRivalClient`, `AuthorFake`). The real items, topics and history of each copy were used, with the clock frozen and ticking and the ids deterministic. Main and branch came from `git archive` with `migrations/`.
+
+**How migration 242 is applied.**
+
+- **A vault already at mvp-0.45:** opening it applies 242. The sidecar's load (what the desktop app does) took all three from 241 to 242 at load. `learnloop doctor --fix-state` does the same. A read-only CLI doesn't: before an open, `data-capture report` says "unavailable (this database predates migration 242)". Nothing else is needed: no upgrade, no rebuild.
+- **A vault at mvp-0.43 (the owner's):** `learnloop upgrade --to mvp-0.45` goes 238 to 242 in one step, and the rebuild runs as FG1 said. Opening alone also applies 242, but the vault stays at mvp-0.43, so FG1 and FG1c serve nothing until it's upgraded.
+
+**Off, and on with no mark, against main** (`drive.py`: Today, the plan and its steps with answers, then `get_feedback` on the 25 newest real attempts):
+
+- With `followup.hypothesis_marks` off, all three copies are identical to main, ids and times aside. The only extra row is `schema_migrations` 242.
+- With it on and no mark made, all three are again identical. One bundle on `linear_algebra` and one on `probability` carry `hypothesisMarks`: real attempts with causes and nothing held. That key is the only difference. No exposure or mark rows are written by a read.
+
+**The journeys.** 72 runs (plus 7 reruns after script fixes): 3 copies, with a plan and without. All 72 OK.
+
+| Journey | Result on all three copies |
+|---|---|
+| Miss with two causes, then held | Causes hidden: no `causalFeedback`, `unresolvedCauses` or panel. A mark is refused ("held"). Next says it waits |
+| Probe answered (`ask`) | Independent (`matched_single`, admitted, factor resolved). Causes then appear with marks on the miss's feedback (`marks_feedback`) and on the answer's own (`marks_probe_feedback`), seed `292bfd3e…` logged on the exposure and every mark. `probability`'s order is shuffled against natural; on the other two, the shuffle of two kept natural order |
+| Mark, change, clear, *None of these* with text, mark again | Each reply comes back, and Next answers `continue` straight after each, never `wait`. 5 rows; the exposure row has the order as displayed, `probe_answered` 1 and the probe attempt |
+| No-probe lane (`no_intervention`, plan) and `continue without it` | Settled with no question, lane `probe`. Feedback released, the panel on `marks_feedback`, and `replacesCardTap` true on the probe lane (R3). Marks and Next as above |
+| Show anyway | `followup_feedback_shown_anyway`: not admitted, factor stays open |
+| An exposure before the answer, from each surface: `why`, `causal_feedback`, `unresolved_cause_card`, `marks_feedback`, `marks_probe_feedback`, `inspector`; and exam-origin with nothing held (`marks_feedback`, `why`, `inspector`) | Every one gives `followup_causes_shown_before_probe`: not admitted, not independent, factor stays open |
+| The doors on a held screen (`rate_followup`, `trigger_followup`, `add_error_event`, a contest) | Each keeps the causes and the answer held, with `followup` held |
+| Marks off (`off_ask`) | No panel, no rows. A mark writes nothing, and the probe's answer stays independent |
+
+**Marks moved nothing.**
+
+- **Twin runs.** Each `ask` journey was run twice on the same copy: with marks, and as a twin that skips every marks call on the same clock. Observation, grader prompts (sha256 of each of 2), and shadow agree on all six. After the marks, all but 2 to 4 of 379 tables (the three ledgers aside) match. The ones that differ are among `attempt_diagnoses`, `model_call_receipts`, `judgment_ledger`, `judgment_work_claims` and `practice_item_snapshots`. Dumped row by row (`probability`, no plan), `attempt_diagnoses` and `practice_item_snapshots` match. `model_call_receipts` differ only in wall-clock `started_at`/`finished_at`, and `judgment_ledger` in rows that differ just as much between two identical twin runs (7 rows: a background writer's timing).
+- **No grader prompt contains a mark or its text.**
+- **Ledgers survive a rebuild and a state sync**, with the same counts before and after (marks 5, exposures 1; or exposure 1, link 1, not-independent observation 1).
+
+**Shadow.** `rebuild --shadow` gives 0/0/0 on every `ask` journey: there, a later miss follows the probe. Every journey that ends on a generated probe's answer shows **2 `facet_recall_state` rows**: the probe item's own `method_selection` scope. Live has `raw_coverage_mass` 0; replay has 0.3678 (`recall_alpha` +0.092, `recall_beta` +0.368). That's independent or not, marks on or off. It is not R14. **Main shows the same 2 rows to the digit**, on both an independent answer and Show anyway (`linear_algebra` and `probability` on main code). FG1's smoke didn't see it because its journeys submitted the probe's answer without `probePresentationId`, which the desktop sends (`PracticeScreen.tsx:1388`). A rebuild clears it. It belongs to FG1, not to this stage, and it is the brief's stop condition read literally, so it is with the orchestrator.
+
+**Reaching the diagnoser and the card.** A later miss on the same topic (a day on; the same item when the copy has no other active one) was diagnosed with the marks in its context: `learner_marks` with "The learner's own read of this answer's possible causes: their opinion, unmeasured, and it may be wrong", the cause and the free text. The router card for that topic shows them in `MARKS_SECTION` as "their opinion, unmeasured". The marked cause's `("hypothesis", version, statement)` is in the history attempt's read records, so its provenance is on the diagnosis record.
+
+**The report** (`learnloop data-capture report`, after `ask`, `arxiv_v2`; the other two match apart from agreement):
+
+```
+Marks on possible causes: 5 rows on 1 attempts, latest {'my_gap': 1, 'none_of_these': 1}, 3 changes of mind, 1 with free text
+  with probe outcomes: agreement 0.5 on independent answers (1 agree, 1 disagree), None on answers given after the causes were shown (0 agree, 0 disagree); conditional on being observed: ...
+  with delayed performance: agreement None (0 agree, 0 disagree); 0 marked or changed after a delayed answer, unscored; conditional on being observed: ...
+  by display position: {'1': {'shown': 1, 'marks': {'my_gap': 1}, 'mark_rate': 1.0}, '2': {'shown': 1, 'marks': {}, 'mark_rate': 0.0}}; conditional on being observed: ...
+Hypothesis-list exposures: 1 by surface {'marks_probe_feedback': 1}; 1 attempts displayed of 2 with causes since the first display (coverage 0.0); 0 linked to a later probe answer; 1.0 rows and 335.0 bytes per active day
+```
+
+**Time and size.**
+
+| Measure | Result |
+|---|---|
+| `get_feedback`, real attempts, no panel to show | `linear_algebra`: main 192 to 206 ms, branch 260 to 271 ms (medians, two rounds). `probability`: main 285 to 372, branch 364 to 470 |
+| The panel's own read (`bundle_view`) | 65 to 73 ms with nothing to mark, 91 to 99 ms with a panel |
+| The same copy with marks off | `bundle_view` 0 ms, and `get_feedback` back to main's |
+| `record_hypothesis_mark` | median 179 ms (163 to 395, n = 75); the reply re-reads the panel |
+| `record_hypothesis_exposure` | median 16 ms (12 to 31, n = 15) |
+| Bytes per mark | 706 to 729 |
+| Bytes per exposure | 335 (marks panel, two causes), 241 (`why`, one) |
+
+Neither RPC is on Next's path.
+
+**The rest.** 0 new `model_call_receipts` from a real model. Non-loopback connects: 0. Resolves: 0. No Codex process.
+
+### What the owner runs
+
+Close the desktop app, the MCP server and the phone page. Then, for each vault (still at mvp-0.43):
+
+```
+learnloop upgrade --to mvp-0.45 --vault ~/learnloop-vaults/<name>
+learnloop rebuild-derived-state --vault ~/learnloop-vaults/<name>
+```
+
+That is FG1's pair, and it now also applies migration 242. Then rebuild the desktop app (`FeedbackScreen`, `HypothesisMarks`, `DiagnosisCard` and the Tauri commands changed) and restart the phone host. A vault already at mvp-0.45 needs only to be opened. No dependency changed.
+
+### Open items
+
+- The panel hasn't been seen in a real window.
+- How often learners mark is unknown.
+- **The facet shadow above.** FG1's live write for a generated probe's answer submitted with `probePresentationId` differs from replay by one item-scope row until a rebuild. It is present on main.
+- **The panel's read costs 65 to 99 ms on every desktop feedback open**, even with nothing to mark: it recomputes the claim-checked causes the bundle already has. The smallest fix passes the bundle's `causalFeedback` to `markable_list`.
+- **The report's coverage line** counts the displayed attempt apart from the attempts with causes since the first display, so it reads "1 of 2, coverage 0.0" and "1 of 0, coverage None". It is report-only; reword or intersect them.
+- R4 stands.
+- RO0 lands after this and renumbers its own migration.

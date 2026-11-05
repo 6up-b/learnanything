@@ -14,6 +14,7 @@ import sqlite3
 from typing import Any
 import zlib
 
+from learnloop.db.stores import router_objective as receipts
 from learnloop.ids import new_ulid
 
 logger = logging.getLogger(__name__)
@@ -103,7 +104,9 @@ def prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any:
 
 
 def insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
-    """One decision's frozen objective, or False (a warning) when refused."""
+    """One decision's frozen objective, or False (a warning) when refused. ``delay_json`` (RO0 row 10; migration
+    243), only where it was read, is never in the row's insert (landing ruling R1): it follows in its own savepoint,
+    so a refused delay leaves the objective standing without it."""
 
     connection.execute("SAVEPOINT decision_objective_append")
     try:
@@ -118,7 +121,11 @@ def insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> 
         logger.warning("data capture: the objective of %s was refused", row.get("decision_id"), exc_info=True)
         return False
     connection.execute("RELEASE decision_objective_append")
-    return cursor.rowcount > 0
+    if cursor.rowcount <= 0:
+        return False
+    _base, receipt = receipts.split_receipt("decision_objectives", row)
+    receipts.fill_receipt(connection, "decision_objectives", row["decision_id"], receipt)
+    return True
 
 
 def insert_measurement_event(
@@ -132,17 +139,25 @@ def insert_measurement_event(
     detail: Mapping[str, Any] | None = None,
     at: str,
     episode: str = "",
+    non_service_type: str | None = None,
+    delay: str | None = None,
 ) -> bool:
-    """A measurement's state, once per reason and episode: a repeat is a no-op (returns False)."""
+    """A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
+    ``non_service_type``, ``delay``: RO0 row 10's columns, only where they were read (migration 243), never in the
+    row's insert (landing ruling R1): they follow in their own savepoint, so a refusal leaves the state standing."""
 
+    event_id = new_ulid()
     cursor = connection.execute(
-        "INSERT OR IGNORE INTO decision_measurement_events"
-        "(id, decision_id, state, reason, practice_item_id, attempt_id, detail_json, created_at, episode) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (new_ulid(), decision_id, state, reason, practice_item_id, attempt_id,
+        "INSERT OR IGNORE INTO decision_measurement_events(id, decision_id, state, reason, practice_item_id, attempt_id, "
+        "detail_json, created_at, episode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (event_id, decision_id, state, reason, practice_item_id, attempt_id,
          json.dumps(dict(detail or {}), sort_keys=True, separators=(",", ":")), at, episode),
     )
-    return cursor.rowcount > 0
+    if cursor.rowcount <= 0:
+        return False
+    receipts.fill_receipt(connection, "decision_measurement_events", event_id,
+                          {"non_service_type": non_service_type, "delay_json": delay})
+    return True
 
 
 def latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> str:

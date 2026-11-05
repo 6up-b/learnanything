@@ -90,16 +90,20 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`; statically calls `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`
 - [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]] — imports `FSRS6_DEFAULT_WEIGHTS`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `forgetting_curve`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `forgetting_curve`
 - [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `interval_for_retention`; statically calls `interval_for_retention`
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/field/memory|learnloop.field.memory]] — imports `FSRS6_DEFAULT_WEIGHTS`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `forgetting_curve`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `initial_stability`, `interval_for_retention`
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `FSRS6_DEFAULT_WEIGHTS`
+- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `MemoryState`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] — imports `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
@@ -111,6 +115,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`; statically calls `Rating`, `apply_review`
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `FSRS6_DEFAULT_WEIGHTS`, `Rating`, `apply_review`; statically calls `apply_review`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `forgetting_curve`
 
 ## Dependencies
 
@@ -130,7 +135,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] and 18 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] and 23 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -184,6 +189,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_dont_know_rating_and_weight`
   - `test_hint_cap_and_score_binning_match_live_semantics`
   - `test_reconstruction_reproduces_live_practice_item_state`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+- [tests/test_ro0_rows9_13_decision_state.py](../../../../../../tests/test_ro0_rows9_13_decision_state.py) — direct import
+  - `test_a_path_that_reads_no_ad_says_so`
+  - `test_ad_failing_is_said_and_everything_else_is_kept`
 - [tests/test_ro1_interval_factor.py](../../../../../../tests/test_ro1_interval_factor.py) — direct import
   - `test_at_the_tag_due_at_follows_interval_for_retention_of_stability`
   - `test_below_the_tag_and_switched_off_the_factor_stretches_the_interval_as_before`

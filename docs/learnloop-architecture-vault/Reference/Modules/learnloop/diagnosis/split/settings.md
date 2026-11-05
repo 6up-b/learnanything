@@ -148,6 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hybrid_fuses_exact_and_knn_and_records_provenance`
   - `test_snapshot_is_unavailable_without_the_capability`
   - `test_snapshot_workspace_is_deleted_on_success_and_on_failure`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_a_rediagnosis_records_the_cause_it_was_shown_through_a_mark`
 - [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_live_diagnosis_records_its_arm_and_the_grader_never_sees_it`
   - `test_the_off_arm_is_todays_context_and_the_on_arm_refeeds_earlier_analyses`

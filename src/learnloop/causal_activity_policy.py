@@ -11,6 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+#: Classification outcomes that carry discriminating information at all.  The
+#: other four (`matched_multiple`, `all_bundles_matched`, `cohort_mismatch`,
+#: `unparsed_features`) are recorded and resolve nothing.  Here so that a reader
+#: below the causal services (the capture report) shares the one contract.
+DISCRIMINATING_OUTCOMES = frozenset({"matched_single", "no_bundle_matched"})
+
 CAUSAL_ACTIVITY_POLICY_VERSION = "causal_activity_v1"
 
 # Most-contaminated wins on conflicting writes. Index 0 is authoritative.

@@ -221,7 +221,7 @@ def test_the_predicate_is_the_predecessors_column_below_the_tag_or_switched_off(
     else:
         assert (bare, aliased) == (AVAILABLE_AT_SQL, "COALESCE(a.received_at, a.created_at)")
         assert known_at(row, vault.config) == "2026-05-19T15:30:07Z"
-    # A database without the column (below migration 242) reads by the predecessor's column at any gate.
+    # A database without the column (below migration 244) reads by the predecessor's column at any gate.
     import sqlite3
 
     bare_db = sqlite3.connect(":memory:")

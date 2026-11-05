@@ -112,6 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `is_holding`, `source_of_probe_attempt`; statically calls `is_holding`, `source_of_probe_attempt`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `abandon`, `bind_plan_step`; statically calls `abandon`, `bind_plan_step`
 - [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]] — imports `is_holding`; statically calls `is_holding`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `held_bundle`, `is_holding`, `source_of_probe_attempt`, `view`; statically calls `held_bundle`, `is_holding`, `source_of_probe_attempt`, `view`
@@ -146,7 +147,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]], [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]].
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]], [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]], [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -161,6 +162,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_rereview_continue_without_commits_its_preference_and_outcome_with_the_move`
   - `test_f7_verify_an_episode_another_presentation_still_holds_stays_open`
   - `test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared`
+- [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
+  - `test_a_door_on_a_held_screen_keeps_the_causes_held`
+  - `test_an_exposure_while_held_is_recorded_and_counts`
+  - `test_the_same_door_with_nothing_held_returns_the_whole_bundle`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
 
 ## Modification guidance

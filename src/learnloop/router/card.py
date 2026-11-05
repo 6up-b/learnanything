@@ -276,6 +276,9 @@ def render_text(card: Mapping[str, Any]) -> str:
     preferences = (card.get("evidence_sections") or {}).get(SUGGESTION_SECTION)
     if preferences:
         lines.extend(_suggestion_lines(preferences))
+    marks = (card.get("evidence_sections") or {}).get(MARKS_SECTION)
+    if marks:
+        lines.extend(_marks_lines(marks))
     lines.append("# Recent graded work (newest first)")
     work = card.get("recent_work") or ()
     if not work:
@@ -390,17 +393,36 @@ SUGGESTION_CARD_SUFFIX = "+te1b"
 SUGGESTION_RELEASE_CARD_SUFFIX = "+released"
 
 
+#: FG1c (spec_followup_generate_serve_v1 §7): the learner's marks on possible causes, as their own
+#: attributed opinion (``evidence_sections`` key; the gatherer is ``daily_plan.router_card``). Present
+#: only with a mark on a candidate's topic; with none, the card and its version are what they were.
+MARKS_SECTION = "hypothesis_marks"
+MARKS_CARD_SUFFIX = "+marks"
+_MARKS_HEADING = "# The learner's own read of possible causes (their opinion, unmeasured; newest first)"
+
+
+def _marks_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]:
+    lines = [_MARKS_HEADING]
+    for entry in entries:
+        said = entry.get("statement") or (f"statement withheld ({entry['withheld']})" if entry.get("withheld") else "")
+        words = f"; in their words: {entry['learner_text']}" if entry.get("learner_text") else ""
+        lines.append(f"- {str(entry.get('at') or '')[:10]} {entry.get('topic') or ''}: {entry.get('mark')}"
+                     f"{': ' + said if said else ''}{words}".rstrip())
+    return lines
+
+
 def _card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None = None) -> str:
     base = CARD_VERSION if inputs.confidence_enabled else PREDECESSOR_CARD_VERSION
     version = base + "+ad23" if any(
         "adaptive_difficulty" in row for row in (inputs.learning_objects or {}).values()) else base
     sections = inputs.evidence_sections if evidence_sections is None else evidence_sections
     suggestions = (sections or {}).get(SUGGESTION_SECTION)
-    if not suggestions:
-        return version
-    version += SUGGESTION_CARD_SUFFIX
-    if any(isinstance(entry, Mapping) and entry.get("response") == "released" for entry in suggestions):
-        version += SUGGESTION_RELEASE_CARD_SUFFIX
+    if suggestions:
+        version += SUGGESTION_CARD_SUFFIX
+        if any(isinstance(entry, Mapping) and entry.get("response") == "released" for entry in suggestions):
+            version += SUGGESTION_RELEASE_CARD_SUFFIX
+    if (sections or {}).get(MARKS_SECTION):
+        version += MARKS_CARD_SUFFIX
     return version
 
 
@@ -549,6 +571,12 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
         sections.pop(SUGGESTION_SECTION)
         dropped["dropped_suggestion_section"] = 1
 
+    # FG1c: the learner's marks go whole next, for the same reason: with them gone the card is
+    # the one that fit before, and the version follows.
+    if size() > token_budget and MARKS_SECTION in sections:
+        sections.pop(MARKS_SECTION)
+        dropped["dropped_marks_section"] = 1
+
     # TE0 (review F3): the 7-day confidence events first, oldest first; each
     # shown attempt's line keeps its own event, and the omission is stated.
     while size() > token_budget and _drop_oldest_event(confidence):
@@ -602,6 +630,8 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
 __all__ = [
     "AD_CARD_VERSION",
     "CARD_VERSION",
+    "MARKS_CARD_SUFFIX",
+    "MARKS_SECTION",
     "SUGGESTION_CARD_SUFFIX",
     "SUGGESTION_RELEASE_CARD_SUFFIX",
     "SUGGESTION_SECTION",

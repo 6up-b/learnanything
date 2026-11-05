@@ -107,14 +107,14 @@ class CallOrigin:
 
 def record_shown_passages(repository: Repository, keys: Sequence[str], *, call_id: str,
                           source_versions: Mapping[str, Any] | None = None,
-                          clock: Clock | None = None) -> list[str]:
+                          clock: Clock | None = None, exposure_fields: Mapping[str, Any] | None = None) -> list[str]:
     """Exposure first, always: one row per span a chat tool is about to show."""
 
     from learnloop.instructional.interventions import record_shown_spans
 
     return record_shown_spans(repository, list(keys), context=CHAT_EXPOSURE_CONTEXT,
                               entity_type=CHAT_EXPOSURE_ENTITY, entity_id=call_id,
-                              source_versions=source_versions, clock=clock)
+                              source_versions=source_versions, clock=clock, exposure_fields=exposure_fields)
 
 
 def record_tool_call(

@@ -173,6 +173,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_malformed_choices_fall_back_and_are_flagged`
 - [tests/test_daily_plan_split.py](../../../../../../tests/test_daily_plan_split.py) — direct import
   - `test_reentry_plans_use_only_repair_and_maintain`
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f6_the_chooser_takes_the_master_block_first_in_re_entry`
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import

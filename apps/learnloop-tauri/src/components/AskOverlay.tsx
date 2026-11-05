@@ -85,6 +85,8 @@ export interface AskTarget {
   /** Practice context only: whether the learner had started an answer when
    *  the overlay opened (it is modal, so the draft cannot change while open). */
   attemptProgress?: AttemptProgress;
+  /** RO0 row 1: whether the answer is on the screen behind this question. Only the screen knows; absent is unknown. */
+  answerVisibleNow?: boolean;
   /** §12.1: open with the tutor's persisted typed move before the learner
    *  types anything (diagnostic block just routed to tutoring). */
   proactiveOpen?: boolean;
@@ -628,6 +630,8 @@ export function AskOverlay({
         if (target.context === "practice" && target.attemptProgress) {
           input.attemptProgress = target.attemptProgress;
         }
+        if (target.answerVisibleNow !== undefined) input.answerVisibleNow = target.answerVisibleNow;
+        if (target.context === "practice") input.learnerMode = target.workbenchSessionId ? "work_in_steps" : "answer_box";
         if (pinned) {
           // "Explain this with my work": a normal tutor question grounded in
           // the passage the learner chose, with their current draft.

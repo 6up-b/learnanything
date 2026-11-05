@@ -188,6 +188,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_no_binding_a_decision_has_no_action_to_follow`
 - [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
   - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
 
 ## Modification guidance
 

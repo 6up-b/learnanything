@@ -259,6 +259,7 @@ sidecar_passthrough!(save_practice_draft, "save_practice_draft");
 
 // Adaptive hints H0: telemetry for an authored hint the practice screen revealed.
 sidecar_passthrough!(practice_record_hint_reveal, "practice.record_hint_reveal");
+sidecar_passthrough!(record_ask_availability, "record_ask_availability");
 
 // Adaptive hints H2a/H2b: the practice screen's hint panel (a hint is a job:
 // request, read-and-deliver, cancel), a discriminating question's answer, and
@@ -287,6 +288,8 @@ sidecar_passthrough!(followup_status, "followup_status");
 sidecar_passthrough!(followup_next, "followup_next");
 sidecar_passthrough!(followup_continue_without, "followup_continue_without");
 sidecar_passthrough!(followup_show_anyway, "followup_show_anyway");
+sidecar_passthrough!(record_hypothesis_exposure, "record_hypothesis_exposure");
+sidecar_passthrough!(record_hypothesis_mark, "record_hypothesis_mark");
 
 #[tauri::command]
 pub async fn get_feedback(

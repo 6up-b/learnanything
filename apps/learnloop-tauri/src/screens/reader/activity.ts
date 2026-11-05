@@ -58,8 +58,22 @@ export function flushReaderActivity(): void {
 
 export function logReaderActivity(event: ReaderActivityEvent): void {
   if (!enabled) return;
-  queue.push(event);
+  queue.push({ occurred_at: new Date().toISOString(), ...event });
   if (timer === null) timer = setTimeout(flushReaderActivity, FLUSH_MS);
+}
+
+// RO0 row 4: who sends the learner to the next visit. Set where the Reader is opened for them (the plan's reading
+// block), read once by the visit; every other visit is the learner's own.
+let nextVisitInitiator: string | null = null;
+
+export function setNextReaderVisitInitiator(initiator: string): void {
+  nextVisitInitiator = initiator;
+}
+
+export function takeReaderVisitInitiator(): string {
+  const initiator = nextVisitInitiator ?? "learner";
+  nextVisitInitiator = null;
+  return initiator;
 }
 
 export function logReaderAction(

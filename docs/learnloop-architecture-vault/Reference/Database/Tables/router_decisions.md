@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 242
+schema_head: 244
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`, `243_router_objective_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -143,6 +143,8 @@ None found by exact static reference scan.
 - `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/router/plan_log.py`
+- `src/learnloop/router_objective/report.py`
+- `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 
 ### Direct SQL writers

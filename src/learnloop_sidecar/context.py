@@ -26,6 +26,7 @@ from learnloop.substrate.canonical_projection_rollout import (
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
 from learnloop.learner.mastery import display_mastery
 from learnloop.ops.startup import run_startup_maintenance
+from learnloop.router_objective import goal_lifecycle
 from learnloop.reader.reader_authoring import adopt_reference_questions
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.hashes import practice_item_hash
@@ -247,6 +248,8 @@ class SidecarContext:
 
         schedule_certification_cold_probes(self.vault, self.repository)
         self.prepare_new_revisions(previous)
+        # RO0 row 11: status lives in the vault's YAML, so a change is detected at load (it never fails an open).
+        goal_lifecycle.sweep(self.vault, self.repository)
         # Startup maintenance probes the Codex runtime, which (for the HTTP provider)
         # can launch the server and block up to startup_timeout_seconds. Skip it on
         # refreshes that only need fresh vault/DB state, not a runtime health pass.

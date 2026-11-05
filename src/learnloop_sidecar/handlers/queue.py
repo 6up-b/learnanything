@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from datetime import UTC, datetime
 
+import json
 from typing import Any
 
 from learnloop.clock import SystemClock, utc_now_iso
@@ -660,7 +661,7 @@ def publish_offer(
                 "router R1: offer decision for slate %s not logged", trace.slate_id, exc_info=True
             )
             decision = None
-    receipt = _offer_prefilter(vault, decision, trace, queue) if decision is not None else None
+    receipt = _offer_prefilter(vault, repository, decision, trace, queue) if decision is not None else None
     with repository.atomic() if alongside is not None else nullcontext():
         if alongside is not None:
             alongside()
@@ -684,7 +685,7 @@ def publish_offer(
     return queue, dtos
 
 
-def _offer_prefilter(vault: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None:
+def _offer_prefilter(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None:
     """Data capture A1: the build's prefilter, ready to link in the transaction that commits the offer's
     decision (Codex review F8: apart from it, a crash between the two left the decision no receipt, and the
     build's trace is in memory only). Built before that transaction opens; never the offer's failure."""
@@ -692,20 +693,63 @@ def _offer_prefilter(vault: Any, decision: Mapping[str, Any], trace: Any, queue:
     from learnloop.data_capture import prefilter
     from learnloop.data_capture.gates import receipts_on
     from learnloop.diagnosis.voi_stopping import FORECAST_VERSION
+    from learnloop.router_objective import decision_state
 
-    if not receipts_on(vault.config):
-        return None
-    try:
-        material = prefilter.today_offer_material(
-            trace, offered=[item.practice_item_id for item in queue],
-            versions={"voi_forecast": FORECAST_VERSION, "selection_policy": SELECTION_POLICY},
-        )
-    except Exception:  # noqa: BLE001 - a receipt never fails the offer
-        logging.getLogger(__name__).warning("data capture: the offer's prefilter was not built", exc_info=True)
+    # RO0 rows 9 and 13, read here as well, before the offer's transaction opens.
+    state = _offer_state(vault, repository, decision, trace)
+    material = None
+    if receipts_on(vault.config):
+        try:
+            material = prefilter.today_offer_material(
+                trace, offered=[item.practice_item_id for item in queue],
+                versions={"voi_forecast": FORECAST_VERSION, "selection_policy": SELECTION_POLICY},
+            )
+        except Exception:  # noqa: BLE001 - a receipt never fails the offer
+            logging.getLogger(__name__).warning("data capture: the offer's prefilter was not built", exc_info=True)
+    if material is None and state is None:
         return None
 
     def link(connection: Any) -> None:
         prefilter.record(connection, decision_id=str(decision["id"]), decision_kind="today_offer", material=material,
                          config=vault.config, at=str(decision["created_at"]))
+        decision_state.record(connection, decision_id=str(decision["id"]), decision_kind="today_offer", material=state,
+                              config=vault.config, at=str(decision["created_at"]))
 
     return link
+
+
+def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any) -> Any:
+    """The offer's belief, with each item's authored minutes (an offer keeps no estimator of its own, and says so)."""
+
+    from learnloop.adaptive_difficulty.readiness import decision_state_fields
+    from learnloop.data_capture.gates import objective_receipts_on
+    from learnloop.router_objective import decision_state
+    from learnloop.scheduling.fsrs import forgetting_curve
+
+    if not objective_receipts_on(vault.config):
+        return None
+    candidates = json.loads(decision.get("candidates_json") or "[]")
+    if decision.get("propensity_kind") == "not_served":
+        # The daily plan serves Today, so this list served no head and nothing was decided among its candidates: a
+        # pick from it is a plan decision with its own state. The session's numbers, not the belief in the whole list:
+        # that would cost Today a read of adaptive difficulty per LO and tens of kilobytes at every open (measured:
+        # docs/reviews/router-ro0-logging.md).
+        return decision_state.prepare(
+            vault, repository, candidates=[], session_id=decision.get("session_id") or getattr(trace, "session_id", None),
+            forgetting_curve=forgetting_curve, omitted={"candidates": len(candidates), "reason": "offer_not_served"})
+    items, _los = decision_state.candidate_ids(vault, candidates)
+    minutes: dict[str, dict[str, Any]] = {}
+    for item_id in items:
+        item = vault.practice_items.get(item_id)
+        expected = getattr(item, "expected_minutes", None)
+        minutes[item_id] = ({"minutes": float(expected), "minutes_source": "expected_minutes"} if expected
+                            else {"minutes_source": "missing"})
+    # This offer served its head, so it is a decision and keeps the belief it was made on: replay can't give that back,
+    # since field's ``as_of`` keeps the latest grading epoch (Codex review F3). Only with the plan off does Today come here,
+    # so the read's cost falls on that configuration (measured: docs/reviews/router-ro0-codex-review.md).
+    return decision_state.prepare(
+        vault, repository, candidates=candidates, session_id=decision.get("session_id") or getattr(trace, "session_id", None),
+        forgetting_curve=forgetting_curve,
+        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)),
+        item_minutes=minutes, voi=[dict(row) for row in getattr(trace, "voi_decisions", ()) or ()],
+    )

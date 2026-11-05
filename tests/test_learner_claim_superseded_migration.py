@@ -37,9 +37,11 @@ from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
 from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
+from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
+from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_244" / "state.sqlite"
 #: What 225 alters: the earlier migrations' "nothing else changed" diffs on the way to head read this.
 SUPERSEDED_ALTERED_TABLES = frozenset({"learner_claims"})
 
@@ -79,10 +81,10 @@ def test_225_adds_the_superseded_by_column_and_nothing_else(tmp_path):
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Mobile PR-4's 226 (session ownership) follows it on the way to head.
-    assert [migration.version for migration in applied] == [225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242]
+    assert [migration.version for migration in applied] == [225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244]
     after = _schema(database)
-    assert set(after) - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS == set(before)
-    assert {name for name in before if before[name] != after[name]} == SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES)
+    assert set(after) - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS == set(before)
+    assert {name for name in before if before[name] != after[name]} == SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
         assert [row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")][-1] == "superseded_by"
         # A claim from before 225 is in force.
@@ -95,7 +97,7 @@ def test_225_adds_the_superseded_by_column_and_nothing_else(tmp_path):
 def test_the_head_fixture_holds_225_in_rollback_mode():
     # Mobile PR-4's 226 is the head now.
     assert 225 in applied_versions(HEAD)
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 242
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 244
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert "superseded_by" in [row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")]
@@ -108,7 +110,7 @@ def test_225_on_the_durability_lane(tmp_path):
     with closing(sqlite3.connect(database)) as connection:
         _old_claim(connection)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242]
+        assert [migration.version for migration in apply_migrations(database)] == [225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []

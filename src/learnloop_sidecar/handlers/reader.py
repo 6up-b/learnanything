@@ -27,6 +27,7 @@ from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
+from learnloop.router_objective import exposure
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.content.sources.exam_material import HELD_BACK_REFUSAL, HELD_OUT_REFUSAL, reading_held_back
 from learnloop.reader import reader_dialogue as RD
@@ -255,7 +256,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     if "tutor" in result:
         # RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off).
         response["tutor"] = result["tutor"]
-        RTU.record_excerpt_exposure(repository, result)
+        RTU.record_excerpt_exposure(vault, repository, result)
     # No buttons at all during a cold administration (nothing is offered then).
     cold = restricted.cold
     offers = None if cold else RTU.offers(vault, repository, result, extraction_id=params.extraction_id)
@@ -438,7 +439,7 @@ class ReaderRestoreSourceInput(ParamsModel):
 
 @method("reader.restore_source", ReaderRestoreSourceInput)
 def reader_restore_source(ctx: SidecarContext, params: ReaderRestoreSourceInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
+    vault, repository = _require_reader(ctx)
     try:
         result = RD.restore_source(
             repository,
@@ -446,6 +447,7 @@ def reader_restore_source(ctx: SidecarContext, params: ReaderRestoreSourceInput)
             span_id=params.span_id,
             cold_surface_id=params.cold_surface_id,
             cold_administration_id=params.cold_administration_id,
+            exposure_fields=exposure.fields(vault.config, repository, context="other"),
         )
     except RD.ReaderDialogueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
@@ -1560,12 +1562,13 @@ class ReaderRestoreInput(ParamsModel):
 
 @method("reader.restore", ReaderRestoreInput)
 def reader_restore(ctx: SidecarContext, params: ReaderRestoreInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
+    vault, repository = _require_reader(ctx)
     try:
         return versioned(
             REST.restore(
                 repository, source_id=params.source_id, extraction_id=params.extraction_id,
                 run_id=params.run_id, idempotency_key=params.idempotency_key,
+                exposure_fields=exposure.fields(vault.config, repository, context="reader_restoration"),
             )
         )
     except REST.ReaderRestorationError as exc:
@@ -2466,9 +2469,9 @@ def reader_log_activity(ctx: SidecarContext, params: ReaderLogActivityInput) -> 
     """Record the Reader's funnel events (salience only; ids, kinds and timings,
     never learner text). All-or-nothing per call."""
 
-    _vault, repository = _require_inquiry(ctx)
+    vault, repository = _require_inquiry(ctx)
     try:
-        ids = RI.record_activity(repository, params.events)
+        ids = RI.record_activity(repository, params.events, config=vault.config)
     except RI.InquiryError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned({"recorded": len(ids)})

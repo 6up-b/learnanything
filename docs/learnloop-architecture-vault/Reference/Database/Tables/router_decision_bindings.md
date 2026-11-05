@@ -3,13 +3,13 @@ title: "router_decision_bindings"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decision_bindings"
   - "table router_decision_bindings"
-schema_head: 242
+schema_head: 244
 table_name: "router_decision_bindings"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/241_followup_generate_serve.sql"
   - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/router/plan_log.py"
+  - "src/learnloop/router_objective/trajectory.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -90,6 +91,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/followup_serve.py`
+- `src/learnloop/router_objective/trajectory.py`
 
 ### Direct SQL writers
 

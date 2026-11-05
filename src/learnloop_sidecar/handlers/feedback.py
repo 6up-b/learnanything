@@ -227,6 +227,35 @@ def _with_followup(ctx: SidecarContext, vault: Any, repository: Any, attempt_id:
     return {**(held_bundle(bundle) if holding else bundle), "followup": to_camel(current)}
 
 
+def _door_bundle(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str, **kwargs: Any) -> dict[str, Any]:
+    """The bundle a door other than ``get_feedback`` hands the desktop, which puts it on screen: a held
+    attempt's stays held (FG1 §6.0), with its ``followup`` so the panel stays. Otherwise a rating or a
+    contest on a held screen would show the causes, with no receipt, before the probe's answer."""
+
+    bundle = feedback_bundle(vault, repository, attempt_id, **kwargs)
+    if ctx.request_origin is None and _followup_holding(repository, attempt_id):
+        return _with_followup(ctx, vault, repository, attempt_id, bundle, True)
+    return bundle
+
+
+def _with_hypothesis_marks(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str, bundle: dict[str, Any]) -> dict[str, Any]:
+    """FG1c (spec §7): the marks panel's read rides on the desktop's bundle, only when there is a list
+    to show. Off, held or nothing to mark: no key, so the bundle stays as it was. A failed read
+    costs the panel, never the feedback."""
+
+    from learnloop.followup_run.marks import bundle_view
+    from learnloop.followup_serve.gates import hypothesis_marks_on
+
+    if ctx.request_origin is not None or not hypothesis_marks_on(vault.config):
+        return bundle
+    try:
+        marks = bundle_view(vault, repository, attempt_id)
+    except Exception:  # noqa: BLE001 - optional, and never in the way of the feedback
+        logging.getLogger(__name__).warning("the marks panel could not be read for %s", attempt_id, exc_info=True)
+        return bundle
+    return bundle if marks is None else {**bundle, "hypothesisMarks": to_camel(marks)}
+
+
 @method("get_feedback", FeedbackInput)
 def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
@@ -263,6 +292,7 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     if claim_line is not None:
         bundle["claimCheck"] = to_camel(claim_line)
     bundle = _with_followup(ctx, vault, repository, params.attempt_id, bundle, followup_holding)
+    bundle = _with_hypothesis_marks(ctx, vault, repository, params.attempt_id, bundle)
     log_event(
         "feedback_shown",
         session_id=session_id,
@@ -439,7 +469,7 @@ def answer_grading_clarification(
             "outcome": result.get("outcome"),
             "regraded": bool(result.get("regraded")),
             "error": result.get("error") or unavailable,
-            "feedback": feedback_bundle(vault, repository, params.attempt_id),
+            "feedback": _door_bundle(ctx, vault, repository, params.attempt_id),
         }
     )
 
@@ -527,7 +557,7 @@ def submit_eliciting_response(
     return versioned(
         {
             **result,
-            "feedback": feedback_bundle(vault, repository, params.attempt_id),
+            "feedback": _door_bundle(ctx, vault, repository, params.attempt_id),
         }
     )
 
@@ -561,7 +591,7 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
     if params.learner_reason is not None:
         return _contest_grade(ctx, vault, repository, attempt, params)
     live = _run_regrade(ctx, vault, repository, attempt)
-    return feedback_bundle(vault, repository, params.attempt_id, live_record=live)
+    return _door_bundle(ctx, vault, repository, params.attempt_id, live_record=live)
 
 
 def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> dict[str, Any]:
@@ -653,7 +683,7 @@ def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, An
     except Exception:  # noqa: BLE001 - the contest is kept; the owner reviews it
         logging.getLogger(__name__).warning("contest regrade failed for %s", attempt_id, exc_info=True)
         regraded = False
-    bundle = feedback_bundle(vault, repository, attempt_id, live_record=live if regraded else None)
+    bundle = _door_bundle(ctx, vault, repository, attempt_id, live_record=live if regraded else None)
     review_requested = False
     if not _contest_upheld(bundle):
         review_requested = _request_grade_review(repository, attempt_id, contest_id, presentation_id)
@@ -876,7 +906,7 @@ def trigger_followup(ctx: SidecarContext, params: TriggerFollowupInput) -> dict[
         correctness=attempt.get("correctness"),
         triggered_actions=decision.triggered_actions,
     )
-    return feedback_bundle(vault, repository, params.attempt_id)
+    return _door_bundle(ctx, vault, repository, params.attempt_id)
 
 
 class StartPrimedRetryInput(ParamsModel):
@@ -1200,7 +1230,7 @@ def rate_followup(ctx: SidecarContext, params: RateFollowupInput) -> dict[str, A
         gate_attempt_id=gate_attempt_id,
         useful=params.useful,
     )
-    return feedback_bundle(vault, repository, params.attempt_id)
+    return _door_bundle(ctx, vault, repository, params.attempt_id)
 
 
 @method("add_error_event", AddErrorEventInput)
@@ -1225,4 +1255,4 @@ def add_error_event(ctx: SidecarContext, params: AddErrorEventInput) -> dict[str
         "created_at": now,
         "updated_at": now,
     })
-    return feedback_bundle(vault, repository, params.attempt_id)
+    return _door_bundle(ctx, vault, repository, params.attempt_id)

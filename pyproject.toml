@@ -337,6 +337,16 @@ forbidden_modules = ["learnloop.confidence_events"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "graders-never-read-hypothesis-marks"
+name = "The grader never reads the learner's marks on possible causes (FG1c, spec §7, §8)"
+type = "forbidden"
+# FG1c: marks and their free text go to the learner state card and the history-aware diagnoser as
+# attributed opinion, never to a grader. Every grading prompt builder lives in learnloop.attempts.
+source_modules = ["learnloop.attempts"]
+forbidden_modules = ["learnloop.followup_serve.marks", "learnloop.db.stores.hypothesis_marks"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "graders-never-read-the-learner-relax-contexts"
 name = "The grader never reads the diagnoser's prior-analysis arm or the Reader tutor's learner state (learner-blindness relax)"
 type = "forbidden"
@@ -570,6 +580,7 @@ source_modules = [
     "learnloop.section_map",
     "learnloop.data_capture",
     "learnloop.data_capture_upgrade",
+    "learnloop.router_objective",
     "learnloop.delayed_checks",
     "learnloop.delayed_completion",
     "learnloop.teacher",

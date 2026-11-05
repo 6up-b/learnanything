@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/side_by_side.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/side_by_side.py"
-source_commit: "61453ccb21cd26c0252d3cb946fbba4a7718f2bf"
-source_commit_timestamp: "2026-10-31T19:46:45-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -53,24 +53,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/side_by_side.py](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py) |
-| Source lines | 106 |
+| Source lines | 108 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `61453ccb21cd26c0252d3cb946fbba4a7718f2bf` |
-| Commit timestamp | `2026-10-31T19:46:45-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
-- `side_by_side_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 45) — Reader CA6's switch (``reader.side_by_side.enabled``), respecting ``curriculum.enabled`` (which gates the correspondence data) and the Reader.
-- `prompt_contract_fields(vault: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 54) — What the Reader's prompt contract adds for CA6 (absent while off, so the Reader is exactly as before): side by side may be opened.
-- `class SideBySideSectionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 63)
-- `reader_side_by_side_section(ctx: SidecarContext, params: SideBySideSectionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 70) — One section of the other book for the second pane (no model call).
+- `side_by_side_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 46) — Reader CA6's switch (``reader.side_by_side.enabled``), respecting ``curriculum.enabled`` (which gates the correspondence data) and the Reader.
+- `prompt_contract_fields(vault: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 55) — What the Reader's prompt contract adds for CA6 (absent while off, so the Reader is exactly as before): side by side may be opened.
+- `class SideBySideSectionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 64)
+- `reader_side_by_side_section(ctx: SidecarContext, params: SideBySideSectionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 71) — One section of the other book for the second pane (no model call).
 
 ### Module constants
 
-- `SIDE_BY_SIDE_RPCS` ([src/learnloop_sidecar/handlers/side_by_side.py](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 40)
+- `SIDE_BY_SIDE_RPCS` ([src/learnloop_sidecar/handlers/side_by_side.py](../../../../../../src/learnloop_sidecar/handlers/side_by_side.py), line 41)
 
 ### Explicit exports
 
@@ -99,6 +99,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `reader_enabled`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `SpanViewError`, `record_span_exposures`; calls `record_span_exposures`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `enabled`, `section_text`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`

@@ -59,13 +59,15 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # main's mvp-0.45 value at 90f7def5e3, frozen here: dropping RO1's keys reproduces it.
+    # main's mvp-0.45 value at 90a2f430c9 (FG1c and RO0 landed), frozen here: dropping RO1's keys reproduces it.
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
-    assert dumped.pop("router_objective") == {"available_at_reads": True, "self_report_not_validated": True}
+    section = dumped["router_objective"]
+    assert (section.pop("available_at_reads"), section.pop("self_report_not_validated")) == (True, True)
+    assert section == {"receipts": True}  # RO0's switch stays
     assert dumped["scheduler"]["surprise"].pop("remove_interval_factor") is True
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "cca4dc62baa93737e29ef6103224263ad80dd9d710532d452dbe609bbb4c3125"
+    assert digest == "ec22e2fc1e80ca9df220fe21ca66c5bb1166aedee8ce48b7eea38793e9ef83f7"
 
 
 def test_the_factors_constants_stay_in_config_with_their_note():

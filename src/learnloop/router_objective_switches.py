@@ -86,7 +86,7 @@ def attempt_time_sql(config: Any, connection: Any = None, *, alias: str | None =
     At the tag with ``[router_objective] available_at_reads`` on, ``COALESCE(received_at, created_at)``:
     an attempt counts at a cutoff only once it was known (an exam sat May 1 and imported May 19 is not
     there on May 5). Otherwise, and when ``connection``'s ``practice_attempts`` has no ``received_at``
-    (a database below migration 242), ``created_at``: the predecessor's column, so the read's SQL is
+    (a database below migration 244), ``created_at``: the predecessor's column, so the read's SQL is
     the predecessor's text byte for byte. ``alias`` prefixes the columns (``a.created_at``).
 
     A window's lower bound (``created_at >= since``) and the order rows are shown in stay by when the

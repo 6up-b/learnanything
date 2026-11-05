@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/app/App.tsx"
 source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
 source_commit_timestamp: "2026-11-03T12:40:09-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/App.tsx](../../../../../../apps/learnloop-tauri/src/app/App.tsx) |
-| Source lines | 2575 |
+| Source lines | 2577 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `01fa9698ae962d7b0977b90915e12e269c3b8db5` |
 | Commit timestamp | `2026-11-03T12:40:09-05:00` |
 
@@ -60,235 +60,235 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function App()` — function, line 133
+- `export function App()` — function, line 134
 
 ## Internal implementation anchors
 
-- `type Place, type ShellMode, type UthToolId } from "./shell"` — type, line 49
-- `type ShellMode, type UthToolId } from "./shell"` — type, line 50
-- `type UthToolId } from "./shell"` — type, line 51
-- `type PracticeOffer, type ProposalOrigin } from "./practiceOffer"` — type, line 89
-- `type ProposalOrigin } from "./practiceOffer"` — type, line 90
-- `type OpenSourceTarget =` — type, line 100
-- `const ReaderScreen = lazy(()` — const, line 108
-- `const LessonScreen = lazy(()` — const, line 109
-- `const GraphScreen = lazy(()` — const, line 110
-- `const IngestScreen = lazy(()` — const, line 111
-- `const ExamScreen = lazy(()` — const, line 112
-- `const ProposalsScreen = lazy(()` — const, line 113
-- `const RegistryReviewScreen = lazy(()` — const, line 114
-- `const GoldenPathScreen = lazy(()` — const, line 115
-- `const KnowledgeMapView = lazy(()` — const, line 117
-- `const LibraryScreen = lazy(()` — const, line 118
-- `type TodayStage = "queue" | "practice" | "feedback" | "blockReview"` — type, line 120
-- `type VaultFilesChangedEvent =` — type, line 122
-- `const previousTabRef = useRef<TopTab>(tab)` — const, line 142
-- `const readerSkimmingRef = useRef(false)` — const, line 145
-- `const noteReaderSkimming = useCallback((muted: boolean)` — const, line 146
-- `const previous = previousTabRef.current` — const, line 150
-- `const landing = shellRef.current === "simple" && tab === "start" ? "today" : tab` — const, line 155
-- `const armed = wrapUpOfferArmed(previous, landing) && !readerSkimmingRef.current` — const, line 156
-- `const readerSourceRef = useRef<ReaderOpenSource | null>(null)` — const, line 166
-- `const dailyPlanQuery = useDailyPlan(session?.sessionId ?? null, Boolean(session))` — const, line 193
-- `const planServing = dailyPlanQuery.data?.enabled === true && dailyPlanQuery.data.plan !== null` — const, line 194
-- `const onPracticeDraft = useCallback((draft: PracticeDraftMirror)` — const, line 273
-- `const sessionMoved = useSessionMoved()` — const, line 276
-- `const startupStartedRef = useRef(false)` — const, line 308
-- `const teachBackActiveRef = useRef(false)` — const, line 312
-- `const practiceAskAllowedRef = useRef(false)` — const, line 316
-- `const onTeachBackActive = useCallback((active: boolean)` — const, line 317
-- `const onPracticeAskAllowed = useCallback((allowed: boolean)` — const, line 320
-- `const practiceAskStateRef = useRef<(()` — const, line 326
-- `const onPracticeAskState = useCallback( (reader: (()` — const, line 327
-- `const practiceAskOpenRef = useRef<(()` — const, line 335
-- `const onPracticeAskOpener = useCallback((open: (()` — const, line 336
-- `const shell: ShellMode = snapshot ? algoConfig().shell : "classic"` — const, line 346
-- `const shellRef = useRef<ShellMode>(shell)` — const, line 358
-- `const simple = shell === "simple"` — const, line 360
-- `const sessionRef = useRef<SessionSnapshot | null>(session)` — const, line 365
-- `const implicitStartRef = useRef<Promise<SessionSnapshot | null> | null>(null)` — const, line 367
-- `const pendingStartRef = useRef<Promise<SessionSnapshot | null> | null>(null)` — const, line 371
-- `const vaultGenRef = useRef(0)` — const, line 376
-- `const vaultChangesRef = useRef(0)` — const, line 381
-- `const pushNotice = useCallback((input: NoticeInput)` — const, line 383
-- `const onError = useCallback( (message: string, report?: ErrorReport)` — const, line 388
-- `const command = report?.error === undefined ? null : getCommandError(report.error)` — const, line 394
-- `const code = command?.code ?? null` — const, line 395
-- `const notify = useCallback( (message: string)` — const, line 408
-- `const reportError = useCallback( (error: unknown, fallback: string, action?:` — const, line 417
-- `const message = errorMessage(error, fallback)` — const, line 419
-- `const command = getCommandError(error)` — const, line 424
-- `const code = command?.code ?? null` — const, line 425
-- `const needSession = useCallback( (need: keyof typeof NEEDS_SESSION)` — const, line 432
-- `const settingsNotice: ShellNotice | null = simple ? notices[notices.length - 1] ?? null : null` — const, line 443
-- `const settingsNoticeId = settingsNotice?.id ?? null` — const, line 444
-- `const dismissSettingsNotice = useCallback(()` — const, line 445
-- `const onPaletteEntities = useCallback((ids:` — const, line 452
-- `const refreshAiConnection = useCallback(()` — const, line 457
-- `const landOnLibraryIfEmpty = useCallback(async (appSnapshot: AppSnapshot)` — const, line 463
-- `const library = await api.getSourceLibrary()` — const, line 466
-- `const restoreLastPlace = useCallback(async (appSnapshot: AppSnapshot)` — const, line 477
-- `const place = rememberedPlace()` — const, line 478
-- `const tool = rememberedTool()` — const, line 480
-- `const root = appSnapshot.vault?.root` — const, line 492
-- `const sourceId = root ? rememberedBook(root) : null` — const, line 493
-- `const card = (await api.getSourceLibrary()).sources.find((entry)` — const, line 496
-- `const loadInitialVault = useCallback(async ()` — const, line 509
-- `const appSnapshot = await api.loadVault()` — const, line 512
-- `const checkpoint = appSnapshot.activeSession?.checkpoint` — const, line 516
-- `let disposed = false` — let, line 541
-- `let unlisten: (()` — let, line 542
-- `let invalidateTimer: number | null = null` — let, line 547
-- `const scheduleInvalidateAll = ()` — const, line 548
-- `const next = payload.refresh.snapshot` — const, line 565
-- `const practiceItemCount = payload.refresh.practiceItemCount` — const, line 575
-- `const vaultRoot = snapshot?.vault?.root ?? null` — const, line 610
-- `let disposed = false` — let, line 633
-- `const refresh = ()` — const, line 634
-- `const unsubscribe = subscribeQueueChanged(refresh)` — const, line 645
-- `const navBadges = useMemo<NavBadgeCounts>( ()` — const, line 652
-- `const hasSnapshot = snapshot !== null` — const, line 665
-- `const place = placeOfTab(tab)` — const, line 668
-- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 671
-- `const rememberedBookRef = useRef<string | null>(null)` — const, line 679
-- `const root = snapshot?.vault?.root` — const, line 695
-- `const runKeyActionRef = useRef<(action: KeyAction)` — const, line 701
-- `const onKey = (event: KeyboardEvent)` — const, line 710
-- `const binding = matchShellKey(event, shellRef.current, isTypingTarget(event.target))` — const, line 711
-- `const restored = useMemo( ()` — const, line 720
-- `const subjectOptions = useMemo(()` — const, line 726
-- `const titles = new Map((snapshot?.vault?.subjectTitles ?? []).map((entry)` — const, line 727
-- `const manualGrading = snapshot?.health.ai?.manualGrading ?? false` — const, line 730
-- `const gradingReady = (snapshot?.health.ai?.ready ?? snapshot?.health.codex.ready ?? false) && !manualGrading` — const, line 733
-- `const gradingProvider = snapshot?.health.ai?.activeProvider ?? "codex"` — const, line 734
-- `const settingsHealthy = manualGrading || (snapshot?.health.ai?.settingsReady ?? snapshot?.health.ai?.ready ?? snapshot?.health.codex.ready ?? false)` — const, line 739
-- `const applyHealth = useCallback((health: RuntimeHealth)` — const, line 746
-- `const applyGradingProvider = useCallback( async (provider: string)` — const, line 752
-- `const result = await api.setGradingProvider(provider)` — const, line 754
-- `const changeGradingProvider = useCallback( async (provider: string)` — const, line 776
-- `function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null)` — function, line 790
-- `const action = planStepAction(firstStep,` — const, line 813
-- `function implicitSession(): Promise<SessionSnapshot | null>` — function, line 865
-- `const generation = vaultGenRef.current` — const, line 869
-- `const current = ()` — const, line 870
-- `let started: Promise<SessionSnapshot | null> | null = null` — let, line 871
-- `const minutes = await implicitSessionMinutes()` — const, line 874
-- `const next = await startSessionHere(minutes)` — const, line 883
-- `function startSessionHere(minutes: number): Promise<SessionSnapshot | null>` — function, line 904
-- `const generation = vaultGenRef.current` — const, line 910
-- `let request: Promise<SessionSnapshot | null>` — let, line 911
-- `const pending: Promise<SessionSnapshot | null> = request .then((next)` — const, line 918
-- `function withImplicitSession(action: (started: SessionSnapshot, stillOpen: ()` — function, line 936
-- `const generation = vaultGenRef.current` — const, line 938
-- `const stillOpen = ()` — const, line 939
-- `function showPractice(id: string)` — function, line 945
-- `function openPractice( id: string, schedulerCandidateId?: string | null, proposalOrigin?: ProposalOrigin | null, planPresentationId?: string | null )` — function, line 954
-- `async function pickCheckMe( request: ReaderCheckMeRequest, sessionId: string, // UX Phase 3 fix round 1 (F1): after an implicit start, whether the vault // it started in is still the open one (checked after each request). options:` — function, line 992
-- `const stillOpen = options.stillOpen ?? (()` — const, line 999
-- `const result = await api.planLearnerPick( request.practiceItemId, sessionId, null, request.proposalId ?? null, request.importId ?? null )` — const, line 1001
-- `const offer = readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null, request.importId ?? null)` — const, line 1005
-- `const served = await api.getPracticeItem(request.practiceItemId, sessionId, offer.proposalOrigin ?? null)` — const, line 1007
-- `const onReaderWorkbenchSubmitted: NonNullable<ReaderWorkbenchProps["onSubmitted"]> = (result, at)` — const, line 1048
-- `const readerWorkbench: ReaderWorkbenchProps | undefined = algoConfig().workbench ?` — const, line 1060
-- `function openReaderExercise(request: ReaderExerciseRequest, options:` — function, line 1084
-- `function exerciseFromReader(request: ReaderExerciseRequest)` — function, line 1093
-- `function checkMeFromReader(request: ReaderCheckMeRequest)` — function, line 1107
-- `function backFromPractice(options:` — function, line 1123
-- `const target = readerTargetBack(readerReturn,` — const, line 1125
-- `async function openPlanReadingNow(reading: PlanReadingDto, estMinutes: number | null)` — function, line 1140
-- `const library = await api.getSourceLibrary()` — const, line 1141
-- `const target = readerTargetForReading(reading, library.sources)` — const, line 1142
-- `async function openPlanReading(reading: PlanReadingDto, estMinutes: number | null = null)` — function, line 1151
-- `async function openPassageNow(sourceId: string, spanId: string | null, reading: string | null)` — function, line 1167
-- `const generation = vaultGenRef.current` — const, line 1168
-- `const library = await api.getSourceLibrary()` — const, line 1169
-- `const card = library.sources.find((entry)` — const, line 1171
-- `async function openPassage(sourceId: string, spanId: string | null, reading: string | null)` — function, line 1181
-- `function resumeProblem(problem: WorkbenchOpenProblemDto)` — function, line 1191
-- `async function openStudiedNow(restoration: IntentRestorationDto)` — function, line 1200
-- `const library = await api.getSourceLibrary()` — const, line 1201
-- `const target = readerTargetForRestoration(restoration, library.sources)` — const, line 1202
-- `async function openStudied(restoration: IntentRestorationDto)` — function, line 1210
-- `function routePlanStep(step: PlanStepDto | null)` — function, line 1224
-- `const action = planStepAction(step)` — const, line 1225
-- `function openPrimedRetry(id: string)` — function, line 1237
-- `function showPrimed(id: string)` — function, line 1251
-- `function openGuidedRedo(redo: GuidedRedoDto)` — function, line 1262
-- `function showGuidedRedo(redo: GuidedRedoDto)` — function, line 1278
-- `function openFeedback(id: string)` — function, line 1287
-- `function teachMeFromReader(request:` — function, line 1302
-- `async function startQuickCheck(learningObjectIds: string[])` — function, line 1307
-- `const generation = vaultGenRef.current` — const, line 1310
-- `const implicit = !session && shellRef.current === "simple"` — const, line 1311
-- `const stillOpen = ()` — const, line 1312
-- `let current = session` — let, line 1313
-- `const requestId = globalThis.crypto?.randomUUID?.() ?? `$` — const, line 1322
-- `const progress = await api.startQuickCheck(` — const, line 1323
-- `function openBlockReview(blockEnd: ProbeBlockEndDto, learningObjectId: string, learningObjectTitle: string)` — function, line 1332
-- `function openLibraryShelf()` — function, line 1340
-- `function openLibraryFile(path: string)` — function, line 1346
-- `function installHandedSession(next: SessionSnapshot)` — function, line 1355
-- `const item = next.checkpoint?.currentPracticeItemId ?? null` — const, line 1360
-- `async function adoptSessionBack(from: SessionMoved)` — function, line 1366
-- `async function startFreshOverMoved(from: SessionMoved)` — function, line 1375
-- `const minutes = session?.availableMinutes ?? (await implicitSessionMinutes())` — const, line 1377
-- `const next = await startSessionOrAsk(` — const, line 1379
-- `function letGoOfEndedSession()` — function, line 1398
-- `function clearLocalCheckpoint(identity?:` — function, line 1410
-- `const checkpoint = current.checkpoint` — const, line 1414
-- `function endSession(summary: SessionEndSummary)` — function, line 1433
-- `function gotoTab(next: TopTab)` — function, line 1452
-- `function gotoPlace(place: Place)` — function, line 1473
-- `function selectUthTool(tool: UthToolId, options:` — function, line 1479
-- `function openUnderTheHood()` — function, line 1487
-- `async function openAnotherLibrary()` — function, line 1491
-- `const selected = await openDialog(` — const, line 1493
-- `function openRepair(misconceptionId: string)` — function, line 1502
-- `function openExam(goalId: string)` — function, line 1507
-- `function exitExam()` — function, line 1512
-- `function openCalibration(id: string, options?:` — function, line 1519
-- `function exitCalibration()` — function, line 1527
-- `const askCurrentContext = useCallback((): boolean` — const, line 1537
-- `function gotoLibraryProposal(patchId: string, itemId: string)` — function, line 1572
-- `const openBook = useCallback((card: SourceLibraryCard)` — const, line 1584
-- `const openAddedItem = useCallback( async (item: AddSourceItemDto)` — const, line 1592
-- `let card: SourceLibraryCard | undefined` — let, line 1602
-- `const adder = useAddSource(` — const, line 1631
-- `const addSources = adder.add` — const, line 1632
-- `const fileDragging = useSourceFileDrop(` — const, line 1633
-- `function gotoProposalBatch(patchId: string)` — function, line 1650
-- `function resetShellForVault()` — function, line 1656
-- `const changeVault = useCallback( async (path: string)` — const, line 1696
-- `let selected = false` — let, line 1698
-- `let selectionAttempted = false` — let, line 1699
-- `const next = await api.loadVault()` — const, line 1735
-- `const message = errorMessage(error, "Could not open that vault.")` — const, line 1743
-- `const libraryFilesProps =` — const, line 1766
-- `function libraryPlace(booksOnly = false)` — function, line 1779
-- `const gradingTrouble = simple && snapshot !== null && !manualGrading && aiConnection !== null && aiConnection.needs !== "connect" && !(snapshot.health.ai?.ready ?? snapshot.health.codex.ready ?? false)` — const, line 1804
-- `const readerHolding = simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId && !(goldenRunId && SHOW_GOLDEN_PATH)` — const, line 1813
-- `function paletteCommands(): PaletteCommand[]` — function, line 1817
-- `const current = uthTool(uthToolOfTab(tab, uthToolState))` — const, line 1818
-- `const practicing = tab === "today" && todayStage === "practice"` — const, line 1854
-- `function wrapUpLine(landing: WrapUpLanding)` — function, line 1881
-- `function renderBody()` — function, line 1886
-- `const practicing = tab === "today" && (todayStage === "practice" || todayStage === "feedback")` — const, line 1926
-- `const todayPlace = ()` — const, line 1950
-- `const start = ( <StartScreen onBegin=` — const, line 1973
-- `const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId)` — const, line 2068
-- `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 2069
-- `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 2072
-- `const today = ( <TodayScreen key=` — const, line 2111
-- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2152
-- `function renderIngest()` — function, line 2177
-- `function renderProposals()` — function, line 2194
-- `function renderRegistry()` — function, line 2210
-- `function renderGolden()` — function, line 2225
-- `function renderMaintain()` — function, line 2248
-- `function renderUthTool(tool: UthToolId)` — function, line 2260
-- `function renderAfterGolden()` — function, line 2291
-- `const shellTree = ( <> <TerminalFrame active=` — const, line 2320
-- `function unique(values: Array<string | null>): string[]` — function, line 2573
+- `type Place, type ShellMode, type UthToolId } from "./shell"` — type, line 50
+- `type ShellMode, type UthToolId } from "./shell"` — type, line 51
+- `type UthToolId } from "./shell"` — type, line 52
+- `type PracticeOffer, type ProposalOrigin } from "./practiceOffer"` — type, line 90
+- `type ProposalOrigin } from "./practiceOffer"` — type, line 91
+- `type OpenSourceTarget =` — type, line 101
+- `const ReaderScreen = lazy(()` — const, line 109
+- `const LessonScreen = lazy(()` — const, line 110
+- `const GraphScreen = lazy(()` — const, line 111
+- `const IngestScreen = lazy(()` — const, line 112
+- `const ExamScreen = lazy(()` — const, line 113
+- `const ProposalsScreen = lazy(()` — const, line 114
+- `const RegistryReviewScreen = lazy(()` — const, line 115
+- `const GoldenPathScreen = lazy(()` — const, line 116
+- `const KnowledgeMapView = lazy(()` — const, line 118
+- `const LibraryScreen = lazy(()` — const, line 119
+- `type TodayStage = "queue" | "practice" | "feedback" | "blockReview"` — type, line 121
+- `type VaultFilesChangedEvent =` — type, line 123
+- `const previousTabRef = useRef<TopTab>(tab)` — const, line 143
+- `const readerSkimmingRef = useRef(false)` — const, line 146
+- `const noteReaderSkimming = useCallback((muted: boolean)` — const, line 147
+- `const previous = previousTabRef.current` — const, line 151
+- `const landing = shellRef.current === "simple" && tab === "start" ? "today" : tab` — const, line 156
+- `const armed = wrapUpOfferArmed(previous, landing) && !readerSkimmingRef.current` — const, line 157
+- `const readerSourceRef = useRef<ReaderOpenSource | null>(null)` — const, line 167
+- `const dailyPlanQuery = useDailyPlan(session?.sessionId ?? null, Boolean(session))` — const, line 194
+- `const planServing = dailyPlanQuery.data?.enabled === true && dailyPlanQuery.data.plan !== null` — const, line 195
+- `const onPracticeDraft = useCallback((draft: PracticeDraftMirror)` — const, line 274
+- `const sessionMoved = useSessionMoved()` — const, line 277
+- `const startupStartedRef = useRef(false)` — const, line 309
+- `const teachBackActiveRef = useRef(false)` — const, line 313
+- `const practiceAskAllowedRef = useRef(false)` — const, line 317
+- `const onTeachBackActive = useCallback((active: boolean)` — const, line 318
+- `const onPracticeAskAllowed = useCallback((allowed: boolean)` — const, line 321
+- `const practiceAskStateRef = useRef<(()` — const, line 327
+- `const onPracticeAskState = useCallback( (reader: (()` — const, line 328
+- `const practiceAskOpenRef = useRef<(()` — const, line 336
+- `const onPracticeAskOpener = useCallback((open: (()` — const, line 337
+- `const shell: ShellMode = snapshot ? algoConfig().shell : "classic"` — const, line 347
+- `const shellRef = useRef<ShellMode>(shell)` — const, line 359
+- `const simple = shell === "simple"` — const, line 361
+- `const sessionRef = useRef<SessionSnapshot | null>(session)` — const, line 366
+- `const implicitStartRef = useRef<Promise<SessionSnapshot | null> | null>(null)` — const, line 368
+- `const pendingStartRef = useRef<Promise<SessionSnapshot | null> | null>(null)` — const, line 372
+- `const vaultGenRef = useRef(0)` — const, line 377
+- `const vaultChangesRef = useRef(0)` — const, line 382
+- `const pushNotice = useCallback((input: NoticeInput)` — const, line 384
+- `const onError = useCallback( (message: string, report?: ErrorReport)` — const, line 389
+- `const command = report?.error === undefined ? null : getCommandError(report.error)` — const, line 395
+- `const code = command?.code ?? null` — const, line 396
+- `const notify = useCallback( (message: string)` — const, line 409
+- `const reportError = useCallback( (error: unknown, fallback: string, action?:` — const, line 418
+- `const message = errorMessage(error, fallback)` — const, line 420
+- `const command = getCommandError(error)` — const, line 425
+- `const code = command?.code ?? null` — const, line 426
+- `const needSession = useCallback( (need: keyof typeof NEEDS_SESSION)` — const, line 433
+- `const settingsNotice: ShellNotice | null = simple ? notices[notices.length - 1] ?? null : null` — const, line 444
+- `const settingsNoticeId = settingsNotice?.id ?? null` — const, line 445
+- `const dismissSettingsNotice = useCallback(()` — const, line 446
+- `const onPaletteEntities = useCallback((ids:` — const, line 453
+- `const refreshAiConnection = useCallback(()` — const, line 458
+- `const landOnLibraryIfEmpty = useCallback(async (appSnapshot: AppSnapshot)` — const, line 464
+- `const library = await api.getSourceLibrary()` — const, line 467
+- `const restoreLastPlace = useCallback(async (appSnapshot: AppSnapshot)` — const, line 478
+- `const place = rememberedPlace()` — const, line 479
+- `const tool = rememberedTool()` — const, line 481
+- `const root = appSnapshot.vault?.root` — const, line 493
+- `const sourceId = root ? rememberedBook(root) : null` — const, line 494
+- `const card = (await api.getSourceLibrary()).sources.find((entry)` — const, line 497
+- `const loadInitialVault = useCallback(async ()` — const, line 510
+- `const appSnapshot = await api.loadVault()` — const, line 513
+- `const checkpoint = appSnapshot.activeSession?.checkpoint` — const, line 517
+- `let disposed = false` — let, line 542
+- `let unlisten: (()` — let, line 543
+- `let invalidateTimer: number | null = null` — let, line 548
+- `const scheduleInvalidateAll = ()` — const, line 549
+- `const next = payload.refresh.snapshot` — const, line 566
+- `const practiceItemCount = payload.refresh.practiceItemCount` — const, line 576
+- `const vaultRoot = snapshot?.vault?.root ?? null` — const, line 611
+- `let disposed = false` — let, line 634
+- `const refresh = ()` — const, line 635
+- `const unsubscribe = subscribeQueueChanged(refresh)` — const, line 646
+- `const navBadges = useMemo<NavBadgeCounts>( ()` — const, line 653
+- `const hasSnapshot = snapshot !== null` — const, line 666
+- `const place = placeOfTab(tab)` — const, line 669
+- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 672
+- `const rememberedBookRef = useRef<string | null>(null)` — const, line 680
+- `const root = snapshot?.vault?.root` — const, line 696
+- `const runKeyActionRef = useRef<(action: KeyAction)` — const, line 702
+- `const onKey = (event: KeyboardEvent)` — const, line 711
+- `const binding = matchShellKey(event, shellRef.current, isTypingTarget(event.target))` — const, line 712
+- `const restored = useMemo( ()` — const, line 721
+- `const subjectOptions = useMemo(()` — const, line 727
+- `const titles = new Map((snapshot?.vault?.subjectTitles ?? []).map((entry)` — const, line 728
+- `const manualGrading = snapshot?.health.ai?.manualGrading ?? false` — const, line 731
+- `const gradingReady = (snapshot?.health.ai?.ready ?? snapshot?.health.codex.ready ?? false) && !manualGrading` — const, line 734
+- `const gradingProvider = snapshot?.health.ai?.activeProvider ?? "codex"` — const, line 735
+- `const settingsHealthy = manualGrading || (snapshot?.health.ai?.settingsReady ?? snapshot?.health.ai?.ready ?? snapshot?.health.codex.ready ?? false)` — const, line 740
+- `const applyHealth = useCallback((health: RuntimeHealth)` — const, line 747
+- `const applyGradingProvider = useCallback( async (provider: string)` — const, line 753
+- `const result = await api.setGradingProvider(provider)` — const, line 755
+- `const changeGradingProvider = useCallback( async (provider: string)` — const, line 777
+- `function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null)` — function, line 791
+- `const action = planStepAction(firstStep,` — const, line 814
+- `function implicitSession(): Promise<SessionSnapshot | null>` — function, line 866
+- `const generation = vaultGenRef.current` — const, line 870
+- `const current = ()` — const, line 871
+- `let started: Promise<SessionSnapshot | null> | null = null` — let, line 872
+- `const minutes = await implicitSessionMinutes()` — const, line 875
+- `const next = await startSessionHere(minutes)` — const, line 884
+- `function startSessionHere(minutes: number): Promise<SessionSnapshot | null>` — function, line 905
+- `const generation = vaultGenRef.current` — const, line 911
+- `let request: Promise<SessionSnapshot | null>` — let, line 912
+- `const pending: Promise<SessionSnapshot | null> = request .then((next)` — const, line 919
+- `function withImplicitSession(action: (started: SessionSnapshot, stillOpen: ()` — function, line 937
+- `const generation = vaultGenRef.current` — const, line 939
+- `const stillOpen = ()` — const, line 940
+- `function showPractice(id: string)` — function, line 946
+- `function openPractice( id: string, schedulerCandidateId?: string | null, proposalOrigin?: ProposalOrigin | null, planPresentationId?: string | null )` — function, line 955
+- `async function pickCheckMe( request: ReaderCheckMeRequest, sessionId: string, // UX Phase 3 fix round 1 (F1): after an implicit start, whether the vault // it started in is still the open one (checked after each request). options:` — function, line 993
+- `const stillOpen = options.stillOpen ?? (()` — const, line 1000
+- `const result = await api.planLearnerPick( request.practiceItemId, sessionId, null, request.proposalId ?? null, request.importId ?? null )` — const, line 1002
+- `const offer = readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null, request.importId ?? null)` — const, line 1006
+- `const served = await api.getPracticeItem(request.practiceItemId, sessionId, offer.proposalOrigin ?? null)` — const, line 1008
+- `const onReaderWorkbenchSubmitted: NonNullable<ReaderWorkbenchProps["onSubmitted"]> = (result, at)` — const, line 1049
+- `const readerWorkbench: ReaderWorkbenchProps | undefined = algoConfig().workbench ?` — const, line 1061
+- `function openReaderExercise(request: ReaderExerciseRequest, options:` — function, line 1085
+- `function exerciseFromReader(request: ReaderExerciseRequest)` — function, line 1094
+- `function checkMeFromReader(request: ReaderCheckMeRequest)` — function, line 1108
+- `function backFromPractice(options:` — function, line 1124
+- `const target = readerTargetBack(readerReturn,` — const, line 1126
+- `async function openPlanReadingNow(reading: PlanReadingDto, estMinutes: number | null)` — function, line 1141
+- `const library = await api.getSourceLibrary()` — const, line 1142
+- `const target = readerTargetForReading(reading, library.sources)` — const, line 1143
+- `async function openPlanReading(reading: PlanReadingDto, estMinutes: number | null = null)` — function, line 1153
+- `async function openPassageNow(sourceId: string, spanId: string | null, reading: string | null)` — function, line 1169
+- `const generation = vaultGenRef.current` — const, line 1170
+- `const library = await api.getSourceLibrary()` — const, line 1171
+- `const card = library.sources.find((entry)` — const, line 1173
+- `async function openPassage(sourceId: string, spanId: string | null, reading: string | null)` — function, line 1183
+- `function resumeProblem(problem: WorkbenchOpenProblemDto)` — function, line 1193
+- `async function openStudiedNow(restoration: IntentRestorationDto)` — function, line 1202
+- `const library = await api.getSourceLibrary()` — const, line 1203
+- `const target = readerTargetForRestoration(restoration, library.sources)` — const, line 1204
+- `async function openStudied(restoration: IntentRestorationDto)` — function, line 1212
+- `function routePlanStep(step: PlanStepDto | null)` — function, line 1226
+- `const action = planStepAction(step)` — const, line 1227
+- `function openPrimedRetry(id: string)` — function, line 1239
+- `function showPrimed(id: string)` — function, line 1253
+- `function openGuidedRedo(redo: GuidedRedoDto)` — function, line 1264
+- `function showGuidedRedo(redo: GuidedRedoDto)` — function, line 1280
+- `function openFeedback(id: string)` — function, line 1289
+- `function teachMeFromReader(request:` — function, line 1304
+- `async function startQuickCheck(learningObjectIds: string[])` — function, line 1309
+- `const generation = vaultGenRef.current` — const, line 1312
+- `const implicit = !session && shellRef.current === "simple"` — const, line 1313
+- `const stillOpen = ()` — const, line 1314
+- `let current = session` — let, line 1315
+- `const requestId = globalThis.crypto?.randomUUID?.() ?? `$` — const, line 1324
+- `const progress = await api.startQuickCheck(` — const, line 1325
+- `function openBlockReview(blockEnd: ProbeBlockEndDto, learningObjectId: string, learningObjectTitle: string)` — function, line 1334
+- `function openLibraryShelf()` — function, line 1342
+- `function openLibraryFile(path: string)` — function, line 1348
+- `function installHandedSession(next: SessionSnapshot)` — function, line 1357
+- `const item = next.checkpoint?.currentPracticeItemId ?? null` — const, line 1362
+- `async function adoptSessionBack(from: SessionMoved)` — function, line 1368
+- `async function startFreshOverMoved(from: SessionMoved)` — function, line 1377
+- `const minutes = session?.availableMinutes ?? (await implicitSessionMinutes())` — const, line 1379
+- `const next = await startSessionOrAsk(` — const, line 1381
+- `function letGoOfEndedSession()` — function, line 1400
+- `function clearLocalCheckpoint(identity?:` — function, line 1412
+- `const checkpoint = current.checkpoint` — const, line 1416
+- `function endSession(summary: SessionEndSummary)` — function, line 1435
+- `function gotoTab(next: TopTab)` — function, line 1454
+- `function gotoPlace(place: Place)` — function, line 1475
+- `function selectUthTool(tool: UthToolId, options:` — function, line 1481
+- `function openUnderTheHood()` — function, line 1489
+- `async function openAnotherLibrary()` — function, line 1493
+- `const selected = await openDialog(` — const, line 1495
+- `function openRepair(misconceptionId: string)` — function, line 1504
+- `function openExam(goalId: string)` — function, line 1509
+- `function exitExam()` — function, line 1514
+- `function openCalibration(id: string, options?:` — function, line 1521
+- `function exitCalibration()` — function, line 1529
+- `const askCurrentContext = useCallback((): boolean` — const, line 1539
+- `function gotoLibraryProposal(patchId: string, itemId: string)` — function, line 1574
+- `const openBook = useCallback((card: SourceLibraryCard)` — const, line 1586
+- `const openAddedItem = useCallback( async (item: AddSourceItemDto)` — const, line 1594
+- `let card: SourceLibraryCard | undefined` — let, line 1604
+- `const adder = useAddSource(` — const, line 1633
+- `const addSources = adder.add` — const, line 1634
+- `const fileDragging = useSourceFileDrop(` — const, line 1635
+- `function gotoProposalBatch(patchId: string)` — function, line 1652
+- `function resetShellForVault()` — function, line 1658
+- `const changeVault = useCallback( async (path: string)` — const, line 1698
+- `let selected = false` — let, line 1700
+- `let selectionAttempted = false` — let, line 1701
+- `const next = await api.loadVault()` — const, line 1737
+- `const message = errorMessage(error, "Could not open that vault.")` — const, line 1745
+- `const libraryFilesProps =` — const, line 1768
+- `function libraryPlace(booksOnly = false)` — function, line 1781
+- `const gradingTrouble = simple && snapshot !== null && !manualGrading && aiConnection !== null && aiConnection.needs !== "connect" && !(snapshot.health.ai?.ready ?? snapshot.health.codex.ready ?? false)` — const, line 1806
+- `const readerHolding = simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId && !(goldenRunId && SHOW_GOLDEN_PATH)` — const, line 1815
+- `function paletteCommands(): PaletteCommand[]` — function, line 1819
+- `const current = uthTool(uthToolOfTab(tab, uthToolState))` — const, line 1820
+- `const practicing = tab === "today" && todayStage === "practice"` — const, line 1856
+- `function wrapUpLine(landing: WrapUpLanding)` — function, line 1883
+- `function renderBody()` — function, line 1888
+- `const practicing = tab === "today" && (todayStage === "practice" || todayStage === "feedback")` — const, line 1928
+- `const todayPlace = ()` — const, line 1952
+- `const start = ( <StartScreen onBegin=` — const, line 1975
+- `const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId)` — const, line 2070
+- `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 2071
+- `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 2074
+- `const today = ( <TodayScreen key=` — const, line 2113
+- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2154
+- `function renderIngest()` — function, line 2179
+- `function renderProposals()` — function, line 2196
+- `function renderRegistry()` — function, line 2212
+- `function renderGolden()` — function, line 2227
+- `function renderMaintain()` — function, line 2250
+- `function renderUthTool(tool: UthToolId)` — function, line 2262
+- `function renderAfterGolden()` — function, line 2293
+- `const shellTree = ( <> <TerminalFrame active=` — const, line 2322
+- `function unique(values: Array<string | null>): string[]` — function, line 2575
 
 ## Who imports or calls it
 
@@ -375,6 +375,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export; imports `TodayScreen`
 - [[Reference/Desktop/TypeScript/screens/UnderTheHoodScreen|src/screens/UnderTheHoodScreen.tsx]] — import-or-re-export; imports `UnderTheHoodScreen`
 - [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|src/screens/reader/WrapUpOffer.tsx]] — import-or-re-export; imports `WrapUpOffer`
+- [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `setNextReaderVisitInitiator`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export; imports `ReaderWorkbenchCheck`, `ReaderWorkbenchProps`, `ReaderWorkbenchResume`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export; imports `TodayPlace`
 - [[Reference/Desktop/TypeScript/screens/underhood/tools|src/screens/underhood/tools.tsx]] — import-or-re-export; imports `CalibrationTool`, `DataTool`, `InspectorTool`, `MistakesTool`, `SpendTool`

@@ -58,10 +58,11 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert dumped.pop("data_capture") == {"receipts": True, "serving": True}
     # FG1's keys, in every snapshot and inert below its tag.
     dumped.pop("followup")
+    # RO0's switch (no successor; every snapshot moved) and RO1's keys (mvp-0.46; tests/test_ro1_successor.py), in
+    # every snapshot and inert below its tag.
+    assert dumped.pop("router_objective") == {"receipts": True, "available_at_reads": True, "self_report_not_validated": True}
     dumped["ai"]["routing"].pop("followup_probe_author", None)
     dumped["ui"].pop("show_router_decisions")
-    # RO1's keys (mvp-0.46; tests/test_ro1_successor.py), in every snapshot and inert below its tag.
-    assert dumped.pop("router_objective") == {"available_at_reads": True, "self_report_not_validated": True}
     assert dumped["scheduler"]["surprise"].pop("remove_interval_factor") is True
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "08840dbd600321a4a8d52fafb969bfacb6ace0e53d3166f5bdb12f81be6b34f3"

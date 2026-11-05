@@ -62,8 +62,10 @@ from typing import Any
 from learnloop import delayed_checks as D
 from learnloop import delayed_completion as DC
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.data_capture.reading_exposures import reading_learning_objects
 from learnloop.db.stores import data_capture as store
+from learnloop.router_objective import cold_timing
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +238,8 @@ class _Arrangement:
     practice_item_id: str | None = None
     pick: Mapping[str, Any] | None = None
     reason: str = ""
+    #: RO0 row 10: how a new check's delay was chosen (None: not new, or receipts off).
+    delay: str | None = None
 
 
 def _arrange(vault: Any, repository: Any, frozen: FrozenObjective, *, decision_id: str, exclude: Iterable[str],
@@ -285,6 +289,8 @@ def _new_check(vault: Any, repository: Any, lo: str, lo_items: Sequence[Any], *,
     if item is None:
         return _Arrangement(UNAVAILABLE, reason=NO_QUESTION)
     days, basis = D.due_days(vault, repository, purpose="retention", lesson_item_ids=[entry.id for entry in lo_items])
+    delay = cold_timing.delay_receipt(vault, days=days, basis=basis, purpose="retention") \
+        if objective_receipts_on(vault.config) else None
     pick = {**pick, "pool": pool}
     commitment = C.create_commitment(
         repository,
@@ -298,7 +304,7 @@ def _new_check(vault: Any, repository: Any, lo: str, lo_items: Sequence[Any], *,
         provenance={"via": VIA, "decision_id": decision_id, "learning_object_id": lo, "dated_by": basis, "pick": pick},
         clock=clock,
     )
-    return _Arrangement(ARRANGED, commitment_id=commitment.id, practice_item_id=item.id, pick=pick)
+    return _Arrangement(ARRANGED, commitment_id=commitment.id, practice_item_id=item.id, pick=pick, delay=delay)
 
 
 def record(vault: Any, repository: Any, connection: Any, *, decision_id: str, decision_kind: str, frozen: FrozenObjective,
@@ -326,10 +332,12 @@ def record(vault: Any, repository: Any, connection: Any, *, decision_id: str, de
             "support_json": json.dumps(list(frozen.support)), "measurement": arrangement.measurement,
             "commitment_id": arrangement.commitment_id, "practice_item_id": arrangement.practice_item_id,
             "pick_json": json.dumps(dict(arrangement.pick or {}), sort_keys=True), "experiment_id": experiment_id,
-            "created_at": at,
+            "created_at": at, **({"delay_json": arrangement.delay} if arrangement.delay else {}),
         })
         if written and arrangement.measurement == UNAVAILABLE:
             store.insert_measurement_event(connection, decision_id=decision_id, state="unavailable",
+                                           non_service_type=cold_timing.non_service_type(arrangement.reason)
+                                           if objective_receipts_on(vault.config) else None,
                                            reason=arrangement.reason, at=at)
     except Exception:  # noqa: BLE001 - a decision never waits on its measurement
         logger.warning("data capture: the objective of %s was not recorded", decision_id, exc_info=True)
@@ -437,6 +445,7 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
     reading_exposures.sweep_quietly(vault, repository, clock=clock)
     if not serving_on(vault.config):
         return 0
+    typed = objective_receipts_on(vault.config)
     from learnloop.curriculum import commitments as C
     from learnloop.scheduling.intent.serving import intent_serving
 
@@ -475,13 +484,13 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
             if answered_by is None and check is None:
                 answered_by = _satisfied_by(connection, commitment_id)
                 if answered_by is None and C.resolve_disposition(repository, commitment_id) != "one_check_pending":
-                    written += _lost(connection, decision_id, prefix, COMMITMENT_CLOSED, at=at)
+                    written += _lost(connection, decision_id, prefix, COMMITMENT_CLOSED, at=at, typed=typed)
                     continue
             if check is None and answered_by is None:
                 continue
             if check is not None and check.replaced and answered_by is None:
                 # Another commitment decides every item it covered: this check will not be served.
-                written += _lost(connection, decision_id, prefix, CHECK_REPLACED, at=at)
+                written += _lost(connection, decision_id, prefix, CHECK_REPLACED, at=at, typed=typed)
                 continue
             attempt = connection.execute(
                 "SELECT created_at, practice_item_id, learning_object_id FROM practice_attempts WHERE id = ?", (answered_by,)
@@ -503,7 +512,7 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                 # A plan's reason stands only for a day the check was not offered at all.
                 if not any(_local_day(offer["served_at"]) == today for offer in offers):
                     for reason in unplanned.get(commitment_id, ()):
-                        written += _lost(connection, decision_id, prefix, reason, at=at)
+                        written += _lost(connection, decision_id, prefix, reason, at=at, typed=typed)
             if answered_by is None:
                 continue
             answered_lo = str(attempt[2]) if attempt is not None else None
@@ -521,7 +530,7 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                 unread = ANSWER_NOT_DELAYED
             if replacement:
                 written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{unread}",
-                                  attempt_id=answered_by, at=at)
+                                  attempt_id=answered_by, at=at, typed=typed)
             else:
                 arranged = _replacement_check(vault, repository, decision_id, row.get("learning_object_id"),
                                               answered_item=attempt[1] if attempt is not None else None, serving=serving,
@@ -531,7 +540,8 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                                                  "practice_item_id": arranged.practice_item_id,
                                                  "replacement_unavailable": arranged.reason or None,
                                                  **({"answered_learning_object_id": answered_lo}
-                                                    if unread == ANSWER_OTHER_OBJECTIVE else {})})
+                                                    if unread == ANSWER_OTHER_OBJECTIVE else {})},
+                                  typed=typed, delay=arranged.delay)
     return written
 
 
@@ -542,20 +552,24 @@ def _local_day(at: str) -> str | None:
     return when.astimezone().date().isoformat() if when is not None else None
 
 
-def _lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str) -> int:
+def _lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str, typed: bool = False) -> int:
     """The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again
     only counts after availability came back. (``prefix`` is the reason of those states: this check's own.)"""
 
     return _event(connection, decision_id, "unavailable", reason=f"{prefix}{reason}", at=at,
-                  episode=store.latest_episode(connection, decision_id, reason=prefix))
+                  episode=store.latest_episode(connection, decision_id, reason=prefix), typed=typed)
 
 
 def _event(connection: Any, decision_id: str, state: str, *, at: str, reason: str = "",
            practice_item_id: str | None = None, attempt_id: str | None = None,
-           detail: Mapping[str, Any] | None = None, episode: str = "") -> int:
+           detail: Mapping[str, Any] | None = None, episode: str = "", typed: bool = False,
+           delay: str | None = None) -> int:
+    # RO0 row 10 (``typed``: its switch): an unserved check's reason keeps its words and gains a type.
     return 1 if store.insert_measurement_event(connection, decision_id=decision_id, state=state, reason=reason,
                                                practice_item_id=practice_item_id, attempt_id=attempt_id, detail=detail,
-                                               at=at, episode=episode) else 0
+                                               at=at, episode=episode, delay=delay,
+                                               non_service_type=cold_timing.non_service_type(reason)
+                                               if typed and state == "unavailable" else None) else 0
 
 
 def _satisfied_by(connection: Any, commitment_id: str) -> str | None:

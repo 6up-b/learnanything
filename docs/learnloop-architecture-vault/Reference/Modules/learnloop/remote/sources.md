@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/remote/sources.py"
 source_paths:
   - "src/learnloop/remote/sources.py"
-source_commit: "7a550e75a4a5ef9607d5eed7b078e70ca86b0435"
-source_commit_timestamp: "2026-10-24T20:20:55-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.remote"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/remote/sources.py](../../../../../../src/learnloop/remote/sources.py) |
-| Source lines | 425 |
+| Source lines | 428 |
 | Owning package | [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `7a550e75a4a5ef9607d5eed7b078e70ca86b0435` |
-| Commit timestamp | `2026-10-24T20:20:55-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
@@ -64,7 +64,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `__init__(self, code: str, message: str) -> None` (line 69; internal)
 - `class PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 78)
 - `find_passages(vault: Any, repository: Any, query: str, *, call_id: str, intent: str='explain', learning_object_ids: Sequence[str]=(), misconception_id: str | None=None, verify: bool=False, limit: int=6, char_budget: int=DEFAULT_CHAR_BUDGET, clock: Clock | None=None, alias_key: bytes | None=None) -> PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 150) — Passages for ``query`` under the server-derived policy, recorded as exposure (in the same transaction as the final protection read) before they are returned.
-- `plan_passages(vault: Any, repository: Any, query: str, *, intent: str='explain', learning_object_ids: Sequence[str]=(), misconception_id: str | None=None, verify: bool=False, limit: int=6, char_budget: int=DEFAULT_CHAR_BUDGET, alias_key: bytes | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 362) — Dry run of :func:`find_passages`: what it would pay for, at what cost.
+- `plan_passages(vault: Any, repository: Any, query: str, *, intent: str='explain', learning_object_ids: Sequence[str]=(), misconception_id: str | None=None, verify: bool=False, limit: int=6, char_budget: int=DEFAULT_CHAR_BUDGET, alias_key: bytes | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 365) — Dry run of :func:`find_passages`: what it would pay for, at what cost.
 
 ### Module constants
 
@@ -93,9 +93,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_protected_spans(vault: Any, repository: Any, withheld: Any) -> tuple[frozenset[tuple[str, str]], frozenset[str]]` ([source](../../../../../../src/learnloop/remote/sources.py), line 93) — The own passages of every item a check or reservation holds.
 - `_named_los(vault: Any, repository: Any, learning_object_ids: Sequence[str], alias_key: bytes | None) -> tuple[list[str], list[str]]` ([source](../../../../../../src/learnloop/remote/sources.py), line 118) — The topics a request names, read as ``learning_context`` reads them (spec §4.7): an authored topic's id, or a generated topic's opaque alias.
 - `_scope(vault: Any, repository: Any, intent: str, learning_object_ids: Sequence[str], misconception_id: str | None, alias_key: bytes | None=None) -> tuple[list[str], list[str], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/remote/sources.py), line 136)
-- `_record(repository: Any, result: PassageResult, *, call_id: str, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/remote/sources.py), line 199)
-- `_shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str, budget: int, los: list[str], unknown_los: list[str]) -> PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 206) — Filter ``hits`` by the protection just read and build the payload.
-- `_plan_verification(vault: Any, repository: Any, query: str, *, intent: str, policy: str, verify: bool, limit: int, targets: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 295) — The listwise verification a request would make, at its worst case, or why it would not run.
+- `_record(vault: Any, repository: Any, result: PassageResult, *, call_id: str, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/remote/sources.py), line 199)
+- `_shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str, budget: int, los: list[str], unknown_los: list[str]) -> PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 209) — Filter ``hits`` by the protection just read and build the payload.
+- `_plan_verification(vault: Any, repository: Any, query: str, *, intent: str, policy: str, verify: bool, limit: int, targets: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 298) — The listwise verification a request would make, at its worst case, or why it would not run.
 
 ## Who imports or calls it
 
@@ -121,7 +121,8 @@ No live LearnLoop module directly imports this module in the static graph.
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `route_skip`, `task_output_tokens`; calls `route_skip`, `task_output_tokens`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `module`; calls `PaidCalls`, `estimated_call_tokens`, `plan_route`
 - [[Reference/Modules/learnloop/remote/errors|learnloop.remote.errors]] — imports `InvalidRequest`, `NotFound`, `RemoteRequestError`; calls `InvalidRequest`, `NotFound`
-- [[Reference/Modules/learnloop/remote/telemetry|learnloop.remote.telemetry]] — imports `record_shown_passages`; calls `record_shown_passages`
+- [[Reference/Modules/learnloop/remote/telemetry|learnloop.remote.telemetry]] — imports `CHAT_EXPOSURE_CONTEXT`, `record_shown_passages`; calls `record_shown_passages`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `MODEL_WITHHELD_ROLES`, `item_exclusions`; calls `item_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `module`; calls `intent_task`, `verification_context`, `verification_prompt`, `verification_question`, `widest_candidates`
 - [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]] — imports `plan_library_search`; calls `plan_library_search`

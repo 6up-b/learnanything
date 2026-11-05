@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/golden_path.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/golden_path.py"
-source_commit: "13e1676316b8f447ed8dad3f17ffaccda556f867"
-source_commit_timestamp: "2026-10-13T20:56:51-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/golden_path.py](../../../../../../src/learnloop_sidecar/handlers/golden_path.py) |
-| Source lines | 324 |
+| Source lines | 326 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `13e1676316b8f447ed8dad3f17ffaccda556f867` |
-| Commit timestamp | `2026-10-13T20:56:51-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
@@ -85,7 +85,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_blueprint_dto(version: TB.BlueprintVersion) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 148)
-- `_run_state_dto(state: GPR.RunState) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 312)
+- `_run_state_dto(state: GPR.RunState) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 314)
 
 ## Who imports or calls it
 
@@ -98,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `decision_state_fields`; calls `decision_state_fields`
 - [[Reference/Modules/learnloop/curriculum/golden_path_compose|learnloop.curriculum.golden_path_compose]] — imports `module`; calls `compose_blueprint_draft`, `discover_exemplar_pool`
 - [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] — imports `module`; calls `confirm_exemplar_and_start`
 - [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `module`; calls `advance`, `project_run`

@@ -142,6 +142,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/followup_value|learnloop.db.stores.followup_value]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] — imports `new_ulid`; statically calls `new_ulid`
@@ -196,6 +197,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/router_objective/ask_availability|learnloop.router_objective.ask_availability]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `new_ulid`; statically calls `new_ulid`
@@ -260,7 +265,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 152 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 157 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

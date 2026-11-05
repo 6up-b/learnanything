@@ -127,6 +127,8 @@ import type {
   FeedbackBundle,
   FollowupDto,
   FollowupNextDto,
+  HypothesisMark,
+  HypothesisMarksDto,
   DiagnosisCardDto,
   DiagnosisCardResponse,
   EscalationResponse,
@@ -765,6 +767,17 @@ export const api = {
     mutating([TAG.queue], call<{ continued: boolean }>("followup_continue_without", { input: { attemptId } })),
   followupShowAnyway: (attemptId: string) =>
     call<{ released: boolean }>("followup_show_anyway", { input: { attemptId } }),
+  // FG1c §7: the client's display event for a list of causes, and one optional mark. Neither is a
+  // queue write: Next never waits on them.
+  recordHypothesisExposure: (input: { attemptId: string; surface: string; hypothesisVersionIds: string[]; shownAt: string }) =>
+    call<{ recorded: boolean }>("record_hypothesis_exposure", { input }),
+  recordHypothesisMark: (input: {
+    attemptId: string;
+    mark: HypothesisMark | "none_of_these" | "cleared";
+    hypothesisVersionId?: string | null;
+    freeText?: string | null;
+    surface: string;
+  }) => call<{ recorded: boolean; marks: HypothesisMarksDto | null }>("record_hypothesis_mark", { input }),
   rateFollowup: (attemptId: string, useful: boolean) =>
     call<FeedbackBundle>("rate_followup", { input: { attemptId, useful } }),
   reportUnresolvedCause: (input: {
@@ -1130,6 +1143,9 @@ export const api = {
     call<ConceptAnimationDto>("get_concept_animation_status", { animationId }),
   listConceptAnimations: (conceptId: string) =>
     call<{ animations: ConceptAnimationDto[] }>("list_concept_animations", { conceptId }),
+  /** RO0 row 3: Ask's availability changed on the item shown (an impression event; the same state writes nothing). */
+  recordAskAvailability: (input: { sessionId?: string | null; practiceItemId: string; available: boolean; reason?: string }) =>
+    call<{ version: number; recorded: boolean }>("record_ask_availability", { input }),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
   getLearnerTextGap: (input: { sourceKind?: string; sourceId: string }) =>

@@ -524,7 +524,7 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         dumped["figures"].pop("checked_labels_enabled")
         dumped.pop("data_capture")  # data capture's keys (mvp-0.44; tests/test_data_capture_successor.py)
         dumped.pop("followup")  # FG1's keys (mvp-0.45; tests/test_followup_successor.py)
-        dumped.pop("router_objective")  # RO1's keys (mvp-0.46; tests/test_ro1_successor.py)
+        dumped.pop("router_objective")  # RO0's switch (no successor) and RO1's keys (mvp-0.46; tests/test_ro1_successor.py)
         dumped["scheduler"]["surprise"].pop("remove_interval_factor")
         dumped["ui"].pop("show_router_decisions")
         dumped["ai"]["routing"].pop("followup_probe_author", None)

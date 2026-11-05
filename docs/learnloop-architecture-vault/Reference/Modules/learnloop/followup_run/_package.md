@@ -11,10 +11,11 @@ source_paths:
   - "src/learnloop/followup_run/decision_view.py"
   - "src/learnloop/followup_run/jobs.py"
   - "src/learnloop/followup_run/lanes.py"
+  - "src/learnloop/followup_run/marks.py"
   - "src/learnloop/followup_run/router.py"
   - "src/learnloop/followup_run/serving.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T07:26:00-05:00"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -56,33 +57,37 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] | [[Reference/Modules/learnloop/followup_run/authoring#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] | [[Reference/Modules/learnloop/followup_run/decision_view#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] | [[Reference/Modules/learnloop/followup_run/jobs#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
-| [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] | [[Reference/Modules/learnloop/followup_run/lanes#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] | [[Reference/Modules/learnloop/followup_run/router#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
-| [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] | [[Reference/Modules/learnloop/followup_run/serving#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
+| [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] | [[Reference/Modules/learnloop/followup_run/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] | [[Reference/Modules/learnloop/followup_run/marks#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] | [[Reference/Modules/learnloop/followup_run/router#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
+| [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] | [[Reference/Modules/learnloop/followup_run/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 16 static module edges
-- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 11 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 7 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 6 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 17 static module edges
+- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 14 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 3 static module edges
-- [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 2 static module edges
+- [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 3 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 2 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 9 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 
 ### Dependency neighborhood
@@ -94,24 +99,24 @@ flowchart LR
     center["learnloop.followup_run"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_followup_serve["learnloop.followup_serve"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_db["learnloop.db"]
     n_learnloop["learnloop"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
-    center -->|16| n_learnloop_diagnosis
-    center -->|11| n_learnloop_followup_serve
-    center -->|7| n_learnloop_db
-    center -->|6| n_learnloop
+    center -->|17| n_learnloop_diagnosis
+    center -->|14| n_learnloop_followup_serve
+    n_learnloop_sidecar_handlers -->|9| center
+    center -->|8| n_learnloop_db
+    center -->|7| n_learnloop
     center -->|6| n_learnloop_daily_plan
-    n_learnloop_sidecar_handlers -->|6| center
-    center -->|4| n_learnloop_db_stores
+    center -->|5| n_learnloop_db_stores
     center -->|3| n_learnloop_ai
     center -->|3| n_learnloop_content_authoring
-    center -->|2| n_learnloop_diagnosis_split
+    center -->|3| n_learnloop_diagnosis_split
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

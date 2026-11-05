@@ -1,4 +1,4 @@
-"""Router objective RO1 §5.3: availability time, migration 242.
+"""Router objective RO1 §5.3: availability time, migration 244.
 
 * ``practice_attempts.received_at`` (nullable) and ``received_at_source`` are additive; the head fixture
   holds them, empty; the migration backfills imported exam rows from the id's ULID time, marked
@@ -34,13 +34,13 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, set_algorithm_version
 from tests.test_exam_seeding import EXAM_DATE, _exam_vault, _outcomes
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_244" / "state.sqlite"
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 IMPORTED_AT = datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
 NEW_COLUMNS = {"practice_attempts": {"received_at", "received_at_source"},
                "derived_state_rebuilds": {"projection_switches_json"}}
-#: What 242 alters (no object is added): earlier migrations' "nothing else changed" diffs on the way to head
+#: What 244 alters (no object is added): earlier migrations' "nothing else changed" diffs on the way to head
 #: read this.
 RO1_ALTERED_TABLES = frozenset(NEW_COLUMNS)
 
@@ -49,12 +49,12 @@ def _columns(connection, table: str) -> set[str]:
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
 
 
-def test_242_is_the_head_and_the_head_fixture_holds_its_empty_columns():
+def test_244_is_the_head_and_the_head_fixture_holds_its_empty_columns():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[242] == "242_availability_time.sql" and max(names) == 242
+    assert names[244] == "244_availability_time.sql" and max(names) == 244
     assert TABLE_ROLES["practice_attempts"] is TableRole.RAW_LEDGER
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 242
+    assert max(applied_versions(HEAD)) == 244
     with closing(sqlite3.connect(HEAD)) as connection:
         for table, columns in NEW_COLUMNS.items():
             assert columns <= _columns(connection, table)
@@ -70,11 +70,11 @@ def _downgraded(database: Path) -> None:
         for table, columns in NEW_COLUMNS.items():
             for column in sorted(columns):
                 connection.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
-        connection.execute("DELETE FROM schema_migrations WHERE version = 242")
+        connection.execute("DELETE FROM schema_migrations WHERE version = 244")
         connection.commit()
 
 
-def test_242_adds_exactly_its_columns_and_changes_nothing_else(tmp_path):
+def test_244_adds_exactly_its_columns_and_changes_nothing_else(tmp_path):
     database = tmp_path / "state.sqlite"
     _downgraded(database)
     with closing(sqlite3.connect(database)) as connection:
@@ -82,7 +82,7 @@ def test_242_adds_exactly_its_columns_and_changes_nothing_else(tmp_path):
         before_columns = {table: _columns(connection, table) for table in NEW_COLUMNS}
         rows_before = connection.execute("SELECT * FROM practice_attempts ORDER BY id").fetchall()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [242]
+        assert [migration.version for migration in apply_migrations(database)] == [244]
     with closing(sqlite3.connect(database)) as connection:
         after = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
@@ -98,11 +98,11 @@ def test_242_adds_exactly_its_columns_and_changes_nothing_else(tmp_path):
 
 
 @pytest.mark.durability
-def test_242_on_the_durability_lane(tmp_path):
+def test_244_on_the_durability_lane(tmp_path):
     database = tmp_path / "state.sqlite"
     _downgraded(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [242]
+        assert [migration.version for migration in apply_migrations(database)] == [244]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 

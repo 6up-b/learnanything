@@ -268,6 +268,9 @@ MODULE_INVENTORY: dict[str, str] = {
     # Data capture (docs/reviews/data-capture-a1-a6.md): no decision parameter of its own. The delay is
     # the outcome contract's, the floor the router's, the pitch and dates the teacher's.
     "data_capture_prefilter": "src/learnloop/data_capture/prefilter.py",
+    # Router objective RO0 (spec_router_objective_v1 §4): logging, no decision parameter of its own.
+    "router_objective_decision_state": "src/learnloop/router_objective/decision_state.py",
+    "router_objective_question_state": "src/learnloop/router_objective/question_state.py",
     "followup_run_jobs": "src/learnloop/followup_run/jobs.py",
     "delayed_checks": "src/learnloop/delayed_checks.py",
 }
@@ -454,6 +457,13 @@ _reg_const("followup_run_jobs:NEED_RETRY_DELAY_SECONDS", "numerical", kind="stru
 _reg_const("data_capture_prefilter:_ROUND_DIGITS", "numerical", kind="structural", owner="data_capture_prefilter",
            rationale="decimal places of a priority or minutes in a prefilter receipt's inputs, so float "
            "noise does not defeat the content-addressed dedupe; receipt size only, never a decision.")
+_reg_const("router_objective_decision_state:_ROUND_DIGITS", "numerical", kind="structural",
+           owner="router_objective_decision_state",
+           rationale="decimal places of a number in a decision's state receipt; receipt size only, never a decision.")
+_reg_const("router_objective_question_state:_WORKED_LEVEL", "constraint", kind="structural",
+           owner="router_objective_question_state",
+           rationale="the help ladder's first worked level (levels 4 and 5 give the solution away, hints.writer): what "
+           "the disclosure receipt calls a worked solution. Read by nothing that decides.")
 _reg_const("delayed_checks:_EXACT_TIE", "numerical", kind="structural", owner="delayed_checks",
            rationale="floating-point resolution of an exact tie between two items' predicted success; "
            "numerical resolution, not a margin: a real difference is never a tie.")
@@ -1592,6 +1602,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW2d's successor: workbench stuck steps and help before the first step as field "
         "signals that keep an LO out of fast-track and teach it first; zero-mass rows that never reach the "
         "record; off, the predecessor's derivation, Phase 6 serving and plans."),
+    # FG1c (spec_followup_generate_serve_v1 §7): the learner's marks on possible causes. A boolean
+    # (classified so every new key has a rule). Marks are receipts and an attributed opinion, so
+    # there is no weight to learn until a later stage measures the sensor.
+    _ConfigRule(_exact(
+        "followup.hypothesis_marks",
+    ), "structural", "operational",
+        "kill switch for the learner's marks on possible causes and the hypothesis-list exposure receipts; "
+        "they reach the learner state card and the diagnoser's context as attributed opinion and move no "
+        "probability; off, no marks UI, no rows, and every reply and context as it was."),
     # Rebuild equivalence (mvp-0.34, docs/reviews/rebuild-equivalence-fix.md):
     # the kill switch of the successor whose replay reads the ledger bounded at
     # the replayed attempt. A boolean (classified so every new key has a rule);
@@ -1615,6 +1634,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for mobile PR-4's successor: a live attempt writes only its item row's scheduling columns "
         "(active only closes, content_hash is content sync's), so it never reopens a row a content sync closed; "
         "off, the attempt upserts the whole row as the predecessor did. Never read by replay."),
+    # Router objective RO0 (spec_router_objective_v1 §4): the receipts' kill switch. A boolean
+    # (classified so every new key has a rule); it decides no plan, only whether a row is written.
+    _ConfigRule(_exact(
+        "router_objective.receipts",
+    ), "structural", "operational",
+        "kill switch for RO0's additive receipts and columns: off, nothing is written and nothing else changes. "
+        "Nothing serving, scheduling, certification or replay reads what it writes."),
     # Mobile PR-6 (Codex review F6): the kill switch of the phone's device rules.
     # A boolean; which items need a desktop is structural (their contract and
     # their parsed Markdown), never a weight.
@@ -2883,6 +2909,11 @@ BOOLEAN_DECISION_LEAVES: tuple[str, ...] = (
     "diagnostic_augmentation.sampling_enabled",
 )
 
+#: Boolean leaves registered for inventory only: structural, not decisions.
+BOOLEAN_STRUCTURAL_LEAVES: tuple[str, ...] = (
+    "router_objective.receipts",
+)
+
 
 #: String (enum) config leaves that are DECISIONS: like the booleans above, the
 #: numeric walk skips them, so each is enumerated here.
@@ -2903,6 +2934,11 @@ def _build_config_specs() -> None:
         if not _register_config_path(path):
             raise RuntimeError(
                 f"enum decision leaf {path} has no classification rule"
+            )
+    for path in BOOLEAN_STRUCTURAL_LEAVES:
+        if not _register_config_path(path):
+            raise RuntimeError(
+                f"boolean structural leaf {path} has no classification rule"
             )
 
 

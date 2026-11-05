@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/algorithm_versions.py"
 source_paths:
   - "src/learnloop/algorithm_versions.py"
-source_commit: "workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8"
-source_commit_timestamp: "2026-11-04T18:53:13-05:00"
-source_worktree_state: "modified"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8` |
-| Commit timestamp | `2026-11-04T18:53:13-05:00` |
+| Worktree state | `clean` |
+| Source commit | `4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
@@ -466,6 +466,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_rereview.py](../../../../../tests/test_required_method_rereview.py) — direct import
 - [tests/test_required_method_round3.py](../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_required_method_round3_review.py](../../../../../tests/test_required_method_round3_review.py) — direct import
+- [tests/test_ro0_codex_review.py](../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
+  - `test_f3_a_served_offer_keeps_its_candidates_ad_numbers`
+  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
+  - `test_f3_the_staged_bridge_hands_its_decision_the_ad_reader`
+- [tests/test_ro0_codex_verify.py](../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_an_arranged_check_keeps_its_objective_whatever_its_delay_meets`
+  - `test_r1_an_unserved_check_keeps_its_state_whatever_its_type_meets`
+- [tests/test_ro0_gate.py](../../../../../tests/test_ro0_gate.py) — direct import
+  - `test_the_plan_blocks_rows_and_serves_are_the_same_on_and_off`
 - [tests/test_ro1_availability.py](../../../../../tests/test_ro1_availability.py) — direct import
 - [tests/test_ro1_availability_reads.py](../../../../../tests/test_ro1_availability_reads.py) — direct import
 - [tests/test_ro1_interval_factor.py](../../../../../tests/test_ro1_interval_factor.py) — direct import

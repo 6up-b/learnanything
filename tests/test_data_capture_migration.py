@@ -14,10 +14,12 @@ import sqlite3
 import pytest
 
 from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
+from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
+from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_244" / "state.sqlite"
 TABLES = ("prefilter_payloads", "prefilter_receipts", "decision_objectives", "decision_measurement_events",
           "reading_exposure_receipts")
 #: What 240 adds (its tables, autoindexes, indexes and triggers).
@@ -77,7 +79,7 @@ def test_240_adds_exactly_its_objects_and_changes_nothing_else(tmp_path):
         after = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-    assert set(after) - set(before) - FOLLOWUP_ADDED_OBJECTS == set(DATA_CAPTURE_ADDED_OBJECTS)
+    assert set(after) - set(before) - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS == set(DATA_CAPTURE_ADDED_OBJECTS)
     assert all(after[name] == sql for name, sql in before.items())
 
 

@@ -192,15 +192,18 @@ def find_passages(
             raise SourcesUnavailable(*_UNREADABLE)
         result = _shown(vault, repository, hits, withheld, intent=intent, budget=budget, los=los,
                         unknown_los=unknown_los)
-        result.exposure_event_ids = _record(repository, result, call_id=call_id, clock=clock)
+        result.exposure_event_ids = _record(vault, repository, result, call_id=call_id, clock=clock)
     return result
 
 
-def _record(repository: Any, result: PassageResult, *, call_id: str, clock: Clock | None) -> list[str]:
-    from learnloop.remote.telemetry import record_shown_passages
+def _record(vault: Any, repository: Any, result: PassageResult, *, call_id: str, clock: Clock | None) -> list[str]:
+    from learnloop.remote.telemetry import CHAT_EXPOSURE_CONTEXT, record_shown_passages
+    from learnloop.router_objective import exposure
 
     return record_shown_passages(repository, result.shown_keys, call_id=call_id,
-                                 source_versions=result.source_versions, clock=clock)
+                                 source_versions=result.source_versions, clock=clock,
+                                 exposure_fields=exposure.fields(vault.config, repository, context=CHAT_EXPOSURE_CONTEXT,
+                                                                 initiator=exposure.TUTOR_CITATION))
 
 
 def _shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str, budget: int, los: list[str],

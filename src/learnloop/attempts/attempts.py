@@ -252,7 +252,7 @@ class AttemptDraft:
     # marker only when a hint was used); None everywhere else.
     difficulty_rating: str | None = None
     first_hint_progress: str | None = None
-    # Router objective RO1 (spec_router_objective_v1 §5.3, migration 242): when
+    # Router objective RO1 (spec_router_objective_v1 §5.3, migration 244): when
     # the attempt became known, set only by a writer whose ``created_at`` is not
     # its write time (exam seeding writes the exam's past instant). None
     # everywhere else: availability is then ``created_at``. Never read by

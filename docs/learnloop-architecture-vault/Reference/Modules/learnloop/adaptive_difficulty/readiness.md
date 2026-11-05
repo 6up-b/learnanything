@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/readiness.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/readiness.py"
-source_commit: "b00d07e6fab059e8f9778cf04decb5543c849998"
-source_commit_timestamp: "2026-11-02T07:07:50-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -50,21 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/readiness.py](../../../../../../src/learnloop/adaptive_difficulty/readiness.py) |
-| Source lines | 217 |
+| Source lines | 248 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `b00d07e6fab059e8f9778cf04decb5543c849998` |
-| Commit timestamp | `2026-11-02T07:07:50-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
 - `lo_readiness(vault: Any, repository: Any, learning_object_id: str, *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 57) — The LO's readiness lines (labelled predictions), or the not-predicted line.
 - `aggregate_line(rows: list[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 85) — The LO's one visible line (Codex review F9): "likely ready" only when **every** cell is tested and likely ready; a partly untested LO says so in the line itself, since the desktop shows this line alone, and is never "likely ready" on its tested cells.
 - `card_fields(vault: Any, repository: Any, learning_object_id: str, *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 104) — The router card's AD fields for one LO (None with ``promoted_predictor`` off).
-- `band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 145) — Per LO, where adaptive difficulty predicts the learner stands against its practice band (teacher TE1b's ``below_band`` lesson reason; codex review F6).
-- `card_line(fields: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 209)
+- `decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 121) — RO0 row 9 (spec_router_objective_v1 §4): the card's numbers for each candidate LO at one decision, and the state they were read from.
+- `band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 176) — Per LO, where adaptive difficulty predicts the learner stands against its practice band (teacher TE1b's ``below_band`` lesson reason; codex review F6).
+- `card_line(fields: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 240)
 
 ### Module constants
 
@@ -87,23 +88,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `band_positions`
 - `card_fields`
 - `card_line`
+- `decision_state_fields`
 - `lo_readiness`
 
 ## Internal implementation anchors
 
 - `_cells(view: Any, learning_object_id: str) -> list[tuple[str, str, str]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 42) — ``(facet, capability, subject)`` of every cell the LO's visible active items measure, read through the material view: a protected item (held-out material, an exam reservation) never shapes a readiness line or the router card (A8); with the predicate unavailable there are none.
-- `_main_cell(view: Any, vault: Any, learning_object_id: str) -> tuple[str, str, str] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 192) — The LO's main cell: the facet its visible items weigh most (as :func:`card_fields` picks).
+- `_lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 141) — One LO's AD numbers in its main cell, or None with no visible cell.
+- `_main_cell(view: Any, vault: Any, learning_object_id: str) -> tuple[str, str, str] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 223) — The LO's main cell: the facet its visible items weigh most (as :func:`card_fields` picks).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `band_positions`; statically calls `band_positions`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `decision_state_fields`; statically calls `decision_state_fields`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `band_positions`, `decision_state_fields`; statically calls `band_positions`, `decision_state_fields`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `card_fields`; statically calls `card_fields`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `decision_state_fields`; statically calls `decision_state_fields`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `card_fields`, `lo_readiness`; statically calls `card_fields`, `lo_readiness`
 - [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] — imports `NOT_PREDICTED`, `READINESS_VERSION`, `lo_readiness`; statically calls `lo_readiness`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `LIKELY`, `lo_readiness`; statically calls `lo_readiness`
+- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `decision_state_fields`; statically calls `decision_state_fields`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `decision_state_fields`; statically calls `decision_state_fields`
 
 ## Dependencies
 
@@ -128,7 +135,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -141,6 +148,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_partly_untested_lo_never_reads_likely_ready`
 - [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
   - `test_readiness_numbers_from_subject_view_with_untested_cells`
+  - `test_ro0_decision_state_fields_read_the_cards_numbers_with_the_state_they_came_from`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
 - [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
   - `test_band_positions_thresholds_p_band_and_reads_the_side_from_expected_success`
   - `test_below_band_reads_adaptive_difficultys_posterior_not_the_mastery_model`

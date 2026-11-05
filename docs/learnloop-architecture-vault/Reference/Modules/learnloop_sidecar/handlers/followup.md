@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/followup.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/followup.py"
-source_commit: "39f6b099653030344716006c070d16ae7ddecff8"
-source_commit_timestamp: "2026-11-04T06:46:03-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -53,25 +53,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/followup.py](../../../../../../src/learnloop_sidecar/handlers/followup.py) |
-| Source lines | 78 |
+| Source lines | 124 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `39f6b099653030344716006c070d16ae7ddecff8` |
-| Commit timestamp | `2026-11-04T06:46:03-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
-- `class FollowupInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 16)
-- `followup_status(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 34)
-- `followup_next(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 49) — Next pressed (§6.1): wait, open the probe, or go on with the plan or the queue.
-- `followup_continue_without(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 66)
-- `followup_show_anyway(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 74)
+- `class FollowupInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 17)
+- `class HypothesisExposureInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 21)
+- `class HypothesisMarkInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 29)
+- `followup_status(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 51)
+- `followup_next(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 66) — Next pressed (§6.1): wait, open the probe, or go on with the plan or the queue.
+- `followup_continue_without(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 83)
+- `followup_show_anyway(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 91)
+- `record_hypothesis_exposure(ctx: SidecarContext, params: HypothesisExposureInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 99) — FG1c, spec_router_objective_v1 §4 row 6: the client's display event.
+- `record_hypothesis_mark(ctx: SidecarContext, params: HypothesisMarkInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 112) — FG1c, spec §7: one optional mark, appended.
 
 ## Internal implementation anchors
 
-- `_fresh_vault(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 20) — The worker wrote the question on its own slot: this process's vault reads it now.
+- `_fresh_vault(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/followup.py), line 37) — The worker wrote the question on its own slot: this process's vault reads it now.
 
 ## Who imports or calls it
 
@@ -84,11 +88,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `MarkRefused`, `record_exposure`, `record_mark`; calls `record_exposure`, `record_mark`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `continue_without`, `next_action`, `plan_will_place`, `show_anyway`, `view`; calls `continue_without`, `next_action`, `plan_will_place`, `show_anyway`, `view`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `attempt_workflow`; calls `attempt_workflow`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `to_camel`, `versioned`; calls `to_camel`, `versioned`
+- [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies

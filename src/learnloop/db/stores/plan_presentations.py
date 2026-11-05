@@ -12,6 +12,8 @@ from collections.abc import Iterable, Mapping
 import sqlite3
 from typing import Any
 
+from learnloop.db.stores import router_objective as receipts
+
 PRESENTATION_COLUMNS: tuple[str, ...] = (
     "id", "block_id", "router_decision_id", "controller_decision_id", "practice_item_id",
     "position", "origin", "scheduler_candidate_id", "probe_presentation_id", "session_id", "served_at",
@@ -40,6 +42,10 @@ def insert_plan_presentation(connection: sqlite3.Connection, row: Mapping[str, A
     A plan item is served once per block (a reopen serves the same step), so
     ``(block_id, practice_item_id)`` names its presentation; a second serve
     returns the first row's id and writes nothing.
+
+    RO0 row 3's ``ask_available`` is never in the row's insert (landing
+    ruling R1): it follows in its own savepoint, so a refused receipt leaves
+    the presentation, which a keyed pick requires, standing without it.
     """
 
     standing = presentation_for(connection, str(row["block_id"]), str(row["practice_item_id"]))
@@ -50,6 +56,8 @@ def insert_plan_presentation(connection: sqlite3.Connection, row: Mapping[str, A
         f"VALUES ({','.join('?' for _ in PRESENTATION_COLUMNS)})",
         tuple(row.get(column) for column in PRESENTATION_COLUMNS),
     )
+    _base, receipt = receipts.split_receipt("plan_presentations", row)
+    receipts.fill_receipt(connection, "plan_presentations", str(row["id"]), receipt)
     return str(row["id"])
 
 

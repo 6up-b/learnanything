@@ -14,9 +14,14 @@ import json
 import sqlite3
 from typing import Any
 
-from learnloop.data_capture.gates import receipts_on, serving_on
+from learnloop.causal_activity_policy import DISCRIMINATING_OUTCOMES
+from learnloop.data_capture.gates import objective_receipts_on, receipts_on, serving_on
 from learnloop.db.stores import data_capture as store
+from learnloop.db.stores import hypothesis_marks as marks_store
+from learnloop.followup_serve import marks as marks_rules
+from learnloop.followup_serve.gates import hypothesis_marks_on
 from learnloop.held_grades import held_for_review_attempts, pfc_assessments
+from learnloop.router_objective import report as objective_report
 
 REPORT_VERSION = "data_capture_report_v1"
 #: Decisions that share another's receipt: a learner's pick from an offer reads its parent's.
@@ -218,6 +223,290 @@ def floor_and_pick_section(connection: sqlite3.Connection) -> dict[str, Any]:
     return {"not_ready_floor": not_ready, "delayed_picks": picks, "thin_support_assignments": int(thin)}
 
 
+def _goals(vault: Any) -> list[Any]:
+    goals = getattr(vault, "goals", None) or ()
+    return list(goals.values() if isinstance(goals, Mapping) else goals)
+
+
+PROBE_AGREEMENT_LABEL = ("conditional on being observed: only causes the learner marked and a probe answer measured, "
+                         "not the sensor's accuracy on anything else")
+DELAYED_AGREEMENT_LABEL = ("conditional on being observed: only the opinion held before a later delayed answer on the topic; "
+                           "a repair in between can move it, and marks made after that answer are reported apart, unscored")
+#: How a marked answer's opinion reads against a delayed answer: the first scored against a miss, the third
+#: against a success, the others reported and never scored (a delayed answer can't say which cause it was).
+_OPINIONS = ("named_a_gap", "partly", "ruled_the_list_out", "rejected_some_causes")
+POSITION_LABEL = ("conditional on being observed: only lists that were displayed and marks the learner chose to give; "
+                  "the order is shuffled, so a difference by position reads as position bias")
+
+
+def _exposure_coverage(connection: sqlite3.Connection, exposures: list[dict[str, Any]], links: list[dict[str, Any]]) -> dict[str, Any]:
+    """The coverage row: how many attempts with causes since the first display had a list displayed, and what it costs."""
+
+    first = min((str(row["created_at"]) for row in exposures), default=None)
+    with_causes: set[str] = set()
+    if first is not None and _present(connection, "causal_hypotheses"):
+        with_causes = {str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT attempt_id FROM causal_hypotheses WHERE status <> 'open_set' AND created_at >= ?", (first,))}
+    displayed = {str(row["attempt_id"]) for row in exposures}
+    days = _active_days([str(row["created_at"]) for row in exposures])
+    size = sum(len(str(value).encode("utf-8")) for row in exposures for value in row.values() if value is not None)
+    return {
+        "exposures": len(exposures),
+        "by_surface": dict(Counter(str(row["surface"]) for row in exposures)),
+        "attempts_displayed": len(displayed),
+        "attempts_with_causes_since_first_display": len(with_causes),
+        "coverage": round(len(displayed & with_causes) / len(with_causes), 4) if with_causes else None,
+        "linked_to_a_later_probe_answer": len(links),
+        "rows_per_active_day": _per_day(len(exposures), days),
+        "bytes_per_active_day": _per_day(size, days),
+    }
+
+
+def _latest_marks(marks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_attempt: dict[str, list[dict[str, Any]]] = {}
+    for row in marks:
+        by_attempt.setdefault(str(row["attempt_id"]), []).append(row)
+    return [dict(row) for rows in by_attempt.values() for row in marks_rules.latest_marks(rows).values()]
+
+
+def _hypothesis_keys(connection: sqlite3.Connection) -> dict[str, str]:
+    """Each hypothesis version's stable identity."""
+
+    return {str(row[0]): str(row[1]) for row in connection.execute("SELECT id, episode_key FROM causal_hypotheses")}
+
+
+def _observations(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """Per factor, its newest answered observation, with what it measured and classified as stable identities.
+
+    ``independent`` is the receipt's own field: admission is another question (a clean answer to a question
+    that didn't discriminate is not admitted), and only an assessed clean answer reads as independent.
+    ``covered``: every cause of the list was put at risk, what a no-match needs before it says anything."""
+
+    if not _present(connection, "causal_discriminating_observations"):
+        return {}
+    keys = _hypothesis_keys(connection)
+    out: dict[str, dict[str, Any]] = {}
+    for row in connection.execute(
+        "SELECT factor_id, outcome, classified_as_json, admissible_as_independent, declared_keys_observed, detail_json "
+        "FROM causal_discriminating_observations WHERE probe_attempt_id IS NOT NULL ORDER BY created_at, id"
+    ):
+        detail = json.loads(row["detail_json"] or "{}")
+        out[str(row["factor_id"])] = {
+            "outcome": str(row["outcome"]),
+            "classified": {keys.get(str(value), str(value)) for value in json.loads(row["classified_as_json"] or "[]")},
+            "measured": {keys.get(str(value), str(value)) for value in detail.get("measured_hypothesis_ids") or []},
+            "independent": row["admissible_as_independent"] == 1,
+            "covered": bool(row["declared_keys_observed"]),
+        }
+    return out
+
+
+def _probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]]) -> dict[str, Any]:
+    """Marks against what a probe's answer classified. Counted apart by whether the answer was independent
+    and whether the mark came before it, since a learner who has answered knows more."""
+
+    observations = _observations(connection)
+    table: dict[str, dict[str, int]] = {}
+    not_discriminating = not_measured = no_probe = none_uncovered = 0
+    scored = {"independent_answer": [0, 0], "not_independent_answer": [0, 0]}
+    for row in latest:
+        factor = row.get("factor_id")
+        observation = observations.get(str(factor)) if factor else None
+        if observation is None:
+            no_probe += 1
+            continue
+        if observation["outcome"] not in DISCRIMINATING_OUTCOMES:
+            not_discriminating += 1
+            continue
+        mark = str(row["mark"])
+        no_match = observation["outcome"] == "no_bundle_matched"
+        if mark == marks_rules.NONE_OF_THESE:
+            if no_match and not observation["covered"]:
+                # A cause the question never put at risk could still be the one: this says nothing about the list.
+                none_uncovered += 1
+                continue
+            supported = no_match
+        elif str(row["hypothesis_key"]) not in observation["measured"]:
+            not_measured += 1
+            continue
+        else:
+            supported = str(row["hypothesis_key"]) in observation["classified"]
+        timing = "marked_after_the_answer" if row.get("probe_answered") else "marked_before_the_answer"
+        independence = "independent_answer" if observation["independent"] else "not_independent_answer"
+        verdict = "probe_supports" if supported else "probe_does_not_support"
+        slot = table.setdefault(f"{mark}|{verdict}|{independence}|{timing}", {"marks": 0})
+        slot["marks"] += 1
+        # "Partly" is neither side of agreement: it is reported, never scored.
+        if mark in {marks_rules.MY_GAP, marks_rules.NONE_OF_THESE}:
+            scored[independence][0 if supported else 1] += 1
+        elif mark == marks_rules.NOT_IT:
+            scored[independence][1 if supported else 0] += 1
+    return {
+        "label": PROBE_AGREEMENT_LABEL,
+        **{
+            f"{name}s": {
+                "agree": agree,
+                "disagree": disagree,
+                "agreement": round(agree / (agree + disagree), 4) if agree + disagree else None,
+            }
+            for name, (agree, disagree) in scored.items()
+        },
+        "by_mark_outcome_independence_and_timing": {
+            key: value["marks"] for key, value in sorted(table.items())
+        },
+        "marks_with_no_probe_answer": no_probe,
+        "marks_on_a_cause_the_probe_did_not_measure": not_measured,
+        "marks_on_a_probe_that_did_not_discriminate": not_discriminating,
+        "none_of_these_on_a_probe_that_did_not_measure_every_cause": none_uncovered,
+    }
+
+
+def _rejected_the_whole_list(latest: Mapping[str | None, Mapping[str, Any]], rows: list[Mapping[str, Any]],
+                             keys: Mapping[str, str]) -> bool:
+    """None of these, or Not it on every cause of the list as the newest mark displayed it. Marks are optional
+    per cause, so a cause left unmarked (or added since) was not rejected."""
+
+    if marks_rules.NONE_OF_THESE in {str(row["mark"]) for row in latest.values()}:
+        return True
+    rejected = {key for key, row in latest.items() if row["mark"] == marks_rules.NOT_IT}
+    displayed = marks_store.decode_ids(rows[-1].get("display_order_json")) if rows else []
+    return bool(displayed) and all(keys.get(version) in rejected for version in displayed)
+
+
+def _opinion_reading(rows: list[Mapping[str, Any]], keys: Mapping[str, str]) -> str | None:
+    """One attempt's opinion in ``rows`` (oldest first), or None with nothing held: one of ``_OPINIONS``."""
+
+    latest = marks_rules.latest_marks(rows)
+    if not latest:
+        return None
+    held = {str(row["mark"]) for row in latest.values()}
+    if marks_rules.MY_GAP in held:
+        return "named_a_gap"
+    if marks_rules.PARTLY in held:
+        return "partly"
+    return "ruled_the_list_out" if _rejected_the_whole_list(latest, rows, keys) else "rejected_some_causes"
+
+
+def _delayed_agreement(connection: sqlite3.Connection, vault: Any, repository: Any, marks: list[dict[str, Any]],
+                       success_correctness: float) -> dict[str, Any]:
+    """Marks against delayed answers on the topic under the shared definition: the opinion held before the first
+    delayed answer that had one, so the answer is what it predicted and hindsight replaces nothing. A learner
+    naming a gap agrees with a later miss; one ruling the whole list out agrees with a later success. An opinion
+    formed or changed after a delayed answer is counted apart against the newest answer it could have seen."""
+
+    from learnloop.data_capture import reading_exposures
+    from learnloop.router.outcomes import delayed_outcomes_after
+
+    by_attempt: dict[str, list[dict[str, Any]]] = {}
+    learning_objects: dict[str, str] = {}
+    for row in marks:
+        by_attempt.setdefault(str(row["attempt_id"]), []).append(row)
+        learning_objects[str(row["attempt_id"])] = str(row["learning_object_id"])
+
+    def table() -> dict[str, dict[str, int]]:
+        return {name: {"later_success": 0, "later_miss": 0} for name in _OPINIONS}
+
+    apart = table()
+    out: dict[str, Any] = {"label": DELAYED_AGREEMENT_LABEL, "agree": 0, "disagree": 0, "agreement": None, **table(),
+                           "marked_answers_with_no_later_delayed_answer": 0, "marked_after_a_delayed_answer": apart}
+    if not by_attempt:
+        return out
+    attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
+    outcomes = delayed_outcomes_after(
+        connection, learning_objects, pfc_states=pfc_assessments(connection, attempt_ids),
+        held_attempt_ids=frozenset(held_for_review_attempts(connection)),
+        reader_exposures=reading_exposures.read(connection, vault, repository),
+    )
+    keys = _hypothesis_keys(connection)
+
+    def later(outcome: Mapping[str, Any]) -> str:
+        success = outcome["completion"] == "completed" and float(outcome["value"] or 0.0) >= success_correctness
+        return "later_success" if success else "later_miss"
+
+    for attempt_id, rows in sorted(by_attempt.items()):
+        found = outcomes.get(attempt_id) or []
+        scored = False
+        for outcome in found:
+            reading = _opinion_reading([row for row in rows if str(row["created_at"]) < str(outcome["presented_at"])], keys)
+            if reading is None:
+                continue
+            scored = True
+            out[reading][later(outcome)] += 1
+            if reading == "named_a_gap":
+                out["agree" if later(outcome) == "later_miss" else "disagree"] += 1
+            elif reading == "ruled_the_list_out":
+                out["agree" if later(outcome) == "later_success" else "disagree"] += 1
+            break
+        final = _opinion_reading(rows, keys)
+        if final is None:
+            continue
+        if not scored:
+            out["marked_answers_with_no_later_delayed_answer"] += 1
+        seen = [outcome for outcome in found if str(outcome["presented_at"]) <= str(rows[-1]["created_at"])]
+        if seen:
+            apart[final][later(seen[-1])] += 1
+    decided = out["agree"] + out["disagree"]
+    out["agreement"] = round(out["agree"] / decided, 4) if decided else None
+    return out
+
+
+def _position_rates(exposures: list[dict[str, Any]], latest: list[dict[str, Any]]) -> dict[str, Any]:
+    """Mark rates by the position each cause held on the marks panel: shown once per attempt and cause."""
+
+    shown: Counter[int] = Counter()
+    seen: set[tuple[str, str]] = set()
+    for row in exposures:
+        if not row.get("order_seed"):
+            continue
+        for position, version in enumerate(marks_store.decode_ids(row["hypothesis_version_ids_json"]), start=1):
+            if (str(row["attempt_id"]), version) not in seen:
+                seen.add((str(row["attempt_id"]), version))
+                shown[position] += 1
+    marked: dict[int, Counter[str]] = {}
+    for row in latest:
+        if row.get("display_position"):
+            marked.setdefault(int(row["display_position"]), Counter())[str(row["mark"])] += 1
+    positions = sorted(set(shown) | set(marked))
+    return {
+        "label": POSITION_LABEL,
+        "by_position": {
+            str(position): {
+                "shown": shown[position],
+                "marks": dict(marked.get(position, Counter())),
+                "mark_rate": (round(sum(marked.get(position, Counter()).values()) / shown[position], 4)
+                              if shown[position] else None),
+            }
+            for position in positions
+        },
+    }
+
+
+def hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, repository: Any, *,
+                             success_correctness: float) -> dict[str, Any]:
+    """FG1c (spec §7) and row 6 of the router objective's logging: the exposure table's coverage, and how far
+    the marks can be trusted, each labelled as conditional on being observed. It estimates no effect."""
+
+    if not marks_store.present(connection):
+        return {"available": False, "reason": "this database predates migration 242"}
+    exposures = marks_store.all_exposures(connection)
+    marks = marks_store.all_marks(connection)
+    latest = _latest_marks(marks)
+    return {
+        "available": True,
+        "exposure_coverage": _exposure_coverage(connection, exposures, marks_store.probe_links(connection)),
+        "marks": {
+            "rows": len(marks),
+            "attempts": len({str(row["attempt_id"]) for row in marks}),
+            "latest_by_mark": dict(Counter(str(row["mark"]) for row in latest)),
+            "changes_of_mind": len(marks) - len({(str(row["attempt_id"]), row["hypothesis_key"]) for row in marks}),
+            "with_free_text": sum(1 for row in latest if row.get("free_text")),
+        },
+        "agreement_with_probe_outcomes": _probe_agreement(connection, latest),
+        "agreement_with_delayed_performance": _delayed_agreement(connection, vault, repository, marks, success_correctness),
+        "mark_rates_by_display_position": _position_rates(exposures, latest),
+    }
+
+
 def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str,
                  success_correctness: float) -> dict[str, Any]:
     return {
@@ -230,6 +519,12 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         "outcomes": outcome_section(connection, vault, repository),
         "first_delayed_success": time_section(connection, vault, repository, as_of=as_of, success_correctness=success_correctness),
         "floor_and_picks": floor_and_pick_section(connection),
+        "router_objective": {"receipts": objective_receipts_on(vault.config),
+                             **objective_report.section(connection, goal_ids=[str(goal.id) for goal in _goals(vault)])},
+        "hypothesis_marks": {
+            "switch_on": hypothesis_marks_on(vault.config),
+            **hypothesis_marks_section(connection, vault, repository, success_correctness=success_correctness),
+        },
     }
 
 
@@ -283,6 +578,32 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     floor = report["floor_and_picks"]
     out.append(f"Not-ready floor: {floor['not_ready_floor']}; delayed picks: {floor['delayed_picks']}; "
                f"thin-support assignments: {floor['thin_support_assignments']}")
+    out.extend(objective_report.lines(report["router_objective"]))
+    marks = report["hypothesis_marks"]
+    if marks.get("available"):
+        coverage = marks["exposure_coverage"]
+        out.append(f"Hypothesis-list exposures: {coverage['exposures']} by surface {coverage['by_surface']}; "
+                   f"{coverage['attempts_displayed']} attempts displayed of "
+                   f"{coverage['attempts_with_causes_since_first_display']} with causes since the first display "
+                   f"(coverage {coverage['coverage']}); {coverage['linked_to_a_later_probe_answer']} linked to a later "
+                   f"probe answer; {coverage['rows_per_active_day']} rows and {coverage['bytes_per_active_day']} bytes per active day")
+        counts = marks["marks"]
+        out.append(f"Marks on possible causes: {counts['rows']} rows on {counts['attempts']} attempts, latest "
+                   f"{counts['latest_by_mark']}, {counts['changes_of_mind']} changes of mind, {counts['with_free_text']} with free text")
+        probe = marks["agreement_with_probe_outcomes"]
+        clean, exposed = probe["independent_answers"], probe["not_independent_answers"]
+        out.append(f"  with probe outcomes: agreement {clean['agreement']} on independent answers ({clean['agree']} agree, "
+                   f"{clean['disagree']} disagree), {exposed['agreement']} on answers given after the causes were shown "
+                   f"({exposed['agree']} agree, {exposed['disagree']} disagree); {probe['label']}")
+        delayed = marks["agreement_with_delayed_performance"]
+        afterwards = sum(sum(row.values()) for row in delayed["marked_after_a_delayed_answer"].values())
+        out.append(f"  with delayed performance: agreement {delayed['agreement']} ({delayed['agree']} agree, "
+                   f"{delayed['disagree']} disagree); {afterwards} marked or changed after a delayed answer, unscored; "
+                   f"{delayed['label']}")
+        position = marks["mark_rates_by_display_position"]
+        out.append(f"  by display position: {position['by_position']}; {position['label']}")
+    else:
+        out.append(f"Marks on possible causes: unavailable ({marks.get('reason')})")
     return out
 
 

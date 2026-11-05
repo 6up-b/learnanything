@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/provenance.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/provenance.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -53,20 +53,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/provenance.py](../../../../../../src/learnloop_sidecar/handlers/provenance.py) |
-| Source lines | 60 |
+| Source lines | 67 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 4a801f1afce0faaf0246a9bd404a8ed73abf2dfb` |
+| Commit timestamp | `2026-11-04T19:32:38-05:00` |
 
 ## Public API
 
-- `class EntityProvenanceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 13)
-- `class SpanViewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 18)
-- `get_span_view_handler(ctx: SidecarContext, params: SpanViewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 27) — Open-in-source viewer data (§9.2): span text + page/bbox/polygon geometry, section path, neighboring spans, and same-page spans.
-- `get_entity_provenance_handler(ctx: SidecarContext, params: EntityProvenanceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 51) — Entity provenance view (§9.2): supporting sources with spans, semantic vs assessment-alignment authority (separated), staleness, conflicts, notation, and the synthesis run that introduced the entity.
+- `class EntityProvenanceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 14)
+- `class SpanViewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 19)
+- `get_span_view_handler(ctx: SidecarContext, params: SpanViewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 32) — Open-in-source viewer data (§9.2): span text + page/bbox/polygon geometry, section path, neighboring spans, and same-page spans.
+- `get_entity_provenance_handler(ctx: SidecarContext, params: EntityProvenanceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/provenance.py), line 58) — Entity provenance view (§9.2): supporting sources with spans, semantic vs assessment-alignment authority (separated), staleness, conflicts, notation, and the synthesis run that introduced the entity.
 
 ## Internal implementation anchors
 
@@ -85,6 +85,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/content/sources/provenance|learnloop.content.sources.provenance]] — imports `get_entity_provenance`; calls `get_entity_provenance`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `SpanViewError`, `build_span_view`; calls `build_span_view`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
@@ -111,20 +112,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/rw2c_state_parity.py](../../../../../../tests/rw2c_state_parity.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_a_source_opening_stands_whatever_its_initiators_receipt_meets`
+- [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
+  - `test_the_span_view_handler_records_the_mapped_initiator`
 
 ## Modification guidance
 

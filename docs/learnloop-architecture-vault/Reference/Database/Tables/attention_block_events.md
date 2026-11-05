@@ -3,13 +3,13 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
   - "table attention_block_events"
-schema_head: 242
+schema_head: 244
 table_name: "attention_block_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/096_controller_snapshots.sql`.
-- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`, `214_adaptive_difficulty_serving.sql`, `243_router_objective_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -91,6 +91,10 @@ None found by exact static reference scan.
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router_objective/ask_availability.py`
+- `src/learnloop/router_objective/exposure.py`
+- `src/learnloop/router_objective/report.py`
+- `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
@@ -121,11 +125,12 @@ None found by exact static reference scan.
 - `tests/test_reader_rw4b_admission_idempotency.py`
 - `tests/test_reader_rw4b_fix6.py`
 - `tests/test_reader_rw6b_p2_landing.py`
+- `tests/test_ro0_codex_verify.py`
+- `tests/test_ro0_gate.py`
+- `tests/test_ro0_row3_ask_availability.py`
 - `tests/test_router_g4_restraint.py`
 - `tests/test_router_r2a_serving.py`
 - `tests/test_rw7b_codex_review_fixes.py`
-- `tests/test_ux_phase4_feedback.py`
-- `tests/test_voi_merge_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

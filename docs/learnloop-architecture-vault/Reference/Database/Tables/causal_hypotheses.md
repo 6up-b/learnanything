@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 242
+schema_head: 244
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,10 +24,11 @@ source_paths:
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/daily_plans.py"
+  - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/db/stores/recurrence.py"
-  - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
 tags:
   - "learnloop/database/table"
@@ -55,7 +56,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/118_causal_attribution_p1.sql`.
-- **Schema touched by:** `118_causal_attribution_p1.sql`, `119_causal_mechanism_taxonomy.sql`, `120_causal_projection_indexes.sql`, `121_causal_probe_coherence.sql`, `125_causal_repair_mapping_provenance.sql`, `126_diagnosis_adjudication.sql`, `133_causal_mechanism_repair_key.sql`, `176_recurrence_groups.sql`.
+- **Schema touched by:** `118_causal_attribution_p1.sql`, `119_causal_mechanism_taxonomy.sql`, `120_causal_projection_indexes.sql`, `121_causal_probe_coherence.sql`, `125_causal_repair_mapping_provenance.sql`, `126_diagnosis_adjudication.sql`, `133_causal_mechanism_repair_key.sql`, `176_recurrence_groups.sql`, `242_hypothesis_marks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -130,6 +131,7 @@ Database triggers:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/daily_plans.py`
+- `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
@@ -139,6 +141,8 @@ Database triggers:
 - `src/learnloop/instructional/screen.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/learner_protection.py`
+- `src/learnloop/ops/capture_report.py`
+- `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/substrate/recurrence_groups.py`
 
@@ -185,15 +189,15 @@ Database triggers:
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_failure_triage_causal_gate.py`
+- `tests/test_followup_fg1c_codex_review.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_hint_discriminating.py`
+- `tests/test_hypothesis_marks_context.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_recurrence_benchmarks.py`
-- `tests/test_router_card.py`
-- `tests/test_stuck_prompt.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

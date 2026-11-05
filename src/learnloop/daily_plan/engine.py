@@ -106,7 +106,10 @@ from learnloop.daily_plan.types import (
 )
 from learnloop.daily_plan import measurement as objectives
 from learnloop.data_capture import prefilter
-from learnloop.data_capture.gates import receipts_on, serving_on
+from learnloop.router_objective import ask_availability, decision_state
+from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.router_objective import sessions as session_receipts
+from learnloop.data_capture.gates import objective_receipts_on, receipts_on, serving_on
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
 from learnloop.router.plan_log import INSERT_REF as INSERT_NOW_REF
@@ -637,6 +640,8 @@ class PoolContext:
     intent_views: Mapping[str, IntentView] = field(default_factory=dict)
     #: Data capture A1: this build's prefilter (None: receipts off, or no build behind this view).
     prefilter: Any = field(default=None, repr=False, compare=False)
+    #: RO0 row 13: the build's minutes estimator, whose source a decision's receipt names.
+    estimator: Any = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -919,6 +924,8 @@ class PlanBlockDecision:
     #: Data capture A1: what this build decided before the chooser saw candidates
     #: (``data_capture.prefilter.Material``), linked to the decision when it commits.
     prefilter: Any = field(default=None, repr=False, compare=False)
+    #: RO0 rows 9 and 13: what it believed when it decided (``router_objective.decision_state.Material``).
+    decision_state: Any = field(default=None, repr=False, compare=False)
 
 
 #: ``(connection, decision) -> router_decisions id or None``. The logger runs on
@@ -964,6 +971,9 @@ def _log_plan_decision(connection: Any, decision: PlanBlockDecision) -> str | No
     if ref is not None and decision.prefilter is not None:
         prefilter.record(connection, decision_id=ref, decision_kind=decision.kind, material=decision.prefilter,
                          config=decision.config, at=decision.decided_at or utc_now_iso())
+    if ref is not None and decision.decision_state is not None:
+        decision_state.record(connection, decision_id=ref, decision_kind=decision.kind, material=decision.decision_state,
+                              config=decision.config, at=decision.decided_at or utc_now_iso())
     return ref
 
 
@@ -2203,6 +2213,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         ad_deferred=deferred,
         intent_views=_intent_views(env, built, (item.learning_object_id for item in pool)),
         prefilter=built.prefilter,
+        estimator=built.estimator,
     )
 
 
@@ -2855,6 +2866,10 @@ def _boundary(
         # stored beside the router decision, not on this receipt).
         detail["router"] = router_summary(router_record)
     candidate = decision.candidate
+    state_receipt = _decision_state(
+        env, context.estimator, candidates=[*detail["candidate_set"], *detail["forced"]], stop=_stop_state(decision),
+        voi=voi_decisions,
+    )
     if candidate is None and not forced:
         # UX Phase 4 rounds 7 and 8: a temporary routine-display hold never
         # finishes the plan. Only when nothing is feasible now, and a held
@@ -2879,7 +2894,7 @@ def _boundary(
         _close(
             env, record, status="complete", reason=choice.why or "nothing more worth doing today",
             stop_detail=detail, log_decision=True, router_record=router_record, prefilter=context.prefilter,
-            frozen=frozen,
+            frozen=frozen, decision_state=state_receipt,
         )
         return None
     items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
@@ -2942,6 +2957,7 @@ def _boundary(
                 config=env.vault.config,
                 router_record=router_record,
                 prefilter=context.prefilter,
+                decision_state=state_receipt,
             ),
         )
         if decision_ref is None and logged is not None:
@@ -2973,6 +2989,64 @@ def _boundary(
         )
     _record_probe_value_forecasts(env, detail, block_id=block_id, decision_ref=decision_ref)
     return block_id
+
+
+def _read_ad_fields(env: PlanEnv, learning_object_ids: Sequence[str]) -> Mapping[str, Any]:
+    """RO0 row 9: adaptive difficulty's numbers for a decision's LOs, read outside the decision's transaction."""
+
+    from learnloop.adaptive_difficulty.readiness import decision_state_fields
+
+    return decision_state_fields(env.vault, env.repository, list(learning_object_ids))
+
+
+def _item_minutes(env: PlanEnv, estimator: Any, item_ids: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """RO0 row 13: each candidate's predicted minutes and where they came from (the price needs the forecast and its error)."""
+
+    out: dict[str, dict[str, Any]] = {}
+    for item_id in item_ids:
+        item = env.vault.practice_items.get(item_id)
+        if estimator is None or item is None:
+            out[item_id] = {"minutes_source": "missing"}
+            continue
+        estimate = estimator.estimate(item_id, item.practice_mode, item.expected_minutes)
+        out[item_id] = {"minutes": round(estimate.minutes, 4), "minutes_source": f"estimator:{estimate.prior_source}",
+                        "n_item": estimate.n_item, "n_mode": estimate.n_mode}
+    return out
+
+
+def _decision_state(env: PlanEnv, estimator: Any, *, candidates: Sequence[Mapping[str, Any]], stop: Mapping[str, Any] | None = None,
+                    voi: Iterable[Mapping[str, Any]] = (), pick: tuple[str | None, str | None] | None = None,
+                    ad: Any = _read_ad_fields) -> Any:
+    """RO0 rows 9 and 13: this decision's state, or None. ``ad``: the reader, or what was read before a transaction opened."""
+
+    config = env.vault.config
+    if not objective_receipts_on(config) or not getattr(config.router, "log_decisions", False):
+        return None  # No decision row, nothing to link it to.
+    try:
+        item_ids, _los = decision_state.candidate_ids(env.vault, candidates)
+        minutes = _item_minutes(env, estimator, item_ids)
+    except Exception:  # noqa: BLE001 - a receipt never blocks the plan
+        logging.getLogger(__name__).warning("router objective: a decision's minutes were not read", exc_info=True)
+        return None
+    return decision_state.prepare(
+        env.vault, env.repository, candidates=candidates, session_id=env.session_id, stop=stop, pick=pick,
+        forgetting_curve=forgetting_curve,
+        item_minutes=minutes,
+        block_minutes={str(entry.get("candidate_id") or entry["practice_item_id"]): entry["est_minutes"] for entry in candidates
+                       if (entry.get("candidate_id") or entry.get("practice_item_id")) and entry.get("est_minutes") is not None},
+        voi=[*voi, *(dict(row) for row in getattr(getattr(env, "last_trace", None), "voi_decisions", ()) or ())],
+        ad_fields=(lambda los: ad(env, los)) if callable(ad) else ad,
+        versions={"estimator": getattr(estimator, "version", None)},
+        clock=env.clock,
+    )
+
+
+def _stop_state(decision: Any) -> Mapping[str, Any]:
+    """RO0 row 13: the stop on offer at this boundary. No version yet gives a stop a value of its own: said so, not zero."""
+
+    state = decision.state
+    return {"offered": bool(decision.stop_offered), "taken": decision.candidate is None,
+            "minutes_left": round(float(state.minutes_left), 4), "value": None, "value_source": "none_at_this_version"}
 
 
 def _frozen_objective(env: PlanEnv, record: PlanRecord, decision: Any) -> objectives.FrozenObjective | None:
@@ -3072,6 +3146,7 @@ def _close(
     router_record: Mapping[str, Any] | None = None,
     prefilter: Any = None,
     frozen: objectives.FrozenObjective | None = None,
+    decision_state: Any = None,
 ) -> None:
     """Close the plan. A chooser's stop (``stop_detail``: the candidate set,
     chooser, propensity and fallback) is appended as a stop receipt, so a plan
@@ -3101,6 +3176,7 @@ def _close(
                         config=env.vault.config,
                         router_record=router_record,
                         prefilter=prefilter,
+                        decision_state=decision_state,
                     ),
                 )
                 if decision_ref is None and logged is not None:
@@ -3807,17 +3883,19 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
         anchor = current or (record.blocks[-1] if record.blocks else None)
         if refused_now and anchor is not None:
             now = env.now_iso()
+            ad = _interrupt_ad_fields(env, [item for item, _outcome in refused_now])
             with env.repository.atomic(), env.repository.connection() as connection:
                 for item, outcome in refused_now:
                     decision_ref = _log_interrupt(env, connection, record, anchor, item, outcome,
-                                                  material=built.prefilter)
+                                                  material=built.prefilter, estimator=built.estimator, ad=ad)
                     _event(connection, anchor.id, "followup_refused",
                            {"practice_item_id": item.practice_item_id, "decision_ref": decision_ref,
                             "propensity": outcome.propensity}, now)
             record = _reload(env, record.id)
         return record, fitted
     if gate is not None:
-        return _restrained_followups(env, record, current, followups, gate, cap, material=built.prefilter)
+        return _restrained_followups(env, record, current, followups, gate, cap, material=built.prefilter,
+                                     estimator=built.estimator)
     now = env.now_iso()
     protected = {item.practice_item_id for item in record.items() if item.origin == ORIGIN_FOLLOWUP}
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -3991,7 +4069,7 @@ def _write_followup(
 
 def _restrained_followups(
     env: PlanEnv, record: PlanRecord, current: PlannedBlock, followups: Sequence[PoolItem], gate: Any, cap: Any,
-    *, material: Any = None,
+    *, material: Any = None, estimator: Any = None,
 ) -> tuple[PlanRecord, list[PoolItem]]:
     """Router R2c: each placeable mid-block follow-up's ``plan_interrupt`` decision.
 
@@ -4047,9 +4125,11 @@ def _restrained_followups(
         decided.append((item, outcome, [], None, None, None))
     if not decided:
         return record, []
+    ad = _interrupt_ad_fields(env, [entry[0] for entry in decided])
     with env.repository.atomic(), env.repository.connection() as connection:
         for item, outcome, victims, lane, release, placed_at in decided:
-            decision_ref = _log_interrupt(env, connection, record, current, item, outcome, material=material)
+            decision_ref = _log_interrupt(env, connection, record, current, item, outcome, material=material,
+                                          estimator=estimator, ad=ad)
             if not outcome.insert:
                 _event(
                     connection,
@@ -4066,9 +4146,21 @@ def _restrained_followups(
     return _reload(env, record.id), []
 
 
+def _interrupt_ad_fields(env: PlanEnv, items: Sequence[PoolItem]) -> Mapping[str, Any] | None:
+    """RO0 row 9: the follow-ups' LOs, read before the write that logs their decisions opens."""
+
+    if not items or not objective_receipts_on(env.vault.config):
+        return None
+    try:
+        return _read_ad_fields(env, list(dict.fromkeys(item.learning_object_id for item in items)))
+    except Exception:  # noqa: BLE001 - a receipt never blocks the plan
+        logging.getLogger(__name__).warning("router objective: adaptive difficulty's fields were not read", exc_info=True)
+        return {"status": decision_state.AD_UNAVAILABLE}
+
+
 def _log_interrupt(
     env: PlanEnv, connection: Any, record: PlanRecord, current: PlannedBlock, item: PoolItem, outcome: Any,
-    *, material: Any = None,
+    *, material: Any = None, estimator: Any = None, ad: Mapping[str, Any] | None = None,
 ) -> str | None:
     """Router R2c: the follow-up's ``plan_interrupt`` row, on the write's own connection, and this
     build's prefilter linked to it (data capture A1)."""
@@ -4105,6 +4197,12 @@ def _log_interrupt(
         if decision_ref is not None:
             prefilter.record(connection, decision_id=decision_ref, decision_kind="plan_interrupt", material=material,
                              config=env.vault.config, at=env.now_iso())
+            # RO0 rows 9 and 13, on the write's own connection, its AD numbers read before the write opened.
+            decision_state.record(
+                connection, decision_id=decision_ref, decision_kind="plan_interrupt", config=env.vault.config, at=env.now_iso(),
+                material=_decision_state(env, estimator, candidates=[{"item_ids": [item.practice_item_id],
+                                                                      "learning_object_ids": [item.learning_object_id]}],
+                                         ad=ad))
             if serving_on(env.vault.config) and not outcome.refused and outcome.wait_feasible:
                 # Data capture A2: the follow-up's own LO, whichever arm was drawn; its check never
                 # takes an item this plan holds or the follow-up itself.
@@ -4568,6 +4666,7 @@ def _present(
                 "probe_presentation_id": None,
                 "session_id": env.session_id,
                 "served_at": served_at,
+                **ask_availability.serve_fields(env.vault, connection, practice_item_id),
             },
         )
     except Exception:  # noqa: BLE001 - the receipt never blocks serving (unless strict)
@@ -4882,17 +4981,23 @@ def learner_pick(
         est_minutes=est,
         never_attempted=False,
     )
+    # RO0 rows 9 and 13: a pick's state and the VOI verdict in force, read before the pick's transaction opens.
+    pick_state = _decision_state(env, built.estimator,
+                                 candidates=[{"item_ids": [practice_item_id], "learning_object_ids": [lo_id]}],
+                                 voi=[dict(entry.voi) for entry in built.pool if entry.voi is not None],
+                                 pick=(practice_item_id, lo_id))
     with _keyed_pick_scope(env, idempotency_key):
         return _pick_new_block(
             env, record, item, practice_item_id=practice_item_id, est=est, lane=lane, lo_id=lo_id,
             deductions=deductions, lefts=lefts, candidate_id=candidate_id, idempotency_key=idempotency_key,
-            within=within, material=built.prefilter)
+            within=within, material=built.prefilter, state_receipt=pick_state)
 
 
 def _pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practice_item_id: str, est: float,
                     lane: str | None, lo_id: str, deductions: dict[str, float], lefts: Mapping[str, float],
                     candidate_id: str | None, idempotency_key: str | None,
-                    within: WithinPick | None, material: Any = None) -> tuple[PlanRecord, dict[str, Any]]:
+                    within: WithinPick | None, material: Any = None,
+                    state_receipt: Any = None) -> tuple[PlanRecord, dict[str, Any]]:
     """The one-item learner-pick block (L3): its block, its serve and, for a
     keyed pick, its keyed receipt and ``within`` (one transaction then)."""
 
@@ -4940,6 +5045,7 @@ def _pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practic
                 decided_at=env.now_iso(),
                 config=vault.config,
                 prefilter=material,
+                decision_state=state_receipt,
             ),
         )
         if decision_ref is not None:
@@ -5120,6 +5226,10 @@ def keep_going(env: PlanEnv) -> PlanRecord:
     record = reconcile(env, record)
     if record.is_open:
         return record
+    if record.status == "complete":
+        # RO0 row 7: the finished plan had offered the stop; the learner went on.
+        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
+                                              via="keep_going", clock=env.clock)
     remembered = int(record.row["remembered_minutes"])
     if record.kind == "reentry":
         remaining = remembered - record.minutes_planned()
@@ -5178,6 +5288,10 @@ def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[st
         return record, preview
     if record.is_open:
         raise PlanStillOpenError("today's plan is still open; more new material is offered when it is done")
+    if record.status == "complete":
+        # RO0 row 7: as ``keep_going``.
+        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
+                                              via="more_new", clock=env.clock)
     plan = build_plan(
         env,
         kind="keep_going",

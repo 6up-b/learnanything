@@ -3,13 +3,13 @@ title: "causal_attribution_reports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_attribution_reports"
   - "table causal_attribution_reports"
-schema_head: 242
+schema_head: 244
 table_name: "causal_attribution_reports"
 table_role: "receipt"
 functionality_status: "active"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/followup_run/lanes.py`
+- `src/learnloop/followup_run/marks.py`
 - `src/learnloop/followup_serve/workflow.py`
 - `src/learnloop/hints/discriminating.py`
 - `src/learnloop/instructional/needs.py`
@@ -121,6 +122,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_diagnosis_adjudication.py`
+- `tests/test_hypothesis_marks.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_attribution_p1.py`
@@ -139,7 +141,6 @@ Indexes and uniqueness:
 - `tests/test_grading_support.py`
 - `tests/test_probe_block_end.py`
 - `tests/test_recurrence_deferral.py`
-- `tests/test_ro1_self_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

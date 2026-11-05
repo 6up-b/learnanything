@@ -3,13 +3,13 @@ title: "grading_clarification_responses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "4a801f1afce0faaf0246a9bd404a8ed73abf2dfb"
+source_commit_timestamp: "2026-11-04T19:32:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_clarification_responses"
   - "table grading_clarification_responses"
-schema_head: 242
+schema_head: 244
 table_name: "grading_clarification_responses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/142_grading_clarifications.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/router_objective/decision_state.py"
   - "src/learnloop_sidecar/handlers/app.py"
   - "src/learnloop/attempts/clarification.py"
   - "src/learnloop/cli/clarification.py"
@@ -94,6 +95,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers

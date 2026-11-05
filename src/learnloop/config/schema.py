@@ -4157,7 +4157,16 @@ class DataCaptureConfig(BaseModel):
 
 
 class RouterObjectiveConfig(BaseModel):
-    """The router objective (docs/specs/spec_router_objective_v1.md). RO1's switches (mvp-0.46, §5.5):
+    """The router objective (docs/specs/spec_router_objective_v1.md).
+
+    RO0's logging:
+
+    * ``receipts``: the additive receipts and columns of §4 (disclosure state at an ask, generating-process
+      fields, question opportunity, exposure initiator, event times, session availability and end, decision-time
+      belief, cold-check timing, goal lifecycle). They act at every algorithm version and nothing serving,
+      scheduling or certification reads them; off, nothing is written and nothing else changes.
+
+    RO1's switches (mvp-0.46, §5.5):
 
     * ``available_at_reads``: decision-time reads of attempts (the router card) use the availability time,
       ``coalesce(received_at, created_at)``, so an exam imported today is not something an earlier decision
@@ -4166,10 +4175,11 @@ class RouterObjectiveConfig(BaseModel):
       not counted as validated evidence in the diagnoser's history; the factor's status and resolution ids
       are unchanged.
 
-    Off, or below the tag, each restores mvp-0.45 exactly. (The interval factor's switch lives with the
+    Off, or below the tag, each of RO1's restores mvp-0.45 exactly. (The interval factor's switch lives with the
     factor, ``[scheduler.surprise] remove_interval_factor``.)
     """
 
+    receipts: bool = True
     available_at_reads: bool = True
     self_report_not_validated: bool = True
 
@@ -4182,9 +4192,15 @@ class FollowupServeConfig(BaseModel):
     from an equivalent starting state, the stored
     ``probe.generation.auto_generate_on_entry`` applies, burns persist and open
     workflows settle as skipped.
+
+    ``hypothesis_marks`` is FG1c's kill switch (spec §7), at every algorithm version: the learner's
+    marks on possible causes and the hypothesis-list exposure receipts. It moves nothing that
+    decides, so it mints no successor. Off: no marks UI, no exposure or mark rows, and every reply
+    and context is what it was, whatever rows an earlier run left.
     """
 
     generate_and_serve: bool = True
+    hypothesis_marks: bool = True
 
 
 class VoiStoppingConfig(BaseModel):

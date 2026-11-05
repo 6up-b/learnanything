@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from learnloop.router_objective import exposure
 from learnloop.diagnosis.causal_orchestrator import (
     CausalRepairError,
     accept_probe_offer,
@@ -257,7 +258,9 @@ def prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> 
     except RemediationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     try:
-        record_prescription_delivery(repository, episode)
+        record_prescription_delivery(
+            repository, episode,
+            exposure_fields=exposure.fields(vault.config, repository, context="remediation_delivery"))
         # Canonical sources S5: ranked passages delivered are an intervention.
         from learnloop.instructional.interventions import record_remediation_delivery
 

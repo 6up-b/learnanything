@@ -43,7 +43,7 @@ it("sends the practice screen's no-work-yet marker with the fractional elapsed t
   expect(payload).toEqual({
     context: "practice", question: "Where do I even start?", practiceItemId: "pi_svd_define_001",
     attemptId: undefined, noteId: undefined, sessionId: "session-1",
-    secondsIntoAttempt: 2.537, attemptProgress: "no_draft"
+    secondsIntoAttempt: 2.537, attemptProgress: "no_draft", learnerMode: "answer_box"
   });
 });
 
@@ -98,4 +98,17 @@ it("shows nothing when the reading did nothing the learner should see", async ()
   await vi.advanceTimersByTimeAsync(2_100);
   await waitFor(() => expect(api.getLearnerTextGap).toHaveBeenCalledOnce());
   expect(screen.queryByTestId("learner-gap")).toBeNull();
+});
+
+it("says how the learner works, and leaves what the screen did not say unknown (RO0 rows 1 and 2)", async () => {
+  const steps = await ask({ context: "practice", practiceItemId: "pi_svd_define_001", sessionId: "session-1",
+    workbenchSessionId: "wb-1" });
+  expect(steps.learnerMode).toBe("work_in_steps");
+  expect(steps).not.toHaveProperty("answerVisibleNow");
+});
+
+it("sends whether the answer is in view where the screen knows it (RO0 row 1)", async () => {
+  const feedback = await ask({ context: "feedback", attemptId: "attempt-1", answerVisibleNow: true });
+  expect(feedback.answerVisibleNow).toBe(true);
+  expect(feedback).not.toHaveProperty("learnerMode");
 });

@@ -54,6 +54,8 @@ from learnloop.clock import Clock, parse_utc
 from learnloop.daily_plan.engine import PlanEnv, latest_today
 from learnloop.db.stores import router_suggestions as store
 from learnloop.data_capture import prefilter
+from learnloop.router_objective import decision_state
+from learnloop.scheduling.fsrs import forgetting_curve
 from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
 from learnloop.ids import new_ulid
 from learnloop.learner.lesson_weight import COLD_ATTEMPT_TYPES, predicted_success
@@ -410,6 +412,13 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
     candidates, excluded = build_candidates(vault, repository, now_iso=now_iso)
     if not candidates:
         return None
+    from learnloop.adaptive_difficulty.readiness import decision_state_fields
+
+    # RO0 rows 9 and 13, adaptive difficulty's included, read before the draw's transaction opens; written with its row.
+    decision_receipt = decision_state.prepare(
+        vault, repository, session_id=session_id, clock=clock, forgetting_curve=forgetting_curve,
+        candidates=[{"learning_object_ids": list(candidate.learning_object_ids)} for candidate in candidates],
+        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)))
     with repository.atomic():
         connection = repository.connection()
         state, decisions, responses = _model(connection)
@@ -484,6 +493,8 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
                 prefilter.record(connection, decision_id=str(row["id"]), decision_kind=LS.DECISION_KIND,
                                  material=prefilter.decision_row_material(row, versions={"suggestion": LS.SUGGESTION_VERSION}),
                                  config=vault.config, at=now_iso)
+                decision_state.record(connection, decision_id=str(row["id"]), decision_kind=LS.DECISION_KIND, config=vault.config,
+                                      at=now_iso, material=decision_receipt)
             return card_view(connection, store.decision_for_day(connection, today))
     # Another call settled the day between the two reads (its decision, or a reservation): read it back.
     return _recovered(vault, repository, today=today, now_iso=now_iso)[1]

@@ -1612,6 +1612,8 @@ export interface FeedbackBundle {
   followupQueued: boolean;
   /** FG1: the follow-up workflow's read; absent when no workflow owns this attempt. */
   followup?: FollowupDto;
+  /** FG1c (spec §7): present only when there is a list of causes to mark and it isn't held. */
+  hypothesisMarks?: HypothesisMarksDto;
   /** FG1 §3: this answered a generated probe; the earlier miss's held feedback is out now. */
   heldFeedbackAttemptId?: string;
   // Non-null when this attempt is itself a follow-up (drives the rating strip).
@@ -2223,6 +2225,10 @@ export interface AskTutorQuestionInput {
   sessionId?: string;
   secondsIntoAttempt?: number;
   attemptProgress?: AttemptProgress;
+  /** RO0 row 1: whether the answer is on the screen now; only the screen knows, so it is sent or unknown. */
+  answerVisibleNow?: boolean;
+  /** RO0 row 2: how the learner is working, where only the client knows. */
+  learnerMode?: string;
   /** Canonical sources S4, "Explain this with my work": passages the learner
    *  chose ("<extraction>:<span>") and their current draft. */
   pinnedSpanKeys?: string[];
@@ -4195,6 +4201,10 @@ export interface SpanViewInput {
   context?: string;
   entityType?: string | null;
   entityId?: string | null;
+  /** RO0 row 4: who sent the learner here, where the client knows. */
+  initiator?: string;
+  blockId?: string;
+  visitId?: string;
 }
 
 export interface SpanNeighborDto {
@@ -7381,6 +7391,8 @@ export interface ReaderInquiryQuestionActionInput {
 /** One funnel event for reader.log_activity (ids, kinds, counts and timings
  *  only; the sidecar drops anything else, learner text above all). */
 export interface ReaderActivityEvent {
+  /** RO0 row 5: when it happened; the server keeps it beside when it had the batch. */
+  occurred_at?: string;
   kind:
     | "reader_view_opened"
     | "reader_view_closed"
@@ -10598,6 +10610,21 @@ export interface FollowupDto {
   canContinueWithout: boolean;
   shownAnyway: boolean;
   routerDecision?: RouterDecisionDto | null;
+}
+
+/** FG1c (spec §7): the learner's optional marks on possible causes, in display order. */
+export type HypothesisMark = "my_gap" | "partly" | "not_it";
+
+export interface HypothesisMarksDto {
+  attemptId: string;
+  surface: string;
+  orderSeed: string;
+  probeAnswered: boolean;
+  /** On the probe lane the marks replace the diagnosis card's tap, so the learner isn't asked twice. */
+  replacesCardTap: boolean;
+  hypotheses: { hypothesisVersionId: string; statement: string; mark: HypothesisMark | null }[];
+  noneOfThese: boolean;
+  noneOfTheseText: string | null;
 }
 
 export interface FollowupNextDto {

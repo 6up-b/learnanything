@@ -58,6 +58,7 @@ def restore(
     run_id: str | None = None,
     idempotency_key: str | None = None,
     clock: Clock | None = None,
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Restore source + annotations after a closed cold observation (§11).
 
@@ -108,7 +109,7 @@ def restore(
             try:
                 view = build_span_view(
                     repository, extraction_id, first["span_id"], context="reader_restoration",
-                    record=True, clock=clock,
+                    record=True, clock=clock, exposure_fields=exposure_fields,
                 )
                 source_text = view.get("text")
             except SpanViewError:
