@@ -611,6 +611,43 @@ def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str,
     return out, record
 
 
+CALIBRATION_SUMMARY_VERSION = "ro6_calibration_summary_v1"
+
+
+def contrasts_hash(contrasts: Sequence[Contrast], record: Mapping[str, Any]) -> str:
+    """RO6's landing ruling R9: the hash of what calibrated ``ŵ`` (every contrast's realized value, interval,
+    predictions, forcing, missing and excluded counts, and the cohort's status), exact (each float's ``repr``), so a
+    trace's summary is checked against a recomputation from the ledger as of the trace's time."""
+
+    import hashlib
+    import json
+
+    rows = [[row.decision_id, row.window_closes_at, repr(float(row.realized)), *(repr(v) for v in row.bounds),
+             repr(float(row.tail)), repr(float(row.residual)), bool(row.forced), repr(float(row.forced_probability)),
+             int(row.missing), int(row.excluded)] for row in contrasts]
+    content = json.dumps({"status": record.get("status"), "rows": rows}, separators=(",", ":"))
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+
+
+def calibration_summary(contrasts: Sequence[Contrast], record: Mapping[str, Any], *, at: str) -> dict[str, Any]:
+    """RO6's landing ruling R9: what a trace keeps of ``ŵ``'s calibration, of a size that does not grow with the
+    log: the contrasts' count and status, the cohort's counts by arm, the missing and excluded counts, the
+    predictions' restriction counts and the hash of its inputs (:func:`contrasts_hash`), as of ``at``. ``ŵ`` itself,
+    its bound slope and rank and the unbounded estimate are the trace's ``weight``. The per-window bounds recompute
+    from the ledger as of ``at`` (``tail_data.contrasts``)."""
+
+    missing = record.get("missing") or {}
+    excluded = record.get("excluded") or {}
+    return {"version": CALIBRATION_SUMMARY_VERSION, "at": at, "n": len(contrasts), "status": record.get("status"),
+            "cohort": record.get("cohort"), "assigned": dict(record.get("assigned") or {}),
+            "observed": dict(record.get("observed") or {}),
+            "missing": {"windows": missing.get("windows", 0), "terms": missing.get("terms", 0)},
+            "excluded": {"windows": excluded.get("windows", 0), "terms": excluded.get("terms", 0)},
+            "prediction": {key: value for key, value in (record.get("prediction") or {}).items() if key != "note"},
+            "before_coin": dict(record.get("before_coin") or {}),
+            "inputs_hash": contrasts_hash(contrasts, record)}
+
+
 def predicted_contrast(values: Mapping[str, float], mu: Mapping[str, float], stop_ref: str) -> float | None:
     """A frozen value's contrast between the coin's arms: stop minus the blocks at the mix's shares among them (what
     ``present_next`` serves where the mix drew stop, and the mix's own block elsewhere)."""

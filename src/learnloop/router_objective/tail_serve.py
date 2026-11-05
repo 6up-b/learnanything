@@ -23,7 +23,9 @@ At a ``plan_block`` decision at the tag with ``[router_objective] learned_tail``
 
 Everything is frozen into the decision's trace (``residual``: ``ŵ`` with its slope and rank, the fit's
 coefficients, standardization, version and size, and per candidate the features, ``V_tail``, ``V_residual`` and
-``Ṽ``), so the trace's terms recompute. No model request; a failure leaves the residual out (the trace says why)
+``Ṽ``), so the trace's terms recompute. Of ``ŵ``'s calibration the trace keeps a summary of a size that does not
+grow with the log (``contrasts``: counts, missing and excluded counts, the hash of its inputs, its moment; RO6's
+landing ruling R9); the per-window bounds recompute from the ledger as of that moment (:func:`calibration`). No model request; a failure leaves the residual out (the trace says why)
 and the numeric policy as mvp-0.48's.
 """
 
@@ -133,9 +135,7 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
             rows = TD.logged(connection, config, at=now_iso)
             fitted = TD.fits(connection, config, at=now_iso, rows=rows)
             fit_ms = int(round((clock() - started) * 1000))
-            contrasts, censored_contrasts = TD.contrasts(connection, config, rows, at=now_iso)
-        weight = LT.residual_weight(contrasts, prior_sd=float(config.router_objective.residual_weight_prior_sd),
-                                    at=now_iso)
+            contrasts, weight, summary = calibration(connection, config, rows, at=now_iso)
         model, basis_of_fit = fitted.for_serving(generator_now)
         if model is None:
             model = LT.prior_fit(float(config.router_objective.residual_prior_sd), generator_now)
@@ -151,7 +151,9 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
         return {
             "status": "applied", "version": VERSION, "features_version": LT.FEATURES_VERSION,
             "w_hat": weight.w_hat, "weight": weight.as_dict(), "previous": previous,
-            "contrasts": {"n": len(contrasts), "censored": censored_contrasts},
+            # Landing ruling R9: the calibration's summary and the hash of its inputs, never the per-window bounds
+            # (they recompute from the ledger as of ``contrasts.at``: :func:`calibration`).
+            "contrasts": summary,
             "generator": generator_now, "fit_basis": basis_of_fit, "fit": fit_record,
             "transitions": {"n": len(fitted.steps.transitions), "censored": dict(fitted.steps.censored),
                             "change_points": len(fitted.steps.change_points), "decisions": fitted.decisions,
@@ -164,6 +166,17 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
         LOG.warning("router objective: the learned tail was not computed", exc_info=True)
         return {"status": "failed", "version": VERSION, "error": f"{type(exc).__name__}: {str(exc)[:200]}",
                 "elapsed_ms": int(round((clock() - started) * 1000))}
+
+
+def calibration(connection: Any, config: Any, rows: Sequence[Any], *, at: str) -> tuple[list[Any], Any, dict[str, Any]]:
+    """``ŵ``'s calibration as of ``at`` over the logged ``rows``: the randomized contrasts, the weight and the
+    summary a trace keeps (RO6's landing ruling R9: ``learned_tail.calibration_summary``, of a size that does not grow
+    with the log). Called with a trace's ``contrasts.at`` and the rows logged then, it recomputes that trace's summary,
+    the per-window bounds included (``tail_data.contrasts``'s record)."""
+
+    contrasts, record = TD.contrasts(connection, config, rows, at=at)
+    weight = LT.residual_weight(contrasts, prior_sd=float(config.router_objective.residual_weight_prior_sd), at=at)
+    return contrasts, weight, LT.calibration_summary(contrasts, record, at=at)
 
 
 CARRIED = "carried"
@@ -274,6 +287,7 @@ def candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -
 
 
 __all__ = ["CARRIED", "NOT_ON_THE_SERVING_PATH", "PAST_CUTOFF", "SAME_CUTOFF", "SNAPSHOT_VERSION", "VERSION",
-           "applied", "candidate_terms", "carried_cutoff", "features", "measurable", "not_on_the_serving_path",
+           "applied", "calibration", "candidate_terms", "carried_cutoff", "features", "measurable",
+           "not_on_the_serving_path",
            "previous_cutoff",
            "residual", "shifted", "snapshot", "with_carried_values"]

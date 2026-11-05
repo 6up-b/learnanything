@@ -269,6 +269,54 @@ def test_r7_a_served_decision_freezes_its_support_and_the_measurable_tail(tmp_pa
             assert logged[row["decision_id"]].q_measurable == pytest.approx(q)
 
 
+# -- R9: a trace does not grow with the log ------------------------------------------------------------------------
+
+
+def _residual_with_windows(monkeypatch, windows: int) -> dict:
+    """``tail_serve.residual`` with its reads replaced: ``windows`` forced windows each with one bounded missing
+    term and two excluded, no fit, no features (only the calibration's size varies)."""
+
+    from types import SimpleNamespace
+
+    draws = [LT.CoinDraw(decision_id=f"w{i:05d}", decided_at="2026-10-01T10:00:00Z",
+                         window_closes_at="2026-10-15T10:00:00Z", arm=SC.OFFER_STOP if i % 2 else SC.PRESENT_NEXT,
+                         rate=0.05, value=0.5, reason="no_check_support:1", tail=0.1 * (i % 7), residual=0.01 * i,
+                         lo=0.0, hi=1.0, missing=1, excluded=2) for i in range(windows)]
+
+    class _Repository:
+        def connection(self):
+            from contextlib import nullcontext
+
+            return nullcontext(None)
+
+    monkeypatch.setattr(TS, "features", lambda *_a, **_k: ({}, {}))
+    monkeypatch.setattr(TD, "logged", lambda *_a, **_k: [])
+    monkeypatch.setattr(TD, "fits", lambda *_a, **_k: TD.Fits(by_generator={}, order=(), steps=TD.Steps((), {}, (), {}),
+                                                            decisions=0))
+    monkeypatch.setattr(TD, "contrasts", lambda *_a, **_k: LT.coin_contrasts(draws))
+    now = "2026-11-01T10:00:00Z"
+    return TS.residual(_Repository(), CFG, inputs=SimpleNamespace(cutoff=90.0), actions=(), now_iso=now,
+                       generator_now="g", frozen={"at": now})
+
+
+def test_r9_the_trace_keeps_a_summary_of_the_calibration_whatever_the_logs_length(monkeypatch):
+    import json
+
+    small, large = _residual_with_windows(monkeypatch, 10), _residual_with_windows(monkeypatch, 1000)
+    assert small["status"] == large["status"] == "applied"
+    # Before the fix: the per-window bounds were kept in the trace (residual.contrasts.censored.missing.by_window),
+    # about 100 bytes a forced window, so the trace grew with the log.
+    sizes = [len(json.dumps(record, sort_keys=True, default=str)) for record in (small, large)]
+    assert sizes[1] - sizes[0] < 64, sizes
+    summary = large["contrasts"]
+    assert "by_window" not in json.dumps(summary)
+    assert (summary["n"], summary["missing"], summary["excluded"]) == (1000, {"windows": 1000, "terms": 1000},
+                                                                       {"windows": 1000, "terms": 2000})
+    assert summary["at"] == "2026-11-01T10:00:00Z" and len(summary["inputs_hash"]) == 16
+    weight = large["weight"]
+    assert {"w_hat", "slope_mean", "rank", "p_rank", "bound", "unbounded", "missing", "excluded"} <= set(weight)
+
+
 # -- R2: the objective's definition is part of the generator; a change censors objective_changed ----------------
 
 

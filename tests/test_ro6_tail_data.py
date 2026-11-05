@@ -201,4 +201,25 @@ def test_a_few_weeks_on_a_copy_shaped_synthetic_vault(tmp_path):
     print("RO6_WEEKS_REPORT", json.dumps(summary, sort_keys=True, default=str))
     assert report["transitions"]["n"] > 0
     assert 0.0 <= report["w_hat"]["w_hat"] <= 1.0
+    # RO6's landing ruling R9: the trace keeps the calibration's summary; the last decision's recomputes from the
+    # ledger as of its own time (the per-window bounds with it), its inputs' hash and counts exactly.
+    from learnloop.db.stores import router_objective as store
+    from learnloop.router_objective import tail_serve as TS
+
+    with env.repository.connection() as connection:
+        traced = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
+                  if row["decision_kind"] == "plan_block"]
+        last = next(trace["residual"] for trace in reversed(traced) if (trace.get("residual") or {}).get("status")
+                    == "applied")
+        kept = last["contrasts"]
+        rows = TD.logged(connection, env.vault.config, at=kept["at"])
+        _contrasts, weight, again = TS.calibration(connection, env.vault.config, rows, at=kept["at"])
+        _found, record = TD.contrasts(connection, env.vault.config, rows, at=kept["at"])
+    assert again["inputs_hash"] == kept["inputs_hash"] and again["n"] == kept["n"] and kept["n"] > 0
+    assert (again["missing"], again["excluded"], again["assigned"]) == (kept["missing"], kept["excluded"],
+                                                                         kept["assigned"])
+    assert weight.w_hat == pytest.approx(last["w_hat"], abs=1e-6)
+    assert weight.slope_mean == pytest.approx(last["weight"]["slope_mean"], abs=1e-6)
+    assert len(record["missing"]["by_window"]) >= kept["missing"]["windows"]  # recomputed, never kept in the trace
+    print("RO6_TRACE_BYTES", json.dumps([len(json.dumps(trace, sort_keys=True, default=str)) for trace in traced]))
     assert report["serving"]["decisions_with_residual"] > 0

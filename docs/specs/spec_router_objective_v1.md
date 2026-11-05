@@ -822,8 +822,11 @@ differs from §10:
   bounds; Manski's worst-case bounds): `ŵ = clip(E[b]_lower, 0, 1)·P(rank > 0 at that fill)`. With no missing term
   this is the estimate above exactly; as missingness shrinks the bound tightens by itself. No threshold, minimum
   sample or observation model. A forced draw with no return at all is an unbounded missing term: the contrast is
-  `unidentified` (`ŵ` zero, said). The trace and the report give the missing terms per window, the bound used and
-  the estimate with the missing terms left out beside it (shown only). **The measurable target** (landing ruling
+  `unidentified` (`ŵ` zero, said). The report gives the missing terms per window, the bound used and the estimate
+  with the missing terms left out beside it (shown only). A trace does not grow with the log (landing ruling R9): it
+  keeps the calibration's summary (`learned_tail.calibration_summary`: the contrasts' count, the missing and excluded
+  counts, the hash of its inputs and its moment) beside `ŵ`'s bound slope and rank and the unbounded estimate; the
+  per-window bounds recompute from the ledger as of that moment (`tail_serve.calibration`). **The measurable target** (landing ruling
   R7): the bound applies to terms whose observation is decided after the coin's draw. A use whose topic had no check
   support as of the draw (`r = 0` in the latest check draw known then, `checks.support_at`, through RO1's
   availability predicate; frozen in the trace's `residual.measurable`) is outside the measurable target, not a
