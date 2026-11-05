@@ -275,8 +275,9 @@ Setup:
   discarded and rerun whole.
 
 **Probe journeys, answered on the presentation.** Three doors on each of the four copies: feedback held (the default lane),
-Show anyway then the answer, and exam origin (set on the row as an exam sitting opens it, nothing held). None of the copies
-holds an exam sitting with a workflow of its own, so the row is set as FG1c's smoke and FG1d's test do.
+Show anyway then the answer, and exam origin (set on the row as an exam sitting opens it, nothing held). Only linear_algebra
+holds exam sessions (2, with 30 answers, from before FG1) and none has a workflow, so on every copy the origin is set on the
+row, as FG1c's smoke and FG1d's test do.
 
 | Copy | Door | Shadow straight after, main → branch | Observation (both sides) | Probe cell raw mass, main → branch |
 |---|---|---|---|---|
@@ -314,7 +315,7 @@ copy's latest 25 attempts, then `record_hypothesis_exposure` for every panel sho
 - every panel byte-identical (0 to 3 per journey; `marks_feedback`, and `marks_probe_feedback` on the probe answers);
 - every `hypothesis_list_exposures` row byte-identical.
 
-Timed in a separate run on an otherwise quiet gate (the held journey, 9 interleaved rounds per attempt), medians in ms:
+Timed in a separate run after the gate (the held journey, 9 interleaved rounds per attempt), medians in ms:
 
 | Copy | `get_feedback` with a panel, main → branch | without one | The panel's own read, main → branch | without one |
 |---|---|---|---|---|
