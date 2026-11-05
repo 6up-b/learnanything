@@ -3,8 +3,8 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "6a552b9a17ab49eb63c6c8eaba3df0a3e9fa8b83"
+source_commit_timestamp: "2026-11-05T06:12:54-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
@@ -109,6 +109,7 @@ Database triggers:
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/router_objective/ask_availability.py`
+- `src/learnloop/router_objective/forecast_resolve.py`
 - `src/learnloop/router_objective/question_state.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/router_objective/trajectory.py`

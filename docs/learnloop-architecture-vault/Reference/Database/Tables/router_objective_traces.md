@@ -3,8 +3,8 @@ title: "router_objective_traces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "6a552b9a17ab49eb63c6c8eaba3df0a3e9fa8b83"
+source_commit_timestamp: "2026-11-05T06:12:54-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_objective_traces"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/daily_plan/objective_chooser.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/db/stores/router_objective.py"
+  - "src/learnloop/router_objective/forecast_resolve.py"
   - "src/learnloop/router_objective/objective_report.py"
   - "src/learnloop/router_objective/trace.py"
   - "src/learnloop/router_objective_upgrade.py"
@@ -111,6 +112,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/daily_plan/objective_chooser.py`
 - `src/learnloop/db/stores/router_objective.py`
+- `src/learnloop/router_objective/forecast_resolve.py`
 - `src/learnloop/router_objective/objective_report.py`
 
 ### Direct SQL writers
@@ -126,6 +128,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ro4_trace_report.py`
 - `tests/test_ro4_traces_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

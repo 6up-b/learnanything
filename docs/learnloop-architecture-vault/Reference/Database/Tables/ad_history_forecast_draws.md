@@ -3,8 +3,8 @@ title: "ad_history_forecast_draws"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "6a552b9a17ab49eb63c6c8eaba3df0a3e9fa8b83"
+source_commit_timestamp: "2026-11-05T06:12:54-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_history_forecast_draws"
@@ -111,6 +111,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ro2_ad_document_ir.py`
+- `tests/test_ro2_ad_raw_document_reads.py`
 - `tests/test_ro2_history_forecaster.py`
 - `tests/test_ro2_history_migration.py`
 - `tests/test_ro2_history_resolve.py`

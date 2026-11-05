@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/GoalWizard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/GoalWizard.tsx"
-source_commit: "101474c3087317e780021b2cb665b3ffac136da7"
-source_commit_timestamp: "2026-07-26T11:25:26-04:00"
+source_commit: "ec988ae03e20db860136ef7dc97571476f44e364"
+source_commit_timestamp: "2026-11-05T06:05:03-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/GoalWizard.tsx](../../../../../../apps/learnloop-tauri/src/components/GoalWizard.tsx) |
-| Source lines | 683 |
+| Source lines | 721 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `101474c3087317e780021b2cb665b3ffac136da7` |
-| Commit timestamp | `2026-07-26T11:25:26-04:00` |
+| Source commit | `ec988ae03e20db860136ef7dc97571476f44e364` |
+| Commit timestamp | `2026-11-05T06:05:03-05:00` |
 
 ## Activation and status evidence
 
@@ -65,37 +65,40 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Internal implementation anchors
 
 - `const STEP_LABELS = ["what", "how well", "by when", "exam"]` — const, line 15
-- `const facetIds = useMemo( ()` — const, line 51
-- `const conceptIds = useMemo(()` — const, line 55
-- `const dueAt = openEnded || !dueDate ? null : new Date(`$` — const, line 56
-- `const stepValid = useMemo(()` — const, line 58
-- `let cancelled = false` — let, line 66
-- `let cancelled = false` — let, line 86
-- `const handle = window.setTimeout(()` — const, line 88
-- `const advance = ()` — const, line 116
-- `async function generateStarterPractice()` — function, line 124
-- `const gaps = feasibility?.materialGaps ?? []` — const, line 125
-- `const result = await api.generateStarterPractice( gaps.map((gap)` — const, line 130
-- `async function create()` — function, line 142
-- `const created = await api.createGoal(` — const, line 147
-- `const filteredConcepts = useMemo(()` — const, line 167
-- `const q = filter.trim().toLowerCase()` — const, line 169
-- `const examQuestionsRoughly = Math.round(targetRecall * 20)` — const, line 174
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 186
-- `const ownsEnter = tag === "input" || tag === "textarea" || tag === "select" || tag === "button"` — const, line 187
-- `const next = new Set(prev)` — const, line 254
-- `function StepWhat(` — function, line 304
-- `const on = selected.has(c.id)` — const, line 365
-- `const measurable = c.learningObjects.length > 0` — const, line 371
-- `function StepHowWell(` — function, line 412
-- `function StepByWhen(` — function, line 430
-- `const gaps = feasibility?.materialGaps ?? []` — const, line 455
-- `function StepExam(` — function, line 543
-- `function SummaryRow(` — function, line 637
-- `function Label(` — function, line 646
-- `const inputStyle: CSSProperties =` — const, line 654
-- `const primaryBtn: CSSProperties =` — const, line 665
-- `const ghostBtn: CSSProperties =` — const, line 675
+- `const useWeightDefault = feasibility?.useWeightDefault ?? null` — const, line 40
+- `const facetIds = useMemo( ()` — const, line 55
+- `const conceptIds = useMemo(()` — const, line 59
+- `const dueAt = openEnded || !dueDate ? null : new Date(`$` — const, line 60
+- `const stepValid = useMemo(()` — const, line 62
+- `let cancelled = false` — let, line 70
+- `let cancelled = false` — let, line 90
+- `const handle = window.setTimeout(()` — const, line 92
+- `const advance = ()` — const, line 120
+- `async function generateStarterPractice()` — function, line 128
+- `const gaps = feasibility?.materialGaps ?? []` — const, line 129
+- `const result = await api.generateStarterPractice( gaps.map((gap)` — const, line 134
+- `async function create()` — function, line 146
+- `const askedWeight = useWeightRaw == null || useWeightRaw.trim() === "" ? NaN : Number(useWeightRaw)` — const, line 150
+- `const datedUseWeight = !openEnded && useWeightDefault != null && Number.isFinite(askedWeight) && askedWeight >= 0 ? askedWeight : undefined` — const, line 151
+- `const created = await api.createGoal(` — const, line 154
+- `const filteredConcepts = useMemo(()` — const, line 175
+- `const q = filter.trim().toLowerCase()` — const, line 177
+- `const examQuestionsRoughly = Math.round(targetRecall * 20)` — const, line 182
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 194
+- `const ownsEnter = tag === "input" || tag === "textarea" || tag === "select" || tag === "button"` — const, line 195
+- `const next = new Set(prev)` — const, line 262
+- `function StepWhat(` — function, line 315
+- `const on = selected.has(c.id)` — const, line 376
+- `const measurable = c.learningObjects.length > 0` — const, line 382
+- `function StepHowWell(` — function, line 423
+- `function StepByWhen(` — function, line 441
+- `const gaps = feasibility?.materialGaps ?? []` — const, line 472
+- `function StepExam(` — function, line 581
+- `function SummaryRow(` — function, line 675
+- `function Label(` — function, line 684
+- `const inputStyle: CSSProperties =` — const, line 692
+- `const primaryBtn: CSSProperties =` — const, line 703
+- `const ghostBtn: CSSProperties =` — const, line 713
 
 ## Who imports or calls it
 
@@ -129,6 +132,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/GoalWizard.test.tsx](../../../../../../apps/learnloop-tauri/src/components/GoalWizard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_goal_projection.py](../../../../../../tests/test_goal_projection.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

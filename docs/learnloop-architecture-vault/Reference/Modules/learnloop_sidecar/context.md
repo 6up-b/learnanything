@@ -560,6 +560,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_rows7_8_sessions.py](../../../../../tests/test_ro0_rows7_8_sessions.py) — direct import
 - [tests/test_ro1_successor.py](../../../../../tests/test_ro1_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
+- [tests/test_ro4_goals.py](../../../../../tests/test_ro4_goals.py) — direct import
 - [tests/test_ro4_successor.py](../../../../../tests/test_ro4_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_router_offer_log.py](../../../../../tests/test_router_offer_log.py) — direct import

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/reading.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/reading.py"
-source_commit: "c170f020f00b682d1058a7ebe4e248a3e90e921f"
-source_commit_timestamp: "2026-11-05T03:13:27-05:00"
+source_commit: "6b1db345140c1345a466abd449ed33305131284a"
+source_commit_timestamp: "2026-11-05T06:11:45-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py) |
-| Source lines | 383 |
+| Source lines | 395 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c170f020f00b682d1058a7ebe4e248a3e90e921f` |
-| Commit timestamp | `2026-11-05T03:13:27-05:00` |
+| Source commit | `6b1db345140c1345a466abd449ed33305131284a` |
+| Commit timestamp | `2026-11-05T06:11:45-05:00` |
 
 ## Public API
 
@@ -73,10 +73,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `los_for_note(self, note_id: str) -> list[str]` (line 189; public)
   - `lo_for_item(self, practice_item_id: str) -> str | None` (line 196; public)
   - `facets_for_lo(self, learning_object_id: str) -> list[str]` (line 200; public)
-- `class SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 209)
-  - `as_dict(self) -> dict[str, Any]` (line 214; public)
-- `occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 239) — Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is, for AD, a receipt never written, so it occupies no slot of a daily cap.
-- `sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str='serve', sweep_ref: str | None=None, reading_map: ReadingMap | None=None, clock: Clock | None=None, view: Any=None) -> SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 298) — Record every listed opportunity written no later than ``as_of``.
+- `section_learning_objects(vault: Any, repository: Any, extraction_id: str, section_id: str, *, view: Any=None) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 209) — Router objective RO4 (landing, after RO2's ruling R6): a reading section's LOs as AD maps them, for the rollouts' reading action, so its doses land on the LOs AD's reading curve (``reading_dose``) counts: through the map's ``MaterialView.document_ir`` after the sweep's withheld…
+- `class SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 220)
+  - `as_dict(self) -> dict[str, Any]` (line 225; public)
+- `occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 250) — Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is, for AD, a receipt never written, so it occupies no slot of a daily cap.
+- `sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str='serve', sweep_ref: str | None=None, reading_map: ReadingMap | None=None, clock: Clock | None=None, view: Any=None) -> SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 309) — Record every listed opportunity written no later than ``as_of``.
 
 ### Module constants
 
@@ -102,15 +103,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SweepResult`
 - `VaultReadingMap`
 - `listed_events`
+- `section_learning_objects`
 - `sweep`
 
 ## Internal implementation anchors
 
-- `_doses(reading_map: ReadingMap, lo_id: str, named: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 218)
-- `_capped(kind: str, subkind: str) -> tuple[str, int] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 229) — A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None.
-- `_keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 253) — The opportunity's key inside its cap, or None when the cap is full.
-- `_taken_offers(connection: Any, view: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 277)
-- `_offer_for(offers: Mapping[str, str], event: '_Event') -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 287)
+- `_doses(reading_map: ReadingMap, lo_id: str, named: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 229)
+- `_capped(kind: str, subkind: str) -> tuple[str, int] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 240) — A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None.
+- `_keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 264) — The opportunity's key inside its cap, or None when the cap is full.
+- `_taken_offers(connection: Any, view: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 288)
+- `_offer_for(offers: Mapping[str, str], event: '_Event') -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 298)
 
 ## Who imports or calls it
 
@@ -123,6 +125,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `VaultReadingMap`; statically calls `VaultReadingMap`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] — imports `sweep`; statically calls `sweep`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `sweep`; statically calls `sweep`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `section_learning_objects`; statically calls `section_learning_objects`
 
 ## Dependencies
 
@@ -154,7 +157,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

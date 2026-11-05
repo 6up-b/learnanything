@@ -2834,6 +2834,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_serve_records_its_ad_rows_with_a_span_anchored_question`
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
   - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
+  - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_a_gap_whose_source_is_marked_held_out_after_it_was_named_is_withheld`
