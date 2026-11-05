@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/background.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/background.py"
-source_commit: "38c895e230ef534fc7b4a2eff18a51ca456a06a2"
-source_commit_timestamp: "2026-10-24T10:23:24-04:00"
+source_commit: "f44a2201c4ba1360ab15ba2f003266c04b175356"
+source_commit_timestamp: "2026-11-04T21:18:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,32 +50,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py) |
-| Source lines | 538 |
+| Source lines | 548 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38c895e230ef534fc7b4a2eff18a51ca456a06a2` |
-| Commit timestamp | `2026-10-24T10:23:24-04:00` |
+| Source commit | `f44a2201c4ba1360ab15ba2f003266c04b175356` |
+| Commit timestamp | `2026-11-04T21:18:14-05:00` |
 
 ## Public API
 
-- `schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_id: str, *, clients: Clients | None=None, builds: Any=None, clock: Any=None, live_vault: Callable[[], Any] | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 113) — ``live_vault``: the provider of the vault loaded now (the sidecar's context's vault at check time), whose held-out predicate each request and record is checked against (fix round 4, V1).
-- `prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clients: Clients | None=None, decider_factory: Callable[[], Any] | None=None, clock: Any=None, fence: Any=None, limit: int=PREPARE_LIMIT, live_vault: Callable[[], Any] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 143) — Audit, then forecast (``llm_v1:item``), each item's current revision; once each.
-- `schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[str], *, clients: Clients | None=None, builds: Any=None, clock: Any=None, limit: int=PREPARE_LIMIT, live_vault: Callable[[], Any] | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 306) — Queue these items' current revisions for preparation, and start a run if none is running.
-- `changed_revisions(previous: Any, vault: Any) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 496) — The active items whose current revision is new since ``previous`` (the vault as this process last loaded it): published, imported or edited.
-- `schedule_new_revisions(previous: Any, vault: Any, sqlite_path: Any, *, item_ids: Iterable[str] | None=None, clients: Clients | None=None, builds: Any=None, live_vault: Callable[[], Any] | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 507) — Prepare the revisions published, imported or edited since the last load (Codex review F10).
+- `schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_id: str, *, clients: Clients | None=None, builds: Any=None, clock: Any=None, live_vault: Callable[[], Any] | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 115) — ``live_vault``: the provider of the vault loaded now (the sidecar's context's vault at check time), whose held-out predicate each request and record is checked against (fix round 4, V1).
+- `prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clients: Clients | None=None, decider_factory: Callable[[], Any] | None=None, clock: Any=None, fence: Any=None, limit: int=PREPARE_LIMIT, live_vault: Callable[[], Any] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 153) — Audit, then forecast (``llm_v1:item``), each item's current revision; once each.
+- `schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[str], *, clients: Clients | None=None, builds: Any=None, clock: Any=None, limit: int=PREPARE_LIMIT, live_vault: Callable[[], Any] | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 316) — Queue these items' current revisions for preparation, and start a run if none is running.
+- `changed_revisions(previous: Any, vault: Any) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 506) — The active items whose current revision is new since ``previous`` (the vault as this process last loaded it): published, imported or edited.
+- `schedule_new_revisions(previous: Any, vault: Any, sqlite_path: Any, *, item_ids: Iterable[str] | None=None, clients: Clients | None=None, builds: Any=None, live_vault: Callable[[], Any] | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 517) — Prepare the revisions published, imported or edited since the last load (Codex review F10).
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 51)
-- `PREPARE_LIMIT` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 55)
-- `_GUARD` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 57)
-- `_INFLIGHT` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 58)
-- `_DEFAULT` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 59)
-- `_PREPARED` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 266)
-- `_SETTLED` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 273)
-- `_QUEUES` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 303)
+- `LOG` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 53)
+- `PREPARE_LIMIT` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 57)
+- `_GUARD` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 59)
+- `_INFLIGHT` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 60)
+- `_DEFAULT` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 61)
+- `_PREPARED` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 276)
+- `_SETTLED` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 283)
+- `_QUEUES` ([src/learnloop/adaptive_difficulty/background.py](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 313)
 
 ### Explicit exports
 
@@ -90,17 +90,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_registry(builds: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 62)
-- `_injected(clients: Clients | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 73)
-- `_launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: Any, name: str) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 77)
-- `class _Withheld` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 174) — An item id the material view withholds: prepared as ``protected``, its content never read.
-- `_prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients | None, decider_factory: Callable[[], Any] | None, clock: Any, fence: Any, live_vault: Callable[[], Any] | None, results: list[dict[str, Any]] | None=None, view: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 181) — Prepare exactly these revisions (each an item as it was found), in order.
-- `_settled(entry: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 276)
-- `class _Queue` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 284) — One vault's preparation queue (fix round 4, V2): the revisions waiting, in arrival order, as ``(item id, revision hash)`` keys only (the AD23 redesign: never content; Codex re-review F12: an edit mid-run queues the new revision beside the old one), and whether its one worker is…
-- `_epoch_now(vault: Any, sqlite_path: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 353) — The vault's protection epoch now (None when the predicate cannot be computed).
-- `_resolve(op: Any, connection: Any, key: tuple[str, str]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 366) — A queued key as the operation sees it: the current item when its revision is the key's, else the saved revision; :class:`_Withheld` when withheld; None when it is gone.
-- `_admit(queue: _Queue, op: Any, path: str, limit: int, results: list[dict[str, Any]]) -> list[tuple[Any, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 384) — The run's batch, chosen inside its operation (the AD23 redesign; Codex verify F49, F50): every pending key already done at this epoch leaves the queue; a protected or gone one is settled without counting; the first ``limit`` visible ones are taken.
-- `_start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 427) — One run of at most ``limit`` visible revisions, unless the queue's worker is running.
+- `_registry(builds: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 64)
+- `_injected(clients: Clients | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 75)
+- `_launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: Any, name: str) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 79)
+- `class _Withheld` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 184) — An item id the material view withholds: prepared as ``protected``, its content never read.
+- `_prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients | None, decider_factory: Callable[[], Any] | None, clock: Any, fence: Any, live_vault: Callable[[], Any] | None, results: list[dict[str, Any]] | None=None, view: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 191) — Prepare exactly these revisions (each an item as it was found), in order.
+- `_settled(entry: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 286)
+- `class _Queue` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 294) — One vault's preparation queue (fix round 4, V2): the revisions waiting, in arrival order, as ``(item id, revision hash)`` keys only (the AD23 redesign: never content; Codex re-review F12: an edit mid-run queues the new revision beside the old one), and whether its one worker is…
+- `_epoch_now(vault: Any, sqlite_path: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 363) — The vault's protection epoch now (None when the predicate cannot be computed).
+- `_resolve(op: Any, connection: Any, key: tuple[str, str]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 376) — A queued key as the operation sees it: the current item when its revision is the key's, else the saved revision; :class:`_Withheld` when withheld; None when it is gone.
+- `_admit(queue: _Queue, op: Any, path: str, limit: int, results: list[dict[str, Any]]) -> list[tuple[Any, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 394) — The run's batch, chosen inside its operation (the AD23 redesign; Codex verify F49, F50): every pending key already done at this epoch leaves the queue; a protected or gone one is settled without counting; the first ``limit`` visible ones are taken.
+- `_start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> threading.Thread | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/background.py), line 437) — One run of at most ``limit`` visible revisions, unless the queue's worker is running.
 
 ## Who imports or calls it
 
@@ -116,12 +116,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `audit_revision`, `item_revision`; calls `audit_revision`, `item_revision`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `forecast_history_presentation`; calls `forecast_history_presentation`
 - [[Reference/Modules/learnloop/adaptive_difficulty/logs|learnloop.adaptive_difficulty.logs]] — imports `warn_failure`; calls `warn_failure`
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `detached_view`, `material_view`; calls `detached_view`, `material_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `ad_operation`, `entry`, `epoch_of`; calls `ad_operation`, `entry`, `epoch_of`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `Clients`, `forecast_item`, `forecast_presentation`; calls `forecast_item`, `forecast_presentation`
 - [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] — imports `module`; calls `models_off`
-- [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `LLM_V1`, `LLM_V3_DECIDER`, `LLM_V3_LLM`, `any_background_work`, `feature_audit_enabled`, `outside_forecasters`; calls `any_background_work`, `feature_audit_enabled`, `outside_forecasters`
+- [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `LLM_HISTORY`, `LLM_V1`, `LLM_V3_DECIDER`, `LLM_V3_LLM`, `any_background_work`, `feature_audit_enabled`, `outside_forecasters`; calls `any_background_work`, `feature_audit_enabled`, `outside_forecasters`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `BackgroundBuilds`; calls `BackgroundBuilds`

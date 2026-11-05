@@ -713,6 +713,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_upgrade_command_reaches_the_successor`
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_the_cli_proposes_the_override_and_accept_applies_it`
+- [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_the_audit_dry_run_calls_and_writes_nothing`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_cli_dry_run_plans_one_grading_call`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import

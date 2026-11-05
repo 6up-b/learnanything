@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
-source_commit_timestamp: "2026-11-04T20:48:34-05:00"
+source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
+source_commit_timestamp: "2026-11-04T21:28:27-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 244
+schema_head: 245
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/210_help_assists.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/history_card.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/hint_fold.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/approach_maps.py"
-  - "src/learnloop/db/stores/help_assists.py"
-  - "src/learnloop/diagnosis/split/context.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

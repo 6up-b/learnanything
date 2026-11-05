@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/serve.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/serve.py"
-source_commit: "38c895e230ef534fc7b4a2eff18a51ca456a06a2"
-source_commit_timestamp: "2026-10-24T10:23:24-04:00"
+source_commit: "f44a2201c4ba1360ab15ba2f003266c04b175356"
+source_commit_timestamp: "2026-11-04T21:18:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,23 +50,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py) |
-| Source lines | 158 |
+| Source lines | 165 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38c895e230ef534fc7b4a2eff18a51ca456a06a2` |
-| Commit timestamp | `2026-10-24T10:23:24-04:00` |
+| Source commit | `f44a2201c4ba1360ab15ba2f003266c04b175356` |
+| Commit timestamp | `2026-11-04T21:18:14-05:00` |
 
 ## Public API
 
-- `class ServeRecord` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 55)
-- `record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, practice_item_id: str, served_at: str) -> ServeRecord | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 73) — Record AD1's serve-time receipts for one plan presentation, in the caller's transaction.
+- `class ServeRecord` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 58)
+- `record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, practice_item_id: str, served_at: str) -> ServeRecord | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 77) — Record AD1's serve-time receipts for one plan presentation, in the caller's transaction.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 49)
-- `PLAN_PRESENTATION` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 51)
+- `LOG` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 52)
+- `PLAN_PRESENTATION` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 54)
 
 ### Explicit exports
 
@@ -78,9 +78,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_serve_unrecorded(arguments: Any) -> 'ServeRecord'` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 64)
-- `_recorded(connection: Any, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 142)
-- `_with_version(receipt: Any, algorithm_version: str, epoch: str | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 150)
+- `_serve_unrecorded(arguments: Any) -> 'ServeRecord'` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 68)
+- `_recorded(connection: Any, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 149)
+- `_with_version(receipt: Any, algorithm_version: str, epoch: str | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 157)
 
 ## Who imports or calls it
 
@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]] — imports `in_process_receipts`; calls `in_process_receipts`
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `record_landed_commissions`; calls `record_landed_commissions`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `freeze_history_inputs`; calls `freeze_history_inputs`
 - [[Reference/Modules/learnloop/adaptive_difficulty/logs|learnloop.adaptive_difficulty.logs]] — imports `warn_failure`; calls `warn_failure`
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `current_view`, `material_view`; calls `current_view`, `material_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
@@ -131,6 +132,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_forecast_receipt_written_in_serve_transaction`
   - `test_held_out_sentinel_never_reaches_ad_inputs`
   - `test_serve_inputs_frozen_against_later_audit_and_edit`
+- [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_content_held_out_after_the_serve_is_never_sent`
+- [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_the_permuted_run_sends_another_presentations_history`
+  - `test_the_serve_transactions_added_cost_is_measured`
 
 ## Modification guidance
 

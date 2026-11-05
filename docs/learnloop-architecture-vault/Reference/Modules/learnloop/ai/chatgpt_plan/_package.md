@@ -54,7 +54,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/oauth|learnloop.ai.chatgpt_plan.oauth]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/oauth#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/responses|learnloop.ai.chatgpt_plan.responses]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/responses#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/routes#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
-| [[Reference/Modules/learnloop/ai/chatgpt_plan/session|learnloop.ai.chatgpt_plan.session]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/session#^module-purpose|purpose]] | `ACTIVE` | 8 | 12 |
+| [[Reference/Modules/learnloop/ai/chatgpt_plan/session|learnloop.ai.chatgpt_plan.session]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/session#^module-purpose|purpose]] | `ACTIVE` | 8 | 13 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/store|learnloop.ai.chatgpt_plan.store]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/store#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/workspace|learnloop.ai.chatgpt_plan.workspace]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/workspace#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 

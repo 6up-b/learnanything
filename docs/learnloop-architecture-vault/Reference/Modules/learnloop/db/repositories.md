@@ -3142,6 +3142,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
   - `test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval`
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+- [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
+- [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
+- [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_the_audit_dry_run_calls_and_writes_nothing`
+  - `test_the_permuted_run_sends_another_presentations_history`
+  - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import

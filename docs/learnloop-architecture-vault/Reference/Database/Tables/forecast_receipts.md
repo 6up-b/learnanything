@@ -3,13 +3,13 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
-source_commit_timestamp: "2026-11-04T20:48:34-05:00"
+source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
+source_commit_timestamp: "2026-11-04T21:28:27-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
   - "table forecast_receipts"
-schema_head: 244
+schema_head: 245
 table_name: "forecast_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/outside.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/adaptive_difficulty/history_audit.py"
+  - "src/learnloop/adaptive_difficulty/history_forecast.py"
+  - "src/learnloop/adaptive_difficulty/history_resolve.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -50,7 +50,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/206_forecast_receipts.sql`.
-- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `240_data_capture.sql`.
+- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `240_data_capture.sql`, `245_history_forecaster.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -154,8 +154,8 @@ None found by exact static reference scan.
 - `tests/test_forecast_receipts.py`
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
-- `tests/test_teacher_te1_lesson.py`
-- `tests/test_teacher_te1_review_fixes.py`
+- `tests/test_ro2_history_forecaster.py`
+- `tests/test_ro2_history_protection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

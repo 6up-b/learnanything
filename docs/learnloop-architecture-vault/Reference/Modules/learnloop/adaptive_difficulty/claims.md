@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/claims.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/claims.py"
-source_commit: "38c895e230ef534fc7b4a2eff18a51ca456a06a2"
-source_commit_timestamp: "2026-10-24T10:23:24-04:00"
+source_commit: "f44a2201c4ba1360ab15ba2f003266c04b175356"
+source_commit_timestamp: "2026-11-04T21:18:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/claims.py](../../../../../../src/learnloop/adaptive_difficulty/claims.py) |
-| Source lines | 225 |
+| Source lines | 231 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38c895e230ef534fc7b4a2eff18a51ca456a06a2` |
-| Commit timestamp | `2026-10-24T10:23:24-04:00` |
+| Source commit | `f44a2201c4ba1360ab15ba2f003266c04b175356` |
+| Commit timestamp | `2026-11-04T21:18:14-05:00` |
 
 ## Public API
 
@@ -66,22 +66,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `audit_key(content_hash: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 76)
 - `item_forecast_key(content_hash: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 80)
 - `presentation_key(presentation_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 84)
-- `class FencedRepository` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 88) — The repository a claimed unit of work writes through (see the module docstring).
-  - `__init__(self, repository: Any, claim: Any) -> None` (line 91; internal)
-  - `__getattr__(self, name: str) -> Any` (line 95; internal)
-  - `base(self) -> Any` (line 99; public)
-  - `atomic(self) -> Iterator[None]` (line 103; public)
-  - `connection(self) -> Any` (line 107; public)
-  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 110; public)
-  - `_start(self, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 117; internal) — AD's start receipt, which fails closed (fix round 8).
-  - `_close_refused(self, event: dict[str, Any], refusal: BaseException, *, owner_kind: str, owner_id: str) -> None` (line 156; internal)
-  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 175; public)
-  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 185; public)
-- `class Worker` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 195) — A held claim: :attr:`repository` writes fenced; :meth:`live` before each request.
-  - `__init__(self, repository: Any, claim: Any) -> None` (line 198; internal)
-  - `live(self) -> bool` (line 203; public)
-  - `require_live(self) -> None` (line 206; public)
-- `claimed(repository: Any, key: str, *, fence: Any=None) -> Iterator[Worker | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 212) — Hold ``key``'s durable claim for the block (no waiting: None when held elsewhere).
+- `history_key(presentation_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 88) — Router objective RO2: ``llm_history_v1``'s claim on one presentation (apart from ``llm_v3``'s).
+- `class FencedRepository` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 94) — The repository a claimed unit of work writes through (see the module docstring).
+  - `__init__(self, repository: Any, claim: Any) -> None` (line 97; internal)
+  - `__getattr__(self, name: str) -> Any` (line 101; internal)
+  - `base(self) -> Any` (line 105; public)
+  - `atomic(self) -> Iterator[None]` (line 109; public)
+  - `connection(self) -> Any` (line 113; public)
+  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 116; public)
+  - `_start(self, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 123; internal) — AD's start receipt, which fails closed (fix round 8).
+  - `_close_refused(self, event: dict[str, Any], refusal: BaseException, *, owner_kind: str, owner_id: str) -> None` (line 162; internal)
+  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 181; public)
+  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 191; public)
+- `class Worker` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 201) — A held claim: :attr:`repository` writes fenced; :meth:`live` before each request.
+  - `__init__(self, repository: Any, claim: Any) -> None` (line 204; internal)
+  - `live(self) -> bool` (line 209; public)
+  - `require_live(self) -> None` (line 212; public)
+- `claimed(repository: Any, key: str, *, fence: Any=None) -> Iterator[Worker | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 218) — Hold ``key``'s durable claim for the block (no waiting: None when held elsewhere).
 
 ### Module constants
 
@@ -103,6 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `Worker`
 - `audit_key`
 - `claimed`
+- `history_key`
 - `item_forecast_key`
 - `presentation_key`
 
@@ -116,6 +118,8 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `LeaseLost`, `ReceiptWriteFailed`, `audit_key`, `claimed`; statically calls `audit_key`, `claimed`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] — imports `LeaseLost`, `claimed`, `history_key`; statically calls `claimed`, `history_key`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `LeaseLost`, `ReceiptWriteFailed`, `claimed`, `history_key`; statically calls `claimed`, `history_key`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `LeaseLost`, `ReceiptWriteFailed`, `claimed`, `item_forecast_key`, `presentation_key`; statically calls `claimed`, `item_forecast_key`, `presentation_key`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `LeaseLost`, `ReceiptWriteFailed`, `claimed`; statically calls `claimed`
 
@@ -142,7 +146,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

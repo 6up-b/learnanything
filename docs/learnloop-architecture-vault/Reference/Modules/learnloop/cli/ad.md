@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/ad.py"
 source_paths:
   - "src/learnloop/cli/ad.py"
-source_commit: "2778e23fe57cb9e86780e5e1e0b93ad814872e6e"
-source_commit_timestamp: "2026-10-19T00:49:53-04:00"
+source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
+source_commit_timestamp: "2026-11-04T21:28:27-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -52,26 +52,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/ad.py](../../../../../../src/learnloop/cli/ad.py) |
-| Source lines | 219 |
+| Source lines | 251 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2778e23fe57cb9e86780e5e1e0b93ad814872e6e` |
-| Commit timestamp | `2026-10-19T00:49:53-04:00` |
+| Source commit | `8d1272482fc14d002b0c0671f74e5f37d2427af9` |
+| Commit timestamp | `2026-11-04T21:28:27-05:00` |
 
 ## Public API
 
-- `data_check_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only; use a backup copy).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 34) — The spec's §3.3 tables, first-surface attempts per cell, coverage of latency, ratings and hint timing, exam units with and without a facet mapping, and historical attempts by revision status.
-- `backfill_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], audit: Annotated[bool, typer.Option('--audit', help='Audit every active and every held item revision.')]=False, llm_v1: Annotated[bool, typer.Option('--llm-v1', help='Forecast the never-attempted items (llm_v1:item).')]=False, reading: Annotated[bool, typer.Option('--reading', help='Sweep the reading history (no model call).')]=False, limit: Annotated[int | None, typer.Option('--limit', min=1, help='At most this many audits / forecasts.')]=None, dry_run: Annotated[bool, typer.Option('--dry-run', help='Print the plan and the estimate; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 57) — AD1's one-time backfills (--audit, --llm-v1, --reading).
-- `report_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only; use a backup copy).')], json_output: Annotated[bool, typer.Option('--json')]=False, dry_run: Annotated[bool, typer.Option('--dry-run', help='Print what the report would read; compute nothing.')]=False, sensitivity: Annotated[bool, typer.Option('--sensitivity/--no-sensitivity', help='Rerun with each feature-effect prior shifted ±1 sd.')]=True) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 98) — The AD2/AD3 report (spec §10.4): scores with the first-attempt split first, field's rule as a monitor, confidence sequences, auto-flags, the honest lines, identifiability, time to usable, the dose arm and the dose-and-burden analysis.
-- `eval_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only; use a backup copy).')], arms: Annotated[str | None, typer.Option('--arms', help='Comma-separated arms (default: every §10.4 arm).')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 134) — The §10.4 harness arms, scored prequentially (first-attempt split first).
-- `relatedness_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], subject: Annotated[str | None, typer.Option('--subject', help='One subject (default: every subject).')]=None, dry_run: Annotated[bool, typer.Option('--dry-run', help='Print the plan and the estimate; call and write nothing.')]=False, adopt: Annotated[bool, typer.Option('--adopt', help='Adopt the proposals in force as the next coupling version.')]=False, shadow: Annotated[bool, typer.Option('--shadow', help='Print what adopting a later version would change; write nothing.')]=False, confirm_reinterpretation: Annotated[bool, typer.Option('--confirm-reinterpretation', help='Adopt a later coupling version after reading its --shadow report.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 161) — The relatedness proposal's backfill per subject (spec §5.10): one LLM call per subject on ai.routing.llm_probability_llm, reading only the subject's LO and facet text, the concept graph and item stems (never learner data or held-out text), inside adaptive_difficulty.daily_spend_…
+- `data_check_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only; use a backup copy).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 40) — The spec's §3.3 tables, first-surface attempts per cell, coverage of latency, ratings and hint timing, exam units with and without a facet mapping, and historical attempts by revision status.
+- `backfill_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], audit: Annotated[bool, typer.Option('--audit', help='Audit every active and every held item revision.')]=False, llm_v1: Annotated[bool, typer.Option('--llm-v1', help='Forecast the never-attempted items (llm_v1:item).')]=False, reading: Annotated[bool, typer.Option('--reading', help='Sweep the reading history (no model call).')]=False, limit: Annotated[int | None, typer.Option('--limit', min=1, help='At most this many audits / forecasts.')]=None, dry_run: Annotated[bool, typer.Option('--dry-run', help='Print the plan and the estimate; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 63) — AD1's one-time backfills (--audit, --llm-v1, --reading).
+- `forecast_audit_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root (use a backup copy).')], mode: Annotated[str, typer.Option('--mode', help='permuted (paid: shuffled history) or prior-sweep (free).')], limit: Annotated[int | None, typer.Option('--limit', min=1, help='At most this many permuted calls.')]=None, run: Annotated[bool, typer.Option('--run', help='Send (paid). Without it: a dry run that calls and writes nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 94) — Router objective RO2's audit of llm_history_v1 on frozen inputs (spec §6.4): a permuted-history run and a prior-strength sweep.
+- `report_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only; use a backup copy).')], json_output: Annotated[bool, typer.Option('--json')]=False, dry_run: Annotated[bool, typer.Option('--dry-run', help='Print what the report would read; compute nothing.')]=False, sensitivity: Annotated[bool, typer.Option('--sensitivity/--no-sensitivity', help='Rerun with each feature-effect prior shifted ±1 sd.')]=True) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 130) — The AD2/AD3 report (spec §10.4): scores with the first-attempt split first, field's rule as a monitor, confidence sequences, auto-flags, the honest lines, identifiability, time to usable, the dose arm and the dose-and-burden analysis.
+- `eval_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only; use a backup copy).')], arms: Annotated[str | None, typer.Option('--arms', help='Comma-separated arms (default: every §10.4 arm).')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 166) — The §10.4 harness arms, scored prequentially (first-attempt split first).
+- `relatedness_command(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], subject: Annotated[str | None, typer.Option('--subject', help='One subject (default: every subject).')]=None, dry_run: Annotated[bool, typer.Option('--dry-run', help='Print the plan and the estimate; call and write nothing.')]=False, adopt: Annotated[bool, typer.Option('--adopt', help='Adopt the proposals in force as the next coupling version.')]=False, shadow: Annotated[bool, typer.Option('--shadow', help='Print what adopting a later version would change; write nothing.')]=False, confirm_reinterpretation: Annotated[bool, typer.Option('--confirm-reinterpretation', help='Adopt a later coupling version after reading its --shadow report.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 193) — The relatedness proposal's backfill per subject (spec §5.10): one LLM call per subject on ai.routing.llm_probability_llm, reading only the subject's LO and facet text, the concept graph and item stems (never learner data or held-out text), inside adaptive_difficulty.daily_spend_…
 
 ## Internal implementation anchors
 
-- `_vault_root(vault: Path) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 28)
-- `_read_only(vault: Path) -> tuple` ([source](../../../../../../src/learnloop/cli/ad.py), line 87)
+- `_vault_root(vault: Path) -> None` ([source](../../../../../../src/learnloop/cli/ad.py), line 34)
+- `_read_only(vault: Path) -> tuple` ([source](../../../../../../src/learnloop/cli/ad.py), line 119)
 
 ## Who imports or calls it
 
@@ -87,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]] — imports `module`; calls `prequential`
 - [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]] — imports `backfill`, `llm_plan`; calls `backfill`, `llm_plan`
 - [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]] — imports `data_check`; calls `data_check`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] — imports `plan_audit`, `run_audit`; calls `plan_audit`, `run_audit`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`; calls `adopt`, `coupling_on`, `focus`, `prompt`, `propose_subject`, `shadow_report`, `subject_inputs`, `subjects`, `touched_units`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `load_events`
 - [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `SPLITS`, `arm_scores`, `build`, `render_markdown`; calls `arm_scores`, `build`, `render_markdown`

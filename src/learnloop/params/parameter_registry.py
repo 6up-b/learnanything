@@ -273,6 +273,13 @@ MODULE_INVENTORY: dict[str, str] = {
     "router_objective_question_state": "src/learnloop/router_objective/question_state.py",
     "followup_run_jobs": "src/learnloop/followup_run/jobs.py",
     "delayed_checks": "src/learnloop/delayed_checks.py",
+    # Router objective RO2 (spec_router_objective_v1 §6): the full-history forecaster, its card, its
+    # resolver, its audit and its report (receipts and reports only; nothing serving reads them).
+    "ad_history_card": "src/learnloop/adaptive_difficulty/history_card.py",
+    "ad_history_forecast": "src/learnloop/adaptive_difficulty/history_forecast.py",
+    "ad_history_resolve": "src/learnloop/adaptive_difficulty/history_resolve.py",
+    "ad_history_audit": "src/learnloop/adaptive_difficulty/history_audit.py",
+    "ad_scoring": "src/learnloop/adaptive_difficulty/scoring.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -464,6 +471,37 @@ _reg_const("router_objective_question_state:_WORKED_LEVEL", "constraint", kind="
            owner="router_objective_question_state",
            rationale="the help ladder's first worked level (levels 4 and 5 give the solution away, hints.writer): what "
            "the disclosure receipt calls a worked solution. Read by nothing that decides.")
+# Router objective RO2 (spec_router_objective_v1 §6): llm_history_v1 writes receipts only (A2, A12); its
+# bounds are `keep` (work, prompt and spend bounds, never a judgement), its lags measurement points, its
+# calibration prior seeded and labelled (the audit's prior sweep reports its strength).
+_reg_const("ad_history_card:ROW_LIMITS", "operational", kind="structural", owner="ad_history_card",
+           rationale="keep: each bounded read's row limit before any trimming, so the serve transaction's work is "
+           "bounded (spec 6.3); a work bound, never a judgement; the card says which reads reached it.")
+_reg_const("ad_history_card:ANSWER_TEXT_LIMIT", "operational", kind="structural", owner="ad_history_card",
+           rationale="keep: one whole answer's text bound on the card (prompt size), never a judgement.")
+_reg_const("ad_history_card:TEXT_LIMIT", "operational", kind="structural", owner="ad_history_card",
+           rationale="keep: one help text's, question's or digest's bound on the card (prompt size).")
+_reg_const("ad_history_card:GAP_TEXT_LIMIT", "operational", kind="structural", owner="ad_history_card",
+           rationale="keep: one named gap's learner text bound on the card (prompt size).")
+_reg_const("ad_history_forecast:LAGS", "constraint", kind="structural", owner="ad_history_forecast",
+           rationale="keep (spec 6.2): the cold forecast's measurement points in days after the block; nothing "
+           "weights them; past the last an outcome is censored beyond_measured_lag.")
+_reg_const("ad_history_forecast:RATIONALE_SENTENCES", "display", kind="structural", owner="ad_history_forecast",
+           rationale="keep (spec 6.2): at most three sentences of rationale, unvalidated and trace-only.")
+_reg_const("ad_history_forecast:OUTPUT_TOKENS", "operational", kind="structural", owner="ad_history_forecast",
+           rationale="keep: one call's output budget beside the card; a spend bound, never a judgement.")
+_reg_const("ad_history_resolve:MAX_LAG_DAYS", "constraint", kind="structural", owner="ad_history_resolve",
+           rationale="structural: the forecaster's last lag (LAGS); past it an outcome is censored "
+           "beyond_measured_lag until a longer lag is added (spec 6.2).")
+_reg_const("ad_history_audit:PRIOR_SCALES", "numerical", kind="structural", owner="ad_history_audit",
+           rationale="keep: the prior-strength sweep's grid (multiples of the seeded prior's sd, report T8): "
+           "a sensitivity read, never applied to anything.")
+_reg_const("ad_scoring:CLIP", "numerical", kind="structural", owner="ad_scoring",
+           rationale="numerical: the log loss's probability clip, so a 0 or 1 forecast scores finitely.")
+_reg_const("ad_scoring:SLOPE_PRIOR", "prior", owner="ad_scoring",
+           rationale="seeded prior, basis a calibrated forecaster (intercept 0, slope 1 on the log-odds), each "
+           "with its sd: a model and prompt version's calibration slope shrinks to the population's posterior "
+           "(hierarchical); reports only; the forecast audit's prior sweep reports its strength (spec 6.4).")
 _reg_const("delayed_checks:_EXACT_TIE", "numerical", kind="structural", owner="delayed_checks",
            rationale="floating-point resolution of an exact tie between two items' predicted success; "
            "numerical resolution, not a margin: a real difference is never a tie.")
@@ -2257,6 +2295,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # The owner's price for a metered LLM route of these roles is null by
     # default, so the default-config audit never sees it as a numeric leaf;
     # a configured price is one (Codex review F7).
+    # Router objective RO2: the llm_history_v1 card's size bound (keep; UTF-8 bytes, an upper bound on
+    # tokens): over it, entries are trimmed oldest first within each rung and the card says so.
+    _ConfigRule(_exact("adaptive_difficulty.history_card_token_budget"), "structural", "operational",
+        "keep: the full-history forecaster's card size bound in UTF-8 bytes (an upper bound on its tokens); a "
+        "prompt and spend bound, never a judgement; receipts only (spec_router_objective_v1 6.3)."),
     _ConfigRule(_exact(
         "adaptive_difficulty.daily_spend_cap_usd",
         "adaptive_difficulty.price_per_million",

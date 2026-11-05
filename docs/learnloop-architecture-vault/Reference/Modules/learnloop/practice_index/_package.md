@@ -65,7 +65,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] | [[Reference/Modules/learnloop/practice_index/dossiers#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] | [[Reference/Modules/learnloop/practice_index/evaluation#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] | [[Reference/Modules/learnloop/practice_index/listwise#^module-purpose|purpose]] | `ACTIVE` | 13 | 3 |
-| [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] | [[Reference/Modules/learnloop/practice_index/paid#^module-purpose|purpose]] | `ACTIVE` | 46 | 22 |
+| [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] | [[Reference/Modules/learnloop/practice_index/paid#^module-purpose|purpose]] | `ACTIVE` | 48 | 22 |
 | [[Reference/Modules/learnloop/practice_index/query_vectors|learnloop.practice_index.query_vectors]] | [[Reference/Modules/learnloop/practice_index/query_vectors#^module-purpose|purpose]] | `ACTIVE` | 8 | 0 |
 | [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] | [[Reference/Modules/learnloop/practice_index/retrieval#^module-purpose|purpose]] | `ACTIVE` | 12 | 15 |
 | [[Reference/Modules/learnloop/practice_index/text|learnloop.practice_index.text]] | [[Reference/Modules/learnloop/practice_index/text#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
@@ -94,7 +94,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 32 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 17 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 13 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 5 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 7 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 5 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 3 static module edges
@@ -128,7 +128,7 @@ flowchart LR
     n_learnloop_cli -->|13| center
     center -->|12| n_learnloop
     center -->|11| n_learnloop_db_stores
-    n_learnloop_adaptive_difficulty -->|5| center
+    n_learnloop_adaptive_difficulty -->|7| center
     n_learnloop_figures -->|5| center
 ```
 

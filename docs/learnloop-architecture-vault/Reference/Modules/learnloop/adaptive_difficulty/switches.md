@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/switches.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/switches.py"
-source_commit: "88e6e75b69fe4a2be20e016b9a3d5480f772547d"
-source_commit_timestamp: "2026-10-18T15:39:39-04:00"
+source_commit: "f44a2201c4ba1360ab15ba2f003266c04b175356"
+source_commit_timestamp: "2026-11-04T21:18:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/switches.py](../../../../../../src/learnloop/adaptive_difficulty/switches.py) |
-| Source lines | 74 |
+| Source lines | 78 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `88e6e75b69fe4a2be20e016b9a3d5480f772547d` |
-| Commit timestamp | `2026-10-18T15:39:39-04:00` |
+| Source commit | `f44a2201c4ba1360ab15ba2f003266c04b175356` |
+| Commit timestamp | `2026-11-04T21:18:14-05:00` |
 
 ## Public API
 
-- `ad_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 24) — The master switch (``adaptive_difficulty.enabled``).
-- `receipts_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 31) — ``forecast_receipts``: the serve-time sweep, serve inputs, in-process forecasts and the marker.
-- `outside_forecasters(config: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 37) — The outside forecasters that run; () with the switch off.
-- `rating_tap_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 48)
-- `feature_audit_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 52)
-- `any_background_work(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 56) — Whether a serve or a plan build may start a background AD job.
+- `ad_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 27) — The master switch (``adaptive_difficulty.enabled``).
+- `receipts_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 34) — ``forecast_receipts``: the serve-time sweep, serve inputs, in-process forecasts and the marker.
+- `outside_forecasters(config: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 40) — The outside forecasters that run; () with the switch off.
+- `rating_tap_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 51)
+- `feature_audit_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 55)
+- `any_background_work(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 59) — Whether a serve or a plan build may start a background AD job.
 
 ### Module constants
 
@@ -73,13 +73,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LLM_V1` ([src/learnloop/adaptive_difficulty/switches.py](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 14)
 - `LLM_V3_LLM` ([src/learnloop/adaptive_difficulty/switches.py](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 15)
 - `LLM_V3_DECIDER` ([src/learnloop/adaptive_difficulty/switches.py](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 16)
-- `OUTSIDE_FORECASTERS` ([src/learnloop/adaptive_difficulty/switches.py](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 17)
+- `LLM_HISTORY` ([src/learnloop/adaptive_difficulty/switches.py](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 19)
+- `OUTSIDE_FORECASTERS` ([src/learnloop/adaptive_difficulty/switches.py](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 20)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `IN_PROCESS_FORECASTERS`
+- `LLM_HISTORY`
 - `LLM_V1`
 - `LLM_V3_DECIDER`
 - `LLM_V3_LLM`
@@ -93,7 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_section(config: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 20)
+- `_section(config: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/switches.py), line 23)
 
 ## Who imports or calls it
 
@@ -101,12 +103,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]] — imports `LLM_V1`, `feature_audit_enabled`, `outside_forecasters`, `receipts_enabled`; statically calls `feature_audit_enabled`, `outside_forecasters`, `receipts_enabled`
-- [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]] — imports `LLM_V1`, `LLM_V3_DECIDER`, `LLM_V3_LLM`, `any_background_work`, `feature_audit_enabled`, `outside_forecasters`; statically calls `any_background_work`, `feature_audit_enabled`, `outside_forecasters`
+- [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]] — imports `LLM_HISTORY`, `LLM_V1`, `LLM_V3_DECIDER`, `LLM_V3_LLM`, `any_background_work`, `feature_audit_enabled`, `outside_forecasters`; statically calls `any_background_work`, `feature_audit_enabled`, `outside_forecasters`
 - [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `feature_audit_enabled`; statically calls `feature_audit_enabled`
 - [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]] — imports `IN_PROCESS_FORECASTERS`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `LLM_HISTORY`, `outside_forecasters`; statically calls `outside_forecasters`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `ad_enabled`; statically calls `ad_enabled`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `LLM_V1`, `LLM_V3_DECIDER`, `LLM_V3_LLM`, `outside_forecasters`; statically calls `outside_forecasters`
 - [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `receipts_enabled`; statically calls `receipts_enabled`
+- [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `LLM_HISTORY`, `outside_forecasters`; statically calls `outside_forecasters`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] — imports `receipts_enabled`; statically calls `receipts_enabled`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]] — imports `LLM_V1`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `ad_enabled`; statically calls `ad_enabled`
@@ -133,7 +137,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

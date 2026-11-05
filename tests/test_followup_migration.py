@@ -14,7 +14,7 @@ import pytest
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_244" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_245" / "state.sqlite"
 ROLES = {
     "followup_workflows": TableRole.WORKFLOW,
     "followup_generation_jobs": TableRole.WORKFLOW,

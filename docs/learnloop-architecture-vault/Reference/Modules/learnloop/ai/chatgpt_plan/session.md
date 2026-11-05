@@ -235,6 +235,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport_paid_roles.py](../../../../../../../tests/test_plan_first_transport_paid_roles.py) — direct import
   - `test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_plan_comes_first`
   - `test_every_paid_role_resolves_to_the_plan_and_asks_before_openrouter`
+- [tests/test_ro2_history_forecaster.py](../../../../../../../tests/test_ro2_history_forecaster.py) — direct import
+  - `test_a_skipped_forecast_is_censored_with_its_reason`
 - [tests/test_t6_followup_composition.py](../../../../../../../tests/test_t6_followup_composition.py) — direct import
 
 ## Modification guidance

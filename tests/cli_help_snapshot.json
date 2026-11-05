@@ -8,8 +8,8 @@
     "sha256": "91451586bee3b80244dc9f3d10bb0a265f4c3d1f6237644853d4fe15dea3e9bf"
   },
   "ad": {
-    "bytes": 3631,
-    "sha256": "ae0799697bc6b399cd0b1c498c2752f4553cd2b16a605f600e9aea6815c92ae7"
+    "bytes": 4057,
+    "sha256": "0840186ee213cebaad727c947c3e3981776ab98a0c16f0ef248815f0e403a27f"
   },
   "ad backfill": {
     "bytes": 1975,
@@ -22,6 +22,10 @@
   "ad eval": {
     "bytes": 1378,
     "sha256": "5f5292e730164c0e9d2365fec4db878bf53e9fe5adb3ac071a0f1214b014d4ed"
+  },
+  "ad forecast-audit": {
+    "bytes": 1883,
+    "sha256": "aa6f13547c25cd9cc0f9dd0abeb66d60ba1404bcaa0738256c10017266a76b15"
   },
   "ad relatedness": {
     "bytes": 2713,

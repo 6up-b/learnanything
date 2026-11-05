@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
-source_commit_timestamp: "2026-11-04T20:48:34-05:00"
+source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
+source_commit_timestamp: "2026-11-04T21:28:27-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 244
-table_count: 391
+schema_head: 245
+table_count: 392
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_244/state.sqlite"
+  - "fixtures/migration_head_245/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-244"
+  - "learnloop/database/schema-head-245"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 391 user tables at migration head 244. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 392 user tables at migration head 245. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,7 +40,7 @@ This is the exhaustive map of the 391 user tables at migration head 244. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 165 |
 | [[Table Roles#Derived|`derived`]] | 26 |
-| [[Table Roles#Receipt|`receipt`]] | 91 |
+| [[Table Roles#Receipt|`receipt`]] | 92 |
 | [[Table Roles#Workflow|`workflow`]] | 99 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 391 user tables at migration head 244. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 378 |
+| `active` | 379 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -426,6 +426,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/ad_commission_results|ad_commission_results]] — `receipt` · `active` · Gives ad commission result a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `selection_id`, `practice_item_id`, `content_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ad_coupling_versions|ad_coupling_versions]] — `receipt` · `active` · Pins immutable versions of ad coupling so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `subject_id`, `coupling_version`, `version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ad_dose_offers|ad_dose_offers]] — `raw_ledger` · `active` · Gives ad dose offer a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `draw_id`, `visit_id`, `extraction_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/ad_history_forecast_draws|ad_history_forecast_draws]] — `receipt` · `active` · Gives ad history forecast draw a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `plan_presentation_id`, `practice_item_id`, `learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ad_reading_opportunities|ad_reading_opportunities]] — `receipt` · `active` · Records the denominator of available opportunities for ad reading so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `source_id`, `learning_object_id`, `dose_offer_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ad_relatedness_runs|ad_relatedness_runs]] — `receipt` · `active` · Tracks one execution, input identity, and result for ad relatedness so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `subject_id`, `prompt_version`, `input_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ad_selections|ad_selections]] — `raw_ledger` · `active` · Gives ad selection a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `learning_object_id`, `daily_plan_id`, `block_id`, making the operational relationship explicit.

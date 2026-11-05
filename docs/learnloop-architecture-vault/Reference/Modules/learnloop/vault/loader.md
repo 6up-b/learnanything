@@ -2822,6 +2822,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_observer_reads_the_live_database_read_only_with_commitments`
   - `test_the_shadow_rebuild_reports_the_upgrades_schedule_effects`
   - `test_with_the_factor_kept_the_shadow_reports_no_schedule_change`
+- [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
+- [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_content_held_out_after_the_serve_is_never_sent`
+  - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
+- [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_the_audit_dry_run_calls_and_writes_nothing`
+  - `test_the_permuted_run_sends_another_presentations_history`
+  - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_retired_proof_check_route_is_ignored_and_reported`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`

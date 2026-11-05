@@ -345,6 +345,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_244_is_the_head_and_the_head_fixture_holds_its_empty_columns`
   - `test_244_on_the_durability_lane`
   - `test_the_backfill_reads_an_imported_exam_rows_ulid_time_and_leaves_bad_ids_null`
+- [tests/test_ro2_history_migration.py](../../../../../../tests/test_ro2_history_migration.py) — direct import
+  - `test_245_adds_exactly_its_objects_and_the_table_is_append_only`
+  - `test_245_is_the_head_and_its_table_a_receipt_ad_classifies`
+  - `test_245_on_the_durability_lane`
+  - `test_the_head_fixture_holds_245_in_rollback_mode_with_an_empty_table`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`
 - [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import

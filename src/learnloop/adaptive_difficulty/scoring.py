@@ -142,25 +142,22 @@ HISTORY_COMPARATORS = ("mastery_ekf", "lo_general+composite", "llm_v3:llm")
 #: (the hierarchical prior), never from an older version's slope; ``learnloop ad forecast-audit
 #: --mode prior-sweep`` reports how the slopes move with the prior's strength.
 SLOPE_PRIOR = {"intercept": (0.0, 1.0), "slope": (1.0, 0.5)}
-#: The interval's normal quantile (structural: a 95% interval of a mean paired difference).
-INTERVAL_Z = 1.959964
+def _paired(left: Mapping[str, tuple[float, float]], right: Mapping[str, tuple[float, float]]) -> dict[str, Any]:
+    """The mean paired log-loss difference ``left - right`` (below zero, ``left`` scores better) on the keys
+    both hold (each ``(p, y)``, the same outcome), with AD's anytime-valid confidence sequence on it
+    (``monitoring.confidence_sequence`` over each difference's predictable range, §8.3 ``[choe2023]``);
+    an interval covering zero is never read as "no difference"."""
 
-
-def _paired(left: Mapping[str, float], right: Mapping[str, float]) -> dict[str, Any]:
-    """The mean paired difference ``left - right`` (log loss: below zero, ``left`` scores better) on the
-    keys both hold, with its normal interval (none below two pairs); never read as "no difference"."""
+    from learnloop.adaptive_difficulty import monitoring as MON
 
     keys = sorted(set(left) & set(right))
-    diffs = [float(left[key]) - float(right[key]) for key in keys]
-    out: dict[str, Any] = {"n": len(diffs), "mean": None, "interval": None}
-    if not diffs:
+    terms = [MON.log_loss_difference(left[key][0], right[key][0], left[key][1]) for key in keys]
+    out: dict[str, Any] = {"n": len(terms), "mean": None, "interval": None}
+    if not terms:
         return out
-    mean = sum(diffs) / len(diffs)
-    out["mean"] = round(mean, 6)
-    if len(diffs) >= 2:
-        sd = math.sqrt(sum((d - mean) ** 2 for d in diffs) / (len(diffs) - 1))
-        half = INTERVAL_Z * sd / math.sqrt(len(diffs))
-        out["interval"] = [round(mean - half, 6), round(mean + half, 6)]
+    sequence = MON.confidence_sequence([value for value, _range in terms], ranges=[rng for _value, rng in terms])
+    out["mean"] = round(float(sequence["mean"]), 6)
+    out["interval"] = [round(float(sequence["lower"]), 6), round(float(sequence["upper"]), 6)]
     return out
 
 
@@ -247,12 +244,13 @@ def history_report(connection: Any, vault: Any, repository: Any, *, now: str | N
     scored = [row for row in score_rows(connection, vault, repository) if row.get("status") == "scored"]
     splits = {"first_attempt": lambda row: row.get("first_attempt_lo") is True,
               "repeats": lambda row: row.get("first_attempt_lo") is False}
-    losses: dict[str, dict[str, dict[str, float]]] = {name: {} for name in splits}
+    losses: dict[str, dict[str, dict[str, tuple[float, float]]]] = {name: {} for name in splits}
     points: dict[str, dict[str, list[tuple[float, float]]]] = {name: {} for name in splits}
     for row in scored:
         for name, member in splits.items():
             if member(row):
-                losses[name].setdefault(row["forecaster"], {})[str(row["plan_presentation_id"])] = float(row["log_loss"])
+                losses[name].setdefault(row["forecaster"], {})[str(row["plan_presentation_id"])] = (
+                    float(row["p"]), float(row["outcome"]))
                 points[name].setdefault(row["forecaster"], []).append((float(row["p"]), float(row["outcome"])))
     history = sorted({name for split in losses.values() for name in split if name.startswith("llm_history_v1:")})
     comparisons = {split: {comparator: _paired(losses[split].get(HISTORY_SUBJECT, {}), losses[split].get(comparator, {}))
@@ -272,7 +270,7 @@ def history_report(connection: Any, vault: Any, repository: Any, *, now: str | N
         if row["status"] != "scored" or row.get("p") is None or row.get("y") is None:
             continue
         if row["binding"] == HR.INTENTION_TO_TREAT:
-            itt.setdefault(row["forecaster"], {})[row["plan_presentation_id"]] = float(row["log_loss"])
+            itt.setdefault(row["forecaster"], {})[row["plan_presentation_id"]] = (float(row["p"]), float(row["y"]))
         else:
             pp_points.setdefault(row["forecaster"], []).append((float(row["p"]), float(row["y"])))
     delayed = {rung: _paired(itt.get(HISTORY_SUBJECT, {}), itt.get(rung, {}))

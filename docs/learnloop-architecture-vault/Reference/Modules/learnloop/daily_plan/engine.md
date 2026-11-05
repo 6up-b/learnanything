@@ -752,6 +752,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_state_has_each_candidate_items_belief_and_minutes`
   - `test_the_state_has_each_candidate_los_belief`
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+- [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
+- [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_the_audit_dry_run_calls_and_writes_nothing`
+  - `test_the_serve_transactions_added_cost_is_measured`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
   - `test_g5_no_reference_reserved_stem_exam_text_or_held_score_reaches_the_card`
   - `test_payloads_older_than_the_retention_window_are_pruned`

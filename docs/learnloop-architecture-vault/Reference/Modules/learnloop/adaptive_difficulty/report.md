@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/report.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/report.py"
-source_commit: "e2ddd03c640065633f2c492b62122e9750390244"
-source_commit_timestamp: "2026-11-03T14:49:34-05:00"
+source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
+source_commit_timestamp: "2026-11-04T21:28:27-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py) |
-| Source lines | 730 |
+| Source lines | 771 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e2ddd03c640065633f2c492b62122e9750390244` |
-| Commit timestamp | `2026-11-03T14:49:34-05:00` |
+| Source commit | `8d1272482fc14d002b0c0671f74e5f37d2427af9` |
+| Commit timestamp | `2026-11-04T21:28:27-05:00` |
 
 ## Public API
 
@@ -66,7 +66,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `readiness_errors(records: Sequence[A.Record], selection_times: Sequence[str], *, every: int=REPORT_EVERY_SELECTIONS) -> list[float | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 515) — The band-region error of ``@subject`` at each report, oldest first (Codex review F8).
 - `density_lowerings(connection: Any, *, view: Any) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 538) — When the learner lowered the cue density within a visit after an extra offer (§10.4, F8).
 - `build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str]=A.DEFAULT_ARMS, previous_errors: Sequence[float | None] | None=None, sensitivity: bool=True, now: str | None=None, report_every: int=REPORT_EVERY_SELECTIONS) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 598) — The whole report (a pure read; zero model calls).
-- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 698) — A plain rendering for the owner (the JSON is the record).
+- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 738) — A plain rendering for the owner (the JSON is the record).
 
 ### Module constants
 
@@ -112,7 +112,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_self_check(records: Sequence[A.Record]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 476)
 - `_median_doses(records: Sequence[A.Record]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 492)
 - `_answer_minutes(connection: Any, *, view: Any) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 500) — The median minutes of the practice cohort (Codex verify F27): visible, graded practice answers with a recorded latency (``MaterialView.practice_minutes``); a withheld item's answer, a skip or a self-report never counts, and an unavailable predicate counts nothing.
-- `_guard_lines(guard: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 675) — The guard block's lines: the live log's count (since the last upgrade once one has archived a log; "so far" before), by entry point, and the archives' total.
+- `_history(vault: Any, repository: Any, connection: Any, now: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 678)
+- `_history_lines(history: Mapping[str, Any] | None) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 689) — RO2's block, plainly: each comparison's mean paired log-loss difference and its interval.
+- `_guard_lines(guard: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 715) — The guard block's lines: the live log's count (since the last upgrade once one has archived a log; "so far" before), by entry point, and the archives' total.
 
 ## Who imports or calls it
 
@@ -135,7 +137,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `module`; calls `current_spec`, `score`
 - [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] — imports `module`; calls `versions`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `run`
+- [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `history_report`; calls `history_report`
 - [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] — imports `module`; calls `constants_from_config`, `feature_level`, `point_key`, `propensities`
+- [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `LLM_HISTORY`, `outside_forecasters`; calls `outside_forecasters`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `serving_on`; calls `serving_on`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `module`; calls `has_table`
