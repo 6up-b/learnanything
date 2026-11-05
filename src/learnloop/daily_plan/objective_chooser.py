@@ -44,6 +44,7 @@ from learnloop.daily_plan import objective_inputs as OI
 from learnloop.daily_plan.router_chooser import (
     INSERT_NOW,
     MODE as MIXTURE_MODE,
+    FollowupGate,
     RestraintGate,
     RestraintOutcome,
     RouterChooser,
@@ -953,30 +954,54 @@ class ObjectiveRestraintGate(RestraintGate):
         refusals = self._refusals(item)
         if refusals:
             return self.declined(refusals)
-        base: dict[str, Any] = {"mode": MODE, "why_version": WHY_VERSION}
         config = self.vault.config
         settings = router_settings(config)
         state, candidates = self._state(record, current, item)
         if not wait_feasible:
-            card = _build_card(self.card_builder, state, candidates)
-            base.update(policy="staged_v1", decided_by="no_room_to_wait", **_card_fields(card))
-            return RestraintOutcome(INSERT_NOW, 1.0, base, why="", wait_feasible=False)
-        support = [INSERT_NOW, CONTINUE_CURRENT]
-        by_id = {candidate.candidate_id: candidate for candidate in candidates}
+            return self._no_room(state, candidates)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
         key = _hash({"v": KEY_VERSION, "kind": "objective_interrupt", "plan_id": record.id, "block": current.id,
                      "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
                      "version": config.algorithms.algorithm_version, "settings": settings,
                      "objective": objective_settings(config), "ready": ready})
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        topic = titles.get(item.learning_object_id, item.learning_object_id)
+        options = [rq.BlockOption(INSERT_NOW, f"Ask the follow-up on {topic} now, inside the current block."),
+                   rq.BlockOption(CONTINUE_CURRENT, "Finish the current block first; the follow-up then opens the next block.")]
+        extra = [f"A follow-up question on {topic} came out of the learner's last answer."]
+        return self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic, options=options,
+                           extra=extra)
+
+    def _no_room(self, state: PlanState, candidates: list[BlockCandidate]) -> RestraintOutcome:
+        """``wait_feasible = False``: waiting would drop the follow-up from today's plan, so it joins now,
+        deterministically, and no model is asked (Codex review F8's rule, kept by §8.3)."""
+
+        base: dict[str, Any] = {"mode": MODE, "why_version": WHY_VERSION}
+        card = _build_card(self.card_builder, state, candidates)
+        base.update(policy="staged_v1", decided_by="no_room_to_wait", **_card_fields(card))
+        return RestraintOutcome(INSERT_NOW, 1.0, base, why="", wait_feasible=False)
+
+    def _mixed(self, state: PlanState, candidates: list[BlockCandidate], *, key: str, readiness: Mapping[str, Any],
+               ready: tuple[str, ...], topic: str, options: Sequence[Any], extra: Sequence[str],
+               valued: Mapping[str, BlockCandidate] | None = None) -> RestraintOutcome:
+        """The two-policy mix over ``{insert_now, continue_current}`` (§8.3), drawn and traced. ``candidates`` are
+        what the cards show; ``valued`` (default: the same) what ``π_Q`` values."""
+
+        base: dict[str, Any] = {"mode": MODE, "why_version": WHY_VERSION}
+        config = self.vault.config
+        settings = router_settings(config)
+        support = [INSERT_NOW, CONTINUE_CURRENT]
+        by_id = {candidate.candidate_id: candidate for candidate in candidates}
         now_iso = __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock)
         # π_Q: the follow-up now (a repair block before the rest) or after the rest (at the next boundary).
-        insert, cont = by_id[INSERT_NOW], by_id[CONTINUE_CURRENT]
+        values = dict(valued) if valued is not None else by_id
+        insert, cont = values[INSERT_NOW], values[CONTINUE_CURRENT]
         numeric = self._numeric_restraint(state, insert, cont, now_iso, key)
         if ready:
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:
-                entry = self._start(key, state, candidates, item, ready)
+                entry = self._start_policy(key, state, candidates, topic, options, extra, ready)
             from learnloop.daily_plan.router_chooser import _await as await_entry
 
             await_entry(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
@@ -1047,18 +1072,14 @@ class ObjectiveRestraintGate(RestraintGate):
                            clock=self.runtime.clock,
                            sequences={INSERT_NOW: (insert, cont), CONTINUE_CURRENT: (cont, insert)})
 
-    def _start(self, key: str, state: PlanState, candidates: list[BlockCandidate], item: Any,
-               ready: tuple[str, ...]) -> Prefetch:
-        from functools import partial
+    def _start_policy(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
+                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
+        """The two models' prefetch: the Decider's R2c restraint request (advice) and the LLM policy's v3 one."""
 
         config = self.vault.config
         card = _build_card(self.card_builder, state, candidates)
-        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        topic = titles.get(item.learning_object_id, item.learning_object_id)
-        options = [rq.BlockOption(INSERT_NOW, f"Ask the follow-up on {topic} now, inside the current block."),
-                   rq.BlockOption(CONTINUE_CURRENT, "Finish the current block first; the follow-up then opens the next block.")]
-        state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json),
-                                   extra=[f"A follow-up question on {topic} came out of the learner's last answer."])
+        options = list(options)
+        state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
         material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
 
         def job(entry: Prefetch) -> None:
@@ -1093,5 +1114,90 @@ class ObjectiveRestraintGate(RestraintGate):
                                   material=material, components=ready, job=job)
 
 
-__all__ = ["NUMERIC", "NumericPolicy", "ObjectiveChooser", "ObjectiveRestraintGate", "current_weight", "day_price",
-           "objective_settings", "run_numeric"]
+# -- FG1's generated probe on the mix (RO4's open item 1, landing ruling R5 (1)) ------------------------------
+
+#: The valued insert's stand-in item: the probe does not exist yet when the gate decides, so ``π_Q`` values one
+#: question on the workflow's LO (no vault item has this id, so the rollouts read the candidate's LO).
+FOLLOWUP_PLACEHOLDER_PREFIX = "followup:"
+
+
+@dataclass
+class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
+    """§8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item
+    exists, on the same two-policy mix as every mid-block follow-up, over ``{insert_now, continue_current}``, with its
+    trace and ``μ`` recomputable (``mix.recompute``). ``π_L`` is the LLM policy's ``intervene_now`` on the restraint
+    card (``router_llm_restraint_v3``; R2b's ``RouterLLMAnswerV1`` request is not sent), ``π_Q`` the two orders
+    valued as one repair question on the workflow's LO now or after the current block's remaining questions. The
+    Decider's ``P(yes)`` is advice. ``wait_feasible = False`` asks now deterministically, no model asked; FG1's hard
+    refusals come first (``followup_run.router.hard_refusal``), and its serve-at-once and single-use rules follow
+    the chosen arm as before. Below the tag, or with ``[router_objective] enabled = false``, FG1's
+    :class:`~learnloop.daily_plan.router_chooser.FollowupGate` serves exactly as before
+    (``followup_run.router._plan_context``)."""
+
+    def decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool,
+                        facts: Sequence[str] = ()) -> RestraintOutcome:
+        state, candidates = self._followup_state(record, current, workflow)
+        offered = {"support": [INSERT_NOW, CONTINUE_CURRENT] if wait_feasible else [INSERT_NOW],
+                   "workflow_id": workflow.get("id"), "version": "ro5_followup_objective_v1"}
+        if not wait_feasible:
+            outcome = self._no_room(state, candidates)
+            outcome.record["objective_followup"] = offered
+            return outcome
+        config = self.vault.config
+        settings = router_settings(config)
+        readiness = self.runtime.readiness(self.vault)
+        ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
+        key = _hash({"v": KEY_VERSION, "kind": "objective_followup", "plan_id": record.id,
+                     "workflow": workflow.get("id"), "block": current.id if current is not None else None,
+                     "version": config.algorithms.algorithm_version, "settings": settings,
+                     "objective": objective_settings(config), "ready": ready})
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        lo = str(workflow["learning_object_id"])
+        topic = titles.get(lo, lo)
+        insert, cont = candidates
+        options = [
+            rq.BlockOption(INSERT_NOW, f"Ask a new follow-up question on {topic} now, written to tell the possible "
+                                       "causes apart."),
+            rq.BlockOption(CONTINUE_CURRENT, (
+                f"Finish the current block first ({len(cont.item_ids)} questions left, about "
+                f"{max(1, round(cont.est_minutes))} min); the new question then opens the next block, and the "
+                "learner sees the answer now, so it can no longer settle the cause.")),
+        ]
+        extra = [f"A question on {topic} was just missed.", *facts]
+        valued = {INSERT_NOW: replace(insert, item_ids=(f"{FOLLOWUP_PLACEHOLDER_PREFIX}{workflow.get('id')}",),
+                                      est_minutes=self._followup_minutes(workflow, current)),
+                  CONTINUE_CURRENT: cont}
+        outcome = self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic,
+                              options=options, extra=extra, valued=valued)
+        outcome.record["objective_followup"] = offered
+        return replace(outcome, wait_feasible=True)
+
+    def _followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float:
+        """The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on
+        its LO, after it), else the mean of the LO's items', else the current block's mean question."""
+
+        items = getattr(self.vault, "practice_items", {}) or {}
+        source = None
+        attempt_id = workflow.get("source_attempt_id")
+        if attempt_id:
+            try:
+                with self.repository.connection() as connection:
+                    found = connection.execute("SELECT practice_item_id FROM practice_attempts WHERE id = ?",
+                                               (str(attempt_id),)).fetchone()
+                source = items.get(str(found[0])) if found is not None else None
+            except Exception:  # noqa: BLE001 - the next estimate stands in
+                source = None
+        if source is not None and float(getattr(source, "est_minutes", 0) or 0) > 0:
+            return float(source.est_minutes)
+        lo = str(workflow["learning_object_id"])
+        same = [float(item.est_minutes) for item in items.values()
+                if getattr(item, "learning_object_id", None) == lo and float(getattr(item, "est_minutes", 0) or 0) > 0]
+        if same:
+            return sum(same) / len(same)
+        entries = [float(entry.est_minutes) for entry in (current.items if current is not None else ())
+                   if float(getattr(entry, "est_minutes", 0) or 0) > 0]
+        return sum(entries) / len(entries) if entries else 1.0
+
+
+__all__ = ["FOLLOWUP_PLACEHOLDER_PREFIX", "NUMERIC", "NumericPolicy", "ObjectiveChooser", "ObjectiveFollowupGate",
+           "ObjectiveRestraintGate", "current_weight", "day_price", "objective_settings", "run_numeric"]

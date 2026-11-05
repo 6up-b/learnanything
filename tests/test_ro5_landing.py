@@ -353,6 +353,118 @@ def test_r5_2_the_objective_report_prints_w_and_its_posterior(tmp_path, version)
     assert words.exit_code == 0 and "w 0.8" in words.output and "w None" not in words.output
 
 
+# -- R5 (1): FG1's follow-up gate on the two-policy mix at the tag ---------------------------------------------
+
+
+ARMS_OFF = "[router_objective]\nstop_coin = 0.0\ncheck_rate = \"off\"\npick_open_share = 0.0\n"
+
+
+def _fg1_env(tmp_path, *, version: str = TAG, toml: str | None = ARMS_OFF, llm=None):
+    """A standing plan with its first block open and one answer in it (``tests/test_followup_router.py``'s shape),
+    at ``version``; the fakes answer every model."""
+
+    from learnloop.daily_plan.engine import advance, build_plan
+
+    from tests.daily_plan_fakes import record_attempt
+    from tests.router_model_fakes import FakeLLM
+    from tests.test_daily_plan_build import _wide_items
+
+    llm = llm or FakeLLM()
+    env = mixture_env(tmp_path, fake_runtime(llm=llm), version=version, toml=toml, items=lambda: list(_wide_items()))
+    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    record, step = advance(env, serve=True)
+    assert step["kind"] == "item"
+    env.clock.advance(1)
+    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                   session_id=env.session_id)
+    env.clock.advance(1)
+    return env, llm
+
+
+def _fg1_decide(env, monkeypatch):
+    """FG1's own decision path (``followup_run.router.decide``) for one workflow, the hard refusals passed."""
+
+    from types import SimpleNamespace
+
+    from learnloop.followup_run import router
+
+    from tests.test_followup_router import _workflow
+
+    row = _workflow(env)
+    monkeypatch.setattr(router, "hard_refusal", lambda *_a, **_k: None)
+    clients = SimpleNamespace(runtime=env.policy.restraint.runtime)
+    context = router._plan_context(env.vault, env.repository, row, clients=clients, clock=env.clock)
+    decision = router.decide(env.vault, env.repository, row, choice=SimpleNamespace(factor_id="f", hypothesis_ids=()),
+                             clients=clients, clock=env.clock)
+    return row, context[2], decision
+
+
+def test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace(tmp_path, monkeypatch):
+    from learnloop.daily_plan.router_chooser import CONTINUE_CURRENT, INSERT_NOW, FollowupGate
+    from learnloop.db.stores import router_objective as store
+    from learnloop.followup_run import router
+    from learnloop.router import requests as rq
+
+    env, llm = _fg1_env(tmp_path)
+    before = len(llm.requests)
+    row, gate, decision = _fg1_decide(env, monkeypatch)
+    # Pre-fix: FG1's FollowupGate (R2b's mixture over three arms, the RouterLLMAnswerV1 request, no trace).
+    assert type(gate) is not FollowupGate and gate.__class__.__name__ == "ObjectiveFollowupGate"
+    mixture = decision.record["mixture"]
+    assert mixture["support"] == [INSERT_NOW, CONTINUE_CURRENT] and decision.chosen_ref in mixture["support"]
+    assert mix.recompute(mixture) == pytest.approx(mixture["pi"])
+    assert decision.propensity == pytest.approx(mixture["pi"][decision.chosen_ref])
+    sent = llm.requests[before:]
+    assert sent and all(not issubclass(request.result_model, rq.RouterLLMAnswerV1) for request in sent)
+    assert {request.result_model for request in sent} == {rq.RouterLLMRestraintV3}
+    logged = router.record_decision(env.vault, env.repository, row, decision, clock=env.clock)
+    ledger = rows(env, "plan_interrupt")[-1]
+    assert ledger["id"] == logged.decision_id and ledger["chosen_ref"] == decision.chosen_ref
+    assert mix.recompute(ledger["detail_json"]["mixture"]) == pytest.approx(mixture["pi"])
+    assert ledger["propensity"] == pytest.approx(decision.propensity)
+    refs = {entry["ref"]: entry for entry in ledger["candidates_json"]}
+    assert not refs[router.NO_INTERVENTION]["feasible"]  # not offered at the tag
+    with env.repository.connection() as connection:
+        trace = store.trace(connection, logged.decision_id)
+    assert trace is not None and trace["decision_kind"] == "plan_interrupt"
+    assert trace["trace"]["mixing"]["mu"] == pytest.approx(mixture["pi"])
+    assert trace["trace"]["policies"]["llm"]["schema"] == rq.LLM_POLICY_RESTRAINT_SCHEMA
+
+
+def test_r5_1_no_room_to_wait_asks_now_deterministically_and_asks_no_model(tmp_path):
+    from learnloop.daily_plan.router_chooser import INSERT_NOW
+    from learnloop.followup_run import router
+
+    from tests.test_followup_router import _row
+
+    env, llm = _fg1_env(tmp_path)
+    clients = __import__("types").SimpleNamespace(runtime=env.policy.restraint.runtime)
+    row = {**_row(), "session_id": env.session_id}
+    _env, record, gate = router._plan_context(env.vault, env.repository, row, clients=clients, clock=env.clock)
+    before = len(llm.requests)
+    outcome = gate.decide_followup(record, record.current_block(), row, wait_feasible=False)
+    assert outcome.chosen_ref == INSERT_NOW and outcome.propensity == 1.0 and outcome.wait_feasible is False
+    assert len(llm.requests) == before and "objective_trace" not in outcome.record
+
+
+@pytest.mark.parametrize("case", ["below_the_tag", "objective_off"])
+def test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged(tmp_path, monkeypatch, case):
+    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
+    from learnloop.daily_plan.router_chooser import NO_INTERVENTION, FollowupGate
+    from learnloop.router import requests as rq
+
+    if case == "below_the_tag":
+        env, llm = _fg1_env(tmp_path, version=ROUTER_OBJECTIVE_ALGORITHM_VERSION, toml=None)
+    else:
+        env, llm = _fg1_env(tmp_path, toml="[router_objective]\nenabled = false\n")
+    before = len(llm.requests)
+    _row_, gate, decision = _fg1_decide(env, monkeypatch)
+    assert type(gate) is FollowupGate
+    assert NO_INTERVENTION in decision.record["mixture"]["support"]
+    sent = llm.requests[before:]
+    assert sent and all(issubclass(request.result_model, rq.RouterLLMAnswerV1) for request in sent)
+
+
 def test_r6_the_return_models_assumption_is_labelled_in_the_trace_and_the_report():
     # The return model's record (the trace's ``inputs.return_model`` and the report's ``return_model``) is
     # ReturnSlope.as_dict: the assumption travels with it, fitted or at its prior.

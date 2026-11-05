@@ -650,6 +650,10 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
         propensity, propensity_kind = raw, "exact"
     refused: Mapping[str, Any] = decision.get("refused") or {}
     wait_feasible = bool(decision.get("wait_feasible", True))
+    # Router objective RO5 (landing ruling R5 (1)): at its tag the objective's mix offers no ``no_intervention``;
+    # the record names what it offered. Below the tag the record carries none and FG1's three arms stand.
+    offered: Mapping[str, Any] = record.get("objective_followup") or {}
+    no_intervention_offered = not offered or NO_INTERVENTION_REF in (offered.get("support") or ())
 
     def candidate_propensity(ref: str) -> float:
         if ref == chosen_ref:
@@ -661,7 +665,8 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
          "propensity": candidate_propensity(INSERT_REF)},
         {"ref": CONTINUE_REF, "kind": "continue", "item_ids": [], "feasible": not refused and wait_feasible,
          "propensity": candidate_propensity(CONTINUE_REF)},
-        {"ref": NO_INTERVENTION_REF, "kind": "no_intervention", "item_ids": [], "feasible": not refused,
+        {"ref": NO_INTERVENTION_REF, "kind": "no_intervention", "item_ids": [],
+         "feasible": not refused and no_intervention_offered,
          "propensity": candidate_propensity(NO_INTERVENTION_REF)},
         {"ref": DECLINE_REF, "kind": "decline", "item_ids": [], "feasible": bool(refused),
          "propensity": candidate_propensity(DECLINE_REF)},
