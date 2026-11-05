@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_calibration_upgrade.py"
 source_paths:
   - "src/learnloop/router_calibration_upgrade.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit: "054b8a0652045fad6cf66e7b53909f395070095d"
+source_commit_timestamp: "2026-11-05T10:30:41-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,24 +49,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_calibration_upgrade.py](../../../../../src/learnloop/router_calibration_upgrade.py) |
-| Source lines | 227 |
+| Source lines | 228 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Source commit | `054b8a0652045fad6cf66e7b53909f395070095d` |
+| Commit timestamp | `2026-11-05T10:30:41-05:00` |
 
 ## Public API
 
-- `upgrade_to_router_calibration(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 63) — The predecessor (or mvp-0.9 onwards, through the chain) -> RO5's tag.
-- `complete_interrupted_activation(root: Path, *, vault=None, clock: Clock | None=None) -> str | None` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 73) — Finish any journalled activation of the chain a dead process left; None when there is none.
+- `upgrade_to_router_calibration(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 64) — The predecessor (or mvp-0.9 onwards, through the chain) -> RO5's tag.
+- `complete_interrupted_activation(root: Path, *, vault=None, clock: Clock | None=None) -> str | None` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 74) — Finish any journalled activation of the chain a dead process left; None when there is none.
 
 ### Module constants
 
-- `PREDECESSOR` ([src/learnloop/router_calibration_upgrade.py](../../../../../src/learnloop/router_calibration_upgrade.py), line 53)
-- `_CHAINED_PREDECESSORS` ([src/learnloop/router_calibration_upgrade.py](../../../../../src/learnloop/router_calibration_upgrade.py), line 57)
-- `_STEP_REFUSAL` ([src/learnloop/router_calibration_upgrade.py](../../../../../src/learnloop/router_calibration_upgrade.py), line 60)
+- `PREDECESSOR` ([src/learnloop/router_calibration_upgrade.py](../../../../../src/learnloop/router_calibration_upgrade.py), line 54)
+- `_CHAINED_PREDECESSORS` ([src/learnloop/router_calibration_upgrade.py](../../../../../src/learnloop/router_calibration_upgrade.py), line 58)
+- `_STEP_REFUSAL` ([src/learnloop/router_calibration_upgrade.py](../../../../../src/learnloop/router_calibration_upgrade.py), line 61)
 
 ### Explicit exports
 
@@ -78,12 +78,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_journal_path(vault) -> Path` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 108)
-- `_read_journal(path: Path) -> tuple[str, str] | str | None` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 112)
-- `_upgrade(root: Path, *, clock: Clock | None) -> UpgradeResult` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 122)
-- `_activate(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 161) — Activate ``target`` in one transaction (the predecessor's contract: the journal before the publication, the publication last, the journal removed once committed).
-- `_activation_committed(repository, target: str) -> bool` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 169)
-- `_activate_as_writer(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 179)
+- `_journal_path(vault) -> Path` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 109)
+- `_read_journal(path: Path) -> tuple[str, str] | str | None` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 113)
+- `_upgrade(root: Path, *, clock: Clock | None) -> UpgradeResult` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 123)
+- `_activate(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 162) — Activate ``target`` in one transaction (the predecessor's contract: the journal before the publication, the publication last, the journal removed once committed).
+- `_activation_committed(repository, target: str) -> bool` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 170)
+- `_activate_as_writer(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/router_calibration_upgrade.py), line 180)
 
 ## Who imports or calls it
 

@@ -132,6 +132,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
+- [tests/test_ro5_codex_rereview.py](../../../../../../tests/test_ro5_codex_rereview.py) — direct import
+  - `test_f10_a_past_completion_rate_never_moves_with_a_later_assignment`
 - [tests/test_ro5_codex_review.py](../../../../../../tests/test_ro5_codex_review.py) — direct import
   - `test_f5_the_check_arm_off_restores_ro4s_weight_after_scores_accumulated`
 - [tests/test_ro5_picks.py](../../../../../../tests/test_ro5_picks.py) — direct import
