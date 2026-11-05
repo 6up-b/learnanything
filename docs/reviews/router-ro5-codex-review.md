@@ -371,4 +371,19 @@ availability.
 **R5 (1) and R8**: see `docs/reviews/router-ro5.md`, "Landing onto main" (the gate keeps `no_intervention` at the
 tag, `router_llm_choice_v3` over the three). R9 and R10 are recorded there verbatim.
 
+### Scoped verify of step 0 (job `20261105-120414-0Bm9lB`) and R11
+
+The scoped verify of `5f02be6eb2..198c600899` confirmed F11/R2, R4, R5 (1)-(3) and R8 fixed, found no new defect,
+and reopened one R1 path: `scores.scores` built one unrestricted price map (`_day_prices` read every trace), so a
+day's first trace created after a window's closure priced that window's activity (Codex: a closed score −8.128 →
+−8.064, `current_weight` 0.79884 → 0.79883).
+
+| id / ruling | severity | verdict | commit | test (pre-fix result) |
+|---|---|---|---|---|
+| F10 / R11 | Medium (reopened) | fixed | `db5a1b3c96` | `test_r11_a_price_trace_appended_after_the_closure_never_moves_a_closed_score_or_the_weight` (Codex's reproduction: pre-fix the closed score's cost 0.1 → 0.3 and its value −0.8 → −0.48 after a trace created an hour after the closure; the weight's posterior with them) |
+
+**R11** (`scores._price_rows`, `scores._day_prices`): the price-source traces are read once, and each window's
+`(κ0, m̄)` per day is built as of its closure, every trace admitted through `Closure.admits` on its created time.
+R10's occurrence-time activity read is unchanged. As ruled, R1's class is closed by this fix and the `Ledger`.
+
 **R3**: the stage record describes the placement as built (choice 6) and the first week rerun at landing.
