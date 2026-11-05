@@ -181,6 +181,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
   - `test_marking_and_release_flip_the_epoch_and_the_reading_with_it`
   - `test_probe_candidates_are_taken_in_reading_order_not_span_id_order`
+- [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_an_anchor_mapped_inquiry_behind_the_recent_limit_is_missing_and_the_card_says_so`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_a_reread_past_ads_daily_dose_cap_is_an_intervening_exposure`
 - [tests/test_salience_firewall.py](../../../../../../tests/test_salience_firewall.py) — direct import

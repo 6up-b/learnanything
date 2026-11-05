@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/params/parameter_registry.py"
 source_paths:
   - "src/learnloop/params/parameter_registry.py"
-source_commit: "workspace/uncommitted @ HEAD 8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b"
-source_commit_timestamp: "2026-11-05T00:29:18-05:00"
-source_worktree_state: "modified"
+source_commit: "cf1019a3cf0e24ca3b011d09dbd08393cf180bd7"
+source_commit_timestamp: "2026-11-05T01:31:44-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.params"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 | Owning package | [[Reference/Modules/learnloop/params/_package|learnloop.params]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b` |
-| Commit timestamp | `2026-11-05T00:29:18-05:00` |
+| Worktree state | `clean` |
+| Source commit | `cf1019a3cf0e24ca3b011d09dbd08393cf180bd7` |
+| Commit timestamp | `2026-11-05T01:31:44-05:00` |
 
 ## Public API
 

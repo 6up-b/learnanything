@@ -165,7 +165,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad_guard.py](../../../../../tests/test_ad_guard.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad_projection.py](../../../../../tests/test_ad_projection.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad_protected_readings.py](../../../../../tests/test_ad_protected_readings.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
-- [tests/test_salience_firewall.py](../../../../../tests/test_salience_firewall.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
+- [tests/test_ro2_history_protection.py](../../../../../tests/test_ro2_history_protection.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 
 ## Modification guidance
 
