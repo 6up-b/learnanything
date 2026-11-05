@@ -1,7 +1,9 @@
 """RO5 §9 item 1: the stop coin, stop's return model and the hand-over of ``κ0`` from its seed to a posterior.
 
 **The coin.** At a reversible block boundary of the objective's frame (stop in the support beside at least one
-block), before the mix's draw and independent of it (its own seeded uniform, stream ``stop_coin``), one arm:
+block) once the session holds active minutes (landing ruling R4: the session's opening boundary is not a stop
+decision, the learner has just chosen to start), before the mix's draw and independent of it (its own seeded
+uniform, stream ``stop_coin``), one arm:
 
 | Arm | Probability | Served |
 |---|---|---|
@@ -106,10 +108,13 @@ class Coin:
                 "availability": dict(self.availability), "arms": arm_probabilities(self.rate)}
 
 
-def eligible(support: Sequence[str]) -> bool:
-    """A reversible boundary the coin applies at: stop beside at least one block."""
+def eligible(support: Sequence[str], *, session_minutes: float | None) -> bool:
+    """A reversible boundary the coin applies at: stop beside at least one block, and the session already holds
+    active minutes (landing ruling R4: an offer before any active minute in the session isn't a stop decision, since
+    the learner has just chosen to start; unknown minutes are not above zero)."""
 
-    return STOP in support and any(ref != STOP for ref in support)
+    return (STOP in support and any(ref != STOP for ref in support)
+            and session_minutes is not None and float(session_minutes) > 0.0)
 
 
 def served_distribution(mu: Mapping[str, float], rate: float, support: Sequence[str]) -> dict[str, float]:

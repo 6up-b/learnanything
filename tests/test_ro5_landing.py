@@ -14,7 +14,16 @@ import random
 
 import pytest
 
+from learnloop.algorithm_versions import ROUTER_CALIBRATION_ALGORITHM_VERSION
+from learnloop.router_objective import assignments as A
+from learnloop.router_objective import mix
 from learnloop.router_objective import stop_coin as SC
+
+from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_model_fakes import fake_runtime
+
+TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
+SUPPORT = ("a", "b", SC.STOP)
 
 
 # -- R2 (F11) ------------------------------------------------------------------------------------------------
@@ -71,3 +80,35 @@ def test_r2_an_integration_that_cannot_converge_leaves_the_labelled_prior(monkey
     fitted = SC.fit_return_slope(_planted(0.42, n=3000, p=0.45, seed=8), 0.01)
     assert fitted.source == "prior_integration_unconverged" and fitted.mean == 0.0
     assert fitted.variance == pytest.approx(0.01 ** 2)
+
+
+# -- R4: the stop coin skips the session's opening boundary ---------------------------------------------------
+
+
+def _offer_seed(rate: float):
+    """A seed whose stop-coin uniform lands on ``offer_stop`` (every decision would offer stop)."""
+
+    from learnloop.router.mixture import uniform
+
+    seed = next(f"offer-{i}" for i in range(10_000) if uniform(f"offer-{i}", "stop_coin") < rate)
+    return lambda _key, _decision_id: seed
+
+
+def test_r4_the_coin_is_not_drawn_before_any_active_minute_of_the_session(tmp_path):
+    # The synthetic week's case: an offer at minute 0 that ended the day before any question. Pre-fix the day's first
+    # decision drew offer_stop and the plan closed with nothing served.
+    env = mixture_env(tmp_path, fake_runtime(seed=_offer_seed(0.45)), version=TAG,
+                      toml="[router_objective]\nstop_coin = 0.45\ncheck_rate = \"off\"\npick_open_share = 0.0\n")
+    run(env)
+    decided = [row for row in rows(env) if row["policy"] == mix.POLICY]
+    with env.repository.connection() as connection:
+        coins = {row["unit_id"]: row for row in A.rows(connection, A.STOP_COIN)}
+        attempts = connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()[0]
+    assert decided, "the day had policy decisions"
+    first = decided[0]
+    assert first["id"] not in coins and "stop_coin" not in first["detail_json"]["mixture"]
+    assert attempts >= 1, "the opening boundary served a question"
+    # Every coin drawn was at a boundary with active minutes in the session (structural: the eligibility asks it).
+    assert coins and all(row["detail"]["availability"]["session_minutes"] > 0 for row in coins.values())
+    assert not SC.eligible([*SUPPORT], session_minutes=0.0) and SC.eligible([*SUPPORT], session_minutes=0.5)
+    assert not SC.eligible([*SUPPORT], session_minutes=None)

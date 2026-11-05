@@ -794,9 +794,12 @@ class ObjectiveChooser(RouterChooser):
         # read before that uniform. ``policy`` serves the mix's draw.
         coin = None
         rate = stop_coin_rate(config)
-        if rate > 0 and SC.eligible(support):
+        # Landing ruling R4: the coin skips the session's opening boundary (no active minute yet: not a stop
+        # decision); the minutes are the serving clock's at this decision, read before the coin's uniform.
+        coin_minutes = self._session_minutes(now_iso) if rate > 0 and SC.STOP in support else None
+        if rate > 0 and SC.eligible(support, session_minutes=coin_minutes):
             coin = SC.flip(seed, rate, support=list(support), mu=drawn.pi, drawn=drawn.chosen,
-                           availability=self._availability(state, numeric))
+                           availability={**self._availability(state, numeric), "session_minutes": coin_minutes})
         served_ref = coin.served if coin is not None else drawn.chosen
         chosen = by_id.get(served_ref)
         code, rule = _rule_sentence(chosen, state) if chosen is not None else ("stop_offer", router_why.sentence("stop_offer"))
@@ -895,6 +898,19 @@ class ObjectiveChooser(RouterChooser):
             why=why or staged.why, why_kind=why_kind,  # type: ignore[arg-type]
             router_record=record,
         )
+
+    def _session_minutes(self, now_iso: str) -> float | None:
+        """The objective session's active minutes at ``now_iso`` on the serving clock (``price.session_active_minutes``,
+        the price's own construction), or None where they cannot be read (the coin is then not drawn)."""
+
+        try:
+            with self.repository.connection() as connection:
+                minutes, _start, _basis = P.session_active_minutes(
+                    connection, now=now_iso, gap_minutes=float(self.vault.config.router_objective.session_gap_minutes))
+            return float(minutes)
+        except Exception:  # noqa: BLE001 - unknown minutes are not above zero: no coin, never a blocked plan
+            LOG.warning("router objective RO5: the session's minutes were not read for the stop coin", exc_info=True)
+            return None
 
     def _availability(self, state: PlanState, numeric: "NumericPolicy | None") -> dict[str, Any]:
         """RO5 §9 item 1: what the learner had when the coin was drawn, read before its uniform: the session's active
