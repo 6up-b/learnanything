@@ -488,3 +488,98 @@ copies' figure is the smoke's).
 
 `bc4b183f06` R7, `4532f84710` R8, `dadaf942bd` R9; this section and "Landing onto main" in `docs/reviews/router-ro6.md`
 with the rulings verbatim.
+
+---
+
+# Scoped verify (job `20261105-170936-WEjALK`, on `e4bd9616da`) and rulings R10-R14
+
+Codex confirmed R4, R9 and the other scoped regressions fixed. It reopened F1 (High), F8 and F9 (Medium) and raised a
+Low on R1's fill. The orchestrator ruled R10-R14, recorded verbatim in `docs/reviews/router-ro6.md`. There is no
+further Codex round; each ruling's change is its own commit, for the orchestrator's reading of the diff. Every
+reproduction failed on its pre-fix source first.
+
+| Ruling | Finding | Commit | Reproduction on the pre-fix source | After |
+|---|---|---|---|---|
+| R10 | F1 (High): a drawn check that is skipped or unanswered, `r > 0`, contributes zero without being missing | `b171ee7fc1` | On `e4bd9616da`, 3 of 4 new tests failed. The seed-11 draws with support kept and the same selective losses as skipped checks: missing 0, bound none, `ŵ = 0.201373`, and `0.208070` with the pooled completion rate 7742/8000 (Codex's numbers exactly). The fourth (every ledger status is in the enumeration, checked by AST over `Ledger.resolve` and `exclusion`) passes on both | `ŵ = 0` in both, every missing term counted as `skipped`; each loss kind is missing under its own name with `c·[0, 1]/r` bounds |
+| R11 | F8 (Medium): the hash omits retention density and use weights outside goals | `38b18de5c5` | On `b171ee7fc1`: with no goals, a retention density 0.1 → 0.9 kept the backup (`next_v_tail` 6.316) under one generator | Censored `objective_changed`; the same density on both sides keeps it |
+| R12 | F9 (Medium): the model branch runs the carried valuation before setting NUMERIC's completion event | `65671d1491` | On `38b18de5c5`, event-controlled (the real job and wait on threads, both models answering, every carried-cutoff evaluation blocked): the second decision's wait ran to its 20 s timeout (20.6 s) and served the published, uncorrected answer | Every wait under half the timeout with the carried evaluation still blocked; the stage `final`; `previous.q_status` `not_valued_before_the_serve`, no `q` |
+| R13 | Low: the fill is not slope-minimizing once the noise is refitted | `a8f3a88c1e` | On `65671d1491`, Codex's four rows: the reported slope (14.149 in the test's construction of the rows) was neither a vertex nor the minimum of the reported estimator (1.299 at the unbounded fit's noise) | The slope is the smaller vertex, no fill on a 2,001-point grid of the interval gives less, and the noise is the unbounded fit's |
+| R14 | (test-only) | `4b25081159` | RO5's FG1 gate test failed once under `--durable-sqlite` (first `advance` `done`); RO4's why-surface test is the known flake | Both pinned to `block_drawing_seed()` (moved to `tests/router_model_fakes.py`); 3 of 3 at `-n 6` |
+
+## What changed
+
+- **R10.** `scores.classify_window` is THE classification of a window's terms (`scores.Term`):
+  - `observed`: a labelled completion, or a known dated result;
+  - `design_zero`: a topic the day's draw did not take, with its logged `r`; the inverse weighting covers it;
+  - `excluded_at_draw` (R7);
+  - `missing`, under the ledger's own status or RO6's: a drawn check skipped, not answered, displaced, not
+    administered, open, `excluded:*` or completed with no label; `no_draw_day` (no session); `no_check_support`
+    (support lost after the draw); `dated_missing`.
+
+  `Term.bounds` gives `v·([0, 1] − m⁰)/r` for a drawn check, and also admits zero on a day with no draw; it is
+  unweighted where `r = 0` and for a dated use. Every reader goes through the classification:
+  - RO5's scores and the cross-check through `window_uses`, RO5's pooled-rate reading of the same classes, numbers
+    unchanged;
+  - the stop coin's bounded return through `observed_return(complete)`, observed terms weighted by the design's `r`
+    alone.
+
+  `AsOf.drawn` reads `Ledger.r_for`'s basis. The forced windows' missing terms are counted by kind in the record,
+  in the trace's summary and in the report per day. `MissingTerm` is removed.
+- **R11.** `tail_data.objective_definition` (v2) adds §8.7's population with each topic's effective undated density:
+  the goals' scopes and the retention commitments, so the frozen retention scope and the densities outside goals. It
+  is read from the trace's frozen `evaluation.uses.topics` and the serve's `sources["population"]` alike, and the
+  served-decision test checks the two hashes agree.
+- **R12.** `run_numeric(defer_carried=…)`. The prefetch job's answer returns with the carried valuation pending. The
+  job sets NUMERIC's component and completion event, then runs the valuation and stores it (`CARRIED`).
+  `_decide_objective` (`_with_carried`) takes the carried record if the job had it before the serve, else marks
+  `not_valued_before_the_serve` (censored `cutoff_unmatched`). Inline runs compute it before the serve, as before. Read
+  of "when the answer is published": when the job's answer is complete, its LLM-forecast correction included; the
+  earlier uncorrected publication still serves only on a timeout, as since RO4.
+- **R13.** `residual_weight`'s bound holds the noise at the unbounded fit's value, takes the exact vertex minimum of
+  the slope (each missing term at the end its coefficient favours), and reads the slope's sd and the rank at that
+  fill and noise. `bound_definition` names it in the trace and the report. `WEIGHT_VERSION` v6. Codex's
+  selective-missingness reproductions still give `ŵ = 0` (lower slope −0.343 ± 0.031); with no missing term the
+  estimate is unchanged (0.367 ± 0.037).
+- **R14.** Test-only, as above.
+
+## The three weeks, rerun (on `4b25081159`)
+
+`LEARNLOOP_RO6_DAYS=21`. This run had 65 decisions and 64 transitions (1 `no_later_decision`; none `objective_changed` or
+`cutoff_unmatched`, `carried:valued` 64 of 64). There was one generator version, features frozen at all 65, fit n 64,
+σ² 4.85, condition 9.4e5. Three forced draws (all `offer_stop`). The tail prediction was restricted to the measurable
+terms at all 23 contrasts; the residual's was unrestricted.
+
+| Day | Contrasts | Excluded at the draw | Missing by kind (contrasts) | Bound | `ŵ` | Bound slope | Unbounded `ŵ` (slope) |
+|---|---|---|---|---|---|---|---|
+| 10-12 .. 10-25 | 0 | 0 | — | none | 0 | — | 0 |
+| 10-26 | 5 | 14 | 29 `no_check_support`, 11 `no_draw_day` (1) | least favourable fill | 0 | −1.182 | 0.198 (+0.395) |
+| 10-27 | 8 | 28 | 62, 22 (2) | least favourable fill | 0 | −0.319 | 0.059 (+0.118) |
+| 10-28 | 9 | 56 | 86, 32 (3) | least favourable fill | 0 | −0.161 | 0.014 (+0.057) |
+| 10-30 | 11 | 56 | 86, 32 (3) | least favourable fill | 0 | −0.190 | 0.016 (+0.066) |
+| 10-31 | 12 | 56 | 86, 32 (3) | least favourable fill | 0 | −0.207 | 0.017 (+0.072) |
+| 11-01 | 20 | 56 | 86, 32 (3) | least favourable fill | 0 | −0.336 | 0.009 (+0.117) |
+
+- **ŵ:** zero every day. The unbounded estimate, shown beside it, reached 0.198 on 10-26 with one forced window. That
+  is the kind of movement on few contrasts the bound now holds at zero.
+- **Missing terms:** none of these forced windows had a drawn check that went uncompleted; their missing terms are
+  support lost after the draw and days with no draw.
+- **Residual:** its share of `Ṽ` was 0 at all 307 candidate valuations, and it moved the argmax 0 times.
+- **Timing:** the residual step took median 12 ms, max 38 ms (n 65). The carried valuation took median 460 ms, max 598
+  ms (n 64).
+- **Cross-check:** one step 0.064, se 0.035, ESS 17.6 of 23; the fit's projection 0.0035 over 65.
+- **Trace size:** 14,697 to 23,647 bytes per decision over 65 decisions, no growth (the first three 20,118 / 19,230 /
+  19,407, the last three 23,164 / 23,430 / 21,608).
+
+## The gate (this step)
+
+| Step | Result |
+|---|---|
+| Reproductions on each pre-fix source | as in the table above |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| Targeted batch (step 1's 65 files, `-n 6`, under the lock) | 1068 passed, 0 failed |
+| The three weeks | 1 passed (with the trace summary recomputed) |
+
+## Commits (R10-R14)
+
+`b171ee7fc1` R10, `38b18de5c5` R11, `65671d1491` R12, `a8f3a88c1e` R13, `4b25081159` R14; this section, and R10-R14
+verbatim in `docs/reviews/router-ro6.md`.
