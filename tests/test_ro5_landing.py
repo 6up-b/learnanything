@@ -11,6 +11,8 @@ asked.
   score reads as of one closure through one function (``checks.Closure``), applied to every event it counts
   (answers on occurrence and received time, skips, displacements, administrations, the days drawn and the sessions):
   Codex's two reproductions (a later skip moving a past rate; a later answer moving a closed score).
+* R6: the calibration's lag join end to end (one trace with a known ``m⁰`` vector, one graded check two days later;
+  a coverage test, passing on the pre-fix source too).
 """
 
 from __future__ import annotations
@@ -264,3 +266,40 @@ def test_r1_one_function_reads_every_counted_event_as_of_its_closure():
     assert "hold" in doc and "regrade" in doc  # the intended current-grade behaviour, named
     source = inspect.getsource(S.scores)
     assert "Closure" in source
+
+
+# -- R6: the calibration's lag join, end to end ----------------------------------------------------------------
+
+
+def test_r6_the_lag_join_reads_the_newest_trace_before_the_check_at_its_lag():
+    """One trace row with a known ``m⁰`` vector and one graded check two days later: the calibration row is that
+    trace's forecast at lag 2, on the logit scale, against the check's label (``goal_read.calibration_rows``)."""
+
+    import json
+    import math
+
+    from learnloop.router_objective import goal_read as G
+
+    connection = _ledger_db()
+    trace = {"evaluation": {"window_days": 3, "uses": {"topics": [{"lo": "L", "c": 0.5, "m0": [0.3, 0.6, 0.9]}],
+                                                        "dated": []}}}
+    connection.execute("INSERT INTO router_objective_traces VALUES ('t1', 'd1', 'plan_block', '2026-01-01', "
+                       "'2026-01-01T10:00:00Z', '2026-01-04T10:00:00Z', 'answered', 'answered', 0.0, 10.0, ?)",
+                       (json.dumps(trace),))
+    _check_day(connection, "2026-01-03", item="i3")
+    _answer(connection, "i3", "2026-01-03T13:00:00Z", correctness=1.0)
+    rows = G.calibration_rows(connection, through="2026-01-04")
+    assert rows == [(pytest.approx(math.log(0.6 / 0.4)), None, 1.0, 2)]
+    # A check the next day reads the same trace at lag 1, and a miss is a 0 at its own lag.
+    _check_day(connection, "2026-01-02", item="i2")
+    _answer(connection, "i2", "2026-01-02T13:00:00Z", correctness=0.0)
+    by_lag = {row[3]: row for row in G.calibration_rows(connection, through="2026-01-04")}
+    assert by_lag[1] == (pytest.approx(math.log(0.3 / 0.7)), None, 0.0, 1) and set(by_lag) == {1, 2}
+
+
+def test_r6_the_return_models_assumption_is_labelled_in_the_trace_and_the_report():
+    # The return model's record (the trace's ``inputs.return_model`` and the report's ``return_model``) is
+    # ReturnSlope.as_dict: the assumption travels with it, fitted or at its prior.
+    for fitted in (SC.ReturnSlope(), SC.fit_return_slope(_planted(0.3, n=400, p=0.3, seed=2), 1.0)):
+        assert fitted.as_dict()["assumption"] == SC.RETURN_ASSUMPTION
+    assert "only through the session's minutes" in SC.RETURN_ASSUMPTION

@@ -67,6 +67,9 @@ from learnloop.router import mixture as mx
 VERSION = "ro5_stop_coin_v1"
 KAPPA_VERSION = "kappa_posterior_luce_v1"
 RETURN_VERSION = "return_slope_coin_instrument_v3"
+#: The return model's identifying assumption, labelled wherever it is read (the trace's return model, the report):
+#: landing ruling R6.
+RETURN_ASSUMPTION = "the offer changes the return gap only through the session's minutes (an exclusion restriction)"
 OFFER_STOP = "offer_stop"
 PRESENT_NEXT = "present_next"
 POLICY = "policy"
@@ -325,7 +328,7 @@ class ReturnSlope:
 
     def as_dict(self) -> dict[str, Any]:
         return {"mean": self.mean, "variance": self.variance, "n": self.n, "source": self.source,
-                "version": RETURN_VERSION}
+                "version": RETURN_VERSION, "assumption": RETURN_ASSUMPTION}
 
 
 @dataclass(frozen=True)
@@ -633,7 +636,7 @@ def return_rows(connection: Any, *, gap_minutes: float) -> list[ReturnRow]:
 
 __all__ = [
     "ARMS", "Coin", "FORCED", "KAPPA_VERSION", "OFFER_STOP", "Offer", "POLICY", "POSTERIOR", "POSTERIOR_REGIME",
-    "PRESENT_NEXT", "RETURN_VERSION", "ReturnRow", "ReturnSlope", "SEED_REGIME", "VERSION", "arm_probabilities", "eligible",
+    "PRESENT_NEXT", "RETURN_ASSUMPTION", "RETURN_VERSION", "ReturnRow", "ReturnSlope", "SEED_REGIME", "VERSION", "arm_probabilities", "eligible",
     "fit_return_slope", "flip", "handed_over", "kappa_posterior", "offer_log_likelihood", "offers",
     "pending_assignment", "return_rows", "served_distribution",
 ]
