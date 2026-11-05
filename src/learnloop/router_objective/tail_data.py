@@ -104,15 +104,19 @@ def generator_payload(*, algorithm_version: str, objective: Any, tail: Any, term
                    "features": features or LT.FEATURES_VERSION, "objective_definition": objective_definition})
 
 
-OBJECTIVE_DEFINITION_VERSION = "ro6_objective_definition_v1"
+OBJECTIVE_DEFINITION_VERSION = "ro6_objective_definition_v2"
 
 
-def objective_definition(goals: Mapping[str, Any] | None, horizon_days: Any) -> dict[str, Any]:
-    """RO6's landing ruling R2: what defines the objective a decision valued, as its trace froze it: the horizon and,
-    per active goal (``inputs_sources.goals``), its id, its date (``due_at``), its weights (the dated weight and the
-    undated density) and its use weights (per LO), and its scope's LOs. What moves with time alone (days to the date)
-    or names where a weight came from (its source, its contract version) is not part of it. Rounded as the trace
-    rounds, so the serve's hash and the trace's are one."""
+def objective_definition(goals: Mapping[str, Any] | None, horizon_days: Any,
+                         population: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """RO6's landing rulings R2 and R11: what defines the objective a decision valued, as its trace froze it: the
+    horizon; per active goal (``inputs_sources.goals``), its id, its date (``due_at``), its weights (the dated weight
+    and the undated density) and its use weights (per LO), and its scope's LOs; and §8.7's population with each
+    topic's effective undated density (``population``: the goals' scopes and the retention commitments, so the frozen
+    retention scope and the densities outside goals; the trace's ``evaluation.uses.topics``, the serve's
+    ``sources["population"]``, densities above zero). What moves with time alone (days to the date) or names where a
+    weight came from (its source, its contract version) is not part of it. Rounded as the trace rounds, so the serve's
+    hash and the trace's are one."""
 
     out: dict[str, Any] = {}
     for goal_id, goal in sorted((goals or {}).items(), key=lambda item: str(item[0])):
@@ -122,21 +126,28 @@ def objective_definition(goals: Mapping[str, Any] | None, horizon_days: Any) -> 
                              "dated": goal.get("dated"), "undated_density": goal.get("undated_density"),
                              "per_lo": {str(lo): value for lo, value in sorted((goal.get("per_lo") or {}).items())},
                              "los": sorted(str(lo) for lo in goal.get("los") or ())}
+    densities = {str(lo): float(c) for lo, c in sorted((population or {}).items(), key=lambda item: str(item[0]))
+                 if c is not None and float(c) > 0}
     return _round({"version": OBJECTIVE_DEFINITION_VERSION,
-                   "horizon_days": float(horizon_days) if horizon_days is not None else None, "goals": out})
+                   "horizon_days": float(horizon_days) if horizon_days is not None else None, "goals": out,
+                   "population": densities})
 
 
-def objective_hash(goals: Mapping[str, Any] | None, horizon_days: Any) -> str:
+def objective_hash(goals: Mapping[str, Any] | None, horizon_days: Any,
+                   population: Mapping[str, Any] | None = None) -> str:
     """The hash of :func:`objective_definition`."""
 
-    return generator_key(objective_definition(goals, horizon_days))
+    return generator_key(objective_definition(goals, horizon_days, population))
 
 
 def trace_objective_hash(trace: Mapping[str, Any]) -> str:
-    """The objective a logged decision valued, from its trace: its frozen goals and horizon."""
+    """The objective a logged decision valued, from its trace: its frozen goals, horizon and population densities
+    (``evaluation.uses.topics``)."""
 
+    topics = ((trace.get("evaluation") or {}).get("uses") or {}).get("topics") or ()
+    population = {str(use["lo"]): use.get("c") for use in topics if isinstance(use, Mapping) and use.get("lo")}
     return objective_hash((trace.get("inputs_sources") or {}).get("goals") or {},
-                          (trace.get("versions") or {}).get("horizon_days"))
+                          (trace.get("versions") or {}).get("horizon_days"), population)
 
 
 def served_features_version(trace: Mapping[str, Any]) -> str:

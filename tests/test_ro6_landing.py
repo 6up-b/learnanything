@@ -457,6 +457,33 @@ def test_r2_a_goal_added_between_two_decisions_censors_the_transition_objective_
     assert TD.objective_hash(goal, 7.0) != TD.objective_hash(goal, 6.0)
 
 
+def test_r11_a_retention_density_change_with_no_goal_censors_the_transition_objective_changed(monkeypatch, utc):
+    """Codex's scoped verify (F8 reopened): with no goals, a retention topic's density 0.1 → 0.9 between two
+    decisions an hour apart (its stop value 0.646 → 6.316). Before the fix the hash read goals and the horizon only,
+    so the carried backup was kept across the change."""
+
+    width = len(LT.NAMES)
+    _quiet(monkeypatch, {"d1": "d2"})
+
+    def traced(density: float, previous: dict | None = None) -> dict:
+        trace = _objective_trace("d", goals={}, previous=previous)
+        trace["evaluation"] = {"window_days": 14, "uses": {"topics": [{"lo": "lo_r", "c": density, "m0": None}],
+                                                          "dated": []}}
+        return trace
+
+    carried = {"decision_id": "d1", "cutoff_days": repr(5.0), "status": "carried", "q_status": "valued",
+               "q": {STOP: 6.316296, "a": 6.316296}, "features": {STOP: [0.0] * width, "a": [0.0] * width}}
+    first = _logged(_row("d1", "2026-10-01T10:00:00Z"), traced(0.1))
+    second = _logged(_row("d2", "2026-10-01T11:00:00Z"), traced(0.9, carried))
+    steps = TD.transitions(None, CFG, [first, second], at=FAR)
+    assert steps.transitions == () and steps.censored == {TD.OBJECTIVE_CHANGED: 1, TD.NO_LATER_DECISION: 1}
+    assert first.objective != second.objective
+    # Read the same way at serving (the population's densities) and in replay (the trace's frozen uses).
+    assert TD.objective_hash({}, 6.0, {"lo_r": 0.9}) == second.objective
+    same = _logged(_row("d1", "2026-10-01T10:00:00Z"), traced(0.9))
+    assert len(TD.transitions(None, CFG, [same, second], at=FAR).transitions) == 1
+
+
 def test_r2_a_served_decision_logs_its_objective_under_the_generator_it_served(tmp_path):
     from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
     from learnloop.db.stores import router_objective as store

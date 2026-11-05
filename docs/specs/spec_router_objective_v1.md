@@ -796,8 +796,10 @@ differs from §10:
   one learner's log is one long dependent trajectory of hundreds of decisions a month, and a linear residual's every
   term can be read in the trace. One fit per **generator version** (the objective's, tail's and terminal's versions,
   `H`, the LLM policy's schema, the mix's seeds and floor, the algorithm version, and the hash of the objective's
-  definition, landing ruling R2: the goals' ids, dates, weights and use weights, their scopes, and the horizon,
-  `tail_data.objective_definition`, frozen in the trace's `residual.objective`; a transition whose two decisions
+  definition, landing rulings R2 and R11: the goals' ids, dates, weights and use weights, their scopes, the horizon,
+  and §8.7's population with each topic's effective undated density, so the frozen retention scope and the densities
+  outside goals, `tail_data.objective_definition`, read from the serve's sources and from the trace's frozen
+  `evaluation.uses.topics` alike, frozen in the trace's `residual.objective`; a transition whose two decisions
   carry different objective hashes is censored `objective_changed`, a change point) from its own transitions; the
   logger's `μ` (under the stop coin) at each decision is `π_ref`. It is refit at every decision, so every mixture
   change is followed by a refit; serving uses the current version's fit, or with none of its transitions yet the

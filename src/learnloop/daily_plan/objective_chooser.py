@@ -349,7 +349,10 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
 
             # Landing ruling R2: the objective this decision values (its goals as the trace freezes them, and the
             # horizon) is hashed into the trace and is part of the generator key.
-            objective = TD.objective_hash(sources.get("goals") or {}, float(section.horizon_days))
+            # Landing ruling R11: and §8.7's population with its effective densities (the retention scope and the
+            # densities outside goals), read as the trace freezes it (evaluation.uses.topics).
+            objective = TD.objective_hash(sources.get("goals") or {}, float(section.horizon_days),
+                                          (sources.get("population") or {}).get("los") or {})
             residual_record = tail_serve.residual(repository, config, inputs=inputs, actions=actions, now_iso=now_iso,
                                                   generator_now=generator_now(config, objective), frozen=tail_snapshot,
                                                   clock=clock)
