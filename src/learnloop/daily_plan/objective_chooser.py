@@ -370,13 +370,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         if publish is not None:
             def on_complete(evaluation: V.Evaluation) -> None:
                 publish(answered(evaluation, inputs, actions, False))
-        trim: float | None = None
-        if residual_record is not None:
-            from learnloop.router_objective import tail_serve
-
-            trim = tail_serve.trim_at(residual_record)
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
-                                deadline=deadline, clock=clock, on_complete=on_complete, trim_at=trim)
+                                deadline=deadline, clock=clock, on_complete=on_complete)
         corrected = False
         if evaluation.complete and forecasts is not None and bool(section.sensors_in_value):
             got = forecasts()
@@ -389,14 +384,24 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                                  float(section.effect_slope_prior_variance)))
                     with_llm = replace(inputs, effect=effect, reference_forecast=float(reference))
                     acts = [replace(action, forecast=by_ref.get(action.ref)) for action in actions]
-                    again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
-                                       trim_at=trim)
+                    again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock)
                     if again.complete:
                         evaluation, inputs, actions, corrected = again, with_llm, acts, True
         if not evaluation.complete:
             return NumericPolicy(status=TIMEOUT, inputs=inputs, actions=tuple(actions), sources=sources, price=priced,
                                  frontier=frontier, latency_ms=int(round((clock() - started) * 1000)),
                                  error="no answer within the budget")
+        if residual_record is not None:
+            from learnloop.router_objective import tail_serve
+
+            carried = tail_serve.carried_cutoff(residual_record)
+            if carried is not None:
+                # RO6 (Codex re-review F3): the candidates valued again with every rollout at the latest earlier
+                # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
+                # target, so the first batch's draws: its noise averages out in the fit, and no refinement is paid).
+                at_previous = V.evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
+                                         cutoff=carried)
+                residual_record = tail_serve.with_carried_values(residual_record, at_previous)
         return answered(evaluation, inputs, actions, corrected)
     except Exception as exc:  # noqa: BLE001 - a failed policy's share goes to the staged rule
         LOG.warning("router objective: the numeric policy failed", exc_info=True)

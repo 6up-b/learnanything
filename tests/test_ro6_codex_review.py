@@ -7,10 +7,9 @@ pre-fix source.
   with no observed return leaves the contrast unidentified (no contrast, said);
 * **F2**: an exam later the same day as a decision falls in that decision's interval: its result enters the reward,
   and with no import the transition is censored ``no_result``;
-* **F3**: the backup values the next state at the decision's own cutoff: with the next decision's rollouts keeping
-  the net value past ``C + H`` apart (``past_trim``) the next value is ``Σ π·(q − past_trim)`` and the next features
-  carry ``C``'s span; without it the transition is censored ``cutoff_unmatched``, never moved back by an average
-  terminal rate. In the rollouts, ``past_trim`` at ``C`` is exactly ``T_C`` and the trim never moves ``q``;
+* **F3**: the backup values the next state at the decision's own cutoff; without a value there the transition is
+  censored ``cutoff_unmatched``, never moved back by an average terminal rate (the re-review replaced the trim with
+  the candidates valued at the carried cutoff: tests/test_ro6_codex_rereview.py);
 * **F4**: the residual's mutable inputs (pending reports, mastery) are read at the decision's moment, before the
   prefetch job runs: a diagnosis queued after it never enters the features;
 * **F5**: the contrasts' return reader admits an imported result only once it was known at its cutoff;
@@ -62,7 +61,8 @@ def _trace(*, q: dict[str, float], mu: dict[str, float] | None = None, chosen: s
                   for ref, value in q.items()}
     frozen = {ref: {"features": (features or {}).get(ref) or [0.0] * width,
                     "v_residual": (residual or {}).get(ref, 0.0)} for ref in support}
-    record = {"status": "applied", "candidates": frozen, **({"previous": previous} if previous else {})}
+    record = {"status": "applied", "features_version": LT.FEATURES_VERSION, "candidates": frozen,
+              **({"previous": previous} if previous else {})}
     return {"candidates": candidates, "mixing": {"mu": mu, "chosen": chosen, "effective": {"numeric": 0.5},
                                                  "epsilon": 0.0, "seeds": {}},
             "versions": {"horizon_days": 90.0}, "cutoff_days": cutoff_days, "reference": {"terms": {"terminal": terminal}},
@@ -138,25 +138,8 @@ def test_f3_a_later_cutoff_with_no_value_at_the_earlier_one_is_censored(monkeypa
     assert steps.transitions == () and steps.censored.get(TD.CUTOFF_UNMATCHED) == 1
 
 
-def test_f3_the_next_state_is_valued_at_the_decisions_own_cutoff(monkeypatch, utc):
-    _quiet(monkeypatch, {"d1": "d2"})
-    first = _logged(_row("d1", "2026-10-01T10:00:00Z"), _trace(q={STOP: 0.0, "a": 1.0}))
-    width = len(LT.NAMES)
-    span_at = LT.NAMES.index("cutoff_span")
-    own = [0.5] * width
-    own[span_at] = 1.0
-    second = _logged(_row("d2", "2026-10-02T10:00:00Z"), _trace(
-        q={STOP: 2.0, "a": 3.0}, past_trim={STOP: 0.5, "a": 0.25}, terminal=9.0,
-        previous={"decision_id": "d1", "cutoff_days": repr(89.0), "trim_at_days": 179.0, "status": "covered"},
-        features={STOP: own, "a": own}))
-    steps = TD.transitions(None, CFG, [first, second], at=FAR)
-    assert len(steps.transitions) == 1
-    step = steps.transitions[0]
-    # Σ π(a′)·(q − past_trim)(a′) at the logged shares (no coin: μ), exactly; not Σ π·q − (C′ − C)·T/H.
-    assert step.next_v_tail == pytest.approx(0.5 * 1.5 + 0.5 * 2.75)
-    assert step.detail["cutoff"] == "previous_cutoff"
-    assert step.next_phi[span_at] == pytest.approx(89.0 / 90.0)
-    assert all(step.next_phi[k] == pytest.approx(0.5) for k in range(width) if k != span_at)
+# The next state valued at the decision's own cutoff: re-review F3 replaced the trim (``q − past_trim``) with the
+# candidates valued at the carried cutoff; its tests are in tests/test_ro6_codex_rereview.py.
 
 
 def test_f3_a_shared_cutoff_needs_no_trim(monkeypatch, utc):
@@ -182,19 +165,13 @@ def _value_actions():
             V.Action(ref="stop_for_today", kind=V.STOP)]
 
 
-def test_f3_the_rollouts_keep_the_value_past_the_trim_apart_without_moving_q():
+def test_f3_no_carried_cutoff_leaves_the_rollouts_as_ro4s():
     inputs, actions = _value_inputs(), _value_actions()
     plain = V.evaluate(inputs, actions, draws=8, seed="trim")
-    at_cutoff = V.evaluate(inputs, actions, draws=8, seed="trim", trim_at=inputs.cutoff)
-    at_end = V.evaluate(inputs, actions, draws=8, seed="trim", trim_at=inputs.cutoff + inputs.horizon_days)
+    own = V.evaluate(inputs, actions, draws=8, seed="trim", cutoff=inputs.cutoff)
     for ref, row in plain.by_ref().items():
-        assert "past_trim" not in row.terms  # off: the terms as RO4's
-        trimmed = at_cutoff.by_ref()[ref]
-        assert trimmed.q_draws == row.q_draws  # the trim never moves q
-        # Everything past C is T_C (no dated use lies past it), so the part past a trim at C is T_C exactly.
-        assert trimmed.terms["past_trim"] == pytest.approx(row.terms["terminal"], abs=1e-12)
-        assert at_end.by_ref()[ref].terms["past_trim"] == pytest.approx(0.0, abs=1e-12)
-        assert abs(row.terms["terminal"]) > 1e-6  # the case is not empty
+        assert own.by_ref()[ref].q_draws == row.q_draws and own.by_ref()[ref].terms == row.terms
+        assert "past_trim" not in row.terms
 
 
 # -- F4 -------------------------------------------------------------------------------------------------------
@@ -336,14 +313,14 @@ def _contrasts(monkeypatch, rows, returns):
 def test_f1_an_arm_difference_in_observation_alone_is_no_contrast(monkeypatch):
     rows, returns = _cohort(20000, censor={SC.PRESENT_NEXT: 0.5})
     found, record = _contrasts(monkeypatch, rows, returns)
-    weight = LT.residual_weight(found, prior_sd=1.0, at="2026-11-01T00:00:00Z")
-    assert weight.w_hat < 0.15, weight  # about 0.5 before the fix
-    assert abs(weight.slope_mean) < 3 * weight.slope_sd + 1e-9
-    assert len(found) == len(rows)  # the randomized cohort, whole
-    assert record["status"] == "identified" and record["observed_share"][SC.OFFER_STOP] == 1.0
-    assert 0.4 < record["observed_share"][SC.PRESENT_NEXT] < 0.6
-    complete, _ = _contrasts(monkeypatch, *_cohort(20000, censor={}))
-    assert LT.residual_weight(complete, prior_sd=1.0, at="2026-11-01T00:00:00Z").w_hat < 0.15
+    # About 0.5 before the first fix. Since the re-review (F1) a forced draw with no return leaves the contrast
+    # unidentified rather than corrected by an observed share (no observation probability is justified).
+    assert LT.residual_weight(found, prior_sd=1.0, at="2026-11-01T00:00:00Z").w_hat == 0.0
+    assert record["status"] == LT.UNIDENTIFIED and record["assigned"][SC.OFFER_STOP] == record["observed"][SC.OFFER_STOP]
+    complete, record = _contrasts(monkeypatch, *_cohort(20000, censor={}))
+    assert len(complete) == len(rows) and record["status"] == "identified"  # the randomized cohort, whole
+    weight = LT.residual_weight(complete, prior_sd=1.0, at="2026-11-01T00:00:00Z")
+    assert weight.w_hat < 0.15 and abs(weight.slope_mean) < 3 * weight.slope_sd + 1e-9
 
 
 def test_f1_an_arm_with_no_observed_return_leaves_the_contrast_unidentified(monkeypatch):

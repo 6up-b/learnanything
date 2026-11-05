@@ -213,14 +213,15 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
 def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
                 resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
                 r_lookup: Callable[[str], dict[str, float]],
-                exam_result: Callable[[Any, str, str], float | None] | None = None
-                ) -> tuple[list[W.Use], list[str]] | None:
+                exam_result: Callable[[Any, str, str], float | None] | None = None,
+                left_out: list[str] | None = None) -> tuple[list[W.Use], list[str]] | None:
     """The frozen uses of one decision's window with what the randomized checks observed of them (and the
     completed assessments' keys), or None when a dated use in the window has no imported result (``no_result``).
 
     ``exam_result(connection, lo, on)``: the dated use's imported result; RO5's :func:`_exam_result` by default (its
     scores read every import, as at RO5's base). RO6's return reader hands in one that applies THE availability
-    predicate at its cutoff (Codex review of RO6, F5)."""
+    predicate at its cutoff (Codex review of RO6, F5). ``left_out`` (RO6's contrasts only): a dated use with no
+    result is left out of the uses and its key appended there, instead of the window carrying none."""
 
     evaluation = trace.get("evaluation") or {}
     window = int(evaluation.get("window_days") or 14)
@@ -245,6 +246,9 @@ def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any
     for dated in (evaluation.get("uses") or {}).get("dated") or ():
         on = dated_use_date(trace, row, dated)
         result = read_exam(connection, str(dated["lo"]), on)
+        if result is None and left_out is not None:
+            left_out.append(f"G:{dated['goal_id']}:{dated['lo']}:{on}")
+            continue
         if result is None:
             return None
         uses.append(W.Use(key=f"G:{dated['goal_id']}:{dated['lo']}", weight=float(dated.get("omega") or 0.0),
@@ -269,21 +273,39 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
                     resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
                     r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
                     gap_minutes: float,
-                    exam_result: Callable[[Any, str, str], float | None] | None = None) -> tuple[float | None, str | None]:
+                    exam_result: Callable[[Any, str, str], float | None] | None = None,
+                    complete: bool = False) -> tuple[float | None, str | None]:
     """RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action
     contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
     ``(None, reason)`` when a dated use has no result or no use has ``r > 0`` (effort alone is no return).
-    ``exam_result``: as :func:`window_uses` (:func:`observed_returns` hands in the as-of reader)."""
+    ``exam_result``: as :func:`window_uses` (:func:`observed_returns` hands in the as-of reader).
 
+    ``complete`` (the stop coin's contrasts; Codex re-review F1): every window has a return, so no draw of the
+    randomized cohort goes unobserved. The bracket is an unbiased estimate of its own sum over the uses a check could
+    observe (``r > 0``, the checks' exact assignment probabilities), so a window with none is its cost term alone
+    (``no_randomized_use``, said); and a dated use whose result is not known at the cutoff is left out of the sum
+    (``dated_left_out``, said). Whether that result is known is one function of the use (its topic and date) and the
+    cutoff, the same for every decision whose window holds it, whichever arm its coin drew."""
+
+    left_out: list[str] | None = [] if complete else None
     found_uses = window_uses(connection, row, trace, resolved=resolved, completion_rate=completion_rate,
-                             r_lookup=r_lookup, exam_result=exam_result)
+                             r_lookup=r_lookup, exam_result=exam_result, left_out=left_out)
     if found_uses is None:
         return None, W.NO_RESULT
     uses, _assessments = found_uses
+    notes = [f"{RO6_DATED_LEFT_OUT}:{len(left_out)}"] if left_out else []
     if not any(use.r > 0 for use in uses):
-        return None, W.NO_RANDOMIZED_USE
+        if not complete:
+            return None, W.NO_RANDOMIZED_USE
+        notes.append(RO6_NO_RANDOMIZED_USE)
     cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
-    return W.score(d_taken=1.0, mu_taken=1.0, uses=uses, cost=cost, cost_baseline=c0), None
+    return (W.score(d_taken=1.0, mu_taken=1.0, uses=uses, cost=cost, cost_baseline=c0),
+            ";".join(notes) if notes else None)
+
+
+#: RO6's notes on a complete return (:func:`observed_return`'s ``complete``)
+RO6_DATED_LEFT_OUT = "dated_left_out"
+RO6_NO_RANDOMIZED_USE = "no_randomized_use"
 
 
 def _context(connection: Any, *, at: str) -> tuple[dict[tuple[str, str], C.Resolved], Callable[[str], float | None],
@@ -313,12 +335,13 @@ def _context(connection: Any, *, at: str) -> tuple[dict[tuple[str, str], C.Resol
     return resolved, completion_at, r_lookup, _day_prices(connection)
 
 
-def observed_returns(connection: Any, config: Any, *, at: str,
-                     rows: Sequence[Mapping[str, Any]]) -> dict[str, tuple[float | None, str | None]]:
+def observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Mapping[str, Any]],
+                     complete: bool = False) -> dict[str, tuple[float | None, str | None]]:
     """RO6: :func:`observed_return` for each of ``rows`` (a trace's columns with its parsed ``trace``) whose window
     closed before ``at``, keyed by decision id, as of ``at`` as :func:`scores` reads it, except that an imported
     result counts only once THE availability predicate admits it by ``at`` (:func:`exam_result_known`; Codex review
-    of RO6, F5: an exam imported after ``at`` is no return yet, so ``ŵ`` never reads past its cutoff)."""
+    of RO6, F5: an exam imported after ``at`` is no return yet, so ``ŵ`` never reads past its cutoff).
+    ``complete``: as :func:`observed_return` (the stop coin's contrasts)."""
 
     closed = [row for row in rows if row.get("window_closes_at") and str(row["window_closes_at"]) < at]
     if not closed:
@@ -331,7 +354,7 @@ def observed_returns(connection: Any, config: Any, *, at: str,
 
     return {str(row["decision_id"]): observed_return(
         connection, row, row["trace"], resolved=resolved, completion_rate=completion_at(str(row["window_closes_at"])),
-        r_lookup=r_lookup, prices=prices, gap_minutes=gap, exam_result=known) for row in closed}
+        r_lookup=r_lookup, prices=prices, gap_minutes=gap, exam_result=known, complete=complete) for row in closed}
 
 
 def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:

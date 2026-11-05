@@ -13,9 +13,10 @@ At a ``plan_block`` decision at the tag with ``[router_objective] learned_tail``
    refit;
 3. ``ŵ`` as of now from the randomized stop-coin contrasts whose windows closed (:func:`learned_tail.residual_weight`);
 4. ``V_residual(a) = ρ̂(x, a)`` per candidate; the numeric policy's argmax and its tie rule run on ``Ṽ``;
-5. the latest earlier decision's cutoff (:func:`previous_cutoff`): the rollouts keep the net value past
-   ``C_prev + H`` apart (``terms.past_trim``), so that decision's backup reads this state's value at its own cutoff
-   exactly (Codex review F3); ``Q̄`` itself is unchanged.
+5. the latest earlier decision's cutoff (:func:`previous_cutoff`): after the rollouts at this decision's own
+   cutoff, the candidates are valued again with every rollout run at ``C_prev`` (``residual.previous.q``) and their
+   features taken at ``C_prev``'s span (``residual.previous.features``), so that decision's backup reads this state's
+   value at its own cutoff exactly (Codex re-review F3); this decision's ``Q̄`` and choice are unchanged by it.
 
 Everything is frozen into the decision's trace (``residual``: ``ŵ`` with its slope and rank, the fit's
 coefficients, standardization, version and size, and per candidate the features, ``V_tail``, ``V_residual`` and
@@ -61,10 +62,11 @@ def snapshot(repository: Any, *, now_iso: str) -> dict[str, Any]:
     return {"version": SNAPSHOT_VERSION, "at": now_iso, "pending_reports": dict(pending), "los": mastery}
 
 
-def features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any]) -> tuple[dict[str, tuple[float, ...]],
-                                                                                         dict[str, Any]]:
+def features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any],
+             cutoff_days: float | None = None) -> tuple[dict[str, tuple[float, ...]], dict[str, Any]]:
     """Each candidate's features at serve time (the module docstring's step 1), from the decision's ``frozen``
-    :func:`snapshot` and its frozen inputs only: nothing here reads the vault."""
+    :func:`snapshot` and its frozen inputs only: nothing here reads the vault. ``cutoff_days``: the cutoff the
+    features are taken at (None: the decision's own; an earlier decision's carried cutoff for its backup)."""
 
     topic_by_lo = {topic.lo: topic for topic in inputs.topics}
     los = list(dict.fromkeys(lo for action in actions for lo in action.item_los if lo in topic_by_lo))
@@ -80,7 +82,7 @@ def features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any]) 
     belief = LT.belief(session_minutes=float(inputs.session_minutes), remembered=remembered,
                        nearest_goal_days=nearest, horizon_days=float(inputs.horizon_days), pending_reports=total,
                        mastery=TD.snapshot_mastery(snapshot, los), topics=list(numbers.values()),
-                       cutoff_days=float(inputs.cutoff))
+                       cutoff_days=float(inputs.cutoff) if cutoff_days is None else float(cutoff_days))
     out = {}
     for action in actions:
         own = tuple(numbers[lo] for lo in dict.fromkeys(action.item_los) if lo in numbers)
@@ -118,9 +120,14 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
         fit_record = model.as_dict()
         for key in ("mean", "sd", "coef"):
             fit_record[key] = [_exact(value) for value in fit_record[key]]
+        previous = previous_cutoff(rows, inputs, now_iso=now_iso)
+        if previous is not None and previous["status"] == CARRIED:
+            # The next state's features at the carried cutoff (Codex re-review F3), the same function.
+            at_previous, _ = features(inputs, actions, frozen=frozen, cutoff_days=float(previous["cutoff_days"]))
+            previous["features"] = {ref: [_exact(v) for v in vector] for ref, vector in at_previous.items()}
         return {
-            "status": "applied", "version": VERSION, "w_hat": weight.w_hat, "weight": weight.as_dict(),
-            "previous": previous_cutoff(rows, inputs, now_iso=now_iso),
+            "status": "applied", "version": VERSION, "features_version": LT.FEATURES_VERSION,
+            "w_hat": weight.w_hat, "weight": weight.as_dict(), "previous": previous,
             "contrasts": {"n": len(contrasts), "censored": censored_contrasts},
             "generator": generator_now, "fit_basis": basis_of_fit, "fit": fit_record,
             "transitions": {"n": len(fitted.steps.transitions), "censored": dict(fitted.steps.censored),
@@ -136,12 +143,19 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
                 "elapsed_ms": int(round((clock() - started) * 1000))}
 
 
+CARRIED = "carried"
+SAME_CUTOFF = "same_cutoff"
+PAST_CUTOFF = "past_cutoff"
+
+
 def previous_cutoff(rows: Sequence[Any], inputs: Any, *, now_iso: str) -> dict[str, Any] | None:
-    """§3.2 for the backup (Codex review F3): the latest earlier logged decision (``tail_data.Logged``), its cutoff
-    ``C_prev``, and where the rollouts keep the net value past ``C_prev + H`` apart (``trim_at_days`` from now), so
-    the trace holds each candidate's ``Q_tail(x, a; C_prev) = q − past_trim`` on the same draws. ``trim_at_days`` is
-    None when ``C_prev + H`` lies past this decision's own rollout end (a goal dropped since) or ``C_prev`` is already
-    past: the value at that cutoff is not in these rollouts, and the transition is censored, never approximated."""
+    """§3.2 for the backup (Codex re-review F3): the latest earlier logged decision (``tail_data.Logged``) and its
+    cutoff ``C_prev`` in days from now. Status ``carried``: this decision's candidates are valued a second time with
+    every rollout run at ``C_prev`` (:func:`value.evaluate`'s ``cutoff``: the continuation's ranking, a probe's branch
+    choice, the quadrature's boundaries and the end ``C_prev + H``), and their features with ``C_prev``'s span, so
+    that decision's backup reads ``Q_tail(x′, a′; C_prev)`` itself, never this cutoff's value trimmed.
+    ``same_cutoff`` (within ``tail_data``'s numerical tolerance): this decision's own ``Q̄`` is that value.
+    ``past_cutoff``: ``C_prev`` already passed (that transition is censored ``past_cutoff``)."""
 
     earlier = [row for row in rows if str(row.created_at) < now_iso and row.cutoff_at is not None]
     if not earlier:
@@ -149,27 +163,42 @@ def previous_cutoff(rows: Sequence[Any], inputs: Any, *, now_iso: str) -> dict[s
     prev = max(earlier, key=lambda row: (row.created_at, row.decision_id))
     now = TD._parse(now_iso)
     cutoff_days = (prev.cutoff_at - now).total_seconds() / 86400.0
-    trim = cutoff_days + float(prev.horizon_days)
-    end = float(inputs.cutoff) + float(inputs.horizon_days)
     if cutoff_days <= 0:
-        status = "past_cutoff"
-    elif trim > end + 1e-9:
-        status = "beyond_this_rollout"
+        status = PAST_CUTOFF
+    elif abs(cutoff_days - float(inputs.cutoff)) * 86400.0 <= TD._SAME_CUTOFF_SECONDS:
+        status = SAME_CUTOFF
     else:
-        status = "covered"
+        status = CARRIED
     return {"decision_id": prev.decision_id, "cutoff_at": prev.cutoff_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "cutoff_days": _exact(cutoff_days), "horizon_days": float(prev.horizon_days),
-            "trim_at_days": trim if status == "covered" else None, "status": status}
+            "cutoff_days": _exact(cutoff_days), "horizon_days": float(prev.horizon_days), "status": status}
 
 
-def trim_at(record: Mapping[str, Any] | None) -> float | None:
-    """The rollouts' trim for an applied record (:func:`previous_cutoff`), else None (RO4's terms exactly)."""
+def carried_cutoff(record: Mapping[str, Any] | None) -> float | None:
+    """The cutoff (days from now) the candidates are valued at a second time, for an applied record whose previous
+    decision's cutoff is ``carried`` (:func:`previous_cutoff`); else None (no second valuation)."""
 
     if not applied(record):
         return None
     previous = record.get("previous") if isinstance(record, Mapping) else None  # type: ignore[union-attr]
-    value = (previous or {}).get("trim_at_days") if isinstance(previous, Mapping) else None
-    return float(value) if value is not None else None
+    if not isinstance(previous, Mapping) or previous.get("status") != CARRIED:
+        return None
+    return float(previous["cutoff_days"])
+
+
+def with_carried_values(record: Mapping[str, Any], evaluation: Any) -> dict[str, Any]:
+    """The record with each candidate's ``Q̄`` at the carried cutoff (``previous.q``, from the evaluation run at it,
+    with its draws and time), or with why there is none (``previous.q_status``): a transition into this decision then
+    has no value at the earlier cutoff and is censored ``cutoff_unmatched``."""
+
+    previous = dict(record.get("previous") or {})
+    if evaluation is None or not getattr(evaluation, "complete", False):
+        previous["q_status"] = "not_valued_within_the_budget"
+    else:
+        previous["q"] = {row.ref: float(row.q) for row in evaluation.valued}
+        previous["q_status"] = "valued"
+        previous["draws"] = int(evaluation.draws)
+        previous["elapsed_ms"] = int(evaluation.elapsed_ms)
+    return {**dict(record), "previous": previous}
 
 
 def _exact(value: float) -> str:
@@ -205,5 +234,5 @@ def candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -
             "v_tilde": (v_tail + w_hat * float(v_residual)) if v_tail is not None and v_residual is not None else None}
 
 
-__all__ = ["SNAPSHOT_VERSION", "VERSION", "applied", "candidate_terms", "features", "previous_cutoff", "residual",
-           "shifted", "snapshot", "trim_at"]
+__all__ = ["CARRIED", "PAST_CUTOFF", "SAME_CUTOFF", "SNAPSHOT_VERSION", "VERSION", "applied", "candidate_terms",
+           "carried_cutoff", "features", "previous_cutoff", "residual", "shifted", "snapshot", "with_carried_values"]

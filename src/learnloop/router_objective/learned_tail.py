@@ -59,7 +59,7 @@ import numpy as np
 
 FEATURES_VERSION = "ro6_belief_features_v2"
 FIT_VERSION = "ro6_fqe_ridge_v1"
-WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v2"
+WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v3"
 CROSS_CHECK_VERSION = "ro6_partial_history_v2"
 
 STATE_FEATURES: tuple[str, ...] = ("session_load", "days_to_go", "pending_reports", "mastery_p", "mastery_var",
@@ -444,39 +444,43 @@ UNIDENTIFIED = "unidentified"
 
 
 def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str, Any]]:
-    """The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1).
+    """The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1; re-review F1).
 
-    A window's return can go unobserved after the coin (no import for a dated use, no use a check could reach), and
-    offering stop can move whether it is. Dropping the unobserved forced draws while the ``policy`` arm's zeros stay
-    selects the cohort after randomization (an arm difference in observation alone then reads as a contrast). So
-    every draw stays: the ``policy`` arm's contrast is zero whatever its return (its weight is zero), and a forced
-    arm's observed return is weighted by the inverse of that arm's observed share in the cohort,
-    ``Ĉ_i = (1[offer]/p − 1[present_next]/p)·Ĝ_i·1[observed]/q_arm``, an unobserved one contributing zero. That is
-    unbiased when whether a return is observed depends on the arm alone (missing at random given the arm); a return
-    missing because of its own value is not corrected, and the record says how many were missing, by arm and reason.
-    A forced arm with draws and no observed return leaves the contrast **unidentified**: no contrast is returned (so
-    ``ŵ`` stays at its prior) and the record says so, rather than fitting the other arm alone as randomized
-    evidence."""
+    The cohort is chosen before the coin, and every draw stays: ``Ĉ_i = (1[offer]/p − 1[present_next]/p)·Ĝ_i``, the
+    ``policy`` arm's zero whatever its return. That is unbiased only if every forced draw's ``Ĝ_i`` is observed: a
+    return that goes unobserved after the coin can go so for reasons tied to the arm and to anything about the
+    decision (a pre-coin feature, the return itself), and no share of observed returns, pooled or by arm, is a
+    justified observation probability for it. So the return reader makes every window's return complete
+    (:func:`learnloop.router_objective.scores.observed_return`'s ``complete``: the bracket over the uses a check could
+    observe, at the checks' exact assignment probabilities, with a dated use whose result is not yet known left out
+    of every window holding it alike), and a forced draw that still arrives with no return leaves the contrast
+    **unidentified**: no contrast is returned (``ŵ`` stays at its prior) and the record says how many, by arm and
+    reason, rather than correcting by a probability nothing justifies."""
 
     assigned: dict[str, int] = {OFFER_STOP: 0, PRESENT_NEXT: 0}
     observed: dict[str, int] = {OFFER_STOP: 0, PRESENT_NEXT: 0}
     reasons: dict[str, dict[str, int]] = {}
+    notes: dict[str, dict[str, int]] = {}
     for draw in draws:
         if draw.arm in assigned:
             assigned[draw.arm] += 1
             if draw.value is not None:
                 observed[draw.arm] += 1
-        if draw.value is None:
-            by_arm = reasons.setdefault(str(draw.arm), {})
-            by_arm[str(draw.reason)] = by_arm.get(str(draw.reason), 0) + 1
-    share = {arm: (observed[arm] / assigned[arm]) if assigned[arm] else None for arm in assigned}
+        into = reasons if draw.value is None else notes
+        if draw.value is None or draw.reason:
+            by_arm = into.setdefault(str(draw.arm), {})
+            for reason in str(draw.reason).split(";"):
+                key = reason.split(":")[0]
+                by_arm[key] = by_arm.get(key, 0) + 1
     record: dict[str, Any] = {"cohort": len(draws), "assigned": dict(assigned), "observed": dict(observed),
-                              "observed_share": share, "unobserved": reasons,
-                              "assumption": "a return's observation depends on the coin's arm alone"}
-    empty = [arm for arm in assigned if assigned[arm] and not observed[arm]]
-    if empty:
+                              "unobserved": reasons, "notes": notes,
+                              "assumption": "every forced draw's return observed (the reader's complete return)"}
+    missing = [arm for arm in assigned if observed[arm] < assigned[arm]]
+    if missing:
         record["status"] = UNIDENTIFIED
-        record["why"] = f"no observed return on the {', '.join(empty)} arm: the contrast is not identified"
+        record["why"] = (f"{sum(assigned[a] - observed[a] for a in missing)} forced draw(s) with no observed return "
+                         f"on the {', '.join(missing)} arm: no justified observation probability, so the contrast is "
+                         f"not identified")
         return [], record
     record["status"] = "identified"
     out: list[Contrast] = []
@@ -486,7 +490,7 @@ def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str,
         if weight == 0.0 or draw.value is None:
             realized = 0.0
         else:
-            realized = weight * float(draw.value) / float(share[str(draw.arm)])  # type: ignore[arg-type]
+            realized = weight * float(draw.value)
         out.append(Contrast(decision_id=draw.decision_id, decided_at=draw.decided_at,
                             window_closes_at=draw.window_closes_at, realized=realized, tail=draw.tail,
                             residual=draw.residual, forced=forced, forced_probability=2.0 * float(draw.rate)))

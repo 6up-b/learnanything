@@ -45,7 +45,9 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     moved = 0
     applied = 0
     timings: list[int] = []
+    carried: list[int] = []
     statuses: dict[str, int] = defaultdict(int)
+    previous_statuses: dict[str, int] = defaultdict(int)
     for local_date, created_at, body in connection.execute(
             "SELECT local_date, created_at, trace_json FROM router_objective_traces WHERE decision_kind = 'plan_block' "
             "ORDER BY created_at, id"):
@@ -59,6 +61,12 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         if record.get("status") != "applied":
             continue
         applied += 1
+        previous = record.get("previous") if isinstance(record.get("previous"), Mapping) else {}
+        if previous.get("elapsed_ms") is not None:
+            # The second valuation at the earlier decision's carried cutoff (Codex re-review F3).
+            carried.append(int(previous["elapsed_ms"]))
+        if previous.get("status"):
+            previous_statuses[f"{previous.get('status')}:{previous.get('q_status', '-')}"] += 1
         weight = record.get("weight") or {}
         days[str(local_date)].append({"at": created_at, "w_hat": record.get("w_hat"), "n": weight.get("n"),
                                       "slope_mean": weight.get("slope_mean"), "slope_sd": weight.get("slope_sd"),
@@ -78,7 +86,10 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
                 "transitions": rows[-1]["transitions"]} for day, rows in sorted(days.items())]
     summary = {"decisions_with_residual": applied, "statuses": dict(statuses), "argmax_moved": moved,
                "share_of_v_tilde": ({"median": median(shares), "max": max(shares), "n": len(shares)} if shares else None),
-               "serving_ms": ({"median": median(timings), "max": max(timings), "n": len(timings)} if timings else None)}
+               "serving_ms": ({"median": median(timings), "max": max(timings), "n": len(timings)} if timings else None),
+               "carried_cutoff_ms": ({"median": median(carried), "max": max(carried), "n": len(carried)}
+                                     if carried else None),
+               "previous_cutoff": dict(previous_statuses)}
     return history, summary
 
 
@@ -144,7 +155,8 @@ def lines(report: Mapping[str, Any]) -> list[str]:
                    f"decisions ({day['contrasts']} contrasts, {day['transitions']} transitions, {day['fit_basis']})")
     serving = report["serving"]
     out.append(f"- residual applied at {serving['decisions_with_residual']} decisions, argmax moved "
-               f"{serving['argmax_moved']}, share of V~ {serving['share_of_v_tilde']}, serving ms {serving['serving_ms']}")
+               f"{serving['argmax_moved']}, share of V~ {serving['share_of_v_tilde']}, serving ms {serving['serving_ms']}, "
+               f"valued again at the earlier cutoff ms {serving.get('carried_cutoff_ms')}")
     check = report["cross_check"]
     partial = check["partial_history"]
     out.append(f"- cross-check (partial-history weights): {partial.get('one_step') or partial.get('status')}; the fit's "

@@ -342,7 +342,7 @@ class _State:
 
 
 _LEDGER_FIELDS = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
-                  "terminal_cost", "past_trim")
+                  "terminal_cost")
 
 
 @dataclass
@@ -356,13 +356,10 @@ class _Ledger:
     tail_cost: np.ndarray       # the tail's attention cost to C
     terminal_reward: np.ndarray  # valued uses past C (T_C's reward)
     terminal_cost: np.ndarray    # attention cost past C (T_C's cost)
-    #: RO6: the net value (valued uses minus attention cost) after the model's ``trim_at``, a part of the terms above
-    #: (never added to ``q`` again); zero with no trim
-    past_trim: np.ndarray
 
     @classmethod
     def zeros(cls, k: int) -> "_Ledger":
-        return cls(*(np.zeros(k) for _ in _LEDGER_FIELDS))
+        return cls(*(np.zeros(k) for _ in range(7)))
 
     def copy(self) -> "_Ledger":
         return _Ledger(*(np.array(getattr(self, name), copy=True) for name in _LEDGER_FIELDS))
@@ -384,29 +381,33 @@ class _Ledger:
 
     @staticmethod
     def mix(p: np.ndarray, a: "_Ledger", b: "_Ledger") -> "_Ledger":
-        return _Ledger(*(p * getattr(a, n) + (1 - p) * getattr(b, n) for n in _LEDGER_FIELDS))
+        names = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
+                 "terminal_cost")
+        return _Ledger(*(p * getattr(a, n) + (1 - p) * getattr(b, n) for n in names))
 
     @staticmethod
     def select(mask: np.ndarray, a: "_Ledger", b: "_Ledger") -> "_Ledger":
-        return _Ledger(*(np.where(mask, getattr(a, n), getattr(b, n)) for n in _LEDGER_FIELDS))
+        names = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
+                 "terminal_cost")
+        return _Ledger(*(np.where(mask, getattr(a, n), getattr(b, n)) for n in names))
 
 
 class _Model:
     """One decision's rollouts: the frozen inputs, the draws, and the streams."""
 
-    def __init__(self, inputs: Inputs, draws: int, seed: str, trim_at: float | None = None) -> None:
+    def __init__(self, inputs: Inputs, draws: int, seed: str, cutoff: float | None = None) -> None:
         self.inputs = inputs
         self.seed = seed
-        #: RO6 (Codex review F3): days from the decision after which the ledger also keeps the path's net value
-        #: apart (``past_trim``), so the same rollouts give the value at an earlier cutoff ``C_prev`` exactly, as
-        #: ``q − past_trim`` with ``trim_at = C_prev + H`` (the earlier decision's ``T`` ends there). None: off.
-        self.trim_at = float(trim_at) if trim_at is not None else None
+        #: RO6 (Codex re-review F3): a cutoff carried from an earlier decision (days from this one), in place of the
+        #: inputs' own: every rollout (the tail's ranking, a probe's branch choice in the belief's world, the
+        #: quadrature's boundaries, the end ``C + H``) then runs at it. None: the inputs' own cutoff (RO4's model).
+        self.carried = float(cutoff) if cutoff is not None else None
         self._belief: "_Model | None" = None
         self.k = int(draws)
         self.index = {topic.lo: i for i, topic in enumerate(inputs.topics)}
         self.n = len(inputs.topics)
         self.fsrs = Fsrs(tuple(inputs.fsrs_weights))
-        self.cutoff = inputs.cutoff
+        self.cutoff = inputs.cutoff if self.carried is None else self.carried
         self.end = self.cutoff + float(inputs.horizon_days)
         self.days = int(math.ceil(self.end))
         self.slots = max(int(inputs.tail_block_items), 1) * max(self._blocks_per_session(), 1) + 64
@@ -624,8 +625,6 @@ class _Model:
             ledger.terminal_cost += cost
         else:
             ledger.tail_cost += cost
-        if self.trim_at is not None:
-            ledger.past_trim -= np.where(when >= self.trim_at - 1e-12, cost, 0.0)
         items = max(int(self.inputs.tail_block_items), 1)
         priority = self._priority(state, when)
         order = np.argsort(-priority, axis=1, kind="stable")
@@ -675,8 +674,6 @@ class _Model:
             p = self._score_dated(state, ledger, use, mask)
             if p is not None:
                 scored[:, index] = np.where(mask, p, scored[:, index])
-                if self.trim_at is not None and use.at_days > self.trim_at + 1e-12:
-                    ledger.past_trim += np.where(mask, p * use.weight, 0.0)
             done[:, index] |= mask
 
         def before_block(end: np.ndarray, active: np.ndarray) -> None:
@@ -742,15 +739,11 @@ class _Model:
                 if not (width > 0).any():
                     continue
                 p = self.performance(state, (a + b) / 2)
-                rate = (p * self.c[None, :]).sum(axis=1)
-                reward = rate * width
+                reward = (p * self.c[None, :]).sum(axis=1) * width
                 if a >= self.cutoff - 1e-12:
                     ledger.terminal_reward += reward
                 else:
                     ledger.tail_reward += reward
-                if self.trim_at is not None:
-                    # The piece's share past the trim, at the same midpoint (so q's own quadrature is unchanged).
-                    ledger.past_trim += rate * np.maximum(b - np.maximum(np.maximum(after, a), self.trim_at), 0.0)
             if recorder is not None and 1 <= day <= int(recorder.get("days", 0)):
                 recorder.setdefault("daily", {})[day] = self.performance(state, day_start + 0.5).mean(axis=0)
             if day_end >= self.end:
@@ -789,18 +782,11 @@ class _Model:
         rate = (self.performance(state, start) * self.c[None, :]).sum(axis=1)
         ledger.undated_action += rate * np.maximum(np.minimum(end, self.cutoff) - start, 0.0)
         ledger.terminal_reward += rate * np.maximum(np.minimum(end, self.end) - np.maximum(start, self.cutoff), 0.0)
-        trim = self.trim_at
-        if trim is not None:
-            inside = np.clip((trim - start) * MINUTES_PER_DAY, 0.0, minutes)
-            ledger.past_trim += rate * np.maximum(np.minimum(end, self.end) - np.maximum(start, trim), 0.0)
-            ledger.past_trim -= self.cost(m + spent + inside, minutes - inside)
         for index, use in enumerate(self.dated):
             crossed = ~dated_done[:, index] & (use.at_days <= end + 1e-12)
             if crossed.any() and use.lo in self.index:
                 p = self.performance(state, use.at_days)[:, self.index[use.lo]] * use.weight
                 ledger.crossed += np.where(crossed, p, 0.0)
-                if trim is not None and use.at_days > trim + 1e-12:
-                    ledger.past_trim += np.where(crossed, p, 0.0)
             dated_done[:, index] |= crossed
         everyone = np.ones(self.k, dtype=bool)
         good = None
@@ -918,7 +904,7 @@ class _Model:
                 learning=replace(learning, gamma=(learning.gamma[0], 0.0),
                                  gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
                 effect=None, stop_accept=(1.0, 1.0))
-            self._belief = _Model(believed, self.k, f"{self.seed}:belief")
+            self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried)
         return self._belief
 
     def _probe_choice(self, probe: Action, repair: Action, result: bool | None) -> dict[str, Any]:
@@ -1054,19 +1040,19 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
              keep_going: Callable[[], bool] | None = None, deadline: float | None = None,
              clock: Callable[[], float] = time.monotonic,
              on_complete: Callable[[Evaluation], None] | None = None,
-             trim_at: float | None = None) -> Evaluation:
+             cutoff: float | None = None) -> Evaluation:
     """``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more
     while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s). An evaluation
     that could not finish its first batch by the deadline is ``complete = False``; a refinement the deadline cuts
     short returns the latest complete batch (F7). ``on_complete`` sees each complete batch as it finishes.
 
-    ``trim_at`` (RO6; None: off, the terms as RO4's): each row's terms gain ``past_trim``, the part of ``q`` after
-    ``trim_at`` days on the same draws, so ``q − past_trim`` is the row's value at the cutoff that ends there."""
+    ``cutoff`` (RO6; None: the inputs' own ``C``): the cutoff every rollout runs at, in days from the decision, for
+    the value of this state at an earlier decision's carried cutoff (§3.2; Codex re-review F3)."""
 
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
-    model = _Model(inputs, total, seed, trim_at=trim_at)
+    model = _Model(inputs, total, seed, cutoff=cutoff)
     latest: Evaluation | None = None
     while True:
         rows: list[Valued] = []
@@ -1077,11 +1063,8 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
                 complete = False
                 break
             ledger, extra = model.value(action)
-            terms = _terms(ledger)
-            if trim_at is not None:
-                terms["past_trim"] = float(ledger.past_trim.mean())
             rows.append(Valued(ref=action.ref, kind=action.kind, q_draws=tuple(float(v) for v in ledger.q),
-                               terms=terms, extra=extra, choosable=action.choosable))
+                               terms=_terms(ledger), extra=extra, choosable=action.choosable))
         if not complete:
             break
         latest = Evaluation(valued=tuple(row for row in rows if row.ref != REFERENCE_REF), draws=model.k,
@@ -1093,7 +1076,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
         if not more or total >= limit or (deadline is not None and clock() > deadline):
             break
         total = min(total * 2, limit)
-        model = _Model(inputs, total, seed, trim_at=trim_at)
+        model = _Model(inputs, total, seed, cutoff=cutoff)
     if latest is not None:
         return replace(latest, elapsed_ms=int(round((clock() - started) * 1000)))
     return Evaluation(valued=(), draws=model.k, cutoff=model.cutoff, seed=seed,

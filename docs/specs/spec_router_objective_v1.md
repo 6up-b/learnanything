@@ -767,8 +767,10 @@ differs from §10:
   candidate: stop, reading or probe, its minutes over `m̄`, its topics' AD predictive, their FSRS lag
   `log(1 + elapsed/S)` (monotone in retrievability and free of the FSRS weights, which a trace does not hold), and
   stop and the minutes each times the load. No intercept: with no discount the backup cancels a level. At the tag the
-  features are frozen in the trace; for an earlier trace they are rebuilt from its frozen belief numbers and RO0's
-  receipt. Every read passes the availability predicate (`known_at` over the trace and the receipt;
+  features are frozen in the trace (with the features version the residual served with); for an earlier trace, or
+  one frozen by another features version (an earlier RO6 build's thirteen, Codex re-review F7), they are rebuilt with
+  this build's function from its frozen belief numbers and RO0's receipt, and the served features version is part of
+  the generator version. Every read passes the availability predicate (`known_at` over the trace and the receipt;
   `attempt_time_sql` for an imported result), named in `tests/test_ro1_availability_reads.py`.
 - **Trajectories**: §4 row 12's links (`trajectory.rows`) walked from each traced `plan_block` decision to the next
   one. The reward of `(t_i, t_{i+1}]` is this objective's `R`: minus the attention cost the objective charges over
@@ -777,14 +779,15 @@ differs from §10:
   use whose moment (`due_at`) falls in it at `ω·Y` (the import for its date known by the moment; an exam later the
   same day counts, Codex review F2). Censored by reason: `no_later_decision`, `change_point`, `value_missing`,
   `past_cutoff`, `reward_open`, `no_result`, `cutoff_unmatched`. §3.2's time handling (Codex review F3): the next
-  state is valued at the decision's own cutoff `C`. Each decision's rollouts keep the net value past the previous
-  decision's `C_prev + H` apart on the same draws (`terms.past_trim`, `value.evaluate(trim_at=…)`; `q` unchanged),
-  so `V(x′; C) = Σ_a′ π(a′|x′)·(q − past_trim)(a′)` exactly, and the next state's features carry `C`'s span. A next
-  decision that did not value that cutoff (an earlier version's trace, a goal dropped so that `C + H` lies past its
-  rollouts) is censored `cutoff_unmatched`, never moved back by an average terminal rate; a next decision past `C`
-  is censored rather than bootstrapped. (The tail's topic ranking reads the remaining span to its own end, so with a
-  dated use competing the trimmed path can differ from a rollout ended at `C + H` in which topic a session practises;
-  undated uses rank the same.)
+  state is valued at the decision's own cutoff `C`. Each decision values its candidates a second time with every
+  rollout run at the previous decision's `C_prev` (`value.evaluate(cutoff=…)`, Codex re-review F3: the tail's topic
+  ranking, a probe's branch choice in the belief's world, the quadrature's boundaries and the end `C_prev + H` all at
+  it; `residual.previous.q`) and takes their features at `C_prev`'s span (`residual.previous.features`), so
+  `V(x′; C) = Σ_a′ π(a′|x′)·Q_tail(x′, a′; C)` is that cutoff's own value; its own `Q̄` and choice are untouched. A
+  shared cutoff (a goal date beyond the horizon) needs no second valuation. A next decision that did not value that
+  cutoff (an earlier version's trace, a second valuation the deadline cut short, a published answer served before
+  it) is censored `cutoff_unmatched`, never trimmed or moved back by an average terminal rate; a next decision past
+  `C` is censored rather than bootstrapped. The second valuation costs one more evaluation at the answer's draws.
 - **The fitted Q evaluation**: `Q̂ = Q_tail + ρ`, `ρ` linear in the standardized features, at FQE's fixed point under
   the Gaussian prior (closed form, the noise refined from the Bellman residuals): Bayesian linear regression, because
   one learner's log is one long dependent trajectory of hundreds of decisions a month, and a linear residual's every
@@ -803,12 +806,14 @@ differs from §10:
   normal approximation (one half with fewer than three). `ŵ = clip(E[b], 0, 1)·P(rank > 0)`, from windows closed
   before the decision; with no contrast it is zero. The mix's own floor draws are also randomized with logged
   probabilities and are not used here (the spec names the coin and the checks). **The cohort** (Codex review F1) is
-  chosen on what was fixed before the coin, never on whether the return was observed: every draw stays, the
-  `policy` arm's contrast is zero whatever its return, and a forced arm's observed return is weighted by the inverse
-  of that arm's observed share (`learned_tail.coin_contrasts`; unbiased when observation depends on the arm alone, a
-  return missing because of its own value is not corrected, and the record says how many were missing by arm and
-  reason). A forced arm with draws and no observed return leaves the contrast `unidentified`: no contrast, `ŵ` at
-  its prior, said. The returns admit an import only once it was known at the cutoff (`scores.exam_result_known`,
+  chosen on what was fixed before the coin, never on whether the return was observed: every draw stays and the
+  `policy` arm's contrast is zero whatever its return. Every window's return is read **complete** (Codex re-review
+  F1; `scores.observed_return(complete=True)`): the bracket is unbiased for its own sum over the uses a check could
+  observe (the checks' exact `r`), so a window with none is its cost term alone, and a dated use whose result is not
+  known at the cutoff is left out of every window holding it alike (whether it is known is a function of the use
+  and the cutoff, not of a coin's arm); both are noted by arm. No share of observed returns, pooled or by arm, is
+  used as an observation probability: a forced draw that still has no return leaves the contrast `unidentified` (no
+  contrast, `ŵ` at its prior, said; `learned_tail.coin_contrasts`). The returns admit an import only once it was known at the cutoff (`scores.exam_result_known`,
   Codex review F5).
 - **How it enters** (`router_objective/tail_serve.py`, `objective_chooser.run_numeric`): at a `plan_block`
   decision, before the rollouts; `π_Q`'s argmax and tie rule run on `Ṽ`, each candidate's draws shifted by the

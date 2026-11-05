@@ -25,11 +25,16 @@ by the moment (availability, ``attempt_time_sql``). Censored, by reason: ``no_la
 ``value_missing`` (a policy's ``Q̄`` was not computed), ``past_cutoff`` (the next decision lies past the decision's
 cutoff ``C``), ``reward_open`` (a check in the interval still open), ``no_result`` (a dated use with no result yet),
 ``cutoff_unmatched``. The next state is valued at the decision's own cutoff (§3.2: one ``C`` per decision; Codex
-review F3): with the same cutoff, the next decision's ``Q̄``; otherwise the next decision's rollouts kept the net
-value past ``C + H`` apart for this decision (``terms.past_trim``, :func:`learnloop.router_objective.tail_serve.
-previous_cutoff`), so ``V(x′; C) = Σ_a′ π(a′|x′)·(q − past_trim)(a′)`` on the same draws, and the next state's
-features carry ``C``'s span. A next decision that did not value this one's cutoff is ``cutoff_unmatched``, never
-moved back by an average terminal rate.
+re-review F3): with the same cutoff, the next decision's ``Q̄``; otherwise the next decision valued its candidates a
+second time with every rollout run at ``C`` (``residual.previous.q``, :func:`learnloop.router_objective.tail_serve.
+previous_cutoff`), so ``V(x′; C) = Σ_a′ π(a′|x′)·Q_tail(x′, a′; C)``, and the next state's features are taken at
+``C``'s span (``residual.previous.features``). A next decision that did not value this one's cutoff is
+``cutoff_unmatched``, never trimmed or moved back by an average terminal rate.
+
+**Feature versions** (Codex re-review F7): a trace's frozen features are read only at this build's features
+version and width; another build's are rebuilt with this build's function from the trace's frozen belief numbers
+and RO0's receipt, and the version a decision's residual served with is part of its generator version, so a fit
+never mixes two versions' vectors or two loggers.
 
 A leaf over the vault's tables and the router objective's modules.
 """
@@ -52,7 +57,7 @@ from learnloop.router_objective import scores as S
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import trajectory as TJ
 
-VERSION = "ro6_tail_data_v2"
+VERSION = "ro6_tail_data_v3"
 STOP = SC.STOP
 
 NO_LATER_DECISION = "no_later_decision"
@@ -83,12 +88,27 @@ def _round(value: Any) -> Any:
 
 
 def generator_payload(*, algorithm_version: str, objective: Any, tail: Any, terminal: Any, horizon_days: Any,
-                      llm_schema: Any, seeds: Mapping[str, Any] | None, epsilon: Any) -> dict[str, Any]:
+                      llm_schema: Any, seeds: Mapping[str, Any] | None, epsilon: Any,
+                      features: str | None = None) -> dict[str, Any]:
+    """``features``: the features version the logger served with (None: this build's, :data:`LT.FEATURES_VERSION`)."""
+
     return _round({"algorithm": str(algorithm_version), "objective": objective, "tail": tail, "terminal": terminal,
                    "horizon_days": float(horizon_days) if horizon_days is not None else None,
                    "llm_schema": llm_schema, "seeds": dict(seeds or {}),
                    "epsilon": float(epsilon) if epsilon is not None else None,
-                   "features": LT.FEATURES_VERSION})
+                   "features": features or LT.FEATURES_VERSION})
+
+
+def served_features_version(trace: Mapping[str, Any]) -> str:
+    """The features version a decision's residual served with (Codex re-review F7): its record's, else its fit's
+    (an earlier RO6 build's trace), else ``unversioned``; a decision with no applied residual never read features,
+    so this build's version stands for it (its features are rebuilt with this build's function)."""
+
+    residual = trace.get("residual")
+    if not isinstance(residual, Mapping) or residual.get("status") != "applied":
+        return LT.FEATURES_VERSION
+    fit = residual.get("fit") if isinstance(residual.get("fit"), Mapping) else {}
+    return str(residual.get("features_version") or fit.get("features_version") or "unversioned")
 
 
 def generator_key(payload: Mapping[str, Any]) -> str:
@@ -104,7 +124,8 @@ def generator(trace: Mapping[str, Any], algorithm_version: str) -> str:
     return generator_key(generator_payload(
         algorithm_version=algorithm_version, objective=versions.get("objective"), tail=versions.get("tail"),
         terminal=versions.get("terminal"), horizon_days=versions.get("horizon_days"),
-        llm_schema=versions.get("llm_schema"), seeds=mixing.get("seeds"), epsilon=mixing.get("epsilon")))
+        llm_schema=versions.get("llm_schema"), seeds=mixing.get("seeds"), epsilon=mixing.get("epsilon"),
+        features=served_features_version(trace)))
 
 
 # -- one logged decision ----------------------------------------------------------------------------------
@@ -139,12 +160,14 @@ class Logged:
     effective: Mapping[str, float]
     epsilon: float
     row: Mapping[str, Any] = field(default_factory=dict)
-    #: §3.2 for the backup (Codex review F3): the earlier decision this one's rollouts also valued at its cutoff
-    #: (``residual.previous``: its id and ``C_prev − t`` in days), and each candidate's ``Q_tail(x, a; C_prev)`` there
-    #: (``q − past_trim``; None unless every candidate of the support has one)
+    #: §3.2 for the backup (Codex re-review F3): the earlier decision this one's candidates were also valued for at
+    #: its cutoff (``residual.previous``: its id and ``C_prev − t`` in days), each candidate's ``Q_tail(x, a; C_prev)``
+    #: from the evaluation run at that cutoff and its features at that cutoff's span (None unless every candidate of
+    #: the support has both)
     previous_id: str | None = None
     previous_cutoff_days: float | None = None
     q_at_previous: Mapping[str, float] | None = None
+    phi_at_previous: Mapping[str, tuple[float, ...]] | None = None
 
 
 def _topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]:
@@ -266,7 +289,13 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
     q_tail = q if support and all(ref in q for ref in support) else None
     residual = trace.get("residual") if isinstance(trace.get("residual"), Mapping) else None
     frozen = (residual or {}).get("candidates") or {}
-    if frozen and all(isinstance(frozen.get(ref), Mapping) and frozen[ref].get("features") for ref in support):
+    width = len(LT.NAMES)
+    # Frozen features are read only at this build's features version and width (Codex re-review F7: an earlier
+    # build's thirteen are another function); any other trace's are rebuilt with this build's function from its
+    # frozen belief numbers and RO0's decision-time receipt, so every vector a fit reads is one version's.
+    current = served_features_version(trace) == LT.FEATURES_VERSION
+    if (current and frozen and all(isinstance(frozen.get(ref), Mapping) and frozen[ref].get("features")
+                                   and len(frozen[ref]["features"]) == width for ref in support)):
         phi = {ref: tuple(float(v) for v in frozen[ref]["features"]) for ref in support}
         source = "frozen"
     else:
@@ -293,11 +322,20 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
     horizon = float((trace.get("versions") or {}).get("horizon_days") or 90.0)
     mixing = trace.get("mixing") or {}
     previous = (residual or {}).get("previous") if isinstance((residual or {}).get("previous"), Mapping) else None
-    trimmed = {ref: float((entry.get("terms") or {})["q"]) - float((entry.get("terms") or {})["past_trim"])
-               for ref, entry in candidates.items()
-               if (entry.get("terms") or {}).get("q") is not None
-               and (entry.get("terms") or {}).get("past_trim") is not None}
-    q_at_previous = trimmed if previous and support and all(ref in trimmed for ref in support) else None
+    # The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the
+    # evaluation run at it and the features taken at its span, both for every candidate of the support, at this
+    # build's features version; anything less leaves the transition into this decision cutoff_unmatched.
+    carried_q = (previous or {}).get("q") if isinstance((previous or {}).get("q"), Mapping) else {}
+    carried_phi = (previous or {}).get("features") if isinstance((previous or {}).get("features"), Mapping) else {}
+    q_at_previous = ({ref: float(carried_q[ref]) for ref in support}
+                     if previous and current and support and all(carried_q.get(ref) is not None for ref in support)
+                     else None)
+    phi_at_previous = ({ref: tuple(float(v) for v in carried_phi[ref]) for ref in support}
+                       if q_at_previous is not None and all(isinstance(carried_phi.get(ref), Sequence)
+                                                            and len(carried_phi[ref]) == width for ref in support)
+                       else None)
+    if phi_at_previous is None:
+        q_at_previous = None
     return Logged(
         decision_id=str(row["decision_id"]), trace_id=str(row["id"]), created_at=str(row["created_at"]),
         local_date=str(row["local_date"]), window_closes_at=row.get("window_closes_at"),
@@ -317,7 +355,7 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         previous_id=str(previous["decision_id"]) if previous and previous.get("decision_id") else None,
         previous_cutoff_days=(float(previous["cutoff_days"]) if previous and previous.get("cutoff_days") is not None
                               else None),
-        q_at_previous=q_at_previous)
+        q_at_previous=q_at_previous, phi_at_previous=phi_at_previous)
 
 
 def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
@@ -473,30 +511,25 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
         if missing:
             censored[NO_RESULT] += 1
             continue
-        # §3.2: the next state valued at this decision's own cutoff C (Codex review F3). With the same cutoff the
-        # next decision's own Q̄ is that value; otherwise its rollouts must have kept the value past C + H apart for
-        # this decision (``q − past_trim``), and the next state's cutoff span is C's. Anything else is censored,
-        # never moved back by an average terminal rate.
+        # §3.2: the next state valued at this decision's own cutoff C (Codex re-review F3). With the same cutoff the
+        # next decision's own Q̄ and features are that value's; otherwise the next decision must have valued its
+        # candidates with every rollout run at C (``residual.previous.q``) and taken their features at C's span
+        # (``residual.previous.features``). Anything else is censored, never trimmed or moved back.
         shift_days = 0.0
         if row.cutoff_at is not None and later.cutoff_at is not None:
             shift_days = (later.cutoff_at - row.cutoff_at).total_seconds() / 86400.0
         if abs(shift_days) * 86400.0 <= _SAME_CUTOFF_SECONDS:
-            values, span, basis = later.q_tail, None, "same_cutoff"
+            values, vectors, basis = later.q_tail, later.phi, "same_cutoff"
         elif (later.previous_id == row.decision_id and later.q_at_previous is not None
-              and later.previous_cutoff_days is not None):
-            values = later.q_at_previous
-            span = later.previous_cutoff_days / max(float(later.horizon_days), 1.0)
-            basis = "previous_cutoff"
+              and later.phi_at_previous is not None):
+            values, vectors, basis = later.q_at_previous, later.phi_at_previous, "previous_cutoff"
         else:
             censored[CUTOFF_UNMATCHED] += 1
             continue
         next_v = sum(float(later.served_dist.get(ref, 0.0)) * values[ref] for ref in later.support)
         width = len(LT.NAMES)
-        span_at = LT.NAMES.index("cutoff_span")
-        next_phi = tuple(
-            (span if span is not None and k == span_at else
-             sum(float(later.served_dist.get(ref, 0.0)) * later.phi[ref][k] for ref in later.support if ref in later.phi))
-            for k in range(width))
+        next_phi = tuple(sum(float(later.served_dist.get(ref, 0.0)) * vectors[ref][k] for ref in later.support
+                             if ref in vectors) for k in range(width))
         steps.append(LT.Transition(
             decision_id=row.decision_id, generator=row.generator, decided_at=row.created_at,
             phi=tuple(row.phi[row.served]), next_phi=next_phi, reward=reward, q_taken=row.q_tail[row.served],
@@ -566,13 +599,15 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
     (the coin's, times the window's observed return) and its frozen predicted ones (tail and residual).
 
     The cohort is chosen on what was fixed before the coin (a frozen residual, stop in the support, a predicted
-    contrast, a closed window), never on whether the return was observed afterwards: every draw stays, and the
-    observation is handled by :func:`learned_tail.coin_contrasts` (Codex review of RO6, F1). The record says how many
-    were left out before the coin and why, and how many returns went unobserved, by arm and reason."""
+    contrast, a closed window), never on whether the return was observed afterwards: every draw stays, each window's
+    return read complete (``scores.observed_return``'s ``complete``; Codex re-review F1), and a forced draw with none
+    leaves the contrast unidentified (:func:`learned_tail.coin_contrasts`). The record says how many were left out
+    before the coin and why, and each arm's notes on its returns (dated uses left out, windows with no checkable use)."""
 
     eligible = [row for row in rows if row.coin and row.q_tail is not None and _frozen_residual(row) is not None
                 and row.window_closes_at and str(row.window_closes_at) < at and STOP in row.support]
-    returns = S.observed_returns(connection, config, at=at, rows=_with_traces(connection, eligible))
+    # Every window's return complete (Codex re-review F1): no forced draw goes unobserved after the coin.
+    returns = S.observed_returns(connection, config, at=at, rows=_with_traces(connection, eligible), complete=True)
     draws: list[LT.CoinDraw] = []
     before_coin: Counter[str] = Counter()
     for row in eligible:

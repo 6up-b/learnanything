@@ -39,7 +39,11 @@ Codex review (job 20261105-125456-EfabRp, `docs/reviews/router-ro6-codex-review.
 and the cross-check: fourteen features (the cutoff's span added), the residual's inputs snapshotted at the decision's
 moment, dated uses placed by their moment, the next state valued at the decision's own cutoff through the next
 decision's trimmed rollouts (no average-rate move-back), the coin's cohort kept whole with per-arm observation
-weights, the return reader as of its cutoff, and the window products over the complete sequence. The text below is
+weights, the return reader as of its cutoff, and the window products over the complete sequence. The Codex
+re-review (job 20261105-140523-n40uvz, same file, "Re-review") replaced two of those: the next state is valued by the
+next decision's candidates valued again with every rollout at the carried cutoff (no trim), and the coin's returns
+are read complete with no observation share (a forced draw with no return leaves the contrast unidentified); an
+earlier build's frozen features are rebuilt and the served features version separates generators. The text below is
 the stage as first built.
 
 1. **No migration, no fits table.** The fit is recomputed from the traces and RO0's receipts as of each decision and
