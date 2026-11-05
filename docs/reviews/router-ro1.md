@@ -433,3 +433,240 @@ nothing was run on a copy of an owner vault. Every script outside pytest ran und
    decision-state reads for a time filter on attempts (item 5 above).
 2. The owner may want `received_at` set by other writers whose `created_at` is not the write time if any appear (the
    phone's offline captures record their own times through RO0's `log_interaction_event`, not attempts).
+
+## Landing onto main
+
+Main was at `90a2f430c9`, holding FG1c (migration 242) and RO0 (243). RO1 merged it in `eff30f881a`, with the references
+regenerated in `248421272c`. The gate and the smoke ran on `248421272c`. Step 0's fix (ruling R1) is `4a801f1afc`, recorded in
+`router-ro1-codex-review.md`.
+
+### Rulings (verbatim)
+
+- R1: "F1 has reopened on sibling reads, so it goes structural: every decision-time read of practice_attempts with a time cutoff goes through one availability predicate, which at the tag with available_at_reads on filters on coalesce(received_at, created_at) and otherwise is the predecessor's SQL unchanged; every loader feeding such a read selects received_at. This covers the adaptive-difficulty frozen history card (adaptive_difficulty/outside.py), the diagnoser's prior history and its loader (diagnosis/split/history.py) with the diagnosis contexts and snapshot exports built from it, the router card, and every other decision-time reader. Outcomes, FSRS, mastery and reports keep occurrence time and are named on an allowlist. A test fails on any time-cutoff read of practice_attempts in src/ that neither uses the predicate nor is on the allowlist. Below the tag or with the switch off, every such read is byte-identical to mvp-0.45."
+- R2: "Live serving can't see an import before it is written, so the harm here is to the historical evaluation RO2-RO6 run at past cutoffs. The R1 fix carries Codex's reproductions (an exam on May 1 imported May 19, a May 5 cutoff, in the frozen card and the diagnoser's history) as tests, so there's no further Codex round. A further finding on this class is Low unless a decision-time read at a past cutoff that RO2-RO6 would train or evaluate on still includes a row received after that cutoff."
+- R3: "The builder's open question stands outside RO1: when intent_serving returns None, admission's review load measures from last_attempt_at, so a primed retry or a held grade shortens it. It predates RO1, the report mirrors admission, and changing it changes admission, so it goes to the follow-up batch with its own playbook entry."
+- R4: "The upgrade moves due dates, as the owner decided (spec §1, no gates). The smoke reports each copy's schedule_effects from the shadow rebuild before the real upgrade, so the owner sees how far their due dates move before they run it."
+- R5: "The other open questions stand as recorded: the projection snapshot is a new column on the rebuild receipt and doctor compares only rebuilds that recorded it; only exam seeding sets received_at, and any future backdating writer must set it."
+
+### The merge
+
+- **Migration.** `242_availability_time.sql` is now `244_availability_time.sql`; its text is unchanged. It alters only
+  `practice_attempts` and `derived_state_rebuilds`, so RO0's replaced `*_no_update` guards (plan_presentations,
+  decision_objectives, decision_measurement_events) are untouched.
+- **Head fixture.** `fixtures/migration_head_244/` was renamed from main's tracked, sanitized `migration_head_243` and rebuilt
+  with only 244 applied:
+  - applied to a backup-API copy outside the checkout, under the scratch-copy allowance;
+  - `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok, `foreign_key_check` empty;
+  - copied back with the backup API, with no companion files; every new column is null.
+  - The README has a new section. The hard-coded paths and `SCHEMA_HEAD = 244` are updated in both reference scripts
+    (`db_generate_reference.py` names the fixture 3 times), the sanitizer's usage line and every test pin, 69 references in all.
+- **Tests' pins.** Applied-migration lists gained 244 and max-version pins moved to 244. RO1's two altered tables are
+  folded into `TE1_AND_TE1B_ALTERED_TABLES` (`tests/test_teacher_te1b_migration.py`), the same way RO0 folded in its own.
+  AD1's diff now names both later alterations of its tables (question_events by 243, practice_attempts by 244). RO1's own
+  tests are renumbered (`test_244_*`, `RO1_ALTERED_TABLES` unchanged).
+- **Config.** One `RouterObjectiveConfig` holds RO0's `receipts` and RO1's `available_at_reads` and
+  `self_report_not_validated`. The parameter registry carries all three (RO0's and RO1's blocks both merged cleanly).
+  All 37 defaults snapshots were recomputed from the composed defaults, mvp-0.46 included, and a second pass changed
+  nothing. The frozen digests were re-pinned:
+  - `test_ro1_successor.py` now freezes main's mvp-0.45 value at `90a2f430c9`. Dropping RO1's three keys reproduces
+    `ec22e2fc…`, which is also main's snapshot.
+  - The two RO0/RO1 pops in `test_data_capture_successor.py` became one. The TE1/TE1b successor tests pop
+    `router_objective` and `remove_interval_factor`.
+- **Other files.** The playbook and `table_roles.py` merged without conflict. 504 generated reference notes conflicted only in
+  their stamps; I took main's and regenerated them. The prose leaf counts went from 1136 to 1139 in `Database.md` and
+  `Configuration.md`.
+
+### Early checks (step 2)
+
+These are 107 files: every migration, upgrade and successor test, `test_ro1_*`, RO0's tests, the config tests,
+`test_cli_help_snapshot.py`, `test_codex_lockdown_round3.py` (the process-launch allowlist),
+`test_measurement_state_labels.py`, `test_table_roles.py`, `test_coordinated_migrations.py`, `test_public_tip_guards.py`,
+`test_tracked_fixture_databases.py`, `test_architecture.py`, the parameter-registry, shadow-rebuild, doctor and
+rebuild-orchestrator tests. Result: 1195 passed, 4 skipped, 2 failed. Both failures were frozen digests that still froze
+main's earlier value (`test_ro1_successor`, and `test_data_capture_successor` with its doubled pop). After the fix, those
+two and the TE1/TE1b successor and `test_ro1_availability_reads` files gave 79 passed. lint-imports: 43 kept, 0 broken
+(the frozen cycles unchanged).
+
+### References (step 3)
+
+- `db_generate_reference.py` + `db_validate_reference.py`: errors `[]` at head 244, 1139 leaves.
+- `desktop_generate` / `desktop_validate`: passed.
+- `module_generate` / `module_validate`: PASS.
+- `validate_vault.py`: passed (2190 notes).
+- Config fingerprints: recomputed, as above.
+
+### Gate (step 4, at `248421272c`)
+
+| Lane | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | done |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| Full suite (`-n 8 --dist worksteal`, 10G scope, under the full-suite lock) | **26296 passed, 91 skipped, 47 xfailed, 0 failed** (56:30) |
+| Durability lane (`-m durability`) | 401 passed, 1 skipped |
+| Owner lane (fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-ro1/`) | 83 passed, 4 skipped, the 2 known failures only (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies[arxiv_v2]`). No new owner-lane failure |
+| Desktop: typecheck, vitest (`--maxWorkers=4`, 5G), frontend build | ok; 2751 passed (270 files); ok |
+| `cargo check` | ok |
+| Mobile: typecheck, build | ok; ok |
+
+There were no unexpected failures, so nothing needed a rerun.
+
+### Smoke (step 5)
+
+Setup:
+
+- Copies: fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy/{arxiv_v2,linear_algebra,probability}` in
+  `fixtures-local/landing-ro1-smoke/`.
+- Routes: every AI route pointed at `127.0.0.1:9`.
+- Code: main code (`git archive 90a2f430c9`) and branch code (`git archive 248421272c`), both archived with `migrations/`.
+- Preparation: each copy was upgraded to mvp-0.45 on main code, then `rebuild-derived-state` (head 243).
+- Drivers: the FG1 and FG1c drivers, adapted:
+  - Today, the plan dump and Next (serve) through the real sidecar handlers, on a frozen clock with module-stream ids;
+  - a real `submit_attempt` through the tests' in-process grader and diagnoser fake, with the diagnosis drained;
+  - the router card's JSON and text, the grader's and diagnoser's prompts, and every new row.
+
+**R4: each copy's `schedule_effects`.** Branch code, `rebuild --shadow --set algorithms.algorithm_version=mvp-0.46 --json` on the
+mvp-0.45 copy, run with the clock moved 0, 3, 7 and 14 days:
+
+| Copy | Items | Due dates moved | Earlier / later | Shift, days (min / median / max) | Interval ratio (min / median / max) | Queue due before → after at 0 / 3 / 7 / 14 days | Admission's review load, reviews/day, before → after |
+|---|---|---|---|---|---|---|---|
+| arxiv_v2 | 32 | 1 | 1 / 0 | -0.010 | 0.992 | 2 → 2 at each | 1.571 → 1.571 at each |
+| linear_algebra | 99 | 53 | 47 / 6 | -2.411 / -0.237 / +0.647 | 0.846 / 0.971 / 2.000 | 23 → 23 at each (none newly due, none no longer due) | 7.500 → 7.143 at each |
+| probability | 77 | 1 | 1 / 0 | -6.070 | 0.890 | 0 → 0 at each | 0 → 0 |
+
+- Activity cards: 0 rows on every copy.
+- The shadow's learner-state diff before the upgrade, as facet / mastery / schedule rows: arxiv_v2 4 / 34 / 1,
+  linear_algebra 76 / 21 / 53, probability 2 / 18 / 1. The facet and mastery rows are the version stamp.
+- Bounds: linear_algebra's 2.000 is the ratio's upper bound, 1/f_min. That item's factor had been 0.5, a miss that
+  compressed the interval.
+
+**The upgrade.** `learnloop upgrade --to mvp-0.46` printed `Upgraded vault: mvp-0.45 -> mvp-0.46` and nothing else.
+
+- Wall time on fresh copies: 1.5 s (arxiv_v2), 3.0 s (linear_algebra), 1.8 s (probability).
+- After it: head 244, `algorithm_version = "mvp-0.46"`.
+- Due dates against the mvp-0.45 copy, which match the shadow's counts exactly:
+
+| Copy | Same | Earlier | Later |
+|---|---|---|---|
+| arxiv_v2 | 31 | 1 | 0 |
+| linear_algebra | 46 | 47 | 6 |
+| probability | 76 | 1 | 0 |
+
+**Below the tag, and at the tag with the three switches off: identical to main.** The checks covered Today, the plan
+dump, Next, the submit with its feedback, the 4 to 25 feedback bundles, the router card, the grader's and diagnoser's
+prompts, and every row written (ids and times aside).
+
+- Below the tag: branch code on a copy left at mvp-0.45, migrated to 244 by the open. IDENTICAL on all three copies.
+- Switches off: `remove_interval_factor`, `available_at_reads` and `self_report_not_validated` set false, then upgraded
+  to mvp-0.46. IDENTICAL on all three copies.
+- What the comparison set aside:
+  - RO1's own null columns (`received_at`, `received_at_source`, `projection_switches_json`);
+  - RO1's three keys inside the config record RO0's receipts carry (`prefilter_payloads`, `decision_state_receipts`),
+    and that record's compressed size.
+- Seed draw: in both comparisons, as in FG1's smoke, the router mixture's seed is pinned to the decision id. That seed
+  hashes the version string. Unpinned, linear_algebra's off copy (labelled mvp-0.46) drew a different reentry plan
+  from the same distribution. Below the tag nothing was pinned to begin with and it was identical anyway.
+
+**At the tag (switches on).**
+
+- due_at on every eligible review: on every item with an FSRS-eligible, unheld anchor, `due_at = anchor +
+  interval_for_retention(S)`, with no exceptions (arxiv_v2 2, linear_algebra 53, probability 1).
+- Unchanged against the predecessor:
+  - `practice_item_state` S, D, R and `last_attempt_at` (due_at aside);
+  - every `attempt_surprise` column, `fsrs_interval_factor` aside (now 1.0 on every row);
+  - the rating: `fsrsRating` in the bundles.
+- Held and ineligible attempts: linear_algebra has one held and one ineligible attempt, and one of them falls after its
+  item's anchor. arxiv_v2 has one held attempt, probability one ineligible. None moved a due date.
+- How Today and the plan changed, on every copy:
+  - unchanged: Today's items and their order, the plan's blocks, Next's sequence, the router card's text, and the
+    grader's and diagnoser's prompts;
+  - changed: `dueAt` and `nextDueAt` (and `fsrsIntervalFactor` in the bundles), the version strings, and on
+    linear_algebra the plan's `reviewLoadPerDay`.
+
+**Interrupted upgrade.** On a fresh linear_algebra copy, the upgrade was SIGKILLed inside activation's whole-vault rebuild,
+after the replay had written and before the commit.
+
+- What the vault looked like after the kill:
+  - `integrity_check` ok, foreign keys clean, head 244;
+  - still `mvp-0.45`, with no whole-vault rebuild receipt at mvp-0.46 and no activation journal (the kill came before
+    the publication);
+  - every due date equal to the mvp-0.45 copy's (99 of 99);
+  - `doctor` showed only the copy's pre-existing `layout:missing_directory`.
+- The rerun took 3.0 s and completed: mvp-0.46, one whole-vault rebuild receipt, and due dates, S, D, R and the surprise
+  rows identical to the clean upgrade's.
+
+**R1, an exam import with a past occurrence.** On the tag copies of linear_algebra and probability, a real item with
+attempts on its topic was tagged `exam_q:1`. `seed_exam_attempts` then imported an exam dated 10 days back, at the real
+time.
+
+- The row: `created_at` 2026-10-26T12:00:00Z, `received_at` at the import (2026-11-05T03:12Z), source `recorded`.
+- At a cutoff two days after the exam and before the import:
+  - the router card's attempts don't read it, and `as_of_attempt_id` isn't it;
+  - AD's frozen card shows no exam entry (11 entries on linear_algebra, 3 on probability), although the material view
+    holds the row;
+  - the diagnoser's history doesn't include it, and lists it as lag (1).
+- After the import, every reader has it: the card's row and `as_of`; the frozen card gains it (12 and 4 entries); the
+  diagnoser's history has it with lag 0.
+
+**After the upgrade.**
+
+- `rebuild --shadow` on each upgraded copy and on the interrupted-then-completed copy: 0 / 0 / 0. These copies ran no
+  journey, so FG1's known item-scope facet case didn't arise.
+- A second `rebuild-derived-state` left every DERIVED table identical, apart from the rebuild's own stamps
+  (`facet_capability_evidence.created_at`/`updated_at`, `facet_recall_state.updated_at`,
+  `subject_identifiability_watermarks.checked_at`).
+- `doctor`: no `sql:projection_switches_stale` on any copy. Its errors were the same on main's mvp-0.45 copies:
+  arxiv_v2 46 `criterion:unknown_dependency` + `layout:missing_directory`, linear_algebra `layout:missing_directory`,
+  probability 46 `criterion:unknown_dependency` + 2 `yaml:invalid`.
+
+**Time, main (mvp-0.45) against the tag.** Three fresh copies a side, medians:
+
+| Copy | Today (n=15) | Plan | Next | Submit (n=3) |
+|---|---|---|---|---|
+| arxiv_v2 | 177 → 184 ms | 808 → 809 ms | 558 → 554 ms | 508 → 492 ms |
+| linear_algebra | 254 → 273 ms | 1155 → 1182 ms | 698 → 714 ms | 519 → 409 ms |
+| probability | 203 → 200 ms | 974 → 984 ms | 778 → 745 ms | 998 → 1018 ms |
+
+The differences are within run-to-run noise, in both directions.
+
+**Calls, sockets, processes.**
+
+- Model calls: no `model_call_receipts` row with a real model. The tag copies hold the mvp-0.43 copies' counts
+  (0, 0, 56), and each driven submit wrote two `fake-model` receipts, on main's side as well.
+- Network: the watch logged no non-loopback connect and no name resolution.
+- Processes: no Codex process. The only processes started were `git` (the code revision) and `powerprofilesctl`.
+
+### What the owner runs
+
+1. Close the desktop app, the MCP server and the phone page, and stop `learnloop-mobile`.
+2. Pull main and run `uv sync --extra dev --extra mobile`. Nothing under `apps/` changed, so the desktop app needs no rebuild.
+3. For each vault in `~/learnloop-vaults/<name>`:
+
+```
+# a vault still at mvp-0.43 takes FG1's and FG1c's pair first:
+learnloop upgrade --to mvp-0.45 --vault ~/learnloop-vaults/<name>
+learnloop rebuild-derived-state --vault ~/learnloop-vaults/<name>
+# R4: on a backup-API copy, see how far the due dates move:
+learnloop rebuild --shadow --set algorithms.algorithm_version=mvp-0.46 --json --vault <copy>   # schedule_effects
+learnloop upgrade --to mvp-0.46 --vault ~/learnloop-vaults/<name>   # migration 244 and the whole-vault rebuild; due dates move
+learnloop doctor --vault ~/learnloop-vaults/<name>                    # no sql:projection_switches_stale
+```
+
+4. Restart the phone host.
+
+An upgrade interrupted at any point is completed by the next guarded open or by rerunning the same command. To keep
+mvp-0.45's schedule at the tag, set `[scheduler.surprise] remove_interval_factor = false` before upgrading. The other two
+switches are `[router_objective] available_at_reads` and `self_report_not_validated`.
+
+### Open items
+
+- R3: admission's review load with no intent view measures from `last_attempt_at`. This goes to the follow-up batch with
+  its own playbook entry.
+- R5, as recorded: only exam seeding sets `received_at`, and any future backdating writer must set it. Doctor compares
+  only rebuilds that recorded the projection snapshot.
+- RO0's decision-time reads of attempts are lower-bound windows read at the decision itself: session minutes and the
+  trajectory's uptake. Neither has an upper cutoff a past evaluation could leak through, so neither is on the allowlist or
+  needs the predicate. RO2-RO6 must ask `attempt_time_sql` / `known_at` for any read at a past cutoff, and the structural
+  test enforces it for SQL.
+- `StaticHistoryStore` (planted learners) carries no receipt time and is unchanged.
+- The queue due counts don't change between 0 and 14 days on these copies: the long intervals and the plan's population
+  keep the same items due. A vault with a denser schedule will show more movement. Run the shadow first (R4).

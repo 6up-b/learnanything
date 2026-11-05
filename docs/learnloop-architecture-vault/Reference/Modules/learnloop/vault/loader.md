@@ -1459,6 +1459,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_verify_the_settled_exit_adds_no_question_of_its_own`
   - `test_f9_a_refused_retry_doesnt_leave_what_the_crash_pinned`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
+  - `test_a_generated_probes_answer_on_its_presentation_reads_zero_in_the_shadow`
+  - `test_an_answer_without_its_presentation_is_incidental_on_both_sides`
+  - `test_the_capability_cell_the_answer_feeds_agrees_with_a_rebuild_too`
+  - `test_the_diagnosis_job_after_the_answer_changes_nothing_further`
 - [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`

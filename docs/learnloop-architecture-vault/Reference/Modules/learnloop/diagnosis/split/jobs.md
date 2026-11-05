@@ -271,6 +271,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_accessor_and_the_overlays_agree_on_the_diagnosis_in_force`
 - [tests/test_diagnosis_reports.py](../../../../../../../tests/test_diagnosis_reports.py) — direct import
   - `test_a_cancelled_job_is_released_unspent`
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
+  - `test_the_diagnosis_job_after_the_answer_changes_nothing_further`
 - [tests/test_followup_next_matrix.py](../../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_rival_factor.py](../../../../../../../tests/test_followup_rival_factor.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../../../tests/test_forecast_receipts.py) — direct import
