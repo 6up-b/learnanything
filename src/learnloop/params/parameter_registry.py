@@ -1532,8 +1532,25 @@ _reg_const("router_objective_price:LOOKBACK_DAYS", "numerical", kind="structural
 _reg_const("router_objective_stop_coin:_TINY", "numerical", kind="structural", owner="router_objective_stop_coin",
            rationale="numerical: a choice probability kept inside (0, 1) before its log in κ0's likelihood.")
 _reg_const("router_objective_stop_coin:_REACH", "numerical", kind="structural", owner="router_objective_stop_coin",
-           rationale="numerical resolution (RO5 Codex re-review F8): the return slope's integration reaches 40 prior "
-                     "sds; beyond, the prior's density underflows double precision.")
+           rationale="numerical resolution (RO5 Codex re-review F8, landing ruling R2): the return slope's prior "
+                     "nodes span 40 prior sds; the bounds start there or past the likelihood's peak and widen with "
+                     "the tail mass.")
+_reg_const("router_objective_stop_coin:_PEAK_SPREADS", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (landing ruling R2): the return slope's nodes around the likelihood's peak "
+                     "reach 8 of its spreads, wherever it falls.")
+_reg_const("router_objective_stop_coin:_SPAN_NODES", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (landing ruling R2): the return slope's nodes across the bounds (both peaks "
+                     "and the region between).")
+_reg_const("router_objective_stop_coin:_WIDENINGS", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (landing ruling R2): widenings of the integration's bounds before it is "
+                     "reported unconverged (the prior then stands).")
+_reg_const("router_objective_stop_coin:_TAIL_TOLERANCE", "numerical", kind="structural",
+           owner="router_objective_stop_coin",
+           rationale="numerical resolution (landing ruling R2): the mass past the integration's bounds, bounded by the "
+                     "prior's kernel, relative to the mass inside.")
 _reg_const("router_objective_stop_coin:_PRIOR_NODES", "numerical", kind="structural",
            owner="router_objective_stop_coin",
            rationale="numerical resolution (RO5 Codex re-review F8): the return slope's nodes over the prior's range.")
