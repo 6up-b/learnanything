@@ -80,6 +80,22 @@ AT = "2026-11-01T00:00:00Z"
 DAY = "2026-10-02"
 
 
+def block_drawing_seed():
+    """R8: a pinned decision seed (``fake_runtime(seed=…)``) whose draws serve a block at every boundary: the mix's
+    first uniform past the floor and inside the first live component's share (the LLM policy with both models, staged
+    with none), its second below every first option's share, and the stop coin's uniform on the ``policy`` arm. So a
+    chooser test that needs two decisions gets them deterministically, never by retrying."""
+
+    from learnloop.router.mixture import uniform
+
+    for index in range(100_000):
+        seed = f"ro6-landing-{index}"
+        if (0.3 <= uniform(seed, "component") < 0.45 and uniform(seed, "candidate") < 0.02
+                and uniform(seed, "stop_coin") >= 0.5):
+            return lambda _key, _decision_id, seed=seed: seed
+    raise AssertionError("no seed found")
+
+
 def _sigmoid(x: float) -> float:
     return 1.0 / (1.0 + math.exp(-x))
 
@@ -356,16 +372,12 @@ def test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_ca
         return policy
 
     monkeypatch.setattr(OC, "run_numeric", timed)
-    for attempt in range(6):  # a run whose first draw is stop ends after one decision: redone (no earlier decision)
-        (tmp_path / f"run{attempt}").mkdir()
-        env = mixture_env(tmp_path / f"run{attempt}", fake_runtime(), version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
-        served.clear()
-        run(env, steps=16)
-        with env.repository.connection() as connection:
-            traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
-                      if row["decision_kind"] == "plan_block"]
-        if len(traces) >= 2:
-            break
+    # R8: the seed is pinned to one that draws a block at every boundary (two decisions at least, deterministically).
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+    run(env, steps=16)
+    with env.repository.connection() as connection:
+        traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
+                  if row["decision_kind"] == "plan_block"]
     assert len(traces) >= 2 and all(trace["policies"]["numeric"]["status"] == "answered" for trace in traces)
     later = [trace["residual"]["previous"] for trace in traces[1:]]
     assert all(previous["status"] == TS.CARRIED for previous in later)

@@ -176,20 +176,18 @@ def test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff(tmp_pa
     from tests.router_model_fakes import FakeLLM, fake_runtime
     from tests.test_ro4_objective_serving import policy_answer
 
-    # Enough items for a second block decision whatever the blocks' sizes (the first has no earlier decision). The
-    # mix's draw is seeded by the plan's random id, so a run whose first draw is stop ends after one decision (no
-    # earlier decision to carry; RO4's why-surface test has the same flake): such a run is redone in a fresh vault
-    # (RO6's landing; a test-only change, the property asserted is unchanged).
-    for attempt in range(6):
-        (tmp_path / f"run{attempt}").mkdir()
-        env = mixture_env(tmp_path / f"run{attempt}", fake_runtime(llm=FakeLLM(answer=policy_answer)),
-                          version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
-        run(env, steps=16)
-        with env.repository.connection() as connection:
-            traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
-                      if row["decision_kind"] == "plan_block"]
-        if len(traces) >= 2:
-            break
+    from tests.test_ro6_landing import block_drawing_seed
+
+    # Enough items for a second block decision whatever the blocks' sizes (the first has no earlier decision). RO6's
+    # landing ruling R8: the decision seed is pinned to one that draws a block at every boundary, so the run has two
+    # decisions deterministically (unpinned, the mix's draw followed the plan's random id and could draw stop first).
+    env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer), seed=block_drawing_seed()),
+                      version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+    run(env, steps=16)
+    with env.repository.connection() as connection:
+        traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
+                  if row["decision_kind"] == "plan_block"]
+    assert len(traces) >= 2
     carried = [trace for trace in traces if ((trace.get("residual") or {}).get("previous") or {}).get("status")
                == TS.CARRIED]
     assert carried, [((trace.get("residual") or {}).get("status"), (trace.get("residual") or {}).get("previous"),
