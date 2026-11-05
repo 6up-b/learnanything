@@ -112,3 +112,84 @@ config key.
 
 Every test ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`, one run
 at a time. The full suite, the whole durability lane and the whole vitest run are left to the landing gate.
+
+## Re-review (job `20261105-053337-BJGTug`)
+
+The re-review confirmed F1 fixed and reopened F2 and F3, adding F12 (High). Each reopened or new finding was
+reproduced first: the three new tests fail on the pre-fix estimator (`git show HEAD:src/learnloop/router_objective/value.py`
+put in place, the file run, the fixed file restored and compared byte for byte), and pass after the fix. Fakes only.
+No paid or real model call was made, no owner vault or configuration file was read, and no tracked working vault was
+touched. Every script outside pytest ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | A slow LLM suppresses an already-computed numeric answer | confirmed fixed (no change) | `96ba40f55c` | the re-review's own check; `test_ro4_codex_review.py::test_f1_*` still pass |
+| F2 | High | The probe's branch compares single imagined outcomes, not their posterior expectations | fixed | `2a05b9b447` | `test_ro4_value.py::test_f2_reopened_the_branch_is_chosen_on_the_average_over_imagined_outcomes`. 256 draws with a noisy probe duration. Pre-fix: `repair_after_miss` 0.879, a per-draw choice. After the fix it is 1.0 after a miss and 0.0 after a success, and permuting every per-draw array of the belief world (same average) changes no choice. The earlier `test_f2_the_probe_branch_never_sees_the_repairs_future_result` moved from κ0 0.05 to 0.1: at 0.05 the averaged repair wins after either result, so it was no longer a result-dependent case |
+| F3 | High | (reopened through F12) learning after a goal date can still be credited | fixed | `2a05b9b447` | by F12's fix; the original F3 tests still pass |
+| F12 | High | One rollout's duration shifts other rollouts' clocks | fixed | `2a05b9b447` | `::test_f12_one_draws_action_duration_never_moves_another_draws_clock`: the reviewer's isolated case. Pre-fix, draw 0's goal reward went from 0.99941 to 0.99990 when only draw 1's action changed (1.44 to 28.8 minutes); now it is unchanged. `::test_f12_a_goal_inside_the_continuation_session_sees_only_the_blocks_before_it`: a 1.44-minute review, then 10-minute blocks to 40 minutes. The goal at 14.4 minutes scores σ(2) (the review and the first block). Pre-fix it scored σ(5) (every block, 0.993); a goal after the session still sees every block |
+
+None rejected.
+
+### What changed
+
+- **F2** (`value._probe_choice`, `_probe`; `_segment` and `_observe` take a given `observed` result). For each probe
+  result (success, miss; or none when the probe observes no valued topic), the belief's own world runs the probe
+  with that result forced. Every draw there then starts from the same post-probe belief. Ability is drawn from that
+  belief, and the probe's and repair's durations, the repair's outcomes and the tail's noise come from the world's own
+  streams. Both branches are averaged over all its draws, and the repair is chosen if its `Q̄` is higher. So the
+  choice is one per result, as §8.1's table says ("on each result ... whichever `Q̄` on the updated posterior
+  prefers"). The true path then takes that result's branch. The trace adds `branches.on_result` (each result's choice
+  and its two averages) and `repair_after_success`. The cost is two belief-world batches per result instead of one
+  per draw. On a 12-topic, 110-day case at 64 draws, a probe row went from 0.20 s to 0.49 s. §8.11's as-built text
+  and the stage record's choice 8 are amended: the earlier "one rollout per draw and branch, not a nested `Q̄`" is
+  superseded.
+- **F12** (`value.run_tail`, `_session`, `_priority`, `_practice_batch`). Today's continuation session starts at
+  each draw's own action end, with its own ranking time, review times and FSRS elapsed. It never starts at the
+  batch's maximum. A tail session now runs block by block. Each block's effect lands at its end (same rule as an
+  action's segments), and before it lands, any dated use that the block's end crosses is scored on the state before
+  that block. `run_tail` works on its own copy of `dated_done`. The recorder's `m⁰` for a dated use is each draw's
+  performance at the moment the use was scored. Slot order and outcome noise are the same as before; only the
+  timestamps changed. Later days' sessions use the same block clock. A review row on the case above went from
+  0.09 s to 0.16 s.
+
+### Calls, tokens and the first-day report
+
+- **Calls and tokens per decision: unchanged.** These fixes are inside the pure value estimator, so no request was
+  added. It is still one `router_llm` request (`router_llm_choice_v3`) per decision in the prefetch, plus the
+  predecessor's Decider request. That is at most about 12-16k input tokens per decision, with a reserved floor of
+  16,384 output tokens. A typical day is about 5-9 LLM requests and as many Decider requests. Both are $0 on the
+  ChatGPT plan route (`estimated_only`), and a metered route is under the router's daily guard. These are estimates;
+  no request was sent.
+- **First-day report (§8.10), synthetic vault**, rerun on `2a05b9b447`
+  (`test_ro4_trace_report.py::test_the_first_day_report_against_the_predecessor_on_a_synthetic_vault`, `-s`; 7
+  topics, 25 suggested minutes, no model set up):
+
+  | | Predecessor (mvp-0.46) | Objective (mvp-0.47) |
+  |---|---|---|
+  | Blocks served | 5 | 5 |
+  | Planned minutes | 24.6 of 25 | 22.0 of 25 |
+  | Stop in the support | only under 5 minutes left | at every boundary (1.0) |
+  | Stop chosen | at the end | 1 of 6 decisions (0.167) |
+  | Longest session | (not recorded) | 18 active minutes |
+  | Policy share of the draws | staged and the floor | staged 0.833, numeric 0.167 (no LLM set up) |
+  | `κ0` | (none) | 0.001224 per minute (`tail_average`) |
+
+  The tail's timing changed, so the rollouts and these numbers moved again. Draws differ by seed, so one synthetic
+  day shows no trend. As before, with no randomized checks (RO5) `w` stays at its prior and `κ` is the seed, and the
+  trace says so.
+
+### The gate (this step)
+
+| Step | What ran | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`; `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` (under `env -i`, empty `HOME`/`CODEX_HOME`/`LEARNLOOP_CONFIG_DIR`) | 43 kept, 0 broken |
+| New tests, pre-fix check | the 3 new value tests on the pre-fix `value.py` | 3 failed (each on its finding), the other 20 passed |
+| Value tests after the fix | `tests/test_ro4_value.py` | 23 passed |
+| Targeted and contract set, on the fixed tree | every `tests/test_ro4_*.py` (`codex_review`, `goals`, `objective_serving`, `price`, `successor`, `trace_report`, `traces_migration`, `value`, `weight`), `test_ro2_history_resolve.py`, `test_router_objective_migration.py`, `test_architecture.py`, `test_cli_help_snapshot.py`, `test_codex_tool_lockdown.py` (process-launch allowlist), `test_module_catalog_inventory.py`, `test_registry_audit.py`, `test_router_why_copy.py` (display copy) (`pytest -n 6`, 5G scope) | 365 passed, 1 skipped, 0 failed |
+| First-day report | `test_ro4_trace_report.py::test_the_first_day_report_against_the_predecessor_on_a_synthetic_vault -s` | 1 passed (numbers above) |
+| References | `module_generate.py`, `module_validate.py` | PASS (value.py's line numbers; provenance refreshed) |
+| Not needed | migrations, DB reference, durability lane, frontend, `src-tauri` | no schema, connection, frontend or Rust change; `value.py` is a numpy leaf |
+
+Every test ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`, one run at
+a time. The full suite, the whole durability lane and the whole vitest run are left to the landing gate.
