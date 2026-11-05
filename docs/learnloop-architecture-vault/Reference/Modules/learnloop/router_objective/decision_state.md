@@ -111,7 +111,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `candidate_ids`, `prepare`, `record`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `module`; statically calls `prepare`, `record`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `prepare`, `record`
-- [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; statically calls `_lo_rows`, `_pending_reports`
+- [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; statically calls `_pending_reports`, `_round`
 - [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `prepare`, `record`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `candidate_ids`, `prepare`, `record`
 
@@ -153,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_state_that_cannot_be_read_never_touches_the_decision`
   - `test_ad_failing_is_said_and_everything_else_is_kept`
   - `test_the_candidate_shapes_of_the_ledger`
+- [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
+  - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
 
 ## Modification guidance
 

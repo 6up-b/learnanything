@@ -198,6 +198,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_arms_have_exact_probabilities_and_the_served_distribution_is_exact`
   - `test_the_coin_never_depends_on_the_mix_or_either_policy`
   - `test_the_posterior_with_no_observation_is_the_seed_and_responses_move_it_both_ways`
+- [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
+  - `test_f1_an_arm_difference_in_observation_alone_is_no_contrast`
+  - `test_f1_an_arm_with_no_observed_return_leaves_the_contrast_unidentified`
+  - `test_f1_the_policy_arm_stays_a_zero_whatever_its_return`
 
 ## Modification guidance
 

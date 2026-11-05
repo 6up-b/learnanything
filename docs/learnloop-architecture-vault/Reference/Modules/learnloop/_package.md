@@ -117,14 +117,14 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 22 | 13 |
 | [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]] | [[Reference/Modules/learnloop/ad_successor_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] | [[Reference/Modules/learnloop/adf_numeric#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
-| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 79 | 133 |
+| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 79 | 134 |
 | [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] | [[Reference/Modules/learnloop/app_launch#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] | [[Reference/Modules/learnloop/attempt_content_state_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] | [[Reference/Modules/learnloop/claim_fixes_upgrade#^module-purpose|purpose]] | `ACTIVE` | 17 | 3 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 432 | 533 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 433 | 533 |
 | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] | [[Reference/Modules/learnloop/confidence_events#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] | [[Reference/Modules/learnloop/daily_plan_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -167,7 +167,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] | [[Reference/Modules/learnloop/router_calibration_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] | [[Reference/Modules/learnloop/router_learned_tail_upgrade#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] | [[Reference/Modules/learnloop/router_mixture_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] | [[Reference/Modules/learnloop/router_objective_switches#^module-purpose|purpose]] | `ACTIVE` | 22 | 11 |
+| [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] | [[Reference/Modules/learnloop/router_objective_switches#^module-purpose|purpose]] | `ACTIVE` | 23 | 11 |
 | [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] | [[Reference/Modules/learnloop/router_objective_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] | [[Reference/Modules/learnloop/router_staged_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/section_map|learnloop.section_map]] | [[Reference/Modules/learnloop/section_map#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
@@ -275,10 +275,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 21 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 19 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 19 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 19 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 18 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 18 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 17 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 17 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 16 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 16 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges

@@ -3,8 +3,8 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
-source_commit_timestamp: "2026-11-05T08:37:49-05:00"
+source_commit: "7f0d6dab15ed0523d22d635b677243892431ba12"
+source_commit_timestamp: "2026-11-05T12:54:13-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/router_objective/tail_serve.py`
 
 ### Direct SQL writers
 

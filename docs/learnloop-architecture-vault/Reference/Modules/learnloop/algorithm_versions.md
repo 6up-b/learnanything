@@ -509,6 +509,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_stop_coin.py](../../../../../tests/test_ro5_stop_coin.py) — direct import
 - [tests/test_ro5_successor.py](../../../../../tests/test_ro5_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro4_and_the_latest`
+- [tests/test_ro6_codex_review.py](../../../../../tests/test_ro6_codex_review.py) — direct import
+  - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
+  - `test_f5_the_contrasts_return_reader_admits_an_import_only_once_known`
 - [tests/test_ro6_serving.py](../../../../../tests/test_ro6_serving.py) — direct import
 - [tests/test_ro6_successor.py](../../../../../tests/test_ro6_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro5_and_the_latest`

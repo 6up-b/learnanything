@@ -153,7 +153,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `INTERVAL_FACTOR_SNAPSHOT_KEY`, `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `CHECKS_EMBEDDED`, `CHECKS_OFF`, `check_mode`; statically calls `check_mode`
-- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `attempt_time_sql`, `known_at`; statically calls `attempt_time_sql`, `known_at`
+- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
+- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `known_at`; statically calls `known_at`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `objective_on`; statically calls `objective_on`
@@ -176,7 +177,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] and 17 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] and 18 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
