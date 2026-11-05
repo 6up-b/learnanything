@@ -401,3 +401,90 @@ only its own part of `tests/test_ro6_landing.py` by writing a blob of the file's
 - `7c766e544a` R1, `46f81f96a6` R2, `30f82d0b7e` R3.
 - This section, with the weeks test's printed summary extended (the bound, the missing terms and the unbounded
   estimate per day).
+
+---
+
+# Rulings R7-R9 (after step 1, before the scoped verify)
+
+The orchestrator ruled R7 (on decision 1 of the step 1 report: R1's bound kept `ŵ` at zero through every unsupported
+undated use), R8 (decision 4: no retry loops in tests) and R9 (decision 5: a trace must not grow with the log),
+recorded verbatim in `docs/reviews/router-ro6.md`, "Landing onto main". Each was reproduced first in
+`tests/test_ro6_landing.py`, then fixed in its own commit.
+
+| Ruling | Commit | Reproduction on the pre-fix source | After |
+|---|---|---|---|
+| R7 | `bc4b183f06` | On `847ebb5793`: 4 of 5 new tests failed. A planted slope 0.4 on each window's supported term with 30 uses unsupported at the draw beside it gave `ŵ = 0` (slope −7.88 ± 0.83: the 30 were bounded missing terms); a support lost after the draw in one arm was counted with the unsupported ones; the rollouts kept no per-topic share; a served trace froze no support. The fifth, Codex's two R1 reproductions, is the control | The planted slope is recovered (0.367 ± 0.037, `ŵ` 0.367, as with no unsupported term; 30 terms excluded per forced window, none missing); Codex's two reproductions still give `ŵ = 0` (lower slope −0.343, the unbounded 0.201 beside); support lost after the draw in one arm stays bounded (one missing term per offer-stop window, the 3 beside excluded in both arms); the per-topic shares add up across topics on the same paths with `Q̄` unchanged |
+| R8 | `4532f84710` | The one-decision run seen under `-n 6` (the mix's draw followed the plan's random id and could draw stop first) | `block_drawing_seed()` pins a decision seed that serves a block at every boundary; the two chooser tests use it, the retry wrappers are removed; 3 of 3 at `-n 6` |
+| R9 | `dadaf942bd` | `tail_serve.residual` with its reads replaced: 3,645 bytes with 10 forced windows, 102,688 with 1,000 (about 100 bytes a window in `residual.contrasts.censored.missing.by_window`) | Within 64 bytes of each other; the weeks test recomputes the last decision's summary from the ledger as of its moment (the inputs' hash, counts, `ŵ` and slope equal) |
+
+## What changed
+
+- **R7.** `checks.support_at(connection, at)`: each topic's check support for the days after a moment, as known
+  then. It is the latest day drawn as of `Closure.at(at)` (the assignment row admitted by RO1's predicate), with the
+  last draw standing, as `Ledger.r_for` reads a day not yet drawn. Then:
+  - `tail_serve.snapshot` freezes the support at the decision's moment (snapshot v2), and `tail_serve.measurable`
+    writes `residual.measurable` (the support, its basis, the valued topics with none) with the label that `ŵ` is
+    calibrated on the measurable part of the return only.
+  - `value.evaluate(unmeasured=…)` keeps those topics' share of the undated reward apart on the same paths
+    (`_Ledger.unmeasured`, `terms.unmeasured_reward`). `q` and the choice are unchanged; with `unmeasured` None
+    (below the tag, the switch off) the terms carry no new key. `run_numeric` passes it only at the tag with the
+    learned tail on.
+  - `scores.observed_return(complete, support=…)` leaves an undated use whose topic had no support at the draw out
+    of the return and its bounds (`Bounded.excluded`). One supported at the draw with `r = 0` on its day stays a
+    bounded missing term (support lost afterwards). `observed_returns` reads the frozen support
+    (`scores.frozen_support`), else `checks.support_at` at the decision.
+  - `tail_data.contrasts` restricts the tail's predicted contrast to the measurable terms
+    (`Logged.q_measurable = q − unmeasured_reward`) where every candidate has it, else uses the unrestricted one. The
+    residual's prediction is always unrestricted; the record counts both and notes the attenuation toward zero.
+  - `WeightFit` reports the excluded counts and its target; the report states the target and shows per day the terms
+    excluded at the draw beside the missing ones. `WEIGHT_VERSION` v5.
+- **R8.** Test-only, as above.
+- **R9.** `learned_tail.calibration_summary` (the contrasts' count and status, the cohort by arm, the missing and
+  excluded counts, the predictions' restriction counts, the before-coin counts, its moment and `contrasts_hash`,
+  exact over every contrast's realized value, interval, predictions, forcing and counts). `tail_serve.calibration`
+  serves the decision and recomputes a trace's summary; `residual.contrasts` is the summary, and `ŵ` with its bound
+  slope and rank and the unbounded estimate stays in `residual.weight`. The report keeps the per-window record,
+  computed live.
+
+## The three weeks, rerun (on `dadaf942bd`)
+
+`LEARNLOOP_RO6_DAYS=21`, as before. The number of traced decisions varies run to run (the prefetch threads' timing
+decides which boundaries the fake session hits). This run: 72 decisions, 71 transitions (1 `no_later_decision`;
+none `objective_changed` or `cutoff_unmatched`, `carried:valued` 71 of 71), one generator version, features frozen at
+all 72, the fit n 71, σ² 3.94, condition 7.0e5. Only one forced draw this run (`present_next`, its window closing
+10-26); the predictions: tail restricted to the measurable terms at all 23 contrasts, the residual unrestricted at
+23.
+
+| Day | Contrasts | Excluded at the draw (contrasts) | Still bounded (contrasts) | Bound | `ŵ` served | Bound slope | Unbounded `ŵ` (slope) |
+|---|---|---|---|---|---|---|---|
+| 10-12 .. 10-25 | 0 | 0 | 0 | none | 0 | — | 0 |
+| 10-26 | 3 | 14 (1) | 31 (1) | least favourable fill | 0 | 0.0 (prior) | 0 |
+| 10-27 | 5 | 14 (1) | 31 (1) | least favourable fill | 0 | −0.346 | 0 (−0.497) |
+| 10-28 | 6 | 14 (1) | 31 (1) | least favourable fill | 0 | −0.133 | 0 (−0.179) |
+| 10-30 | 10 | 14 (1) | 31 (1) | least favourable fill | 0 | −0.074 | 0 (−0.094) |
+| 10-31 | 15 | 14 (1) | 31 (1) | least favourable fill | 0 | −0.090 | 0 (−0.111) |
+| 11-01 | 16 | 14 (1) | 31 (1) | least favourable fill | 0 | −0.093 | 0 (−0.114) |
+
+As of the end: 23 contrasts, 1 forced; bound slope −0.078 ± 0.882, unbounded −0.091 ± 0.795, rank undefined, `ŵ = 0`.
+Of the forced window's 45 undated uses, 14 had no check support at the draw (excluded) and 31 had support at the
+draw and none on their day (the day's eligible set moved: still missing, bounded). Residual's share of `Ṽ` 0 at all
+329 candidate valuations; argmax moved 0 times. The residual's step median 13 ms, max 36 ms (n 72); the second
+valuation median 439 ms, max 650 ms (n 71), in the prefetch job. Cross-check: one step −0.0006, se 0.0143, ESS 20.5 of
+23; the fit's projection 0.0017 over 72. **Trace bytes per decision** (R9): 14,595 to 23,198 over the 72 decisions,
+the first three 20,115 / 19,067 / 17,515 and the last three 20,564 / 20,727 / 20,623: no growth with the log (the
+copies' figure is the smoke's).
+
+## The gate (this step)
+
+| Step | What ran | Result |
+|---|---|---|
+| Reproductions on the pre-fix trees | `test_r7_*` on `847ebb5793`; R9's on `4532f84710` | 4 of 5 failed (the fifth the control); R9's failed (102,688 vs 3,645 bytes) |
+| Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
+| Targeted batch | the same 65 files as step 1, `-n 6` under the full-suite lock | 1061 passed, 0 failed |
+| Durable SQLite | `--durable-sqlite` on every `test_ro6_*`, `test_ro1_availability_reads`, `test_ro2_ad_raw_document_reads`, `test_followup_successor`, `test_ro5_landing`, `test_ro4_value`, `-n 6` | 151 passed, 1 failed: `test_ro5_landing::test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace` (its first `advance` returned `done`, not an item). It runs at RO5's tag (mvp-0.48), where no RO6 path runs; it passed in the targeted batch and in step 1's durable run, and 3 of 3 alone with `--durable-sqlite`. Likely the same class as the RO4 why-surface flake (an unpinned mix draw serving stop first), not confirmed; it is RO5's test, unchanged here, and is left for the orchestrator (R8's pinned seed would remove it) |
+| The three weeks | as above | 1 passed (the summary recomputed) |
+
+## Commits (R7-R9)
+
+`bc4b183f06` R7, `4532f84710` R8, `dadaf942bd` R9; this section and "Landing onto main" in `docs/reviews/router-ro6.md`
+with the rulings verbatim.
