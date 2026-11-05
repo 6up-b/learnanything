@@ -70,6 +70,7 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
             "policy_share": _share(Counter(str(row["drawn_component"]) for row in entries), len(entries)),
             "guard_crossings": sum(1 for row in entries if row["guard_crossed"]),
         })
+    kappa_seed = _kappa_seed(rows)
     comparators: dict[str, dict[str, Any]] = {}
     model_supported: list[float] = []
     for row in rows:
@@ -105,6 +106,7 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
                            "statuses": dict(Counter(str(row["llm_status"]) for row in blocks))},
             "numeric_policy": {"statuses": dict(Counter(str(row["numeric_status"]) for row in blocks))},
             "days": days,
+            "kappa_seed": kappa_seed,
             "note": "successful LLM calls and the deployed policy with its fallbacks are both counted: a decision "
                     "where a policy fell back keeps its row",
         },
@@ -129,6 +131,26 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
     }
 
 
+def _kappa_seed(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Landing ruling R5: how each day's ``κ0`` seed was formed, counted over days (the first decision of a day that
+    did not carry the day's seed), so the owner sees how often it fell back: floored at the last positive value,
+    the tail's average marginal gain (accepted until RO5), or no frontier at all (the last value)."""
+
+    from learnloop.router_objective import price as P
+
+    seeded: dict[str, str] = {}
+    for row in rows:
+        how = row.get("kappa_how")
+        if how and how != P.CARRIED_DAY:
+            seeded.setdefault(str(row["local_date"]), str(how))
+    by_how = Counter(seeded.values())
+    return {"days": len(seeded), "by_how": dict(sorted(by_how.items())),
+            "fell_back": sum(count for how, count in by_how.items() if how != P.DAY_SEED),
+            "fell_back_to_tail_average": by_how.get(P.TAIL_AVERAGE, 0),
+            "note": "a day's seed is the day's marginal gain per minute at the remembered minutes; it falls back "
+                    "when that is not positive (until RO5)"}
+
+
 def _llm_favoured(row: Mapping[str, Any]) -> str | None:
     trace = json.loads(row["trace_json"])
     return ((trace.get("policies") or {}).get("llm") or {}).get("favoured")
@@ -145,6 +167,10 @@ def lines(report: Mapping[str, Any]) -> list[str]:
         out.append(f"- {day['local_date']}: {day['decisions']} decisions, stop {day['stop_share']}, longest session "
                    f"{day['session_minutes_max']} min of {day['remembered_minutes']} suggested, kappa0 {day['kappa0']} "
                    f"({day['kappa_how']}), shares {day['policy_share']}, guard crossings {day['guard_crossings']}")
+    seed = serving.get("kappa_seed")
+    if seed:
+        out.append(f"kappa0 seed: fell back on {seed['fell_back']} of {seed['days']} days (to the tail's average on "
+                   f"{seed['fell_back_to_tail_average']} of {seed['days']} days); by how {seed['by_how']}")
     value = report["recommendation_value"]
     out.append(f"recommendation value: evaluated {value['decisions_evaluated']}, pending {value['pending']}, closed "
                f"scores {value['closed_scores']}, censored {value['censored']}; w {value['w']} ({value['note']})")
