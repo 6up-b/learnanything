@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/scores.py"
 source_paths:
   - "src/learnloop/router_objective/scores.py"
-source_commit: "workspace/uncommitted @ HEAD 7f0d6dab15ed0523d22d635b677243892431ba12"
-source_commit_timestamp: "2026-11-05T12:54:13-05:00"
-source_worktree_state: "modified"
+source_commit: "5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8"
+source_commit_timestamp: "2026-11-05T15:04:13-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/scores.py](../../../../../../src/learnloop/router_objective/scores.py) |
-| Source lines | 361 |
+| Source lines | 384 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 7f0d6dab15ed0523d22d635b677243892431ba12` |
-| Commit timestamp | `2026-11-05T12:54:13-05:00` |
+| Worktree state | `clean` |
+| Source commit | `5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8` |
+| Commit timestamp | `2026-11-05T15:04:13-05:00` |
 
 ## Public API
 
@@ -67,16 +67,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `dated_use_date(trace: Mapping[str, Any], row: Mapping[str, Any], dated: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 133) — The calendar date a frozen dated use is scored on (Codex review F6): the goal's own date, frozen in the trace with its ``due_at`` (the goal's sources, or the use's own ``due_at`` at RO5's tag), never one rebuilt from truncated elapsed days; failing both, the decision's moment pl…
 - `exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 169) — RO6: a dated use's ``Y`` as known at ``at``: the results imported for the goal's date that THE availability predicate (``router_objective_switches.attempt_time_sql``) admits by ``at``, their mean.
 - `score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None, r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]], gap_minutes: float) -> Detail` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 182) — ``D̂_i`` for one decision whose window has closed, or why it carries none.
-- `window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None, r_lookup: Callable[[str], dict[str, float]], exam_result: Callable[[Any, str, str], float | None] | None=None) -> tuple[list[W.Use], list[str]] | None` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 213) — The frozen uses of one decision's window with what the randomized checks observed of them (and the completed assessments' keys), or None when a dated use in the window has no imported result (``no_result``).
-- `observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None, r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]], gap_minutes: float, exam_result: Callable[[Any, str, str], float | None] | None=None) -> tuple[float | None, str | None]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 268) — RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
-- `observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Mapping[str, Any]]) -> dict[str, tuple[float | None, str | None]]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 316) — RO6: :func:`observed_return` for each of ``rows`` (a trace's columns with its parsed ``trace``) whose window closed before ``at``, keyed by decision id, as of ``at`` as :func:`scores` reads it, except that an imported result counts only once THE availability predicate admits it…
-- `scores(connection: Any, config: Any, *, at: str) -> list[Detail]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 337) — Every decision's score from the traces whose windows closed before ``at`` (no peeking), RO5's checks the observations.
+- `window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None, r_lookup: Callable[[str], dict[str, float]], exam_result: Callable[[Any, str, str], float | None] | None=None, left_out: list[str] | None=None) -> tuple[list[W.Use], list[str]] | None` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 213) — The frozen uses of one decision's window with what the randomized checks observed of them (and the completed assessments' keys), or None when a dated use in the window has no imported result (``no_result``).
+- `observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None, r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]], gap_minutes: float, exam_result: Callable[[Any, str, str], float | None] | None=None, complete: bool=False) -> tuple[float | None, str | None]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 272) — RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
+- `observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Mapping[str, Any]], complete: bool=False) -> dict[str, tuple[float | None, str | None]]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 338) — RO6: :func:`observed_return` for each of ``rows`` (a trace's columns with its parsed ``trace``) whose window closed before ``at``, keyed by decision id, as of ``at`` as :func:`scores` reads it, except that an imported result counts only once THE availability predicate admits it…
+- `scores(connection: Any, config: Any, *, at: str) -> list[Detail]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 360) — Every decision's score from the traces whose windows closed before ``at`` (no peeking), RO5's checks the observations.
 
 ### Module constants
 
 - `VERSION` ([src/learnloop/router_objective/scores.py](../../../../../../src/learnloop/router_objective/scores.py), line 38)
 - `ANSWERED` ([src/learnloop/router_objective/scores.py](../../../../../../src/learnloop/router_objective/scores.py), line 39)
 - `_STAMP` ([src/learnloop/router_objective/scores.py](../../../../../../src/learnloop/router_objective/scores.py), line 40)
+- `RO6_DATED_LEFT_OUT` ([src/learnloop/router_objective/scores.py](../../../../../../src/learnloop/router_objective/scores.py), line 307)
+- `RO6_NO_RANDOMIZED_USE` ([src/learnloop/router_objective/scores.py](../../../../../../src/learnloop/router_objective/scores.py), line 308)
 
 ### Explicit exports
 
@@ -102,8 +104,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_sessions(connection: Any, *, start: str, end: str, gap_minutes: float) -> list[WindowSession]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 86) — The window's sessions on the objective's own clock (Codex review F4): the activity the serving price reads (``price.activity_spans``: attempts and Reader visits), split into sessions by the serving clock's own construction (``price.session_components``, Codex re-review F4: a Rea…
 - `_day_prices(connection: Any) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 149) — ``(κ0, m̄)`` in force each local date: the day's first trace's.
 - `_exam_result(connection: Any, lo: str, on: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 160) — A dated use's ``Y``: the imported results on the goal's date (``goals/exam_seeding``), their mean.
-- `_window_cost_and_baseline(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, prices: Mapping[str, tuple[float, float]], gap_minutes: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 255) — ``C_i`` over the decision's window and its frozen ``C⁰_i``.
-- `_context(connection: Any, *, at: str) -> tuple[dict[tuple[str, str], C.Resolved], Callable[[str], float | None], Callable[[str], dict[str, float]], dict[str, tuple[float, float]]]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 289) — What every closed window's score reads as of ``at``: the resolved checks, the completion rate as it stood when a window closed, each day's assignment probabilities and each day's price.
+- `_window_cost_and_baseline(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, prices: Mapping[str, tuple[float, float]], gap_minutes: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 259) — ``C_i`` over the decision's window and its frozen ``C⁰_i``.
+- `_context(connection: Any, *, at: str) -> tuple[dict[tuple[str, str], C.Resolved], Callable[[str], float | None], Callable[[str], dict[str, float]], dict[str, tuple[float, float]]]` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 311) — What every closed window's score reads as of ``at``: the resolved checks, the completion rate as it stood when a window closed, each day's assignment probabilities and each day's price.
 
 ## Who imports or calls it
 
@@ -153,6 +155,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_closed_scores_completion_rate_is_the_one_at_its_close`
   - `test_f5_the_check_arm_off_restores_ro4s_weight_after_scores_accumulated`
   - `test_f6_a_fractional_delay_is_scored_on_the_goals_own_date`
+- [tests/test_ro6_codex_rereview.py](../../../../../../tests/test_ro6_codex_rereview.py) — direct import
+  - `test_f1_a_complete_return_leaves_an_unknown_dated_use_out_and_keeps_a_window_with_no_checkable_use`
 - [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
   - `test_f5_the_contrasts_return_reader_admits_an_import_only_once_known`
 

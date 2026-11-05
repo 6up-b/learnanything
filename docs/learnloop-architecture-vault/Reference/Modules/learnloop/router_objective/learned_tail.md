@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/learned_tail.py"
 source_paths:
   - "src/learnloop/router_objective/learned_tail.py"
-source_commit: "workspace/uncommitted @ HEAD 7f0d6dab15ed0523d22d635b677243892431ba12"
-source_commit_timestamp: "2026-11-05T12:54:13-05:00"
-source_worktree_state: "modified"
+source_commit: "5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8"
+source_commit_timestamp: "2026-11-05T15:04:13-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py) |
-| Source lines | 603 |
+| Source lines | 607 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 7f0d6dab15ed0523d22d635b677243892431ba12` |
-| Commit timestamp | `2026-11-05T12:54:13-05:00` |
+| Worktree state | `clean` |
+| Source commit | `5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8` |
+| Commit timestamp | `2026-11-05T15:04:13-05:00` |
 
 ## Public API
 
@@ -82,11 +82,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str | None=None) -> WeightFit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 375) — ``ŵ`` from the randomized contrasts whose windows closed before ``at`` (no peeking; module docstring).
 - `coin_contrast(arm: str | None, rate: float) -> float` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 413) — The stop coin's mean-zero contrast in its logged probabilities: ``1[offer]/p − 1[present_next]/p``.
 - `class CoinDraw` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 426) — One randomized stop-coin decision of the cohort (chosen on what was fixed before the coin: a frozen residual, stop in the support, a closed window) with its window's observed return (None: not observed, and why).
-- `coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 446) — The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1).
-- `predicted_contrast(values: Mapping[str, float], mu: Mapping[str, float], stop_ref: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 496) — A frozen value's contrast between the coin's arms: stop minus the blocks at the mix's shares among them (what ``present_next`` serves where the mix drew stop, and the mix's own block elsewhere).
-- `class WeightedRow` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 513) — One decision's importance ratio (the improvement step's probability of the served action over the logger's) and the window's observed return.
-- `class Ratio` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 526) — One decision of the whole logged sequence and its importance ratio (None: not computable, e.g.
-- `partial_history(rows: Sequence[WeightedRow], *, window_days: int, sequence: Sequence[Ratio] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 538) — Report only: importance-weighted estimates of the improvement step minus the logger on the window's return, one step (``(ρ_i − 1)·Ĝ_i``) and over each decision's window (the product of the ratios of **every** decision in it), each with its standard error and effective sample siz…
+- `coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 446) — The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1; re-review F1).
+- `predicted_contrast(values: Mapping[str, float], mu: Mapping[str, float], stop_ref: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 500) — A frozen value's contrast between the coin's arms: stop minus the blocks at the mix's shares among them (what ``present_next`` serves where the mix drew stop, and the mix's own block elsewhere).
+- `class WeightedRow` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 517) — One decision's importance ratio (the improvement step's probability of the served action over the logger's) and the window's observed return.
+- `class Ratio` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 530) — One decision of the whole logged sequence and its importance ratio (None: not computable, e.g.
+- `partial_history(rows: Sequence[WeightedRow], *, window_days: int, sequence: Sequence[Ratio] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 542) — Report only: importance-weighted estimates of the improvement step minus the logger on the window's return, one step (``(ρ_i − 1)·Ĝ_i``) and over each decision's window (the product of the ratios of **every** decision in it), each with its standard error and effective sample siz…
 
 ### Module constants
 
@@ -107,7 +107,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `OFFER_STOP` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 441)
 - `PRESENT_NEXT` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 442)
 - `UNIDENTIFIED` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 443)
-- `INCOMPLETE_HISTORY` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 535)
+- `INCOMPLETE_HISTORY` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 539)
 
 ### Explicit exports
 
@@ -185,11 +185,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro6_codex_rereview.py](../../../../../../tests/test_ro6_codex_rereview.py) — direct import
+  - `test_f1_complete_returns_with_identical_arms_give_no_contrast`
+  - `test_f1_observation_on_a_pre_coin_feature_leaves_the_contrast_unidentified`
+  - `test_f3_the_backup_reads_the_values_and_features_at_the_carried_cutoff`
+  - `test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff`
+  - `test_f7_an_earlier_builds_thirteen_features_are_rebuilt`
+  - `test_f7_the_served_features_version_is_part_of_the_generator`
 - [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
   - `test_f1_an_arm_difference_in_observation_alone_is_no_contrast`
   - `test_f1_an_arm_with_no_observed_return_leaves_the_contrast_unidentified`
   - `test_f1_the_policy_arm_stays_a_zero_whatever_its_return`
-  - `test_f3_the_next_state_is_valued_at_the_decisions_own_cutoff`
   - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
   - `test_f6_a_window_with_a_decision_of_unknown_ratio_is_censored`
 - [tests/test_ro6_learned_tail.py](../../../../../../tests/test_ro6_learned_tail.py) — direct import

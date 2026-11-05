@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/tail_report.py"
 source_paths:
   - "src/learnloop/router_objective/tail_report.py"
-source_commit: "017c3ed22ddf583d5cddfe612d4e1ac32dc70950"
-source_commit_timestamp: "2026-11-05T12:03:53-05:00"
+source_commit: "5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8"
+source_commit_timestamp: "2026-11-05T15:04:13-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,18 +50,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/tail_report.py](../../../../../../src/learnloop/router_objective/tail_report.py) |
-| Source lines | 155 |
+| Source lines | 167 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `017c3ed22ddf583d5cddfe612d4e1ac32dc70950` |
-| Commit timestamp | `2026-11-05T12:03:53-05:00` |
+| Source commit | `5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8` |
+| Commit timestamp | `2026-11-05T15:04:13-05:00` |
 
 ## Public API
 
-- `build(connection: Any, vault: Any, *, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_report.py), line 85) — The section (module docstring), as of ``now``.
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/tail_report.py), line 129)
+- `build(connection: Any, vault: Any, *, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_report.py), line 96) — The section (module docstring), as of ``now``.
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/tail_report.py), line 140)
 
 ### Module constants
 

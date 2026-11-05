@@ -188,6 +188,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_arm_off_at_the_tag_is_mvp_047_exactly`
   - `test_kappa_stays_the_seed_until_a_randomized_offer_has_a_response`
   - `test_serving_records_each_coin_with_its_exact_probability_and_availability`
+- [tests/test_ro6_codex_rereview.py](../../../../../../../tests/test_ro6_codex_rereview.py) — direct import
+  - `test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff`
 - [tests/test_ro6_codex_review.py](../../../../../../../tests/test_ro6_codex_review.py) — direct import
   - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
 - [tests/test_ro6_serving.py](../../../../../../../tests/test_ro6_serving.py) — direct import
