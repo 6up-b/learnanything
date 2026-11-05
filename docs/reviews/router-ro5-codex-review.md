@@ -339,6 +339,7 @@ fixed in its own commit. Fakes, in-memory SQLite and synthetic vaults only; no m
 | F11 / R2 | Medium | fixed | `eebca9b33b` | `test_r2_f11_the_dominant_posterior_peak_outside_the_priors_reach_is_integrated` (Codex's reproduction: mean 0.000275, variance 1.0e-4 as `posterior_randomized_coin`; now 0.4196, variance < 1e-6); `test_r2_a_planted_slope_is_recovered_at_a_narrow_and_at_a_wide_prior` (prior sd 0.01 and 1.0, slope 0.3); a weak-instrument guard; the unconverged label |
 | R4 | — | fixed | `a5e12c2d7f` | `test_r4_the_coin_is_not_drawn_before_any_active_minute_of_the_session` (the synthetic week's minute-0 offer: the day's first decision drew `offer_stop`) |
 | R5 (1) | — (RO4 open item 1) | fixed | `29464fb3f9` | `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace` (pre-fix: FG1's `FollowupGate`, three arms, `RouterLLMAnswerV1`, no trace); no room to wait; below the tag and objective off unchanged |
+| R8 | — (the owner's FG1 decision) | fixed | `940190f3d6` | `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace` (pre-R8: two arms, `no_intervention` not offered); `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe` |
 | R5 (2) | — (RO4 open item 2) | fixed | `3c78b28fa3` | `test_r5_2_the_objective_report_prints_w_and_its_posterior` (pre-fix `w None`) |
 | R5 (3) | — (RO4 open item 3) | fixed | `cdcc7537c4` | `test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols` (pre-fix: the weight note verbatim, and "proposal" on the copy deny-list) |
 | R6 | — | test added | `8fd2a5a8ba` | `test_r6_the_lag_join_reads_the_newest_trace_before_the_check_at_its_lag` (coverage; passes pre-fix); the return model's assumption labelled in `ReturnSlope.as_dict` (trace and report) |
@@ -367,6 +368,7 @@ Vectorized with numpy. New registered constants: `_PEAK_SPREADS`, `_SPAN_NODES`,
 is not above zero), read on the serving clock at the decision before the coin's uniform and frozen in the coin's
 availability.
 
-**R5 (1)**: see `docs/reviews/router-ro5.md`, "Landing onto main".
+**R5 (1) and R8**: see `docs/reviews/router-ro5.md`, "Landing onto main" (the gate keeps `no_intervention` at the
+tag, `router_llm_choice_v3` over the three). R9 and R10 are recorded there verbatim.
 
 **R3**: the stage record describes the placement as built (choice 6) and the first week rerun at landing.

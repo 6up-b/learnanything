@@ -100,9 +100,8 @@ stage, no real request was sent, no owner vault was opened, no tracked working v
 
 ## Not built, and the smallest way to finish
 
-- **The no_intervention floor at the tag**: by landing ruling R5 (1) FG1's gate at the tag is §8.3's mix over
-  `insert_now` and `continue_current`, so new `no_intervention` decisions come only from below the tag or with the
-  objective off; the floor section reads those.
+- **The no_intervention floor at the tag**: by landing rulings R5 (1) and R8 FG1's gate at the tag is §8.3's mix
+  over `insert_now`, `continue_current` and `no_intervention`, so the floor keeps getting rows at the tag.
 - **The higher no-probe share (§9 item 5)**: not built; the report says "follow-up" because the floor's count is zero on a
   typical day of the synthetic vault (which has no follow-up workflows). On a real copy, rerun `objective-report` and
   build it only if the floor's median per active day is zero there too: one more arm in FG1's mixture with its own
@@ -217,12 +216,15 @@ time. Every script outside pytest ran under `env -i` with empty `HOME`, `CODEX_H
 - R5: "RO4's open items 1-3 are fixed here because RO5 builds on them. (1) FG1's follow-up gate, the generated-probe plan_interrupt decision, moves onto the two-policy mix at the tag as spec §8.3 says, over insert_now and continue_current, with its trace row and μ recomputable, and the old RouterLLMAnswerV1 request is no longer sent there at the tag; below the tag and with [router_objective] enabled = false, FG1's gate serves exactly as now; FG1's serve-at-once and single-use rules are unchanged. (2) `learnloop router objective-report` passes the weight, so it prints w and its posterior. (3) The why surface's 'how was this chosen?' is plain words with no stage names or symbols, under the display-label audit. Items 4-6 are measured at the smoke."
 - R6: "The open item on the lag join's end-to-end test is fixed here (one trace row with a known m0 vector and one graded check two days later). The return model's assumption (the offer changes the return gap only through the session's minutes) stays labelled in the trace and the report. Availability as a covariate in κ0's likelihood, a cache for closed-window scores, the goal-date read inside V and the higher no-probe share go to the follow-up batch as recorded."
 - R7: "Owner, Nov 5: the old item difficulty scalar is to be retired in the refactor. RO5 adds no new reader or writer of it; the landing checks this with a grep of the diff against main for the difficulty columns, mastery.irt.difficulty_from_prior and surprise's b, and records the result."
+- R8: "The owner decided for FG1 (Nov 3): 'Yes, the router should be able to choose no intervention. The router will decide for weak cases.' So the objective's follow-up gate keeps no_intervention in its support at the tag, beside insert_now and continue_current (the 'wait' option the owner also kept). The numeric policy values it as no probe served, with the workflow's hypotheses left as they are; the LLM side may choose it, with probabilities over all three; the Decider stays advice; the ledger records it as offered, and §9 item 5's floor keeps getting rows at the tag. 'No room to wait' still asks now. A test shows each of the three can be drawn with its logged probability, and that choosing no_intervention serves no probe and strands no Next."
+- R9: "Your question 1: R5 (1) follows the tag and [router_objective] enabled, with no switch of its own. That is the ruling's intent: it's RO4's spec for mid-block follow-ups, not an RO5 arm. The smoke's 'every RO5 arm off' comparison is identical to main at mvp-0.47 except this gate, which it reports separately."
+- R10: "Your questions 3 and 4 stand as built: a dated use whose exam import arrives after its window closed is censored as no_result, since a closed score never moves; the realized-cost read stays on occurrence time through the window's end, since activity is recorded where it happens and the serving clock shares it. Both are named in the record."
 
 ### Step 0: the rulings' fixes (on `5f02be6eb2`, before merging main)
 
 One commit each, reproduced first in `tests/test_ro5_landing.py` (see `docs/reviews/router-ro5-codex-review.md`,
 "Final verify"): R2 `eebca9b33b`, R4 `a5e12c2d7f`, R1 `e16d1253e8`, R6 `8fd2a5a8ba`, R5 (3) `cdcc7537c4`, R5 (2)
-`3c78b28fa3`, R5 (1) `29464fb3f9`; R3 is this record's choices 3 and 6 and the first week rerun above.
+`3c78b28fa3`, R5 (1) `29464fb3f9`, R8 `940190f3d6`; R3 is this record's choices 3 and 6 and the first week rerun above.
 
 **R5 (1) as built.** At RO5's tag with the objective serving, `followup_run.router._plan_context` gives the generated
 probe's `plan_interrupt` decision to `objective_chooser.ObjectiveFollowupGate` (RO4's `ObjectiveRestraintGate`'s draw,
@@ -230,18 +232,32 @@ factored into `_mixed`, its records unchanged): §8.3's mix over `insert_now` an
 policy's `intervene_now` on the restraint card (`router_llm_restraint_v3`), `π_Q` the two orders valued as one repair
 question on the workflow's LO (the missed question's minutes; the probe does not exist yet) now or after the current
 block's remaining questions, the Decider's `P(yes)` as advice. No room to wait asks now, deterministically, with no
-model asked. `record_decision` writes the trace row and freezes the decision's own support for data capture; the
-ledger row marks `no_intervention` not offered. FG1's hard refusals, serve-at-once and single-use rules are untouched.
+model asked. `record_decision` writes the trace row and freezes the decision's own support for data capture. FG1's
+hard refusals, serve-at-once and single-use rules are untouched.
 
-Requests per follow-up decision (fakes, `tests/test_followup_router.py`'s plan shape):
+**R8 as built** (`940190f3d6`; supersedes the two-arm support of `29464fb3f9`). The support at the tag is
+`insert_now`, `continue_current`, `no_intervention`:
+- `π_L` is the LLM policy's `router_llm_choice_v3` over the three options (a probability per option, every one
+  positive) with a non-choosable reference row, the current block's rest; R2b's `RouterLLMAnswerV1` is not sent.
+- `π_Q` values three sequences: the repair question then the block's rest, the rest then the question, and the rest
+  alone (no probe served, the workflow's hypotheses left as they are).
+- The Decider's restraint `P(yes)` stays advice. The ledger row records `no_intervention` as offered, so §9 item 5's
+  floor keeps getting rows at the tag. No room to wait still asks now, deterministically.
+- `tests/test_ro5_landing.py::test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`:
+  each of the three drawn with its logged probability (`μ` recomputed), and a drawn `no_intervention` logged, Next
+  serving the block's own question and no probe generated.
+
+Requests per follow-up decision (fakes, `tests/test_followup_router.py`'s plan shape, both models answering):
 
 | | router_llm | Decider |
 |---|---|---|
-| Before, at the tag (FG1's gate) | 1, `RouterLLMAnswerV1`, 2,568 bytes | 1, `choose_block` |
-| After, at the tag | 1, `RouterLLMRestraintV3`, 2,658 bytes | 1, `intervene_now` |
-| Below the tag, or objective off | 1, `RouterLLMAnswerV1`, 2,568 bytes (unchanged) | 1, `choose_block` (unchanged) |
+| Before, at the tag (FG1's gate) | 1, `RouterLLMAnswerV1` (three options), 2,568 bytes | 1, `choose_block` |
+| After R5 (1), at the tag (two arms; superseded) | 1, `RouterLLMRestraintV3`, 2,658 bytes | 1, `intervene_now` |
+| After R8, at the tag | 1, `RouterLLMChoiceV3`, options `insert_now`, `continue_current`, `no_intervention`, 3,939 bytes | 1, `intervene_now` |
+| Below the tag, or objective off | 1, `RouterLLMAnswerV1`, unchanged code (2,568-2,669 bytes with the plan's card) | 1, `choose_block` (unchanged) |
 
-Consequences recorded for the orchestrator: at the tag no new `no_intervention` decision is drawn, so §9 item 5's
-floor reads only rows from below the tag or with the objective off; and the smoke's "every RO5 arm off" identity
-against mvp-0.47 holds for every journey except a generated probe's gate, which has no switch of its own (it follows
-the tag and `[router_objective] enabled`).
+As ruled (R9), the gate follows the tag and `[router_objective] enabled` with no switch of its own, so the smoke's
+"every RO5 arm off" comparison is identical to main at mvp-0.47 except this gate, reported separately. As ruled
+(R10), a dated use whose exam import arrives after its window closed is censored `no_result` (a closed score never
+moves), and the realized cost reads activity on occurrence time through the window's end (`price.activity_spans`,
+shared with the serving clock).
