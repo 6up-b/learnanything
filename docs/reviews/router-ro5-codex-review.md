@@ -171,3 +171,156 @@ Three slips from the stage's rules, none touching a model, the network or a vaul
   fitted as a covariate of `V` (the stage record's follow-up stands).
 - **κ0's likelihood** is unchanged by this review: it already conditions on the logged gain, and voluntary stops do
   not enter.
+
+## Re-review (job `20261105-094834-nrtIdK`)
+
+The re-review was of `9a47277b99..059cc15325`. F1, F5, F6 and F7 were confirmed fixed. F2, F3 and F4 were reopened,
+and F8 to F10 are new. Each one was reproduced first, in `tests/test_ro5_codex_rereview.py` (12 tests). The pre-fix
+tree (`git archive 059cc15325 src migrations`, unpacked outside the worktree) was put on pytest's `pythonpath`, and
+10 of the 12 tests failed on it. The other two are invariance checks and pass on both trees: RO4's serving clock
+reproduced bit for bit, and a strong instrument far from the prior still resolved. Only fakes, in-memory SQLite and
+synthetic vaults were used. No model request was made and none was added. No owner vault or tracked working vault
+was opened.
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F2 | High (reopened) | Check administration depends on the chosen action | fixed | `054b8a0652` | `test_ro5_codex_rereview.py::test_f2_the_check_is_administered_before_any_decision_even_when_every_decision_stops` (pre-fix: every decision drew stop and nothing was administered), `::test_f2_the_same_assignment_administers_the_same_item_whatever_the_policies_answer`, `::test_f2_the_draw_is_over_what_the_days_plan_can_serve_and_a_topic_outside_it_raises_no_need` (pre-fix: the plan pool was not consulted; fails on the interface) |
+| F3 | High (reopened) | Availability confounding becomes a certain return benefit | fixed (with F9) | `054b8a0652` | `::test_f3_a_busy_and_a_free_session_carry_no_return_benefit` (pre-fix: −1.5, variance 0) |
+| F4 | High (reopened) | Scoring and serving build different sessions | fixed | `054b8a0652` | `::test_f4_a_reader_interval_spanning_two_attempts_is_one_session_on_both_clocks` (pre-fix cost 13.0, now 18.0; serving 30 min), `::test_f4_the_shared_construction_serves_ro4s_session_minutes_exactly` (150 random activity logs, bit for bit against RO4's walk-back) |
+| F8 | High | Weak-instrument grids manufacture extreme, certain slopes | fixed | `054b8a0652` | `::test_f8_a_vanishing_first_stage_leaves_the_prior_never_an_extreme_certain_slope` (pre-fix −1366.99, variance 0, `posterior_randomized_coin`), `::test_f8_a_strong_instrument_far_from_the_prior_keeps_its_resolution` (truth at 3.2 prior sds: mean 1.6 ± 0.03) |
+| F9 | High | Cluster variance collapses when opposing coins cancel | fixed | `054b8a0652` | `::test_f9_opposing_coins_in_one_session_never_give_a_certain_slope` (pre-fix −2.0, variance 0), `::test_f9_a_few_sessions_never_make_the_slope_certain` (60 random 3–6-session logs; pre-fix variance 1.1e-25) |
+| F10 | Medium | Historical completion rates include future assignment days | fixed | `054b8a0652` | `::test_f10_a_past_completion_rate_never_moves_with_a_later_assignment` (real rows: pre-fix 0.6667 after a later assignment, 0.5 before; now 0.5 both), `::test_f10_an_answer_after_the_cutoff_is_not_a_completion_as_of_it` (pre-fix `completed` by an answer three days after the cutoff) |
+
+None was rejected. `high_fixed`: F2, F3, F4, F8 and F9.
+
+### What changed
+
+**F2** (`daily_plan/engine._randomized_check_block`, `_draw_randomized_checks`; `router_objective/checks.draw_day`,
+`place`):
+- The day's checks are administered at the first boundary of the day's first session, before that boundary's
+  decision, as their own block placed by the rules. The boundary's forced items come first in the block.
+- So whatever a decision would draw (practice, reading or stop), the check has already been served. The policy's
+  first decision of the day follows at the next boundary.
+- The block's decision is the rules' own: `forced:randomized_check`, deterministic. It has no mixture, no objective
+  trace, no stop coin and no score, and the check is not its item.
+- The embedded check no longer replaces a chooser item (`replaced` is null). Its minutes come off the plan's like any
+  block's: one question fewer later in the hard frame, and more session minutes and κ in the soft frame.
+- The first-week rerun still found two sessions with no administration. The cause was the drawn item: it was eligible
+  but outside the plan's pool, so it could never be placed. Pool admission depends on history, so the draw is now
+  over items the day's plan pool can serve (`placeable`). The pool is fixed before any of the day's action draws.
+- A topic whose eligible items all fall outside the pool gets `r_L = 0` that day. It is recorded as
+  `eligible_outside_plan_pool` and raises no generation need.
+- `r_L = k/N_d` stays exact and is logged.
+- `place()` keeps its collision rule for any other caller. The engine now passes no chooser items.
+
+**F3, F8, F9** (`stop_coin.fit_return_slope`, `return_slope_coin_instrument_v3`):
+- There is one estimating contribution per session, `U_s(b) = W_s·(ỹ_s − b·z̃_s)`:
+  - `W_s` is the sum of the session's coin contrasts. An offer and a present-next in one session therefore cancel in
+    the moment exactly as in its variance.
+  - The outcomes are taken less their least-squares fit on the availability frozen before the session's first coin.
+    With fewer than two residual degrees of freedom they are only centred.
+- The likelihood is `exp(−AR(b)/2)`, with `AR(b) = (Σ U_s)²/Σ U_s²`:
+  - The uncertainty is the sessions' own contributions, not a pooled residual.
+  - By Cauchy-Schwarz, `AR` is bounded by the number of sessions. A vanishing first stage gives a flat likelihood
+    (the prior stands), and a few sessions can move the prior but cannot collapse it.
+  - Proportional contributions carry no information, so the prior stands (`prior_no_information`). Two sessions
+    always give proportional contributions, which covers the reviewer's busy/free pair.
+- The posterior is integrated by trapezoid on the union of two node sets: the prior's range out to 40 sds, and the
+  ratio estimate's ±8-spread neighbourhood when it falls inside that range.
+- The integration is refined until the mean and variance agree to 1e-6 of the posterior sd. If it does not converge,
+  the prior is served, labelled `prior_integration_unconverged`.
+- The sums are closed-form, so each node costs O(1). The fit took 5 ms on 3000 coins.
+- The new numerical constants are registered as structural: `_REACH`, `_PRIOR_NODES`, `_LOCAL_NODES`,
+  `_REFINEMENTS`, `_TOLERANCE` and `_COLLINEAR`.
+
+**F4** (`price.session_components`, `price.session_active_minutes`, `scores._sessions`):
+- Sessions are the connected components of activity: spans less than `session_gap_minutes` apart belong to one
+  session.
+- The serving clock takes the component that holds `now`. It sums that component's spans in RO4's order (finish time
+  descending, stable), so RO4's minutes, start and float result are unchanged. The randomized test checks this bit for
+  bit.
+- The realized cost splits each component into the minutes carried from before the window and the minutes inside it.
+
+**F10** (`checks.resolve`, `checks.completion`):
+- A read through a date sees only what stood on that date: assignment days on or before it, and administrations and
+  answers dated on or before it in local time.
+- As F1 decided, a grade's later hold or regrade still applies.
+
+Spec §9.1 is amended for the return model, the randomized checks, the completion gap and the weight's cost.
+
+### The first week, rerun after the re-review (copy-shaped synthetic vault)
+
+`tests/test_ro5_calibration.py::test_the_first_week_on_a_copy_shaped_synthetic_vault` was run at `054b8a0652`. The
+setup:
+- the default arms;
+- both policies answering (fake LLM);
+- answers graded by a seeded synthetic learner at about 70%;
+- seven days, with day 4 sessionless;
+- nobody pressing "keep going".
+
+| Day | Coin draws | Offers (accepted) | Next block over a drawn stop | Minutes forgone (upper) / added | Checks assigned / administered / completed | Check minutes |
+|---|---|---|---|---|---|---|
+| 1 (10-12) | 6 | 0 | 0 | 0.0 / 0.0 | 1 / 1 / 1 | 2.5 |
+| 2 (10-13) | 2 | 1 (no response) | 0 | 17.0 / 0.0 | 1 / 1 / 1 | 2.0 |
+| 3 (10-14) | 1 | 0 | 0 | 0.0 / 0.0 | 1 / 1 / 1 | 2.0 |
+| 4 (10-15) | no session | | | | (counts toward the completion gap) | |
+| 5 (10-16) | 8 | 0 | 0 | 0.0 / 0.0 | 1 / 1 / 1 | 2.0 |
+| 6 (10-17) | 4 | 0 | 0 | 0.0 / 0.0 | 1 / 1 / 1 | 2.0 |
+| 7 (10-18) | 4 | 1 (no response) | 0 | 13.0 / 0.0 | 1 / 1 / 1 | 2.0 |
+
+- **Coin:** 25 draws (23 `policy`, 2 `offer_stop`, 0 `present_next`). Both offers ended their session with no
+  "keep going" (`offer_responses`: 2 open). Before the re-review there were 35 draws: the check block now takes the
+  session's first boundary, and the plan ids, which feed the seeds, are fresh.
+- **Checks:** 6 assigned, 6 administered and 6 completed with a label. Before the change there were 4 of 6, with two
+  `no_practice_slot` days, caused by the eligible-but-outside-the-pool item described under F2.
+  - Each check is its own 2.0–2.5 minute block: 12.5 minutes over the week, none displacing a question inside a
+    policy block.
+  - The completion rate is 6/7 = 0.857, with the sessionless day counted.
+  - Eligibility and generation: a median of 6 eligible topics a day, 2 generation needs raised, 6 unseen items used.
+- **Return model:** stays at its prior. Only one coin carries a contrast (5 sessions), so it enters nothing.
+- **Price:** κ0 stays the daily seed; no randomized offer had a response.
+- **Weight:** **`w` did not move: 0.8.** No 14-day window closes inside a week.
+- **Paid routes:** no model request was added, and no extra rollout runs (the check block runs no decision).
+
+### Gate (this step)
+
+No frontend, `src-tauri`, migration or DB-connection file changed, so the npm, vitest, cargo and durability-lane steps
+do not apply. The schema did not change. The DB and configuration reference was regenerated anyway because the
+registry's line numbers moved.
+
+| Step | What ran | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` (under `env -i`) | 43 kept, 0 broken |
+| Reproduction | `tests/test_ro5_codex_rereview.py` on the pre-fix tree (`059cc15325`'s `src` and `migrations` on `pythonpath`) | 10 failed, 2 passed (the two invariance tests) |
+| New and changed tests | `tests/test_ro5_codex_rereview.py` | 12 passed |
+| RO5 files | `tests/test_ro5_*.py` (7 files), `-n 6` | 75 passed |
+| RO, router, plan and data-capture batch | `tests/test_ro*.py`, `tests/test_router_*.py`, `tests/test_daily_plan_*.py`, `tests/test_data_capture_*.py` (123 files), `-n 6` under the shared lock | 1158 passed, 10 skipped, 1 failed. The failure was `test_ro5_checks::test_the_check_takes_the_first_practice_slot...`: my updated test assumed a second block, but the mix can draw stop after the check. The test now reads every later policy decision; it passed 3 of 3 alone |
+| Contract and audit set | display labels (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_sidecar_registry`, `test_mobile_allowlist`, `test_architecture` (frozen cycles), `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_registry_audit`, `test_cli_help_snapshot`, `test_codex_tool_lockdown`, `test_codex_lockdown_frozen`, `test_e0_isolation`, `test_ai_tool_isolation` (process launch), `test_module_catalog_inventory`, `test_public_tip_guards`, `test_sqlite_file_copies`, `test_config_refactor` (defaults snapshot); `-n 6` under the lock | 844 passed, 1 skipped |
+| Durable SQLite | `--durable-sqlite tests/test_ro5_*.py` | 75 passed |
+| References | `module_generate` / `module_validate` (1231 notes, PASS); `db_generate_reference` / `db_validate_reference` (393 table notes, errors []); stamp-only churn restored | ok (`babc6fd5c3`) |
+
+Every test ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`, one run at a
+time. The scripts and `lint-imports` ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+There were three slips from the stage's rules. None touched a model, the network or a vault:
+- one leftover `uv run --no-sync python -c "print(1)"` ran outside `env -i`;
+- the last test of `test_ro5_codex_rereview.py` was appended with a shell heredoc rather than the Edit tool;
+- a temporary debugging test (`tests/test_zz_debug_tmp.py`, written with a heredoc) was used to find the
+  outside-the-pool cause. It was deleted and never committed.
+
+Test files added or changed, for the landing gate:
+- added: `tests/test_ro5_codex_rereview.py`;
+- changed: `tests/test_ro5_checks.py`, where the placement test follows the check's own block.
+
+### Not done (smallest finish)
+
+- **Rate mode's extra minutes.** With `check_rate` a number, the checks now share the before-decision block and come
+  off the plan's minutes. The old "added, not replacing" distinction is gone in both modes. Smallest finish: if the
+  owner wants rate checks on top of the plan, grow that block's plan budget by its minutes in
+  `_randomized_check_block`.
+- **The stage record** (`docs/reviews/router-ro5.md`) still describes the embedded placement and its first week. The
+  rerun above supersedes both.
+- C2's planted seven-day recalibration test and the return model's availability coefficient stand as listed above.
