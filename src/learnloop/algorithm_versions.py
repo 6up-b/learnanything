@@ -744,8 +744,9 @@ FOLLOWUP_SERVE_ALGORITHM_VERSION = "mvp-0.45"
 #   ``interval_for_retention(S)``; the rating, S, D and surprise itself are
 #   unchanged, and ``attempt_surprise.fsrs_interval_factor`` records 1.0, what
 #   was applied (replay writes the same under the same gate);
-# * decision-time reads of attempts (the router card) use the availability
-#   time ``coalesce(received_at, created_at)`` (``router_objective.available_at_reads``);
+# * decision-time reads of attempts (the router card, the diagnoser's history,
+#   AD's frozen history card, the learner contexts) use the availability time
+#   ``coalesce(received_at, created_at)`` (``router_objective.available_at_reads``);
 # * a learner's misconception pick (a ``learner_report:*`` resolution id) is
 #   not counted as validated evidence for the diagnoser
 #   (``router_objective.self_report_not_validated``); the factor's status and

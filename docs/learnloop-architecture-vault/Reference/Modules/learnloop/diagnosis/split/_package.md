@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/diagnosis/split/validation.py"
   - "src/learnloop/diagnosis/split/workbench_trace.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T17:57:15-05:00"
+source_commit_timestamp: "2026-11-04T18:53:13-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.split"
@@ -70,7 +70,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/split/diagnoser|learnloop.diagnosis.split.diagnoser]] | [[Reference/Modules/learnloop/diagnosis/split/diagnoser#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/embeddings|learnloop.diagnosis.split.embeddings]] | [[Reference/Modules/learnloop/diagnosis/split/embeddings#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]] | [[Reference/Modules/learnloop/diagnosis/split/figure_trace#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] | [[Reference/Modules/learnloop/diagnosis/split/history#^module-purpose|purpose]] | `ACTIVE` | 10 | 14 |
+| [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] | [[Reference/Modules/learnloop/diagnosis/split/history#^module-purpose|purpose]] | `ACTIVE` | 10 | 15 |
 | [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] | [[Reference/Modules/learnloop/diagnosis/split/jobs#^module-purpose|purpose]] | `ACTIVE` | 18 | 24 |
 | [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] | [[Reference/Modules/learnloop/diagnosis/split/legacy_view#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 8 | 14 |

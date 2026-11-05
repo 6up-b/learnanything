@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/outside.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/outside.py"
-source_commit: "a0516ec0ba817c588d166d0dab5c7ee89bc2bd63"
-source_commit_timestamp: "2026-11-01T14:48:24-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8"
+source_commit_timestamp: "2026-11-04T18:53:13-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -50,51 +50,51 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py) |
-| Source lines | 777 |
+| Source lines | 785 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a0516ec0ba817c588d166d0dab5c7ee89bc2bd63` |
-| Commit timestamp | `2026-11-01T14:48:24-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8` |
+| Commit timestamp | `2026-11-04T18:53:13-05:00` |
 
 ## Public API
 
-- `class ItemForecastV1(WireModel)` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 125) — The LLM's answer: a probability strictly between 0 and 1.
-- `item_view(vault: Any, item: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 136) — V1's content: the stem, LO and facet names; no answer, rubric, hints or label.
-- `source_identity(item: Any, practice_item_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 166) — A revision's protection identity: its item id and its own source references.
-- `answer_excerpts_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 185) — ``adaptive_difficulty.history_answer_excerpts`` (learner-blindness relax; default on).
-- `history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any, incumbent: Mapping[str, Any] | None, answers: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 192) — The learner's history on the item's LO and its prerequisites, as of the serve, read through the serve's material view (no withheld item's attempt is ever on the card).
-- `class ForecastOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 242)
-  - `as_dict(self) -> dict[str, Any]` (line 249; public)
-- `class Clients` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 254) — Injected clients (tests, a sidecar's ``ad_clients``); None resolves the route.
-- `item_prompt(vault: Any, item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 415) — ``llm_v1:item``'s prompt for one revision (the backfill's dry run plans it too).
-- `forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | None=None, clock: Clock | None=None, protected: Any=None, fence: Any=None, live_vault: Callable[[], Any] | None=None) -> ForecastOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 425) — ``llm_v1:item`` for one item revision (once per revision, under its durable claim).
-- `frozen_state_key(presentation_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 542)
-- `freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presentation_id: str, served_at: str, protected: Any, view: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 546) — In the serve transaction: the exact ``llm_v3`` request inputs of one presentation.
-- `forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None=None, clock: Clock | None=None, fence: Any=None, live_vault: Callable[[], Any] | None=None) -> list[ForecastOutcome]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 607) — ``llm_v3:llm`` and ``llm_v3:decider`` for one plan presentation, from its frozen serve inputs.
+- `class ItemForecastV1(WireModel)` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 126) — The LLM's answer: a probability strictly between 0 and 1.
+- `item_view(vault: Any, item: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 137) — V1's content: the stem, LO and facet names; no answer, rubric, hints or label.
+- `source_identity(item: Any, practice_item_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 167) — A revision's protection identity: its item id and its own source references.
+- `answer_excerpts_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 186) — ``adaptive_difficulty.history_answer_excerpts`` (learner-blindness relax; default on).
+- `history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any, incumbent: Mapping[str, Any] | None, answers: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 193) — The learner's history on the item's LO and its prerequisites, as of the serve, read through the serve's material view (no withheld item's attempt is ever on the card).
+- `class ForecastOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 250)
+  - `as_dict(self) -> dict[str, Any]` (line 257; public)
+- `class Clients` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 262) — Injected clients (tests, a sidecar's ``ad_clients``); None resolves the route.
+- `item_prompt(vault: Any, item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 423) — ``llm_v1:item``'s prompt for one revision (the backfill's dry run plans it too).
+- `forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | None=None, clock: Clock | None=None, protected: Any=None, fence: Any=None, live_vault: Callable[[], Any] | None=None) -> ForecastOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 433) — ``llm_v1:item`` for one item revision (once per revision, under its durable claim).
+- `frozen_state_key(presentation_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 550)
+- `freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presentation_id: str, served_at: str, protected: Any, view: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 554) — In the serve transaction: the exact ``llm_v3`` request inputs of one presentation.
+- `forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None=None, clock: Clock | None=None, fence: Any=None, live_vault: Callable[[], Any] | None=None) -> list[ForecastOutcome]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 615) — ``llm_v3:llm`` and ``llm_v3:decider`` for one plan presentation, from its frozen serve inputs.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 94)
-- `STATE_VERSION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 96)
-- `STATE_VERSION_ANSWER_EXCERPTS` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 100)
-- `HISTORY_ANSWER_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 102)
-- `V1_PROMPT_VERSION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 103)
-- `V3_PROMPT_VERSION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 104)
-- `DECIDER_QUESTION_SET` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 105)
-- `LLM_ROUTE` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 106)
-- `DECIDER_ROUTE` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 107)
-- `PURPOSE` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 108)
-- `STEM_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 109)
-- `HISTORY_STEM_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 110)
-- `HISTORY_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 111)
-- `V1_QUESTION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 112)
-- `V3_QUESTION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 113)
-- `DECIDER_QUESTIONS` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 114)
-- `_CAPS` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 122)
-- `FROZEN_STATE_PREFIX` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 538)
-- `FROZEN_STATE_FORECASTER` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 539)
+- `LOG` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 95)
+- `STATE_VERSION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 97)
+- `STATE_VERSION_ANSWER_EXCERPTS` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 101)
+- `HISTORY_ANSWER_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 103)
+- `V1_PROMPT_VERSION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 104)
+- `V3_PROMPT_VERSION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 105)
+- `DECIDER_QUESTION_SET` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 106)
+- `LLM_ROUTE` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 107)
+- `DECIDER_ROUTE` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 108)
+- `PURPOSE` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 109)
+- `STEM_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 110)
+- `HISTORY_STEM_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 111)
+- `HISTORY_LIMIT` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 112)
+- `V1_QUESTION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 113)
+- `V3_QUESTION` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 114)
+- `DECIDER_QUESTIONS` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 115)
+- `_CAPS` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 123)
+- `FROZEN_STATE_PREFIX` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 546)
+- `FROZEN_STATE_FORECASTER` ([src/learnloop/adaptive_difficulty/outside.py](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 547)
 
 ### Explicit exports
 
@@ -115,23 +115,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_excerpt(text: Any, limit: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 131)
-- `_result(correctness: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 155)
-- `_llm_client(vault: Any, injected: Any | None) -> tuple[Any | None, str | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 261)
-- `_decider_client(vault: Any, injected: Any | None) -> Any | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 271)
-- `_store_payloads(repository: Any, owner_key: str, forecaster: str, request: Any, response: Any, now: str, retention_days: int) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 282)
-- `_ask_llm(vault: Any, repository: Any, client: Any, *, prompt: str, owner_id: str, envelope: Any, send: SendGuard) -> tuple[float | None, dict[str, Any], str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 295)
-- `_ask_decider(vault: Any, repository: Any, client: Any, *, state: Any, owner_id: str, envelope: Any, send: SendGuard) -> tuple[float, dict[str, Any], str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 316)
-- `_receipt(*, key: str, forecaster: str, version: str, scope: str, decision_kind: str, binding_kind: str, inputs: Mapping[str, Any], inputs_as_of: str, p: float | None, status: str, received_at: str, columns: Mapping[str, Any], model: str | None, request_hash: str, state_version: str=STATE_VERSION) -> ForecastReceipt` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 326)
-- `_existing(connection: Any, key: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 342)
-- `_verdict_text(p: float) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 347)
-- `_record_admission(send: SendGuard, outcome: ForecastOutcome) -> Callable[[], None] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 351) — The forecast's record admission, or None when its content is protected now.
-- `_protected(outcome: ForecastOutcome, exc: Exception) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 370)
-- `_write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at: str, payload_key: str, request: Any, response: Any, received: str, judgment: Mapping[str, Any] | None, admit: Callable[[], None] | None=None) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 374) — The forecast's payloads, its receipt and (accepted) its judgment, in one transaction.
-- `_forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_hash: str, key: str, outcome: ForecastOutcome, clock: Clock | None, send: SendGuard) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 472)
-- `_incumbent_inputs(connection: Any, presentation_id: str, view: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 524)
-- `_frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 590)
-- `_forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str, Any], frozen: Mapping[str, Any], *, clients: Clients, clock: Clock | None, send: SendGuard) -> ForecastOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 683)
+- `_excerpt(text: Any, limit: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 132)
+- `_result(correctness: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 156)
+- `_llm_client(vault: Any, injected: Any | None) -> tuple[Any | None, str | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 269)
+- `_decider_client(vault: Any, injected: Any | None) -> Any | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 279)
+- `_store_payloads(repository: Any, owner_key: str, forecaster: str, request: Any, response: Any, now: str, retention_days: int) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 290)
+- `_ask_llm(vault: Any, repository: Any, client: Any, *, prompt: str, owner_id: str, envelope: Any, send: SendGuard) -> tuple[float | None, dict[str, Any], str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 303)
+- `_ask_decider(vault: Any, repository: Any, client: Any, *, state: Any, owner_id: str, envelope: Any, send: SendGuard) -> tuple[float, dict[str, Any], str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 324)
+- `_receipt(*, key: str, forecaster: str, version: str, scope: str, decision_kind: str, binding_kind: str, inputs: Mapping[str, Any], inputs_as_of: str, p: float | None, status: str, received_at: str, columns: Mapping[str, Any], model: str | None, request_hash: str, state_version: str=STATE_VERSION) -> ForecastReceipt` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 334)
+- `_existing(connection: Any, key: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 350)
+- `_verdict_text(p: float) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 355)
+- `_record_admission(send: SendGuard, outcome: ForecastOutcome) -> Callable[[], None] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 359) — The forecast's record admission, or None when its content is protected now.
+- `_protected(outcome: ForecastOutcome, exc: Exception) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 378)
+- `_write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at: str, payload_key: str, request: Any, response: Any, received: str, judgment: Mapping[str, Any] | None, admit: Callable[[], None] | None=None) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 382) — The forecast's payloads, its receipt and (accepted) its judgment, in one transaction.
+- `_forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_hash: str, key: str, outcome: ForecastOutcome, clock: Clock | None, send: SendGuard) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 480)
+- `_incumbent_inputs(connection: Any, presentation_id: str, view: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 532)
+- `_frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 598)
+- `_forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str, Any], frozen: Mapping[str, Any], *, clients: Clients, clock: Clock | None, send: SendGuard) -> ForecastOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/outside.py), line 691)
 
 ## Who imports or calls it
 
@@ -169,6 +169,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] — imports `module`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `plan_route`, `resolve_client`; calls `plan_route`, `resolve_client`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `known_at`; calls `known_at`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `FIRST_PRESENTATION`, `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS`, `record_receipts`; calls `ForecastReceipt`, `record_receipts`
 
 ### Platform and third-party dependencies
@@ -251,6 +252,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_frozen_state_version_follows_the_switch`
   - `test_the_history_card_carries_bounded_answer_excerpts_only_while_on`
+- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
+  - `test_the_frozen_history_card_has_no_exam_before_its_import_at_the_tag`
 
 ## Modification guidance
 

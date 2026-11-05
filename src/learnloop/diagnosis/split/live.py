@@ -251,7 +251,7 @@ def current_confidence(repository: Any, attempt: Mapping[str, Any], record: Mapp
             return None
         if vault_grade and not held:
             held = attempt_id in held_attempts(connection, [attempt_id])
-        taps = ce.taps_before(connection, completed_at)
+        taps = ce.taps_before(connection, completed_at, getattr(vault, "config", None))
     result = ce.result_class(record.get("rubric_score"), record.get("max_points"), held=held)
     return ce.current_block(reading, result, [*taps, *([reading.tap] if reading.tap is not None else [])])
 

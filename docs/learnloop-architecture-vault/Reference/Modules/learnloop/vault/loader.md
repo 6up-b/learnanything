@@ -2781,6 +2781,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
+- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
 - [tests/test_ro1_interval_factor.py](../../../../../../tests/test_ro1_interval_factor.py) — direct import
   - `test_the_gate_is_the_tag_and_the_switch`
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import

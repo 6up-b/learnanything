@@ -6,8 +6,9 @@ next link of the linear chain: everything the predecessor means PLUS this:
 * the surprise interval factor is not applied to the FSRS interval: ``due_at`` follows
   ``interval_for_retention(S)``, and the surprise row records 1.0, what was applied
   (``[scheduler.surprise] remove_interval_factor``);
-* decision-time attempt reads (the router card) use the availability time
-  ``coalesce(received_at, created_at)`` (``[router_objective] available_at_reads``);
+* decision-time attempt reads (the router card, the diagnoser's history, AD's frozen history card, the
+  learner contexts: ``router_objective_switches.attempt_time_sql`` / ``known_at``) use the availability
+  time ``coalesce(received_at, created_at)`` (``[router_objective] available_at_reads``);
 * a learner's misconception pick is not counted as validated evidence for the diagnoser
   (``[router_objective] self_report_not_validated``).
 

@@ -237,13 +237,18 @@ def read_hedges(connection: Any, attempt_ids: Iterable[Any] | None = None) -> di
     return {attempt_id: hedge for attempt_id, values in reads.items() if (hedge := combine_hedges(values))}
 
 
-def taps_before(connection: Any, before_iso: str) -> list[int]:
-    """Every tap on an attempt created strictly before ``before_iso`` (for :func:`taps_limit`)."""
+def taps_before(connection: Any, before_iso: str, config: Any) -> list[int]:
+    """Every tap on an attempt created strictly before ``before_iso`` (for :func:`taps_limit`), and,
+    at RO1's tag with ``available_at_reads`` on, known before it (``attempt_time_sql``; ``config`` None
+    or the gate off: the predecessor's SQL)."""
+
+    from learnloop.router_objective_switches import attempt_time_sql
 
     if "answer_confidence" not in _columns(connection, "practice_attempts"):
         return []
+    known = attempt_time_sql(config, connection)
     rows = connection.execute(
-        "SELECT answer_confidence FROM practice_attempts WHERE answer_confidence IS NOT NULL AND created_at < ?",
+        f"SELECT answer_confidence FROM practice_attempts WHERE answer_confidence IS NOT NULL AND {known} < ?",
         (before_iso,),
     )
     return [tap for (value,) in rows if (tap := valid_tap(value)) is not None]
@@ -275,6 +280,7 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
 
     from learnloop import learner_protection as protection
     from learnloop.db.stores.write_provenance import read_snapshot
+    from learnloop.router_objective_switches import attempt_time_sql
 
     if not enabled(vault):
         return None
@@ -287,15 +293,17 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
         if "answer_confidence" not in columns:
             return None
         probe = "probe_presentation_id" if "probe_presentation_id" in columns else "NULL AS probe_presentation_id"
+        # RO1 (landing ruling R1): what was known before the cutoff; shown by when it happened.
+        known = attempt_time_sql(getattr(vault, "config", None), connection)
         rows = [dict(row) for row in connection.execute(
             "SELECT id, learning_object_id, practice_item_id, attempt_type, correctness, answer_confidence, "
-            f"created_at, {probe} FROM practice_attempts WHERE learning_object_id IN ({marks}) AND created_at < ? "
+            f"created_at, {probe} FROM practice_attempts WHERE learning_object_id IN ({marks}) AND {known} < ? "
             "ORDER BY created_at DESC, id DESC",
             (*los, before_iso),
         )]
         found = readings(connection, rows)
         held = protection.held_attempts(connection, list(found)) if found else frozenset()
-        taps = taps_before(connection, before_iso) if found else []
+        taps = taps_before(connection, before_iso, getattr(vault, "config", None)) if found else []
     if not found:
         return None
     # The shared protection, read only when there is something to show.

@@ -1319,11 +1319,15 @@ def _recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, gu
 
 
 def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
-            now_iso: str) -> list[dict[str, Any]]:
+            now_iso: str, config: Any = None) -> list[dict[str, Any]]:
+    from learnloop.router_objective_switches import attempt_time_sql
+
     if not los:
         return []
     scope = sorted(los)
     columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+    # RO1 (landing ruling R1): the traces known at ``now_iso``, newest by when they happened.
+    known = attempt_time_sql(config, connection)
 
     def column(name: str, default: str = "NULL") -> str:
         return name if name in columns else f"{default} AS {name}"
@@ -1333,7 +1337,7 @@ def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimi
         f"primed, learner_answer_md, created_at, probe_presentation_id, {column('reference_status')}, "
         f"{column('entry_surface')}, {column('evidence_origin')}, {column('declared_stuck', '0')}, "
         f"{column('declared_dont_know', '0')} FROM practice_attempts "
-        f"WHERE learning_object_id IN ({_marks(scope)}) AND created_at <= ? ORDER BY created_at DESC, id DESC LIMIT ?",
+        f"WHERE learning_object_id IN ({_marks(scope)}) AND {known} <= ? ORDER BY created_at DESC, id DESC LIMIT ?",
         (*scope, now_iso, int(limits.traces)),
     )]
     if not rows:
@@ -1633,7 +1637,7 @@ def learning_context(
         hypotheses = _hypotheses(connection, los, limits, guard, unknowns)
         groups = _recurrence_groups(connection, los, limits, guard, unknowns)
         try:
-            traces = _traces(connection, repository, los, limits, guard, now_iso)
+            traces = _traces(connection, repository, los, limits, guard, now_iso, getattr(vault, "config", None))
         except Exception:  # noqa: BLE001 - named as unknown
             _LOG.warning("learner context: answer traces not read", exc_info=True)
             unknowns.append("recent answer traces could not be read")

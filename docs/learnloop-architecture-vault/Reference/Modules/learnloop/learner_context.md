@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/learner_context.py"
 source_paths:
   - "src/learnloop/learner_context.py"
-source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
-source_commit_timestamp: "2026-10-15T14:11:57-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8"
+source_commit_timestamp: "2026-11-04T18:53:13-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner_context.py](../../../../../src/learnloop/learner_context.py) |
-| Source lines | 1728 |
+| Source lines | 1732 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `7fdce04f0c816a7bf150ddcac4fb62e57f602b30` |
-| Commit timestamp | `2026-10-15T14:11:57-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8` |
+| Commit timestamp | `2026-11-04T18:53:13-05:00` |
 
 ## Public API
 
@@ -107,8 +107,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `searchable(self, lo_id: Any) -> bool` (line 843; public) — Whether a request may name this topic by its words (a topic search) or by its raw id: not while a generated name is withheld.
   - `group_ref(self, group_key: Any) -> str` (line 852; public) — A recurrence group's key as shown (:func:`group_alias`).
 - `resolve_scope(vault: Any, *, learning_object_ids: Sequence[str] | None=None, topic: str | None=None, aliases: Mapping[str, str] | None=None, searchable: Callable[[str], bool] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop/learner_context.py), line 986) — The LOs a context is about: named ids, a topic's matches, or every active LO.
-- `retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: datetime, limit: int=15, unknowns: list[str] | None=None, topic: Callable[[str], Any] | None=None, ref: Callable[[str], Any] | None=None) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1533) — Topics whose modelled recall now is below :data:`RETENTION_TARGET`, or due now.
-- `learning_context(vault: Any, repository: Any, *, learning_object_ids: Sequence[str] | None=None, topic: str | None=None, now: datetime | None=None, limits: ContextLimits | None=None, withheld: Withheld | None=None, alias_key: bytes | None=None, provenance: ProvenanceSource | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop/learner_context.py), line 1598) — The shared latent-state read model for one scope.
+- `retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: datetime, limit: int=15, unknowns: list[str] | None=None, topic: Callable[[str], Any] | None=None, ref: Callable[[str], Any] | None=None) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1537) — Topics whose modelled recall now is below :data:`RETENTION_TARGET`, or due now.
+- `learning_context(vault: Any, repository: Any, *, learning_object_ids: Sequence[str] | None=None, topic: str | None=None, now: datetime | None=None, limits: ContextLimits | None=None, withheld: Withheld | None=None, alias_key: bytes | None=None, provenance: ProvenanceSource | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop/learner_context.py), line 1602) — The shared latent-state read model for one scope.
 
 ### Module constants
 
@@ -223,12 +223,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_diagnosed_causes(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard, unknowns: list[str]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1148)
 - `_unresolved_causes(connection: Any, los: set[str], guard: TextGuard, unknowns: list[str]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1235) — Answers whose cause is not settled, per LO (a count; no answer text).
 - `_recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard, unknowns: list[str]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1265) — Groups touching the scope's LOs.
-- `_traces(connection: Any, repository: Any, los: set[str], limits: ContextLimits, guard: TextGuard, now_iso: str) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1321)
-- `_diagnosis(repository: Any, guard: TextGuard, attempt_id: str, lo_id: Any, item_id: Any, *, hidden: bool, hypotheses: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../src/learnloop/learner_context.py), line 1404)
-- `_gaps(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard, unknowns: list[str]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1438)
-- `_gap_words(guard: TextGuard, row: Mapping[str, Any]) -> tuple[GuardedText | None, str | None]` ([source](../../../../../src/learnloop/learner_context.py), line 1483) — A gap's words: the pinned answer they are (a diagnosis's or a stuck answer's gap: (b), shown as the attempt records it), else a question the learner asked ((c): the gap's record names the question and the item contract it was asked about, Q10, and the question's item must pass t…
-- `_belief(connection: Any, kind: str, record_id: Any) -> tuple[str, Any, Any] | None` ([source](../../../../../src/learnloop/learner_context.py), line 1498) — ``(record kind, statement, topic)`` of the belief a gap was matched to: a recorded misconception (``durable``), or a candidate in the holding pen or the hypothesis it projects (``candidate``).
-- `_gap_target(connection: Any, guard: TextGuard, kind: Any, target_id: Any) -> tuple[GuardedText | None, str | None, str | None]` ([source](../../../../../src/learnloop/learner_context.py), line 1514) — What a gap was matched to: ``(statement, note, topic)``.
+- `_traces(connection: Any, repository: Any, los: set[str], limits: ContextLimits, guard: TextGuard, now_iso: str, config: Any=None) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1321)
+- `_diagnosis(repository: Any, guard: TextGuard, attempt_id: str, lo_id: Any, item_id: Any, *, hidden: bool, hypotheses: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../src/learnloop/learner_context.py), line 1408)
+- `_gaps(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard, unknowns: list[str]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/learner_context.py), line 1442)
+- `_gap_words(guard: TextGuard, row: Mapping[str, Any]) -> tuple[GuardedText | None, str | None]` ([source](../../../../../src/learnloop/learner_context.py), line 1487) — A gap's words: the pinned answer they are (a diagnosis's or a stuck answer's gap: (b), shown as the attempt records it), else a question the learner asked ((c): the gap's record names the question and the item contract it was asked about, Q10, and the question's item must pass t…
+- `_belief(connection: Any, kind: str, record_id: Any) -> tuple[str, Any, Any] | None` ([source](../../../../../src/learnloop/learner_context.py), line 1502) — ``(record kind, statement, topic)`` of the belief a gap was matched to: a recorded misconception (``durable``), or a candidate in the holding pen or the hypothesis it projects (``candidate``).
+- `_gap_target(connection: Any, guard: TextGuard, kind: Any, target_id: Any) -> tuple[GuardedText | None, str | None, str | None]` ([source](../../../../../src/learnloop/learner_context.py), line 1518) — What a gap was matched to: ``(statement, note, topic)``.
 
 ## Who imports or calls it
 
@@ -251,6 +251,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `DONE`, `diagnosis_status`; calls `diagnosis_status`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `ANSWER_UNRECORDED`, `PINS_UNREADABLE`, `PROTECTION_UNKNOWN`, `PastWork`, `QUESTION_UNRECORDED`, `SNAPSHOT_UNSETTLED`, `STEM_UNRECORDED`, `WITHHELD_COLD`, `WITHHELD_EXAM`, `WITHHELD_PROBE`, `WITHHELD_RESERVED`, `WITHHELD_SOLUTION_OPEN`, `WITHHELD_UNKNOWN_ITEM`, `WITHHELD_UNREADABLE`, `Withheld`, `attempt_result`, `hypothesis_answers`, `past_work_text`, `protection_issues`, `statement_text`, `withheld_items`; calls `PastWork`, `attempt_result`, `hypothesis_answers`, `past_work_text`, `statement_text`, `withheld_items`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`; calls `forgetting_curve`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `span_leaks_expected`; calls `span_leaks_expected`
 - [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] — imports `created_from_learner_text`; calls `created_from_learner_text`
@@ -330,6 +331,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mcp_tools.py](../../../../../tests/test_mcp_tools.py) — direct import
   - `test_learning_context_is_the_apps_latent_state`
 - [tests/test_notes_c2b_review5.py](../../../../../tests/test_notes_c2b_review5.py) — direct import
+- [tests/test_ro1_availability_reads.py](../../../../../tests/test_ro1_availability_reads.py) — direct import
+  - `test_the_learner_contexts_traces_exclude_an_exam_not_yet_imported`
 
 ## Modification guidance
 

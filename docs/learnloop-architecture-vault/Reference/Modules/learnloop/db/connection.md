@@ -775,6 +775,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_220_on_the_durability_lane`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
+- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_proof_item_is_graded_in_exactly_one_model_call`
   - `test_f5_a_joint_regrade_supersedes_a_route_verdict`

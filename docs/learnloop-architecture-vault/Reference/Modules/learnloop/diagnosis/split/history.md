@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/split/history.py"
 source_paths:
   - "src/learnloop/diagnosis/split/history.py"
-source_commit: "a54d66dbba5da09707aa22c9e3a76de4d2a557c3"
-source_commit_timestamp: "2026-11-04T17:57:15-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8"
+source_commit_timestamp: "2026-11-04T18:53:13-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.split"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/history.py](../../../../../../../src/learnloop/diagnosis/split/history.py) |
-| Source lines | 1364 |
+| Source lines | 1397 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a54d66dbba5da09707aa22c9e3a76de4d2a557c3` |
-| Commit timestamp | `2026-11-04T17:57:15-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8` |
+| Commit timestamp | `2026-11-04T18:53:13-05:00` |
 
 ## Public API
 
@@ -89,41 +89,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `history_attempt_from_blind_record(vault: LoadedVault, *, attempt_id: str, item: PracticeItem | None, learning_object_id: str, practice_item_id: str, completed_at: str, learner_answer_md: str, attempt_type: str, record: Mapping[str, Any], hints_used: int=0, primed: bool=False, contract: Mapping[str, Any] | None=None) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 562) — Blind-grade-equivalent fields from a validated blind grade record.
 - `class VaultHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 657) — History read from a vault database, with an optional blind-grade overlay.
   - `__init__(self, vault: LoadedVault, repository: Repository, *, blind_grades: Mapping[str, Mapping[str, Any]] | None=None, grading_marks: Mapping[str, str] | None=None) -> None` (line 665; internal)
-  - `with_blind_grades(self, blind_grades: Mapping[str, Mapping[str, Any]]) -> 'VaultHistoryStore'` (line 697; public)
-  - `blind_grade(self, attempt_id: str) -> Mapping[str, Any] | None` (line 705; public) — The overlay's blind record of ``attempt_id`` (read with its grading's identity by ``live.live_history_store``), or None.
-  - `_held(self, attempt_id: str, ledger_held: frozenset[str]) -> bool` (line 711; internal) — Is the grade this store shows for ``attempt_id`` held for review?
-  - `_load(self) -> None` (line 732; internal)
-  - `_written_before(written: datetime | None, before: AttemptRef) -> bool` (line 1020; internal) — Whether a record was written strictly before the cutoff attempt.
-  - `_visible(self, entry: _Written, before: AttemptRef) -> bool` (line 1030; internal)
-  - `_hypotheses_as_of(self, before: AttemptRef) -> list[HypothesisRecord]` (line 1035; internal) — Every hypothesis as it stood at ``before``.
-  - `_observed_before(self, cold_attempt_id: str, written: datetime | None, before: AttemptRef) -> bool` (line 1064; internal) — A cold verification counts as of ``before`` only when it was recorded before it AND its cold attempt (when known) precedes it.
-  - `_repair_as_of(self, entry: tuple[Any, ...], visible_hypotheses: Sequence[HypothesisRecord], before: AttemptRef) -> RepairRecord | None` (line 1073; internal)
-  - `_earliest_source(self, error_event_ids: Sequence[str]) -> str | None` (line 1091; internal)
-  - `_from_stored(self, row: Mapping[str, Any], item: PracticeItem | None, points: Mapping[str, float], events: Sequence[Mapping[str, Any]], fatal: Sequence[str], *, has_unassessed: bool=False, contract: Mapping[str, Any] | None=None) -> HistoryAttempt` (line 1101; internal) — A stored joint grade, reduced to blind-grade-equivalent fields (S3).
-  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1183; public)
-  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1187; public)
-  - `all_attempts(self) -> list[HistoryAttempt]` (line 1192; public)
-  - `grading_marks(self) -> dict[str, str]` (line 1196; public) — Each attempt's grading identity as this store read it, in one snapshot with what it shows (``write_provenance.grading_marks``: the payload, the contract and the provenance): a record frozen later names every grading replaced since (diagnosis input provenance, codex review F3 and…
-  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1206; public)
-  - `_source_before(self, source_attempt_id: str | None, before: AttemptRef) -> bool` (line 1218; internal)
-  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1224; public)
-  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1231; public)
-  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1243; public)
-  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1256; public)
-- `class StaticHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1262) — An explicit history, e.g.
-  - `__post_init__(self) -> None` (line 1270; internal)
-  - `add(self, attempt: HistoryAttempt) -> None` (line 1274; public)
-  - `replace_attempt(self, attempt: HistoryAttempt) -> None` (line 1278; public)
-  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1284; public)
-  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1287; public)
-  - `all_attempts(self) -> list[HistoryAttempt]` (line 1291; public)
-  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1294; public)
-  - `_before(self, source: str | None, before: AttemptRef) -> bool` (line 1305; internal)
-  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1309; public)
-  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1319; public)
-  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1330; public)
-  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1341; public)
-- `with_blind_overlay(attempt: HistoryAttempt, **changes: Any) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1345)
+  - `with_blind_grades(self, blind_grades: Mapping[str, Mapping[str, Any]]) -> 'VaultHistoryStore'` (line 702; public)
+  - `blind_grade(self, attempt_id: str) -> Mapping[str, Any] | None` (line 710; public) — The overlay's blind record of ``attempt_id`` (read with its grading's identity by ``live.live_history_store``), or None.
+  - `_held(self, attempt_id: str, ledger_held: frozenset[str]) -> bool` (line 716; internal) — Is the grade this store shows for ``attempt_id`` held for review?
+  - `_load(self) -> None` (line 737; internal)
+  - `_written_before(written: datetime | None, before: AttemptRef) -> bool` (line 1033; internal) — Whether a record was written strictly before the cutoff attempt.
+  - `_visible(self, entry: _Written, before: AttemptRef) -> bool` (line 1043; internal)
+  - `_hypotheses_as_of(self, before: AttemptRef) -> list[HypothesisRecord]` (line 1048; internal) — Every hypothesis as it stood at ``before``.
+  - `_observed_before(self, cold_attempt_id: str, written: datetime | None, before: AttemptRef) -> bool` (line 1077; internal) — A cold verification counts as of ``before`` only when it was recorded before it AND its cold attempt (when known) precedes it.
+  - `_repair_as_of(self, entry: tuple[Any, ...], visible_hypotheses: Sequence[HypothesisRecord], before: AttemptRef) -> RepairRecord | None` (line 1086; internal)
+  - `_earliest_source(self, error_event_ids: Sequence[str]) -> str | None` (line 1104; internal)
+  - `_from_stored(self, row: Mapping[str, Any], item: PracticeItem | None, points: Mapping[str, float], events: Sequence[Mapping[str, Any]], fatal: Sequence[str], *, has_unassessed: bool=False, contract: Mapping[str, Any] | None=None) -> HistoryAttempt` (line 1114; internal) — A stored joint grade, reduced to blind-grade-equivalent fields (S3).
+  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1196; public)
+  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1200; public)
+  - `all_attempts(self) -> list[HistoryAttempt]` (line 1205; public)
+  - `grading_marks(self) -> dict[str, str]` (line 1209; public) — Each attempt's grading identity as this store read it, in one snapshot with what it shows (``write_provenance.grading_marks``: the payload, the contract and the provenance): a record frozen later names every grading replaced since (diagnosis input provenance, codex review F3 and…
+  - `_cutoff(self, before: AttemptRef) -> datetime | None` (line 1219; internal) — When the decision at ``before`` was made: when its attempt became known (an import's receipt), else when it happened.
+  - `_known_by(self, attempt_id: str, cutoff: datetime | None) -> bool` (line 1225; internal) — RO1 §5.3: True unless the attempt became known after the cutoff (always True with the gate off or below the tag, where nothing is held in ``_known``).
+  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1232; public)
+  - `_source_before(self, source_attempt_id: str | None, before: AttemptRef) -> bool` (line 1246; internal)
+  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1253; public)
+  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1260; public)
+  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1272; public)
+  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1285; public) — Attempts the cutoff does not show: after it, and (RO1 §5.3) before it but not yet known.
+- `class StaticHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1295) — An explicit history, e.g.
+  - `__post_init__(self) -> None` (line 1303; internal)
+  - `add(self, attempt: HistoryAttempt) -> None` (line 1307; public)
+  - `replace_attempt(self, attempt: HistoryAttempt) -> None` (line 1311; public)
+  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1317; public)
+  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1320; public)
+  - `all_attempts(self) -> list[HistoryAttempt]` (line 1324; public)
+  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1327; public)
+  - `_before(self, source: str | None, before: AttemptRef) -> bool` (line 1338; internal)
+  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1342; public)
+  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1352; public)
+  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1363; public)
+  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1374; public)
+- `with_blind_overlay(attempt: HistoryAttempt, **changes: Any) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1378)
 
 ### Module constants
 
@@ -194,7 +196,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/stores/answered_contracts|learnloop.db.stores.answered_contracts]] — imports `answered_contracts`; calls `answered_contracts`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `UNIDENTIFIED_GRADING`, `grading_marks`, `read_snapshot`, `replaced_error_event_attempts`; calls `grading_marks`, `read_snapshot`, `replaced_error_event_attempts`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `grade_held_for_review`; calls `grade_held_for_review`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `validated_resolution_ids`; calls `validated_resolution_ids`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`, `known_at`, `validated_resolution_ids`; calls `attempt_time_sql`, `known_at`, `validated_resolution_ids`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `UNVERIFIED_CRITERION_BLOCK`, `held_for_review_attempts`, `surface_group_id`, `unverified_evidence_row`; calls `held_for_review_attempts`, `surface_group_id`, `unverified_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `answered_prompt`; calls `answered_prompt`
@@ -257,6 +259,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_later_diagnosis_cannot_cite_an_unassessed_shortfall_as_a_recurrence`
 - [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — direct import
   - `test_f3_the_diagnosers_history_and_current_attempt_read_the_question_given`
+- [tests/test_ro1_availability_reads.py](../../../../../../../tests/test_ro1_availability_reads.py) — direct import
+  - `test_the_diagnosers_prior_history_has_no_exam_before_its_import_at_the_tag`
+  - `test_the_exam_rows_before_an_imported_target_follow_the_import`
 - [tests/test_ro1_projection.py](../../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_ro1_self_report.py](../../../../../../../tests/test_ro1_self_report.py) — direct import
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import

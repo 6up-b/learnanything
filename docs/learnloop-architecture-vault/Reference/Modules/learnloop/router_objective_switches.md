@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c"
-source_commit_timestamp: "2026-11-04T17:56:52-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8"
+source_commit_timestamp: "2026-11-04T18:53:13-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -50,31 +50,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 114 |
+| Source lines | 149 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c` |
-| Commit timestamp | `2026-11-04T17:56:52-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8` |
+| Commit timestamp | `2026-11-04T18:53:13-05:00` |
 
 ## Public API
 
-- `interval_factor_removed(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 43) — §5.1: True when the FSRS interval carries no surprise factor (the tag and the switch).
-- `available_at_reads_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 51) — §5.3: True when decision-time attempt reads use the availability time.
-- `self_report_not_validated_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 58) — §5.4: True when a learner's pick is not counted as validated evidence.
-- `available_at(row: Mapping[str, Any]) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 65) — ``coalesce(received_at, created_at)``: when the attempt became known to the system.
-- `attempt_time_column(config: Any) -> str` ([source](../../../../../src/learnloop/router_objective_switches.py), line 78) — The SQL expression a decision-time read filters and orders attempts by: the availability time at the tag with the switch on, otherwise ``created_at`` (the predecessor's SQL, byte for byte).
-- `validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 85) — The resolution ids that count as validated evidence: all of them below the tag or with the switch off; otherwise all but a learner's own reports (§5.4).
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 95) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `interval_factor_removed(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 47) — §5.1: True when the FSRS interval carries no surprise factor (the tag and the switch).
+- `available_at_reads_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 55) — §5.3: True when decision-time attempt reads use the availability time.
+- `self_report_not_validated_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 62) — §5.4: True when a learner's pick is not counted as validated evidence.
+- `available_at(row: Mapping[str, Any]) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 69) — ``coalesce(received_at, created_at)``: when the attempt became known to the system.
+- `attempt_time_sql(config: Any, connection: Any=None, *, alias: str | None=None) -> str` ([source](../../../../../src/learnloop/router_objective_switches.py), line 82) — THE availability predicate's SQL form: the expression a decision-time read of ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
+- `known_at(row: Mapping[str, Any], config: Any) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 104) — THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time cutoff compares with.
+- `validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 119) — The resolution ids that count as validated evidence: all of them below the tag or with the switch off; otherwise all but a learner's own reports (§5.4).
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 129) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
-- `LEARNER_REPORT_PREFIX` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 24)
-- `AVAILABLE_AT_SQL` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 27)
-- `RECEIVED_AT_RECORDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 31)
-- `RECEIVED_AT_INFERRED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 32)
-- `INTERVAL_FACTOR_SNAPSHOT_KEY` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 35)
+- `LEARNER_REPORT_PREFIX` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 28)
+- `AVAILABLE_AT_SQL` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 31)
+- `RECEIVED_AT_RECORDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 35)
+- `RECEIVED_AT_INFERRED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 36)
+- `INTERVAL_FACTOR_SNAPSHOT_KEY` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 39)
 
 ### Explicit exports
 
@@ -85,27 +86,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LEARNER_REPORT_PREFIX`
 - `RECEIVED_AT_INFERRED`
 - `RECEIVED_AT_RECORDED`
-- `attempt_time_column`
+- `attempt_time_sql`
 - `available_at`
 - `available_at_reads_on`
 - `interval_factor_removed`
+- `known_at`
 - `projection_switches`
 - `self_report_not_validated_on`
 - `validated_resolution_ids`
 
 ## Internal implementation anchors
 
-- `_at_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 38)
+- `_at_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 42)
+- `_has_received_at(connection: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 115)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `known_at`; statically calls `known_at`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `interval_factor_removed`; statically calls `interval_factor_removed`
-- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `attempt_time_column`; statically calls `attempt_time_column`
-- [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] — imports `validated_resolution_ids`; statically calls `validated_resolution_ids`
+- [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
+- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
+- [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] — imports `attempt_time_sql`, `known_at`, `validated_resolution_ids`; statically calls `attempt_time_sql`, `known_at`, `validated_resolution_ids`
+- [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `INTERVAL_FACTOR_SNAPSHOT_KEY`, `projection_switches`; statically calls `projection_switches`
+- [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `projection_switches`; statically calls `projection_switches`
 
@@ -127,7 +134,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -137,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_available_at_is_received_at_else_created_at`
   - `test_exam_seeding_records_the_import_time_and_replay_keeps_it`
   - `test_the_router_cards_decision_time_reads_use_availability_at_the_tag`
+- [tests/test_ro1_availability_reads.py](../../../../../tests/test_ro1_availability_reads.py) — direct import
+  - `test_the_predicate_is_the_predecessors_column_below_the_tag_or_switched_off`
 - [tests/test_ro1_interval_factor.py](../../../../../tests/test_ro1_interval_factor.py) — direct import
   - `test_the_gate_is_the_tag_and_the_switch`
 - [tests/test_ro1_projection.py](../../../../../tests/test_ro1_projection.py) — direct import

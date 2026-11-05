@@ -385,6 +385,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_request_sweep.py](../../../../../../tests/test_reading_request_sweep.py) — direct import
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
   - `test_availability_moves_no_due_date_or_mastery`
 - [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import

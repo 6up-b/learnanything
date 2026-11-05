@@ -6,7 +6,11 @@ true; off, or below the tag, the predecessor's behaviour:
 * :func:`interval_factor_removed`: the surprise factor is not applied to the FSRS interval (§5.1). The
   attempt path asks it once per review, live and in replay alike, so a rebuild re-derives due dates under
   the vault's config;
-* :func:`available_at_reads_on`: decision-time reads of attempts use :func:`available_at` (§5.3);
+* :func:`available_at_reads_on`: decision-time reads of attempts use :func:`available_at` (§5.3),
+  through the one predicate, :func:`attempt_time_sql` in SQL and :func:`known_at` over a loaded row
+  (landing ruling R1: every decision-time read of ``practice_attempts`` with a time cutoff asks it;
+  outcomes, FSRS, mastery, write paths and reports keep occurrence time, named with their reasons in
+  ``tests/test_ro1_availability_reads.py``);
 * :func:`self_report_not_validated_on`: a ``learner_report:*`` resolution id is no validated evidence (§5.4).
 
 :func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
@@ -75,11 +79,41 @@ def available_at(row: Mapping[str, Any]) -> str | None:
     return str(created) if created else None
 
 
-def attempt_time_column(config: Any) -> str:
-    """The SQL expression a decision-time read filters and orders attempts by: the availability time at
-    the tag with the switch on, otherwise ``created_at`` (the predecessor's SQL, byte for byte)."""
+def attempt_time_sql(config: Any, connection: Any = None, *, alias: str | None = None) -> str:
+    """THE availability predicate's SQL form: the expression a decision-time read of
+    ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
 
-    return AVAILABLE_AT_SQL if available_at_reads_on(config) else "created_at"
+    At the tag with ``[router_objective] available_at_reads`` on, ``COALESCE(received_at, created_at)``:
+    an attempt counts at a cutoff only once it was known (an exam sat May 1 and imported May 19 is not
+    there on May 5). Otherwise, and when ``connection``'s ``practice_attempts`` has no ``received_at``
+    (a database below migration 242), ``created_at``: the predecessor's column, so the read's SQL is
+    the predecessor's text byte for byte. ``alias`` prefixes the columns (``a.created_at``).
+
+    A window's lower bound (``created_at >= since``) and the order rows are shown in stay by when the
+    work happened; only the cutoff asks this."""
+
+    prefix = f"{alias}." if alias else ""
+    occurrence = f"{prefix}created_at"
+    if not available_at_reads_on(config):
+        return occurrence
+    if connection is not None and not _has_received_at(connection):
+        return occurrence
+    return f"COALESCE({prefix}received_at, {occurrence})"
+
+
+def known_at(row: Mapping[str, Any], config: Any) -> str | None:
+    """THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time
+    cutoff compares with. :func:`available_at` at the tag with the switch on (a row read without
+    ``received_at`` falls back to ``created_at``), otherwise ``created_at``, as the predecessor."""
+
+    if available_at_reads_on(config):
+        return available_at(row)
+    created = row.get("created_at")
+    return str(created) if created else None
+
+
+def _has_received_at(connection: Any) -> bool:
+    return any(row[1] == "received_at" for row in connection.execute("PRAGMA table_info(practice_attempts)"))
 
 
 def validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]:
@@ -104,10 +138,11 @@ __all__ = [
     "LEARNER_REPORT_PREFIX",
     "RECEIVED_AT_INFERRED",
     "RECEIVED_AT_RECORDED",
-    "attempt_time_column",
+    "attempt_time_sql",
     "available_at",
     "available_at_reads_on",
     "interval_factor_removed",
+    "known_at",
     "projection_switches",
     "self_report_not_validated_on",
     "validated_resolution_ids",

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/interval_factor_upgrade.py"
 source_paths:
   - "src/learnloop/interval_factor_upgrade.py"
-source_commit: "028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c"
-source_commit_timestamp: "2026-11-04T17:56:52-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8"
+source_commit_timestamp: "2026-11-04T18:53:13-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -49,24 +49,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/interval_factor_upgrade.py](../../../../../src/learnloop/interval_factor_upgrade.py) |
-| Source lines | 263 |
+| Source lines | 264 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c` |
-| Commit timestamp | `2026-11-04T17:56:52-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8` |
+| Commit timestamp | `2026-11-04T18:53:13-05:00` |
 
 ## Public API
 
-- `upgrade_to_interval_factor(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 80) — The predecessor (or mvp-0.9 onwards, through the chain) -> RO1's tag.
-- `complete_interrupted_activation(root: Path, *, vault=None, clock: Clock | None=None) -> str | None` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 90) — Finish any journalled activation of the chain a dead process left; None when there is none.
+- `upgrade_to_interval_factor(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 81) — The predecessor (or mvp-0.9 onwards, through the chain) -> RO1's tag.
+- `complete_interrupted_activation(root: Path, *, vault=None, clock: Clock | None=None) -> str | None` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 91) — Finish any journalled activation of the chain a dead process left; None when there is none.
 
 ### Module constants
 
-- `PREDECESSOR` ([src/learnloop/interval_factor_upgrade.py](../../../../../src/learnloop/interval_factor_upgrade.py), line 70)
-- `_CHAINED_PREDECESSORS` ([src/learnloop/interval_factor_upgrade.py](../../../../../src/learnloop/interval_factor_upgrade.py), line 74)
-- `_STEP_REFUSAL` ([src/learnloop/interval_factor_upgrade.py](../../../../../src/learnloop/interval_factor_upgrade.py), line 77)
+- `PREDECESSOR` ([src/learnloop/interval_factor_upgrade.py](../../../../../src/learnloop/interval_factor_upgrade.py), line 71)
+- `_CHAINED_PREDECESSORS` ([src/learnloop/interval_factor_upgrade.py](../../../../../src/learnloop/interval_factor_upgrade.py), line 75)
+- `_STEP_REFUSAL` ([src/learnloop/interval_factor_upgrade.py](../../../../../src/learnloop/interval_factor_upgrade.py), line 78)
 
 ### Explicit exports
 
@@ -78,11 +78,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_journal_path(vault) -> Path` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 133) — The activation journal beside the vault database (``learnloop.activation_journal``).
-- `_read_journal(path: Path) -> tuple[str, str] | str | None` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 139)
-- `_upgrade(root: Path, *, clock: Clock | None) -> UpgradeResult` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 149)
-- `_activate(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 192) — Rebuild the vault under ``target`` in one transaction.
-- `_activate_as_writer(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 209)
+- `_journal_path(vault) -> Path` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 134) — The activation journal beside the vault database (``learnloop.activation_journal``).
+- `_read_journal(path: Path) -> tuple[str, str] | str | None` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 140)
+- `_upgrade(root: Path, *, clock: Clock | None) -> UpgradeResult` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 150)
+- `_activate(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 193) — Rebuild the vault under ``target`` in one transaction.
+- `_activate_as_writer(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/interval_factor_upgrade.py), line 210)
 
 ## Who imports or calls it
 

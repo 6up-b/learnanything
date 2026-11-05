@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/router_card.py"
 source_paths:
   - "src/learnloop/daily_plan/router_card.py"
-source_commit: "d82264755096bd6b464b054f49c11ae2e839cbfe"
-source_commit_timestamp: "2026-11-04T18:40:57-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8"
+source_commit_timestamp: "2026-11-04T18:53:13-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -50,49 +50,48 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py) |
-| Source lines | 781 |
+| Source lines | 772 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `d82264755096bd6b464b054f49c11ae2e839cbfe` |
-| Commit timestamp | `2026-11-04T18:40:57-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD adee65b3c1cd11c848c783a278b508c7ffb791c8` |
+| Commit timestamp | `2026-11-04T18:53:13-05:00` |
 
 ## Public API
 
-- `class CardText` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 142) — The card's text rule (plan §3.6, gate G5), a parameter of the shared protection (``learner_protection.TextRule``).
-  - `__init__(self, past: PastWork) -> None` (line 149; internal)
-  - `question(self, attempt_id: str, lo_id: Any) -> tuple[str | None, str | None]` (line 152; public)
-  - `answer(self, attempt_id: str, text: Any, limit: int) -> tuple[str | None, str | None]` (line 157; public)
-  - `statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Any=(), items: Any=(), los: Any=()) -> tuple[str | None, str | None]` (line 161; public)
-- `class CardGatherer` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 166) — Builds the card for one plan decision (``StagedChooser.card_builder``).
-  - `__init__(self, vault: Any, repository: Any, *, clock: Any=None, session_id: str | None=None) -> None` (line 169; internal)
-  - `__call__(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> LearnerStateCard` (line 175; internal)
-  - `inputs(self, state: PlanState, feasible: Sequence[BlockCandidate], *, now_iso: str) -> CardInputs` (line 184; public)
-  - `_reader_activity(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, Any] | None` (line 282; internal) — The card's copy of ``ReaderActivityV1`` (RW6b part 2), or None (switched off, or nothing on these LOs).
-  - `_confidence(connection: Any, attempts: Sequence[Mapping[str, Any]], candidate_los: Sequence[str], recent: list[dict[str, Any]], held: frozenset[str], now_iso: str, unknowns: list[str]) -> tuple[dict[str, list[dict[str, Any]]], str | None, int]` (line 300; internal) — TE0 (spec_teacher_v1 §15.2): the confidence events.
-  - `_suggestion_preferences(self, connection: Any, titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 344; internal) — Teacher TE1b: the responses to Today's lesson suggestion card in the card's 7-day window, newest first (at most one card a day: the card's own rhythm).
-  - `_evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str, withheld: Withheld, unknowns: list[str]) -> dict[str, Any]` (line 394; internal) — The typed evidence registry (R2a's hook).
-  - `_candidate(candidate: BlockCandidate, titles: Mapping[str, str]) -> dict[str, Any]` (line 414; internal)
-  - `_attempt_time(self, connection: Any) -> str` (line 430; internal) — The column decision-time attempt reads filter by (RO1 §5.3): the availability time where the gate is on and the database has ``received_at``, otherwise ``created_at``.
-  - `_attempts(self, connection: Any, los: Sequence[str], now_iso: str) -> list[dict[str, Any]]` (line 442; internal)
-  - `_classes(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, str] | None` (line 459; internal) — The Today headline's class of each LO (review F7), or None when it cannot be read (then no topic is demonstrated or assumed).
-  - `_learning_objects(self, los: Sequence[str], candidate_los: Sequence[str], attempts: Sequence[Mapping[str, Any]], held: frozenset[str], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> dict[str, dict[str, Any]]` (line 474; internal)
-  - `_adaptive_difficulty(self, lo: str, unknowns: list[str]) -> dict[str, Any] | None` (line 563; internal)
-  - `_interaction(self, connection: Any, now_iso: str, unknowns: list[str]) -> dict[str, Any]` (line 577; internal)
-  - `_open_problems(self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 610; internal)
-  - `_self_reports(self, connection: Any, los: set[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 702; internal)
-  - `_withheld_items(self, unknowns: list[str]) -> Withheld` (line 734; internal) — The items whose question and answers the card never shows: the shared predicate (``learner_protection.withheld_items``, the chat frontend's too): exam material by the one exam predicate, live assessment reservations, items a cold check or a repair's cold retry holds, diagnostic…
-  - `_recent_work(self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], past: PastWork, rule: CardText, titles: Mapping[str, str]) -> list[dict[str, Any]]` (line 752; internal)
+- `class CardText` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 143) — The card's text rule (plan §3.6, gate G5), a parameter of the shared protection (``learner_protection.TextRule``).
+  - `__init__(self, past: PastWork) -> None` (line 150; internal)
+  - `question(self, attempt_id: str, lo_id: Any) -> tuple[str | None, str | None]` (line 153; public)
+  - `answer(self, attempt_id: str, text: Any, limit: int) -> tuple[str | None, str | None]` (line 158; public)
+  - `statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Any=(), items: Any=(), los: Any=()) -> tuple[str | None, str | None]` (line 162; public)
+- `class CardGatherer` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 167) — Builds the card for one plan decision (``StagedChooser.card_builder``).
+  - `__init__(self, vault: Any, repository: Any, *, clock: Any=None, session_id: str | None=None) -> None` (line 170; internal)
+  - `__call__(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> LearnerStateCard` (line 176; internal)
+  - `inputs(self, state: PlanState, feasible: Sequence[BlockCandidate], *, now_iso: str) -> CardInputs` (line 185; public)
+  - `_reader_activity(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, Any] | None` (line 284; internal) — The card's copy of ``ReaderActivityV1`` (RW6b part 2), or None (switched off, or nothing on these LOs).
+  - `_confidence(connection: Any, attempts: Sequence[Mapping[str, Any]], candidate_los: Sequence[str], recent: list[dict[str, Any]], held: frozenset[str], now_iso: str, unknowns: list[str], config: Any=None) -> tuple[dict[str, list[dict[str, Any]]], str | None, int]` (line 302; internal) — TE0 (spec_teacher_v1 §15.2): the confidence events.
+  - `_suggestion_preferences(self, connection: Any, titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 347; internal) — Teacher TE1b: the responses to Today's lesson suggestion card in the card's 7-day window, newest first (at most one card a day: the card's own rhythm).
+  - `_evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str, withheld: Withheld, unknowns: list[str]) -> dict[str, Any]` (line 397; internal) — The typed evidence registry (R2a's hook).
+  - `_candidate(candidate: BlockCandidate, titles: Mapping[str, str]) -> dict[str, Any]` (line 417; internal)
+  - `_attempts(self, connection: Any, los: Sequence[str], now_iso: str) -> list[dict[str, Any]]` (line 433; internal)
+  - `_classes(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, str] | None` (line 450; internal) — The Today headline's class of each LO (review F7), or None when it cannot be read (then no topic is demonstrated or assumed).
+  - `_learning_objects(self, los: Sequence[str], candidate_los: Sequence[str], attempts: Sequence[Mapping[str, Any]], held: frozenset[str], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> dict[str, dict[str, Any]]` (line 465; internal)
+  - `_adaptive_difficulty(self, lo: str, unknowns: list[str]) -> dict[str, Any] | None` (line 554; internal)
+  - `_interaction(self, connection: Any, now_iso: str, unknowns: list[str]) -> dict[str, Any]` (line 568; internal)
+  - `_open_problems(self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 601; internal)
+  - `_self_reports(self, connection: Any, los: set[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 693; internal)
+  - `_withheld_items(self, unknowns: list[str]) -> Withheld` (line 725; internal) — The items whose question and answers the card never shows: the shared predicate (``learner_protection.withheld_items``, the chat frontend's too): exam material by the one exam predicate, live assessment reservations, items a cold check or a repair's cold retry holds, diagnostic…
+  - `_recent_work(self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], past: PastWork, rule: CardText, titles: Mapping[str, str]) -> list[dict[str, Any]]` (line 743; internal)
 
 ### Module constants
 
-- `_LOG` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 95)
-- `RECENT_WORK_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 98)
-- `LEARNING_OBJECT_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 100)
-- `OPEN_PROBLEM_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 101)
-- `SELF_REPORT_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 102)
-- `NOT_RECORDED` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 103)
+- `_LOG` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 96)
+- `RECENT_WORK_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 99)
+- `LEARNING_OBJECT_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 101)
+- `OPEN_PROBLEM_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 102)
+- `SELF_REPORT_LIMIT` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 103)
+- `NOT_RECORDED` ([src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py), line 104)
 
 ### Explicit exports
 
@@ -104,11 +103,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 106)
-- `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 111)
-- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 116)
-- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 120)
-- `_status(klass: str | None, counts: Mapping[str, int] | None) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 124) — A topic's status on the card (review F7).
+- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 107)
+- `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 112)
+- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 117)
+- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 121)
+- `_status(klass: str | None, counts: Mapping[str, int] | None) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_card.py), line 125) — A topic's status on the card (review F7).
 
 ## Who imports or calls it
 
@@ -136,7 +135,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `Withheld`, `attempt_result`, `module`, `past_work_text`, `statement_text`; calls `PastWork`, `attempt_result`, `hypothesis_answers`, `past_work_text`, `statement_text`, `withheld_items`
 - [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] — imports `active_predictor`; calls `active_predictor`
 - [[Reference/Modules/learnloop/router/card|learnloop.router.card]] — imports `CardInputs`, `EXCERPT_LIMIT`, `LearnerStateCard`, `STATEMENT_LIMIT`, `STEM_LIMIT`, `SUGGESTION_SECTION`, `build_card`, `excerpt`; calls `CardInputs`, `build_card`, `excerpt`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_column`; calls `attempt_time_column`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`; calls `forgetting_curve`
 
 ### Platform and third-party dependencies

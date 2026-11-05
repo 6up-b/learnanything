@@ -49,6 +49,7 @@ from learnloop import confidence_events
 from learnloop import learner_protection as protection
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
+from learnloop.router_objective_switches import attempt_time_sql
 
 _LOG = logging.getLogger(__name__)
 
@@ -201,9 +202,11 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str) -> ReaderL
     item_ids = [item_id for item_id, lo in item_lo.items() if lo in los]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         past = protection.PastWork(connection, vault, repository, withheld=withheld)
+        # RO1 (landing ruling R1): the attempts known at ``now_iso``, newest by when they happened.
+        known = attempt_time_sql(vault.config, connection)
         attempts = [dict(row) for row in connection.execute(
             "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, hints_used, primed, "
-            f"created_at FROM practice_attempts WHERE learning_object_id IN ({marks}) AND created_at < ? "
+            f"created_at FROM practice_attempts WHERE learning_object_id IN ({marks}) AND {known} < ? "
             "AND attempt_type != 'self_report' ORDER BY created_at DESC, id DESC",
             (*los, now_iso),
         )]

@@ -81,6 +81,7 @@ from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import BlockCandidate, PlanState
 from learnloop.db.stores.write_provenance import read_snapshot
 from learnloop.learner_protection import PastWork, Withheld, attempt_result, past_work_text, statement_text
+from learnloop.router_objective_switches import attempt_time_sql
 from learnloop.router.card import (
     EXCERPT_LIMIT,
     STATEMENT_LIMIT,
@@ -206,7 +207,7 @@ class CardGatherer:
             # decision is read by availability time, coalesce(received_at,
             # created_at), at the tag with the switch on; otherwise, and on a
             # database below migration 242, the predecessor's SQL byte for byte.
-            known = self._attempt_time(connection)
+            known = attempt_time_sql(vault.config, connection)
             as_of = connection.execute(
                 f"SELECT id FROM practice_attempts WHERE {known} < ? ORDER BY {known} DESC, id DESC LIMIT 1",
                 (now_iso,),
@@ -226,7 +227,8 @@ class CardGatherer:
                 evidence_sections = {**evidence_sections, SUGGESTION_SECTION: preferences}
             recent = self._recent_work(attempts, held, past, rule, titles)
             confidence_7d, confidence_limit, confidence_omitted = (
-                self._confidence(connection, attempts, candidate_los, recent, held, now_iso, unknowns)
+                self._confidence(connection, attempts, candidate_los, recent, held, now_iso, unknowns,
+                                 vault.config)
                 if confidence_on else ({}, None, 0))
         candidates = [self._candidate(candidate, titles) for candidate in feasible]
         # RW6b part 2 (spec §9.2; Codex review F1): reader activity on the
@@ -300,6 +302,7 @@ class CardGatherer:
     def _confidence(
         connection: Any, attempts: Sequence[Mapping[str, Any]], candidate_los: Sequence[str],
         recent: list[dict[str, Any]], held: frozenset[str], now_iso: str, unknowns: list[str],
+        config: Any = None,
     ) -> tuple[dict[str, list[dict[str, Any]]], str | None, int]:
         """TE0 (spec_teacher_v1 §15.2): the confidence events. Each shown
         attempt gains its event (``recent``, in place), the candidate topics'
@@ -318,7 +321,7 @@ class CardGatherer:
         wanted = [row for row in attempts if row["id"] in shown] + window
         try:
             found = confidence_events.readings(connection, wanted)
-            taps = confidence_events.taps_before(connection, now_iso)
+            taps = confidence_events.taps_before(connection, now_iso, config)
         except Exception:  # noqa: BLE001 - named as unknown, never guessed
             _LOG.warning("router card: confidence not read", exc_info=True)
             unknowns.append("confidence taps and the grader's hedge reads could not be read")
@@ -427,22 +430,10 @@ class CardGatherer:
             "ladder": notes.get("ladder"),
         }
 
-    def _attempt_time(self, connection: Any) -> str:
-        """The column decision-time attempt reads filter by (RO1 §5.3): the availability time
-        where the gate is on and the database has ``received_at``, otherwise ``created_at``."""
-
-        from learnloop.router_objective_switches import attempt_time_column
-
-        column = attempt_time_column(self.vault.config)
-        if column == "created_at":
-            return column
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
-        return column if "received_at" in columns else "created_at"
-
     def _attempts(self, connection: Any, los: Sequence[str], now_iso: str) -> list[dict[str, Any]]:
         if not los:
             return []
-        known = self._attempt_time(connection)
+        known = attempt_time_sql(self.vault.config, connection)
         columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
         status = "reference_status" if "reference_status" in columns else "NULL AS reference_status"
         tap = "answer_confidence" if "answer_confidence" in columns else "NULL AS answer_confidence"
@@ -586,7 +577,7 @@ class CardGatherer:
             "FROM practice_attempts WHERE created_at >= ? AND created_at < ?"
         )
         params: tuple[str, ...] = (since, now_iso)
-        known = self._attempt_time(connection)
+        known = attempt_time_sql(self.vault.config, connection)
         if known != "created_at":
             # RO1 §5.3 (codex review F1): the week's activity is still the work done in it
             # (created_at), counting only what the router could know at the decision; the

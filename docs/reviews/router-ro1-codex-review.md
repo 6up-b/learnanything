@@ -146,3 +146,89 @@ sidecar serializer snapshot, the desktop RPC contract, architecture, the display
   review load measures an item's interval from `last_attempt_at`. A primed retry or a held grade therefore
   shortens it. The view-on path has used the anchor since DL2's review F5. This predates RO1. Changing it would
   change admitted new material, so it would need its own playbook entry.
+
+## Scoped verify: F1 reopened on sibling reads (landing ruling R1)
+
+The scoped verify (job `20261104-185356-AhtxsL`) closed F2 and F3 and REOPENED F1 (Medium): at `mvp-0.46` with
+`available_at_reads` on, an exam that happened May 1 and was imported May 19 still showed at a May 5 cutoff in
+the adaptive-difficulty frozen history card (`adaptive_difficulty/outside.py`, filtered by `created_at`,
+result and answer excerpt included) and in the diagnoser's prior history (`diagnosis/split/history.py`, whose
+loader did not select `received_at`), which the diagnosis contexts and snapshot exports are built from.
+
+The orchestrator's ruling R1 made the fix structural: every decision-time read of `practice_attempts` with a
+time cutoff goes through one availability predicate, which at the tag with `available_at_reads` on filters on
+`coalesce(received_at, created_at)` and otherwise is the predecessor's SQL unchanged; every loader feeding
+such a read selects `received_at`; outcomes, FSRS, mastery and reports keep occurrence time and are named on
+an allowlist; a test fails on any other time-cutoff read in `src/`. R2: Codex's reproductions are the tests,
+so there is no further Codex round on this class.
+
+### The predicate
+
+`router_objective_switches` (a leaf) holds it in two forms:
+
+- `attempt_time_sql(config, connection=None, *, alias=None)`: the SQL expression a cutoff compares with.
+  `COALESCE(received_at, created_at)` (aliased if asked) at the tag with the switch on and a database that has
+  the column; otherwise `created_at`, so the read's SQL text is the predecessor's byte for byte. It replaces
+  `attempt_time_column` and the router card's private `_attempt_time`.
+- `known_at(row, config)`: the same over a loaded row (`available_at(row)` at the gate, else `created_at`).
+
+Only the cutoff asks it. A window's lower bound (`created_at >= since`) and the order and dates rows are shown
+in stay by when the work happened, as the router card's week of activity already did.
+
+### The readers
+
+| Reader | Change |
+|---|---|
+| AD frozen history card (`outside.history_card`) | Skips a row whose `known_at` is not before the serve; listed, ordered and dated (`days_before`) by `created_at`. The material view already selects every column. |
+| Diagnoser's history (`VaultHistoryStore`) | The loader selects `received_at` at the gate (the predecessor's SELECT otherwise). `attempts_before` (the context assembler, snapshot export, hybrid retrieval, offline review) shows an attempt only once known at the cutoff: the diagnosed attempt's own receipt time if it was imported, else its `completed_at`. `lagged_attempts` counts an attempt before the cutoff but not yet known as lag, like one after it. A hypothesis or registry row's source attempt must also be known (`_source_before`; such rows were already excluded by their write time). `StaticHistoryStore` (planted learners) has no receipt time and is unchanged. |
+| Confidence taps and events (`confidence_events.taps_before`, `learner_events`) | `taps_before` takes `config`; its callers (router card, live diagnosis, `learner_events`) pass the vault's. Feeds the hint writer, tutor, Reader and router card. |
+| Learner context's answer traces (`learner_context._traces`) | Upper bound through the predicate (MCP and tutor read model). |
+| Reader's learner state (`reader_learner_state._build`) | Upper bound through the predicate. |
+| Router card (`inputs`, `_attempts`, `_interaction`) | Now ask `attempt_time_sql` directly; unchanged behavior. |
+
+### The allowlist (occurrence time)
+
+`tests/test_ro1_availability_reads.py::OCCURRENCE_TIME_READS` names, each with its reason, the 19 time-cutoff
+reads that keep `created_at`: FSRS and replay (`list_recent_attempts_by_practice_item`, its `until=` a historical
+writer's instant), mastery (`count_clean_attempts_since`, `clean_attempt_ids_since`), outcomes written or replayed
+with an attempt (`followup_source_attempt`, `practice_attempts_for_items_before` for the coldness receipt,
+`_insert_learning_outcome_labels`, lesson-weight `recorded_trajectory` and `qualifying_outcomes`, placement
+`evaluate_independence`), a write path (`bind_quick_check_answers`), and reports (session windows, the Review
+spine, the practice index usage join, EVSI live report, goal series, hints report, the sidecar session summary).
+
+`test_every_time_cutoff_read_of_attempts_uses_the_predicate_or_is_allowlisted` parses every module in `src/`:
+each SQL literal that reads `practice_attempts` (FROM or JOIN) with an upper bound on `created_at` (`<`, `<=`,
+`? > created_at`, BETWEEN) must sit in a function that calls `attempt_time_sql` or `known_at`, or be on the
+allowlist; a stale allowlist entry also fails. A Python-side cutoff over loaded rows is not visible to a SQL
+scan, so `test_the_decision_time_readers_ask_the_predicate` names the decision-time readers (the two Codex
+found among them) and fails if one stops asking.
+
+### Reproduce first
+
+The new tests were run against the pre-fix tree (`git archive adee65b3c1` plus the new test file) before the
+fix: `[tag]` failed for the frozen card (3 exam rows with excerpts on May 5), the diagnoser's history (3 rows),
+the learner context's traces and the Reader's learner state; `[off]` and `[below]` passed for each, as
+mvp-0.45 behaves; the predicate and taps tests failed on the missing API; the structural test listed the
+unconverted reads. After the fix all pass.
+
+| Test (tests/test_ro1_availability_reads.py) | Gates |
+|---|---|
+| `test_the_frozen_history_card_has_no_exam_before_its_import_at_the_tag` | tag, off, below; after the import all three show it, 18.5 days before May 20 |
+| `test_the_diagnosers_prior_history_has_no_exam_before_its_import_at_the_tag` | tag (lag 3), off, below; after the import, dated May 1 |
+| `test_the_exam_rows_before_an_imported_target_follow_the_import` | diagnosing the import itself: its earlier siblings are known with it |
+| `test_the_taps_before_a_cutoff_exclude_an_attempt_not_yet_known` | taps and `learner_events` on a backdated ordinary answer (exam material is withheld from these contexts and carries no tap) |
+| `test_the_readers_learner_state_excludes_an_attempt_not_yet_known` | same backdated answer |
+| `test_the_learner_contexts_traces_exclude_an_exam_not_yet_imported` | tag, off, below |
+| `test_the_predicate_is_the_predecessors_column_below_the_tag_or_switched_off` | the exact SQL text, aliased, and a database without the column |
+| `test_every_time_cutoff_read_of_attempts_uses_the_predicate_or_is_allowlisted`, `test_the_decision_time_readers_ask_the_predicate` | the structural guard |
+
+`tests/test_ro1_availability.py` now reads the router card's column through `attempt_time_sql`.
+
+### Gate for the R1 fix
+
+lint-imports 42 kept, 0 broken. Targeted, 76 files (every `test_ro1_*`, the AD23 and AD1 outside tests, every
+`test_diagnosis_*` and `test_diagnose_review`, TE0, the router card, the learner-blindness relax, the MCP
+learner-context tests, the Reader, hint and tutor files that read these contexts, `test_table_roles`,
+`test_coordinated_migrations`, `test_architecture`, `test_measurement_state_labels`,
+`test_module_catalog_inventory`): 1520 passed, 3 skipped, 38 xfailed, 0 failed. `--durable-sqlite` on the RO1
+files: 82 passed. Module catalog regenerated (module_validate PASS). No schema change.

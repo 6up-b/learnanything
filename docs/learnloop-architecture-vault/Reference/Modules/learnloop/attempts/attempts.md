@@ -669,6 +669,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_an_ordinary_attempt_records_no_received_at`
+- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
 - [tests/test_ro1_interval_factor.py](../../../../../../tests/test_ro1_interval_factor.py) — direct import
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import

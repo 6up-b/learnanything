@@ -27,7 +27,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.ids import _decode_ulid, new_ulid
-from learnloop.router_objective_switches import AVAILABLE_AT_SQL, available_at
+from learnloop.router_objective_switches import AVAILABLE_AT_SQL, attempt_time_sql, available_at
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
@@ -226,7 +226,7 @@ def test_the_router_cards_decision_time_reads_use_availability_at_the_tag(tmp_pa
     gatherer = CardGatherer(loaded, repository)
     with repository.connection() as connection:
         rows = gatherer._attempts(connection, ["lo_svd_definition"], DECISION_AT)
-        known = gatherer._attempt_time(connection)
+        known = attempt_time_sql(loaded.config, connection)
     assert bool(rows) is sees_exam
     assert known == ("created_at" if sees_exam else AVAILABLE_AT_SQL)
     # After the import every gate reads the same rows, in the same order (by when they happened).

@@ -124,8 +124,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
+- [tests/test_ro1_availability_reads.py](../../../../../../../tests/test_ro1_availability_reads.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_ro1_projection.py](../../../../../../../tests/test_ro1_projection.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
-- [tests/test_ro1_self_report.py](../../../../../../../tests/test_ro1_self_report.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 
 ## Modification guidance
 
