@@ -10,7 +10,7 @@ paid operation).
 
 | Id | Severity | Title | Verdict | Commit | Test or reason |
 |---|---|---|---|---|---|
-| C1 | Low (doc) | `followup-fg1d.md` "Which side is wrong" answers "Replay", the reverse of what the section and the fix say | fixed | this commit | Doc only, not testable: the sentence after it already said the live write was the stale cache, and fix 1 (`70ac1b9f38`) makes live follow replay. Now reads "Live; replay is the reference." |
+| C1 | Low (doc) | `followup-fg1d.md` "Which side is wrong" answers "Replay", the reverse of what the section and the fix say | fixed | `572183f3d0` | Doc only, not testable: the sentence after it already said the live write was the stale cache, and fix 1 (`70ac1b9f38`) makes live follow replay. Now reads "Live; replay is the reference." |
 | C2 | Info | Fix 1's extra whole-ledger fold not timed on a large ledger | not a defect | none | Codex lists it as a measurement gap with no concrete failure; already in `followup-fg1d.md` "Open items". No owner-sized ledger may be opened in this stage (synthetic vaults only). |
 
 No High or Medium finding; no code change.
