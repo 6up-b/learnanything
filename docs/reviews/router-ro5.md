@@ -225,7 +225,7 @@ time. Every script outside pytest ran under `env -i` with empty `HOME`, `CODEX_H
 
 One commit each, reproduced first in `tests/test_ro5_landing.py` (see `docs/reviews/router-ro5-codex-review.md`,
 "Final verify"): R2 `eebca9b33b`, R4 `a5e12c2d7f`, R1 `e16d1253e8`, R6 `8fd2a5a8ba`, R5 (3) `cdcc7537c4`, R5 (2)
-`3c78b28fa3`, R5 (1) `29464fb3f9`, R8 `940190f3d6`; R3 is this record's choices 3 and 6 and the first week rerun above.
+`3c78b28fa3`, R5 (1) `29464fb3f9`, R8 `940190f3d6`, R11 `db5a1b3c96`; R3 is this record's choices 3 and 6 and the first week rerun above.
 
 **R5 (1) as built.** At RO5's tag with the objective serving, `followup_run.router._plan_context` gives the generated
 probe's `plan_interrupt` decision to `objective_chooser.ObjectiveFollowupGate` (RO4's `ObjectiveRestraintGate`'s draw,
@@ -262,3 +262,274 @@ As ruled (R9), the gate follows the tag and `[router_objective] enabled` with no
 (R10), a dated use whose exam import arrives after its window closed is censored `no_result` (a closed score never
 moves), and the realized cost reads activity on occurrence time through the window's end (`price.activity_spans`,
 shared with the serving clock).
+
+**R11** (`db5a1b3c96`, after the scoped verify of step 0, job `20261105-120414-0Bm9lB`): the daily prices a score
+charges are built per window closure, each price-source trace admitted through `Closure.admits` on its created time
+(Codex's reproduction is `tests/test_ro5_landing.py::test_r11_...`). With it and the `Ledger`, R1's class is closed.
+
+### Step 1: the merge (`daf69d74c5`)
+
+Main `5b2b56b0de` merged; no migration on RO5's side, so head 246 and main's sanitized `migration_head_246` carry
+over byte for byte (`git diff main -- fixtures migrations` is empty). Conflicts: `tests/test_followup_successor.py`
+(the openers' pin names RO5's `learnloop.router_calibration_upgrade`) and the generated reference (regenerated in
+step 3). Checked after the merge:
+- `objective_inputs` carries RO4's R6 reading path; RO5's rollouts read AD's fitted reading curve through it.
+- The goal wizard's `use_weight` is kept.
+- The objective report's `kappa_seed` count (RO4's R5) sits beside RO5's calibration section. A day priced by κ0's
+  posterior from stop offers is not a fall-back: it is counted apart as `posterior_days`.
+- `tests/test_ro2_ad_raw_document_reads.py`'s walk now starts from RO5's `checks`, `scores`, `stop_coin` and
+  `goal_read` as well; no raw document load is reached.
+- Version pins, defaults snapshots, config fingerprints and the CLI help snapshot needed no further change.
+
+### Step 2: early checks (on the merged tree)
+
+| Set | Result |
+|---|---|
+| `lint-imports --no-cache` | 43 kept, 0 broken. The documented ignore `router_objective.checks -> adaptive_difficulty.outcomes` is still needed (two function-local imports of §6.2's label) |
+| `test_measurement_state_labels`, `test_cli_help_snapshot`, `test_codex_lockdown_round3` (process-launch allowlist), `test_ro1_availability_reads`, every `test_ro0_*`, `test_ro2_*`, `test_ro4_*`, `test_ro5_*`, `test_followup_*`, `test_registry_audit`, `test_architecture`, `test_data_capture_successor`, `test_config_refactor`; `-n 6` | 964 passed, 2 failed: `test_ro4_trace_report::test_the_report_counts_how_often_the_days_seed_fell_back` (the merge's `posterior_days` key; its pin updated) and `test_ro0_rows9_13_decision_state::test_receipts_hold_ids_and_numbers` (an LO title "M2" found inside a random ULID; 3 of 3 alone) |
+| `test_ro1_availability_reads` | passes. RO5's reads of attempts filter in Python through `Closure.admits`, which applies RO1's predicate (received time); none is a SQL time cutoff on `created_at` |
+
+### Step 3: references (`0a2574d89e`)
+
+`db_generate_reference` (head 246, 393 table notes) / `db_validate_reference` (errors []); `desktop_generate` /
+`desktop_validate` (319/319 TS/TSX, 6/6 Rust); `module_generate` (1231 module notes, 67 package maps, 1383 test files)
+/ `module_validate` (PASS, 42583/42583 wikilinks); `validate_vault.py` (2218 notes: passed).
+
+### Step 4: the gate (at `0a2574d89e`)
+
+| Lane | Result |
+|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0`: ok |
+| Import contracts | 43 kept, 0 broken |
+| Full suite (`-n 8`, 10G scope, under the shared lock) | 26570 passed, 91 skipped, 47 xfailed, 1 failed in 58 min: `test_ro4_trace_report::test_the_why_surface_offers_the_trace_in_plain_words` (`assert decided and ...`: no decided block on the plan when the mix draws stop first; it failed the same way once in step 0). Passed 3 of 3 alone |
+| Durability lane (`-m durability`) | 402 passed, 1 skipped |
+| Owner lane (fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-ro5/`, since deleted) | 83 passed, 4 skipped, and the same 2 known failures as at RO4's landing: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]` |
+| Desktop | typecheck ok; whole vitest at `--maxWorkers=4`: 2756 passed; `frontend:build` ok |
+| Rust | `cargo check`: ok |
+| Mobile | typecheck ok, build ok (no phone file changed) |
+
+### Step 5: the smoke
+
+Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (arxiv_v2, linear_algebra, probability) under
+`fixtures-local/landing-ro5-smoke/`, since deleted. Every AI route pointed at 127.0.0.1:9; the router LLM and the
+Decider were in-process fakes, grading and diagnosis the tests' `BlindRivalClient`, probe authoring the tests'
+`AuthorFake`. Main code and branch code were `git archive`d with `migrations/`. On main code each copy was upgraded as
+RO4's record says (mvp-0.45, rebuild, mvp-0.46; then mvp-0.47, rebuild); on branch code, the default upgrade took it
+from mvp-0.47 to mvp-0.48. The driver goes through the real sidecar handlers, and after a miss it runs FG1's job and
+presses Next through `followup_next` as the app does.
+
+**Identity** (seed pinned to the decision id on both sides; ids and wall times aside). All nine pairs were
+IDENTICAL: Today, plan, every step, every written row, every router LLM and Decider request, and the follow-up gate.
+
+| Copy | Below the tag: main vs branch at mvp-0.47, with a generated follow-up's gate | At the tag, every RO5 arm and `fitted_models` off, vs main at mvp-0.47 (no miss: R9) | At the tag, `enabled = false`, vs main at mvp-0.46, with a generated follow-up's gate |
+|---|---|---|---|
+| arxiv_v2 | identical (10 LLM, 10 Decider requests, 1 gate) | identical (8, 8) | identical (6, 6, 1 gate) |
+| linear_algebra | identical (13, 13, 1 gate) | identical (13, 13) | identical (7, 7, 1 gate) |
+| probability | identical (8, 8, 1 gate) | identical (6, 6) | identical (5, 5, 1 gate) |
+
+For the arms-off pair, the boundary key's version string was dropped on both sides, as RO5's own every-arm-off
+test does. That string seeds the numeric policy's rollouts, so mvp-0.47 and mvp-0.48 otherwise roll different noise
+from the same distribution. Without the drop, μ differed (0.632 vs 0.452) on probability's first decision. As R9
+says, the follow-up gate at the tag is reported apart, below (R5 (1)).
+
+**The week at the tag, every arm on.** Seven days per copy: one session a day at 15:00 with 30 minutes offered, day
+4 sessionless. A seeded synthetic learner answered the copy's real items about 70% right. Offered stops were kept
+going or accepted at random (seeded, at most 2 keep-goings a day), and every miss opened FG1's follow-up. Per day:
+
+arxiv_v2
+
+| Day | Coin draws (offers) | Checks assigned / administered / completed | Check: topic, item, r_L of eligible | Gen. needs | Minutes: coin forgone / added; check | Session min (plan 30) | κ0 (how) | w (posterior) |
+|---|---|---|---|---|---|---|---|---|
+| 11-05 | 1 (0) | 1 / 1 / 1 | lo_render_a_classifier_s_decision_regions, pi_recall_classifier_grid_components, 1 of 1 | 1 | 0 / 0; 3.5 | 6.0 | 0.000114 (day_seed) | 0.8 (prior, n 0) |
+| 11-06 | 6 (0) | 0 (no eligible topic in the plan's pool) | — | 2 | 0 / 0 | 10.5 | 0.000114 (floored) | 0.8 |
+| 11-07 | 3 (1, accepted) | 0 | — | 7 | 25.5 / 0 | 4.5 | 0.00294 (day_seed) | 0.8 |
+| 11-08 | no session | | | | | | | |
+| 11-09 | 7 (0) | 0 | — | 8 | 0 / 0 | 21.0 | 0.004409 (posterior) | 0.8 |
+| 11-10 | 2 (0) | 0 | — | 15 | 0 / 0 | 7.5 | 0.004409 (posterior) | 0.8 |
+| 11-11 | 2 (0) | 0 | — | 20 | 0 / 0 | 9.0 | 0.006465 (posterior) | 0.8 |
+
+linear_algebra
+
+| Day | Coin draws (offers) | Checks assigned / administered / completed | Check: topic, item, r_L of eligible | Gen. needs | Minutes: coin forgone / added; check | Session min (plan 30) | κ0 (how) | w (posterior) |
+|---|---|---|---|---|---|---|---|---|
+| 11-05 | 2 (0) | 1 / 1 / 1 | lo_what_makes_a_vector_space, pi_what_makes_test_strategy_01, 0.2 of 5 | 2 | 0 / 0; 2.78 | 6.0 | 0.0 (tail_average) | 0.8 (prior, n 0) |
+| 11-06 | 2 (0) | 1 / 1 / 1 | lo_read_and_apply_the_vector_space_definition, pi_read_definition_nonempty_sets_method, 0.2 of 5 | 2 | 0 / 0; 2.56 | 3.0 | 0.0 (tail_average) | 0.8 |
+| 11-07 | 13 (0) | 1 / 1 / 1 | lo_operations_and_the_vector_space_axiom_checklist, pi_axiom_operation_totality_01, 0.25 of 4 | 2 | 0 / 0; 2.40 | 49.5 | 0.0 (tail_average) | 0.8 |
+| 11-08 | no session | | | | | | | |
+| 11-09 | 8 (0) | 1 / 1 / 1 | lo_read_and_apply_the_vector_space_definition, pi_histogram_definition_gate, 0.333 of 3 | 2 | 0 / 0; 2.61 | 42.0 | 0.0 (tail_average) | 0.8 |
+| 11-10 | 9 (0) | 1 / 1 / 1 | lo_prove_vector_identities_from_scalar_laws, pi_coordinate_negation_proof_route, 0.333 of 3 | 3 | 0 / 0; 2.58 | 46.5 | 0.0 (tail_average) | 0.8 |
+| 11-11 | 9 (1, accepted) | 1 / 1 / 1 | lo_read_and_apply_the_vector_space_definition, pi_definition_vector_term_interpret_02, 0.5 of 2 | 3 | 0 / 6.08; 2.56 | 48.0 | 0.006108 (floored) | 0.8 |
+
+probability
+
+| Day | Coin draws (offers) | Checks assigned / administered / completed | Check: topic, item, r_L of eligible | Gen. needs | Minutes: coin forgone / added; check | Session min (plan 30) | κ0 (how) | w (posterior) |
+|---|---|---|---|---|---|---|---|---|
+| 11-05 | 1 (0) | 1 / 1 / 1 | lo_analyze_and_optimize_nonuniform_collision_probab, pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5, 1 of 1 | 0 | 0 / 0; 3.5 | 4.5 | 0.0 (tail_average) | 0.8 (prior, n 0) |
+| 11-06 | 5 (0) | 0 | — | 0 | 0 / 0 | 16.5 | 3.4e-05 (day_seed) | 0.8 |
+| 11-07 | 6 (0) | 1 / 1 / 1 | lo_build_a_valid_counting_based_probability_model, pi_birthday_ordered_model_exact_pair, 1 of 1 | 2 | 0 / 0; 2.56 | 28.5 | 0.026618 (day_seed) | 0.8 |
+| 11-08 | no session | | | | | | | |
+| 11-09 | 2 (0) | 0 | — | 4 | 0 / 0 | 15.0 | 0.017212 (day_seed) | 0.8 |
+| 11-10 | 2 (0) | 0 | — | 4 | 0 / 0 | 12.0 | 0.014838 (day_seed) | 0.8 |
+| 11-11 | 3 (0) | 1 / 1 / 1 | lo_simulate_a_counting_probability_model, pi_trace_encoded_dice_simulation, 0.5 of 2 | 5 | 0 / 0; 2.70 | 12.0 | 0.014687 (day_seed) | 0.8 |
+
+Across the week:
+- **Coin.** 21, 43 and 19 draws (arms: arxiv_v2 1 `offer_stop` / 2 `present_next` / 18 `policy`; linear_algebra
+  1 / 4 / 38; probability 0 / 0 / 19). No coin at an opening boundary (R4): the smallest session minutes at a coin was
+  1.5, after the day's check.
+- **Checks.** No check was excluded and none failed to be completed. Every unassigned day is a day with no eligible
+  topic in the plan's pool (`r_L = 0`, a generation need raised; none generated).
+- **Open picks.** 0 on every copy: no misconception pick was reported. The arm costs no minutes.
+- **κ0.** On arxiv_v2 it handed over to the posterior after day 3's randomized offer was accepted (3 posterior days).
+  Elsewhere it stayed the seed.
+- **Weight.** `w` stayed 0.8 with its prior (no 14-day window closes in a week).
+- **Return model.** arxiv_v2: posterior from 19 coins in 5 sessions, 3 contrasted (mean −0.090, variance 0.274).
+  linear_algebra: −0.038, 0.241. probability: its prior (no contrast). The assumption is labelled.
+
+**RO4's item 4 (session length).** linear_algebra's sessions ran 42-49.5 minutes against the plan's 30 on four of
+six days. κ0 stayed at the tail's average marginal gain, 0.0 there, so the soft budget prices nothing. The learned
+κ0 did not move them within the week: its only randomized offer with a response came on the last day.
+
+**Assignments.**
+- Every `policy_experiment_assignments` row's logged probability was recomputed from its own frozen values: the
+  coin's arm from its rate, its served probability from the mix's μ (itself recomputed by `mix.recompute`) and the
+  support, its uniform from its own stream; each check day's `r_L = k/N` from its eligible counts, each slot's topic,
+  item and item probability from the date's seed. Problems: 0 on all three copies (83 coins, 18 check days, 10
+  slots).
+- Each copy had one decision where the boundary's forced rule (a waiting follow-up opens the next block) superseded
+  the drawn candidate after the draw. The ledger logs that forced block as deterministic, while the coin's row keeps
+  the coin and mix's served candidate with its exact probability (recomputed). This is the live continuation, as §8.7
+  reads it.
+- The check's draw does not depend on the action draw: rerunning day 1 with another action seed (different decision
+  ids, different coin seeds) drew the same topic, item and `r_L` on every copy.
+- No protected, held-out, exam-reserved or generated item was drawn, and no drawn item had an earlier attempt.
+
+**R5 (1) and R8: generated follow-ups at the tag.**
+- **Gate decisions.** 9 on arxiv_v2 (5 `insert_now`, 2 `continue_current` by the mix; 2 no room to wait),
+  36 on linear_algebra (5 / 1 / 3 `no_intervention` by the mix; 27 no room, its sessions past the plan) and 16 on
+  probability (5 / 1 / 2; 8 no room).
+- **Every mix decision.** Support `insert_now`, `continue_current`, `no_intervention`; a trace row; μ recomputed from
+  the ledger row (24/24).
+- **Requests.** 1 `RouterLLMChoiceV3` with the three options (4,319, 13,554 and 7,561 bytes on the first decision of
+  each copy) and 1 Decider `intervene_now`; no `RouterLLMAnswerV1`.
+- **Ask now.** The probe was the very next step every time (7/7, 32/32, 13/13).
+- **Wait.** The probe opened the next block (one plan presentation).
+- **No intervention.** No probe was written, and Next continued the block.
+- **Never again.** Every probe was served at most once and answered once. A later `open_queue_item` on each was
+  refused with `generated_probe_closed` (9/9, 33/33, 14/14).
+- **Below the tag** the same miss's gate is FG1's, identical to main (table above).
+
+**Protection on the cards.** All 72, 122 and 74 router LLM cards and every Decider state of the week were scanned
+(`prot5.py`, RO4's scan). There were no protected, unattempted or invisible stems and no attempt cited after its
+decision. Every reference-solution hit sits in the learner's answer: the synthetic learner types the expected answer
+when right (`answer`, `answer_excerpt` or the text card's `answer:`). The exception is 2 hits on linear_algebra: an
+attempted multiple-choice stem whose option A is its reference answer, 108 days before. This is the same false
+positive as at RO2's and RO4's landings.
+
+| Copy | π_L card bytes min / median / max (n) | Decider state median bytes |
+|---|---|---|
+| arxiv_v2 | 3,993 / 9,835 / 29,971 (36) | 2,375 |
+| linear_algebra | 2,504 / 50,509 / 50,892 (61) | 19,969 |
+| probability | 4,240 / 37,765 / 50,955 (37) | 11,562 |
+
+**Time** (main at mvp-0.47 against branch at mvp-0.48 with every arm on; one day with a generated follow-up; the full
+suite ran alongside, on both sides alike):
+
+| Copy | Next after | Side | Today ms | Next at a boundary ms (median, n) | Next inside a block | Submit | Follow-up gate | Numeric policy per decision (median, p90) |
+|---|---|---|---|---|---|---|---|---|
+| arxiv_v2 | 0 s | main | 240 | 2281 (9) | 436 | 276 | 382 | 1491, 1704 |
+| arxiv_v2 | 0 s | branch | 233 | 2631 (9) | 448 | 293 | 257 | 1922, 1961 |
+| arxiv_v2 | 3 s | main | 247 | 760 (9) | 476 | 293 | 286 | 1308, 1489 |
+| arxiv_v2 | 3 s | branch | 235 | 763 (9) | 473 | 287 | 255 | 1270, 1305 |
+| linear_algebra | 0 s | main | 1039 | 2984 (14) | 783 | 312 | 440 | 904, 1062 |
+| linear_algebra | 0 s | branch | 1095 | 2460 (7) | 707 | 309 | 278 | 797, 897 |
+| linear_algebra | 3 s | main | 1062 | 1203 (14) | 911 | 310 | 406 | 921, 1048 |
+| linear_algebra | 3 s | branch | 981 | 919 (7) | 741 | 298 | 235 | 725, 877 |
+| probability | 0 s | main | 821 | 1015 (1) | — | 553 | — | 286 |
+| probability | 0 s | branch | 828 | 968 (3) | — | 336 | 319 | 332 |
+| probability | 3 s | main | 845 | 1009 (1) | — | 554 | — | 322 |
+| probability | 3 s | branch | 857 | 607 (3) | — | 336 | 338 | 265 |
+
+- The branch's gate is the deterministic no-room ask-now here. The week's mix gates took 0.72-0.95 s, which
+  includes the numeric policy over three sequences.
+- No deadline was missed.
+- **RO4's item 6 (arxiv_v2's numeric policy).** `cProfile` over its `run_numeric` calls: 12.3 of 17.0 s sit in the
+  tail rollouts (`value.run_tail` / `evaluate`). The largest single cost is the memory model's per-review FSRS
+  update, `memory.review`: 177,029 calls, 6.0 s cumulative, with scalar numpy `clip` / `broadcast_to` overhead and
+  `retrievability`. Then `_practice_batch` and `_session` (2.8 s and 1.0 s own time), then SQLite reads (1.5 s).
+  arxiv_v2 has 22 LOs, so the tail simulates more topic reviews per draw than the other copies. Vectorizing
+  `memory.review` over topics is the smallest speed-up (follow-up batch).
+
+**Reports after the week.**
+- `learnloop router objective-report --json` exits 0 on every copy and prints `w` 0.8 with its posterior (R5 (2))
+  and `kappa_seed` (arxiv_v2: day_seed 2, floored 1, posterior 3, `posterior_days` 3).
+- Its calibration section, as of the week's last day:
+  - completion: 1/1 (arxiv_v2), 6/6 (linear_algebra), 3/3 (probability), each 0.857 with the sessionless day;
+  - generation needs: 53, 14 and 15;
+  - weight: 0 closed scores, `w` 0.8, not moved;
+  - price: posterior, seed and seed;
+  - floor: `no_intervention` decisions at the tag 0, 3 and 2, beside 9, 33 and 14 probes (R8: the floor keeps rows);
+  - goal read: its prior (no pair).
+- The CLI reads as of the real clock (Nov 5), which is before the week's later frozen days, so it shows day 1's
+  checks.
+- `learnloop data-capture report --json` exits 0. Its `open_picks` section: available, 0 assignments, 0
+  administered and 0 completed per arm.
+
+**Shadow, survival, isolation.**
+- `rebuild --shadow` after the week: facet 0, schedule 0, mastery 13, 14 and 8, all stamp-only (mvp-0.47 to mvp-0.48:
+  the rows the upgrade activates without rebuilding, RO4's item 5).
+- Every assignment and trace row is byte-identical after `rebuild-derived-state` and a state sync.
+- New `model_call_receipts` came only from the fakes; the backups' own 42 chatgpt and 14 openrouter_decider receipts
+  are from Oct 25-26.
+- The socket watch logged no connect at all and no non-loopback address. The only subprocesses were
+  `powerprofilesctl get` and `git -C` (the code stamp); there was no Codex process.
+
+**R7.** `git diff main...HEAD -- src migrations` adds no reader or writer of the item difficulty scalar: no
+difficulty column, no `mastery.irt.difficulty_from_prior` and no surprise `b`. The only added lines matching
+"difficulty" name the `adaptive_difficulty` package (AD's subject view, its outcomes label).
+
+### What the owner runs after the fast-forward
+
+For each vault (`~/learnloop-vaults/<name>`), from where RO4's record leaves them (mvp-0.47):
+
+```bash
+learnloop upgrade --vault ~/learnloop-vaults/<name>             # mvp-0.47 -> mvp-0.48 (the default target; no migration)
+learnloop rebuild-derived-state --vault ~/learnloop-vaults/<name>   # optional: clears the stamp-only shadow rows
+```
+
+A vault still below mvp-0.47 takes RO4's commands first. Then rebuild the desktop app and restart the phone host.
+After a few days:
+
+```bash
+learnloop router objective-report --vault ~/learnloop-vaults/<name>   # w and its posterior, the calibration section
+learnloop data-capture report --vault ~/learnloop-vaults/<name>       # open_picks
+```
+
+**To turn an arm off**, set it in the vault's `learnloop.toml`. With all four set, Today serves mvp-0.47 exactly, apart
+from FG1's follow-up gate (R9):
+
+```toml
+[router_objective]
+stop_coin = 0.0          # no stop coin
+check_rate = "off"       # no randomized checks (w then stays RO4's calculation)
+pick_open_share = 0.0    # no open picks
+fitted_models = false    # the rollouts read AD's priors, the combiner its prior
+```
+
+`enabled = false` turns the whole objective off, the follow-up gate on the mix included, and serves mvp-0.46's
+mixture and frame, as the smoke shows.
+
+### Open items (for the orchestrator)
+
+1. **Sessions past the plan with a zero price** (RO4's item 4, measured above): linear_algebra ran about 45 minutes
+   against 30, because κ0's seed is the tail's average gain, 0.0 there. The coin's randomized offers move κ0 only once
+   one has a response. On arxiv_v2 that happened on day 3; on linear_algebra, on day 7. Expect long sessions until a
+   few offers are answered.
+2. **Check coverage depends on eligible items in the plan's pool.** arxiv_v2 had an eligible topic on only 1 of 6
+   days (53 generation needs raised by the week's end). Checks resume once `learnloop generate-diagnostics` (the
+   existing paid generator) writes unseen items.
+3. **The numeric policy on arxiv_v2** (RO4's item 6): 1.3-1.9 s per decision, dominated by `memory.review` in the tail
+   rollouts. Next at a boundary right after feedback is about 0.35 s slower than main on arxiv_v2 and faster on the
+   other two; after 3 s of reading it matches main.
+4. **The upgrade activates without a rebuild** (RO4's item 5): stamp-only mastery rows until `rebuild-derived-state`.
+5. As ruled (R6), the follow-up batch has availability as a covariate in κ0's likelihood, a cache for closed-window
+   scores, the goal-date read inside `V` and the higher no-probe share.
