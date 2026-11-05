@@ -157,20 +157,27 @@ def _day_prices(connection: Any) -> dict[str, tuple[float, float]]:
     return out
 
 
-def _exam_result(connection: Any, lo: str, on: str) -> float | None:
-    """A dated use's ``Y``: the imported results on the goal's date (``goals/exam_seeding``), their mean."""
+def _exam_result(connection: Any, lo: str, on: str, closure: C.Closure | None = None) -> float | None:
+    """A dated use's ``Y``: the imported results on the goal's date (``goals/exam_seeding``), their mean, each
+    admitted by the window's closure on its occurrence and its received time (landing ruling R1: an import after
+    the window closed is not seen, and the use is censored ``no_result``, as one never imported)."""
 
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")} if closure else set()
+    received = "received_at" if "received_at" in columns else "NULL"
     rows = [float(row[0]) for row in connection.execute(
-        "SELECT correctness FROM practice_attempts WHERE attempt_type = 'exam_evidence' AND learning_object_id = ? "
-        "AND substr(created_at, 1, 10) = ? AND correctness IS NOT NULL", (lo, on))]
+        f"SELECT correctness, created_at, {received} FROM practice_attempts WHERE attempt_type = 'exam_evidence' "
+        "AND learning_object_id = ? AND substr(created_at, 1, 10) = ? AND correctness IS NOT NULL", (lo, on))
+        if closure is None or closure.admits(row[1], row[2])]
     return sum(rows) / len(rows) if rows else None
 
 
 def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
                    resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
                    r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
-                   gap_minutes: float) -> Detail:
-    """``D̂_i`` for one decision whose window has closed, or why it carries none."""
+                   gap_minutes: float, closure: C.Closure | None = None) -> Detail:
+    """``D̂_i`` for one decision whose window has closed, or why it carries none. ``resolved``, the completion
+    rate and ``r_lookup`` stand as of ``closure`` (:func:`scores` forms them through it), which also admits the
+    dated uses' imported results."""
 
     base = dict(decision_id=str(row["decision_id"]), decided_at=str(row["created_at"]),
                 window_closes_at=str(row["window_closes_at"]))
@@ -201,7 +208,7 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
                               r=r_assign * rate, observed=observed, outcome=found.outcome if observed else None))
     for dated in (evaluation.get("uses") or {}).get("dated") or ():
         on = dated_use_date(trace, row, dated)
-        result = _exam_result(connection, str(dated["lo"]), on)
+        result = _exam_result(connection, str(dated["lo"]), on, closure)
         if result is None:
             return Detail(scored=W.Scored(**base, value=None, reason=W.NO_RESULT))
         uses.append(W.Use(key=f"G:{dated['goal_id']}:{dated['lo']}", weight=float(dated.get("omega") or 0.0),
@@ -224,29 +231,31 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
 
 def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
     """Every decision's score from the traces whose windows closed before ``at`` (no peeking), RO5's checks the
-    observations."""
+    observations. Each score reads as of its own window's closure (landing ruling R1, :class:`checks.Closure`): the
+    checks it observes, the completion rate in its ``r``, the assignment probabilities and the dated uses' results,
+    every event through the one cutoff, so a closed score never moves with later data (a grade's later hold or
+    regrade aside, as the closure names)."""
 
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'router_objective_traces'"
                           ).fetchone() is None:
         return []
-    through = _parse(at).astimezone().date().isoformat()
-    resolved = {(entry.local_date, entry.topic): entry for entry in C.resolve(connection, through=through)}
-    rates: dict[str, float | None] = {}
+    ledger = C.Ledger(connection)
+    by_closure: dict[str, tuple[C.Closure, dict[tuple[str, str], C.Resolved], float | None, Callable[[str], dict]]] = {}
 
-    def completion_at(closes_at: str) -> float | None:
-        # The running completion rate as it stood when the window closed: a closed score does not move with later
-        # completions or later sessionless days (Codex review, "closed scores never change").
-        day = min(_parse(closes_at).astimezone().date().isoformat(), through)
-        if day not in rates:
-            rates[day] = C.completion(connection, through=day).get("rate")
-        return rates[day]
+    def as_of(closes_at: str):
+        if closes_at not in by_closure:
+            closure = C.Closure.at(closes_at)
+            resolved = {(entry.local_date, entry.topic): entry for entry in ledger.resolve(closure)}
+            rate = ledger.completion(closure).get("rate")
+            cache: dict[str, dict[str, float]] = {}
 
-    cache: dict[str, dict[str, float]] = {}
+            def r_lookup(day: str, closure: C.Closure = closure, cache: dict = cache) -> dict[str, float]:
+                if day not in cache:
+                    cache[day] = ledger.r_for(day, closure)[0] if day <= closure.local_date else {}
+                return cache[day]
 
-    def r_lookup(day: str) -> dict[str, float]:
-        if day not in cache:
-            cache[day] = C.r_for(connection, local_date=day)[0] if day <= through else {}
-        return cache[day]
+            by_closure[closes_at] = (closure, resolved, rate, r_lookup)
+        return by_closure[closes_at]
 
     prices = _day_prices(connection)
     gap = float(config.router_objective.session_gap_minutes)
@@ -257,10 +266,9 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
             "window_closes_at IS NOT NULL AND window_closes_at < ? ORDER BY created_at, id", (at,)):
         record = dict(row)
         trace = json.loads(record.pop("trace_json"))
-        out.append(score_decision(connection, record, trace, resolved=resolved,
-                                  completion_rate=completion_at(str(record["window_closes_at"])), r_lookup=r_lookup,
-                                  prices=prices,
-                                  gap_minutes=gap))
+        closure, resolved, rate, r_lookup = as_of(str(record["window_closes_at"]))
+        out.append(score_decision(connection, record, trace, resolved=resolved, completion_rate=rate,
+                                  r_lookup=r_lookup, prices=prices, gap_minutes=gap, closure=closure))
     return out
 
 

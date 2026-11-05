@@ -302,7 +302,8 @@ def test_a_closed_scores_completion_rate_is_the_one_at_its_close(tmp_path, monke
 
     monkeypatch.setattr(S, "score_decision", spy)
     calls = []
-    monkeypatch.setattr(C, "completion", lambda connection, *, through: calls.append(through) or {"rate": 0.5})
+    # Landing ruling R1: the rate is read through the ledger as of the window's closure.
+    monkeypatch.setattr(C.Ledger, "completion", lambda self, closure: calls.append(closure.local_date) or {"rate": 0.5})
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
     connection.execute("CREATE TABLE router_objective_traces (id TEXT, decision_id TEXT, created_at TEXT, "

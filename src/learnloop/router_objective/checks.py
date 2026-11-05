@@ -36,7 +36,9 @@ completion rate, which is the rate of labelled completions), or not, with its re
 (the day had a session but its first session placed no check: no eligible item of the topic in the plan's pool
 at any of its boundaries; the reason's name is kept from RO5's first build), ``displaced``, ``skipped`` or ``not_answered``. A day with no session
 counts toward the completion gap (§8.7): the running completion rate is completed checks over assigned checks
-plus the checks of every day with no session since the first draw.
+plus the checks of every day with no session since the first draw. Every such read is as of one closure
+(:class:`Closure`, landing ruling R1): the check's (the end of a date) or a scored window's, every counted event
+filtered by :meth:`Closure.admits` alone.
 
 A leaf apart from its reads: the standard library, the router's uniform and the vault's tables.
 """
@@ -45,7 +47,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 import hashlib
 import json
 import logging
@@ -362,17 +364,6 @@ class Resolved:
         return self.attempt_id or self.assignment_id
 
 
-def _sessions_by_day(connection: Any) -> dict[str, list[str]]:
-    from learnloop.clock import parse_utc
-
-    out: dict[str, list[str]] = {}
-    for session_id, started in connection.execute("SELECT id, started_at FROM sessions ORDER BY started_at, id"):
-        moment = parse_utc(str(started))
-        if moment is not None:
-            out.setdefault(moment.astimezone().date().isoformat(), []).append(str(session_id))
-    return out
-
-
 def _label(row: Mapping[str, Any], assisted: bool) -> float | None:
     """§6.2's label: AD's unassisted success (help of any kind makes it a non-success, as RO2's resolver reads
     it); None where AD excludes the attempt (no correctness): never read as a zero (Codex review F1)."""
@@ -454,119 +445,276 @@ def _local_date(stamp: Any) -> str | None:
     return moment.astimezone().date().isoformat() if moment is not None else None
 
 
-def resolve(connection: Any, *, through: str) -> list[Resolved]:
-    """Every assigned slot through ``through`` (a local date), with its status (module docstring), as it stood at
-    the end of that date (Codex re-review F10): an administration or an answer on a later date is not seen, so a
-    historical read never moves with later activity (a grade's later hold or regrade still applies: F1)."""
+# -- the closure: THE cutoff of every historical read ----------------------------------------------------
 
-    if not A.present(connection):
-        return []
-    done = {key: value for key, value in administered(connection).items()
-            if (_local_date(value.get("planned_at")) or "") <= through}
-    sessions = _sessions_by_day(connection)
-    out: list[Resolved] = []
-    for row in A.rows(connection, A.CHECK):
-        unit = str(row["unit_id"])
-        parts = unit[len(DAY_PREFIX):].split(":")
-        if len(parts) != 2:
-            continue  # the day's own record
-        local_date = parts[0]
-        if local_date > through:
-            continue
-        slot = row["detail"]
-        base = dict(assignment_id=str(row["id"]), local_date=local_date, topic=str(row["variant"]),
-                    r=float(row["propensity"]))
-        planned = done.get(str(row["id"]))
-        if planned is None:
-            reason = OPEN if local_date == through else (
-                NO_SESSION if not sessions.get(local_date) else NO_PRACTICE_SLOT)
-            out.append(Resolved(**base, status=reason, item_id=slot.get("item_id")))
-            continue
-        item_id = str(planned.get("practice_item_id"))
-        events = {str(kind) for (kind,) in connection.execute(
-            "SELECT kind FROM attention_block_events WHERE block_id = ? AND kind IN ('item_skipped', 'item_displaced') "
-            "AND json_extract(detail_json, '$.practice_item_id') = ?", (planned["block_id"], item_id))}
-        attempt = connection.execute(
-            "SELECT a.* FROM practice_attempts a LEFT JOIN plan_presentations p ON p.id = a.plan_presentation_id "
-            "WHERE a.practice_item_id = ? AND a.created_at >= ? AND (p.block_id = ? OR a.plan_presentation_id IS NULL) "
-            "ORDER BY a.created_at, a.id LIMIT 1", (item_id, planned["planned_at"], planned["block_id"])).fetchone()
-        if attempt is not None and (_local_date(attempt["created_at"]) or "") > through:
-            attempt = None  # answered after the cutoff: not yet answered as of ``through``
-        if attempt is None:
-            status = DISPLACED if "item_displaced" in events else (SKIPPED if "item_skipped" in events else (
-                OPEN if local_date == through else NOT_ANSWERED))
-            out.append(Resolved(**base, status=status, item_id=item_id, replaced=planned.get("replaced"),
+
+@dataclass(frozen=True)
+class Closure:
+    """THE cutoff (landing ruling R1, Codex final verify F10). Every read that forms a check's completion, a
+    completion rate or a comparison score reads as of one closure: the check's (:meth:`through`, the end of a local
+    date) or the window's (:meth:`at`, its closing moment). :meth:`admits` is the one test every event it counts
+    passes: the slots and the days drawn (their assignment rows), the sessions, the administrations (the
+    ``item_planned`` receipts), the skips and displacements, the help shown and the answers, an answer on both its
+    occurrence time and its received time (RO1's availability predicate, ``router_objective_switches.available_at``:
+    it counts at a cutoff only once it happened and was known). So a closed rate or score never moves with later
+    activity.
+
+    Intended, and the one exception (Codex review F1): an answer's grade and its hold are read as they stand NOW. A
+    hold placed or released, a regrade, a quarantine, or a current grading epoch that assesses nothing applies to every
+    read, closed ones included: the assessment rules say what an answer measured, and a later correction of its grade
+    is the truth about that answer, not later data about the learner."""
+
+    limit: datetime
+    inclusive: bool
+    local_date: str
+
+    @classmethod
+    def through(cls, local_date: str) -> "Closure":
+        """The end of ``local_date`` (local time): events before the next local midnight."""
+
+        try:
+            following = date.fromisoformat(local_date) + timedelta(days=1)
+            limit = datetime(following.year, following.month, following.day).astimezone().astimezone(UTC)
+            return cls(limit=limit, inclusive=False, local_date=local_date)
+        except (OverflowError, ValueError):  # the far future (``9999-12-31``): every event
+            return cls(limit=datetime.max.replace(tzinfo=UTC), inclusive=True, local_date=local_date)
+
+    @classmethod
+    def at(cls, stamp: str) -> "Closure":
+        """``stamp`` itself (a window's ``window_closes_at``): events at or before it."""
+
+        from learnloop.clock import parse_utc
+
+        moment = parse_utc(str(stamp))
+        assert moment is not None
+        return cls(limit=moment, inclusive=True, local_date=moment.astimezone().date().isoformat())
+
+    def admits(self, occurred: Any, received: Any = None) -> bool:
+        """Whether an event that happened at ``occurred`` (and, for an answer, became known at ``received``, None
+        where the two are one) is in the read: both at or before the closure. An event with no time is not."""
+
+        from learnloop.clock import parse_utc
+
+        if not occurred:
+            return False
+        for stamp in (occurred, received):
+            if not stamp:
+                continue
+            moment = parse_utc(str(stamp))
+            if moment is None or moment > self.limit or (moment == self.limit and not self.inclusive):
+                return False
+        return True
+
+
+def _closure(through: str | None, closure: Closure | None) -> Closure:
+    if closure is not None:
+        return closure
+    if through is None:
+        raise TypeError("a check read needs its closure: through= a local date or closure=")
+    return Closure.through(through)
+
+
+def _moment(stamp: Any) -> datetime:
+    from learnloop.clock import parse_utc
+
+    return parse_utc(str(stamp)) or datetime.min.replace(tzinfo=UTC)
+
+
+class Ledger:
+    """Every event a check's resolution counts, read once with its times, so many closures (one per scored window)
+    read one snapshot; each read filters it through :meth:`Closure.admits` alone. The grade-side exclusions (held,
+    unassessed, quarantined: as they stand now, :class:`Closure`) are computed once per answer."""
+
+    def __init__(self, connection: Any) -> None:
+        self.connection = connection
+        self.present = A.present(connection)
+        rows = A.rows(connection, A.CHECK) if self.present else []
+        self.days = [row for row in rows if row["unit_id"].count(":") == 1]
+        self.slots = [row for row in rows if row["unit_id"].count(":") == 2]
+        self.administrations: list[dict[str, Any]] = []
+        self.sessions: list[tuple[str, str]] = []
+        self.block_events: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        self.attempts: dict[str, list[dict[str, Any]]] = {}
+        self.assists: dict[str, list[str]] = {}
+        self._excluded: dict[str, tuple[str | None, float | None]] = {}
+        if not self.present:
+            return
+        for block_id, detail, created in connection.execute(
+                "SELECT block_id, detail_json, created_at FROM attention_block_events WHERE kind = 'item_planned' "
+                "AND json_extract(detail_json, '$.ro5_check.assignment_id') IS NOT NULL ORDER BY created_at, id"):
+            body = json.loads(detail)
+            check = body.get("ro5_check") or {}
+            self.administrations.append({"block_id": str(block_id), "planned_at": str(created),
+                                         "practice_item_id": body.get("practice_item_id"), **check})
+        self.sessions = [(str(sid), str(started)) for sid, started in connection.execute(
+            "SELECT id, started_at FROM sessions ORDER BY started_at, id")]
+        for block_id, kind, item_id, created in connection.execute(
+                "SELECT block_id, kind, json_extract(detail_json, '$.practice_item_id'), created_at "
+                "FROM attention_block_events WHERE kind IN ('item_skipped', 'item_displaced') ORDER BY created_at, id"):
+            self.block_events.setdefault((str(block_id), str(item_id)), []).append((str(kind), str(created)))
+        items = sorted({str(entry.get("practice_item_id")) for entry in self.administrations})
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+        received = "a.received_at" if "received_at" in columns else "NULL"
+        for start in range(0, len(items), 500):
+            chunk = items[start:start + 500]
+            for row in connection.execute(
+                    f"SELECT a.*, {received} AS ro5_received_at, p.block_id AS ro5_block_id FROM practice_attempts a "
+                    "LEFT JOIN plan_presentations p ON p.id = a.plan_presentation_id "
+                    f"WHERE a.practice_item_id IN ({','.join('?' for _ in chunk)}) ORDER BY a.created_at, a.id", chunk):
+                found = dict(row)
+                self.attempts.setdefault(str(found["practice_item_id"]), []).append(found)
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                                  ).fetchone():
+                for item_id, at in connection.execute(
+                        "SELECT practice_item_id, COALESCE(shown_at, requested_at) FROM help_assists "
+                        f"WHERE practice_item_id IN ({','.join('?' for _ in chunk)})", chunk):
+                    if at:
+                        self.assists.setdefault(str(item_id), []).append(str(at))
+
+    def _graded(self, attempt: Mapping[str, Any], assisted: bool) -> tuple[str | None, float | None]:
+        """The answer's exclusion and label, as its grade stands NOW (Codex review F1; :class:`Closure`)."""
+
+        key = f"{attempt['id']}|{int(assisted)}"
+        if key not in self._excluded:
+            excluded = exclusion(self.connection, attempt)
+            label = _label(attempt, assisted) if excluded is None else None
+            if excluded is None and label is None:
+                excluded = EXCLUDED_LABEL
+            self._excluded[key] = (excluded, label)
+        return self._excluded[key]
+
+    def sessions_by_day(self, closure: Closure) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for session_id, started in self.sessions:
+            if closure.admits(started):
+                day = _local_date(started)
+                if day is not None:
+                    out.setdefault(day, []).append(session_id)
+        return out
+
+    def drawn_days(self, closure: Closure) -> list[dict[str, Any]]:
+        return [row for row in self.days if row["unit_id"][len(DAY_PREFIX):] <= closure.local_date
+                and closure.admits(row["created_at"])]
+
+    def resolve(self, closure: Closure) -> list[Resolved]:
+        """Every slot assigned as of ``closure``, with its status (module docstring) as it stood then."""
+
+        done: dict[str, dict[str, Any]] = {}
+        for entry in self.administrations:
+            if closure.admits(entry["planned_at"]):
+                done.setdefault(str(entry["assignment_id"]), entry)
+        sessions = self.sessions_by_day(closure)
+        out: list[Resolved] = []
+        for row in self.slots:
+            local_date = row["unit_id"][len(DAY_PREFIX):].split(":")[0]
+            if local_date > closure.local_date or not closure.admits(row["created_at"]):
+                continue
+            slot = row["detail"]
+            base = dict(assignment_id=str(row["id"]), local_date=local_date, topic=str(row["variant"]),
+                        r=float(row["propensity"]))
+            planned = done.get(str(row["id"]))
+            if planned is None:
+                reason = OPEN if local_date == closure.local_date else (
+                    NO_SESSION if not sessions.get(local_date) else NO_PRACTICE_SLOT)
+                out.append(Resolved(**base, status=reason, item_id=slot.get("item_id")))
+                continue
+            item_id = str(planned.get("practice_item_id"))
+            events = {kind for kind, at in self.block_events.get((planned["block_id"], item_id), ())
+                      if closure.admits(at)}
+            planned_at = _moment(planned["planned_at"])
+            attempt = next((found for found in self.attempts.get(item_id, ())
+                            if _moment(found["created_at"]) >= planned_at
+                            and (found.get("ro5_block_id") == planned["block_id"]
+                                 or found.get("plan_presentation_id") is None)
+                            and closure.admits(found["created_at"], found.get("ro5_received_at"))), None)
+            if attempt is None:
+                status = DISPLACED if "item_displaced" in events else (SKIPPED if "item_skipped" in events else (
+                    OPEN if local_date == closure.local_date else NOT_ANSWERED))
+                out.append(Resolved(**base, status=status, item_id=item_id, replaced=planned.get("replaced"),
+                                    sensors=planned.get("sensors") or {}))
+                continue
+            answered = _moment(attempt["created_at"])
+            assisted = any(planned_at <= _moment(at) <= answered for at in self.assists.get(item_id, ())
+                           if closure.admits(at))
+            # Codex review F1: the answer is an observation only where the assessment rules give it a label now.
+            attempt = {key: value for key, value in attempt.items() if not key.startswith("ro5_")}
+            excluded, label = self._graded(attempt, assisted)
+            out.append(Resolved(**base, status=excluded or COMPLETED, outcome=label,
+                                attempt_id=str(attempt["id"]), item_id=item_id, replaced=planned.get("replaced"),
                                 sensors=planned.get("sensors") or {}))
-            continue
-        attempt = dict(attempt)
-        assisted = False
-        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'").fetchone():
-            assisted = connection.execute(
-                "SELECT 1 FROM help_assists WHERE practice_item_id = ? AND COALESCE(shown_at, requested_at) <= ? "
-                "AND COALESCE(shown_at, requested_at) >= ? LIMIT 1",
-                (item_id, attempt["created_at"], planned["planned_at"])).fetchone() is not None
-        # Codex review F1: the answer is an observation only where the assessment rules give it a label now.
-        excluded = exclusion(connection, attempt)
-        label = _label(attempt, assisted) if excluded is None else None
-        if excluded is None and label is None:
-            excluded = EXCLUDED_LABEL
-        out.append(Resolved(**base, status=excluded or COMPLETED, outcome=label,
-                            attempt_id=str(attempt["id"]), item_id=item_id, replaced=planned.get("replaced"),
-                            sensors=planned.get("sensors") or {}))
-    return out
+        return out
+
+    def completion(self, closure: Closure) -> dict[str, Any]:
+        resolved = [entry for entry in self.resolve(closure) if entry.status != OPEN]
+        days = sorted({row["unit_id"][len(DAY_PREFIX):] for row in self.drawn_days(closure)})
+        completed = sum(1 for entry in resolved if entry.status == COMPLETED)
+        missing_days: list[str] = []
+        per_day = 0.0
+        if days:
+            sessions = self.sessions_by_day(closure)
+            cursor = date.fromisoformat(days[0])
+            try:
+                end = date.fromisoformat(closure.local_date)
+            except ValueError:  # pragma: no cover - a closure always names a date
+                end = cursor
+            drawn = set(days)
+            while cursor < end:
+                stamp = cursor.isoformat()
+                if stamp not in drawn and not sessions.get(stamp):
+                    missing_days.append(stamp)
+                cursor += timedelta(days=1)
+            per_day = len(resolved) / len(days)
+        denominator = len(resolved) + per_day * len(missing_days)
+        statuses: dict[str, int] = {}
+        for entry in resolved:
+            statuses[entry.status] = statuses.get(entry.status, 0) + 1
+        return {"completed": completed, "assigned": len(resolved), "days_without_session": len(missing_days),
+                "by_status": dict(sorted(statuses.items())),
+                "checks_per_day": per_day, "rate": (completed / denominator) if denominator > 0 else None,
+                "label": "pooled over every randomized check and every day with no session; never conditioned on an "
+                         "action"}
+
+    def r_for(self, local_date: str, closure: Closure) -> tuple[dict[str, float], str]:
+        drawn = {row["unit_id"][len(DAY_PREFIX):]: row for row in self.drawn_days(closure)}
+        if local_date in drawn:
+            return dict(drawn[local_date]["detail"].get("r") or {}), "drawn"
+        earlier = [day for day in sorted(drawn) if day < local_date]
+        if not earlier:
+            return {}, "none"
+        return dict(drawn[earlier[-1]]["detail"].get("r") or {}), "last_draw_stands"
 
 
-def completion(connection: Any, *, through: str) -> dict[str, Any]:
+def resolve(connection: Any, *, through: str | None = None, closure: Closure | None = None,
+            ledger: Ledger | None = None) -> list[Resolved]:
+    """Every assigned slot as of its closure (``through`` a local date, its end; or ``closure``), with its status
+    (module docstring), every event read through :meth:`Closure.admits` (landing ruling R1): an assignment,
+    administration, skip, displacement or answer after the closure is not seen, so a historical read never moves with
+    later activity (a grade's later hold or regrade still applies, as intended: :class:`Closure`)."""
+
+    return (ledger or Ledger(connection)).resolve(_closure(through, closure))
+
+
+def completion(connection: Any, *, through: str | None = None, closure: Closure | None = None,
+               ledger: Ledger | None = None) -> dict[str, Any]:
     """The running completion rate, pooled and never conditioned on an action: completed checks over the assigned
     ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap). Every
-    input stands as of ``through`` (Codex re-review F10): the assignments, the drawn days that set the checks per
-    day, and the answers (:func:`resolve`), so a rate read at a past date never moves with later assignments."""
+    input stands as of the closure (landing ruling R1): the assignments, the drawn days that set the checks per day,
+    the sessions and the answers (:func:`resolve`), so a rate read at a past cutoff never moves with later data."""
 
-    resolved = [entry for entry in resolve(connection, through=through) if entry.status != OPEN]
-    days = sorted(day for day in {row["unit_id"][len(DAY_PREFIX):] for row in A.rows(connection, A.CHECK)
-                                  if row["unit_id"].count(":") == 1} if day <= through)
-    completed = sum(1 for entry in resolved if entry.status == "completed")
-    missing_days: list[str] = []
-    per_day = 0.0
-    if days:
-        sessions = _sessions_by_day(connection)
-        first = date.fromisoformat(days[0])
-        end = date.fromisoformat(through)
-        drawn = set(days)
-        cursor = first
-        while cursor < end:
-            stamp = cursor.isoformat()
-            if stamp not in drawn and not sessions.get(stamp):
-                missing_days.append(stamp)
-            cursor += timedelta(days=1)
-        slots = [entry for entry in resolved]
-        per_day = (len(slots) / len(days)) if days else 0.0
-    denominator = len(resolved) + per_day * len(missing_days)
-    statuses: dict[str, int] = {}
-    for entry in resolved:
-        statuses[entry.status] = statuses.get(entry.status, 0) + 1
-    return {"completed": completed, "assigned": len(resolved), "days_without_session": len(missing_days),
-            "by_status": dict(sorted(statuses.items())),
-            "checks_per_day": per_day, "rate": (completed / denominator) if denominator > 0 else None,
-            "label": "pooled over every randomized check and every day with no session; never conditioned on an action"}
+    return (ledger or Ledger(connection)).completion(_closure(through, closure))
 
 
-def r_for(connection: Any, *, local_date: str) -> tuple[dict[str, float], str]:
+def r_for(connection: Any, *, local_date: str, closure: Closure | None = None,
+          ledger: Ledger | None = None) -> tuple[dict[str, float], str]:
     """``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the
-    last earlier one's (labelled: its eligible set stands for a day with no session)."""
+    last earlier one's (labelled: its eligible set stands for a day with no session), every draw as of ``closure``
+    (by default the end of ``local_date``)."""
 
-    record = day_record(connection, local_date)
-    if record is not None:
-        return dict(record.get("r") or {}), "drawn"
-    earlier = [row for row in A.rows(connection, A.CHECK) if row["unit_id"].count(":") == 1
-               and row["unit_id"][len(DAY_PREFIX):] < local_date]
-    if not earlier:
-        return {}, "none"
-    return dict(earlier[-1]["detail"].get("r") or {}), "last_draw_stands"
+    return (ledger or Ledger(connection)).r_for(local_date, closure or Closure.through(local_date))
 
 
 __all__ = [
-    "DAY_PREFIX", "DISPLACED", "Day", "NOT_ANSWERED", "NO_PRACTICE_SLOT", "NO_SESSION",
+    "Closure", "DAY_PREFIX", "DISPLACED", "Day", "Ledger", "NOT_ANSWERED", "NO_PRACTICE_SLOT", "NO_SESSION",
     "OPEN", "ORIGIN", "Placement", "RESOLVER_VERSION", "Resolved", "SKIPPED", "VERSION", "administered", "completion",
     "day_record", "day_seed", "day_unit", "draw", "draw_day", "place", "r_for", "resolve",
     "slot_unit",

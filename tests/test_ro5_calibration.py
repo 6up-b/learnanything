@@ -68,12 +68,20 @@ def test_ad_exposes_the_subject_views_learning_moments(tmp_path):
 
 def test_the_combiner_is_fitted_on_resolved_checks_and_is_its_prior_with_none(tmp_path, monkeypatch):
     env = mixture_env(tmp_path, fake_runtime(), version=TAG)
-    prior = OI._combiner(env.repository)
+    prior = OI._combiner(env.repository, env.now_iso())
     assert prior.mean == M.COMBINER_PRIOR_MEAN and prior.n == 0
     planted = [C.Resolved(assignment_id=f"a{i}", local_date="2026-01-01", topic="L", r=0.2, status="completed",
                           outcome=float(i % 4 != 0), sensors={"eta": 2.0, "retrievability": None}) for i in range(40)]
-    monkeypatch.setattr(C, "resolve", lambda _connection, *, through: planted)
-    fitted = OI._combiner(env.repository)
+    seen: list = []
+
+    def resolve(_connection, *, closure):
+        seen.append(closure)
+        return planted
+
+    monkeypatch.setattr(C, "resolve", resolve)
+    fitted = OI._combiner(env.repository, env.now_iso())
+    # Landing ruling R1: the checks as of the decision itself.
+    assert seen and seen[0] == C.Closure.at(env.now_iso())
     assert fitted.n == 40 and "resolved randomized checks" in fitted.source
     assert fitted.mean != M.COMBINER_PRIOR_MEAN
 

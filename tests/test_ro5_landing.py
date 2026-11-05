@@ -6,6 +6,11 @@ asked.
   and the likelihood's peaks and the region between, its bounds widen until the tail mass beyond them is negligible,
   and it converges only when both the spacing and the tail mass pass; a planted slope is recovered at a narrow prior
   and at a wide one.
+* R4: the stop coin skips the session's opening boundary (no active minute yet).
+* R1 (Codex final verify F10, reopened): every read forming a check's completion, a completion rate or a comparison
+  score reads as of one closure through one function (``checks.Closure``), applied to every event it counts
+  (answers on occurrence and received time, skips, displacements, administrations, the days drawn and the sessions):
+  Codex's two reproductions (a later skip moving a past rate; a later answer moving a closed score).
 """
 
 from __future__ import annotations
@@ -112,3 +117,150 @@ def test_r4_the_coin_is_not_drawn_before_any_active_minute_of_the_session(tmp_pa
     assert coins and all(row["detail"]["availability"]["session_minutes"] > 0 for row in coins.values())
     assert not SC.eligible([*SUPPORT], session_minutes=0.0) and SC.eligible([*SUPPORT], session_minutes=0.5)
     assert not SC.eligible([*SUPPORT], session_minutes=None)
+
+
+# -- R1 (F10): one closure for every event a check, a rate or a score counts ----------------------------------
+
+
+def _ledger_db():
+    """The tables a check's resolution and a score read, in memory (Codex's reproductions' shape)."""
+
+    import sqlite3
+
+    from learnloop.db.stores import router_objective as store
+
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.execute(f"CREATE TABLE policy_experiment_assignments ({', '.join(store.ASSIGNMENT_COLUMNS)})")
+    connection.execute("CREATE TABLE attention_block_events (id INTEGER PRIMARY KEY, block_id TEXT, event_ordinal "
+                       "INTEGER, kind TEXT, detail_json TEXT, created_at TEXT)")
+    connection.execute("CREATE TABLE sessions (id TEXT, started_at TEXT, ended_at TEXT)")
+    connection.execute("CREATE TABLE plan_presentations (id TEXT, block_id TEXT)")
+    connection.execute("CREATE TABLE practice_attempts (id TEXT, practice_item_id TEXT, learning_object_id TEXT, "
+                       "attempt_type TEXT, correctness REAL, hints_used INTEGER, primed INTEGER, latency_seconds REAL, "
+                       "plan_presentation_id TEXT, created_at TEXT, received_at TEXT, manual_review_reason TEXT)")
+    connection.execute("CREATE TABLE interaction_events (kind TEXT, occurred_at TEXT, created_at TEXT, payload_json TEXT)")
+    connection.execute("CREATE TABLE router_objective_traces (id TEXT, decision_id TEXT, decision_kind TEXT, "
+                       "local_date TEXT, created_at TEXT, window_closes_at TEXT, llm_status TEXT, numeric_status TEXT, "
+                       "kappa0 REAL, remembered_minutes REAL, trace_json TEXT)")
+    return connection
+
+
+def _check_day(connection, day: str, *, item: str, topic: str = "L", r: float = 0.5) -> str:
+    """One drawn day with one slot, its session and its administration (block ``b-<day>``); the slot's id."""
+
+    import json
+
+    from learnloop.router_objective import checks as C
+
+    at = f"{day}T12:00:00Z"
+    A.insert(connection, experiment_id=A.CHECK, unit_id=C.day_unit(day), variant="day", propensity=1.0, seed="s",
+             draw=None, candidate_refs=[topic], detail={"r": {topic: r}}, at=at)
+    slot = A.insert(connection, experiment_id=A.CHECK, unit_id=C.slot_unit(day, 0), variant=topic, propensity=r,
+                    seed="s", draw=0.1, candidate_refs=[topic], detail={"slot": 0, "item_id": item}, at=at)
+    connection.execute("INSERT INTO sessions VALUES (?, ?, NULL)", (f"s-{day}", f"{day}T12:30:00Z"))
+    connection.execute("INSERT INTO attention_block_events (block_id, event_ordinal, kind, detail_json, created_at) "
+                       "VALUES (?, 0, 'item_planned', ?, ?)",
+                       (f"b-{day}", json.dumps({"practice_item_id": item, "ro5_check": {"assignment_id": slot}}),
+                        f"{day}T12:31:00Z"))
+    return str(slot)
+
+
+def _answer(connection, item: str, at: str, *, correctness: float = 1.0, received: str | None = None) -> None:
+    connection.execute("INSERT INTO practice_attempts VALUES (?, ?, 'L', 'independent_attempt', ?, 0, 0, 60, NULL, ?, ?, "
+                       "NULL)",
+                       (f"a-{item}-{at}", item, correctness, at, received))
+
+
+def _skip(connection, day: str, item: str, at: str, kind: str = "item_skipped") -> None:
+    import json
+
+    connection.execute("INSERT INTO attention_block_events (block_id, event_ordinal, kind, detail_json, created_at) "
+                       "VALUES (?, 1, ?, ?, ?)", (f"b-{day}", kind, json.dumps({"practice_item_id": item}), at))
+
+
+def test_r1_f10_a_later_skip_never_moves_a_past_completion_rate():
+    from learnloop.router_objective import checks as C
+
+    connection = _ledger_db()
+    _check_day(connection, "2026-01-01", item="i1")
+    _answer(connection, "i1", "2026-01-01T13:00:00Z")
+    _check_day(connection, "2026-01-02", item="i2")  # administered, not answered
+    before = C.completion(connection, through="2026-01-02")
+    assert before["rate"] == pytest.approx(1.0) and before["assigned"] == 1  # January 2's check is still open
+    # Codex's reproduction: an item_skipped dated January 3 for January 2's block. Pre-fix: rate 0.5, assigned 2
+    # (the skip had no cutoff and turned the open check into a skipped one).
+    _skip(connection, "2026-01-02", "i2", "2026-01-03T09:00:00Z")
+    assert C.completion(connection, through="2026-01-02") == before
+    # A displacement after the cutoff is not seen either; both are seen from their own date on.
+    _skip(connection, "2026-01-02", "i2", "2026-01-03T09:05:00Z", kind="item_displaced")
+    assert C.completion(connection, through="2026-01-02") == before
+    later = {e.assignment_id: e.status for e in C.resolve(connection, through="2026-01-03")}
+    assert sorted(later.values()) == [C.COMPLETED, C.DISPLACED]
+
+
+def _score_trace(connection):
+    import json
+
+    from tests.test_ro5_checks import _row, _trace
+
+    row = _row()
+    connection.execute("INSERT INTO router_objective_traces VALUES ('t1', ?, 'plan_block', ?, ?, ?, 'answered', "
+                       "'answered', 0.0, 10.0, ?)", (row["decision_id"], row["local_date"], row["created_at"],
+                                                     row["window_closes_at"], json.dumps(_trace())))
+
+
+class _Config:
+    class router_objective:  # noqa: N801 - the config's section, as the scores read it
+        session_gap_minutes = 60
+
+
+def test_r1_f10_a_closed_score_never_moves_with_an_answer_after_its_closure():
+    from learnloop.router_objective import checks as C
+    from learnloop.router_objective import scores as S
+
+    connection = _ledger_db()
+    _score_trace(connection)  # decided January 1 at 10:00, its window closing January 3 at 10:00
+    _check_day(connection, "2026-01-01", item="i1")
+    _answer(connection, "i1", "2026-01-01T13:00:00Z")
+    _check_day(connection, "2026-01-02", item="i2")  # unanswered when the window closes
+    at_closure = S.scores(connection, _Config, at="2026-01-03T11:00:00Z")
+    assert len(at_closure) == 1 and at_closure[0].observed == 0
+    # Codex's reproduction: the January 2 check answered correctly on January 5. Pre-fix, reading the scores on
+    # January 6 moved the same closed decision to an observed check (value 4, observed 1).
+    _answer(connection, "i2", "2026-01-05T09:00:00Z")
+    after = S.scores(connection, _Config, at="2026-01-06T00:00:00Z")
+    assert [(d.scored.value, d.observed, d.uses_with_r) for d in after] == \
+        [(d.scored.value, d.observed, d.uses_with_r) for d in at_closure]
+    # The check itself completes from January 5 on: the closure is the read's, never the check's history rewritten.
+    assert {e.local_date: e.status for e in C.resolve(connection, through="2026-01-05")}["2026-01-02"] == C.COMPLETED
+
+
+def test_r1_an_answer_received_after_the_closure_is_not_seen_at_it():
+    # RO1's availability predicate: an answer counts at a cutoff only once it happened AND was known.
+    from learnloop.router_objective import checks as C
+
+    connection = _ledger_db()
+    _check_day(connection, "2026-01-02", item="i2")
+    _answer(connection, "i2", "2026-01-02T14:00:00Z", received="2026-01-04T08:00:00Z")
+    closure = C.Closure.through("2026-01-03")
+    assert [e.status for e in C.resolve(connection, closure=closure)] == [C.NOT_ANSWERED]
+    assert [e.status for e in C.resolve(connection, closure=C.Closure.through("2026-01-04"))] == [C.COMPLETED]
+
+
+def test_r1_one_function_reads_every_counted_event_as_of_its_closure():
+    """The structure: ``checks.Closure.admits`` is the one cutoff; resolve, completion, r_for and the scores take a
+    closure and never read an event's time through another path."""
+
+    import inspect
+
+    from learnloop.router_objective import checks as C
+    from learnloop.router_objective import scores as S
+
+    assert "closure" in inspect.signature(C.resolve).parameters
+    assert "closure" in inspect.signature(C.completion).parameters
+    assert "closure" in inspect.signature(C.r_for).parameters
+    doc = inspect.getdoc(C.Closure) or ""
+    assert "hold" in doc and "regrade" in doc  # the intended current-grade behaviour, named
+    source = inspect.getsource(S.scores)
+    assert "Closure" in source

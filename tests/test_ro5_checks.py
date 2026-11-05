@@ -196,7 +196,8 @@ def test_off_draws_nothing_and_a_day_with_no_session_counts_toward_the_completio
     assert _check_rows(off) == []
     env = _env(tmp_path / "on")
     los = list(OI.population(env.vault, env.repository, env.now_iso()))
-    C.draw_day(env.vault, env.repository, local_date="2026-01-01", now_iso=env.now_iso(),
+    # Drawn on its own date (landing ruling R1: a read as of a date sees only what was assigned by then).
+    C.draw_day(env.vault, env.repository, local_date="2026-01-01", now_iso="2026-01-01T12:00:00Z",
                topics={lo: 1 / 90 for lo in los}, eligible_items=lambda _los, _ex: {lo: ["x"] for lo in los})
     with env.repository.connection() as connection:
         gap = C.completion(connection, through="2026-01-05")
