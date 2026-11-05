@@ -180,6 +180,29 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
     if coin and coin.get("arm") != SC.POLICY:
         return Detail(scored=W.Scored(**base, value=None, reason=SC.FORCED))
     d, mu, taken, mu_taken = _distribution(trace)
+    found_uses = window_uses(connection, row, trace, resolved=resolved, completion_rate=completion_rate,
+                             r_lookup=r_lookup)
+    if found_uses is None:
+        return Detail(scored=W.Scored(**base, value=None, reason=W.NO_RESULT))
+    uses, assessments = found_uses
+    reason = W.carries_score(uses=uses, failed=[], d_taken=d.get(taken, 0.0), d_all=d)
+    counts = dict(uses=len(uses), uses_with_r=sum(1 for use in uses if use.r > 0),
+                  observed=sum(1 for use in uses if use.observed), assessments=tuple(assessments))
+    if reason is not None:
+        return Detail(scored=W.Scored(**base, value=None, reason=reason), **counts)
+    if not mu_taken:
+        return Detail(scored=W.Scored(**base, value=None, reason="no_logged_probability"), **counts)
+    cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
+    value = W.score(d_taken=d.get(taken, 0.0), mu_taken=float(mu_taken), uses=uses, cost=cost, cost_baseline=c0)
+    return Detail(scored=W.Scored(**base, value=value), cost=cost, cost_baseline=c0, **counts)
+
+
+def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
+                resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
+                r_lookup: Callable[[str], dict[str, float]]) -> tuple[list[W.Use], list[str]] | None:
+    """The frozen uses of one decision's window with what the randomized checks observed of them (and the
+    completed assessments' keys), or None when a dated use in the window has no imported result (``no_result``)."""
+
     evaluation = trace.get("evaluation") or {}
     window = int(evaluation.get("window_days") or 14)
     start = date.fromisoformat(str(row["local_date"]))
@@ -203,32 +226,49 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
         on = dated_use_date(trace, row, dated)
         result = _exam_result(connection, str(dated["lo"]), on)
         if result is None:
-            return Detail(scored=W.Scored(**base, value=None, reason=W.NO_RESULT))
+            return None
         uses.append(W.Use(key=f"G:{dated['goal_id']}:{dated['lo']}", weight=float(dated.get("omega") or 0.0),
                           baseline=float(dated.get("m0") or 0.0), r=1.0, observed=True, outcome=result))
-    reason = W.carries_score(uses=uses, failed=[], d_taken=d.get(taken, 0.0), d_all=d)
-    counts = dict(uses=len(uses), uses_with_r=sum(1 for use in uses if use.r > 0),
-                  observed=sum(1 for use in uses if use.observed), assessments=tuple(assessments))
-    if reason is not None:
-        return Detail(scored=W.Scored(**base, value=None, reason=reason), **counts)
-    if not mu_taken:
-        return Detail(scored=W.Scored(**base, value=None, reason="no_logged_probability"), **counts)
+    return uses, assessments
+
+
+def _window_cost_and_baseline(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
+                              prices: Mapping[str, tuple[float, float]], gap_minutes: float) -> tuple[float, float]:
+    """``C_i`` over the decision's window and its frozen ``C⁰_i``."""
+
+    evaluation = trace.get("evaluation") or {}
+    window = int(evaluation.get("window_days") or 14)
     end = (_parse(str(row["created_at"])) + timedelta(days=window)).strftime(_STAMP)
     own = (float(row.get("kappa0") or 0.0), max(float(row.get("remembered_minutes") or 1.0), 1e-9))
     cost = window_cost(connection, start=str(row["created_at"]), end=end, gap_minutes=gap_minutes, prices=prices,
                        own=own)
-    c0 = float(evaluation.get("c0") or 0.0)
-    value = W.score(d_taken=d.get(taken, 0.0), mu_taken=float(mu_taken), uses=uses, cost=cost, cost_baseline=c0)
-    return Detail(scored=W.Scored(**base, value=value), cost=cost, cost_baseline=c0, **counts)
+    return cost, float(evaluation.get("c0") or 0.0)
 
 
-def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
-    """Every decision's score from the traces whose windows closed before ``at`` (no peeking), RO5's checks the
-    observations."""
+def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
+                    resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
+                    r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
+                    gap_minutes: float) -> tuple[float | None, str | None]:
+    """RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action
+    contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
+    ``(None, reason)`` when a dated use has no result or no use has ``r > 0`` (effort alone is no return)."""
 
-    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'router_objective_traces'"
-                          ).fetchone() is None:
-        return []
+    found_uses = window_uses(connection, row, trace, resolved=resolved, completion_rate=completion_rate,
+                             r_lookup=r_lookup)
+    if found_uses is None:
+        return None, W.NO_RESULT
+    uses, _assessments = found_uses
+    if not any(use.r > 0 for use in uses):
+        return None, W.NO_RANDOMIZED_USE
+    cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
+    return W.score(d_taken=1.0, mu_taken=1.0, uses=uses, cost=cost, cost_baseline=c0), None
+
+
+def _context(connection: Any, *, at: str) -> tuple[dict[tuple[str, str], C.Resolved], Callable[[str], float | None],
+                                                   Callable[[str], dict[str, float]], dict[str, tuple[float, float]]]:
+    """What every closed window's score reads as of ``at``: the resolved checks, the completion rate as it stood
+    when a window closed, each day's assignment probabilities and each day's price."""
+
     through = _parse(at).astimezone().date().isoformat()
     resolved = {(entry.local_date, entry.topic): entry for entry in C.resolve(connection, through=through)}
     rates: dict[str, float | None] = {}
@@ -248,7 +288,32 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
             cache[day] = C.r_for(connection, local_date=day)[0] if day <= through else {}
         return cache[day]
 
-    prices = _day_prices(connection)
+    return resolved, completion_at, r_lookup, _day_prices(connection)
+
+
+def observed_returns(connection: Any, config: Any, *, at: str,
+                     rows: Sequence[Mapping[str, Any]]) -> dict[str, tuple[float | None, str | None]]:
+    """RO6: :func:`observed_return` for each of ``rows`` (a trace's columns with its parsed ``trace``) whose window
+    closed before ``at``, keyed by decision id, as of ``at`` exactly as :func:`scores` reads it."""
+
+    closed = [row for row in rows if row.get("window_closes_at") and str(row["window_closes_at"]) < at]
+    if not closed:
+        return {}
+    resolved, completion_at, r_lookup, prices = _context(connection, at=at)
+    gap = float(config.router_objective.session_gap_minutes)
+    return {str(row["decision_id"]): observed_return(
+        connection, row, row["trace"], resolved=resolved, completion_rate=completion_at(str(row["window_closes_at"])),
+        r_lookup=r_lookup, prices=prices, gap_minutes=gap) for row in closed}
+
+
+def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
+    """Every decision's score from the traces whose windows closed before ``at`` (no peeking), RO5's checks the
+    observations."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'router_objective_traces'"
+                          ).fetchone() is None:
+        return []
+    resolved, completion_at, r_lookup, prices = _context(connection, at=at)
     gap = float(config.router_objective.session_gap_minutes)
     out: list[Detail] = []
     for row in connection.execute(
@@ -264,5 +329,5 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
     return out
 
 
-__all__ = ["Detail", "VERSION", "WindowSession", "dated_use_date", "goal_date", "score_decision", "scores",
-           "window_cost"]
+__all__ = ["Detail", "VERSION", "WindowSession", "dated_use_date", "goal_date", "observed_return",
+           "observed_returns", "score_decision", "scores", "window_cost", "window_uses"]
