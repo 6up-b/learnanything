@@ -425,3 +425,252 @@ no rebuild. Then the owner would rebuild the desktop app and restart the phone h
 
 - During the merge investigation, one `uv run --no-sync learnloop --help` ran outside the `env -i` wrapper (grepped
   for "sync"; it printed nothing). No vault, config, network or model was touched.
+
+## Landing onto main, second pass
+
+The orchestrator ruled on the stopped record, and the fix and a full rerun followed. Main is still `79a1ce32a9`.
+
+### Rulings (verbatim)
+
+- R6: "The AD guard denial on span-anchored inquiries is a real defect and blocks landing. The fix is structural: every span-to-section and section-to-LO mapping reached inside AD's operation takes the document IR from MaterialView.document_ir, after the sweep's withheld rule is checked. An IR-taking section_id_for_span and learning_objects_for_section, with the raw-loading versions as thin wrappers for callers outside AD. The same fix applies to main's latent call sites (reading_sources.py at the four lines you found, and dose.py:159), since it is the same helper and the same class: an AD serve rolled back by a guard denial."
+- R7: "A test scans the code reached from AD's operation (the history card's reads, the reading sweep, dose) and fails on any call to repository.load_document_ir or another raw document loader. Your reproduction (a span-anchored Reader question on a textbook fake) is a test at mvp-0.45 and mvp-0.46 and passes after the fix; with it, a test shows a guard denial on any AD read leaves the learner's serve unchanged, as it does now."
+- R8: "No further Codex round on R6: the reproduction is the test, and the smoke rerun without the stand-in is the check. Landing needs, on all three copies with the forecaster on: no AD guard warning, AD1's serve receipts, the frozen inputs and the reading-sweep rows identical to main (linear_algebra's 81 included), and the router card's AD prediction identical to main. A further finding on this class is Low unless it rolls back an AD serve write or puts protected or post-serve material into a card."
+
+### R6: the fix (`c170f020f0`)
+
+- **`section_map.py`** gains three functions that take the IR from their caller: `section_id_in_ir`,
+  `learning_objects_for_span_in_ir` and `learning_objects_for_section_in_ir`.
+  - `section_id_for_span`, `learning_objects_for_span` and `learning_objects_for_section` keep their signatures. They are
+    now thin wrappers that load the IR and call the IR-taking versions, for callers outside AD (the Reader, data capture,
+    the router's reading reads, the gap sources).
+  - `learning_objects_for_span` loads the IR once now. Before, it loaded it twice: once in `section_id_for_span` and again
+    in `learning_objects_for_section`.
+- **`VaultReadingMap`** (`adaptive_difficulty/reading.py`) is the one map that the history card, the reading sweep's sources
+  and dose use.
+  - `los_for_span` and `los_for_section` first apply the sweep's withheld rule (`withheld(extraction, span)`). Then they
+    take the IR from `MaterialView.document_ir`, cached per map, and call the IR-taking versions.
+  - The helpers get the operation's projected repository (`project_repository`). So the span translator's re-read
+    aliases also load each reading through the view, whichever repository the map was built with.
+  - This covers all of the sweep's calls: `reading_sources.py` lines 112, 123, 144, 205, 229 and 232, and `dose.py` 159
+    and 272.
+- **A correction to the stopped record.** The sweep and dose are `@entry` points, and those receive `op.repository`, a
+  `ProjectedRepository` whose `load_document_ir` already is the view's. So on main their calls did not poison; my first
+  probe built the map with the raw repository. RO2's card built its map from `reads.view.repository`, which is raw, and
+  so did RO2's resolver (`history_resolve`). After R6 the map no longer depends on the repository it is handed.
+- **The reproduction** is `tests/test_ro2_ad_document_ir.py`, at mvp-0.45 and mvp-0.46. It uses the textbook fake, an LO
+  citing a span of `ext_text`, and a Reader question on `span:ext_text/<span>`. Three tests run at each version:
+  - the card builds inside an AD operation with the inquiry on H2;
+  - the map gives inside the operation the LOs the incumbent gives outside it, for the span and its section
+    (`["lo_matrices"]`);
+  - `record_plan_serve` writes AD1's receipts, the frozen inputs and RO2's draw, and H3 carries the inquiry.
+
+  All 6 failed on the pre-fix source (the guard denial) and pass after the fix.
+
+### R7: the structural guard (`a6ff74ba9d`)
+
+`tests/test_ro2_ad_raw_document_reads.py`:
+
+- **A static walk** starts from every function of `history_card.py`, `reading.py`, `reading_sources.py` and `dose.py`. It
+  follows calls to module functions, imported names, `self` methods and classes, across all of `src/learnloop`.
+  - It fails on any call to `load_document_ir`, `document_blocks` or `document_blocks_on_pages`, except inside
+    `MaterialView.document_ir`.
+  - One entry is named with its reason: `span_aliases._computed`. AD reaches it only through the map's projected
+    repository, and the run-time test below checks that.
+  - It asserts that the walk does reach `VaultReadingMap.los_for_span`/`los_for_section` and
+    `learning_objects_for_section_in_ir`, and that the named entry is not stale.
+- **A test of the wrappers.** The raw-loading versions call the IR-taking ones, and the IR-taking ones never load an IR.
+- **A run-time check** on the span-anchored fake. During the map's span and section mapping, the card build and a whole
+  `record_plan_serve` (its sweep included), every `Repository.load_document_ir` call happens inside
+  `MaterialView.document_ir`.
+- **A guard denial in AD's serve leaves the learner's serve unchanged.** The denial is forced by a read of
+  `grading_evidence` inside `freeze_history_inputs`. The step and the presentation row stay the same as an undenied
+  serve's. The denied serve writes no `forecast_receipts`, `item_serve_inputs` or draw row; the undenied one writes all
+  three.
+
+On the pre-fix source, the walk, the wrapper test and the run-time check fail; the denial test passes, as R7 asks.
+
+### The audit's estimate, reconciled (`219f7e7887`)
+
+`forecast-audit --mode permuted` on linear_algebra estimates 155,824 tokens for 3 calls. That splits into:
+
+- 103,525 prompt bytes (three permuted H3 cards of about 34.5 KB, counted one byte per token);
+- about 3,150 for the answer schema and the framing;
+- 49,152 reserved output (3 × 16,384).
+
+That is the charge the spend caps reserve, an upper bound. Expected use is about 26,000 input tokens (bytes/4) plus a few
+hundred output tokens per call. That is about 9,000 tokens per call, in line with the measured cards (H3 now: about 7,500
+tokens median on linear_algebra).
+
+The output did not say any of this, so the dry run now adds:
+
+- `prompt_bytes`;
+- `reserved_output_tokens`;
+- `estimate_counts`: "an upper bound the spend caps reserve, not expected usage: each call's prompt as UTF-8 bytes
+  (real tokens are about a quarter to a third of that), the answer schema and framing, and the whole reserved output
+  budget (output_tokens_per_call), of which an answer uses a few hundred tokens; _with_retries adds one retry per call at
+  double that budget".
+
+No charge changed. The dry-run test pins the new fields.
+
+### Targeted checks (step a)
+
+- `lint-imports --no-cache`: 43 kept, 0 broken (frozen cycles kept).
+- 38 files, `-n 6`, 5G scope: **1384 passed, 0 failed**. They were:
+  - every `test_ro2_*` (6 files with the two new);
+  - the four AD guard files;
+  - every test naming `reading_sources`, `section_map`, `reader_progression`, dose, `VaultReadingMap`, the span mapping
+    functions or `span_aliases` (26 files);
+  - `test_ad3_reading.py`, `test_ro1_availability*.py`, `test_table_roles.py`, `test_architecture.py`;
+  - the early checks: `test_measurement_state_labels.py`, `test_cli_help_snapshot.py`, `test_codex_lockdown_round3.py`.
+- The audit-wording change: `test_ro2_history_resolve.py` and the CLI help snapshot, 16 passed.
+- `--durable-sqlite` on the two new files, `test_ro2_history_protection.py`, `test_ro2_history_resolve.py` and
+  `test_ad3_reading.py`: 48 passed.
+- References (`d88d56ab82`): `db_validate_reference` errors `[]` at head 245 (nothing to regenerate); module catalog
+  regenerated, `module_validate` PASS; `desktop_validate` and `validate_vault` pass.
+
+### Gate (step b, at `d88d56ab82`)
+
+| Lane | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | done |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| Full suite (`-n 8 --dist worksteal`, 10G scope, under the full-suite lock) | **26365 passed, 90 skipped, 47 xfailed, 0 failed** (54:43). The first pass had 26354 |
+| Durability lane (`-m durability`) | 402 passed, 1 skipped |
+| Owner lane (FRESH backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-ro2/`) | 83 passed, 4 skipped; the same 2 known failures as at FG1d's landing and the first pass (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies[arxiv_v2]`) |
+| Desktop typecheck, vitest, build; `cargo check`; mobile typecheck, build | carried over from `81fb9bb2dc` (ok; 2751 passed; ok; ok; ok, ok): the second pass changes nothing under `apps/` or `src-tauri` |
+
+No unexpected failure, so nothing was rerun.
+
+### Smoke, second pass (step c)
+
+Fresh backup-API copies of the three `mvp043-20261103-copy` vaults were made as in the first pass (main code, mvp-0.45,
+mvp-0.46, `rebuild-derived-state`, head 244). The code was `git archive 79a1ce32a9` (main) and `git archive 219f7e7887`
+(branch: every code change of the second pass), both with `migrations/`. **No stand-in.** The same driver ran with
+warnings logged.
+
+**R8, per copy** (the full journey: Today, plan, Next steps, submit, feedback, the bundles, the router card, every row):
+
+| Copy | Off vs main | On vs main | AD guard warnings, main / on | AD1 serve receipts, main / on | Frozen inputs (`llm_v1`/`llm_v3`), main / on | Reading-sweep rows, main / on | Router card AD prediction | RO2 rows on: draws / cards |
+|---|---|---|---|---|---|---|---|---|
+| arxiv_v2 | IDENTICAL, no RO2 row | IDENTICAL plus RO2's rows | 0 / 0 | 4 / 4 | 2 / 2 | 0 / 0 | identical | 2 / 4 |
+| linear_algebra | IDENTICAL, no RO2 row | IDENTICAL plus RO2's rows | 0 / 0 | 8 / 8 | 4 / 4 | **81 / 81** | identical (`p_band_next` 0.0416 on both) | 4 / 8 |
+| probability | IDENTICAL, no RO2 row | IDENTICAL plus RO2's rows | 0 / 0 | 2 / 2 | 1 / 1 | 0 / 0 | identical | 1 / 2 |
+
+A second, submit-only journey (the real `submit_attempt` only, no raw attempt inserts) gave the same result on every
+copy. On it, linear_algebra again had 81 / 81 sweep rows, and its router card's AD prediction was 0.1974 on both sides.
+
+Every check of R8 holds. linear_algebra's frozen H2/H3 cards now carry its span-anchored inquiries (3 on three of its
+four presentations).
+
+**Everything else, without the stand-in.** The results are those of the first pass:
+
+- **The job** sent every rung exactly as frozen. Receipts, payloads and judgments per copy:
+
+  | Copy | Presentations | Receipts | Judgments |
+  |---|---|---|---|
+  | arxiv_v2 | 2 | 16 | 16 |
+  | linear_algebra | 4 | 32 | 32 |
+  | probability | 1 | 8 | 8 |
+
+  Each presentation has 2 `item_unassisted_success` receipts bound to it and 6 `lo_cold_success` receipts bound
+  `lo_cold_after_block`.
+- **Protection scan** of all 14 frozen cards: no problem. The one hit is the same false positive as in the first pass: a
+  multiple-choice stem the learner answered, whose option A is its reference answer.
+- **Held out after the serve:** on arxiv_v2 and probability the send is refused (`protected`), with nothing sent and no
+  receipt. linear_algebra's served items have no source reference.
+- **Skips:** `skipped:plan_paused` (`failed`) and `skipped:spend_cap` (`refused_spend`) are censored receipts with no
+  `p`, binding `none` and no judgment. A paused call's one retry resends the same prompt.
+- **`learnloop ad report`:** exit 0 on each copy, with cold outcomes pending: arxiv_v2 4, linear_algebra 8, probability 2.
+- **Audit dry run:** as reconciled above.
+- **Shadow** after the submit-only journeys: 0/0/0 on every copy, on main code and on branch code. It is still 0/0/0
+  after the job ran there.
+  - The full journeys' shadow is not 0/0/0: arxiv_v2 shows mastery 1 and schedule 1, and linear_algebra's replay stops
+    on the driver's raw `independent_attempt` insert.
+  - Both are the same on main code, and both come from the driver.
+- **RO2's rows survive a state sync, a rebuild and a second sync** (draws, payloads, receipts, judgments, before and
+  after):
+
+  | Copy | Full journey | Submit-only journey |
+  |---|---|---|
+  | arxiv_v2 | (2, 12, 16, 16) | (1, 6, 8, 8) |
+  | linear_algebra | not run (the driver's insert stops the rebuild) | (1, 6, 8, 8) |
+  | probability | (1, 6, 8, 8) | (1, 6, 8, 8) |
+- **Isolation:**
+  - The watch log for this pass holds only `git` and `powerprofilesctl` subprocesses: no connect, no non-loopback
+    connect, no name resolution, no Codex process.
+  - `model_call_receipts` gained only the fakes' rows (`fake`, `fake_llm`). probability's 56 older rows come from the
+    backup.
+
+**R4 again.** The card sizes did not move. The same 32, 146 and 81 serve points were measured without the stand-in, and
+every rung's card size is byte-identical to the first pass. So the first pass's R4 tables stand: the fixed mapping gives
+exactly the incumbent's LOs. No read hit its limit, nothing was trimmed, and no operation was poisoned.
+
+**Timing.** Medians in ms. Each copy ran 4 interleaved rounds of main, branch off and branch on, each on a fresh copy,
+after the gate with nothing else running. Today was called 5 times per run.
+
+| Copy | Side | Today | Next | Submit | `record_plan_serve` | `freeze_history_inputs` (max) |
+|---|---|---|---|---|---|---|
+| arxiv_v2 | main | 147.2 | 431.1 | 384.8 | 47.0 | |
+| arxiv_v2 | off | 149.3 | 430.2 | 393.4 | 44.8 | 0.0 |
+| arxiv_v2 | on | 148.1 | 417.5 | 395.2 | 52.4 | 5.9 (7.5) |
+| linear_algebra | main | 205.5 | 556.1 | 401.4 | 132.2 | |
+| linear_algebra | off | 203.4 | 534.2 | 394.9 | 104.8 | 0.0 |
+| linear_algebra | on | 202.7 | 511.4 | 403.7 | 123.8 | 19.4 (21.8) |
+| probability | main | 153.8 | 526.2 | 632.5 | 108.5 | |
+| probability | off | 160.7 | 578.0 | 672.5 | 174.1 | 0.0 |
+| probability | on | 153.4 | 555.5 | 671.5 | 186.6 | 16.6 (17.6) |
+
+Sample sizes: Today 20 per cell; Next 12, 20 and 8 per copy; submit 4.
+
+- **The cost inside the serve** is `freeze_history_inputs`: 5.9 ms on arxiv_v2, 19.4 ms on linear_algebra and 16.6 ms on
+  probability (medians).
+  - That is more than with the first pass's stand-in (3 to 11 ms). The span and section mapping now builds through
+    the view's IR, once per map.
+  - It is well inside Next's run-to-run spread: Next on linear_algebra was 511 to 556 ms across the three sides.
+- **Today and submit** are unchanged within their spread.
+- **On probability, both branch sides read above main** for `record_plan_serve` (174 and 187 against 109) and for
+  submit (about 672 against 633). It is the same with the forecaster off, where `freeze_history_inputs` costs 0.0 ms,
+  so it is not the forecaster's call. Each of those cells has only 4 samples, and I did not look further. It is listed
+  under open items.
+
+### What the forecaster sends, for the owner (R4, unchanged)
+
+- 2 calls per eligible plan presentation: H3, plus one drawn rung from H0, H1 and H2.
+- Each answer is a few hundred tokens; each call reserves 16,384 output tokens and allows one retry.
+- At today's card sizes, per presentation:
+
+  | Copy | Input tokens per presentation, median (max) |
+  |---|---|
+  | linear_algebra | about 9,700 (12,800) |
+  | probability | about 2,900 (7,700) |
+  | arxiv_v2 | about 1,000 |
+
+- A typical day (from the copies' own history): linear_algebra about 8 presentations, 16 calls and 78,000 input tokens;
+  its busiest day was 25 presentations, 50 calls and about 240,000.
+- It goes on the ChatGPT plan route (`ai.routing.ad_forecast_llm`), at $0 against `adaptive_difficulty.daily_spend_cap_usd`.
+- To turn it off: in the vault's `learnloop.toml`, under `[adaptive_difficulty]`, set
+  `outside_forecasters = ["llm_v1:item", "llm_v3:llm", "llm_v3:decider"]`. With it off, the smoke is identical to main
+  on all three copies.
+
+### What the owner must run after the fast-forward
+
+1. Open each vault with the new code to apply migration 245. That is the desktop app, or
+   `learnloop doctor --fix-state --vault <vault>` (it adds one empty table). There is no successor tag, no
+   `learnloop upgrade` and no rebuild. If a vault is still below mvp-0.46, run the earlier stages' upgrades first, as
+   their records say (`learnloop upgrade --to mvp-0.45`, then `--to mvp-0.46`).
+2. Rebuild the desktop app, and restart the phone host so it serves the new code.
+3. Optional, free: `learnloop ad forecast-audit --vault <a backup copy> --mode permuted` shows what the audit would send.
+   It is a dry run unless `--run` is given.
+
+### Open items
+
+- R5's items stand as ruled: hedges and held grades stay off the card, inquiry status set through unlogged paths reads
+  unknown, workbench sessions and steps are unclassified for AD, and forecast-audit sees only presentations within
+  `router.payload_retention_days`.
+- The smoke driver writes its later plan steps' answers straight into `practice_attempts`, which the shadow then counts
+  (on main code too). The submit-only journey gives 0/0/0. That is a smoke-driver issue, not a product one.
+- probability's `record_plan_serve` and submit read above main on both branch sides, with only 4 samples per cell (see
+  Timing). It is unexplained but not the forecaster's call; a longer interleaved run would settle it.
+- `adaptive_difficulty/data_check.py` (the `learnloop ad data-check` report) calls the raw-loading
+  `learning_objects_for_span`. It is not an AD operation, so the guard does not apply; it is listed here because it
+  shares the helper.
