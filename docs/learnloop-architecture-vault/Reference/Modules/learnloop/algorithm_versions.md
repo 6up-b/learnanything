@@ -319,6 +319,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_state_write_on_change.py](../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_field_workbench_signals.py](../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_the_successor_vocabulary_is_one_constant_after_its_predecessor`
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
 - [tests/test_followup_successor.py](../../../../../tests/test_followup_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_data_capture`
 - [tests/test_followups_batch5_recap_dependencies.py](../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
@@ -494,9 +495,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro1_successor.py](../../../../../tests/test_ro1_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_fg1_and_the_latest`
 - [tests/test_ro1_upgrade_report.py](../../../../../tests/test_ro1_upgrade_report.py) — direct import
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`
 - [tests/test_ro4_codex_review.py](../../../../../tests/test_ro4_codex_review.py) — direct import
 - [tests/test_ro4_goals.py](../../../../../tests/test_ro4_goals.py) — direct import
+  - `test_create_goal_below_the_tag_writes_no_use_weight_even_when_asked`
+  - `test_create_goal_copies_the_asked_use_weight_or_the_default_when_left_alone`
   - `test_the_contract_is_copied_at_confirmation_at_the_tag_and_adjustable`
+  - `test_the_goal_form_is_told_the_default_use_weight_at_the_tag_only`
 - [tests/test_ro4_objective_serving.py](../../../../../tests/test_ro4_objective_serving.py) — direct import
 - [tests/test_ro4_successor.py](../../../../../tests/test_ro4_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro1_and_the_latest`
@@ -504,6 +510,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_calibration.py](../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_below_the_tag_the_cli_report_has_no_calibration_section`
 - [tests/test_ro5_checks.py](../../../../../tests/test_ro5_checks.py) — direct import
+- [tests/test_ro5_landing.py](../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged`
+  - `test_r5_2_the_objective_report_prints_w_and_its_posterior`
+  - `test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols`
 - [tests/test_ro5_picks.py](../../../../../tests/test_ro5_picks.py) — direct import
   - `test_below_the_tag_and_at_zero_nothing_is_assigned_and_the_pick_resolves`
 - [tests/test_ro5_stop_coin.py](../../../../../tests/test_ro5_stop_coin.py) — direct import
@@ -515,6 +525,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro6_codex_review.py](../../../../../tests/test_ro6_codex_review.py) — direct import
   - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
   - `test_f5_the_contrasts_return_reader_admits_an_import_only_once_known`
+- [tests/test_ro6_landing.py](../../../../../tests/test_ro6_landing.py) — direct import
+  - `test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns`
+  - `test_r2_a_served_decision_logs_its_objective_under_the_generator_it_served`
+  - `test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_carried_backup`
+  - `test_r7_a_served_decision_freezes_its_support_and_the_measurable_tail`
 - [tests/test_ro6_serving.py](../../../../../tests/test_ro6_serving.py) — direct import
 - [tests/test_ro6_successor.py](../../../../../tests/test_ro6_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro5_and_the_latest`

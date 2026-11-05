@@ -182,6 +182,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
 - [tests/test_ro5_codex_review.py](../../../../../tests/test_ro5_codex_review.py) — direct import
   - `test_f1_a_current_epoch_that_assesses_nothing_is_no_observation`
+- [tests/test_ro6_landing.py](../../../../../tests/test_ro6_landing.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_live_nothing_located_and_nothing_validated_is_held`
 - [tests/test_sources_merge_composition.py](../../../../../tests/test_sources_merge_composition.py) — direct import

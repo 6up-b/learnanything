@@ -3,8 +3,8 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7f0d6dab15ed0523d22d635b677243892431ba12"
-source_commit_timestamp: "2026-11-05T12:54:13-05:00"
+source_commit: "524335ad355ef012173deac6b903afeade533986"
+source_commit_timestamp: "2026-11-05T18:01:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
@@ -129,9 +129,9 @@ None found by exact static reference scan.
 - `tests/test_ro0_codex_verify.py`
 - `tests/test_ro0_gate.py`
 - `tests/test_ro0_row3_ask_availability.py`
+- `tests/test_ro5_landing.py`
 - `tests/test_router_g4_restraint.py`
 - `tests/test_router_r2a_serving.py`
-- `tests/test_rw7b_codex_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/trace.py"
 source_paths:
   - "src/learnloop/router_objective/trace.py"
-source_commit: "017c3ed22ddf583d5cddfe612d4e1ac32dc70950"
-source_commit_timestamp: "2026-11-05T12:03:53-05:00"
+source_commit: "3de3827e582054ca88c97de7e818933e91f14c8c"
+source_commit_timestamp: "2026-11-05T15:45:01-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,19 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/trace.py](../../../../../../src/learnloop/router_objective/trace.py) |
-| Source lines | 172 |
+| Source lines | 186 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `017c3ed22ddf583d5cddfe612d4e1ac32dc70950` |
-| Commit timestamp | `2026-11-05T12:03:53-05:00` |
+| Source commit | `3de3827e582054ca88c97de7e818933e91f14c8c` |
+| Commit timestamp | `2026-11-05T15:45:01-05:00` |
 
 ## Public API
 
 - `assemble(trace: Mapping[str, Any], *, decision_id: str, decision_kind: str, decision_state_id: str | None, algorithm_version: str, local_date: str, session_id: str | None, created_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 50) — The ``router_objective_traces`` row for one decision's trace dict.
-- `explain(row: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 84) — The trace in plain words, for the learner who asks how a block was chosen (glass box on request).
-- `record(connection: Any, *, decision_id: str, decision_kind: str, router_record: Mapping[str, Any] | None, config: Any, local_date: str, session_id: str | None, at: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 154) — Write the decision's trace beside it, in its transaction (its own savepoint).
+- `explain(row: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 96) — The trace in plain words, for the learner who asks how a block was chosen (glass box on request).
+- `record(connection: Any, *, decision_id: str, decision_kind: str, router_record: Mapping[str, Any] | None, config: Any, local_date: str, session_id: str | None, at: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 168) — Write the decision's trace beside it, in its transaction (its own savepoint).
 
 ### Module constants
 
@@ -82,6 +82,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_canonical(value: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 36)
 - `_round(value: Any, digits: int=6) -> Any` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 40)
 - `_pct(value: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 80)
+- `_split_sentence(mixing: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 84) — Whether the split between the two suggestions has moved, in plain words (from the weight's own source).
 
 ## Who imports or calls it
 
@@ -90,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `explain`; statically calls `explain`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `record`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `record`
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; statically calls `_round`
 - [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] — imports `explain`; statically calls `explain`
 
@@ -112,7 +114,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]], [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]], [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -122,6 +124,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_the_why_surface_offers_the_trace_in_plain_words`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols`
 - [tests/test_ro6_serving.py](../../../../../../tests/test_ro6_serving.py) — direct import
   - `test_at_the_tag_the_trace_carries_the_residual_and_its_terms_recompute`
 

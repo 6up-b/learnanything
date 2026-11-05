@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/tail_serve.py"
 source_paths:
   - "src/learnloop/router_objective/tail_serve.py"
-source_commit: "5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8"
-source_commit_timestamp: "2026-11-05T15:04:13-05:00"
+source_commit: "65671d14917565b4d3236e70d9a877ded2151d79"
+source_commit_timestamp: "2026-11-05T17:42:23-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,48 +50,66 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py) |
-| Source lines | 238 |
+| Source lines | 322 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8` |
-| Commit timestamp | `2026-11-05T15:04:13-05:00` |
+| Source commit | `65671d14917565b4d3236e70d9a877ded2151d79` |
+| Commit timestamp | `2026-11-05T17:42:23-05:00` |
 
 ## Public API
 
-- `snapshot(repository: Any, *, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 45) — The decision's own reads of the residual's mutable inputs, taken **at the decision's moment** (Codex review of RO6, F4): the pending reports (``decision_state``'s reader) and every LO's mastery numbers (RO0 row 9's), so a diagnosis queued or a projection moved after ``now_iso``…
-- `features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any], cutoff_days: float | None=None) -> tuple[dict[str, tuple[float, ...]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 65) — Each candidate's features at serve time (the module docstring's step 1), from the decision's ``frozen`` :func:`snapshot` and its frozen inputs only: nothing here reads the vault.
-- `residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any], now_iso: str, generator_now: str, frozen: Mapping[str, Any] | None, clock: Any=time.monotonic) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 96) — The decision's residual record (module docstring), or its failure: ``{"status": ...}``.
-- `previous_cutoff(rows: Sequence[Any], inputs: Any, *, now_iso: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 151) — §3.2 for the backup (Codex re-review F3): the latest earlier logged decision (``tail_data.Logged``) and its cutoff ``C_prev`` in days from now.
-- `carried_cutoff(record: Mapping[str, Any] | None) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 176) — The cutoff (days from now) the candidates are valued at a second time, for an applied record whose previous decision's cutoff is ``carried`` (:func:`previous_cutoff`); else None (no second valuation).
-- `with_carried_values(record: Mapping[str, Any], evaluation: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 188) — The record with each candidate's ``Q̄`` at the carried cutoff (``previous.q``, from the evaluation run at it, with its draws and time), or with why there is none (``previous.q_status``): a transition into this decision then has no value at the earlier cutoff and is censored ``cu…
-- `applied(record: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 211)
-- `shifted(evaluation: Any, record: Mapping[str, Any]) -> Any` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 215) — The evaluation the numeric policy's argmax reads: each candidate's draws moved by ``ŵ·V_residual`` (a constant per candidate, so the paired precision is the tail's).
-- `candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 228) — §10's per-candidate trace terms: ``ŵ``, ``V_tail``, ``V_residual`` and ``Ṽ``.
+- `snapshot(repository: Any, *, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 50) — The decision's own reads of the residual's mutable inputs, taken **at the decision's moment** (Codex review of RO6, F4): the pending reports (``decision_state``'s reader) and every LO's mastery numbers (RO0 row 9's), so a diagnosis queued or a projection moved after ``now_iso``…
+- `measurable(frozen: Mapping[str, Any] | None, inputs: Any, *, now_iso: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 75) — RO6's landing ruling R7: the decision's measurable terms, from its :func:`snapshot`: each topic's check support as of the draw, and the valued topics with none (``unmeasured``: their undated uses are outside the measurable target, left out of the realized return and, through ``v…
+- `features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any], cutoff_days: float | None=None) -> tuple[dict[str, tuple[float, ...]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 90) — Each candidate's features at serve time (the module docstring's step 1), from the decision's ``frozen`` :func:`snapshot` and its frozen inputs only: nothing here reads the vault.
+- `residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any], now_iso: str, generator_now: str, frozen: Mapping[str, Any] | None, clock: Any=time.monotonic) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 121) — The decision's residual record (module docstring), or its failure: ``{"status": ...}``.
+- `calibration(connection: Any, config: Any, rows: Sequence[Any], *, at: str) -> tuple[list[Any], Any, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 171) — ``ŵ``'s calibration as of ``at`` over the logged ``rows``: the randomized contrasts, the weight and the summary a trace keeps (RO6's landing ruling R9: ``learned_tail.calibration_summary``, of a size that does not grow with the log).
+- `previous_cutoff(rows: Sequence[Any], inputs: Any, *, now_iso: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 187) — §3.2 for the backup (Codex re-review F3): the latest earlier logged decision (``tail_data.Logged``) and its cutoff ``C_prev`` in days from now.
+- `carried_cutoff(record: Mapping[str, Any] | None) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 212) — The cutoff (days from now) the candidates are valued at a second time, for an applied record whose previous decision's cutoff is ``carried`` (:func:`previous_cutoff`); else None (no second valuation).
+- `with_carried_values(record: Mapping[str, Any], evaluation: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 224) — The record with each candidate's ``Q̄`` at the carried cutoff (``previous.q``, from the evaluation run at it, with its draws and time), or with why there is none (``previous.q_status``): a transition into this decision then has no value at the earlier cutoff and is censored ``cu…
+- `not_on_the_serving_path(record: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 245) — The record of a decision served with no prefetch job (the no-model branch, RO6's landing ruling R3): its answer is published and served at once and its trace written with it, so a second valuation at the carried cutoff has nowhere to run but the learner's serving path.
+- `pending_after_the_answer(record: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 262) — R12: the record of an answer released before its carried valuation (``previous.q_status`` pending).
+- `is_pending(record: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 270)
+- `not_before_the_serve(record: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 275) — R12: a serve took the answer before the carried value existed: the transition into this decision is censored ``cutoff_unmatched`` (no carried values).
+- `applied(record: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 291)
+- `shifted(evaluation: Any, record: Mapping[str, Any]) -> Any` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 295) — The evaluation the numeric policy's argmax reads: each candidate's draws moved by ``ŵ·V_residual`` (a constant per candidate, so the paired precision is the tail's).
+- `candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 308) — §10's per-candidate trace terms: ``ŵ``, ``V_tail``, ``V_residual`` and ``Ṽ``.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 37)
-- `VERSION` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 39)
-- `SNAPSHOT_VERSION` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 42)
-- `CARRIED` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 146)
-- `SAME_CUTOFF` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 147)
-- `PAST_CUTOFF` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 148)
+- `LOG` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 42)
+- `VERSION` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 44)
+- `SNAPSHOT_VERSION` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 47)
+- `CARRIED` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 182)
+- `SAME_CUTOFF` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 183)
+- `PAST_CUTOFF` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 184)
+- `NOT_ON_THE_SERVING_PATH` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 242)
+- `PENDING_AFTER_THE_ANSWER` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 258)
+- `NOT_BEFORE_THE_SERVE` ([src/learnloop/router_objective/tail_serve.py](../../../../../../src/learnloop/router_objective/tail_serve.py), line 259)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `CARRIED`
+- `NOT_BEFORE_THE_SERVE`
+- `NOT_ON_THE_SERVING_PATH`
 - `PAST_CUTOFF`
+- `PENDING_AFTER_THE_ANSWER`
 - `SAME_CUTOFF`
 - `SNAPSHOT_VERSION`
 - `VERSION`
 - `applied`
+- `calibration`
 - `candidate_terms`
 - `carried_cutoff`
 - `features`
+- `is_pending`
+- `measurable`
+- `not_before_the_serve`
+- `not_on_the_serving_path`
+- `pending_after_the_answer`
 - `previous_cutoff`
 - `residual`
 - `shifted`
@@ -100,21 +118,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_exact(value: float) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 204) — A number the trace keeps exactly (its ``repr``): the trace rounds every float to six places, and the fit's standardized coefficients and the features must recompute ``V_residual`` to float precision.
+- `_exact(value: float) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_serve.py), line 284) — A number the trace keeps exactly (its ``repr``): the trace rounds every float to six places, and the fit's standardized coefficients and the features must recompute ``V_residual`` to float precision.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `candidate_terms`, `carried_cutoff`, `residual`, `shifted`, `snapshot`, `with_carried_values`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `candidate_terms`, `carried_cutoff`, `is_pending`, `measurable`, `not_before_the_serve`, `not_on_the_serving_path`, `pending_after_the_answer`, `residual`, `shifted`, `snapshot`, `with_carried_values`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; calls `support_at`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `_pending_reports`, `_round`
-- [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`; calls `ActionView`, `TopicNumbers`, `belief`, `prior_fit`, `residual_weight`, `vector`
+- [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`; calls `ActionView`, `TopicNumbers`, `belief`, `calibration_summary`, `prior_fit`, `residual_weight`, `vector`
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; calls `_parse`, `contrasts`, `fits`, `logged`, `snapshot_mastery`
 
 ### Platform and third-party dependencies
@@ -139,8 +158,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff`
 - [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
   - `test_f4_no_snapshot_leaves_the_residual_out`
+- [tests/test_ro6_landing.py](../../../../../../tests/test_ro6_landing.py) — direct import
+  - `test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns`
+  - `test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_carried_backup`
 - [tests/test_ro6_serving.py](../../../../../../tests/test_ro6_serving.py) — direct import
   - `test_at_the_tag_the_trace_carries_the_residual_and_its_terms_recompute`
+- [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
+  - `test_a_few_weeks_on_a_copy_shaped_synthetic_vault`
 
 ## Modification guidance
 

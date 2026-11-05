@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7f0d6dab15ed0523d22d635b677243892431ba12"
-source_commit_timestamp: "2026-11-05T12:54:13-05:00"
+source_commit: "524335ad355ef012173deac6b903afeade533986"
+source_commit_timestamp: "2026-11-05T18:01:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -194,6 +194,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/daily_plan/measurement.py`
+- `src/learnloop/daily_plan/objective_chooser.py`
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/router_chooser.py`

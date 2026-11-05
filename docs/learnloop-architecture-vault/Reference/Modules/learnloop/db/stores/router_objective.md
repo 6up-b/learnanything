@@ -195,9 +195,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff`
 - [tests/test_ro6_codex_review.py](../../../../../../../tests/test_ro6_codex_review.py) — direct import
   - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
+- [tests/test_ro6_landing.py](../../../../../../../tests/test_ro6_landing.py) — direct import
+  - `test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns`
+  - `test_r2_a_served_decision_logs_its_objective_under_the_generator_it_served`
+  - `test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_carried_backup`
+  - `test_r7_a_served_decision_freezes_its_support_and_the_measurable_tail`
 - [tests/test_ro6_serving.py](../../../../../../../tests/test_ro6_serving.py) — direct import
   - `test_the_features_frozen_at_serve_equal_the_rebuild_from_the_trace_and_ro0s_receipt`
 - [tests/test_ro6_tail_data.py](../../../../../../../tests/test_ro6_tail_data.py) — direct import
+  - `test_a_few_weeks_on_a_copy_shaped_synthetic_vault`
   - `test_a_row_received_after_the_moment_never_enters_a_feature`
 
 ## Modification guidance

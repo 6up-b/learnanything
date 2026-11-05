@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/learned_tail.py"
 source_paths:
   - "src/learnloop/router_objective/learned_tail.py"
-source_commit: "5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8"
-source_commit_timestamp: "2026-11-05T15:04:13-05:00"
+source_commit: "a8f3a88c1e6554f05ecb8b9ff085af9ee9e44f0d"
+source_commit_timestamp: "2026-11-05T17:45:17-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,64 +50,71 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py) |
-| Source lines | 607 |
+| Source lines | 766 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5d726bbc21eefbd05b0b3cc0f068ec4272ae4ee8` |
-| Commit timestamp | `2026-11-05T15:04:13-05:00` |
+| Source commit | `a8f3a88c1e6554f05ecb8b9ff085af9ee9e44f0d` |
+| Commit timestamp | `2026-11-05T17:45:17-05:00` |
 
 ## Public API
 
-- `class Belief` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 95) — The decision's state features (module docstring).
-  - `as_tuple(self) -> tuple[float, ...]` (line 107; public)
-- `class TopicNumbers` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 113) — One topic's belief numbers as the decision froze them (the trace's sensors, the value's ``Topic``).
-- `belief(*, session_minutes: float | None, remembered: float | None, nearest_goal_days: float | None, horizon_days: float, pending_reports: int | float | None, mastery: Sequence[tuple[float, float]], topics: Sequence[TopicNumbers], cutoff_days: float | None=None) -> Belief` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 123) — The state features.
-- `class ActionView` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 149) — One candidate's features' inputs.
-- `kind_group(kind: str | None) -> str` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 158)
-- `vector(state: Belief, action: ActionView, *, remembered: float | None) -> tuple[float, ...]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 168) — φ(x, a) in :data:`NAMES` order.
-- `class Transition` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 188) — One logged step of a frozen logger version, ready for the backup.
-  - `target(self) -> float` (line 206; public) — The residual's part of the backup with no residual at ``x′``: ``R + V̄_tail′ − Q_tail``.
-- `class Fit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 213) — A fitted residual ``ρ = θᵀ((φ − mean)/sd)`` for one generator version (or the prior, ``θ = 0``).
-  - `value(self, phi: Sequence[float]) -> float` (line 230; public)
-  - `as_dict(self) -> dict[str, Any]` (line 234; public)
-  - `from_dict(cls, data: Mapping[str, Any]) -> 'Fit'` (line 241; public)
-- `prior_fit(prior_sd: float, generator: str | None=None) -> Fit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 251) — No transition: the prior, a residual of zero.
-- `fit(transitions: Sequence[Transition], *, prior_sd: float, generator: str | None=None) -> Fit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 259) — FQE's fixed point for one frozen logger version under the labelled Gaussian prior (module docstring).
-- `class Contrast` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 306) — One randomized stop-coin decision's realized and frozen predicted contrasts (offer stop vs the next block).
-- `class WeightFit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 323)
-  - `as_dict(self) -> dict[str, Any]` (line 337; public)
-- `spearman(x: Sequence[float], y: Sequence[float]) -> float | None` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 359) — Spearman's rank correlation (average ranks for ties); None where either side has no spread.
-- `residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str | None=None) -> WeightFit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 375) — ``ŵ`` from the randomized contrasts whose windows closed before ``at`` (no peeking; module docstring).
-- `coin_contrast(arm: str | None, rate: float) -> float` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 413) — The stop coin's mean-zero contrast in its logged probabilities: ``1[offer]/p − 1[present_next]/p``.
-- `class CoinDraw` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 426) — One randomized stop-coin decision of the cohort (chosen on what was fixed before the coin: a frozen residual, stop in the support, a closed window) with its window's observed return (None: not observed, and why).
-- `coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 446) — The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1; re-review F1).
-- `predicted_contrast(values: Mapping[str, float], mu: Mapping[str, float], stop_ref: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 500) — A frozen value's contrast between the coin's arms: stop minus the blocks at the mix's shares among them (what ``present_next`` serves where the mix drew stop, and the mix's own block elsewhere).
-- `class WeightedRow` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 517) — One decision's importance ratio (the improvement step's probability of the served action over the logger's) and the window's observed return.
-- `class Ratio` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 530) — One decision of the whole logged sequence and its importance ratio (None: not computable, e.g.
-- `partial_history(rows: Sequence[WeightedRow], *, window_days: int, sequence: Sequence[Ratio] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 542) — Report only: importance-weighted estimates of the improvement step minus the logger on the window's return, one step (``(ρ_i − 1)·Ĝ_i``) and over each decision's window (the product of the ratios of **every** decision in it), each with its standard error and effective sample siz…
+- `class Belief` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 123) — The decision's state features (module docstring).
+  - `as_tuple(self) -> tuple[float, ...]` (line 135; public)
+- `class TopicNumbers` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 141) — One topic's belief numbers as the decision froze them (the trace's sensors, the value's ``Topic``).
+- `belief(*, session_minutes: float | None, remembered: float | None, nearest_goal_days: float | None, horizon_days: float, pending_reports: int | float | None, mastery: Sequence[tuple[float, float]], topics: Sequence[TopicNumbers], cutoff_days: float | None=None) -> Belief` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 151) — The state features.
+- `class ActionView` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 177) — One candidate's features' inputs.
+- `kind_group(kind: str | None) -> str` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 186)
+- `vector(state: Belief, action: ActionView, *, remembered: float | None) -> tuple[float, ...]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 196) — φ(x, a) in :data:`NAMES` order.
+- `class Transition` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 216) — One logged step of a frozen logger version, ready for the backup.
+  - `target(self) -> float` (line 234; public) — The residual's part of the backup with no residual at ``x′``: ``R + V̄_tail′ − Q_tail``.
+- `class Fit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 241) — A fitted residual ``ρ = θᵀ((φ − mean)/sd)`` for one generator version (or the prior, ``θ = 0``).
+  - `value(self, phi: Sequence[float]) -> float` (line 258; public)
+  - `as_dict(self) -> dict[str, Any]` (line 262; public)
+  - `from_dict(cls, data: Mapping[str, Any]) -> 'Fit'` (line 269; public)
+- `prior_fit(prior_sd: float, generator: str | None=None) -> Fit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 279) — No transition: the prior, a residual of zero.
+- `fit(transitions: Sequence[Transition], *, prior_sd: float, generator: str | None=None) -> Fit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 287) — FQE's fixed point for one frozen logger version under the labelled Gaussian prior (module docstring).
+- `class Contrast` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 334) — One randomized stop-coin decision's realized and frozen predicted contrasts (offer stop vs the next block).
+  - `bounds(self) -> tuple[float, float]` (line 357; public)
+- `class WeightFit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 364)
+  - `as_dict(self) -> dict[str, Any]` (line 387; public)
+- `spearman(x: Sequence[float], y: Sequence[float]) -> float | None` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 414) — Spearman's rank correlation (average ranks for ties); None where either side has no spread.
+- `residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str | None=None) -> WeightFit` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 430) — ``ŵ`` from the randomized contrasts whose windows closed before ``at`` (no peeking; module docstring).
+- `coin_contrast(arm: str | None, rate: float) -> float` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 512) — The stop coin's mean-zero contrast in its logged probabilities: ``1[offer]/p − 1[present_next]/p``.
+- `class CoinDraw` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 525) — One randomized stop-coin decision of the cohort (chosen on what was fixed before the coin: a frozen residual, stop in the support, a closed window) with its window's return: ``value`` the observed terms (None: no return at all, and why), ``[value + lo, value + hi]`` with its ``m…
+- `coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 551) — The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1; RO6's landing ruling R1).
+- `contrasts_hash(contrasts: Sequence[Contrast], record: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 624) — RO6's landing ruling R9: the hash of what calibrated ``ŵ`` (every contrast's realized value, interval, predictions, forcing, missing and excluded counts, and the cohort's status), exact (each float's ``repr``), so a trace's summary is checked against a recomputation from the led…
+- `calibration_summary(contrasts: Sequence[Contrast], record: Mapping[str, Any], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 639) — RO6's landing ruling R9: what a trace keeps of ``ŵ``'s calibration, of a size that does not grow with the log: the contrasts' count and status, the cohort's counts by arm, the missing and excluded counts, the predictions' restriction counts and the hash of its inputs (:func:`con…
+- `predicted_contrast(values: Mapping[str, float], mu: Mapping[str, float], stop_ref: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 659) — A frozen value's contrast between the coin's arms: stop minus the blocks at the mix's shares among them (what ``present_next`` serves where the mix drew stop, and the mix's own block elsewhere).
+- `class WeightedRow` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 676) — One decision's importance ratio (the improvement step's probability of the served action over the logger's) and the window's observed return.
+- `class Ratio` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 689) — One decision of the whole logged sequence and its importance ratio (None: not computable, e.g.
+- `partial_history(rows: Sequence[WeightedRow], *, window_days: int, sequence: Sequence[Ratio] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 701) — Report only: importance-weighted estimates of the improvement step minus the logger on the window's return, one step (``(ρ_i − 1)·Ĝ_i``) and over each decision's window (the product of the ratios of **every** decision in it), each with its standard error and effective sample siz…
 
 ### Module constants
 
-- `FEATURES_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 60)
-- `FIT_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 61)
-- `WEIGHT_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 62)
-- `CROSS_CHECK_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 63)
-- `STATE_FEATURES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 65)
-- `ACTION_FEATURES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 67)
-- `NAMES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 69)
-- `_FIT_PASSES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 72)
-- `_FIT_TOLERANCE` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 73)
-- `_TINY` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 75)
-- `_NORMAL` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 77)
-- `STOP_KIND` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 79)
-- `READING_KIND` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 80)
-- `PROBE_KIND` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 81)
-- `OFFER_STOP` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 441)
-- `PRESENT_NEXT` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 442)
-- `UNIDENTIFIED` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 443)
-- `INCOMPLETE_HISTORY` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 539)
+- `FEATURES_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 81)
+- `FIT_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 82)
+- `WEIGHT_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 83)
+- `LEAST_FAVOURABLE` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 85)
+- `NO_BOUND` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 86)
+- `BOUND_DEFINITION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 88)
+- `CROSS_CHECK_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 91)
+- `STATE_FEATURES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 93)
+- `ACTION_FEATURES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 95)
+- `NAMES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 97)
+- `_FIT_PASSES` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 100)
+- `_FIT_TOLERANCE` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 101)
+- `_TINY` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 103)
+- `_NORMAL` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 105)
+- `STOP_KIND` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 107)
+- `READING_KIND` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 108)
+- `PROBE_KIND` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 109)
+- `OFFER_STOP` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 546)
+- `PRESENT_NEXT` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 547)
+- `UNIDENTIFIED` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 548)
+- `CALIBRATION_SUMMARY_VERSION` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 621)
+- `INCOMPLETE_HISTORY` ([src/learnloop/router_objective/learned_tail.py](../../../../../../src/learnloop/router_objective/learned_tail.py), line 698)
 
 ### Explicit exports
 
@@ -148,9 +155,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_sigmoid(x: float) -> float` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 84)
-- `_ranks(values: Sequence[float]) -> list[float]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 344)
-- `_parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 371)
+- `_sigmoid(x: float) -> float` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 112)
+- `_ranks(values: Sequence[float]) -> list[float]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 399)
+- `_parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 426)
+- `_noise(x: np.ndarray, y: np.ndarray, precision: np.ndarray, sigma2: float) -> tuple[float, np.ndarray]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 480) — The regression's noise at ``y``, refined from ``sigma2`` until it settles, and the coefficients of its last pass.
+- `_slope_and_rank(rows: Sequence[Contrast], x: np.ndarray, y: np.ndarray, precision: np.ndarray, forced: Sequence[int]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/learned_tail.py), line 496) — The slope (posterior mean and sd of ``b``, the tail's ``a``) and the rank at the contrasts ``y``, the noise refined from ``y``'s mean square (module docstring).
 
 ## Who imports or calls it
 
@@ -159,7 +168,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; statically calls `ActionView`, `CoinDraw`, `Ratio`, `TopicNumbers`, `Transition`, `WeightedRow`, `belief`, `coin_contrasts`, `fit`, `partial_history`, `predicted_contrast`, `vector`
 - [[Reference/Modules/learnloop/router_objective/tail_report|learnloop.router_objective.tail_report]] — imports `module`; statically calls `residual_weight`
-- [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; statically calls `ActionView`, `TopicNumbers`, `belief`, `prior_fit`, `residual_weight`, `vector`
+- [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; statically calls `ActionView`, `TopicNumbers`, `belief`, `calibration_summary`, `prior_fit`, `residual_weight`, `vector`
 
 ## Dependencies
 
@@ -169,7 +178,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `math`, `statistics`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `hashlib`, `json`, `math`, `statistics`, `typing`
 - Third party: `numpy`
 
 ## Larger workflow participation
@@ -198,6 +207,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_the_policy_arm_stays_a_zero_whatever_its_return`
   - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
   - `test_f6_a_window_with_a_decision_of_unknown_ratio_is_censored`
+- [tests/test_ro6_landing.py](../../../../../../tests/test_ro6_landing.py) — direct import
+  - `test_r10_selectively_skipped_checks_never_move_w_hat`
+  - `test_r11_a_retention_density_change_with_no_goal_censors_the_transition_objective_changed`
+  - `test_r13_the_fill_is_the_exact_minimum_of_the_bound_estimator_at_the_unbounded_noise`
+  - `test_r1_complete_outcomes_recover_the_planted_slope_and_equal_the_unbounded_estimate`
+  - `test_r1_selectively_missing_terms_never_move_w_hat`
+  - `test_r2_a_goal_added_between_two_decisions_censors_the_transition_objective_changed`
+  - `test_r7_a_planted_slope_on_supported_terms_is_recovered_beside_many_unsupported_at_the_draw`
+  - `test_r7_codexs_reproductions_still_give_w_hat_zero`
+  - `test_r7_support_removed_after_the_draw_in_one_arm_only_stays_bounded`
 - [tests/test_ro6_learned_tail.py](../../../../../../tests/test_ro6_learned_tail.py) — direct import
   - `test_a_planted_residual_is_recovered_on_synthetic_trajectories`
   - `test_a_residual_that_predicts_nothing_keeps_w_hat_near_zero`

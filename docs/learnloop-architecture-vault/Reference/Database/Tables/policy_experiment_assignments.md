@@ -3,8 +3,8 @@ title: "policy_experiment_assignments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7f0d6dab15ed0523d22d635b677243892431ba12"
-source_commit_timestamp: "2026-11-05T12:54:13-05:00"
+source_commit: "524335ad355ef012173deac6b903afeade533986"
+source_commit_timestamp: "2026-11-05T18:01:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite policy_experiment_assignments"
@@ -115,6 +115,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_randomization_layer.py`
+- `tests/test_ro5_landing.py`
 - `tests/test_ro5_stop_coin.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
