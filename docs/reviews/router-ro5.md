@@ -127,9 +127,23 @@ written there). The `no_intervention` floor had no decisions.
 
 ## The gate (this step)
 
-Recorded at the end of the stage below; the full suite, the whole durability lane and the whole vitest run are the
-landing gate's. No frontend or `src-tauri` file changed, so no npm, vitest or cargo step applies. No schema change, so
-the DB reference was regenerated only for the configuration leaves (1159 to 1167) and validated.
+The full suite, the whole durability lane and the whole vitest run are the landing gate's. No frontend or `src-tauri`
+file changed, so no npm, vitest or cargo step applies. No schema change, so the DB reference was regenerated only for
+the configuration leaves (1159 to 1167) and validated.
+
+| Step | What ran | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `uv run lint-imports --no-cache` | 43 kept, 0 broken (one ignore added: `router_objective.checks -> adaptive_difficulty.outcomes`, §6.2's label, function-local) |
+| Version pins | the 42 files naming mvp-0.47 (every upgrade and successor test), `-n 6` | 717 passed, 64 failed (pins); fixed, the 39 files rerun: 750 passed, 10 failed (negative slices, `LATEST` sets); fixed, those 10 rerun with the help snapshot and calibration: 20 passed |
+| RO4, RO5 and nearby | `tests/test_ro4_*.py`, `tests/test_ro5_*.py`, `test_ro0_gate`, `test_ro1_availability_reads`, `test_data_capture_successor`, `test_registry_audit`, `test_table_roles`, `test_architecture` | 215 passed, 4 failed (RO4's world permutation and `_ad` spy, RO1's allowlist, the SQL-owner rule); fixed (the insert moved to `db/stores/router_objective`), rerun with RO5's: 97 passed |
+| Targeted batch | the 295 test files naming the plan, the router outcomes, causal attribution, the capture report, AD's readiness, the router CLI, the router objective, the registry, the snapshots or the activation openers, `-n 6` under the shared lock | 11158 passed, 24 skipped, 3 xfailed, 2 failed (two more pins, one of them, `test_followup_successor`'s opener, already failing at the base); fixed, rerun: passed |
+| Contract and audit set | `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels` (display labels), `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_sidecar_registry`, `test_mobile_allowlist`, `test_architecture`, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_registry_audit`, `test_cli_help_snapshot`, `test_codex_tool_lockdown`, `test_e0_isolation`, `test_ai_tool_isolation` (process launch), `test_module_catalog_inventory`, `test_public_tip_guards`, `test_sqlite_file_copies`, `test_ro0_gate`, `test_data_capture_successor`, `test_ro1_availability_reads` and the two fixed pin files | 837 passed, 1 skipped, 1 failed (the catalog notes not yet tracked); committed, rerun: passed |
+| Durable SQLite | `--durable-sqlite` on the five `tests/test_ro5_*.py` | 50 passed |
+| References | `db_generate_reference.py` / `db_validate_reference.py` (head 246, 1167 leaves: errors []), `module_generate.py` / `module_validate.py` (PASS), `desktop_validate.py` (passed, unchanged) | ok |
+
+Every test ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`, one run at a
+time. Every script outside pytest ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
 
 ## Files RO5 added or changed tests in (for the landing gate)
 
