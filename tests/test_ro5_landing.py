@@ -394,9 +394,9 @@ def test_r5_2_the_objective_report_prints_w_and_its_posterior(tmp_path, version)
 ARMS_OFF = "[router_objective]\nstop_coin = 0.0\ncheck_rate = \"off\"\npick_open_share = 0.0\n"
 
 
-def _fg1_env(tmp_path, *, version: str = TAG, toml: str | None = ARMS_OFF, llm=None):
+def _fg1_env(tmp_path, *, version: str = TAG, toml: str | None = ARMS_OFF, llm=None, seed=None):
     """A standing plan with its first block open and one answer in it (``tests/test_followup_router.py``'s shape),
-    at ``version``; the fakes answer every model."""
+    at ``version``; the fakes answer every model. ``seed``: a pinned decision seed (RO6's landing ruling R14)."""
 
     from learnloop.daily_plan.engine import advance, build_plan
 
@@ -405,7 +405,8 @@ def _fg1_env(tmp_path, *, version: str = TAG, toml: str | None = ARMS_OFF, llm=N
     from tests.test_daily_plan_build import _wide_items
 
     llm = llm or FakeLLM()
-    env = mixture_env(tmp_path, fake_runtime(llm=llm), version=version, toml=toml, items=lambda: list(_wide_items()))
+    env = mixture_env(tmp_path, fake_runtime(llm=llm, seed=seed), version=version, toml=toml,
+                      items=lambda: list(_wide_items()))
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     record, step = advance(env, serve=True)
     assert step["kind"] == "item"
@@ -440,10 +441,12 @@ def test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace(tmp_path
     from learnloop.followup_run import router
     from learnloop.router import requests as rq
 
-    from tests.router_model_fakes import FakeLLM, options_in
+    from tests.router_model_fakes import FakeLLM, block_drawing_seed, options_in
     from tests.test_ro4_objective_serving import policy_answer
 
-    env, llm = _fg1_env(tmp_path, llm=FakeLLM(answer=policy_answer))
+    # RO6's landing ruling R14: a seed pinned to serve a block first (unpinned, a first draw of stop left no block
+    # open: the first advance returned "done", seen once under --durable-sqlite).
+    env, llm = _fg1_env(tmp_path, llm=FakeLLM(answer=policy_answer), seed=block_drawing_seed())
     before = len(llm.requests)
     row, gate, decision = _fg1_decide(env, monkeypatch)
     # Pre-fix: FG1's FollowupGate (R2b's mixture over three arms, the RouterLLMAnswerV1 request, no trace).

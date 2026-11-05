@@ -230,3 +230,20 @@ def seed_with_first_uniform(at_least: float = 0.0, below: float = 1.0) -> Callab
         if at_least <= value < below:
             return lambda _key, _decision_id, seed=seed: seed
     raise AssertionError("no seed found")
+
+
+def block_drawing_seed() -> Callable[[str, str], str]:
+    """A pinned decision seed (``fake_runtime(seed=…)``) whose draws serve a block at every boundary: the mix's first
+    uniform past the floor and inside the first live component's share (the LLM policy with both models, staged with
+    none), its second below every first option's share, and the stop coin's uniform on the ``policy`` arm. A chooser
+    test that needs its first decisions to be blocks gets them deterministically, never by retrying (RO6's landing
+    rulings R8, R14)."""
+
+    from learnloop.router.mixture import uniform
+
+    for index in range(100_000):
+        seed = f"ro6-landing-{index}"
+        if (0.3 <= uniform(seed, "component") < 0.45 and uniform(seed, "candidate") < 0.02
+                and uniform(seed, "stop_coin") >= 0.5):
+            return lambda _key, _decision_id, seed=seed: seed
+    raise AssertionError("no seed found")

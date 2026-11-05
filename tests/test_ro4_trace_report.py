@@ -51,7 +51,11 @@ def test_the_cli_prints_a_decisions_trace_and_the_report(tmp_path):
 
 
 def test_the_why_surface_offers_the_trace_in_plain_words(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(), version=TAG)
+    from tests.router_model_fakes import block_drawing_seed
+
+    # RO6's landing ruling R14: a seed pinned to serve a block first (unpinned, a first draw of stop left no decided
+    # block: the known flake).
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=TAG)
     run(env)
     trace = _first_trace(env)
     lines = explain(trace)
