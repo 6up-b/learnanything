@@ -222,8 +222,10 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         inputs, actions, sources = OI.build(vault, repository, state=state, support=support, candidates=candidates,
                                             now_iso=now_iso)
         local_date = _local_date(now_iso)
+        # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
+        # of two large sums; at 8 draws its noise is of the order of the signal).
         priced, frontier = day_price(repository, inputs, local_date=local_date,
-                                     draws=int(section.rollout_theta_draws), seed=seed)
+                                     draws=int(section.rollout_theta_draws_max), seed=seed)
         inputs = replace(inputs, price=replace(inputs.price, kappa0=priced.kappa0, regime=priced.regime))
         draws, ceiling = int(section.rollout_theta_draws), int(section.rollout_theta_draws_max)
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,

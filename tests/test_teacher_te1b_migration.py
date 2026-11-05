@@ -40,6 +40,9 @@ TE1_AND_TE1B_ALTERED_TABLES = TE1_AND_TE1B_ALTERED_TABLES | frozenset({
 #: RO1's 244 adds columns to practice_attempts and derived_state_rebuilds (tests/test_ro1_availability.py's
 #: RO1_ALTERED_TABLES), and alters nothing else.
 TE1_AND_TE1B_ALTERED_TABLES = TE1_AND_TE1B_ALTERED_TABLES | frozenset({"practice_attempts", "derived_state_rebuilds"})
+#: Router objective RO4's 246 rebuilds goal_contract_versions (its change class gains 'use_weight_change',
+#: tests/test_ro4_traces_migration.py's RO4_ALTERED_TABLE); its indexes keep their names and SQL.
+TE1_AND_TE1B_ALTERED_TABLES = TE1_AND_TE1B_ALTERED_TABLES | frozenset({"goal_contract_versions"})
 
 _DECISION = (
     "INSERT INTO router_decisions(id, receipt_key, decision_kind, surface, mode, policy, algorithm_version, "
