@@ -65,14 +65,16 @@ def test_refitting_on_a_later_version_does_not_change_version_ks_evaluation(tmp_
     _days(env, runtime, range(3))
     from learnloop.daily_plan.objective_chooser import generator_now
 
-    first = generator_now(env.vault.config)
     with env.repository.connection() as connection:
         before = TD.fits(connection, env.vault.config, at=env.now_iso())
+        # The objective the decisions valued (landing ruling R2: part of the generator key); one here.
+        objective = TD.logged(connection, env.vault.config, at=env.now_iso())[-1].objective
+    first = generator_now(env.vault.config, objective)
     assert first in before.by_generator and before.by_generator[first].n > 0
     # A new generator version: the mix's prior weight changes (the logger changes).
     append_config_toml(env.vault.root, "[router_objective]\nllm_weight_prior = 0.7\n")
     env.vault = load_vault(env.vault.root)
-    second = generator_now(env.vault.config)
+    second = generator_now(env.vault.config, objective)
     assert second != first
     _days(env, runtime, range(3, 5))
     with env.repository.connection() as connection:

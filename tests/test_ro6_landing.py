@@ -165,3 +165,67 @@ def test_r1_complete_outcomes_recover_the_planted_slope_and_equal_the_unbounded_
     found, _record = _selective(monkeypatch, censor=0.0)
     null = LT.residual_weight(found, prior_sd=1.0, at=AT)
     assert null.w_hat < 0.15 and abs(null.slope_mean) < 3 * null.slope_sd + 1e-9
+
+
+# -- R2: the objective's definition is part of the generator; a change censors objective_changed ----------------
+
+
+def _objective_trace(decision_id: str, *, goals: dict, previous: dict | None = None) -> dict:
+    width = len(LT.NAMES)
+    trace = _trace(q={STOP: 0.0, "a": 0.0}, cutoff_days=6.0, previous=previous)
+    trace["versions"] = {"horizon_days": 6.0}
+    trace["inputs_sources"] = {"goals": goals}
+    trace["residual"]["candidates"] = {ref: {"features": [0.0] * width, "v_residual": 0.0} for ref in (STOP, "a")}
+    return trace
+
+
+def test_r2_a_goal_added_between_two_decisions_censors_the_transition_objective_changed(monkeypatch, utc):
+    """Codex's F8: two decisions one day apart, ``H = 6``, zero costs and undated density; between them a goal three
+    days away with weight 10 and predicted performance 0.78. Under the earlier objective the carried cutoff's value
+    is 0; with the later inputs it is 7.8, and before the fix the backup accepted 7.8 under one generator."""
+
+    width = len(LT.NAMES)
+    _quiet(monkeypatch, {"d1": "d2"})
+    goal = {"g": {"dated": 10.0, "undated_density": 0.0, "per_lo": {}, "source": "contract",
+                  "contract_version_id": None, "due_at": "2026-10-05T10:00:00Z", "days_to_date": 3.0, "scope": 1,
+                  "los": ["lo_a"]}}
+    first = _logged(_row("d1", "2026-10-01T10:00:00Z"), _objective_trace("d1", goals={}))
+    carried = {"decision_id": "d1", "cutoff_days": repr(5.0), "status": "carried", "q_status": "valued",
+               "q": {STOP: 7.8, "a": 7.8}, "features": {STOP: [0.0] * width, "a": [0.0] * width}}
+    second = _logged(_row("d2", "2026-10-02T10:00:00Z"), _objective_trace("d2", goals=goal, previous=carried))
+    steps = TD.transitions(None, CFG, [first, second], at=FAR)
+    # Before the fix: one transition, next_v_tail 7.8, the two under one generator.
+    assert steps.transitions == () and steps.censored == {TD.OBJECTIVE_CHANGED: 1, TD.NO_LATER_DECISION: 1}
+    assert first.objective != second.objective and first.generator != second.generator
+    assert [point["reason"] for point in steps.change_points] == [TD.OBJECTIVE_CHANGED]
+    # The same goal on both sides: one objective, the backup reads the carried value.
+    same = _logged(_row("d1", "2026-10-01T10:00:00Z"), _objective_trace("d1", goals=goal))
+    kept = TD.transitions(None, CFG, [same, second], at=FAR)
+    assert len(kept.transitions) == 1 and kept.transitions[0].next_v_tail == pytest.approx(7.8)
+    # The hash ignores what moves with time alone (days to the date) and reads what defines the objective.
+    later = {"g": {**goal["g"], "days_to_date": 2.0}}
+    weights = {"g": {**goal["g"], "per_lo": {"lo_a": 3.0}}}
+    assert TD.objective_hash(later, 6.0) == TD.objective_hash(goal, 6.0)
+    assert TD.objective_hash(weights, 6.0) != TD.objective_hash(goal, 6.0)
+    assert TD.objective_hash(goal, 7.0) != TD.objective_hash(goal, 6.0)
+
+
+def test_r2_a_served_decision_logs_its_objective_under_the_generator_it_served(tmp_path):
+    from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+    from learnloop.db.stores import router_objective as store
+
+    from tests.router_mixture_helpers import mixture_env, run
+    from tests.router_model_fakes import FakeLLM, fake_runtime
+    from tests.test_ro4_objective_serving import policy_answer
+
+    env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer)),
+                      version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+    run(env, steps=4)
+    with env.repository.connection() as connection:
+        traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
+                  if row["decision_kind"] == "plan_block"]
+    assert traces
+    for trace in traces:
+        residual = trace["residual"]
+        assert residual["objective"]["hash"] == TD.trace_objective_hash(trace)
+        assert residual["generator"] == TD.generator(trace, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)

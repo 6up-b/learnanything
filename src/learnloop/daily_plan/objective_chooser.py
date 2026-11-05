@@ -294,8 +294,10 @@ class NumericPolicy:
     residual: Mapping[str, Any] | None = None
 
 
-def generator_now(config: Any) -> str:
-    """RO6: the generator version a decision made now is logged under (``tail_data.generator`` over its trace)."""
+def generator_now(config: Any, objective: str | None = None) -> str:
+    """RO6: the generator version a decision made now is logged under (``tail_data.generator`` over its trace).
+    ``objective``: the hash of the objective the decision values (``tail_data.objective_hash`` over its goals and
+    horizon; landing ruling R2)."""
 
     from learnloop.router_objective import tail_data as TD
 
@@ -303,7 +305,8 @@ def generator_now(config: Any) -> str:
     return TD.generator_key(TD.generator_payload(
         algorithm_version=str(config.algorithms.algorithm_version), objective=V.OBJECTIVE_VERSION,
         tail=V.TAIL_VERSION, terminal=V.TERMINAL_VERSION, horizon_days=float(config.router_objective.horizon_days),
-        llm_schema=rq.LLM_POLICY_SCHEMA, seeds=_seed_record(seeds), epsilon=float(config.router.epsilon_min)))
+        llm_schema=rq.LLM_POLICY_SCHEMA, seeds=_seed_record(seeds), epsilon=float(config.router.epsilon_min),
+        objective_definition=objective))
 
 
 def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],
@@ -336,11 +339,17 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         from learnloop.router_objective_switches import learned_tail_on
 
         if learned_tail and learned_tail_on(config):
+            from learnloop.router_objective import tail_data as TD
             from learnloop.router_objective import tail_serve
 
+            # Landing ruling R2: the objective this decision values (its goals as the trace freezes them, and the
+            # horizon) is hashed into the trace and is part of the generator key.
+            objective = TD.objective_hash(sources.get("goals") or {}, float(section.horizon_days))
             residual_record = tail_serve.residual(repository, config, inputs=inputs, actions=actions, now_iso=now_iso,
-                                                  generator_now=generator_now(config), frozen=tail_snapshot,
+                                                  generator_now=generator_now(config, objective), frozen=tail_snapshot,
                                                   clock=clock)
+            residual_record = {**residual_record,
+                               "objective": {"hash": objective, "version": TD.OBJECTIVE_DEFINITION_VERSION}}
         local_date = _local_date(now_iso)
         # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
         # of two large sums; at 8 draws its noise is of the order of the signal).

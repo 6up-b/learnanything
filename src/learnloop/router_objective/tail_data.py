@@ -10,9 +10,11 @@ trace's frozen belief numbers and RO0's decision-time snapshot (§4 row 9: its p
 mastery), the same function again.
 
 **Generator versions** (:func:`generator`): the objective's, tail's and terminal's versions, the horizon, the LLM
-policy's schema, the mix's seeds and floor, and the algorithm version. A change is a change point: a transition
-whose two ends are under different versions is censored ``change_point``, so a version's evaluation reads only its
-own transitions and refitting on a later version cannot move it.
+policy's schema, the mix's seeds and floor, the algorithm version, and the hash of the objective's definition (its
+goals' ids, dates, weights and use weights, and the horizon: :func:`objective_definition`, landing ruling R2). A
+change is a change point: a transition whose two ends are under different versions is censored ``change_point``
+(``objective_changed`` when the objective's definition changed), so a version's evaluation reads only its own
+transitions and refitting on a later version cannot move it.
 
 **Trajectories** (:func:`transitions`): §4 row 12's links (``router_objective.trajectory``: the ledger's next
 decision, with censoring) walked from each logged decision to the next logged one. The reward of ``(t_i, t_{i+1}]``
@@ -57,7 +59,7 @@ from learnloop.router_objective import scores as S
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import trajectory as TJ
 
-VERSION = "ro6_tail_data_v3"
+VERSION = "ro6_tail_data_v4"
 STOP = SC.STOP
 
 NO_LATER_DECISION = "no_later_decision"
@@ -67,6 +69,7 @@ PAST_CUTOFF = "past_cutoff"
 REWARD_OPEN = "reward_open"
 NO_RESULT = "no_result"
 CUTOFF_UNMATCHED = "cutoff_unmatched"
+OBJECTIVE_CHANGED = "objective_changed"
 
 #: Two cutoffs this close are one (the trace keeps ``cutoff_days`` to six places, about 0.09 s; numerical only).
 _SAME_CUTOFF_SECONDS = 1.0
@@ -89,14 +92,51 @@ def _round(value: Any) -> Any:
 
 def generator_payload(*, algorithm_version: str, objective: Any, tail: Any, terminal: Any, horizon_days: Any,
                       llm_schema: Any, seeds: Mapping[str, Any] | None, epsilon: Any,
-                      features: str | None = None) -> dict[str, Any]:
-    """``features``: the features version the logger served with (None: this build's, :data:`LT.FEATURES_VERSION`)."""
+                      features: str | None = None, objective_definition: str | None = None) -> dict[str, Any]:
+    """``features``: the features version the logger served with (None: this build's, :data:`LT.FEATURES_VERSION`).
+    ``objective_definition``: the hash of the objective the decision valued (:func:`objective_hash`; RO6's landing
+    ruling R2), so a change of objective is a change point."""
 
     return _round({"algorithm": str(algorithm_version), "objective": objective, "tail": tail, "terminal": terminal,
                    "horizon_days": float(horizon_days) if horizon_days is not None else None,
                    "llm_schema": llm_schema, "seeds": dict(seeds or {}),
                    "epsilon": float(epsilon) if epsilon is not None else None,
-                   "features": features or LT.FEATURES_VERSION})
+                   "features": features or LT.FEATURES_VERSION, "objective_definition": objective_definition})
+
+
+OBJECTIVE_DEFINITION_VERSION = "ro6_objective_definition_v1"
+
+
+def objective_definition(goals: Mapping[str, Any] | None, horizon_days: Any) -> dict[str, Any]:
+    """RO6's landing ruling R2: what defines the objective a decision valued, as its trace froze it: the horizon and,
+    per active goal (``inputs_sources.goals``), its id, its date (``due_at``), its weights (the dated weight and the
+    undated density) and its use weights (per LO), and its scope's LOs. What moves with time alone (days to the date)
+    or names where a weight came from (its source, its contract version) is not part of it. Rounded as the trace
+    rounds, so the serve's hash and the trace's are one."""
+
+    out: dict[str, Any] = {}
+    for goal_id, goal in sorted((goals or {}).items(), key=lambda item: str(item[0])):
+        if not isinstance(goal, Mapping):
+            continue
+        out[str(goal_id)] = {"due_at": str(goal["due_at"]) if goal.get("due_at") else None,
+                             "dated": goal.get("dated"), "undated_density": goal.get("undated_density"),
+                             "per_lo": {str(lo): value for lo, value in sorted((goal.get("per_lo") or {}).items())},
+                             "los": sorted(str(lo) for lo in goal.get("los") or ())}
+    return _round({"version": OBJECTIVE_DEFINITION_VERSION,
+                   "horizon_days": float(horizon_days) if horizon_days is not None else None, "goals": out})
+
+
+def objective_hash(goals: Mapping[str, Any] | None, horizon_days: Any) -> str:
+    """The hash of :func:`objective_definition`."""
+
+    return generator_key(objective_definition(goals, horizon_days))
+
+
+def trace_objective_hash(trace: Mapping[str, Any]) -> str:
+    """The objective a logged decision valued, from its trace: its frozen goals and horizon."""
+
+    return objective_hash((trace.get("inputs_sources") or {}).get("goals") or {},
+                          (trace.get("versions") or {}).get("horizon_days"))
 
 
 def served_features_version(trace: Mapping[str, Any]) -> str:
@@ -125,7 +165,7 @@ def generator(trace: Mapping[str, Any], algorithm_version: str) -> str:
         algorithm_version=algorithm_version, objective=versions.get("objective"), tail=versions.get("tail"),
         terminal=versions.get("terminal"), horizon_days=versions.get("horizon_days"),
         llm_schema=versions.get("llm_schema"), seeds=mixing.get("seeds"), epsilon=mixing.get("epsilon"),
-        features=served_features_version(trace)))
+        features=served_features_version(trace), objective_definition=trace_objective_hash(trace)))
 
 
 # -- one logged decision ----------------------------------------------------------------------------------
@@ -168,6 +208,8 @@ class Logged:
     previous_cutoff_days: float | None = None
     q_at_previous: Mapping[str, float] | None = None
     phi_at_previous: Mapping[str, tuple[float, ...]] | None = None
+    #: the hash of the objective the decision valued (:func:`trace_objective_hash`; landing ruling R2)
+    objective: str = ""
 
 
 def _topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]:
@@ -355,7 +397,7 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         previous_id=str(previous["decision_id"]) if previous and previous.get("decision_id") else None,
         previous_cutoff_days=(float(previous["cutoff_days"]) if previous and previous.get("cutoff_days") is not None
                               else None),
-        q_at_previous=q_at_previous, phi_at_previous=phi_at_previous)
+        q_at_previous=q_at_previous, phi_at_previous=phi_at_previous, objective=trace_objective_hash(trace))
 
 
 def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
@@ -470,10 +512,13 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
         if later is None:
             censored[NO_LATER_DECISION] += 1
             continue
-        if later.generator != row.generator:
-            censored[CHANGE_POINT] += 1
+        if later.objective != row.objective or later.generator != row.generator:
+            # Landing ruling R2: a change of objective (goals, dates, weights, use weights, horizon) is a change
+            # point of its own; the backup never values one objective's state under another's.
+            reason = OBJECTIVE_CHANGED if later.objective != row.objective else CHANGE_POINT
+            censored[reason] += 1
             change_points.append({"before": row.decision_id, "after": later.decision_id, "at": later.created_at,
-                                  "from": row.generator, "to": later.generator,
+                                  "from": row.generator, "to": later.generator, "reason": reason,
                                   "algorithm": [row.algorithm_version, later.algorithm_version]})
             continue
         if row.q_tail is None or later.q_tail is None or row.served not in row.q_tail or row.served not in row.phi:
@@ -709,8 +754,9 @@ def is_finite(value: Any) -> bool:
 
 
 __all__ = [
-    "CHANGE_POINT", "CUTOFF_UNMATCHED", "Fits", "Logged", "NO_LATER_DECISION", "NO_RESULT", "PAST_CUTOFF",
-    "REWARD_OPEN", "Steps", "VALUE_MISSING", "VERSION", "contrasts", "cross_check", "fits", "generator",
-    "generator_key", "generator_payload", "improvement_ratio", "logged", "nearest_goal_days", "predicted_improvement",
-    "rebuilt_features", "transitions", "use_moment",
+    "CHANGE_POINT", "CUTOFF_UNMATCHED", "Fits", "Logged", "NO_LATER_DECISION", "NO_RESULT", "OBJECTIVE_CHANGED",
+    "OBJECTIVE_DEFINITION_VERSION", "PAST_CUTOFF", "REWARD_OPEN", "Steps", "VALUE_MISSING", "VERSION", "contrasts",
+    "cross_check", "fits", "generator", "generator_key", "generator_payload", "improvement_ratio", "logged",
+    "nearest_goal_days", "objective_definition", "objective_hash", "predicted_improvement", "rebuilt_features",
+    "trace_objective_hash", "transitions", "use_moment",
 ]
