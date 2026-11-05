@@ -162,6 +162,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_why_names_the_path_and_stays_plain`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols`
 - [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
   - `test_a_staged_veto_defers_the_run_and_says_why_in_plain_words`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import

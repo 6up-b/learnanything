@@ -146,6 +146,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_no_model_the_numeric_policy_serves_with_stop_in_every_support`
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
   - `test_the_check_takes_the_first_practice_slot_outside_the_mix_with_no_label`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r4_the_coin_is_not_drawn_before_any_active_minute_of_the_session`
+  - `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace`
+  - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_serving_records_each_coin_with_its_exact_probability_and_availability`
 

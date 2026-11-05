@@ -719,6 +719,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_audit_dry_run_calls_and_writes_nothing`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_the_cli_prints_a_decisions_trace_and_the_report`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_2_the_objective_report_prints_w_and_its_posterior`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_cli_dry_run_plans_one_grading_call`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import

@@ -775,6 +775,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_why_surface_offers_the_trace_in_plain_words`
 - [tests/test_ro5_codex_rereview.py](../../../../../../tests/test_ro5_codex_rereview.py) — direct import
   - `test_f2_the_check_is_administered_before_any_decision_even_when_every_decision_stops`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
   - `test_g5_no_reference_reserved_stem_exam_text_or_held_score_reaches_the_card`
   - `test_payloads_older_than_the_retention_window_are_pruned`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/algorithm_versions.py"
 source_paths:
   - "src/learnloop/algorithm_versions.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit: "054b8a0652045fad6cf66e7b53909f395070095d"
+source_commit_timestamp: "2026-11-05T10:30:41-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Source commit | `054b8a0652045fad6cf66e7b53909f395070095d` |
+| Commit timestamp | `2026-11-05T10:30:41-05:00` |
 
 ## Public API
 
@@ -507,6 +507,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_calibration.py](../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_below_the_tag_the_cli_report_has_no_calibration_section`
 - [tests/test_ro5_checks.py](../../../../../tests/test_ro5_checks.py) — direct import
+- [tests/test_ro5_landing.py](../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged`
+  - `test_r5_2_the_objective_report_prints_w_and_its_posterior`
+  - `test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols`
 - [tests/test_ro5_picks.py](../../../../../tests/test_ro5_picks.py) — direct import
   - `test_below_the_tag_and_at_zero_nothing_is_assigned_and_the_pick_resolves`
 - [tests/test_ro5_stop_coin.py](../../../../../tests/test_ro5_stop_coin.py) — direct import

@@ -88,7 +88,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `router_active`; statically calls `router_active`
 - [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `mixture_active`; statically calls `mixture_active`
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `router_active`; statically calls `router_active`
-- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `mixture_active`, `policy_for`, `router_active`; statically calls `mixture_active`, `policy_for`, `router_active`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `mixture_active`, `objective_active`, `policy_for`, `router_active`; statically calls `mixture_active`, `objective_active`, `policy_for`, `router_active`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `mixture_active`; statically calls `mixture_active`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `policy_for`; statically calls `policy_for`
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `bridge_active`; statically calls `bridge_active`

@@ -183,6 +183,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_ro4_objective_serving.py](../../../../../../../tests/test_ro4_objective_serving.py) — direct import
 - [tests/test_ro4_trace_report.py](../../../../../../../tests/test_ro4_trace_report.py) — direct import
+- [tests/test_ro5_landing.py](../../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace`
+  - `test_r5_3_how_was_this_chosen_is_plain_words_with_no_stage_names_or_symbols`
 - [tests/test_ro5_stop_coin.py](../../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_every_arm_off_at_the_tag_is_mvp_047_exactly`
   - `test_kappa_stays_the_seed_until_a_randomized_offer_has_a_response`

@@ -3,8 +3,8 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
-source_commit_timestamp: "2026-11-05T08:37:49-05:00"
+source_commit: "daf69d74c57f1375f5a3c43e00986fb209e51344"
+source_commit_timestamp: "2026-11-05T12:28:28-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
@@ -154,8 +154,8 @@ None found by exact static reference scan.
 - `tests/test_forecast_receipts.py`
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
+- `tests/test_ro2_ad_raw_document_reads.py`
 - `tests/test_ro2_history_forecaster.py`
-- `tests/test_ro2_history_protection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

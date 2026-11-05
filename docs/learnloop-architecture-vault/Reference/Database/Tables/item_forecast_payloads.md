@@ -3,8 +3,8 @@ title: "item_forecast_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b666d38f2fe1923f9d6563270b953f36c4a3a2f8"
-source_commit_timestamp: "2026-11-05T08:37:49-05:00"
+source_commit: "daf69d74c57f1375f5a3c43e00986fb209e51344"
+source_commit_timestamp: "2026-11-05T12:28:28-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_forecast_payloads"
@@ -109,6 +109,7 @@ None found by exact static reference scan.
 - `tests/test_ad_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
+- `tests/test_ro2_ad_document_ir.py`
 - `tests/test_ro2_history_forecaster.py`
 - `tests/test_ro2_history_protection.py`
 - `tests/test_ro2_history_resolve.py`

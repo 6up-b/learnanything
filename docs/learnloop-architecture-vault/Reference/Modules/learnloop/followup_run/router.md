@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/router.py"
 source_paths:
   - "src/learnloop/followup_run/router.py"
-source_commit: "274113bb8aa49f51cead7f122b00c9eb6fbf6a53"
-source_commit_timestamp: "2026-11-04T09:25:40-05:00"
+source_commit: "940190f3d6efca88c388e1832ce8bce90ae2ae3d"
+source_commit_timestamp: "2026-11-05T11:55:22-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py) |
-| Source lines | 337 |
+| Source lines | 357 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `274113bb8aa49f51cead7f122b00c9eb6fbf6a53` |
-| Commit timestamp | `2026-11-04T09:25:40-05:00` |
+| Source commit | `940190f3d6efca88c388e1832ce8bce90ae2ae3d` |
+| Commit timestamp | `2026-11-05T11:55:22-05:00` |
 
 ## Public API
 
@@ -67,13 +67,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `for_author(self) -> dict[str, Any]` (line 71; public)
 - `hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, factor_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 76) — §5: what still refuses, in the orchestrator's own terms, before anything is spent.
 - `observational(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 104) — §5 item 5: the checks that stopped deciding on this lane, still on the record.
-- `decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 171)
-- `decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 204) — The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
-- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 228) — Log it, with its objective frozen, and name it on the workflow, in one transaction, so a crash leaves both or neither.
-- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 292) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
-- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 300)
-- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 306) — The appended binding: decision -> generated item and its probe presentation.
-- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 320) — The second presentation: the plan's own, once Next served it.
+- `decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 179)
+- `decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 212) — The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
+- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 236) — Log it, with its objective frozen, and name it on the workflow, in one transaction, so a crash leaves both or neither.
+- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 312) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
+- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 320)
+- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 326) — The appended binding: decision -> generated item and its probe presentation.
+- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 340) — The second presentation: the plan's own, once Next served it.
 
 ### Module constants
 
@@ -125,8 +125,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `get_or_create_today`, `plan_active`; calls `PlanEnv`, `get_or_create_today`, `plan_active`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; calls `freeze_followup`, `record`
-- [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `mixture_active`, `policy_for`, `router_active`; calls `mixture_active`, `policy_for`, `router_active`
-- [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `FollowupGate`; calls `FollowupGate`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ObjectiveFollowupGate`
+- [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `mixture_active`, `objective_active`, `policy_for`, `router_active`; calls `mixture_active`, `objective_active`, `policy_for`, `router_active`
+- [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `FollowupGate`
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `serving_on`; calls `serving_on`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `append_binding`, `update_workflow`
@@ -135,6 +136,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `set_fields`
 - [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `existing_followup_decision`, `log_followup_decision`; calls `existing_followup_decision`, `log_followup_decision`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `prepare`, `record`
+- [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] — imports `module`; calls `record`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `calibration_tag`; calls `calibration_tag`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`
 
 ### Platform and third-party dependencies
@@ -191,6 +194,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_a_binding_outcome_is_read_and_only_a_skip_or_abandonment_is_a_rejection`
   - `test_f4_a_generated_probes_attempt_is_uptake_counted_once_through_every_binding`
   - `test_f4_an_attempt_on_the_item_before_the_decision_is_not_its_uptake`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace`
+  - `test_r5_1_no_room_to_wait_asks_now_deterministically_and_asks_no_model`
+  - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 
 ## Modification guidance
 

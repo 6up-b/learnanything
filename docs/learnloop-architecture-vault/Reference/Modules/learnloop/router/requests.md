@@ -195,7 +195,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `BlockOption`, `BoundaryRequest`, `PolicyRequest`, `RestraintRequest`, `evidence_from_card`, `parse_decider_restraint`, `parse_llm_policy_restraint`, `state_text`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `BlockOption`, `BoundaryRequest`, `PolicyRequest`, `RestraintRequest`, `evidence_from_card`, `parse_decider_restraint`, `parse_llm_policy`, `parse_llm_policy_restraint`, `state_text`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`; statically calls `BlockOption`, `BoundaryRequest`, `RestraintRequest`, `SensorTopic`, `evidence_from_card`, `option_description`, `parse_decider_restraint`, `parse_llm_restraint`, `state_text`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `module`; statically calls `llm_result_model`
 
@@ -224,6 +224,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace`
+  - `test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged`
 - [tests/test_router_r2b_requests.py](../../../../../../tests/test_router_r2b_requests.py) — direct import
   - `test_a_fake_llm_naming_an_unknown_block_is_rejected_at_parse`
   - `test_every_router_answer_model_has_the_strict_schema_the_transports_send`

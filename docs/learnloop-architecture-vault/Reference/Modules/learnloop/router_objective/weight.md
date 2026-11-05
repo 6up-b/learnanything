@@ -154,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_codex_review.py](../../../../../../tests/test_ro5_codex_review.py) — direct import
   - `test_f5_the_check_arm_off_restores_ro4s_weight_after_scores_accumulated`
   - `test_f6_a_fractional_delay_is_scored_on_the_goals_own_date`
+- [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
+  - `test_r11_a_price_trace_appended_after_the_closure_never_moves_a_closed_score_or_the_weight`
 
 ## Modification guidance
 
