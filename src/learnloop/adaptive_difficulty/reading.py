@@ -106,27 +106,51 @@ class VaultReadingMap:
         self._sections: dict[tuple[str, str], list[str]] = {}
         self._spans: dict[tuple[str, str], list[str]] = {}
         self._examples: dict[str, set[str]] = {}
+        self._irs: dict[str, Any] = {}
+        # What the section mapping is handed besides the IR (RO2 landing ruling R6): the operation's
+        # projected repository, so the span translator's re-read aliases load each reading's IR through
+        # the view too, whichever repository this map was built with.
+        from learnloop.adaptive_difficulty.projection import project_repository
+
+        self._projected = project_repository(repository, self.view)
+
+    def _document_ir(self, extraction_id: str) -> Any:
+        """The extraction's IR through the reading chokepoint (RO2 landing ruling R6): the material view's
+        ``document_ir`` (none for a reading the withheld material touches, or while the view is
+        unavailable). The incumbent's mapping loads the IR raw, which AD's guard refuses inside an
+        operation, poisoning it and rolling back every AD write of the serve. Cached per map."""
+
+        if extraction_id not in self._irs:
+            try:
+                raw = getattr(self.repository, "_ad_raw_repository", self.repository)
+                self._irs[extraction_id] = self.view.document_ir(raw, extraction_id)
+            except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
+                self._irs[extraction_id] = None
+        return self._irs[extraction_id]
 
     def los_for_section(self, extraction_id: str, section_id: str) -> list[str]:
-        from learnloop.reader.reader_progression import learning_objects_for_section
+        from learnloop.section_map import learning_objects_for_section_in_ir
 
         key = (extraction_id, section_id)
         if key not in self._sections:
+            # The sweep's withheld rule first (a reading the withheld material touches maps to nothing).
+            ir = None if self.withheld(extraction_id, None) else self._document_ir(extraction_id)
             try:
-                self._sections[key] = list(learning_objects_for_section(
-                    self.vault, self.repository, extraction_id=extraction_id, section_id=section_id))
+                self._sections[key] = [] if ir is None else list(learning_objects_for_section_in_ir(
+                    self.vault, self._projected, ir, extraction_id=extraction_id, section_id=section_id))
             except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
                 self._sections[key] = []
         return self._sections[key]
 
     def los_for_span(self, extraction_id: str, span_id: str) -> list[str]:
-        from learnloop.reader.reader_progression import learning_objects_for_span
+        from learnloop.section_map import learning_objects_for_span_in_ir
 
         key = (extraction_id, span_id)
         if key not in self._spans:
+            ir = None if self.withheld(extraction_id, span_id) else self._document_ir(extraction_id)
             try:
-                self._spans[key] = list(learning_objects_for_span(
-                    self.vault, self.repository, extraction_id=extraction_id, span_id=span_id))
+                self._spans[key] = [] if ir is None else list(learning_objects_for_span_in_ir(
+                    self.vault, self._projected, ir, extraction_id=extraction_id, span_id=span_id))
             except Exception:  # noqa: BLE001
                 self._spans[key] = []
         return self._spans[key]
