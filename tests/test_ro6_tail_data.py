@@ -184,8 +184,13 @@ def test_a_few_weeks_on_a_copy_shaped_synthetic_vault(tmp_path):
                 "fit_n": entry["fit"].get("n"), "sigma2": entry["fit"].get("sigma2"),
                 "condition": entry["fit"].get("condition")} for entry in report["versions"]],
         "w_hat": {key: report["w_hat"][key] for key in ("w_hat", "slope_mean", "slope_sd", "n", "forced", "rank",
-                                                         "p_rank", "source")},
-        "w_hat_path": [(day["local_date"], day["w_hat_last"], day["contrasts"]) for day in report["w_hat_history"]],
+                                                         "p_rank", "source", "bound", "missing", "unbounded")},
+        # (day, ŵ served, contrasts, missing terms, contrasts with one, the bound, ŵ with the missing terms left out)
+        "w_hat_path": [(day["local_date"], day["w_hat_last"], day["contrasts"], day.get("missing_terms"),
+                        day.get("missing_contrasts"), day.get("bound"), day.get("w_hat_unbounded"))
+                       for day in report["w_hat_history"]],
+        "contrasts_record": {key: report["w_hat"]["contrasts_censored"].get(key)
+                             for key in ("status", "cohort", "assigned", "observed", "notes")},
         "serving": report["serving"], "cross_check": report["cross_check"]["partial_history"].get("one_step"),
         "fit_projection": report["cross_check"]["fit_projection"],
     }

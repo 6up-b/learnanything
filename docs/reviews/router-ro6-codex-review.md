@@ -277,3 +277,127 @@ Test files added or changed by this step, for the landing gate: `tests/test_ro6_
 - `5d726bbc21` RO6 Codex re-review fixes: F1, F3, F7, the tests, spec §10.1 and the stage record's note.
 - `76b6bd7e66` References regenerated.
 - This file.
+
+---
+
+# Final verify (job `20261105-152054-h2C3A5`, on `a06087b95b`) and the landing's rulings R1-R4
+
+Verdict REOPENED: F2-F7 confirmed fixed; F1 reopened (High); two new findings, F8 and F9 (Medium). The orchestrator
+ruled R1 (F1, structural: partial identification), R2 (F8), R3 (F9) and R4 (the merge of main `51fb2f745f`, RO5
+landed); the rulings are recorded verbatim in `docs/reviews/router-ro6.md`, "Landing onto main". Every finding was
+reproduced first in `tests/test_ro6_landing.py`, run on the merged tree before the fixes (`8219a93ea7`): **6 of 7
+failed** there. The seventh is R4's intent-to-treat test, which passed with no source change (below). One of the six,
+`test_r1_complete_outcomes_recover_the_planted_slope_and_equal_the_unbounded_estimate`, is the control: on the
+pre-fix source its slope recovery held, and it failed only on the bound fields the fix adds. Fakes and synthetic data
+only; no paid or real model call; no owner vault opened; no tracked working vault touched. RO6 still adds **no model
+request**.
+
+## Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 / R1 | High (reopened) | "Complete" returns still turn selective missingness into calibration evidence | fixed (R1, structural) | `7c766e544a` | `test_r1_selectively_missing_terms_never_move_w_hat[dated]` and `[unsupported]`: Codex's reproduction through the real path (`scores.observed_returns(complete=True)` → `tail_data.contrasts` → `learned_tail.residual_weight`, synthetic read adapters; 8000 draws, seed 11, coin 0.05, `Y = sigmoid(x)` in both arms, 60% missing for negative-`x` offer-stop and positive-`x` present-next draws). Pre-fix: identified, `ŵ = 0.201373` (slope 0.201373 ± 0.031045) in both variants, Codex's numbers exactly. Now `ŵ = 0` (lower slope −0.343 ± 0.050, `P(rank > 0)` 0), the unbounded estimate 0.201 beside it, 258 missing terms in 258 windows. Control `test_r1_complete_outcomes_recover_…`: a planted slope 0.4 with complete outcomes gives 0.367 ± 0.037, `ŵ` 0.367, bound `none`, equal to the unbounded estimate; identical arms give `ŵ = 0` (slope −0.061 ± 0.038) |
+| F8 / R2 | Medium | Carried backups admit goals absent from the earlier objective | fixed | `46f81f96a6` | `test_r2_a_goal_added_between_two_decisions_censors_the_transition_objective_changed` (Codex's: `H = 6`, a goal three days away with weight 10 and performance 0.78 added between two decisions a day apart; pre-fix the backup was kept with `next_v_tail = 7.8` under one generator; now censored `objective_changed`, the generators apart; the same goal on both sides keeps 7.8). `test_r2_a_served_decision_logs_its_objective_under_the_generator_it_served` (pre-fix: no `residual.objective`) |
+| F9 / R3 | Medium | The second valuation blocks serving when neither model is ready | fixed | `30f82d0b7e` | `test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_carried_backup` (Codex's instrumented clock, 100 ms per evaluation at the decision's own cutoff and 472 ms at a carried one: pre-fix 572 ms at every decision after the first; now each answer's instrumented time equals its first passes', no evaluation at a carried cutoff on the serving path, the transition censored `cutoff_unmatched`) |
+| R4 | (merge) | RO6's reads of RO5's checks and scores through RO5's landed closure; the superseded coin draw intent-to-treat | done | `3de3827e58`, `8219a93ea7` | the merge (below); `test_r4_a_coin_draw_superseded_by_a_waiting_follow_up_is_used_intent_to_treat` |
+
+Nothing re-argues the owner's decisions. No new config key, weight, margin, threshold or numerical constant (the
+fill's iteration reuses `learned_tail._FIT_PASSES` and `_FIT_TOLERANCE`; the cutoff tolerance stays
+`tail_data._SAME_CUTOFF_SECONDS`). The old item difficulty scalar is neither read nor written.
+
+## What changed
+
+- **R4, the merge** (`3de3827e58`). `scores.py` keeps RO5's landed closure (R1, R11: `checks.Ledger`,
+  `Closure.admits`, daily prices per closure) and RO6's factored `window_uses`, `observed_return(s)` and
+  `exam_result_known`. One as-of reader, `scores._context(connection, at=…)` → `AsOf`, is shared by `scores()` and
+  `observed_returns()`: each window reads as of its own closure, never later than the reading moment, and
+  `exam_result_known` also admits a result through the closure (RO5's R10: an import received after the window closed
+  is never that window's). `tail_data.transitions` resolves the checks through one `Ledger` as of `Closure.at(at)`,
+  takes each interval's completion rate and daily prices as of `Closure.at(its end)`, and reads the dated reward's
+  result through the closure at the moment as well as the availability predicate. RO6's tests that read a window
+  closed before an import after the import now expect it unread; the switched-off availability case no longer sees an
+  import received later (the closure reads received time, as RO5's scores do).
+- **R4, intent-to-treat** (`8219a93ea7`). `tail_data.contrasts` reads the arm from the trace's `stop_coin`, frozen
+  before the waiting-follow-up rule runs, and never the ledger's forced block, so a superseded draw's contrast is
+  already by the assignment drawn (`+Ĝ/p`, `−Ĝ/p`, `P(forced) = 2p`), and stays the same if a record named the action
+  served instead. No source change; the test plants two such draws.
+- **R1** (`7c766e544a`). `scores.MissingTerm` (a term `v·(Y − m⁰)` with `Y` unknown, bounded by `Y ∈ [0, 1]` times its
+  weight less its frozen baseline) and `scores.Bounded` (the observed terms' bracket with the cost, and the missing
+  terms' summed bounds). `observed_return(complete=True)` returns a `Bounded`: a dated use whose result is not known
+  as of the closure (`dated_missing`) and a use no check could observe, `r = 0` (`no_check_support`), carried as
+  missing, never zero. `learned_tail.CoinDraw` and `Contrast` carry the bounds; `residual_weight` takes the slope and
+  rank at the fill minimizing `E[b]` within them (at a given noise `E[b]` is linear in `Ĉ`, so each open contrast
+  goes to the end of its interval against the sign of its influence on `b`; the noise is refit until fill and noise
+  settle), and `ŵ = clip(E[b]_lower, 0, 1)·P(rank > 0 at that fill)`. With no missing term the estimate is the
+  previous one exactly (the same passes, the same coefficients). `WeightFit` records the bound, the missing counts
+  and the unbounded estimate (missing terms left out; shown only, never served). A forced draw with no return at all
+  is an unbounded missing term: `unidentified`, `ŵ` zero. `coin_contrasts` lists each forced window's missing terms
+  with their bounds (the trace's `residual.contrasts.censored.missing.by_window`); the report shows per day the missing
+  terms, the bound and the unbounded `ŵ`, and prints them. `WEIGHT_VERSION` `ro6_residual_weight_slope_rank_v4`.
+- **R2** (`46f81f96a6`). `tail_data.objective_definition` (the horizon and, per active goal, its id, date, dated weight,
+  undated density, per-LO use weights and scope's LOs, rounded as the trace rounds; not days to the date, a weight's
+  source or contract version), `objective_hash`, `trace_objective_hash`; `generator_payload(objective_definition=…)`;
+  `Logged.objective`. `transitions` censors two decisions with different objective hashes `objective_changed`, listed
+  as a change point with its reason (`change_point` for any other generator change). `run_numeric` hashes the
+  objective it values into `generator_now(config, objective)` and the trace's `residual.objective`. `tail_data.VERSION`
+  `ro6_tail_data_v4`.
+- **R3** (`30f82d0b7e`). `run_numeric(carried_valuation=…)`: the prefetch job keeps it (the valuation runs after the
+  answer is published, as before); the no-model branch passes False. There the answer is served at once and its
+  trace written with it, so the valuation would have nowhere to run but the learner's serving path: it is not run,
+  `tail_serve.not_on_the_serving_path` marks `residual.previous.q_status = not_valued_on_the_serving_path`, and the
+  transition into the decision is censored `cutoff_unmatched`.
+
+## The three weeks, rerun (on `30f82d0b7e`)
+
+`tests/test_ro6_tail_data.py::test_a_few_weeks_on_a_copy_shaped_synthetic_vault`, `LEARNLOOP_RO6_DAYS=21`, `-s`
+(RO5's copy-shaped vault, both policies answering through fakes, the default arms, one sessionless day a week, a
+seeded ~70% learner): 87 traced block decisions, 86 transitions (1 `no_later_decision`; none `objective_changed` or
+`cutoff_unmatched`: one objective, every next decision valued the earlier cutoff, `carried:valued` 86 of 86); one
+generator version, features frozen at all 87; the fit n 86, σ² 4.57, condition 2.0e5.
+
+`ŵ`'s path (each day's last decision), the bound beside the unbounded estimate:
+
+| Day | Contrasts | Missing terms (contrasts with one) | Bound | `ŵ` served | `ŵ` with the missing terms left out (shown only) |
+|---|---|---|---|---|---|
+| 10-12 .. 10-25 | 0 | 0 | none | 0 | 0 |
+| 10-26 | 5 | 0 | none | 0 | 0 |
+| 10-27 | 7 | 55 (1) | least favourable fill | 0 | 0.005874 |
+| 10-28 | 11 | 55 (1) | least favourable fill | 0 | 0.006060 |
+| 10-30 | 13 | 55 (1) | least favourable fill | 0 | 0.006105 |
+| 10-31 | 17 | 55 (1) | least favourable fill | 0 | 0.006114 |
+| 11-01 | 25 | 136 (2) | least favourable fill | 0 | 0.003370 |
+
+As of the end: 27 contrasts, 2 forced (1 per arm, both observed), `status` identified; at the bound slope −0.521 ±
+0.590, rank undefined (`P(rank > 0)` one half), `ŵ = 0`; unbounded slope +0.007 ± 0.758, `ŵ` 0.0035. Every missing
+term is `no_check_support`: an undated use on a day its topic could not be drawn (`r = 0`), 55-81 of them in a forced
+window's 14 days. So with one check a day over several topics, R1's bound keeps `ŵ` at zero until each forced window's
+unsupported uses are few; the record says so rather than filling them. Residual's share of `Ṽ` 0 at all 415
+candidate valuations; argmax moved 0 times. The residual's step median 15 ms, max 52 ms (n 87); the second valuation
+at the carried cutoff median 469 ms, max 693 ms (n 86), in the prefetch job. Cross-check: one step −0.0083, se 0.0055,
+ESS 27.2 of 28; the fit's projection 0.0019 over 87.
+
+## The gate (this step)
+
+No full suite, durability lane or vitest here (the landing gate's). No frontend, `src-tauri`, migration or schema
+change.
+
+| Step | What ran | Result |
+|---|---|---|
+| Reproductions on the pre-fix tree | `tests/test_ro6_landing.py` on `8219a93ea7` | 6 failed, 1 passed (R4's, no source change needed) |
+| Import contracts | `lint-imports --no-cache` (under `env -i`) | 43 kept, 0 broken |
+| Targeted batch | 65 files, `-n 6` under `flock /tmp/learnloop-fullsuite.lock`: every `test_ro6_*`, `test_ro5_*`, `test_ro4_*`, `test_ro0_*`, `test_ro1_availability*`, `test_ro2_ad_raw_document_reads`, FG1's follow-up tests (`test_followup_*`; no `test_fg1*` file exists), the display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_cli_help_snapshot`, `test_data_capture_successor`, `test_registry_audit`, `test_architecture` | 1055 passed, 0 failed |
+| Durable SQLite | `--durable-sqlite` on the touched test files (every `test_ro6_*`, `test_ro1_availability_reads`, `test_ro2_ad_raw_document_reads`, `test_followup_successor`) and `test_ro5_landing` (the shared score reader), `-n 6` | 123 passed |
+| The three weeks | as above | 1 passed |
+
+Every test ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`; every script
+outside pytest under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. Each fix's commit staged
+only its own part of `tests/test_ro6_landing.py` by writing a blob of the file's head to the index (`git hash-object`,
+`git update-index`); the working file was written by the Edit tool only.
+
+## Commits (landing, steps 0 and 1)
+
+- `3de3827e58` Step 0: merge main (`51fb2f745f`).
+- `8219a93ea7` R4: the intent-to-treat test.
+- `7c766e544a` R1, `46f81f96a6` R2, `30f82d0b7e` R3.
+- This section, with the weeks test's printed summary extended (the bound, the missing terms and the unbounded
+  estimate per day).
