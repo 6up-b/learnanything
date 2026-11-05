@@ -263,6 +263,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_same_door_with_nothing_held_returns_the_whole_bundle`
   - `test_the_workflows_attempt_or_its_factor_is_enough`
   - `test_through_the_doors_the_answers_observation_is_not_independent_and_closes_nothing`
+- [tests/test_followup_fg1d_panel_read.py](../../../../../../tests/test_followup_fg1d_panel_read.py) — direct import
+  - `test_a_held_miss_still_shows_no_panel`
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
+  - `test_a_generated_probes_answer_on_its_presentation_reads_zero_in_the_shadow`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_failed_lanes_need_is_deduplicated_and_cancelled_when_the_factor_closes`
   - `test_a_late_generator_adds_nothing_after_a_skip`

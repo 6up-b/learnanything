@@ -145,3 +145,37 @@ def test_the_numeric_policy_honours_its_deadline():
     started = time.monotonic()
     timed = V.evaluate(inputs, actions, draws=8, seed="d", deadline=time.monotonic() + 30.0)
     assert timed.complete and (time.monotonic() - started) < 8.0  # well inside router.timeout_seconds
+
+
+def test_the_report_counts_how_often_the_days_seed_fell_back():
+    """Landing ruling R5: κ0's fallback to the tail's average marginal gain stands until RO5, and the report counts
+    the days whose seed fell back (and to what), so the owner can see it."""
+
+    import sqlite3
+
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.execute(
+        "CREATE TABLE router_objective_traces (id TEXT, decision_id TEXT, decision_kind TEXT, local_date TEXT, "
+        "session_minutes REAL, remembered_minutes REAL, kappa0 REAL, kappa_how TEXT, chosen_ref TEXT, "
+        "drawn_component TEXT, propensity REAL, w REAL, numeric_ref TEXT, llm_status TEXT, numeric_status TEXT, "
+        "stop_in_support INTEGER, guard_crossed INTEGER, window_closes_at TEXT, trace_json TEXT, created_at TEXT)")
+    days = [("2026-11-01", ["day_seed", "carried_today", "carried_today"]),
+            ("2026-11-02", ["tail_average", "carried_today"]),
+            ("2026-11-03", ["floored_at_last_positive"]),
+            ("2026-11-04", ["tail_average"])]
+    n = 0
+    for day, hows in days:
+        for how in hows:
+            n += 1
+            connection.execute(
+                "INSERT INTO router_objective_traces VALUES (?, ?, 'plan_block', ?, 5, 25, 0.001, ?, 'b1', 'staged', "
+                "1.0, 0.8, 'b1', 'not_ready', 'answered', 1, 0, NULL, '{}', ?)",
+                (f"t{n}", f"d{n}", day, how, f"{day}T10:{n:02d}:00Z"))
+    report = objective_report.build(connection, now="2099-01-01T00:00:00Z")
+    seed = report["serving"]["kappa_seed"]
+    assert seed == {"days": 4, "by_how": {"day_seed": 1, "floored_at_last_positive": 1, "tail_average": 2},
+                    "fell_back": 3, "fell_back_to_tail_average": 2,
+                    # RO5 (its landing, merging this count): days priced by κ0's posterior are counted apart.
+                    "posterior_days": 0, "note": seed["note"]}
+    assert any("fell back" in line and "2 of 4 days" in line for line in objective_report.lines(report))

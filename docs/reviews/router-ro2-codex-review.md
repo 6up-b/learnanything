@@ -222,3 +222,48 @@ The 78 files are:
 - the Reader inquiry readers `test_reader_inquiry_status.py` and `test_router_reader_activity.py`.
 
 The exact list is in `docs/reviews/router-ro2-codex-rereview.targeted-tests.txt`.
+
+## Final verify (job `20261105-013212-slMVdj`) and the landing fixes
+
+Codex reviewed `8af1a25c40..router/ro2-forecaster` (tip `cf1019a3cf`). It confirmed F1 to F6 and F8's original
+unbounded traversal fixed, reopened F7 on its remainder, and raised F9. The orchestrator ruled at landing (rulings R1
+to R3, verbatim in `docs/reviews/router-ro2.md` under "Landing onto main"): F9 is fixed by failing closed; F7's
+remainder is Low under the proportionate bar and is not fixed, but the card must say so; H2's inquiry reads get no
+further Codex round. Both of Codex's reproductions are tests, written first.
+
+| id | severity | title | verdict | test or reason |
+|---|---|---|---|---|
+| F1-F6 | | (above) | confirmed fixed by Codex | (above) |
+| F7 | Medium, ruled Low (R2) | An older inquiry placed on the scope only by its anchor's current mapping, behind 100 newer unrelated inquiries, is missing from H2 | accepted, not fixed; the card lists `recent_inquiries` among the reads that hit their limit | `tests/test_ro2_history_protection.py::test_an_anchor_mapped_inquiry_behind_the_recent_limit_is_missing_and_the_card_says_so` (passes on the pre-fix source: `_bounded` already listed the read; the test pins it) |
+| F8 | Medium | Inquiry ancestry bypasses the bounded retrieval budget | confirmed fixed by Codex (300 ancestors: 17 exchange reads, unknown ancestry) | (above) |
+| F9 | Medium | Partially read ancestor batches produce false roots and open statuses | fixed (R1) | `tests/test_ro2_history_protection.py::test_a_capped_ancestry_read_leaves_its_unread_parents_unknown` (before the fix: `q_20_2` got the false root `q_20_1`, `open: true`) |
+
+### What changed (`history_card.py` only)
+
+- **F9.** The walk up the branch links marked the whole requested batch as asked (`asked |= pending`), including the
+  parents a read's `LIMIT` cut. Those parents then left `pending`, so `root()` took the intermediate question below
+  each as the root, with its stored `open` status. Now, when a read returns as many rows as the budget it was given
+  (capped), the requested parents it did not return are added to `unresolved`, beside the parents never asked. An
+  inquiry whose walk reaches one gets `root: "unknown"`, `status: "unknown"` and `open: false`, and the card lists
+  `inquiry_ancestry` among the reads that hit their limit. A parent that an uncapped read did not return is absent
+  (withheld by the view or never written), as before. Codex's 60-thread reproduction (four questions each, parents
+  earlier than children) makes exactly 3 exchange reads (100, 60, 40) and now gives every inquiry either its true root
+  or unknown.
+- **F7's remainder.** No code change. The `recent_inquiries` read (100, `keep`) already lists itself under
+  `row_limits_reached` when it hits its limit; the new test pins that on Codex's scenario (an anchor mapping supplied
+  by a test double, since the plan vault holds no Reader spans), and that the inquiry is present and the read not
+  listed without the 100 newer questions. It is model input, not evidence; nothing a learner sees changes.
+- Spec §6.6 ("What it reads") says both. The module catalog is regenerated.
+
+### Final verify gate (this step; the full suite runs at landing)
+
+| What ran | Result |
+|---|---|
+| Both new tests on the pre-fix source | F9 failed as expected (`q_20_2` rooted at `q_20_1`, open); F7's passed (the note already existed) |
+| `test_ro2_history_*` (4 files) after the fix, `-n 6` | 37 passed |
+| `test_ro2_history_protection.py`, `test_reader_inquiry_status.py`, `test_router_reader_activity.py`, `test_registry_audit.py`, `test_module_catalog_inventory.py`, `-n 6` | 74 passed |
+| `--durable-sqlite tests/test_ro2_history_protection.py` | 13 passed |
+| `module_generate.py` / `module_validate.py` (under `env -i`) | regenerated; PASS |
+
+No live or paid call; no new registry entry, migration, config key or schema change. The paid route is unchanged: the
+fix adds no call and can only turn a false root into `unknown`.

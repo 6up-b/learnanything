@@ -186,6 +186,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reading_target_is_stored_as_the_predecessors_unless_the_path_chose_it`
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_protection_holds_on_the_llm_policys_card`
 - [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import

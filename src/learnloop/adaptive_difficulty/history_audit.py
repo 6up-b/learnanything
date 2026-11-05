@@ -116,9 +116,20 @@ def plan_audit(vault: Any, repository: Any, *, mode: str, limit: int | None = No
             return 0.0
         return round(tokens / 1e6 * float(price), 4) if price is not None else None
 
+    prompt_bytes = sum(len(HF.prompt_for(pair["content"]["state"]).encode("utf-8")) for pair in pairs)
     return {"status": "dry_run", "mode": mode, "model_calls": 0, "writes": 0, "calls": len(pairs),
             "output_tokens_per_call": route.output_tokens, "retries_per_call": 1,
             "estimated_tokens": initial, "estimated_tokens_with_retries": worst,
+            # RO2 landing: what the estimate counts, so its size is not read as expected usage. It is the
+            # charge the run's caps admit, an upper bound: each prompt's UTF-8 bytes (real tokens are
+            # roughly a quarter to a third of them), the schema and framing, and the call's whole
+            # reserved output budget, though an answer uses a few hundred tokens of it.
+            "prompt_bytes": prompt_bytes, "reserved_output_tokens": route.output_tokens * len(pairs),
+            "estimate_counts": ("an upper bound the spend caps reserve, not expected usage: each call's prompt "
+                                "as UTF-8 bytes (real tokens are about a quarter to a third of that), the "
+                                "answer schema and framing, and the whole reserved output budget "
+                                "(output_tokens_per_call), of which an answer uses a few hundred tokens; "
+                                "_with_retries adds one retry per call at double that budget"),
             "route": {"provider": route.provider, "model": route.model, "billing": route.billing},
             "estimated_usd": usd(initial), "estimated_usd_with_retries": usd(worst),
             "pairs": [{"plan_presentation_id": p["plan_presentation_id"], "donor": p["donor"], "levels": p["levels"],

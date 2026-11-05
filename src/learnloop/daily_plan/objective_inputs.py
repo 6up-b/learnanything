@@ -321,12 +321,27 @@ def _reading_los(vault: Any, repository: Any, candidate: BlockCandidate) -> tupl
     if reading is None:
         return ()
     try:
-        from learnloop.section_map import learning_objects_for_section
+        from learnloop.adaptive_difficulty.switches import ad_enabled
 
-        return tuple(learning_objects_for_section(vault, repository, extraction_id=reading.extraction_id,
-                                                  section_id=reading.section_id))
+        if not ad_enabled(getattr(vault, "config", None)):
+            return _reading_los_outside_ad(vault, repository, reading)
+        # AD on (RO2's ruling R6 at RO4's landing): the section's LOs as AD maps them, through the reading
+        # chokepoint after the withheld rule, so the doses land where AD's reading curve counts them.
+        from learnloop.adaptive_difficulty.reading import section_learning_objects
+
+        return tuple(section_learning_objects(vault, repository, reading.extraction_id, reading.section_id))
     except Exception:  # noqa: BLE001 - an unmapped section has no topic: its value is its cost alone, said so
         return ()
+
+
+def _reading_los_outside_ad(vault: Any, repository: Any, reading: Any) -> tuple[str, ...]:
+    """AD off: no AD operation, no reading curve; the plan's own mapping (the raw-loading wrapper, as every
+    caller outside AD)."""
+
+    from learnloop.section_map import learning_objects_for_section
+
+    return tuple(learning_objects_for_section(vault, repository, extraction_id=reading.extraction_id,
+                                              section_id=reading.section_id))
 
 
 def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practiced: set[str],

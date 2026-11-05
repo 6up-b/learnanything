@@ -132,6 +132,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_forecast_receipt_written_in_serve_transaction`
   - `test_held_out_sentinel_never_reaches_ad_inputs`
   - `test_serve_inputs_frozen_against_later_audit_and_edit`
+- [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
+  - `test_the_serve_records_its_ad_rows_with_a_span_anchored_question`
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_a_guard_denial_in_ads_serve_leaves_the_learners_serve_unchanged`
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_content_held_out_after_the_serve_is_never_sent`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import

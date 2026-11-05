@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/objective_report.py"
 source_paths:
   - "src/learnloop/router_objective/objective_report.py"
-source_commit: "96ba40f55c3587f2e716522918d4ae4d06b172ea"
-source_commit_timestamp: "2026-11-05T05:31:58-05:00"
+source_commit: "4fbcb0738584772913ef4af19f977c24cfef8646"
+source_commit_timestamp: "2026-11-05T06:06:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,18 +50,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py) |
-| Source lines | 168 |
+| Source lines | 194 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `96ba40f55c3587f2e716522918d4ae4d06b172ea` |
-| Commit timestamp | `2026-11-05T05:31:58-05:00` |
+| Source commit | `4fbcb0738584772913ef4af19f977c24cfef8646` |
+| Commit timestamp | `2026-11-05T06:06:30-05:00` |
 
 ## Public API
 
 - `build(connection: Any, *, now: str, weight: Mapping[str, Any] | None=None, forecasts: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 37) — The report over every trace (``connection`` read-only; the traces table at migration 246).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 137)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 159)
 
 ### Module constants
 
@@ -78,7 +78,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_share(counter: Counter, total: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 33)
-- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 132)
+- `_kappa_seed(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 134) — Landing ruling R5: how each day's ``κ0`` seed was formed, counted over days (the first decision of a day that did not carry the day's seed), so the owner sees how often it fell back: floored at the last positive value, the tail's average marginal gain (accepted until RO5), or no…
+- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 154)
 
 ## Who imports or calls it
 
@@ -93,6 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] — imports `module`; calls `summary`
+- [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`
 
 ### Platform and third-party dependencies
 
@@ -116,6 +118,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_the_first_day_report_against_the_predecessor_on_a_synthetic_vault`
+  - `test_the_report_counts_how_often_the_days_seed_fell_back`
 
 ## Modification guidance
 

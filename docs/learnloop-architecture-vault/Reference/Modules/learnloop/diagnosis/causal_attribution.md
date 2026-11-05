@@ -279,6 +279,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — direct import
   - `test_a_contest_is_not_a_confirmation`
   - `test_the_proof_must_be_about_the_confirmed_belief`
+- [tests/test_followup_fg1d_panel_read.py](../../../../../../tests/test_followup_fg1d_panel_read.py) — direct import
+  - `test_the_bundles_causes_are_read_once`
 - [tests/test_followup_live_shape.py](../../../../../../tests/test_followup_live_shape.py) — direct import
 - [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
   - `test_each_shape_opens_a_factor_serves_a_question_and_its_answer_closes_it`

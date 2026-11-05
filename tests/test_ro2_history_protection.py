@@ -390,6 +390,79 @@ def test_inquiry_ancestry_reads_within_a_shared_budget_and_says_unknown_past_it(
         "question:q_short_root", "open")
 
 
+def test_a_capped_ancestry_read_leaves_its_unread_parents_unknown(tmp_path):
+    """Codex final verify F9 (landing ruling R1), Codex's reproduction: 60 independent four-question
+    threads on the target LO, each parent earlier than its child. The newest 100 inquiries are kept and
+    the exchange reads return 100, 60 and 40 rows, the last capped by the shared 200-row budget. A parent
+    the capped read left unread is unresolved ancestry: every inquiry whose walk reaches one has an
+    unknown root and status and ``open`` false, and ``inquiry_ancestry`` is among the reads that hit
+    their limit; an inquiry whose whole chain was read keeps its true root (fails before the fix: the
+    whole requested batch counted as visited, and 40 inquiries got a false intermediate root, open)."""
+
+    from learnloop.adaptive_difficulty import history_card as HC
+    from tests.ad_fakes import ad_plan_vault
+
+    paths = ad_plan_vault(tmp_path)
+    threads, depth = 60, 4
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        for level in range(depth):  # level 0 is each thread's root; every level after the one before
+            for thread in range(threads):
+                stamp = (datetime(2026, 10, 1, tzinfo=timezone.utc) + timedelta(days=level, minutes=thread)
+                         ).strftime("%Y-%m-%dT%H:%M:%SZ")
+                question = f"q_{thread:02d}_{level}"
+                _reader_question(connection, question, ["lo_m1"], stamp)
+                _exchange(connection, f"ex_{thread:02d}_{level}", question,
+                          f"ex_{thread:02d}_{level - 1}" if level else None, stamp)
+    statements: list[str] = []
+    built = _built(paths, "pi_m1a", SERVED, statements)
+    exchange_reads = [s for s in statements if "reader_answer_submitted" in s and "FROM interaction_events" in s]
+    assert len(exchange_reads) == 3, len(exchange_reads)
+    assert len(built["sections"]["inquiries"]) == HC.ROW_LIMITS["inquiries"]
+    assert "inquiry_ancestry" in built["row_limits_reached"]
+    known, unknown = 0, 0
+    for entry in built["sections"]["inquiries"]:
+        thread = entry["evidence_id"].split("_")[1]
+        if entry["root"] == "unknown":
+            unknown += 1
+            assert (entry["status"], entry["open"]) == ("unknown", False), entry
+        else:
+            known += 1
+            assert entry["root"] == f"question:q_{thread}_0", entry
+            assert (entry["status"], entry["open"]) == ("open", True), entry
+    assert unknown > 0 and known > 0, (known, unknown)
+    assert "inquiry_ancestry" in _cards(paths, "pi_m1a", SERVED)["H2"]["row_limits_reached"]
+
+
+def test_an_anchor_mapped_inquiry_behind_the_recent_limit_is_missing_and_the_card_says_so(tmp_path, monkeypatch):
+    """Codex final verify F7 (landing ruling R2, accepted as Low), Codex's reproduction: an older
+    inquiry whose recorded candidates exclude the target LO, placed on the scope only by its anchor's
+    current mapping, behind 100 newer unrelated inquiries, is missing from the card, and the card lists
+    ``recent_inquiries`` among the reads that hit their limit. Without the newer inquiries it is there
+    and the read is not listed. Model input only: nothing a learner sees changes."""
+
+    from learnloop.adaptive_difficulty import history_card as HC
+    from learnloop.adaptive_difficulty.reading import VaultReadingMap
+    from tests.ad_fakes import ad_plan_vault
+
+    original = VaultReadingMap.los_for_note
+    # The anchor's mapping at the serve (a note the vault holds no record of, so the scoped read cannot
+    # name it) places the inquiry on the target LO.
+    monkeypatch.setattr(VaultReadingMap, "los_for_note",
+                        lambda self, note_id: ["lo_m1"] if note_id == "note_anchor" else original(self, note_id))
+    paths = ad_plan_vault(tmp_path)
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        _reader_question(connection, "qe_anchor", ["lo_elsewhere"], "2026-10-01T09:00:00Z", note_id="note_anchor")
+    alone = _cards(paths, "pi_m1a", SERVED)["H2"]
+    assert [e["evidence_id"] for e in alone["history"]["inquiries"]] == ["question:qe_anchor"]
+    assert "recent_inquiries" not in alone["row_limits_reached"]
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        for index in range(HC.ROW_LIMITS["recent_inquiries"]):
+            _reader_question(connection, f"qe_other_{index:03d}", ["lo_elsewhere"], BEFORE)
+    behind = _cards(paths, "pi_m1a", SERVED)["H2"]
+    assert behind["history"]["inquiries"] == []
+    assert "recent_inquiries" in behind["row_limits_reached"]
+
+
 @pytest.mark.parametrize("version", ["mvp-0.22", "mvp-0.46"], ids=["below_tag", "tag"])
 def test_no_event_known_after_the_serve_reaches_a_card(tmp_path, version):
     """The leak test: an exam imported after the serve and dated before it, and help, questions and

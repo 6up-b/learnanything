@@ -784,6 +784,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
 - [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
+- [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
+  - `test_a_span_anchored_reader_question_does_not_poison_the_card_build`
+- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import

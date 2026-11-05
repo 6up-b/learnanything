@@ -47,6 +47,14 @@ tracked, sanitized `migration_head_245/state.sqlite` outside the checkout, under
 `foreign_key_check` empty; written into place from a backup-API copy in rollback mode, with no companion files. No
 row changes. The head holds 229 through 246.
 
+At RO4's landing onto main (`d963f80952`: RO2 landed with its second pass, FG1d), rebuilt from main's tracked,
+sanitized `migration_head_245/state.sqlite` (a backup-API copy outside the checkout) with `apply_migrations` under
+the scratch-copy allowance, which applied `[246]` only: the traces table and the rebuild of `goal_contract_versions`
+for the `use_weight_change` class (the head has no contract row, so none moved: 0 before, 0 after, the table's
+columns identical); `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1),
+`integrity_check` ok, `foreign_key_check` empty, `router_objective_traces` empty; written into place from a
+backup-API copy, with no companion files. Its schema and every table's row count match the branch's earlier build.
+
 ## Router objective RO2 (migration 245), `router/ro2-forecaster`, 2026-11-04
 
 Renamed from `migration_head_244` on RO2's branch (base: RO1's landing branch at `248421272c`).
@@ -56,6 +64,12 @@ tracked, sanitized `migration_head_244/state.sqlite` outside the checkout, under
 allowance; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check`
 ok and `foreign_key_check` empty; copied into place with the backup API, with no companion files. No row
 changes. The head holds 229 through 245.
+
+At RO2's landing onto main (`79a1ce32a9`: RO1 and FG1d), main's tracked `migration_head_244/state.sqlite` is the
+same blob as the one this head was built from (`929b55ae0e`; FG1d added no migration), so the head stands. Checked by
+rebuilding it: a backup-API copy of main's 244 outside the checkout, `apply_migrations` under the scratch-copy
+allowance applied `[245]` only, and its `iterdump` matches this file line for line except the one
+`schema_migrations` row's `applied_at`.
 
 ## Router objective RO1 (migration 244), `router/ro1-interval`, 2026-11-04
 
