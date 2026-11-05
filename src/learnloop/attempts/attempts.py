@@ -3423,6 +3423,20 @@ def _apply_attempt_in_transaction(
         )
         if block_end is not None:
             application = replace(application, result=replace(application.result, probe_block_end=block_end))
+        if (
+            not attempt.replace_existing
+            and application.attempt_record.get("probe_presentation_id") is not None
+        ):
+            # FG1d: an answer on a presentation gets its calibrated grade
+            # interpretation from the probe-episode path just above
+            # (`_dual_write_probe_grade`), after the projection this attempt
+            # already ran. That projection read no interpretation and so gave
+            # the answer zero reliable mass (P0.3 §4.3), while replay, whose
+            # fold at this attempt reads the interpretation off the ledger,
+            # banks it. Answers count as evidence from the first serve
+            # (spec_followup_generate_serve_v1 §4.1), so the live cache is
+            # brought to the replay's here, in the same transaction.
+            _project_canonical_belief(vault, repository, clock=clock)
     return application.result
 
 
