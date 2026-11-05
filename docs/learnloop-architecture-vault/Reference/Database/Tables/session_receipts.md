@@ -3,13 +3,13 @@ title: "session_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_receipts"
   - "table session_receipts"
-schema_head: 245
+schema_head: 246
 table_name: "session_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/243_router_objective_receipts.sql"
   - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/db/stores/router_objective.py"
   - "src/learnloop/router_objective/report.py"
   - "src/learnloop/router_objective/sessions.py"
@@ -102,6 +103,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/stores/router_objective.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/router_objective/sessions.py`

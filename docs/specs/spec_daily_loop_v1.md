@@ -619,6 +619,18 @@ class BlockChooser(Protocol):
 5. **Decisions happen at block boundaries only:** the first block when the plan is built, the next one while the last item's feedback shows (router §8).
 6. **Every decision is logged** as an `attention_block_events` row of kind `block_chosen`: the candidate set (ids, lanes, estimates, planner values), the chooser, the propensity and the fallback flag. R1 extends this logging; R2 adds `router_decisions`.
 
+*Amended at router objective RO4 (2026-11-05; `spec_router_objective_v1.md` §8.2, owner decision Nov 4: "the plan's
+minutes become a soft limit"; successor `mvp-0.47`, kill switch `router_objective.enabled`):* with the objective
+serving, rules 1 and 4 open. **Feasibility no longer filters on the plan's or a lane's minutes**, and the source packs
+every lane up to a block's own bound, so a block with outstanding gain can run past the remembered minutes; the
+attention price `κ` prices continuation instead. `minutes_left` may go negative and is shown as minutes past the plan
+(`minutes_past_plan`, `minutes_are_a_suggestion` on the view); lane minutes are still computed, for ordering, display
+and the staged rule's fallback order, and **lane shares stop excluding** candidates. **Stop is supported at every
+reversible block boundary**; a drawn stop is an offer: the plan completes with it, and "keep going" overrides it
+(logged, §4 row 7). The plan's finite list as first shown (the projection) stays, and Today's copy says the plan's
+minutes are a suggestion ("About 25 minutes suggested today", "About 6 minutes past today's suggested time"). G13's
+minutes clause holds below the tag and with the switch off, where the predecessor frame stands.
+
 **DL1's implementations:**
 - **`legacy_lanes_v1` (the source).** It classifies the scheduler's ranked eligible list into lanes (§6.1) and groups each lane's items by LO, in the scheduler's order. It then packs the groups into blocks of up to 15 estimated minutes:
   - **Never larger** than its lane's remaining minutes or the plan's.

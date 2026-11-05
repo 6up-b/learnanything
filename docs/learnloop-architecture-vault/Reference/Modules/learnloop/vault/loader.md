@@ -211,6 +211,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `load_vault`; statically calls `load_vault`
@@ -265,7 +266,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 123 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 124 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -2833,6 +2834,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
   - `test_the_permuted_run_sends_another_presentations_history`
   - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
+- [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
+  - `test_the_contract_is_copied_at_confirmation_at_the_tag_and_adjustable`
+- [tests/test_ro4_successor.py](../../../../../../tests/test_ro4_successor.py) — direct import
+  - `test_the_gates_read_off_and_below_the_tag`
+  - `test_the_upgrade_publishes_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_retired_proof_check_route_is_ignored_and_reported`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`

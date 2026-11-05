@@ -1,6 +1,6 @@
 # Router objective (RO): one objective, two policies, a dataset that can test it
 
-**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
+**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6); RO4 built Nov 5 2026 (§8.11). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
 
 ## 1. The owner's decisions
 
@@ -510,6 +510,54 @@ Counts are shown separately: decisions evaluated, **unique completed assessments
 - **Protection:** the card's rules hold on v3 and on the LLM policy's card. A failed policy's share goes to `staged`.
 - **First day:** on a copy with no outcomes, the report shows stop's share at each boundary, session length, and each policy's share, against the predecessor, as the upgrade's report. It doesn't hold the upgrade.
 - **Latency:** the deadlines hold on a copy.
+
+### 8.11 As built (Nov 5 2026, `router/ro4-objective`; `docs/reviews/router-ro4.md`)
+
+Built as successor `mvp-0.47` (`ROUTER_OBJECTIVE_ALGORITHM_VERSION`, upgrade `learnloop.router_objective_upgrade`, a
+projection activation: nothing recorded changes) and migration 246 (`246_router_objective_traces.sql`: the trace
+table, and `goal_contract_versions` rebuilt with the change class `use_weight_change`), on RO2's branch
+(`cf1019a3cf`). Kill switch `[router_objective] enabled` (default true at the tag), served only where R2b's mixture
+serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.10:
+
+- **The value estimator** (§8.1; `router_objective/value.py`, `memory.py`): vectorized over the θ draws, on a daily
+  grid (undated uses at each day's midpoint after its session; dated uses at their date; the action's own minutes on
+  the active-minute clock). The tail: one session a day of `m̄` minutes in blocks of the support's mean minutes and
+  items; each session ranks the valued topics once by remaining use weight times the believed chance of failing and
+  practises the top ones (adaptive to the belief: the rollout carries the belief apart from the drawn truth and updates
+  it from every simulated graded attempt). After any session's end the next one follows a return gap drawn from the
+  learner's own gaps (next day with none), the same after every end, so the return effect is zero until RO5 fits a
+  return model. `T_C` is the same tail for a further `H` past `C`. θ: each topic's ability from AD's predictive and its
+  variance, the combiner's coefficients, AD's `γ` and reading curve (their **prior** means and variances: AD's bank
+  posterior for them is not read at this version), the effect slope, `p_accept`. The probe's branch choice uses one
+  rollout on the updated belief per draw (not a nested `Q̄`); its information is reported as the gain over the better
+  fixed branch. The lesson interface exists but no lesson is a plan-block candidate; offer-type actions are valued
+  by branches (tested by hand) and none is in a plan block's support yet.
+- **Draws** (§8.1): 8, doubling while the LLM policy is out, up to `rollout_theta_draws_max` (64, `keep`): "more until
+  the deadline" read as more while the other policy is still being waited for, never holding a serve.
+- **The frame** (§8.2): `PlanPolicy.soft_budget` and `PlanState.soft_budget` at the tag; the projection keeps the hard
+  frame (the finite list as first shown). The staged rule's own pick is stop once fewer than 5 of the plan's minutes are
+  left, so the failure fallback keeps the plan's minutes as its suggestion. A drawn stop closes the plan as before and
+  "keep going" is its override (RO0's `stop_response` row).
+- **π_Q without a model set up** (§8.3): with no route ready there is no prefetch, so the numeric policy runs on the
+  serving thread with `router.timeout_seconds` as its deadline.
+- **The LLM's forecasts in the value** (§8.4): the correction uses the 7-day forecast (`p_cold_7`) for `f(a)`; the
+  numeric job re-evaluates with it once the LLM policy answers inside the budget.
+- **Sensors** (§8.4): AD's predictive at the LO's main cell (`p_bar_at_top_raw`); the variance from the mastery
+  posterior (AD's cold-start variance for an untested cell); FSRS as the median stability and difficulty of the LO's
+  practised items. The combiner's prior is (0, 1, 0.5) with variance 0.25 each (`memory.COMBINER_PRIOR_*`, labelled);
+  its Laplace fit exists and is fed nothing yet (no resolved pairs are joined to traces at this version).
+- **Goals** (§8.5): `use_weight` = `{dated, per_lo, undated_density}`, canonical only when present (no old hash moves);
+  copied into `goals.yaml` at creation and into the contract at confirmation (the tag); adjustable with
+  `set_goal_use_weight` (a `use_weight_change` successor for a confirmed goal). "Asked once at goal creation": the RPC
+  exists; the desktop's goal form does not ask yet (`docs/reviews/router-ro4.md`).
+- **The price** (§8.6): κ0's daily seed from `G` at `m̄` and `m̄ + d̄` (the day's first plan decision), carried in the
+  trace table; the frontier is `G` at 0, `m̄`, `m̄ + d̄` and `2m̄`, labelled predictions. The grid posterior and its
+  likelihood are built and serve nothing.
+- **The weight** (§8.7): every closed window is censored `no_valued_use_with_r_positive` (no RO5 check exists), so `w`
+  is 0.8; `C⁰` is the tail's cost at `m̄` (no earlier window of costs is read at this version).
+- **The trace** (§8.8): `router_objective_traces`, one row per `plan_block` or `plan_interrupt` decision, written with
+  the decision and RO0's state row; `learnloop router trace <decision>`; `learnloop router objective-report`; the
+  desktop's "why" has "how was this chosen?" (`router_objective_explain`).
 
 ## 9. RO5: return and calibration
 

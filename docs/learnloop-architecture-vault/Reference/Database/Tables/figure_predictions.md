@@ -3,13 +3,13 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
   - "table figure_predictions"
-schema_head: 245
+schema_head: 246
 table_name: "figure_predictions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/216_interactive_figures.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
   - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
-  - "src/learnloop/diagnosis/text_gaps/sources.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -130,6 +130,7 @@ None found by exact static reference scan.
 - `tests/test_help_assist_figures_migration.py`
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
+- `tests/test_ro2_history_protection.py`
 - `tests/test_router_reader_activity.py`
 - `tests/test_rw5c_labels.py`
 

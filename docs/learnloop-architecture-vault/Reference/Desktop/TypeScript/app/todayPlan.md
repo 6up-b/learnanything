@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/todayPlan.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/todayPlan.ts"
-source_commit: "c7e2a82bdff910f39e41b1493c1144707b8cefe1"
-source_commit_timestamp: "2026-10-25T02:08:38-04:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/todayPlan.ts](../../../../../../apps/learnloop-tauri/src/app/todayPlan.ts) |
-| Source lines | 348 |
+| Source lines | 358 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c7e2a82bdff910f39e41b1493c1144707b8cefe1` |
-| Commit timestamp | `2026-10-25T02:08:38-04:00` |
+| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
+| Commit timestamp | `2026-11-05T04:03:05-05:00` |
 
 ## Activation and status evidence
 
@@ -65,20 +65,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function onYourOwnItem(item: PlanItemDto): boolean` — function, line 142
 - `export function todayRows(plan: Plan): TodayRow[]` — function, line 148
 - `export function planSentence(plan: Plan): string | null` — function, line 176
-- `export function reentrySentence(plan: Plan): string` — function, line 206
-- `export function reentryWhy(plan: Plan): string | null` — function, line 212
-- `export function splitWhy(plan: Plan): string[]` — function, line 221
-- `export function doneLine(data: DailyPlanDto): string` — function, line 236
-- `export function planWasEmpty(data: DailyPlanDto): boolean` — function, line 242
-- `export function streakLine(streak: StreakSummary | null | undefined): string | null` — function, line 247
-- `export const THREADS_SHOWN = 3` — const, line 255
-- `export type TodayThread = |` — type, line 257
-- `export function questionThread(row: QuestionQueueRowDto): TodayThread` — function, line 267
-- `export function problemThread(problem: WorkbenchOpenProblemDto): TodayThread` — function, line 278
-- `export function todayThreads(questionRows: readonly QuestionQueueRowDto[], problems: readonly WorkbenchOpenProblemDto[]): TodayThread[]` — function, line 284
-- `export function fullListWhy(item: ScheduledItemDto): string` — function, line 297
-- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 319
-- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 334
+- `export function reentrySentence(plan: Plan): string` — function, line 216
+- `export function reentryWhy(plan: Plan): string | null` — function, line 222
+- `export function splitWhy(plan: Plan): string[]` — function, line 231
+- `export function doneLine(data: DailyPlanDto): string` — function, line 246
+- `export function planWasEmpty(data: DailyPlanDto): boolean` — function, line 252
+- `export function streakLine(streak: StreakSummary | null | undefined): string | null` — function, line 257
+- `export const THREADS_SHOWN = 3` — const, line 265
+- `export type TodayThread = |` — type, line 267
+- `export function questionThread(row: QuestionQueueRowDto): TodayThread` — function, line 277
+- `export function problemThread(problem: WorkbenchOpenProblemDto): TodayThread` — function, line 288
+- `export function todayThreads(questionRows: readonly QuestionQueueRowDto[], problems: readonly WorkbenchOpenProblemDto[]): TodayThread[]` — function, line 294
+- `export function fullListWhy(item: ScheduledItemDto): string` — function, line 307
+- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 329
+- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 344
 
 ## Internal implementation anchors
 
@@ -106,22 +106,24 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function minutesWord(minutes: number): string` — function, line 170
 - `const phrases: string[] = []` — const, line 177
 - `const begun = plan.blocks.some((block)` — const, line 197
-- `const head = begun ? `About $` — const, line 198
-- `const minutes = plan.reentry ? Math.max(1, Math.round(plan.reentry.planMinutes)) : Math.max(1, Math.round(plan.minutesBudget))` — const, line 207
-- `const reentry = plan.reentry` — const, line 213
-- `const away = `You were away $` — const, line 215
-- `const named = reentry.slippedNames.length ? ` Today's catch-up starts with what faded most: $` — const, line 216
-- `const words: Record<PlanLane, string> =` — const, line 222
-- `const lines = plan.split.lanes .filter((lane)` — const, line 228
-- `const minutes = wholeMinutes(data.day?.actualMinutes)` — const, line 237
-- `const days = `$` — const, line 249
-- `function oneLine(markdown: string, limit = 80): string` — function, line 261
-- `const text = markdown.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").trim()` — const, line 262
-- `const steps = problem.stepCount === 1 ? "1 step written" : problem.stepCount > 1 ? `$` — const, line 279
-- `const open = questionRows.filter((row)` — const, line 285
-- `const dated: Array<` — const, line 286
-- `const plan = await api.getDailyPlan(null)` — const, line 336
-- `const summary = await api.getStartSummary()` — const, line 342
+- `const past = Math.round(plan.minutesPastPlan ?? 0)` — const, line 200
+- `const suggested = begun ? past > 0 ? `About $` — const, line 201
+- `const head = begun ? `About $` — const, line 208
+- `const minutes = plan.reentry ? Math.max(1, Math.round(plan.reentry.planMinutes)) : Math.max(1, Math.round(plan.minutesBudget))` — const, line 217
+- `const reentry = plan.reentry` — const, line 223
+- `const away = `You were away $` — const, line 225
+- `const named = reentry.slippedNames.length ? ` Today's catch-up starts with what faded most: $` — const, line 226
+- `const words: Record<PlanLane, string> =` — const, line 232
+- `const lines = plan.split.lanes .filter((lane)` — const, line 238
+- `const minutes = wholeMinutes(data.day?.actualMinutes)` — const, line 247
+- `const days = `$` — const, line 259
+- `function oneLine(markdown: string, limit = 80): string` — function, line 271
+- `const text = markdown.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").trim()` — const, line 272
+- `const steps = problem.stepCount === 1 ? "1 step written" : problem.stepCount > 1 ? `$` — const, line 289
+- `const open = questionRows.filter((row)` — const, line 295
+- `const dated: Array<` — const, line 296
+- `const plan = await api.getDailyPlan(null)` — const, line 346
+- `const summary = await api.getStartSummary()` — const, line 352
 
 ## Who imports or calls it
 

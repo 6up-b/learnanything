@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/card.py"
 source_paths:
   - "src/learnloop/router/card.py"
-source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
-source_commit_timestamp: "2026-11-04T08:47:30-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py) |
-| Source lines | 648 |
+| Source lines | 684 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
-| Commit timestamp | `2026-11-04T08:47:30-05:00` |
+| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
+| Commit timestamp | `2026-11-05T04:03:05-05:00` |
 
 ## Public API
 
@@ -64,10 +64,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `estimate_tokens(value: Any) -> int` ([source](../../../../../../src/learnloop/router/card.py), line 78) — UTF-8 bytes / 4, rounded up (the Slice 1 estimator the V3 renderer uses).
 - `excerpt(text: Any, limit: int) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 85)
 - `class CardInputs` ([source](../../../../../../src/learnloop/router/card.py), line 91) — Everything the card renders, gathered and filtered by the caller.
-- `class LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 123)
-  - `payload(self) -> dict[str, Any]` (line 131; public) — What the decision stores (``router_decision_payloads``, kind card).
-- `render_text(card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 196) — The card's text sections (deterministic from the typed card).
-- `build_card(inputs: CardInputs, *, token_budget: int=DEFAULT_TOKEN_BUDGET) -> LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 526) — The card for one decision, within ``token_budget`` (deterministic).
+- `class LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 127)
+  - `payload(self) -> dict[str, Any]` (line 135; public) — What the decision stores (``router_decision_payloads``, kind card).
+- `render_text(card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 200) — The card's text sections (deterministic from the typed card).
+- `build_card(inputs: CardInputs, *, token_budget: int=DEFAULT_TOKEN_BUDGET) -> LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 561) — The card for one decision, within ``token_budget`` (deterministic).
 
 ### Module constants
 
@@ -78,24 +78,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `STEM_LIMIT` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 62)
 - `STATEMENT_LIMIT` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 63)
 - `TYPED_SECTIONS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 68)
-- `SUGGESTION_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 300)
-- `_SUGGESTION_WORDS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 301)
-- `AD_CARD_VERSION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 384)
-- `SUGGESTION_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 389)
-- `SUGGESTION_RELEASE_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 393)
-- `MARKS_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 399)
-- `MARKS_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 400)
-- `_MARKS_HEADING` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 401)
-- `_METADATA_TRUNCATION_KEYS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 433)
-- `READER_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 442)
-- `_READER_LISTS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 443)
-- `_READER_OLDEST_FIRST` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 447)
+- `CARD_V3` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 324)
+- `SUGGESTION_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 330)
+- `_SUGGESTION_WORDS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 331)
+- `AD_CARD_VERSION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 414)
+- `SUGGESTION_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 419)
+- `SUGGESTION_RELEASE_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 423)
+- `MARKS_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 429)
+- `MARKS_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 430)
+- `_MARKS_HEADING` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 431)
+- `_METADATA_TRUNCATION_KEYS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 465)
+- `READER_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 474)
+- `_READER_LISTS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 475)
+- `_READER_OLDEST_FIRST` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 479)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `AD_CARD_VERSION`
+- `CARD_V3`
 - `CARD_VERSION`
 - `MARKS_CARD_SUFFIX`
 - `MARKS_SECTION`
@@ -115,17 +117,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_successful(entry: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 138)
-- `_work_line(entry: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 142)
-- `_lo_line(lo_id: str, row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 166)
-- `_suggestion_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 310)
-- `_topics(ids: Any, card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 320)
-- `_reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 325) — Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader activity" section, typed facts in plain words.
-- `_marks_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 404)
-- `_card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 414)
-- `_drop_reader_entry(reader: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 451) — Remove one entry of the reader section, deterministically, counting it in the section's ``omitted`` (Codex re-review F9): the model-written narrative first, then one entry of the longest list (ties: the later list), its oldest end.
-- `_assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any], confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None=None, confidence_dropped: int=0, *, limit: bool=True, notice: bool=True, evidence_sections: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/card.py), line 478)
-- `_drop_oldest_event(confidence: dict[str, list[dict[str, Any]]]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 514) — Remove the oldest 7-day confidence event of any topic (each list is newest first); False when none is left.
+- `_successful(entry: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 142)
+- `_work_line(entry: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 146)
+- `_lo_line(lo_id: str, row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 170)
+- `_goal_dates(card: Mapping[str, Any], candidate: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 302) — RO4 card v3: a candidate's goal dates and the days to each (from the typed card's ``intent``).
+- `_suggestion_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 340)
+- `_topics(ids: Any, card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 350)
+- `_reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 355) — Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader activity" section, typed facts in plain words.
+- `_marks_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 434)
+- `_card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 444)
+- `_drop_reader_entry(reader: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 483) — Remove one entry of the reader section, deterministically, counting it in the section's ``omitted`` (Codex re-review F9): the model-written narrative first, then one entry of the longest list (ties: the later list), its oldest end.
+- `_assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any], confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None=None, confidence_dropped: int=0, *, limit: bool=True, notice: bool=True, evidence_sections: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/card.py), line 510)
+- `_drop_oldest_event(confidence: dict[str, list[dict[str, Any]]]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 549) — Remove the oldest 7-day confidence event of any topic (each list is newest first); False when none is left.
 
 ## Who imports or calls it
 
@@ -138,7 +141,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 
 ### Platform and third-party dependencies
 
@@ -176,6 +179,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_both_readers_render_the_pinned_question_with_its_frozen_method`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_the_card_shows_the_frozen_methods_sentence_whole_after_a_shortened_statement`
+- [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
+  - `test_card_v3_renders_goal_dates_and_is_the_predecessors_card_below_the_tag`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
   - `test_over_budget_older_successes_go_first_then_excerpts_then_attempts`
 - [tests/test_router_reader_activity.py](../../../../../../tests/test_router_reader_activity.py) — direct import

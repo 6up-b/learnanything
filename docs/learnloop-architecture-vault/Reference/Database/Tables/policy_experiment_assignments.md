@@ -3,13 +3,13 @@ title: "policy_experiment_assignments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite policy_experiment_assignments"
   - "table policy_experiment_assignments"
-schema_head: 245
+schema_head: 246
 table_name: "policy_experiment_assignments"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/098_controller_randomization_and_outcomes.sql"
+  - "src/learnloop/daily_plan/objective_chooser.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/ops/capture_report.py"
   - "src/learnloop/scheduling/controller_store.py"
@@ -92,6 +93,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/objective_chooser.py`
 - `src/learnloop/ops/capture_report.py`
 - `src/learnloop/scheduling/controller_store.py`
 

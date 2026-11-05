@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/requests.py"
 source_paths:
   - "src/learnloop/router/requests.py"
-source_commit: "c11b6179c76d77eb4ef639d03f4fb112e12a75a7"
-source_commit_timestamp: "2026-11-03T22:03:31-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py) |
-| Source lines | 495 |
+| Source lines | 687 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c11b6179c76d77eb4ef639d03f4fb112e12a75a7` |
-| Commit timestamp | `2026-11-03T22:03:31-05:00` |
+| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
+| Commit timestamp | `2026-11-05T04:03:05-05:00` |
 
 ## Public API
 
@@ -64,30 +64,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class BlockOption` ([source](../../../../../../src/learnloop/router/requests.py), line 84) — One option the models choose among: a reversible candidate, or stop for today.
 - `class SensorTopic` ([source](../../../../../../src/learnloop/router/requests.py), line 92)
 - `option_description(*, why: str, kind: str, item_count: int, est_minutes: float, topics: Sequence[str], section: str | None=None) -> str` ([source](../../../../../../src/learnloop/router/requests.py), line 97) — "Eigenvalues again, before it slips.
-- `class EvidenceRef` ([source](../../../../../../src/learnloop/router/requests.py), line 117) — An attempt on the card the LLM may cite (``evidence_ids``).
-- `evidence_from_card(card_json: Mapping[str, Any] | None) -> tuple[EvidenceRef, ...]` ([source](../../../../../../src/learnloop/router/requests.py), line 124) — The card's citable evidence: each shown recent attempt, labelled plainly.
-- `state_text(card_text: str, options: Sequence[BlockOption], *, similar: Sequence[str]=(), evidence: Sequence[EvidenceRef]=(), extra: Sequence[str]=()) -> str` ([source](../../../../../../src/learnloop/router/requests.py), line 145) — The state both models read (the Decider's ``state``, the LLM prompt's body).
-- `sensor_question_name(kind: str, learning_object_id: str) -> str` ([source](../../../../../../src/learnloop/router/requests.py), line 192)
-- `class BoundaryRequest` ([source](../../../../../../src/learnloop/router/requests.py), line 197) — One block decision's request to both models (built once, at prefetch).
-  - `question_set_version(self) -> str` (line 206; public)
-  - `llm_schema_version(self) -> str` (line 210; public)
-  - `refs(self) -> tuple[str, ...]` (line 214; public)
-  - `decider_questions(self) -> dict[str, Question]` (line 217; public)
-  - `llm_prompt(self) -> str` (line 233; public)
-- `class RestraintRequest` ([source](../../../../../../src/learnloop/router/requests.py), line 260) — A follow-up's restraint decision (``plan_interrupt``): one ``intervene_now`` noul.
-  - `decider_questions(self) -> dict[str, Question]` (line 269; public)
-  - `llm_prompt(self) -> str` (line 272; public)
-- `class OptionProbability(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 300)
-- `class TopicProbability(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 305)
-- `class RouterLLMAnswerV1(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 310) — ``router_llm_v1``: the block distribution, a rationale and its evidence ids.
-- `class RouterLLMAnswerV2(RouterLLMAnswerV1)` ([source](../../../../../../src/learnloop/router/requests.py), line 318) — ``router_llm_v2`` (R2c): v1 plus the logged-only sensors.
-- `class RouterLLMRestraintAnswer(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 325) — ``router_llm_restraint_v1``: P(interrupt now does more good) and a rationale.
-- `llm_result_model(schema_version: str) -> type[_Wire]` ([source](../../../../../../src/learnloop/router/requests.py), line 332)
-- `class ParsedChoice` ([source](../../../../../../src/learnloop/router/requests.py), line 357) — A model's answer to a block decision, validated.
-- `parse_llm_choice(answer: Any, request: BoundaryRequest) -> ParsedChoice` ([source](../../../../../../src/learnloop/router/requests.py), line 402) — Validate the LLM's block answer against the request (fails closed).
-- `parse_decider_choice(result: DecisionResult, request: BoundaryRequest) -> ParsedChoice` ([source](../../../../../../src/learnloop/router/requests.py), line 426) — The Decider's typed answers (already parsed strictly by the client) for one block decision.
-- `parse_llm_restraint(answer: Any) -> tuple[float, str | None]` ([source](../../../../../../src/learnloop/router/requests.py), line 445)
-- `parse_decider_restraint(result: DecisionResult) -> float` ([source](../../../../../../src/learnloop/router/requests.py), line 451)
+- `class EvidenceRef` ([source](../../../../../../src/learnloop/router/requests.py), line 120) — An attempt on the card the LLM may cite (``evidence_ids``).
+- `evidence_from_card(card_json: Mapping[str, Any] | None) -> tuple[EvidenceRef, ...]` ([source](../../../../../../src/learnloop/router/requests.py), line 127) — The card's citable evidence: each shown recent attempt, labelled plainly.
+- `state_text(card_text: str, options: Sequence[BlockOption], *, similar: Sequence[str]=(), evidence: Sequence[EvidenceRef]=(), extra: Sequence[str]=()) -> str` ([source](../../../../../../src/learnloop/router/requests.py), line 148) — The state both models read (the Decider's ``state``, the LLM prompt's body).
+- `sensor_question_name(kind: str, learning_object_id: str) -> str` ([source](../../../../../../src/learnloop/router/requests.py), line 195)
+- `class BoundaryRequest` ([source](../../../../../../src/learnloop/router/requests.py), line 200) — One block decision's request to both models (built once, at prefetch).
+  - `question_set_version(self) -> str` (line 209; public)
+  - `llm_schema_version(self) -> str` (line 213; public)
+  - `refs(self) -> tuple[str, ...]` (line 217; public)
+  - `decider_questions(self) -> dict[str, Question]` (line 220; public)
+  - `llm_prompt(self) -> str` (line 236; public)
+- `class RestraintRequest` ([source](../../../../../../src/learnloop/router/requests.py), line 263) — A follow-up's restraint decision (``plan_interrupt``): one ``intervene_now`` noul.
+  - `decider_questions(self) -> dict[str, Question]` (line 272; public)
+  - `llm_prompt(self) -> str` (line 275; public)
+- `class OptionProbability(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 303)
+- `class TopicProbability(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 308)
+- `class RouterLLMAnswerV1(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 313) — ``router_llm_v1``: the block distribution, a rationale and its evidence ids.
+- `class RouterLLMAnswerV2(RouterLLMAnswerV1)` ([source](../../../../../../src/learnloop/router/requests.py), line 321) — ``router_llm_v2`` (R2c): v1 plus the logged-only sensors.
+- `class RouterLLMRestraintAnswer(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 328) — ``router_llm_restraint_v1``: P(interrupt now does more good) and a rationale.
+- `class OptionForecastV3(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 345)
+- `class ReferenceForecastV3(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 353)
+- `class RouterLLMChoiceV3(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 360) — ``router_llm_choice_v3``: a probability per option (every one positive), per-option forecasts, the reference row's forecasts, at most three sentences of rationale and the evidence ids they rely on.
+- `class RouterLLMRestraintV3(_Wire)` ([source](../../../../../../src/learnloop/router/requests.py), line 370) — The LLM policy on a mid-block follow-up (``plan_interrupt``): P(interrupting now is the better choice).
+- `class PolicyRequest` ([source](../../../../../../src/learnloop/router/requests.py), line 388) — The LLM policy's request for one decision (built once, in the prefetch, frozen with the boundary key).
+  - `llm_schema_version(self) -> str` (line 400; public)
+  - `refs(self) -> tuple[str, ...]` (line 404; public)
+  - `llm_prompt(self) -> str` (line 407; public)
+- `class ParsedPolicy` ([source](../../../../../../src/learnloop/router/requests.py), line 440) — The LLM policy's validated answer.
+- `parse_llm_policy(answer: Any, request: PolicyRequest) -> ParsedPolicy` ([source](../../../../../../src/learnloop/router/requests.py), line 461) — Validate the LLM policy's answer (fails closed): every option exactly once with a positive probability, every forecast strictly in (0, 1), the reference row's forecasts present.
+- `parse_llm_policy_restraint(answer: Any) -> tuple[float, str | None, tuple[str, ...]]` ([source](../../../../../../src/learnloop/router/requests.py), line 501)
+- `llm_result_model(schema_version: str) -> type[_Wire]` ([source](../../../../../../src/learnloop/router/requests.py), line 512)
+- `class ParsedChoice` ([source](../../../../../../src/learnloop/router/requests.py), line 539) — A model's answer to a block decision, validated.
+- `parse_llm_choice(answer: Any, request: BoundaryRequest) -> ParsedChoice` ([source](../../../../../../src/learnloop/router/requests.py), line 584) — Validate the LLM's block answer against the request (fails closed).
+- `parse_decider_choice(result: DecisionResult, request: BoundaryRequest) -> ParsedChoice` ([source](../../../../../../src/learnloop/router/requests.py), line 608) — The Decider's typed answers (already parsed strictly by the client) for one block decision.
+- `parse_llm_restraint(answer: Any) -> tuple[float, str | None]` ([source](../../../../../../src/learnloop/router/requests.py), line 627)
+- `parse_decider_restraint(result: DecisionResult) -> float` ([source](../../../../../../src/learnloop/router/requests.py), line 633)
 
 ### Module constants
 
@@ -107,16 +118,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SENSORS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 71)
 - `OPTION_LIMIT` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 73)
 - `STOP_DESCRIPTION` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 113)
-- `CHOOSE_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 173)
-- `TEACH_FIRST_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 178)
-- `WILL_PASS_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 182)
-- `INTERVENE_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 185)
-- `NO_INTERVENTION_DESCRIPTION` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 287)
+- `STOP_OFFER_DESCRIPTION` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 115)
+- `CHOOSE_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 176)
+- `TEACH_FIRST_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 181)
+- `WILL_PASS_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 185)
+- `INTERVENE_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 188)
+- `NO_INTERVENTION_DESCRIPTION` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 290)
+- `LLM_POLICY_SCHEMA` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 338)
+- `LLM_POLICY_RESTRAINT_SCHEMA` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 339)
+- `POLICY_LAGS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 342)
+- `POLICY_INSTRUCTIONS` ([src/learnloop/router/requests.py](../../../../../../src/learnloop/router/requests.py), line 378)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `LLM_POLICY_RESTRAINT_SCHEMA`
+- `LLM_POLICY_SCHEMA`
+- `POLICY_LAGS`
+- `ParsedPolicy`
+- `PolicyRequest`
+- `RouterLLMChoiceV3`
+- `RouterLLMRestraintV3`
+- `parse_llm_policy`
+- `parse_llm_policy_restraint`
 - `BlockOption`
 - `BoundaryRequest`
 - `CHOOSE_BLOCK`
@@ -140,6 +165,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `RouterResponseInvalid`
 - `SENSORS`
 - `STOP_DESCRIPTION`
+- `STOP_OFFER_DESCRIPTION`
 - `SensorTopic`
 - `TEACH_FIRST`
 - `TopicProbability`
@@ -156,17 +182,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Wire(WireModel)` ([source](../../../../../../src/learnloop/router/requests.py), line 295) — The LLM's answers cross the provider boundary: the strict output schema every structured transport sends requires a ``WireModel``.
-- `_probability(value: Any, what: str) -> float` ([source](../../../../../../src/learnloop/router/requests.py), line 340)
-- `_as_mapping(answer: Any) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/router/requests.py), line 348)
-- `_distribution(entries: Any, refs: Sequence[str], what: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/router/requests.py), line 367)
-- `_sensor_answers(entries: Any, topics: Sequence[str], what: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/router/requests.py), line 386)
+- `class _Wire(WireModel)` ([source](../../../../../../src/learnloop/router/requests.py), line 298) — The LLM's answers cross the provider boundary: the strict output schema every structured transport sends requires a ``WireModel``.
+- `_open_probability(value: Any, what: str) -> float` ([source](../../../../../../src/learnloop/router/requests.py), line 450)
+- `_lags(entry: Mapping[str, Any], what: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/router/requests.py), line 457)
+- `_probability(value: Any, what: str) -> float` ([source](../../../../../../src/learnloop/router/requests.py), line 522)
+- `_as_mapping(answer: Any) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/router/requests.py), line 530)
+- `_distribution(entries: Any, refs: Sequence[str], what: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/router/requests.py), line 549)
+- `_sensor_answers(entries: Any, topics: Sequence[str], what: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/router/requests.py), line 568)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `BlockOption`, `BoundaryRequest`, `PolicyRequest`, `RestraintRequest`, `evidence_from_card`, `parse_decider_restraint`, `parse_llm_policy_restraint`, `state_text`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`; statically calls `BlockOption`, `BoundaryRequest`, `RestraintRequest`, `SensorTopic`, `evidence_from_card`, `option_description`, `parse_decider_restraint`, `parse_llm_restraint`, `state_text`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `module`; statically calls `llm_result_model`
 
@@ -189,7 +218,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

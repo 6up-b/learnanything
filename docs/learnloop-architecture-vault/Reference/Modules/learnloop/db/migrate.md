@@ -350,6 +350,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_245_is_the_head_and_its_table_a_receipt_ad_classifies`
   - `test_245_on_the_durability_lane`
   - `test_the_head_fixture_holds_245_in_rollback_mode_with_an_empty_table`
+- [tests/test_ro4_traces_migration.py](../../../../../../tests/test_ro4_traces_migration.py) — direct import
+  - `test_246_adds_exactly_its_objects_and_the_table_is_append_only`
+  - `test_246_is_the_head_and_its_table_a_receipt`
+  - `test_246_widens_the_contract_change_class_keeping_every_row`
+  - `test_the_head_fixture_holds_246_in_rollback_mode_with_an_empty_table`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`
 - [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import

@@ -23,8 +23,9 @@ source_paths:
   - "src/learnloop/goals/goal_series.py"
   - "src/learnloop/goals/goal_series_store.py"
   - "src/learnloop/goals/receipt_contributions.py"
+  - "src/learnloop/goals/use_weights.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T17:57:15-05:00"
+source_commit_timestamp: "2026-11-05T04:02:41-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.goals"
@@ -71,20 +72,21 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] | [[Reference/Modules/learnloop/goals/exam_session#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] | [[Reference/Modules/learnloop/goals/forecast_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] | [[Reference/Modules/learnloop/goals/goal_certification#^module-purpose|purpose]] | `ACTIVE` | 12 | 6 |
-| [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] | [[Reference/Modules/learnloop/goals/goal_contracts#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
+| [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] | [[Reference/Modules/learnloop/goals/goal_contracts#^module-purpose|purpose]] | `ACTIVE` | 11 | 4 |
 | [[Reference/Modules/learnloop/goals/goal_intent|learnloop.goals.goal_intent]] | [[Reference/Modules/learnloop/goals/goal_intent#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] | [[Reference/Modules/learnloop/goals/goal_lo#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] | [[Reference/Modules/learnloop/goals/goal_pace#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] | [[Reference/Modules/learnloop/goals/goal_projection#^module-purpose|purpose]] | `ACTIVE` | 22 | 10 |
+| [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] | [[Reference/Modules/learnloop/goals/goal_projection#^module-purpose|purpose]] | `ACTIVE` | 23 | 10 |
 | [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] | [[Reference/Modules/learnloop/goals/goal_series#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]] | [[Reference/Modules/learnloop/goals/goal_series_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/goals/receipt_contributions|learnloop.goals.receipt_contributions]] | [[Reference/Modules/learnloop/goals/receipt_contributions#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
+| [[Reference/Modules/learnloop/goals/use_weights|learnloop.goals.use_weights]] | [[Reference/Modules/learnloop/goals/use_weights#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 23 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 24 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 15 static module edges
@@ -100,14 +102,14 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 18 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 21 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 8 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 7 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 4 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 3 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
@@ -138,10 +140,10 @@ flowchart LR
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
-    center -->|23| n_learnloop
+    center -->|24| n_learnloop
     n_learnloop_learner -->|6| center
     center -->|15| n_learnloop_learner
-    n_learnloop_sidecar_handlers -->|18| center
+    n_learnloop_sidecar_handlers -->|21| center
     center -->|17| n_learnloop_vault
     center -->|16| n_learnloop_db
     n_learnloop_scheduling -->|7| center

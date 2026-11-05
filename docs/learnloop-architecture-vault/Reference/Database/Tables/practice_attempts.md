@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 245
+schema_head: 246
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -194,6 +194,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/daily_plan/measurement.py`
+- `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/router_chooser.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
@@ -263,6 +264,7 @@ Indexes and uniqueness:
 - `src/learnloop/remote/views.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/router_objective/price.py`
 - `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/scheduling/intent/followup_gate.py`
 - `src/learnloop/scheduling/unresolved_cost.py`

@@ -624,6 +624,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_the_practice_tool_keeps_the_instruction_of_a_long_stem`
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
+- [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f2_a_criterion_the_grader_declares_unverified_is_unassessed_on_a_divergent_route`
   - `test_fatal_errors_keep_their_mark_downs`

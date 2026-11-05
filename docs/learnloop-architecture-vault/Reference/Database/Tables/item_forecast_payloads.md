@@ -3,13 +3,13 @@ title: "item_forecast_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_forecast_payloads"
   - "table item_forecast_payloads"
-schema_head: 245
+schema_head: 246
 table_name: "item_forecast_payloads"
 table_role: "workflow"
 functionality_status: "active"
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_ro2_history_forecaster.py`
 - `tests/test_ro2_history_protection.py`
+- `tests/test_ro2_history_resolve.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

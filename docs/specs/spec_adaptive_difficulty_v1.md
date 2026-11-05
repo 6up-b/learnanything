@@ -1071,6 +1071,15 @@ The features and signals an AD decision or update reads are fixed when the item 
 | `llm_v3:llm`, `llm_v3:decider` | field V3: item plus a `LearnerStateCardV1`-style card restricted to the LO and its prerequisites, plus similar past items with outcomes; Decider as a `noul` question | AD1, switch `outside_forecasters` (D4) | **Competing experts** (§8.4). Never an offset prior |
 | `llm_history_v1:H0` … `:H3` (router objective RO2) | card `ad-forecast-state-v3` through the material view and `learner_protection`: H0 is `llm_v3`'s card without the incumbent's number, H1 adds whole answers, ordered help, questions with their disclosure state, reveals and confidence taps, H2 the Reader, H3 the whole history (spec_router_objective_v1 §6.3) | RO2 onward (no successor tag, as AD1), switch `outside_forecasters` (`llm_history_v1`, on by default) | H3 on every eligible presentation plus one of H0-H2 by a seeded draw with its logged propensity; each one call, in the background after the serve, answering `p_now` (`item_unassisted_success`) and `p_cold_1/7/30` (`lo_cold_success`). Scored and reported (§8.3, `learnloop ad report`); read by RO4's sensor layer, never by serving |
 
+*Amended at router objective RO4 (2026-11-05; `spec_router_objective_v1.md` §8.3-§8.4, §8.11):* the objective reads
+AD as a **sensor**, never writing it: each valued topic's predictive `p̄` (`readiness.decision_state_fields`, at the
+LO's main cell) is the memory model's ability on the logit scale; AD's learning increment `γ` (`GAMMA_PRIOR`), its
+reading dose curve (`READING_PRIORS`, `DOSE_SCALES`) and its cold-start variance are the rollouts' learning
+parameters (their prior means and variances: the bank's posterior is not read at this version). The LLM policy's card
+is a decision-level variant of RO2's H3 rung, read in a read-only AD operation (`history_card.decision_sections_entry`)
+through the material view and `learner_protection` exactly as H3. Nothing here changes AD's state, serving or
+scoring (A2, A12).
+
 ### 8.3 Scoring
 
 - `item_forecast_scores` (DERIVED, one replayer) joins each valid receipt to its bound attempt through the exact chain `plan_presentations` → `practice_attempts.plan_presentation_id` (plan R2 §5.2). Unbound attempts fall back to the scheduler candidate, then the probe presentation; R1's session rule is never used.

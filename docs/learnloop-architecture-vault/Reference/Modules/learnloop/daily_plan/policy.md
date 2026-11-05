@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/policy.py"
 source_paths:
   - "src/learnloop/daily_plan/policy.py"
-source_commit: "bf51a51a9634f2570fdefe3bace585bb7506424e"
-source_commit_timestamp: "2026-10-14T09:16:50-04:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,20 +50,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/policy.py](../../../../../../src/learnloop/daily_plan/policy.py) |
-| Source lines | 118 |
+| Source lines | 147 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bf51a51a9634f2570fdefe3bace585bb7506424e` |
-| Commit timestamp | `2026-10-14T09:16:50-04:00` |
+| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
+| Commit timestamp | `2026-11-05T04:03:05-05:00` |
 
 ## Public API
 
 - `bridge_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 36) — ``golden_path.advance`` goes through the P2 bridge (D13): the R2a successor or later with the router's kill switch on.
 - `router_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 47) — The router composes Today: the plan serves and the bridge's switch holds.
 - `mixture_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 53) — The model mixture chooses Today's blocks: the router composes Today, the vault is at the R2b + R2c successor or later, and ``router.mode`` is ``mixture``.
-- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 67) — Today's source/chooser pair for one plan env (one RPC).
+- `objective_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 67) — Router objective RO4 (spec §8): the objective chooses Today's blocks: the mixture serves and the vault is at RO4's tag with ``[router_objective] enabled``.
+- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 76) — Today's source/chooser pair for one plan env (one RPC).
 
 ### Explicit exports
 
@@ -71,6 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `bridge_active`
 - `mixture_active`
+- `objective_active`
 - `policy_for`
 - `router_active`
 
@@ -98,10 +100,12 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ROUTER_MIXTURE_VERSIONS`, `ROUTER_STAGED_FRAME_VERSIONS`
 - [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `LaneQuotaChooser`; calls `LaneQuotaChooser`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `DEFAULT_POLICY`, `PlanPolicy`, `plan_active`; calls `PlanPolicy`, `plan_active`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ObjectiveChooser`, `ObjectiveRestraintGate`; calls `ObjectiveChooser`, `ObjectiveRestraintGate`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `CardGatherer`; calls `CardGatherer`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `RestraintGate`, `RouterChooser`; calls `RestraintGate`, `RouterChooser`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `default_runtime`; calls `default_runtime`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `SOURCE_NAME`, `StagedChooser`, `StagedFrame`, `StagedFrameFactory`; calls `StagedChooser`, `StagedFrame`, `StagedFrameFactory`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `objective_on`; calls `objective_on`
 
 ### Platform and third-party dependencies
 

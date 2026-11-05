@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/lanes.py"
 source_paths:
   - "src/learnloop/daily_plan/lanes.py"
-source_commit: "49712bc6f1aa4fddf6356dd784057178faa27f9a"
-source_commit_timestamp: "2026-10-25T11:47:25-04:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py) |
-| Source lines | 666 |
+| Source lines | 671 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `49712bc6f1aa4fddf6356dd784057178faa27f9a` |
-| Commit timestamp | `2026-10-25T11:47:25-04:00` |
+| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
+| Commit timestamp | `2026-11-05T04:03:05-05:00` |
 
 ## Public API
 
@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class LegacyLanesSource` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 477) — ``legacy_lanes_v1``: deterministic block candidates from the lanes (§6.8).
   - `lane_items(self, lane: str) -> list[PoolItem]` (line 506; public)
   - `candidates(self, state: PlanState) -> list[BlockCandidate]` (line 514; public)
-  - `_reading_candidate(self, limit: float) -> BlockCandidate | None` (line 559; internal)
+  - `_reading_candidate(self, limit: float) -> BlockCandidate | None` (line 564; internal)
 
 ### Module constants
 
@@ -119,7 +119,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_candidate_id(lane: str, item_ids: Sequence[str], reading: ReadingTarget | None) -> str` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 423)
 - `_group_by_lo(items: Sequence[PoolItem]) -> list[list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 429)
 - `_lane_reason(lane: str, items: Sequence[PoolItem], titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 436)
-- `_pack(items: Sequence[PoolItem], *, lane: str, limit: float, items_left: int | None, merge_small: bool, max_blocks: int) -> list[list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 598) — Greedy, rank-ordered packing of LO groups into blocks under ``limit``.
+- `_pack(items: Sequence[PoolItem], *, lane: str, limit: float, items_left: int | None, merge_small: bool, max_blocks: int) -> list[list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 603) — Greedy, rank-ordered packing of LO groups into blocks under ``limit``.
 
 ## Who imports or calls it
 

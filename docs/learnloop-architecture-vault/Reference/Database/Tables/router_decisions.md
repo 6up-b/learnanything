@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 245
+schema_head: 246
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`, `243_router_objective_receipts.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`, `243_router_objective_receipts.sql`, `246_router_objective_traces.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

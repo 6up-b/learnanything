@@ -3,13 +3,13 @@ title: "goal_contract_drafts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite goal_contract_drafts"
   - "table goal_contract_drafts"
-schema_head: 245
+schema_head: 246
 table_name: "goal_contract_drafts"
 table_role: "workflow"
 functionality_status: "active"
@@ -47,7 +47,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/068_goal_terminal_contracts.sql`.
-- **Schema touched by:** `068_goal_terminal_contracts.sql`.
+- **Schema touched by:** `068_goal_terminal_contracts.sql`, `246_router_objective_traces.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

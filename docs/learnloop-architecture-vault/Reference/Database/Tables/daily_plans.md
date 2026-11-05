@@ -3,13 +3,13 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
   - "table daily_plans"
-schema_head: 245
+schema_head: 246
 table_name: "daily_plans"
 table_role: "workflow"
 functionality_status: "active"
@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lanes.py"
   - "src/learnloop/daily_plan/measurement.py"
+  - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/daily_plan/records.py"
-  - "src/learnloop/daily_plan/router_card.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/figures/prefetch.py`
 - `src/learnloop/router_objective/sessions.py`

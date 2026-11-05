@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/runtime.py"
 source_paths:
   - "src/learnloop/cli/runtime.py"
-source_commit: "028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c"
-source_commit_timestamp: "2026-11-04T17:56:52-05:00"
+source_commit: "f6e46ff9d1c47643fdb8d2c1c934ce177092f37b"
+source_commit_timestamp: "2026-11-05T02:22:58-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py) |
-| Source lines | 878 |
+| Source lines | 879 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c` |
-| Commit timestamp | `2026-11-04T17:56:52-05:00` |
+| Source commit | `f6e46ff9d1c47643fdb8d2c1c934ce177092f37b` |
+| Commit timestamp | `2026-11-05T02:22:58-05:00` |
 
 ## Public API
 
@@ -65,46 +65,46 @@ No public top-level function or class definition is declared in this file.
 
 - `_INGEST_SPINNER_FRAMES` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 114)
 - `_INGEST_PROGRESS_EVENT` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 116)
-- `_WRAP_WIDTH` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 522)
-- `_ATTEMPT_COVERED_FIELDS` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 524)
-- `EXAM_SELF_GRADE_REFUSAL` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 831)
+- `_WRAP_WIDTH` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 523)
+- `_ATTEMPT_COVERED_FIELDS` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 525)
+- `EXAM_SELF_GRADE_REFUSAL` ([src/learnloop/cli/runtime.py](../../../../../../src/learnloop/cli/runtime.py), line 832)
 
 ## Internal implementation anchors
 
 - `_root(vault: Path | None) -> Path` ([source](../../../../../../src/learnloop/cli/runtime.py), line 118)
 - `_complete_interrupted_activation(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 123) — Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.42 too).
-- `_repository(vault_root: Path) -> Repository` ([source](../../../../../../src/learnloop/cli/runtime.py), line 143)
-- `_load_vault_or_exit(vault_root: Path, *, json_output: bool=False)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 152)
-- `_contracts_env(vault: Path | None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 162)
-- `_split_items(items: str | None) -> list[str] | None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 168)
-- `_parse_mode_mix(mode_mix: str | None) -> dict[str, int] | None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 173) — Parse ``--mode-mix`` (e.g.
-- `_resolve_focus(loaded, *, focus_concepts: str | None, focus_facets: str | None, from_goal: str | None, json_output: bool) -> tuple[list[str] | None, list[str] | None]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 204) — Merge --focus-concepts/--focus-facets with a goal's concept anchors.
-- `_parse_points(value: str | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 237)
-- `_load_mapping_file(file: Path, *, label: str='file') -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 254)
-- `_parse_observation_response(response_json: str | None, response_file: Path | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 260)
-- `_observation_template_yaml(file: Path) -> str` ([source](../../../../../../src/learnloop/cli/runtime.py), line 278)
-- `_observation_template_payload(template: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 283)
-- `_observation_result_payload(result) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 297)
-- `_json_queue(queue: list) -> dict[str, object]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 305)
-- `_provider_for_task(config, task: str, explicit: str | None=None) -> str` ([source](../../../../../../src/learnloop/cli/runtime.py), line 322)
-- `_fallback_provider_for_task(config, task: str, explicit: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 325)
-- `_runtime_for_provider(vault_root: Path, config, provider_name: str)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 329)
-- `_client_for_provider(vault_root: Path, config, provider_name: str, *, codex_timeout_seconds: int | None=None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 332)
-- `_ready_provider_for_task(vault_root: Path, config, task: str, explicit: str | None=None, *, codex_timeout_seconds: int | None=None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 346)
-- `_runtime_status_for_cli(provider_name: str, status: str) -> str` ([source](../../../../../../src/learnloop/cli/runtime.py), line 364) — Keep pre-provider-refactor Codex CLI error codes stable.
-- `_run_canonical_ingest_command(source: str, *, kind: str, subject: str | None, learning_objects: list[str] | None, goal: str | None, allow_auto_captions: bool | None, instructions: str | None, ai_provider: str | None, json_output: bool, progress_json: bool, vault: Path | None, purpose: str='canonical_ingest', spinner_label: str='Ingesting canonical source', pdf_engine: str | None=None, pdf_use_llm: bool | None=None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 373)
-- `_ingest_runner(vault_root: Path)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 446)
-- `_batch_json(runner, batch_id: str, *, batch: dict[str, Any] | None=None, jobs: list[dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 459)
-- `_show_source_set(root: Path, set_id: str, json_output: bool) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 497)
-- `_find_goal_or_exit(loaded, goal_id: str)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 515)
-- `_echo_practice_attempt(attempt_id: str, payload: dict, repository: Repository) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 549)
-- `_echo_causal_episode(episode: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 680)
-- `_goal_or_exit(loaded, goal_id: str, *, json_output: bool)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 820)
-- `_exam_answer_refusal(code: str, message: str, *, json_output: bool) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 836)
-- `_stage7_manifest(path: Path) -> Any` ([source](../../../../../../src/learnloop/cli/runtime.py), line 843)
-- `_parse_sim_sets(sets: list[str] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 849)
-- `_sim_run_root(source_root: Path, *, fresh_copy: bool, reset_state: bool) -> Path` ([source](../../../../../../src/learnloop/cli/runtime.py), line 860)
-- `_write_or_echo_report(payload: dict, *, json_output: bool, output: Path | None) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 870)
+- `_repository(vault_root: Path) -> Repository` ([source](../../../../../../src/learnloop/cli/runtime.py), line 144)
+- `_load_vault_or_exit(vault_root: Path, *, json_output: bool=False)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 153)
+- `_contracts_env(vault: Path | None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 163)
+- `_split_items(items: str | None) -> list[str] | None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 169)
+- `_parse_mode_mix(mode_mix: str | None) -> dict[str, int] | None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 174) — Parse ``--mode-mix`` (e.g.
+- `_resolve_focus(loaded, *, focus_concepts: str | None, focus_facets: str | None, from_goal: str | None, json_output: bool) -> tuple[list[str] | None, list[str] | None]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 205) — Merge --focus-concepts/--focus-facets with a goal's concept anchors.
+- `_parse_points(value: str | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 238)
+- `_load_mapping_file(file: Path, *, label: str='file') -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 255)
+- `_parse_observation_response(response_json: str | None, response_file: Path | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 261)
+- `_observation_template_yaml(file: Path) -> str` ([source](../../../../../../src/learnloop/cli/runtime.py), line 279)
+- `_observation_template_payload(template: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 284)
+- `_observation_result_payload(result) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 298)
+- `_json_queue(queue: list) -> dict[str, object]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 306)
+- `_provider_for_task(config, task: str, explicit: str | None=None) -> str` ([source](../../../../../../src/learnloop/cli/runtime.py), line 323)
+- `_fallback_provider_for_task(config, task: str, explicit: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 326)
+- `_runtime_for_provider(vault_root: Path, config, provider_name: str)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 330)
+- `_client_for_provider(vault_root: Path, config, provider_name: str, *, codex_timeout_seconds: int | None=None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 333)
+- `_ready_provider_for_task(vault_root: Path, config, task: str, explicit: str | None=None, *, codex_timeout_seconds: int | None=None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 347)
+- `_runtime_status_for_cli(provider_name: str, status: str) -> str` ([source](../../../../../../src/learnloop/cli/runtime.py), line 365) — Keep pre-provider-refactor Codex CLI error codes stable.
+- `_run_canonical_ingest_command(source: str, *, kind: str, subject: str | None, learning_objects: list[str] | None, goal: str | None, allow_auto_captions: bool | None, instructions: str | None, ai_provider: str | None, json_output: bool, progress_json: bool, vault: Path | None, purpose: str='canonical_ingest', spinner_label: str='Ingesting canonical source', pdf_engine: str | None=None, pdf_use_llm: bool | None=None)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 374)
+- `_ingest_runner(vault_root: Path)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 447)
+- `_batch_json(runner, batch_id: str, *, batch: dict[str, Any] | None=None, jobs: list[dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 460)
+- `_show_source_set(root: Path, set_id: str, json_output: bool) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 498)
+- `_find_goal_or_exit(loaded, goal_id: str)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 516)
+- `_echo_practice_attempt(attempt_id: str, payload: dict, repository: Repository) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 550)
+- `_echo_causal_episode(episode: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 681)
+- `_goal_or_exit(loaded, goal_id: str, *, json_output: bool)` ([source](../../../../../../src/learnloop/cli/runtime.py), line 821)
+- `_exam_answer_refusal(code: str, message: str, *, json_output: bool) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 837)
+- `_stage7_manifest(path: Path) -> Any` ([source](../../../../../../src/learnloop/cli/runtime.py), line 844)
+- `_parse_sim_sets(sets: list[str] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/cli/runtime.py), line 850)
+- `_sim_run_root(source_root: Path, *, fresh_copy: bool, reset_state: bool) -> Path` ([source](../../../../../../src/learnloop/cli/runtime.py), line 861)
+- `_write_or_echo_report(payload: dict, *, json_output: bool, output: Path | None) -> None` ([source](../../../../../../src/learnloop/cli/runtime.py), line 871)
 
 ## Who imports or calls it
 
@@ -168,12 +168,12 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `ExamSeedingError`, `exam_ingest_instructions`, `parse_exam_outcomes`, `seed_exam_attempts`
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ExamSessionError`, `exam_availability`, `exam_report`, `finish_exam`, `record_exam_answer`, `start_exam`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`
-- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/learner/hypothesis_claims|learnloop.learner.hypothesis_claims]] — imports `export_claim_events`, `purge_claim_events`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `assert_recall_calibration_bands`, `format_recall_calibration_table`, `run_recall_calibration_harness`
 - [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] — imports `DebugAdvanceError`, `advance_vault_days`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `run_doctor`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`
+- [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `build_due_queue`, `explain_practice_item`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `coerce_override_value`, `prepare_run_vault`; calls `coerce_override_value`, `prepare_run_vault`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_all_derived_state`, `rebuild_live_derived_state`
@@ -221,6 +221,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
 - [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
 - [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
+- [tests/test_ro4_successor.py](../../../../../../tests/test_ro4_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`

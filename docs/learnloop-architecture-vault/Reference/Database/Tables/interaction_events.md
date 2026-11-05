@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 245
+schema_head: 246
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,13 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/history_card.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -140,6 +140,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_sessions.py`
 - `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/router_objective/price.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/scheduling/action_loss.py`
 - `src/learnloop/workbench/ladder.py`

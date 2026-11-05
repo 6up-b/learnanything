@@ -187,6 +187,16 @@ With lane quota as the staged component, the replay compares the models against 
 7. **`ties_only`** (default false, D1). It applies the mixture only when several candidates share the staged argmax's lane-quota key. Planner values are not comparable across lanes (`lanes.py:420` is `1/(1+rank)`, and VOI v2 makes it `order_rank`, `serving/voi-stopping:src/learnloop/daily_plan/lanes.py:502`), so a cross-lane δ margin would not be honest.
 8. **Mode `staged`.** `w_s = 1`. The models are still asked, for logging and sensor scoring (spec §7.3). This mode is R2a's only mode until R2b lands; in R2a no model is called at all.
 
+*Amended at router objective RO4 (2026-11-05; `spec_router_objective_v1.md` §8.3, §8.11):* at `mvp-0.47` with
+`router_objective.enabled` the selection math above is replaced by the objective's two-policy mix
+(`router_objective.mix`, design `objective_mixture`): the same top-k order (staged's pick first, then each lane's best,
+then the rest), always followed by `stop_for_today`; components `staged` (the failure fallback; its pick is stop once
+the plan's minutes are used), `llm` (`router_llm_choice_v3`) and `numeric` (argmax `Q̄`); the same two-stage draw, the
+same floor `ε`, exact propensities that G3 recomputes from `mixture.{support, staged_ref, w, failed,
+llm_distribution, numeric_choice, epsilon}`. The Decider is still asked, as advice (`model_distributions.decider`).
+The restraint (§3.5) mixes the two policies over `{insert_now, continue_current}` the same way. Below the tag, or off,
+§3.3-§3.5 exactly.
+
 ### 3.4 Timing
 
 - The engine's prefetch is `advance(serve=False)`, which already makes the boundary decision while feedback shows (`engine.py:1808-1817`). The router uses `router.prefetch_timeout_seconds` there (recommended 45). Blocking waits use `router.timeout_seconds` (8; spec §8).

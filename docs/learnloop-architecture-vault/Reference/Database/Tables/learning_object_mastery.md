@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 245
+schema_head: 246
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/placement/predictor.py"
-  - "src/learnloop/router_objective/decision_state.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/claim_fixes_upgrade.py"
@@ -93,6 +93,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/router_objective/decision_state.py`
 

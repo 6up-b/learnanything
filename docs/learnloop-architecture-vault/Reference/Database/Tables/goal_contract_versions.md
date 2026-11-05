@@ -3,13 +3,13 @@ title: "goal_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite goal_contract_versions"
   - "table goal_contract_versions"
-schema_head: 245
+schema_head: 246
 table_name: "goal_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_fixture.py"
   - "src/learnloop/goals/goal_contracts.py"
+  - "src/learnloop/goals/use_weights.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +50,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/068_goal_terminal_contracts.sql`.
-- **Schema touched by:** `068_goal_terminal_contracts.sql`, `081_task_blueprints.sql`, `082_golden_path_runs.sql`.
+- **Schema touched by:** `068_goal_terminal_contracts.sql`, `081_task_blueprints.sql`, `082_golden_path_runs.sql`, `246_router_objective_traces.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -114,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/curriculum/golden_path_fixture.py`
 - `src/learnloop/goals/goal_contracts.py`
+- `src/learnloop/goals/use_weights.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -122,7 +124,9 @@ Indexes and uniqueness:
 
 - `tests/test_data_capture_a3_time_metric.py`
 - `tests/test_data_capture_codex_review.py`
+- `tests/test_ro4_traces_migration.py`
 - `tests/test_goal_contracts.py`
+- `tests/test_ro4_goals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -139,7 +143,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE goal_contract_versions (
+CREATE TABLE "goal_contract_versions" (
   id TEXT PRIMARY KEY,
   goal_id TEXT NOT NULL,
   version INTEGER NOT NULL CHECK (version >= 1),
@@ -150,7 +154,7 @@ CREATE TABLE goal_contract_versions (
   contract_schema_version INTEGER NOT NULL,
   change_class TEXT NOT NULL CHECK (change_class IN (
     'confirm', 'support_change', 'authorized_depth_step',
-    'evaluation_change', 'reweight', 'metadata'
+    'evaluation_change', 'reweight', 'use_weight_change', 'metadata'
   )),
   -- authorized_depth_step receipt columns (§3.4); NULL for every other class:
   envelope_version TEXT,

@@ -39,6 +39,7 @@ It supersedes the older "evidence first" rules where they made the learner do ex
 | # | Decision |
 |---|---|
 | P1 | **A finite plan**: today is N minutes of these items, done when done, with "keep going" if wanted |
+| P1a | *Router objective RO4 (2026-11-05, `mvp-0.47`):* the plan's N minutes are a **suggestion**: the list as first shown stays finite, the router can continue past it when a block still has outstanding gain, and stopping is offered at every block boundary; "keep going" overrides an offered stop. Frictionless defaults stay (no form, no prompt). Off (`router_objective.enabled = false`) or below the tag, P1 as written |
 | P2 | **Auto-advance** from feedback to the next planned item; the list is one key away |
 | P3 | **The system sets the split** between maintain, repair and push, and the pace of new material, within the budget. It shows them and asks nothing |
 | P4 | **No readiness form.** Session minutes are remembered and changed with one tap. Energy and sleep sliders are removed |

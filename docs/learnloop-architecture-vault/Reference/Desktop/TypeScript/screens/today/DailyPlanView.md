@@ -10,8 +10,8 @@ area: "TypeScript/screens/today"
 source_path: "apps/learnloop-tauri/src/screens/today/DailyPlanView.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today/DailyPlanView.tsx"
-source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
-source_commit_timestamp: "2026-10-22T16:58:30-04:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/DailyPlanView.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/DailyPlanView.tsx) |
-| Source lines | 440 |
+| Source lines | 473 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
-| Commit timestamp | `2026-10-22T16:58:30-04:00` |
+| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
+| Commit timestamp | `2026-11-05T04:03:05-05:00` |
 
 ## Activation and status evidence
 
@@ -60,45 +60,48 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function PlanSplitLine(` — function, line 46
-- `export function PlanBlockLine(` — function, line 73
-- `export function PlanHeadline(` — function, line 106
-- `export function PlanReentryPanel(` — function, line 116
-- `export interface DailyPlanViewProps` — interface, line 163
-- `export function DailyPlanView(` — function, line 181
-- `export function PlanDone(` — function, line 366
+- `export function PlanSplitLine(` — function, line 47
+- `export function PlanBlockLine(` — function, line 74
+- `export function ObjectiveTrace(` — function, line 108
+- `export function PlanHeadline(` — function, line 139
+- `export function PlanReentryPanel(` — function, line 149
+- `export interface DailyPlanViewProps` — interface, line 196
+- `export function DailyPlanView(` — function, line 214
+- `export function PlanDone(` — function, line 399
 
 ## Internal implementation anchors
 
-- `const LANE_COLOR: Record<PlanLane, string> =` — const, line 14
-- `function laneColor(lane: PlanLane | null | undefined): string` — function, line 21
-- `const linkButton: CSSProperties =` — const, line 25
-- `const actionButton = (primary = false): CSSProperties` — const, line 35
-- `const total = Math.max(plan.blockCountEstimate, block.ordinal)` — const, line 75
-- `const label = block.reading ? `reading $` — const, line 76
-- `const names = reentry.slippedNames.length ? ` ($` — const, line 117
-- `function BlockItems(` — function, line 131
-- `const next = block.items.find((item)` — const, line 132
-- `const current = item === next` — const, line 136
-- `const finished = item.state === "done" || item.state === "skipped"` — const, line 137
-- `const plan = data.plan` — const, line 195
-- `const done = plan ? plan.status !== "open" : false` — const, line 196
-- `const current = plan?.blocks.find((block)` — const, line 197
-- `const waiting = !done && !current && plan?.waiting ? plan.waiting : null` — const, line 199
-- `const onKey = (event: KeyboardEvent)` — const, line 202
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 204
-- `const choices = plan.minuteChoices` — const, line 218
-- `const index = choices.indexOf(plan.rememberedMinutes)` — const, line 219
-- `const next = choices[Math.max(0, Math.min(choices.length - 1, (index < 0 ? 0 : index) + (event.key === "ArrowLeft" ? -1 : 1)))]` — const, line 220
-- `const day = data.day` — const, line 229
-- `const streak = data.streak` — const, line 230
-- `const upcoming = plan.projected[0] ?? null` — const, line 231
-- `const selected = minutes === plan.rememberedMinutes` — const, line 245
-- `const next = current.items.find((item)` — const, line 307
-- `const plan = data.plan!` — const, line 387
-- `const empty = (day?.plannedItems ?? 0) === 0 && (day?.readingBlocks ?? 0) === 0` — const, line 388
-- `const reentry = plan.kind === "reentry"` — const, line 389
-- `const title = empty ? "Nothing due today" : reentry ? "Re-entry done. Keep going?" : "Today complete"` — const, line 390
+- `const LANE_COLOR: Record<PlanLane, string> =` — const, line 15
+- `function laneColor(lane: PlanLane | null | undefined): string` — function, line 22
+- `const linkButton: CSSProperties =` — const, line 26
+- `const actionButton = (primary = false): CSSProperties` — const, line 36
+- `const total = Math.max(plan.blockCountEstimate, block.ordinal)` — const, line 76
+- `const label = block.reading ? `reading $` — const, line 77
+- `const open = async ()` — const, line 111
+- `const result = await api.routerObjectiveExplain(decisionId)` — const, line 113
+- `const names = reentry.slippedNames.length ? ` ($` — const, line 150
+- `function BlockItems(` — function, line 164
+- `const next = block.items.find((item)` — const, line 165
+- `const current = item === next` — const, line 169
+- `const finished = item.state === "done" || item.state === "skipped"` — const, line 170
+- `const plan = data.plan` — const, line 228
+- `const done = plan ? plan.status !== "open" : false` — const, line 229
+- `const current = plan?.blocks.find((block)` — const, line 230
+- `const waiting = !done && !current && plan?.waiting ? plan.waiting : null` — const, line 232
+- `const onKey = (event: KeyboardEvent)` — const, line 235
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 237
+- `const choices = plan.minuteChoices` — const, line 251
+- `const index = choices.indexOf(plan.rememberedMinutes)` — const, line 252
+- `const next = choices[Math.max(0, Math.min(choices.length - 1, (index < 0 ? 0 : index) + (event.key === "ArrowLeft" ? -1 : 1)))]` — const, line 253
+- `const day = data.day` — const, line 262
+- `const streak = data.streak` — const, line 263
+- `const upcoming = plan.projected[0] ?? null` — const, line 264
+- `const selected = minutes === plan.rememberedMinutes` — const, line 278
+- `const next = current.items.find((item)` — const, line 340
+- `const plan = data.plan!` — const, line 420
+- `const empty = (day?.plannedItems ?? 0) === 0 && (day?.readingBlocks ?? 0) === 0` — const, line 421
+- `const reentry = plan.kind === "reentry"` — const, line 422
+- `const title = empty ? "Nothing due today" : reentry ? "Re-entry done. Keep going?" : "Today complete"` — const, line 423
 
 ## Who imports or calls it
 
@@ -112,6 +115,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DailyPlanDto`, `PlanBlockDto`, `PlanLane`, `TodayHeadlineDto`
 - [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export; imports `aboutMinutes`, `minutesPerDay`, `waitingLine`, `waitingMinutes`, `wholeMinutes`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`

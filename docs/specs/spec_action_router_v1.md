@@ -278,6 +278,18 @@ This asymmetry is deliberate (2607.21306).
 - **Fallback.** If one model times out or errors, its weight goes to the staged component for that decision. If both fail, the staged choice is used. Both cases are flagged on the receipt (`fallback = decider | llm | both`).
 - **The learner's explicit choice always wins** (P4 §4.1). It is logged as `learner_pick` with no propensity.
 
+*Amended at router objective RO4 (2026-11-05; `docs/specs/spec_router_objective_v1.md` §8.2-§8.3, §8.11,
+`docs/reviews/router-ro4.md`; successor `mvp-0.47`, kill switch `router_objective.enabled`):* at the tag, with the
+objective serving, `mixture` mode serves **two policies and a learned mix** instead of the three components above:
+`μ = (1 − k·ε)·[w·π_L + (1 − w)·π_Q] + ε` over the top-k support, which now **always holds `stop for today`** at a
+reversible boundary (an overridable offer). `π_L` is the frontier LLM's policy (`router_llm_choice_v3` on
+`router_llm`, over a decision-level variant of RO2's H3 card; the older `llm` chooser and its card are no longer
+served); `π_Q` is the numeric expected-value policy (argmax of the objective's `Q̄`). The staged rule and the Decider
+are logged as advice and comparators and get no serving share; staged is the failure fallback (each failure moves
+only its policy's share to it; both failed, `μ = (1 − k·ε)·π_S + ε`). `w = ℓ_L + (1 − ℓ_L − ℓ_Q)·p`, seeded at 0.8.
+The design is `objective_mixture`; `drawn_component ∈ {staged, llm, numeric, uniform}`. Off, or below the tag, the
+mixture above exactly. §15.2 is unchanged.
+
 ### 7.4 What the learner sees
 
 The "why" follows whichever component's draw selected the block:

@@ -114,6 +114,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `read_yaml_data`, `write_markdown_with_frontmatter`, `write_yaml`; statically calls `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `write_markdown_with_frontmatter`, `write_yaml`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
+- [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 
 ## Dependencies
 
@@ -132,7 +133,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] and 19 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

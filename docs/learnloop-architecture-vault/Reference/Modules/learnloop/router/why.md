@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/why.py"
 source_paths:
   - "src/learnloop/router/why.py"
-source_commit: "49712bc6f1aa4fddf6356dd784057178faa27f9a"
-source_commit_timestamp: "2026-10-25T11:47:25-04:00"
+source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
+source_commit_timestamp: "2026-11-05T04:03:05-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,47 +50,49 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py) |
-| Source lines | 336 |
+| Source lines | 362 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `49712bc6f1aa4fddf6356dd784057178faa27f9a` |
-| Commit timestamp | `2026-10-25T11:47:25-04:00` |
+| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
+| Commit timestamp | `2026-11-05T04:03:05-05:00` |
 
 ## Public API
 
-- `jargon_in(text: str) -> list[str]` ([source](../../../../../../src/learnloop/router/why.py), line 124) — The internal terms ``text`` shows, in deny-list order.
-- `topic_phrase(titles: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 130) — "Eigenvalues", "Eigenvalues and Bases", "Eigenvalues and 2 more topics".
-- `sentence(code: str, *, topic: str | None=None, section: str | None=None) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 143) — The plain sentence for a reason code ("" for an unknown code).
-- `deferral_sentence(veto_reason: str | None) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 167) — The one plain sentence a deferred P2 step shows (``constraint:<key>:<reason>`` or ``evsi:<reason>`` from ``controller_cutover``).
-- `stop_code(minutes_left: float, stop_offer_minutes: float) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 180)
-- `model_why(component: str, rule_sentence: str, *, option_count: int, rationale: str | None=None, rationale_shown: bool=False) -> tuple[str, str]` ([source](../../../../../../src/learnloop/router/why.py), line 220) — ``(why, why_kind)`` of a block the mixture chose, by the component that drew it.
-- `rationale_guard(rationale: str | None, evidence_ids: Sequence[str], card_evidence_ids: Sequence[str] | set[str] | frozenset[str], *, max_sentences: int=3) -> str | None` ([source](../../../../../../src/learnloop/router/why.py), line 254) — Why the LLM's rationale may not be shown, or None when it may (plan §7 guards).
-- `mixture_details(summary: Mapping[str, Any], *, propensity: Any, decision_ref: str | None) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 283) — The ``details`` line of a block decided under the mixture: plain words, then the receipt.
+- `jargon_in(text: str) -> list[str]` ([source](../../../../../../src/learnloop/router/why.py), line 126) — The internal terms ``text`` shows, in deny-list order.
+- `topic_phrase(titles: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 132) — "Eigenvalues", "Eigenvalues and Bases", "Eigenvalues and 2 more topics".
+- `sentence(code: str, *, topic: str | None=None, section: str | None=None) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 145) — The plain sentence for a reason code ("" for an unknown code).
+- `deferral_sentence(veto_reason: str | None) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 169) — The one plain sentence a deferred P2 step shows (``constraint:<key>:<reason>`` or ``evsi:<reason>`` from ``controller_cutover``).
+- `stop_code(minutes_left: float, stop_offer_minutes: float) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 182)
+- `model_why(component: str, rule_sentence: str, *, option_count: int, rationale: str | None=None, rationale_shown: bool=False) -> tuple[str, str]` ([source](../../../../../../src/learnloop/router/why.py), line 222) — ``(why, why_kind)`` of a block the mixture chose, by the component that drew it.
+- `objective_why(component: str, rule_sentence: str, *, option_count: int, rationale: str | None=None, rationale_shown: bool=False) -> tuple[str, str]` ([source](../../../../../../src/learnloop/router/why.py), line 256) — ``(why, why_kind)`` of a block the objective's mix chose (RO4), by the component that drew it: the LLM policy as the mixture's LLM; the numeric policy's estimate (``computed``); staged's rule and the floor as before.
+- `rationale_guard(rationale: str | None, evidence_ids: Sequence[str], card_evidence_ids: Sequence[str] | set[str] | frozenset[str], *, max_sentences: int=3) -> str | None` ([source](../../../../../../src/learnloop/router/why.py), line 278) — Why the LLM's rationale may not be shown, or None when it may (plan §7 guards).
+- `mixture_details(summary: Mapping[str, Any], *, propensity: Any, decision_ref: str | None) -> str` ([source](../../../../../../src/learnloop/router/why.py), line 307) — The ``details`` line of a block decided under the mixture: plain words, then the receipt.
 
 ### Module constants
 
 - `WHY_VERSION` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 26)
 - `SENTENCES` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 30)
-- `DETAILS_STAGED` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 55)
-- `DENY_PATTERNS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 58)
-- `DEFERRALS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 159)
-- `MIXTURE_WHY_VERSION` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 187)
-- `MODEL_MARK` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 189)
-- `PICKED_BY_MODEL` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 191)
-- `PICKED_TO_VARY` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 193)
-- `DRAWN_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 196)
-- `WEIGHED_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 202)
-- `NOT_READY_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 203)
-- `ONLY_RULE_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 204)
-- `SINGLE_OPTION_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 205)
-- `HIDDEN_RATIONALE_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 206)
-- `MODEL_NAMES` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 207)
-- `FALLBACK_REASONS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 208)
-- `FOLLOWUP_WAITS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 217)
-- `_SENTENCE_END` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 250)
-- `_PROBABILITY_TEXT` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 251)
+- `DETAILS_STAGED` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 57)
+- `DENY_PATTERNS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 60)
+- `DEFERRALS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 161)
+- `MIXTURE_WHY_VERSION` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 189)
+- `MODEL_MARK` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 191)
+- `PICKED_BY_MODEL` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 193)
+- `PICKED_TO_VARY` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 195)
+- `DRAWN_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 198)
+- `WEIGHED_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 204)
+- `NOT_READY_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 205)
+- `ONLY_RULE_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 206)
+- `SINGLE_OPTION_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 207)
+- `HIDDEN_RATIONALE_DETAILS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 208)
+- `MODEL_NAMES` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 209)
+- `FALLBACK_REASONS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 210)
+- `FOLLOWUP_WAITS` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 219)
+- `PICKED_BY_ESTIMATE` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 253)
+- `_SENTENCE_END` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 274)
+- `_PROBABILITY_TEXT` ([src/learnloop/router/why.py](../../../../../../src/learnloop/router/why.py), line 275)
 
 ### Explicit exports
 
@@ -115,6 +117,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `rationale_guard`
 - `sentence`
 - `stop_code`
+- `objective_why`
+- `PICKED_BY_ESTIMATE`
 - `topic_phrase`
 
 ## Internal implementation anchors
@@ -126,6 +130,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `objective_why`, `rationale_guard`, `sentence`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`; statically calls `model_why`, `rationale_guard`, `sentence`, `stop_code`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `module`; statically calls `sentence`, `stop_code`, `topic_phrase`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `DETAILS_STAGED`, `mixture_details`; statically calls `mixture_details`
@@ -149,7 +154,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
