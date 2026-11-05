@@ -102,7 +102,7 @@ def _sigmoid(x: float) -> float:
 
 def _selective(monkeypatch, n: int = 8000, *, seed: int = 11, rate: float = 0.05, censor: float = 0.6,
                mode: str = "dated", planted: float | None = None, beside: int = 0,
-               lost_in_arm: str | None = None) -> tuple[list, dict]:
+               lost_in_arm: str | None = None, completion: float = 1.0) -> tuple[list, dict]:
     """Codex's final-verify reproduction (job 20261105-152054-h2C3A5, F1) through the real path
     ``scores.observed_returns(complete=True) → tail_data.contrasts → learned_tail.residual_weight``, with synthetic
     read adapters: a balanced coin at ``rate``, the residual's predicted contrast ``x``, zero costs and baselines,
@@ -112,7 +112,10 @@ def _selective(monkeypatch, n: int = 8000, *, seed: int = 11, rate: float = 0.05
     ``mode`` ``dated`` (an exam result not known as of the window's closure) or ``unsupported`` (the window's undated
     use had check support at the draw, frozen in the trace as the serve freezes it, and has none on its day,
     ``r = 0``: support lost after the draw). R7: ``beside`` undated uses per window whose topics had no check support
-    at the draw (nor on the day); ``lost_in_arm``: the support of every window of that arm is lost after the draw."""
+    at the draw (nor on the day); ``lost_in_arm``: the support of every window of that arm is lost after the draw.
+    R10: ``mode`` ``skipped`` keeps every topic's support on its day and represents the same selective losses as
+    drawn checks that were skipped (Codex's scoped verify, job 20261105-170936-WEjALK); ``completion``: the pooled
+    completion rate the as-of reader carries (Codex: 1, and 7742/8000)."""
 
     rng = random.Random(seed)
     rows, traces, exams, support, resolved = [], {}, {}, {}, {}
@@ -136,6 +139,12 @@ def _selective(monkeypatch, n: int = 8000, *, seed: int = 11, rate: float = 0.05
             uses = {"topics": [], "dated": [{"goal_id": "g", "lo": lo, "due_at": "2026-10-02T09:00:00Z",
                                              "omega": 1.0, "m0": 0.0}]}
             exams[lo] = None if missing else y
+        elif mode == "skipped":
+            uses = {"topics": [{"lo": lo, "c": 1.0, "m0": [0.0]}], "dated": []}
+            support[lo] = 1.0
+            resolved[(DAY, lo)] = C.Resolved(assignment_id=f"a{i}", local_date=DAY, topic=lo, r=1.0,
+                                              status=C.SKIPPED if missing else C.COMPLETED,
+                                              outcome=None if missing else y)
         else:
             others = [f"u_{i:05d}_{j}" for j in range(beside)]
             uses = {"topics": [{"lo": topic, "c": 1.0, "m0": [0.0]} for topic in (lo, *others)], "dated": []}
@@ -149,7 +158,7 @@ def _selective(monkeypatch, n: int = 8000, *, seed: int = 11, rate: float = 0.05
             traces[decision_id]["residual"] = {"measurable": {"support": {lo: 1.0}}}
 
     def context(_connection, *, at=None):
-        return lambda closes_at: S.AsOf(closure=C.Closure.at(closes_at), resolved=resolved, rate=1.0,
+        return lambda closes_at: S.AsOf(closure=C.Closure.at(closes_at), resolved=resolved, rate=completion,
                                         r_lookup=lambda day: dict(support) if day == DAY else {}, prices={})
 
     monkeypatch.setattr(S, "_context", context)
@@ -269,6 +278,94 @@ def test_r7_a_served_decision_freezes_its_support_and_the_measurable_tail(tmp_pa
             assert logged[row["decision_id"]].q_measurable == pytest.approx(q)
 
 
+# -- R10: every post-draw loss is a missing term; one classification -----------------------------------------------
+
+
+@pytest.mark.parametrize("completion", [1.0, 7742 / 8000], ids=["no_pooled_rate", "pooled_rate"])
+def test_r10_selectively_skipped_checks_never_move_w_hat(monkeypatch, completion):
+    """Codex's scoped-verify reproduction: the seed-11 draws with support kept and the same selective losses as
+    drawn checks that were skipped. Before the fix: missing 0, bound none, ŵ 0.201373 (0.208070 with the pooled
+    completion rate 7742/8000)."""
+
+    found, record = _selective(monkeypatch, mode="skipped", completion=completion)
+    weight = LT.residual_weight(found, prior_sd=1.0, at=AT)
+    assert weight.w_hat == 0.0
+    assert weight.as_dict()["bound"] == LT.LEAST_FAVOURABLE and record["missing"]["terms"] > 0
+    assert record["missing"]["by_reason"] == {C.SKIPPED: record["missing"]["terms"]}
+
+
+def _loss_kinds() -> set[str]:
+    """Every status the ledger gives a drawn check other than a labelled completion, read from ``checks`` itself:
+    the noncompletion reasons and every ``excluded:*`` grade exclusion (with the held grade's)."""
+
+    from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
+
+    kinds = {C.NO_SESSION, C.NO_PRACTICE_SLOT, C.DISPLACED, C.SKIPPED, C.NOT_ANSWERED, C.OPEN,
+             f"{C.EXCLUDED_PREFIX}{GRADE_HELD_FOR_REVIEW}"}
+    kinds |= {value for name, value in vars(C).items() if name.startswith("EXCLUDED_") and name != "EXCLUDED_PREFIX"}
+    return kinds
+
+
+def test_r10_the_ledger_gives_no_status_the_enumeration_misses():
+    """The enumeration is the ledger's: every status ``Ledger.resolve`` writes and every reason ``exclusion``
+    returns is a name the enumeration holds (a new loss kind fails here first)."""
+
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(C))
+    named: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in ("resolve", "exclusion"):
+            for inner in ast.walk(node):
+                values = []
+                if isinstance(inner, ast.keyword) and inner.arg == "status":
+                    values = [inner.value]
+                elif isinstance(inner, ast.Return) and node.name == "exclusion" and inner.value is not None:
+                    values = [inner.value]
+                for value in values:
+                    named |= {sub.id for sub in ast.walk(value) if isinstance(sub, ast.Name) and sub.id.isupper()}
+    known = {name for name, value in vars(C).items() if isinstance(value, str) and value in _loss_kinds()}
+    assert named - {"COMPLETED", "EXCLUDED_PREFIX", "GRADE_HELD_FOR_REVIEW"} <= known, named - known
+
+
+def test_r10_one_function_classifies_every_term_of_a_window():
+    row ={"decision_id": "d", "created_at": "2026-10-01T10:00:00Z", "local_date": "2026-10-01"}
+
+    def classify(status: str | None, *, r: float = 0.5, drawn: bool = True, support: float | None = 1.0,
+                 outcome: float | None = 1.0):
+        trace = {"evaluation": {"window_days": 1, "uses": {"topics": [{"lo": "L", "c": 1.0, "m0": [0.0]}]}}}
+        resolved = ({} if status is None else
+                    {(DAY, "L"): C.Resolved(assignment_id="a", local_date=DAY, topic="L", r=r, status=status,
+                                            outcome=outcome)})
+        (term,) = S.classify_window(None, row, trace, resolved=resolved, r_lookup=lambda _day: {"L": r},
+                                    support=None if support is None else {"L": support},
+                                    drawn=lambda _day: drawn)
+        return term
+
+    observed = classify(C.COMPLETED)
+    assert (observed.kind, observed.outcome) == (S.OBSERVED, 1.0)
+    for kind in sorted(_loss_kinds()):
+        term = classify(kind, outcome=None)
+        assert (term.kind, term.reason, term.drawn) == (S.MISSING, kind, True), kind
+        assert term.bounds() == pytest.approx((0.0, 2.0))  # c·[0, 1]/r with r = 0.5
+    unlabelled = classify(C.COMPLETED, outcome=None)
+    assert (unlabelled.kind, unlabelled.reason) == (S.MISSING, f"{C.COMPLETED}:no_label")
+    assert classify(None).kind == S.DESIGN_ZERO  # the day's draw took another topic: the design's zero
+    no_draw = classify(None, drawn=False)
+    assert (no_draw.kind, no_draw.reason) == (S.MISSING, S.RO6_NO_DRAW_DAY) and no_draw.bounds() == pytest.approx(
+        (0.0, 2.0))
+    lost = classify(None, r=0.0)
+    assert (lost.kind, lost.reason) == (S.MISSING, S.RO6_NO_CHECK_SUPPORT) and lost.bounds() == (0.0, 1.0)
+    assert classify(C.SKIPPED, support=0.0).kind == S.EXCLUDED_AT_DRAW  # R7 before anything after the draw
+    dated = {"evaluation": {"window_days": 0, "uses": {"topics": [], "dated": [
+        {"goal_id": "g", "lo": "L", "due_at": "2026-10-02T09:00:00Z", "omega": 2.0, "m0": 0.5}]}}}
+    known, = S.classify_window(None, row, dated, resolved={}, r_lookup=lambda _d: {}, exam_result=lambda *_a: 0.8)
+    unknown, = S.classify_window(None, row, dated, resolved={}, r_lookup=lambda _d: {}, exam_result=lambda *_a: None)
+    assert (known.kind, unknown.kind, unknown.reason) == (S.OBSERVED, S.MISSING, S.RO6_DATED_MISSING)
+    assert unknown.bounds() == pytest.approx((-1.0, 1.0))  # ω·([0, 1] − m⁰)
+
+
 # -- R9: a trace does not grow with the log ------------------------------------------------------------------------
 
 
@@ -310,8 +407,8 @@ def test_r9_the_trace_keeps_a_summary_of_the_calibration_whatever_the_logs_lengt
     assert sizes[1] - sizes[0] < 64, sizes
     summary = large["contrasts"]
     assert "by_window" not in json.dumps(summary)
-    assert (summary["n"], summary["missing"], summary["excluded"]) == (1000, {"windows": 1000, "terms": 1000},
-                                                                       {"windows": 1000, "terms": 2000})
+    assert (summary["n"], summary["missing"]["windows"], summary["missing"]["terms"], summary["excluded"]) == (
+        1000, 1000, 1000, {"windows": 1000, "terms": 2000})
     assert summary["at"] == "2026-11-01T10:00:00Z" and len(summary["inputs_hash"]) == 16
     weight = large["weight"]
     assert {"w_hat", "slope_mean", "rank", "p_rank", "bound", "unbounded", "missing", "excluded"} <= set(weight)

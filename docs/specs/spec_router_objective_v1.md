@@ -835,7 +835,14 @@ differs from §10:
   tail's predicted contrast too. That exclusion is a function only of what was known before randomization. The
   residual's prediction cannot be restricted to the same terms: its unrestricted prediction is used and the record
   notes the attenuation (toward zero). A term that had support at the draw but went unobserved afterwards stays
-  missing and bounded. `ŵ` is calibrated on the measurable part of the return only, as the report states. The
+  missing and bounded. `ŵ` is calibrated on the measurable part of the return only, as the report states. **What
+  is missing** (landing ruling R10): any measurement lost after the coin's draw for a reason that is not the design's
+  own randomization. One function, `scores.classify_window`, classifies every term of a window as observed, a design
+  zero (a topic the day's check draw did not take, with its logged `r`: inverse weighted, `v·(Y − m⁰)/r`), excluded
+  at the draw (R7) or missing: a drawn check skipped, unanswered, displaced, not administered, still open or with no
+  label as of the closure, a day with no draw (no session), support lost after the draw, a dated result not known;
+  every reader goes through it (RO5's scores keep their pooled-rate reading of the same classes). A drawn check's
+  missing term is bounded as its observed term would be weighted (`v·([0, 1] − m⁰)/r`). The
   returns admit an import only once it was
   known at the cutoff (`scores.exam_result_known`, Codex review F5) and as of the window's closure (RO5's
   `checks.Closure`, landing ruling R4).

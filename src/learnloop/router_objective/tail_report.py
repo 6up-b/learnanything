@@ -79,6 +79,9 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
                                       "rank": weight.get("rank"), "p_rank": weight.get("p_rank"),
                                       "bound": weight.get("bound"), "missing_contrasts": missing.get("contrasts"),
                                       "missing_terms": missing.get("terms"),
+                                      # R10: the forced windows' missing terms by kind (the trace's summary)
+                                      "missing_by_reason": dict((((record.get("contrasts") or {}).get("missing")
+                                                                  or {}).get("by_reason")) or {}),
                                       "w_hat_unbounded": unbounded.get("w_hat"),
                                       "slope_unbounded": unbounded.get("slope_mean"),
                                       "fit_basis": record.get("fit_basis"),
@@ -94,6 +97,7 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
                 "contrasts": rows[-1]["n"], "slope_mean": rows[-1]["slope_mean"], "slope_sd": rows[-1]["slope_sd"],
                 "rank": rows[-1]["rank"], "p_rank": rows[-1]["p_rank"], "bound": rows[-1]["bound"],
                 "missing_contrasts": rows[-1]["missing_contrasts"], "missing_terms": rows[-1]["missing_terms"],
+                "missing_by_reason": rows[-1]["missing_by_reason"],
                 "excluded_terms": rows[-1]["excluded_terms"], "excluded_contrasts": rows[-1]["excluded_contrasts"],
                 "w_hat_unbounded": rows[-1]["w_hat_unbounded"], "slope_unbounded": rows[-1]["slope_unbounded"],
                 "fit_basis": rows[-1]["fit_basis"],
@@ -176,7 +180,8 @@ def lines(report: Mapping[str, Any]) -> list[str]:
         out.append(f"- {day['local_date']}: w^ {day['w_hat_first']} -> {day['w_hat_last']} over {day['decisions']} "
                    f"decisions ({day['contrasts']} contrasts, {day['excluded_terms']} terms unsupported at the draw "
                    f"in {day['excluded_contrasts']}, {day['missing_terms']} missing terms in "
-                   f"{day['missing_contrasts']}, bound {day['bound']}, unbounded w^ {day['w_hat_unbounded']}; "
+                   f"{day['missing_contrasts']} {day.get('missing_by_reason') or {}}, bound {day['bound']}, "
+                   f"unbounded w^ {day['w_hat_unbounded']}; "
                    f"{day['transitions']} transitions, {day['fit_basis']})")
     serving = report["serving"]
     out.append(f"- residual applied at {serving['decisions_with_residual']} decisions, argmax moved "

@@ -677,6 +677,7 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
     draws: list[LT.CoinDraw] = []
     before_coin: Counter[str] = Counter()
     prediction: Counter[str] = Counter()
+    by_reason: Counter[str] = Counter()
     for row in eligible:
         tail = LT.predicted_contrast(row.q_measurable or row.q_tail or {}, row.mu, STOP)
         residual = LT.predicted_contrast(_frozen_residual(row) or {}, row.mu, STOP)
@@ -696,7 +697,10 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
                                  value=float(found.value) if found.value is not None else None, reason=found.reason,
                                  tail=tail, residual=residual, lo=float(found.lo), hi=float(found.hi),
                                  missing=int(found.missing), excluded=int(found.excluded)))
+        if (row.coin or {}).get("arm") in (SC.OFFER_STOP, SC.PRESENT_NEXT) and found.value is not None:
+            by_reason.update(dict(found.by_reason))  # R10: the forced windows' missing terms by kind
     out, record = LT.coin_contrasts(draws)
+    record["missing"] = {**dict(record.get("missing") or {}), "by_reason": dict(sorted(by_reason.items()))}
     record["before_coin"] = dict(before_coin)
     record["prediction"] = {**dict(prediction),
                             "note": "the realized contrast is the measurable part of the return (R7); a prediction "
