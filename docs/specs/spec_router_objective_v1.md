@@ -791,6 +791,10 @@ differs from §10:
   it, or a decision of the no-model branch, whose answer is served at once: the second valuation never runs on the
   learner's serving path, landing ruling R3) is censored `cutoff_unmatched`, never trimmed or moved back by an average terminal rate; a next decision past
   `C` is censored rather than bootstrapped. The second valuation costs one more evaluation at the answer's draws.
+  On every branch the answer releases the serve's wait before it (landing ruling R12): the prefetch job sets the
+  numeric policy's completion event when its answer is complete, then runs the carried valuation; a serve that took
+  the answer before the carried value existed records `not_valued_before_the_serve` and the backup into it is
+  censored `cutoff_unmatched`.
 - **The fitted Q evaluation**: `Q̂ = Q_tail + ρ`, `ρ` linear in the standardized features, at FQE's fixed point under
   the Gaussian prior (closed form, the noise refined from the Bellman residuals): Bayesian linear regression, because
   one learner's log is one long dependent trajectory of hundreds of decisions a month, and a linear residual's every

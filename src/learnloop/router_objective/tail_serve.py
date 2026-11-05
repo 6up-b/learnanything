@@ -253,6 +253,34 @@ def not_on_the_serving_path(record: Mapping[str, Any]) -> dict[str, Any]:
     return {**dict(record), "previous": previous}
 
 
+#: ``previous.q_status`` while the carried valuation waits for the answer's release (RO6's landing ruling R12), and
+#: once a serve took the answer before the carried value existed (the backup into it is censored)
+PENDING_AFTER_THE_ANSWER = "pending_after_the_answer"
+NOT_BEFORE_THE_SERVE = "not_valued_before_the_serve"
+
+
+def pending_after_the_answer(record: Mapping[str, Any]) -> dict[str, Any]:
+    """R12: the record of an answer released before its carried valuation (``previous.q_status`` pending)."""
+
+    previous = dict(record.get("previous") or {})
+    previous["q_status"] = PENDING_AFTER_THE_ANSWER
+    return {**dict(record), "previous": previous}
+
+
+def is_pending(record: Mapping[str, Any] | None) -> bool:
+    previous = record.get("previous") if isinstance(record, Mapping) else None
+    return isinstance(previous, Mapping) and previous.get("q_status") == PENDING_AFTER_THE_ANSWER
+
+
+def not_before_the_serve(record: Mapping[str, Any]) -> dict[str, Any]:
+    """R12: a serve took the answer before the carried value existed: the transition into this decision is censored
+    ``cutoff_unmatched`` (no carried values)."""
+
+    previous = dict(record.get("previous") or {})
+    previous["q_status"] = NOT_BEFORE_THE_SERVE
+    return {**dict(record), "previous": previous}
+
+
 def _exact(value: float) -> str:
     """A number the trace keeps exactly (its ``repr``): the trace rounds every float to six places, and the fit's
     standardized coefficients and the features must recompute ``V_residual`` to float precision."""
@@ -286,8 +314,9 @@ def candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -
             "v_tilde": (v_tail + w_hat * float(v_residual)) if v_tail is not None and v_residual is not None else None}
 
 
-__all__ = ["CARRIED", "NOT_ON_THE_SERVING_PATH", "PAST_CUTOFF", "SAME_CUTOFF", "SNAPSHOT_VERSION", "VERSION",
-           "applied", "calibration", "candidate_terms", "carried_cutoff", "features", "measurable",
-           "not_on_the_serving_path",
+__all__ = ["CARRIED", "NOT_BEFORE_THE_SERVE", "NOT_ON_THE_SERVING_PATH", "PAST_CUTOFF", "PENDING_AFTER_THE_ANSWER",
+           "SAME_CUTOFF", "SNAPSHOT_VERSION", "VERSION", "applied", "calibration", "candidate_terms", "carried_cutoff",
+           "features", "is_pending", "measurable", "not_before_the_serve", "not_on_the_serving_path",
+           "pending_after_the_answer",
            "previous_cutoff",
            "residual", "shifted", "snapshot", "with_carried_values"]

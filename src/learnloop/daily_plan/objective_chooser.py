@@ -29,7 +29,7 @@ logger, which writes the trace (``router_objective_traces``) in the block's tran
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import timedelta
 import hashlib
@@ -94,6 +94,9 @@ NUMERIC = "numeric"
 #: The prefetch material's key for the numeric policy's latest complete uncorrected answer (F1): a serve that finds
 #: the job still waiting on the LLM policy's forecasts uses it instead of a timeout.
 PUBLISHED = "numeric_published"
+#: RO6's landing ruling R12: the prefetch material's key for the residual record with the carried valuation, set by
+#: the job after the answer released the serve's wait; a serve that comes first censors that backup.
+CARRIED = "numeric_carried_valuation"
 MODE = "objective"
 KEY_VERSION = 1
 WHY_VERSION = "router_why_v3"
@@ -314,7 +317,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 keep_going: Any = None, forecasts: Any = None, clock: Any = time.monotonic, publish: Any = None,
                 sequences: Mapping[str, Sequence[BlockCandidate]] | None = None,
                 learned_tail: bool = False, tail_snapshot: Mapping[str, Any] | None = None,
-                carried_valuation: bool = True) -> NumericPolicy:
+                carried_valuation: bool = True,
+                defer_carried: Callable[[Callable[[], dict[str, Any]]], None] | None = None) -> NumericPolicy:
     """π_Q end to end: the frozen inputs, the day's price, ``Q̄`` with common random numbers (more draws while
     ``keep_going()``), then, once the LLM policy's forecasts are in (``forecasts()``: None while out), the effect
     correction; the argmax with the tie rule; the evaluation's baselines.
@@ -331,7 +335,10 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
     asynchronous work: Codex review of RO6, F4). ``carried_valuation``: the second valuation at the latest earlier
     decision's cutoff runs after the answer is published (the prefetch job's, after ``publish``); False where the
     answer is served at once with nothing to publish into (the no-model branch): it is not run on the learner's
-    serving path and the transition into this decision is censored ``cutoff_unmatched`` (RO6's landing ruling R3)."""
+    serving path and the transition into this decision is censored ``cutoff_unmatched`` (RO6's landing ruling R3).
+    ``defer_carried`` (the prefetch job; RO6's landing ruling R12): the answer returns with the carried valuation
+    pending and ``defer_carried(compute)`` receives it, run by the job only after the answer is released to the
+    serve; a serve that takes the answer first censors the backup (``cutoff_unmatched``)."""
 
     started = clock()
     config = vault.config
@@ -427,6 +434,21 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             if carried is not None and not carried_valuation:
                 # Landing ruling R3: never on the learner's serving path; the backup into it is censored.
                 residual_record = tail_serve.not_on_the_serving_path(residual_record)
+            elif carried is not None and defer_carried is not None:
+                # Landing ruling R12: the answer is released first; the carried valuation runs after it (the
+                # prefetch job calls ``compute`` once the numeric policy's completion event is set).
+                pending = tail_serve.pending_after_the_answer(residual_record)
+                at_inputs, at_actions, at_draws, at_deadline = inputs, actions, draws, deadline
+
+                def compute(record: Mapping[str, Any] = pending) -> dict[str, Any]:
+                    from learnloop.router_objective import tail_serve as TS
+
+                    at_previous = V.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed, deadline=at_deadline,
+                                             clock=clock, cutoff=carried)
+                    return TS.with_carried_values(record, at_previous)
+
+                defer_carried(compute)
+                residual_record = pending
             elif carried is not None:
                 # RO6 (Codex re-review F3): the candidates valued again with every rollout at the latest earlier
                 # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
@@ -545,18 +567,52 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
             with entry.lock:
                 entry.material[PUBLISHED] = policy
 
+        deferred: list[Callable[[], dict[str, Any]]] = []
+
         numeric = run_numeric(
             vault, repository, state=material["state"], support=material["support"], candidates=material["by_id"],
             now_iso=material["decided_at"], seed=material["numeric_seed"], deadline=entry.deadline,
             keep_going=lambda: LLM in entry.events and not entry.events[LLM].is_set() and runtime.clock() < entry.deadline,
             forecasts=(lambda: _wait_llm(entry, runtime)) if LLM in entry.events else None, clock=runtime.clock,
-            publish=publish, learned_tail=True, tail_snapshot=material.get("tail_snapshot"))
+            publish=publish, learned_tail=True, tail_snapshot=material.get("tail_snapshot"),
+            defer_carried=deferred.append)
         with entry.lock:
             entry.components[NUMERIC] = ComponentResult(name=NUMERIC, status=numeric.status, parsed=numeric,  # type: ignore[arg-type]
                                                         latency_ms=numeric.latency_ms, error=numeric.error)
+        # Landing ruling R12: the answer releases the serve's wait; the carried valuation runs only after it, and a
+        # serve that has already taken the answer censors that backup (``_decide_objective``).
         entry.events[NUMERIC].set()
+        for compute in deferred:
+            try:
+                carried_record = compute()
+            except Exception:  # noqa: BLE001 - the backup's value never fails the decision: it is censored
+                LOG.warning("router objective: the carried valuation failed", exc_info=True)
+                continue
+            with entry.lock:
+                entry.material[CARRIED] = carried_record
         for thread in threads:
             thread.join(timeout=entry.remaining(runtime.clock()) + 1.0)
+
+
+def _with_carried(numeric: "NumericPolicy | None", entry: Any) -> "NumericPolicy | None":
+    """Landing ruling R12: the served answer's residual with the carried valuation if the job had it before this
+    serve (``CARRIED``), else marked valued too late (``not_valued_before_the_serve``: the backup into this
+    decision is censored ``cutoff_unmatched``). An answer with nothing pending is returned as it is."""
+
+    from learnloop.router_objective import tail_serve
+
+    if numeric is None or not tail_serve.is_pending(numeric.residual):
+        return numeric
+    lock = getattr(entry, "lock", None)
+    material = getattr(entry, "material", {}) or {}
+    if lock is not None:
+        with lock:
+            carried = material.get(CARRIED)
+    else:
+        carried = material.get(CARRIED)
+    if isinstance(carried, Mapping):
+        return replace(numeric, residual=carried)
+    return replace(numeric, residual=tail_serve.not_before_the_serve(numeric.residual))
 
 
 def _wait_llm(entry: Prefetch, runtime: RouterRuntime) -> Any:
@@ -903,6 +959,7 @@ class ObjectiveChooser(RouterChooser):
                                                    latency_ms=numeric.latency_ms)
             else:
                 numeric = NumericPolicy(status=numeric_result.status, error=numeric_result.error)
+        numeric = _with_carried(numeric, entry)
         llm = results[LLM]
         llm_dist = (dict(llm.parsed.distribution) if llm.status == ANSWERED and isinstance(llm.parsed, rq.ParsedPolicy)
                     else None)

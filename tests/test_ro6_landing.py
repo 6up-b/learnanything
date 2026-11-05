@@ -560,3 +560,66 @@ def test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_ca
         steps = TD.fits(connection, env.vault.config, at="2100-01-01T00:00:00Z").steps
     assert not any(step.detail.get("cutoff") == "previous_cutoff" for step in steps.transitions)
     assert steps.censored.get(TD.CUTOFF_UNMATCHED, 0) >= 1
+
+
+# -- R12: publication releases the serving wait on every branch ---------------------------------------------------
+
+
+def test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns(tmp_path, monkeypatch):
+    """Codex's scoped verify (F9 reopened), event-controlled: the real prefetch job and wait on threads, both models
+    answering through fakes, every evaluation at a carried cutoff blocked on an event. Before the fix the job set
+    the numeric policy's completion event only after the carried valuation, so the chooser's wait ran to its timeout
+    (and then served the published, uncorrected answer)."""
+
+    import threading
+    import time
+
+    from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan.engine import advance
+    from learnloop.db.stores import router_objective as store
+
+    from tests.daily_plan_fakes import record_attempt
+    from tests.router_mixture_helpers import mixture_env
+    from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+    from tests.test_ro4_objective_serving import policy_answer
+
+    gate, reached = threading.Event(), threading.Event()
+    real = OC.V.evaluate
+
+    def blocked(*args, **kwargs):
+        if kwargs.get("cutoff") is not None:
+            reached.set()
+            gate.wait(60.0)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(OC.V, "evaluate", blocked)
+    timeout = 20.0
+    try:
+        runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer), inline=False,
+                               seed=block_drawing_seed())
+        env = mixture_env(tmp_path, runtime, version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
+                          toml=f"[router]\ntimeout_seconds = {timeout}\nprefetch_timeout_seconds = 60.0\n")
+        waits: list[float] = []
+        for _ in range(16):
+            started = time.monotonic()
+            _record, step = advance(env, serve=True)
+            waits.append(time.monotonic() - started)
+            with env.repository.connection() as connection:
+                traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
+                          if row["decision_kind"] == "plan_block"]
+            if len(traces) >= 2 or step is None or step["kind"] != "item":
+                break
+            env.clock.advance(2)
+            record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                           session_id=env.session_id)
+        assert len(traces) >= 2 and reached.is_set()  # the second decision's carried valuation was blocked
+        # The wait returned on the published answer, never at the timeout (before the fix: the full 20 s).
+        assert max(waits) < timeout / 2, waits
+        later = traces[-1]
+        assert later["policies"]["numeric"]["stage"] == "final"
+        previous = later["residual"]["previous"]
+        assert previous["status"] == TS.CARRIED and previous["q_status"] == TS.NOT_BEFORE_THE_SERVE
+        assert "q" not in previous  # served before the carried value existed: its backup is censored
+    finally:
+        gate.set()
