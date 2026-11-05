@@ -44,8 +44,9 @@ times the chance its order is right. No promotion step, threshold or minimum sam
 carried as missing, never as zero, bounded by its structural range (performance in ``[0, 1]`` times its known
 weight; costs are always observed), so each ``Ĉ_i`` lies in an interval. The slope and rank that move ``ŵ`` are
 taken at the fill of the missing terms least favourable to the residual: the fill that minimizes ``E[b]`` within
-the bounds (Manski's worst-case bounds; ``E[b]`` is linear in ``Ĉ`` at a given noise, so each ``Ĉ_i`` goes to the
-end of its interval that lowers it, by the sign of its influence on ``b``), and ``ŵ = clip(E[b]_lower, 0, 1) ·
+the bounds (Manski's worst-case bounds; landing ruling R13: the bound's estimator holds the noise at the unbounded
+fit's value, so ``E[b]`` is linear in ``Ĉ`` and its exact minimum is at a vertex: each ``Ĉ_i`` at the end of its
+interval its coefficient in ``E[b]`` favours; the rank reads the same fill), and ``ŵ = clip(E[b]_lower, 0, 1) ·
 P(rank > 0 at that fill)``. With no missing term this is the estimate above exactly; as missingness shrinks the
 bound tightens by itself. No threshold, minimum sample or observation model. The estimate with the missing terms
 left out (the unbounded one) is kept beside it, shown only.
@@ -79,10 +80,14 @@ import numpy as np
 
 FEATURES_VERSION = "ro6_belief_features_v2"
 FIT_VERSION = "ro6_fqe_ridge_v1"
-WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v5"
+WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v6"
 #: ``ŵ``'s bound (RO6's landing ruling R1): the least favourable fill of the missing terms, or none to fill
 LEAST_FAVOURABLE = "least_favourable_fill"
 NO_BOUND = "none"
+#: R13: what the bound is, named in the trace and the report
+BOUND_DEFINITION = ("the slope's exact minimum over the missing terms' ranges for the estimator with the noise held "
+                    "at the unbounded fit's noise (linear in the fills: a vertex, each term at the end its coefficient "
+                    "favours); the rank at the same fill")
 CROSS_CHECK_VERSION = "ro6_partial_history_v2"
 
 STATE_FEATURES: tuple[str, ...] = ("session_load", "days_to_go", "pending_reports", "mastery_p", "mastery_var",
@@ -384,6 +389,7 @@ class WeightFit:
                "tail_slope": self.tail_slope, "rank": self.rank, "p_rank": self.p_rank, "sigma2": self.sigma2}
         return {**own, "n": self.n, "forced": self.forced, "prior_sd": self.prior_sd, "source": self.source,
                 "version": self.version, "bound": self.bound,
+                "bound_definition": BOUND_DEFINITION if self.bound == LEAST_FAVOURABLE else None,
                 "missing": {"contrasts": self.missing_contrasts, "terms": self.missing_terms},
                 "excluded": {"contrasts": self.excluded_contrasts, "terms": self.excluded_terms},
                 "target": "the measurable part of the return only (terms a check could measure as of the draw)",
@@ -441,22 +447,23 @@ def residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str |
     if not open_rows:
         estimate, source, bound = unbounded, "randomized_contrasts", NO_BOUND
     else:
-        # R1: the fill least favourable to the residual. At a given noise E[b] is linear in Ĉ, so the fill that
-        # minimizes it sends each open Ĉ_i to the end of its interval against the sign of its influence on b;
-        # the noise is then refit at that fill, until the fill and the noise settle.
-        y = point.copy()
+        # R1 and landing ruling R13: the fill least favourable to the residual, for the estimator the bound uses.
+        # The bound holds the noise scale at the unbounded fit's value, so E[b] is linear in Ĉ and its exact
+        # minimum over the intervals is at a vertex: each open Ĉ_i at the end of its interval against the sign of
+        # its coefficient in E[b]. The slope, its sd and the rank are read at that fill and that noise.
         sigma2 = float(unbounded["sigma2"])
-        for _ in range(_FIT_PASSES):
-            influence = (np.linalg.pinv(x.T @ x + max(sigma2, _TINY) * precision) @ x.T)[1]
-            filled = point.copy()
-            filled[open_rows] = np.where(influence[open_rows] > 0, lo[open_rows], hi[open_rows])
-            updated, _beta = _noise(x, filled, precision, sigma2)
-            settled = bool(np.array_equal(filled, y)) and abs(updated - sigma2) <= _FIT_TOLERANCE * max(sigma2, _TINY)
-            y, sigma2 = filled, updated
-            if settled:
-                break
-        # The slope and rank at that fill, by the same estimator as with no missing term.
-        estimate = _slope_and_rank(rows, x, y, precision, forced)
+        matrix = x.T @ x + max(sigma2, _TINY) * precision
+        coefficients = np.linalg.pinv(matrix) @ x.T
+        y = point.copy()
+        y[open_rows] = np.where(coefficients[1][open_rows] > 0, lo[open_rows], hi[open_rows])
+        beta = coefficients @ y
+        covariance = max(sigma2, _TINY) * np.linalg.pinv(matrix)
+        partial = [rows[i].forced_probability * float(y[i]) - float(beta[0]) * rows[i].tail for i in forced]
+        rank = spearman([rows[i].residual for i in forced], partial) if len(forced) >= 3 else None
+        estimate = {"slope_mean": float(beta[1]), "slope_sd": float(math.sqrt(max(covariance[1, 1], 0.0))),
+                    "tail_slope": float(beta[0]) if np.any(x[:, 0]) else None, "rank": rank,
+                    "p_rank": _NORMAL.cdf(rank * math.sqrt(len(forced) - 1)) if rank is not None else 0.5,
+                    "sigma2": sigma2}
         source, bound = "randomized_contrasts at the least favourable fill of the missing terms", LEAST_FAVOURABLE
     w_hat = min(max(estimate["slope_mean"], 0.0), 1.0) * estimate["p_rank"]
     shown = {**unbounded, "w_hat": min(max(unbounded["slope_mean"], 0.0), 1.0) * unbounded["p_rank"]}

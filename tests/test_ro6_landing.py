@@ -200,6 +200,41 @@ def test_r1_complete_outcomes_recover_the_planted_slope_and_equal_the_unbounded_
     assert null.w_hat < 0.15 and abs(null.slope_mean) < 3 * null.slope_sd + 1e-9
 
 
+# -- R13: the least-favourable fill of the estimator used for the bound -------------------------------------------
+
+
+def test_r13_the_fill_is_the_exact_minimum_of_the_bound_estimator_at_the_unbounded_noise():
+    """Codex's scoped-verify reproduction (Low): contrast design rows (tail, residual) (−1, 0), (1, −2), (−2, 0),
+    (1, −2), realized [0, 0, 5, 0], the first missing within [−10, 10], prior sd 1. Before the fix the fill minimized
+    the slope at a fixed noise and then refit the noise: the reported slope −0.575348 was not the minimum of that
+    estimator (the interior fill 0 gave −0.814779). The bound now holds the noise at the unbounded fit's value, so the
+    slope is linear in the fills and its exact minimum is at a vertex; the rank reads the same fill."""
+
+    import numpy as np
+
+    design, realized = [(-1.0, 0.0), (1.0, -2.0), (-2.0, 0.0), (1.0, -2.0)], [0.0, 0.0, 5.0, 0.0]
+    rows = [LT.Contrast(decision_id=f"r{i}", decided_at="2026-10-01T10:00:00Z", window_closes_at="2026-10-15T10:00:00Z",
+                        realized=value, tail=tail, residual=residual, forced=True, forced_probability=0.1,
+                        realized_lo=-10.0 if i == 0 else None, realized_hi=10.0 if i == 0 else None,
+                        missing=1 if i == 0 else 0)
+            for i, ((tail, residual), value) in enumerate(zip(design, realized))]
+    weight = LT.residual_weight(rows, prior_sd=1.0)
+    sigma2 = float(weight.unbounded["sigma2"])
+    x = np.asarray(design)
+    matrix = x.T @ x + sigma2 * np.diag([0.0, 1.0])
+
+    def slope(fill: float) -> float:
+        y = np.asarray([fill, *realized[1:]])
+        return float((np.linalg.pinv(matrix) @ x.T @ y)[1])
+
+    grid = [slope(f) for f in np.linspace(-10.0, 10.0, 2001)]
+    assert weight.sigma2 == pytest.approx(sigma2)  # the noise held at the unbounded fit's
+    assert weight.slope_mean == pytest.approx(min(slope(-10.0), slope(10.0)))  # a vertex
+    assert weight.slope_mean <= min(grid) + 1e-12  # the exact minimum over the interval
+    assert weight.as_dict()["bound"] == LT.LEAST_FAVOURABLE and "unbounded fit's noise" in weight.as_dict()[
+        "bound_definition"]
+
+
 # -- R7: terms unsupported at the draw are outside the measurable target, not missing ------------------------------
 
 

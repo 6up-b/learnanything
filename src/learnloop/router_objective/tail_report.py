@@ -168,7 +168,8 @@ def lines(report: Mapping[str, Any]) -> list[str]:
            f"coin's draw ({weight['excluded']['terms']} terms in {weight['excluded']['contrasts']} contrasts were "
            "outside it, unsupported at the draw)",
            f"- missing terms: {weight['missing']['terms']} in {weight['missing']['contrasts']} contrasts; bound "
-           f"{weight['bound']}; with the missing terms left out (shown only, never served) w^ "
+           f"{weight['bound']} ({weight.get('bound_definition') or 'no missing term'}); with the missing terms left "
+           "out (shown only, never served) w^ "
            f"{weight['unbounded']['w_hat']:.4f}, slope {weight['unbounded']['slope_mean']:+.4f}",
            f"- transitions {report['transitions']['n']} of {report['transitions']['decisions']} decisions; censored "
            f"{report['transitions']['censored']}; change points {len(report['change_points'])}"]

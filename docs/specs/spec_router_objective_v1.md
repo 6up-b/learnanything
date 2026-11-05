@@ -825,7 +825,10 @@ differs from §10:
   missing, never as zero, bounded by its structural range (performance in `[0, 1]` times its known weight, less its
   frozen baseline; costs are always observed): `scores.Bounded`. Each forced `Ĉ` is an interval, and the slope and
   rank that move `ŵ` are taken at the fill least favourable to the residual (the fill minimizing `E[b]` within the
-  bounds; Manski's worst-case bounds): `ŵ = clip(E[b]_lower, 0, 1)·P(rank > 0 at that fill)`. With no missing term
+  bounds; Manski's worst-case bounds; landing ruling R13: the bound's estimator holds the noise scale at the
+  unbounded fit's value, so the slope is linear in the fills and its exact minimum is at a vertex, each missing term
+  at the end of its range its coefficient favours, the rank at the same fill; the trace and the report name it):
+  `ŵ = clip(E[b]_lower, 0, 1)·P(rank > 0 at that fill)`. With no missing term
   this is the estimate above exactly; as missingness shrinks the bound tightens by itself. No threshold, minimum
   sample or observation model. A forced draw with no return at all is an unbounded missing term: the contrast is
   `unidentified` (`ŵ` zero, said). The report gives the missing terms per window, the bound used and the estimate
