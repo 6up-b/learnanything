@@ -461,7 +461,10 @@ def rung_card(vault: Any, item: Any, built: Mapping[str, Any], rung: str, *, bud
                          "a tutor's answers are summarized by the learner's questions only."),
     }
     left_out: dict[str, dict[str, Any]] = {}
-    while _size({**state, "left_out": left_out}) > int(budget):
+    # Each removal subtracts its entry's own bytes (and its separator), so the card is serialized once
+    # per pass, not once per removal; the pass ends on the exact size, the left-out record included.
+    estimate = _size({**state, "left_out": left_out})
+    while estimate > int(budget):
         trimmed = False
         for level in reversed(included):
             lists = [(name, history[name]) for name in SECTIONS[level] if history[name]]
@@ -469,6 +472,7 @@ def rung_card(vault: Any, item: Any, built: Mapping[str, Any], rung: str, *, bud
                 continue
             name, entries = max(lists, key=lambda pair: (pair[1][0].get("days_before") or 0.0, pair[0]))
             dropped = entries.pop(0)
+            estimate -= _size(dropped) + 2
             record = left_out.setdefault(level, {}).setdefault(
                 name, {"entries": 0, "oldest_days_before": None, "newest_days_before": None})
             record["entries"] += 1
@@ -480,6 +484,8 @@ def rung_card(vault: Any, item: Any, built: Mapping[str, Any], rung: str, *, bud
             trimmed = True
         if not trimmed:
             break
+        if estimate <= int(budget):
+            estimate = _size({**state, "left_out": left_out})
     state["left_out"] = left_out
     return state, left_out
 

@@ -667,9 +667,49 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
                      else {"suppressed": view.reason}),
         "dose_and_burden": dose,
         "self_check_calibration": _self_check(records),
+        # Router objective RO2 (spec_router_objective_v1 §6.4): llm_history_v1 against the arms on the
+        # same presentations, the ladder, delayed cold and the draw's pairs. Exploratory.
+        "history_forecaster": _history(vault, repository, connection, now),
         "records": len(records),
     }
     return report
+
+
+def _history(vault: Any, repository: Any, connection: Any, now: str) -> dict[str, Any] | None:
+    from learnloop.adaptive_difficulty.scoring import history_report
+    from learnloop.adaptive_difficulty.switches import LLM_HISTORY, outside_forecasters
+
+    try:
+        return history_report(connection, vault, repository, now=now)
+    except Exception as exc:  # noqa: BLE001 - one block never fails the report
+        return {"unavailable": type(exc).__name__,
+                "enabled": LLM_HISTORY in outside_forecasters(getattr(vault, "config", None))}
+
+
+def _history_lines(history: Mapping[str, Any] | None) -> list[str]:
+    """RO2's block, plainly: each comparison's mean paired log-loss difference and its interval."""
+
+    if not history or "comparisons" not in history:
+        return []
+    out = ["", "## The full-history forecaster (llm_history_v1, exploratory)",
+           f"Drawn presentations: {history['draws']['presentations']}, complete pairs "
+           f"{history['draws']['complete_pairs']}; missing (never imputed): {history['draws']['missing'] or 'none'}."]
+
+    def line(label: str, found: Mapping[str, Any]) -> str:
+        interval = found.get("interval")
+        span = f" [{interval[0]:+.4f}, {interval[1]:+.4f}]" if interval else ""
+        mean = f"{found['mean']:+.4f}" if found.get("mean") is not None else "n/a"
+        return f"- {label}: {mean}{span} (n {found.get('n', 0)})"
+
+    for split in ("first_attempt", "repeats"):
+        for name, found in (history["comparisons"].get(split) or {}).items():
+            out.append(line(f"{split}: H3 minus {name} (log loss)", found))
+        for name, found in (history["ladder"].get(split) or {}).items():
+            out.append(line(f"{split}: H3 minus {name.rpartition(':')[2]} (log loss)", found))
+    for name, found in (history["delayed_cold"].get("intention_to_treat") or {}).items():
+        out.append(line(f"delayed cold (ITT, conditional on observation): H3 minus {name.rpartition(':')[2]}", found))
+    out += [f"- {note}" for note in history.get("notes", [])]
+    return out
 
 
 def _guard_lines(guard: Mapping[str, Any]) -> list[str]:
@@ -719,6 +759,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
             continue
         lines.append(f"- {arm}: first-attempt log loss {first.get('log_loss') if first.get('n') else 'n/a'} "
                      f"(n {first.get('n', 0)}); all {everything.get('log_loss'):.4f} (n {everything.get('n')})")
+    lines += _history_lines(report.get("history_forecaster"))
     lines += ["", "## What helps you (dose and burden)"]
     lines += [f"- {line}" for line in report["dose_and_burden"]["lines"]]
     lines += ["", "## The honest statement", report["identifiability"]["statement"]]

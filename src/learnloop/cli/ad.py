@@ -9,6 +9,12 @@ read-only, calls nothing, writes nothing and prints the plan with its
 estimate; a real run audits (`--audit`), forecasts never-attempted items
 (`--llm-v1`) and sweeps the reading history (`--reading`) under
 `adaptive_difficulty.daily_spend_cap_usd`.
+
+`ad forecast-audit` (router objective RO2) audits `llm_history_v1` on the
+serves' frozen inputs: `--mode permuted` resends each H3 card with another
+presentation's history (paid), `--mode prior-sweep` refits the calibration
+slopes under scaled priors (free). Without `--run` it is a dry run that
+calls and writes nothing.
 """
 from __future__ import annotations
 
@@ -78,6 +84,32 @@ def backfill_command(
         repository = planning_repository(VaultPaths(loaded.root, loaded.config), dry_run=dry_run)
         result = backfill(loaded, repository, audit=audit, llm_v1=llm_v1, reading=reading, dry_run=dry_run,
                           limit=limit)
+        typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
+        raise typer.Exit(code=1) from exc
+
+
+@ad_app.command("forecast-audit")
+def forecast_audit_command(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root (use a backup copy).")],
+    mode: Annotated[str, typer.Option("--mode", help="permuted (paid: shuffled history) or prior-sweep (free).")],
+    limit: Annotated[int | None, typer.Option("--limit", min=1, help="At most this many permuted calls.")] = None,
+    run: Annotated[bool, typer.Option("--run", help="Send (paid). Without it: a dry run that calls and writes nothing.")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Router objective RO2's audit of llm_history_v1 on frozen inputs (spec §6.4): a permuted-history run
+    and a prior-strength sweep. Dry run by default; --run sends, inside the daily spend cap."""
+
+    from learnloop.adaptive_difficulty.history_audit import plan_audit, run_audit
+    from learnloop.practice_index.paid import planning_repository
+
+    try:
+        _vault_root(vault)
+        loaded = load_vault(vault)
+        repository = planning_repository(VaultPaths(loaded.root, loaded.config), dry_run=not run)
+        result = (run_audit(loaded, repository, mode=mode, limit=limit) if run
+                  else plan_audit(loaded, repository, mode=mode, limit=limit))
         typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))

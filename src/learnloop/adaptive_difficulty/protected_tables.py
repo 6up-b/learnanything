@@ -575,6 +575,8 @@ ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
     "question_event": "question_event",
     "reader_authored_question": "reader_question",
     "source_note": "note",
+    # Router objective RO2: a gap named from a tutor question (learner_text_gaps.source_kind).
+    "tutor_question": "question_event",
 })
 
 #: There is no incumbent scope (the final round: inversion, owner decision 2026-10-24). The plan

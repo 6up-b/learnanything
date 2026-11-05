@@ -260,7 +260,9 @@ def forecast_history_presentation(vault: Any, repository: Any, presentation_id: 
                                           (draw_key(presentation_id),))
         if found == "missing" or drawn_status == "missing":
             return [ForecastOutcome(FORECASTER, "no_frozen_inputs")]
-        if drawn is None or presentation is None:
+        if drawn_status != "ok" or drawn is None or presentation is None:
+            # The draw (and with it the frozen rungs) of another protection epoch, or its item withheld
+            # now: expired, never sent (E2; A8).
             return [ForecastOutcome(FORECASTER, "protected")]
         rungs = [ANCHOR, str(drawn["drawn_rung"])]
         pending = [rung for rung in rungs if not _done(connection, presentation_id, rung)]
