@@ -15,6 +15,7 @@ replay's whole second is R14, a known difference of its own, and not this one.
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -106,6 +107,27 @@ def test_the_diagnosis_job_after_the_answer_changes_nothing_further(desk):
     drain(vault, repository, client_factory=lambda: desk.client, embedding_factory=lambda: None)
     assert _probe_cells(repository, row["practice_item_id"]) == before
     assert _summary(shadow_rebuild(load_vault(desk.paths.root))) == ZERO
+
+
+def _canonical_cells(repository):
+    """Both canonical belief tables by value: the shadow compares the recall cells only."""
+
+    def values(row):
+        return {key: value for key, value in asdict(row).items() if key not in ("id", "created_at", "updated_at")}
+
+    recall = sorted(repr(sorted(values(row).items())) for row in repository.canonical_facet_recall_states())
+    capability = sorted(repr(sorted(values(row).items())) for row in repository.facet_capability_evidence_all())
+    return recall, capability
+
+
+def test_the_capability_cell_the_answer_feeds_agrees_with_a_rebuild_too(desk):
+    """The same stale fold left the probe's (facet, method_selection) capability cell at zero mass;
+    ``rebuild --shadow`` doesn't compare that table, so a real rebuild does here."""
+
+    _attempt_id, row, _vault, repository = _answer_generated_probe(desk, door="held")
+    live = _canonical_cells(repository)
+    rebuild_derived_state(load_vault(desk.paths.root), repository)
+    assert _canonical_cells(repository) == live
 
 
 def test_an_answer_without_its_presentation_is_incidental_on_both_sides(desk):
