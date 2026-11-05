@@ -665,6 +665,10 @@ class PlanPolicy:
     #: ``daily_plan.router_chooser.RestraintGate``). None: DL1's follow-up
     #: rules alone (a placeable follow-up always joins the current block).
     restraint: Any = None
+    #: Router objective RO4 (spec_router_objective_v1 §8.2): the soft-budget
+    #: frame at the tag with the objective serving. Never in a projection:
+    #: the plan's finite list as first shown stays (:meth:`projection`).
+    soft_budget: bool = False
 
     def projection(self) -> "PlanPolicy":
         """The pair the view projects with: this source, the projection chooser."""
@@ -974,6 +978,14 @@ def _log_plan_decision(connection: Any, decision: PlanBlockDecision) -> str | No
     if ref is not None and decision.decision_state is not None:
         decision_state.record(connection, decision_id=ref, decision_kind=decision.kind, material=decision.decision_state,
                               config=decision.config, at=decision.decided_at or utc_now_iso())
+    if ref is not None and decision.router_record:
+        # Router objective RO4 (spec §8.8): the decision's trace, beside it and RO0's state, in its transaction.
+        from learnloop.router_objective import trace as objective_trace
+
+        objective_trace.record(connection, decision_id=ref, decision_kind=decision.kind,
+                               router_record=decision.router_record, config=decision.config,
+                               local_date=decision.local_date, session_id=decision.session_id,
+                               at=decision.decided_at or utc_now_iso())
     return ref
 
 
@@ -2503,7 +2515,11 @@ def _feasibility(
             spent[lane] += float(minutes)
     lanes = context.lanes_allowed
     lefts = {lane: max(allotment[lane] - spent[lane], 0.0) if lane in lanes else 0.0 for lane in LANES}
-    minutes_left = max(record.minutes_left() - forced_minutes, 0.0)
+    soft = bool(getattr(policy, "soft_budget", False))
+    # Router objective RO4 (§8.2): with the soft-budget frame minutes_left may go negative (minutes past
+    # the plan); lane minutes stay as computed, for ordering, display and the staged rule's order.
+    minutes_left = (record.budget - record.minutes_planned() - forced_minutes) if soft else max(
+        record.minutes_left() - forced_minutes, 0.0)
     items_left = _items_left(record, forced_items=forced_items)
     base = PlanState(
         plan_id=record.id,
@@ -2520,6 +2536,7 @@ def _feasibility(
         lane_priority=(
             AFTER_REENTRY_LANE_PRIORITY if record.split.get("new_first") == "after_reentry" else LANES
         ),
+        soft_budget=soft,
     )
     source = policy.make_source(context)
 
@@ -2558,8 +2575,8 @@ def _feasibility(
         candidate
         for candidate in candidates
         if candidate.lane in lanes
-        and candidate.est_minutes <= minutes_left + _EPS
-        and candidate.est_minutes <= moved.get(candidate.lane, 0.0) + _EPS
+        and (soft or candidate.est_minutes <= minutes_left + _EPS)
+        and (soft or candidate.est_minutes <= moved.get(candidate.lane, 0.0) + _EPS)
         and (items_left is None or len(candidate.item_ids) <= items_left)
         and (items_left is None or items_left > 0)
     ]
@@ -2603,7 +2620,8 @@ def decide(
     )
     state, source, candidates, feasible = computed.state, computed.source, computed.candidates, computed.feasible
     minutes_left, redistribution = computed.minutes_left, computed.redistribution
-    stop_offered = minutes_left < STOP_OFFER_MINUTES or not feasible
+    # Router objective RO4 (§8.2): stop is supported at every reversible boundary under the soft frame.
+    stop_offered = minutes_left < STOP_OFFER_MINUTES or not feasible or bool(getattr(policy, "soft_budget", False))
     describe = getattr(source, "decision_record", None)
     source_record = describe() if callable(describe) else None
     reason: str | None = None
@@ -4203,6 +4221,13 @@ def _log_interrupt(
                 material=_decision_state(env, estimator, candidates=[{"item_ids": [item.practice_item_id],
                                                                       "learning_object_ids": [item.learning_object_id]}],
                                          ad=ad))
+            # Router objective RO4 (spec §8.8): the follow-up decision's trace, beside it.
+            from learnloop.router_objective import trace as objective_trace
+
+            objective_trace.record(connection, decision_id=decision_ref, decision_kind="plan_interrupt",
+                                   router_record=outcome.record, config=env.vault.config,
+                                   local_date=str(record.row.get("local_date") or ""), session_id=env.session_id,
+                                   at=env.now_iso())
             if serving_on(env.vault.config) and not outcome.refused and outcome.wait_feasible:
                 # Data capture A2: the follow-up's own LO, whichever arm was drawn; its check never
                 # takes an item this plan holds or the follow-up itself.

@@ -284,6 +284,8 @@ MODULE_INVENTORY: dict[str, str] = {
     # attention price and the weight's posterior. Every number is a labelled seed, a keep bound or numerical.
     "router_objective_memory": "src/learnloop/router_objective/memory.py",
     "router_objective_value": "src/learnloop/router_objective/value.py",
+    "router_objective_price": "src/learnloop/router_objective/price.py",
+    "router_objective_weight": "src/learnloop/router_objective/weight.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -1512,6 +1514,9 @@ _reg_const("router_objective_memory:_FIT_TOLERANCE", "numerical", kind="structur
            rationale="numerical resolution of the combiner's damped Newton fit, never a judgement.")
 _reg_const("router_objective_value:MINUTES_PER_DAY", "numerical", kind="structural", owner="router_objective_value",
            rationale="structural unit: active minutes to days on the rollout's clock.")
+_reg_const("router_objective_price:GUARD_MULTIPLE", "constraint", kind="structural", owner="router_objective_price",
+           rationale="keep (RO4 §8.6): the runaway guard's default, 3 x the remembered minutes; a numerical safeguard "
+           "that forces a stop offer into the support and is reported, never a budget.")
 
 # ---------------------------------------------------------------------------
 # Inventory A -- config-leaf classification rules (ordered; first match wins).

@@ -1,4 +1,4 @@
-"""`learnloop router log`, `card`, `report` and `embed-decisions`: the router's logged decisions.
+"""`learnloop router log`, `card`, `report`, `trace`, `objective-report` and `embed-decisions`: the router's logged decisions.
 
 ``log`` lists router R1's logged decisions and their outcomes; ``card`` prints
 the learner-state card a decision stored (router R2a). Both are read-only: the
@@ -10,7 +10,8 @@ the ``decision/context`` vectors of logged decisions that have none: paid,
 metered embedding calls through the shared embedding backfill, under its
 enforced caps (``--max-cost-usd`` and the rest) and both embedding switches,
 with a priced ``--dry-run`` first. ``report`` (follow-ups batch 6, teacher TE1b) prints the lesson
-suggestion decisions' intention-to-treat split by arm, read-only like ``log``.
+suggestion decisions' intention-to-treat split by arm, read-only like ``log``. ``trace`` (router objective
+RO4) prints one decision's objective trace, and ``objective-report`` the objective's report, both read-only.
 """
 from __future__ import annotations
 
@@ -30,7 +31,8 @@ router_app = typer.Typer(
     no_args_is_help=True,
     help=(
         "Action router (R1: logged decisions and their outcomes; R2a: the learner-state card each decision "
-        "stored; R2c: the decision/context embedding backfill; TE1b: the lesson suggestions' report)."
+        "stored; R2c: the decision/context embedding backfill; TE1b: the lesson suggestions' report; RO4: the "
+        "objective's trace and report)."
     ),
 )
 
@@ -301,6 +303,72 @@ def router_card(
             typer.echo(f"# decision {decision} ({row['decision_kind']}, {row['created_at']})")
             typer.echo(f"# {payload['format_version']} {row['card_hash']}")
             typer.echo(payload["content_text"] or "", nl=False)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        _emit({"status": "invalid", "reason": str(exc)}, json_output)
+        raise typer.Exit(code=1) from exc
+
+
+@router_app.command("trace")
+def router_trace(
+    decision: Annotated[str, typer.Argument(help="A router decision id (learnloop router log), or a trace id.")],
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root (read-only).")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Router objective RO4's trace of one decision (spec §8.8): each sensor, the objective's terms, both
+    policies, the mix and the output; in plain words, or with --json the whole trace (read-only)."""
+
+    from learnloop.db.stores import router_objective as store
+    from learnloop.router_objective.trace import explain
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml")
+        loaded = load_vault(vault, load_environment=False)
+        path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        with closing(connect(path, read_only=True)) as connection:
+            if not store.table_present(connection, store.TRACES):
+                raise ValueError("this database predates the router objective's trace (migration 246)")
+            row = store.trace(connection, decision)
+        if row is None:
+            raise ValueError(f"no router objective trace for {decision!r} (a decision below mvp-0.47, with "
+                             "[router_objective] enabled off, or a deterministic pick has none)")
+        if json_output:
+            _emit({"decision_id": row["decision_id"], "decision_kind": row["decision_kind"],
+                   "created_at": row["created_at"], "trace_version": row["trace_version"],
+                   "content_hash": row["content_hash"], "trace": row["trace"]}, True)
+        else:
+            typer.echo(f"# decision {row['decision_id']} ({row['decision_kind']}, {row['created_at']})")
+            for line in explain(row):
+                typer.echo(line)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        _emit({"status": "invalid", "reason": str(exc)}, json_output)
+        raise typer.Exit(code=1) from exc
+
+
+@router_app.command("objective-report")
+def router_objective_report(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root (read-only).")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Router objective RO4's report (spec §8.9): serving (stop's share at each boundary, session length, each
+    policy's share, by day), and the forecast, action-value and recommendation-value evaluations kept apart, with
+    counts and versioned comparators. Read-only; no model call."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.router_objective import objective_report
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml")
+        loaded = load_vault(vault, load_environment=False)
+        path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        with closing(connect(path, read_only=True)) as connection:
+            report = objective_report.build(connection, now=utc_now_iso())
+        if json_output:
+            _emit({"algorithm_version": loaded.config.algorithms.algorithm_version, "router_objective": report}, True)
+        else:
+            for line in objective_report.lines(report):
+                typer.echo(line)
     except (ValueError, OSError, sqlite3.Error) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
         raise typer.Exit(code=1) from exc

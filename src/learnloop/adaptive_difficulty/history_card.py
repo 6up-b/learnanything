@@ -56,6 +56,7 @@ from typing import Any
 from learnloop.clock import parse_utc
 from learnloop.router_objective_switches import attempt_time_sql
 
+from learnloop.adaptive_difficulty.operation import entry
 from learnloop.adaptive_difficulty.outside import HISTORY_STEM_LIMIT, answer_excerpts_enabled, history_card, item_view
 
 CARD_VERSION = "ad-forecast-state-v3"
@@ -694,6 +695,44 @@ def rung_card(vault: Any, item: Any, built: Mapping[str, Any], rung: str, *, bud
     return state, left_out
 
 
+def decision_sections(vault: Any, repository: Any, connection: Any, candidates: Sequence[tuple[Sequence[str], Sequence[str]]],
+                      *, served_at: str, view: Any = None) -> list[dict[str, Any]]:
+    """Router objective RO4 (spec §8.3): every rung's sections for one representative item per candidate topic
+    (the candidate's own first item on it, else the LO's first item the view shows), for the LLM policy's
+    decision-level H3 card. ``candidates``: ``(item ids, LO ids)`` per candidate. Read-only, through AD's material
+    view in an AD operation (:func:`decision_sections_entry`)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository, view)
+    picked: dict[str, Any] = {}
+    for item_ids, lo_ids in candidates:
+        for item_id in item_ids:
+            item = view.item(item_id)
+            lo = getattr(item, "learning_object_id", None) if item is not None else None
+            if lo and lo not in picked:
+                picked[str(lo)] = item
+        for lo in lo_ids:
+            if lo not in picked:
+                visible = list(view.items(learning_object_id=lo))
+                if visible:
+                    picked[str(lo)] = visible[0]
+    out = []
+    for lo, item in sorted(picked.items()):
+        built = build_sections(vault, connection, item, served_at=served_at, view=view)
+        out.append({**built, "item": str(getattr(item, "id", "")), "lo": lo})
+    return out
+
+
+@entry(read_only=True)
+def decision_sections_entry(vault: Any, repository: Any, connection: Any,
+                            candidates: Sequence[tuple[Sequence[str], Sequence[str]]], *, served_at: str,
+                            view: Any = None) -> list[dict[str, Any]]:
+    """:func:`decision_sections` inside a read-only AD operation (the material view needs one)."""
+
+    return decision_sections(vault, repository, connection, candidates, served_at=served_at, view=view)
+
+
 def evidence_ids(state: Mapping[str, Any]) -> set[str]:
     """Every evidence id a card carries (the rationale's citations are checked against it, unvalidated)."""
 
@@ -705,5 +744,6 @@ def evidence_ids(state: Mapping[str, Any]) -> set[str]:
     return found
 
 
-__all__ = ["ANCESTRY_ROUNDS", "CARD_VERSION", "ROW_LIMITS", "RUNGS", "SECTIONS", "available_sql", "build_sections", "evidence_ids",
+__all__ = ["ANCESTRY_ROUNDS", "CARD_VERSION", "ROW_LIMITS", "RUNGS", "SECTIONS", "available_sql", "build_sections",
+           "decision_sections", "decision_sections_entry", "evidence_ids",
            "rung_card"]

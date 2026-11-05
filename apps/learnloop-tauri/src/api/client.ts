@@ -1146,6 +1146,17 @@ export const api = {
   /** RO0 row 3: Ask's availability changed on the item shown (an impression event; the same state writes nothing). */
   recordAskAvailability: (input: { sessionId?: string | null; practiceItemId: string; available: boolean; reason?: string }) =>
     call<{ version: number; recorded: boolean }>("record_ask_availability", { input }),
+  /** Router objective RO4: one decision's trace in plain words (the why's "how was this chosen?"). */
+  routerObjectiveExplain: (decisionId: string) =>
+    call<{ version: number; available: boolean; decisionId?: string; lines: string[] }>("router_objective_explain", {
+      input: { decisionId }
+    }),
+  /** Router objective RO4: a goal's use weights (its dated weight, its undated density). */
+  setGoalUseWeight: (input: { goalId: string; dated?: number; undatedDensity?: number; perLo?: Record<string, number> }) =>
+    call<{ version: number; goalId: string; useWeight: Record<string, unknown>; contractVersionId: string | null; changeClass: string | null }>(
+      "set_goal_use_weight",
+      { input }
+    ),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
   getLearnerTextGap: (input: { sourceKind?: string; sourceId: string }) =>

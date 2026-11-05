@@ -64,6 +64,15 @@ def mixture_active(vault: Any) -> bool:
     )
 
 
+def objective_active(vault: Any) -> bool:
+    """Router objective RO4 (spec §8): the objective chooses Today's blocks: the mixture serves and the vault is at
+    RO4's tag with ``[router_objective] enabled``. Below the tag, or off, the predecessor's mixture and frame."""
+
+    from learnloop.router_objective_switches import objective_on
+
+    return mixture_active(vault) and objective_on(vault.config)
+
+
 def policy_for(
     vault: Any,
     repository: Any,
@@ -98,6 +107,26 @@ def policy_for(
     from learnloop.daily_plan.router_runtime import default_runtime
 
     runtime = runtime if runtime is not None else default_runtime()
+    if objective_active(vault):
+        # Router objective RO4 (spec §8.2-§8.3): the soft-budget frame and the two policies' learned mix.
+        from learnloop.daily_plan.objective_chooser import ObjectiveChooser, ObjectiveRestraintGate
+
+        objective_restraint = None
+        if bool(getattr(vault.config.router, "restraint", False)):
+            objective_restraint = ObjectiveRestraintGate(
+                vault, repository, runtime, frame=frame, card_builder=cards, session_id=session_id, clock=clock,
+                may_defer=not serve,
+            )
+        return PlanPolicy(
+            source_name=SOURCE_NAME,
+            chooser=ObjectiveChooser(
+                vault, repository, runtime, card_builder=cards, session_id=session_id, clock=clock, may_defer=not serve,
+            ),
+            make_source=StagedFrameFactory(frame),
+            projection_chooser=LaneQuotaChooser(),
+            restraint=objective_restraint,
+            soft_budget=True,
+        )
     restraint = None
     if bool(getattr(vault.config.router, "restraint", False)):
         restraint = RestraintGate(
@@ -115,4 +144,4 @@ def policy_for(
     )
 
 
-__all__ = ["bridge_active", "mixture_active", "policy_for", "router_active"]
+__all__ = ["bridge_active", "mixture_active", "objective_active", "policy_for", "router_active"]

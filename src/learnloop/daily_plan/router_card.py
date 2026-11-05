@@ -81,7 +81,7 @@ from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import BlockCandidate, PlanState
 from learnloop.db.stores.write_provenance import read_snapshot
 from learnloop.learner_protection import PastWork, Withheld, attempt_result, past_work_text, statement_text
-from learnloop.router_objective_switches import attempt_time_sql
+from learnloop.router_objective_switches import attempt_time_sql, objective_on
 from learnloop.router.card import (
     EXCERPT_LIMIT,
     STATEMENT_LIMIT,
@@ -285,6 +285,9 @@ class CardGatherer:
             confidence_limit=confidence_limit,
             confidence_omitted=confidence_omitted,
             confidence_enabled=confidence_on,
+            # Router objective RO4 (spec §8.4, card v3): the text renders the candidates' goal dates and the
+            # days to them; off, or below the tag, the predecessor's card byte for byte.
+            goal_dates=objective_on(vault.config),
         )
 
     def _reader_activity(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, Any] | None:

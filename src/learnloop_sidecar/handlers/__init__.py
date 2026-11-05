@@ -63,6 +63,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     registry,
     remediation,
     review,
+    router_objective,
     sessions,
     settings,
     side_by_side,

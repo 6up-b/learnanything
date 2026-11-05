@@ -134,6 +134,10 @@ def _block_row(env: PlanEnv, record: PlanRecord, block: PlannedBlock, current_id
         ],
         "items": [_item_row(env, item) for item in block.items if not item.displaced],
         "displaced_count": sum(1 for item in block.items if item.displaced),
+        # Router objective RO4 (spec §8.8): the decision whose trace the "why" offers on demand (only under the
+        # objective's frame, so the predecessor's rows are unchanged).
+        **({"objective_decision_id": block.chosen.get("decision_ref")}
+           if getattr(env.policy, "soft_budget", False) and block.chosen.get("decision_ref") else {}),
     }
 
 
@@ -288,6 +292,13 @@ def plan_view(
         "estimator_version": record.row.get("estimator_version"),
         "algorithm_version": record.row.get("algorithm_version"),
     }
+    if getattr(env.policy, "soft_budget", False):
+        # Router objective RO4 (spec §8.2): the plan's minutes are a suggestion. minutes_left may go negative,
+        # shown as minutes past the plan; the projected list stays the plan's finite list as first shown.
+        left = round(record.budget - record.minutes_planned(), 4)
+        payload["minutes_left"] = left
+        payload["minutes_past_plan"] = round(max(-left, 0.0), 4)
+        payload["minutes_are_a_suggestion"] = True
     return {
         "enabled": True,
         "headline_enabled": bool(env.plan_config.headline),

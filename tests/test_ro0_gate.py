@@ -95,8 +95,15 @@ def test_the_plan_blocks_rows_and_serves_are_the_same_on_and_off(tmp_path, versi
     def runtime():
         return fake_runtime(seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))
 
-    on = mixture_env(tmp_path / "on", runtime(), version=version)
-    off = mixture_env(tmp_path / "off", runtime(), version=version, toml=OFF)
+    # Router objective RO4 (mvp-0.47) reads RO0's receipts by its spec (§8.1: p_accept from §4 row 7; the price's
+    # day seed and the weight from its own traces), so "nothing serving reads them" holds there with the objective
+    # off; with it on, receipts off still serves (tests/test_ro4_successor.py's gates).
+    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_VERSIONS
+
+    tagged = version in ROUTER_OBJECTIVE_VERSIONS
+    on = mixture_env(tmp_path / "on", runtime(), version=version,
+                     toml="[router_objective]\nenabled = false\n" if tagged else None)
+    off = mixture_env(tmp_path / "off", runtime(), version=version, toml=OFF + ("enabled = false\n" if tagged else ""))
     steps = {}
     for name, env in (("on", on), ("off", off)):
         build_plan(env, kind="normal", budget=budget, remembered=int(budget), minutes_source="chip")

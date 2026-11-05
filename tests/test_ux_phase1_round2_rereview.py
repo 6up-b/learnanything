@@ -195,7 +195,11 @@ def _todays_reading_step(tmp_path, monkeypatch, *, version, toml=""):
     ctx.load(paths.root)
     ctx.grading_provider_override = "manual"
     plan = call(ctx, "set_plan_minutes", {"minutes": 60})["plan"]
-    return [row["readingTitle"] for row in plan["projected"] if row["readingTitle"]]
+    # Router objective RO4 (mvp-0.47): the objective may choose the reading as the first block itself, so the
+    # reading step is the first chosen or projected reading (below the tag, the projection's, as before).
+    chosen = [(block.get("reading") or {}).get("sectionTitle") for block in plan["blocks"] if block.get("reading")]
+    return ([title for title in chosen if title] + [row["readingTitle"] for row in plan["projected"]
+                                                    if row["readingTitle"]])[:1]
 
 
 @pytest.mark.parametrize("version", ["mvp-0.14", "LATEST"])

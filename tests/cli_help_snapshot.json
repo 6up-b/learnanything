@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 25967,
-    "sha256": "f95c3dc84ace8036bda88a214fd94e3e4c2900b554be86a05c370e60b074db82"
+    "bytes": 26052,
+    "sha256": "27667bc4165d87f50acc477dffa1c6f572fe1dca83129ae4d3ae6d0353dd6d97"
   },
   "accept": {
     "bytes": 1593,
@@ -1200,8 +1200,8 @@
     "sha256": "2ff2b2944e521a70cdeb67167d28ceb42435dcc13c400bde5e3f7f2891691a2c"
   },
   "router": {
-    "bytes": 2684,
-    "sha256": "b8ec35c06beccb6985b197c3f99fce0de49cdb4369b8a353a1642b525258aba7"
+    "bytes": 3536,
+    "sha256": "981375351aedc3d324acec3fbe24bcb80fb8bcd840c93758259a48cfa92210bc"
   },
   "router card": {
     "bytes": 1376,
@@ -1215,9 +1215,17 @@
     "bytes": 2145,
     "sha256": "b7d83a953bd8a13c55fee2f8af55c7c4ccdec01030ebb8d1ed7b5a9cb5943a3e"
   },
+  "router objective-report": {
+    "bytes": 1369,
+    "sha256": "570cd24e6a5fd5e92329d99c08ebfaa84db235c02d16f693bbe17ad5f654dda9"
+  },
   "router report": {
     "bytes": 1449,
     "sha256": "1c6221b7c4ebc1ff3c5c11e3950a77b0f875b4e617024735b70cbd63e721fd67"
+  },
+  "router trace": {
+    "bytes": 2003,
+    "sha256": "6adba110c02a7ac6bb5a184782153a7ab19c37dbe39cc81baa0bb7c1fc9f1daf"
   },
   "scoreboard": {
     "bytes": 3216,

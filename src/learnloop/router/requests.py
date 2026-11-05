@@ -111,6 +111,9 @@ def option_description(
 
 
 STOP_DESCRIPTION = "Stop for today: today's useful time is nearly used."
+#: Router objective RO4 (§8.2): stop at a boundary with work left is an offer; the plan's minutes are a suggestion.
+STOP_OFFER_DESCRIPTION = ("Stop for today: end the session here (the plan's minutes are a suggestion; the learner "
+                          "can keep going).")
 
 
 @dataclass(frozen=True)
@@ -329,11 +332,190 @@ class RouterLLMRestraintAnswer(_Wire):
     rationale: str
 
 
+# -- router objective RO4 (spec_router_objective_v1 §8.3): the LLM policy, router_llm_choice_v3 ---------
+
+#: The LLM policy's request schema; the older ``llm`` chooser (v1/v2) stops being served at RO4's tag.
+LLM_POLICY_SCHEMA = "router_llm_choice_v3"
+LLM_POLICY_RESTRAINT_SCHEMA = "router_llm_restraint_v3"
+#: The policy's per-option forecasts: cold success on the option's main topic this many days after the block
+#: (RO2's lags, measurement points; nothing weights them).
+POLICY_LAGS: tuple[int, ...] = (1, 7, 30)
+
+
+class OptionForecastV3(_Wire):
+    id: str
+    probability: float
+    p_cold_1: float
+    p_cold_7: float
+    p_cold_30: float
+
+
+class ReferenceForecastV3(_Wire):
+    id: str
+    p_cold_1: float
+    p_cold_7: float
+    p_cold_30: float
+
+
+class RouterLLMChoiceV3(_Wire):
+    """``router_llm_choice_v3``: a probability per option (every one positive), per-option forecasts, the
+    reference row's forecasts, at most three sentences of rationale and the evidence ids they rely on."""
+
+    options: list[OptionForecastV3]
+    reference: ReferenceForecastV3
+    rationale: str
+    evidence_ids: list[str]
+
+
+class RouterLLMRestraintV3(_Wire):
+    """The LLM policy on a mid-block follow-up (``plan_interrupt``): P(interrupting now is the better choice)."""
+
+    intervene_now: float
+    rationale: str
+    evidence_ids: list[str]
+
+
+POLICY_INSTRUCTIONS = (
+    "You are one of two policies choosing what one learner does next in a study app; the other is a numeric "
+    "expected-value model, and the app mixes your proposal with it. The objective you serve, declared by the "
+    "learner: cold performance (unassisted, on unseen questions) at each valued use of what they study, at a "
+    "goal's date for a dated goal and at a steady daily rate for ongoing knowledge, minus the effort of long "
+    "sessions that gain little. The plan's minutes are a suggestion, not a limit: stopping is one of the options."
+)
+
+
+@dataclass(frozen=True)
+class PolicyRequest:
+    """The LLM policy's request for one decision (built once, in the prefetch, frozen with the boundary key)."""
+
+    options: tuple[BlockOption, ...]
+    reference: BlockOption
+    state: str
+    evidence: tuple[str, ...] = ()
+    restraint_topic: str | None = None
+
+    question_set_version: str = "router_objective_v1"
+
+    @property
+    def llm_schema_version(self) -> str:
+        return LLM_POLICY_RESTRAINT_SCHEMA if self.restraint_topic is not None else LLM_POLICY_SCHEMA
+
+    @property
+    def refs(self) -> tuple[str, ...]:
+        return tuple(option.ref for option in self.options)
+
+    def llm_prompt(self) -> str:
+        if self.restraint_topic is not None:
+            return "\n".join([
+                POLICY_INSTRUCTIONS, "",
+                "1. intervene_now: the probability that interrupting the current block now, to ask the follow-up "
+                f"question about {self.restraint_topic}, serves the objective better than letting the learner "
+                "finish the block first (the follow-up then opens the next block).",
+                f"2. rationale: at most {MAX_RATIONALE_SENTENCES} short plain sentences; 3. evidence_ids: the ids of "
+                "the history entries it relies on.", "", "--- the learner's state ---", self.state,
+            ])
+        lines = [
+            POLICY_INSTRUCTIONS, "",
+            "1. options: for EACH option id listed under \"The options\" (every one, once), a probability that you "
+            "would choose it (each strictly between 0 and 1; they need not add up exactly to 1), and your forecasts "
+            "p_cold_1, p_cold_7, p_cold_30: the probability that the learner answers an unseen question on that "
+            "option's main topic correctly and unassisted 1, 7 and 30 days after this block, if they do this "
+            "option now (for stop: if they stop now). Every probability strictly between 0 and 1.",
+            f"2. reference: the same three forecasts for the reference row [{self.reference.ref}] (not an option; "
+            "the continuation the numeric model assumes).",
+            f"3. rationale: at most {MAX_RATIONALE_SENTENCES} short sentences, addressed to the learner as \"you\", "
+            "saying in plain words why the option you favour is a good next step. No numbers or probabilities, no "
+            "ids, and none of the app's internal words (lane, probe, queue, facet, mastery, scheduler, candidate, "
+            "decider, staged, propensity, calibration, rubric).",
+            "4. evidence_ids: the ids of the history entries your rationale relies on; an empty list if none.",
+            "", "# The options",
+        ]
+        lines.extend(f"- [{option.ref}] {option.description}" for option in self.options)
+        lines.append(f"- reference (not an option) [{self.reference.ref}] {self.reference.description}")
+        lines.extend(["", "--- the learner's state ---", self.state])
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class ParsedPolicy:
+    """The LLM policy's validated answer."""
+
+    distribution: Mapping[str, float]
+    forecasts: Mapping[str, Mapping[str, float]]
+    reference: Mapping[str, float]
+    rationale: str | None = None
+    evidence_ids: tuple[str, ...] = ()
+
+
+def _open_probability(value: Any, what: str) -> float:
+    value = _probability(value, what)
+    if not 0.0 < value < 1.0:
+        raise RouterResponseInvalid(f"{what} must be strictly between 0 and 1")
+    return value
+
+
+def _lags(entry: Mapping[str, Any], what: str) -> dict[str, float]:
+    return {f"p_cold_{lag}": _open_probability(entry.get(f"p_cold_{lag}"), f"{what} p_cold_{lag}") for lag in POLICY_LAGS}
+
+
+def parse_llm_policy(answer: Any, request: PolicyRequest) -> ParsedPolicy:
+    """Validate the LLM policy's answer (fails closed): every option exactly once with a positive probability,
+    every forecast strictly in (0, 1), the reference row's forecasts present."""
+
+    data = _as_mapping(answer)
+    entries = data.get("options")
+    if not isinstance(entries, Sequence) or isinstance(entries, (str, bytes)):
+        raise RouterResponseInvalid("options is not a list")
+    asked = set(request.refs)
+    raw: dict[str, float] = {}
+    forecasts: dict[str, dict[str, float]] = {}
+    for entry in entries:
+        entry = _as_mapping(entry)
+        ref = entry.get("id")
+        if not isinstance(ref, str) or ref not in asked:
+            raise RouterResponseInvalid(f"options names an option that was not asked: {ref!r}")
+        if ref in raw:
+            raise RouterResponseInvalid(f"options names {ref!r} twice")
+        raw[ref] = _open_probability(entry.get("probability"), f"probability of {ref!r}")
+        forecasts[ref] = _lags(entry, ref)
+    missing = asked - set(raw)
+    if missing:
+        raise RouterResponseInvalid(f"options leaves out {sorted(missing)!r}: every option needs a probability")
+    reference = _as_mapping(data.get("reference"))
+    if reference.get("id") != request.reference.ref:
+        raise RouterResponseInvalid("the reference row's id is not the one asked")
+    total = sum(raw.values())
+    evidence = data.get("evidence_ids") or []
+    if not isinstance(evidence, Sequence) or isinstance(evidence, (str, bytes)) or not all(
+            isinstance(value, str) for value in evidence):
+        raise RouterResponseInvalid("evidence_ids is not a list of strings")
+    rationale = data.get("rationale")
+    return ParsedPolicy(
+        distribution={ref: raw[ref] / total for ref in request.refs}, forecasts=forecasts,
+        reference=_lags(reference, "reference"),
+        rationale=str(rationale).strip() if isinstance(rationale, str) else None,
+        evidence_ids=tuple(dict.fromkeys(evidence)),
+    )
+
+
+def parse_llm_policy_restraint(answer: Any) -> tuple[float, str | None, tuple[str, ...]]:
+    data = _as_mapping(answer)
+    rationale = data.get("rationale")
+    evidence = data.get("evidence_ids") or []
+    if not isinstance(evidence, Sequence) or isinstance(evidence, (str, bytes)):
+        raise RouterResponseInvalid("evidence_ids is not a list of strings")
+    return (_open_probability(data.get(INTERVENE_NOW), INTERVENE_NOW),
+            str(rationale).strip() if isinstance(rationale, str) else None,
+            tuple(str(value) for value in evidence))
+
+
 def llm_result_model(schema_version: str) -> type[_Wire]:
     return {
         LLM_SCHEMA_V1: RouterLLMAnswerV1,
         LLM_SCHEMA_V2: RouterLLMAnswerV2,
         LLM_RESTRAINT_SCHEMA: RouterLLMRestraintAnswer,
+        LLM_POLICY_SCHEMA: RouterLLMChoiceV3,
+        LLM_POLICY_RESTRAINT_SCHEMA: RouterLLMRestraintV3,
     }[schema_version]
 
 
@@ -456,6 +638,15 @@ def parse_decider_restraint(result: DecisionResult) -> float:
 
 
 __all__ = [
+    "LLM_POLICY_RESTRAINT_SCHEMA",
+    "LLM_POLICY_SCHEMA",
+    "POLICY_LAGS",
+    "ParsedPolicy",
+    "PolicyRequest",
+    "RouterLLMChoiceV3",
+    "RouterLLMRestraintV3",
+    "parse_llm_policy",
+    "parse_llm_policy_restraint",
     "BlockOption",
     "BoundaryRequest",
     "CHOOSE_BLOCK",
@@ -479,6 +670,7 @@ __all__ = [
     "RouterResponseInvalid",
     "SENSORS",
     "STOP_DESCRIPTION",
+    "STOP_OFFER_DESCRIPTION",
     "SensorTopic",
     "TEACH_FIRST",
     "TopicProbability",

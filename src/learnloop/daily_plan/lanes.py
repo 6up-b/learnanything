@@ -517,11 +517,16 @@ class LegacyLanesSource:
         for lane in LANES:
             if lane not in self.lanes_allowed:
                 continue
-            limit = min(
-                BLOCK_MAX_MINUTES,
-                float(state.lane_minutes_left.get(lane, 0.0)),
-                float(state.minutes_left),
-            )
+            if getattr(state, "soft_budget", False):
+                # Router objective RO4 (§8.2): neither the plan's nor the lane's minutes exclude a
+                # continuation; the attention price prices it. A block keeps its own bound.
+                limit = BLOCK_MAX_MINUTES
+            else:
+                limit = min(
+                    BLOCK_MAX_MINUTES,
+                    float(state.lane_minutes_left.get(lane, 0.0)),
+                    float(state.minutes_left),
+                )
             if limit <= _EPS:
                 continue
             blocks = _pack(

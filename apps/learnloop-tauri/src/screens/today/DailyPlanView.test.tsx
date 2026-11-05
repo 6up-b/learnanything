@@ -309,3 +309,18 @@ it("UX Phase 4 round 8: while waiting, Enter does not continue and the key bar s
     vi.useRealTimers();
   }
 });
+
+it("offers the router objective's trace on demand, in plain words (RO4)", async () => {
+  const { api } = await import("../../api/client");
+  const explain = vi.spyOn(api, "routerObjectiveExplain").mockResolvedValue({
+    version: 1, available: true, decisionId: "dec_1", lines: ["This was chosen by LearnLoop's estimate of what helps most."]
+  });
+  const { ObjectiveTrace } = await import("./DailyPlanView");
+  render(<ObjectiveTrace decisionId="dec_1" />);
+  expect(screen.queryByTestId("plan-block-objective-trace")).toBeNull();
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("plan-block-objective-open"));
+  });
+  expect(explain).toHaveBeenCalledWith("dec_1");
+  expect(screen.getByTestId("plan-block-objective-trace").textContent).toContain("what helps most");
+});

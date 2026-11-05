@@ -50,10 +50,18 @@ ROUTER_LOG_VERSION = "router_decisions_v1"
 #:   is shown with the drawn candidate's ``P(accept)``; shown or not, the row
 #:   carries the exact joint propensity of what happened
 #:   (``learnloop.router.lesson_suggestions``).
+#: * ``objective_mixture`` (router objective RO4, mvp-0.47; spec_router_objective_v1 §8.3): a two-stage draw
+#:   from ``μ = (1 − kε)·[w·π_L + (1 − w)·π_Q] + ε`` over the top-k reversible candidates and stop, each failed
+#:   policy's share on the staged rule; the seed, ``w``, both policies' distributions and the propensity are on the
+#:   row, the trace beside it (``router_objective_traces``), written in the block's transaction.
 ROUTER_DESIGNS: dict[str, str] = {
     "scheduler_seeded_exploration": "legacy Today queue epsilon exploration (seeded hash, logged with the offer)",
     "epsilon_tiebreak": "randomization_layer epsilon tie-break (P4 §9.3, persisted before selection)",
     "model_mixture": "randomization_layer model mixture (router R2b: staged, Decider, LLM; eps floor; exact)",
+    "objective_mixture": (
+        "router objective RO4's learned mix of the LLM policy and the numeric policy (failures to staged; eps "
+        "floor; exact)"
+    ),
     "lesson_suggestion_draw": (
         "teacher TE1b's day draw over instruct(lesson) candidates: the target by the router's design for its "
         "mode (model_mixture, or epsilon_tiebreak when staged), then the show coin at P(accept); exact"

@@ -10,6 +10,7 @@ import type { DailyPlanDto, PlanBlockDto, PlanLane, TodayHeadlineDto } from "../
 import { COLOR, FONT_MONO, KeyBar } from "../../components/term";
 import { aboutMinutes, minutesPerDay, waitingLine, waitingMinutes, wholeMinutes } from "../../app/dailyPlan";
 import { screenLeavesKey } from "../../app/keymap";
+import { api } from "../../api/client";
 
 const LANE_COLOR: Record<PlanLane, string> = {
   repair: COLOR.red,
@@ -96,9 +97,41 @@ export function PlanBlockLine({ plan, block }: { plan: NonNullable<DailyPlanDto[
               {block.whyDetails}
             </details>
           ) : null}
+          {block.objectiveDecisionId ? <ObjectiveTrace decisionId={block.objectiveDecisionId} /> : null}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** Router objective RO4: the trace of the decision behind a block, in plain words, only when asked. */
+export function ObjectiveTrace({ decisionId }: { decisionId: string }) {
+  const [lines, setLines] = useState<string[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const open = async () => {
+    try {
+      const result = await api.routerObjectiveExplain(decisionId);
+      setLines(result.lines);
+    } catch {
+      setFailed(true);
+    }
+  };
+  if (lines === null) {
+    return (
+      <div style={{ marginTop: 2 }}>
+        <button type="button" data-testid="plan-block-objective-open" style={linkButton} onClick={() => void open()}>
+          how was this chosen?
+        </button>
+        {failed ? <span> (not available right now)</span> : null}
+      </div>
+    );
+  }
+  return (
+    <ul data-testid="plan-block-objective-trace" style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+      {lines.map((line, index) => (
+        <li key={index}>{line}</li>
+      ))}
+    </ul>
   );
 }
 

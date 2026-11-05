@@ -510,46 +510,61 @@ class _Model:
         fail = 1.0 - self.performance(state, at, belief=True)
         return weight[None, :] * fail
 
-    def _tail_block(self, state: _State, at: np.ndarray, mask: np.ndarray, day: int, slot0: int) -> None:
-        """One tail block: its practice opportunities on the top-ranked topics (adaptive to the belief)."""
+    def _practice_batch(self, state: _State, cols: np.ndarray, at: float, u: np.ndarray, active: np.ndarray) -> None:
+        """Practice opportunities at ``(draw, cols[draw, j])`` where ``active``, all at time ``at``: each row's
+        topics are distinct, so the updates are one vectorized step (:meth:`_practice`'s, elementwise)."""
 
-        if self.n == 0:
+        rows = np.broadcast_to(np.arange(self.k)[:, None], cols.shape)
+        r, c = rows[active], cols[active]
+        if r.size == 0:
             return
-        items = max(int(self.inputs.tail_block_items), 1)
-        priority = self._priority(state, float(np.max(at)))
-        order = np.argsort(-priority, axis=1, kind="stable")
-        u = self.streams.outcome_u[:, min(day, self.days), :]
-        for j in range(items):
-            column = order[:, j % self.n]
-            slot = (slot0 + j) % u.shape[1]
-            for lo in np.unique(column):
-                sub = mask & (column == lo)
-                if sub.any():
-                    self._practice(state, int(lo), at, u[:, slot], sub, 1.0)
+        eta = state.eta[r, c]
+        good = u[active] < sigmoid(eta)
+        d, s = self.fsrs.review(state.d[r, c], state.s[r, c], state.practiced[r, c], at - state.last[r, c], good)
+        p_bel = sigmoid(state.bel[r, c])
+        var = 1.0 / (1.0 / state.bel_var[r, c] + p_bel * (1 - p_bel))
+        bel = state.bel[r, c] + var * (good.astype(np.float64) - p_bel)
+        gm = float(self.inputs.learning.gamma[0])
+        state.d[r, c] = d
+        state.s[r, c] = s
+        state.practiced[r, c] = True
+        state.last[r, c] = at
+        state.eta[r, c] = eta + self.theta.gamma[r]
+        state.bel[r, c] = bel + gm
+        state.bel_var[r, c] = var
 
     def _session(self, state: _State, ledger: _Ledger, at: float, mask: np.ndarray, start: np.ndarray, day: int,
                  *, past_cutoff: bool, target: float | None = None) -> None:
         """A tail session from ``start`` session minutes to ``m̄`` (or ``target``: today's, for ``G``), in blocks
-        of ``d̄``, for the draws in ``mask``."""
+        of ``d̄`` with ``ī`` practice opportunities each, for the draws in ``mask``. The session's topics are
+        ranked once on the belief at its start (adaptive to the belief), the top ones practised in turn; its cost
+        is the κ integral from ``start`` over its blocks' minutes."""
 
         d = float(self.inputs.tail_block_minutes)
         if d <= 0 or self.n == 0:
             return
         goal = self.mbar if target is None else float(target)
-        minutes = start.copy()
-        slot = 0
-        while True:
-            go = mask & (minutes < goal - 1e-9)
-            if not go.any():
-                break
-            cost = np.where(go, self.cost(minutes, np.full(self.k, d)), 0.0)
-            if past_cutoff:
-                ledger.terminal_cost += cost
-            else:
-                ledger.tail_cost += cost
-            self._tail_block(state, np.full(self.k, at), go, day, slot)
-            slot += max(int(self.inputs.tail_block_items), 1)
-            minutes = np.where(go, minutes + d, minutes)
+        blocks = np.where(mask, np.ceil(np.maximum(goal - start, 0.0) / d - 1e-9), 0.0)
+        blocks = np.maximum(blocks, 0.0)
+        if not (blocks > 0).any():
+            return
+        cost = np.where(blocks > 0, self.cost(start, blocks * d), 0.0)
+        if past_cutoff:
+            ledger.terminal_cost += cost
+        else:
+            ledger.tail_cost += cost
+        items = max(int(self.inputs.tail_block_items), 1)
+        count = (blocks * items).astype(int)
+        total = int(count.max())
+        priority = self._priority(state, float(at))
+        order = np.argsort(-priority, axis=1, kind="stable")
+        u = self.streams.outcome_u[:, min(day, self.days), :]
+        for lap in range(0, total, self.n):
+            width = min(self.n, total - lap)
+            cols = order[:, :width]
+            slots = (lap + np.arange(width)) % u.shape[1]
+            active = (lap + np.arange(width))[None, :] < count[:, None]
+            self._practice_batch(state, cols, float(at), u[:, slots], active)
 
     def _score_interval(self, state: _State, ledger: _Ledger, a: float, b: float) -> None:
         if b <= a:
@@ -569,7 +584,8 @@ class _Model:
         ledger.tail_reward += p if mask is None else np.where(mask, p, 0.0)
 
     def run_tail(self, state: _State, ledger: _Ledger, *, today_minutes: np.ndarray | None, after: np.ndarray,
-                 dated_done: np.ndarray, today_target: float | None = None) -> None:
+                 dated_done: np.ndarray, today_target: float | None = None,
+                 recorder: dict[str, Any] | None = None) -> None:
         """The tail from the action's end: today's session continues to ``m̄`` unless ``today_minutes`` is None
         (the session ended), then a session after each return gap until ``C + H``. ``dated_done``: per draw and
         dated use, whether it was already scored (crossed during the action)."""
@@ -598,6 +614,9 @@ class _Model:
                     todo = ~dated_done[:, index]
                     if todo.any():
                         self._score_dated(state, ledger, use, todo)
+                    if recorder is not None and use.lo in self.index:
+                        recorder.setdefault("dated", {})[f"{use.goal_id}:{use.lo}"] = float(
+                            self.performance(state, use.at_days)[:, self.index[use.lo]].mean())
                     pending.remove((index, use))
             # Undated uses over this day's pieces (split at C), from the action's end on day 0.
             cuts = [b for b in boundaries if day_start < b < day_end]
@@ -614,6 +633,8 @@ class _Model:
                         ledger.tail_reward += reward
                 else:
                     self._score_interval(state, ledger, a, b)
+            if recorder is not None and 1 <= day <= int(recorder.get("days", 0)):
+                recorder.setdefault("daily", {})[day] = self.performance(state, day_start + 0.5).mean(axis=0)
             if day_end >= self.end:
                 break
 
@@ -880,6 +901,25 @@ def numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str,
                     "paired_se_top_two": precision, "rule": "argmax_qbar_ties_within_paired_se_by_support_order"}
 
 
+def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str) -> dict[str, Any]:
+    """§8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the
+    tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated
+    use's at its date."""
+
+    model = _Model(inputs, draws, seed)
+    ledger = _Ledger.zeros(model.k)
+    state = model.initial()
+    recorder: dict[str, Any] = {"days": int(window_days)}
+    session = np.full(model.k, float(inputs.session_minutes))
+    model.run_tail(state, ledger, today_minutes=session if float(inputs.session_minutes) < model.mbar else None,
+                   after=np.zeros(model.k), dated_done=np.zeros((model.k, len(model.dated)), dtype=bool),
+                   recorder=recorder)
+    daily = recorder.get("daily") or {}
+    per_topic = {topic.lo: [float(daily[day][i]) if day in daily else None for day in range(1, int(window_days) + 1)]
+                 for i, topic in enumerate(inputs.topics)}
+    return {"topics": per_topic, "dated": dict(recorder.get("dated") or {})}
+
+
 def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str) -> dict[float, float]:
     """``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from
     the start under the tail, then the tail; for the price's daily seed and the frontier."""
@@ -901,7 +941,7 @@ def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: 
 
 
 __all__ = [
-    "Action", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
+    "Action", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
     "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW", "STOP",
     "TAIL_VERSION", "TEACH_BACK", "TERMINAL_VERSION", "Topic", "Valued", "cutoff_for", "evaluate", "gain",
     "numeric_choice", "paired_standard_error",

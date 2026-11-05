@@ -8584,6 +8584,8 @@ export interface PlanBlockDto {
   whyKind: string | null;
   /** Router R2a: the receipts behind the why ("details"), or null. */
   whyDetails?: string | null;
+  /** Router objective RO4: the decision whose trace the why offers on demand (absent below the tag). */
+  objectiveDecisionId?: string | null;
   fallback: boolean;
   estMinutes: number;
   status: "done" | "current" | "upcoming";
@@ -8700,6 +8702,9 @@ export interface DailyPlanBodyDto {
   minutesSource: "chip" | "carried" | "generated";
   minuteChoices: number[];
   minutesLeft: number;
+  /** Router objective RO4: the plan's minutes are a suggestion; minutesLeft may be negative, shown as minutes past. */
+  minutesPastPlan?: number;
+  minutesAreASuggestion?: boolean;
   split: {
     rule: string | null;
     line: string;

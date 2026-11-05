@@ -90,6 +90,12 @@ class PlanState:
     #: the lane order ties go in (``lane_quota_v1``); new first in the plan
     #: after a re-entry plan (:data:`AFTER_REENTRY_LANE_PRIORITY`).
     lane_priority: tuple[str, ...] = LANES
+    #: Router objective RO4 (spec_router_objective_v1 §8.2): the plan's and the
+    #: lanes' minutes are a soft limit. The source packs every lane up to a
+    #: block's bound whatever minutes remain, ``minutes_left`` may be negative
+    #: (minutes past the plan), and stop is supported at every reversible
+    #: boundary. False: the predecessor's frame.
+    soft_budget: bool = False
 
 
 @dataclass(frozen=True)

@@ -49,6 +49,8 @@ SENTENCES: Mapping[str, str] = {
     "followup_only": "Following up today's mistakes.",
     "stop_minutes_used": "That's today's time.",
     "stop_nothing_fits": "Nothing else worth doing fits today.",
+    # Router objective RO4 (§8.2): a drawn stop is an offer; the learner can keep going.
+    "stop_offer": "A good place to stop for today. You can keep going if you like.",
 }
 
 #: The ``details`` line of a block the plan's rule chose (no model asked).
@@ -247,6 +249,28 @@ def model_why(
     return rule, "computed"
 
 
+#: Router objective RO4 (§8.3): the numeric policy's draw, in plain words.
+PICKED_BY_ESTIMATE = "LearnLoop's estimate of what helps most picked this."
+
+
+def objective_why(
+    component: str,
+    rule_sentence: str,
+    *,
+    option_count: int,
+    rationale: str | None = None,
+    rationale_shown: bool = False,
+) -> tuple[str, str]:
+    """``(why, why_kind)`` of a block the objective's mix chose (RO4), by the component that drew it: the LLM
+    policy as the mixture's LLM; the numeric policy's estimate (``computed``); staged's rule and the floor as
+    before."""
+
+    rule = (rule_sentence or "").strip()
+    if component == "numeric":
+        return f"{PICKED_BY_ESTIMATE} {rule}".strip(), "computed"
+    return model_why(component, rule, option_count=option_count, rationale=rationale, rationale_shown=rationale_shown)
+
+
 _SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
 _PROBABILITY_TEXT = re.compile(r"\b\d+(?:\.\d+)?\s*%|\b0\.\d+\b")
 
@@ -332,5 +356,7 @@ __all__ = [
     "rationale_guard",
     "sentence",
     "stop_code",
+    "objective_why",
+    "PICKED_BY_ESTIMATE",
     "topic_phrase",
 ]

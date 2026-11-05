@@ -260,6 +260,9 @@ sidecar_passthrough!(save_practice_draft, "save_practice_draft");
 // Adaptive hints H0: telemetry for an authored hint the practice screen revealed.
 sidecar_passthrough!(practice_record_hint_reveal, "practice.record_hint_reveal");
 sidecar_passthrough!(record_ask_availability, "record_ask_availability");
+// Router objective RO4: the "why" surface's trace on demand, and a goal's use weights.
+sidecar_passthrough!(router_objective_explain, "router_objective_explain");
+sidecar_passthrough!(set_goal_use_weight, "set_goal_use_weight");
 
 // Adaptive hints H2a/H2b: the practice screen's hint panel (a hint is a job:
 // request, read-and-deliver, cancel), a discriminating question's answer, and

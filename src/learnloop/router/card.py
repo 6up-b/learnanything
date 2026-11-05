@@ -117,6 +117,10 @@ class CardInputs:
     #: TE0's kill switch (``teacher.confidence_events_enabled``): off, the
     #: card is the predecessor's (``PREDECESSOR_CARD_VERSION``).
     confidence_enabled: bool = True
+    #: Router objective RO4 (spec_router_objective_v1 §8.4, card v3): the text renders each candidate's goal
+    #: dates and days to them, which the typed card already holds (``intent``'s deadlines). False: the
+    #: predecessor's card byte for byte.
+    goal_dates: bool = False
 
 
 @dataclass(frozen=True)
@@ -213,6 +217,7 @@ def render_text(card: Mapping[str, Any]) -> str:
         lines.append(
             f"- [{candidate.get('ref')}] {candidate.get('kind')} · {candidate.get('est_minutes')} min · "
             f"{candidate.get('item_count', 0)} items · {topics} · {flags} · reason {candidate.get('reason_code')}"
+            + (_goal_dates(card, candidate) if card.get("goal_dates") else "")
         )
     lines.append("# Topics")
     for lo_id, row in sorted((card.get("learning_objects") or {}).items()):
@@ -292,6 +297,31 @@ def render_text(card: Mapping[str, Any]) -> str:
             "older attempts left out)"
         )
     return "\n".join(lines) + "\n"
+
+
+def _goal_dates(card: Mapping[str, Any], candidate: Mapping[str, Any]) -> str:
+    """RO4 card v3: a candidate's goal dates and the days to each (from the typed card's ``intent``)."""
+
+    from learnloop.clock import parse_utc
+
+    decided = parse_utc(str((card.get("decision") or {}).get("decided_at") or ""))
+    intent = card.get("intent") or {}
+    dates: list[str] = []
+    for lo in candidate.get("learning_object_ids") or ():
+        deadline = (intent.get(lo) or {}).get("deadline")
+        due = parse_utc(str(deadline)) if deadline else None
+        if due is None or decided is None:
+            continue
+        days = (due - decided).total_seconds() / 86400.0
+        entry = f"goal date {str(deadline)[:10]} in {days:.1f} days"
+        if entry not in dates:
+            dates.append(entry)
+    return " · " + "; ".join(dates) if dates else " · no dated goal"
+
+
+#: Router objective RO4 (spec_router_objective_v1 §8.4): the card's version when its text renders the goal
+#: dates (``CardInputs.goal_dates``); without them the card and its version are the predecessor's.
+CARD_V3 = "learner_state_card_v3"
 
 
 #: Teacher TE1b (spec_teacher_v1 §15.1; codex review F5): the learner's answers to Today's lesson
@@ -413,6 +443,8 @@ def _marks_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]:
 
 def _card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None = None) -> str:
     base = CARD_VERSION if inputs.confidence_enabled else PREDECESSOR_CARD_VERSION
+    if inputs.goal_dates:
+        base = CARD_V3 if inputs.confidence_enabled else CARD_V3 + "-no-confidence"
     version = base + "+ad23" if any(
         "adaptive_difficulty" in row for row in (inputs.learning_objects or {}).values()) else base
     sections = inputs.evidence_sections if evidence_sections is None else evidence_sections
@@ -497,6 +529,9 @@ def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mappin
                        if key not in _METADATA_TRUNCATION_KEYS
                        and (notice or key != "dropped_confidence_events")},
     }
+    if inputs.goal_dates:
+        # RO4 card v3: present only then, so the predecessor's typed card is unchanged.
+        card["goal_dates"] = True
     # TE0: present only with confidence data, so a card without any is the
     # predecessor's card in every typed field (only the version differs).
     events = inputs.confidence_7d if confidence is None else confidence
@@ -629,6 +664,7 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
 
 __all__ = [
     "AD_CARD_VERSION",
+    "CARD_V3",
     "CARD_VERSION",
     "MARKS_CARD_SUFFIX",
     "MARKS_SECTION",

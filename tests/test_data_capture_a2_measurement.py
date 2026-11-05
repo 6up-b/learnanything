@@ -76,6 +76,12 @@ def _reading_env(tmp_path, monkeypatch, *, choice, toml=DECIDER_ONLY, version=TA
     monkeypatch.setattr(engine, "deliverable_plan_active", lambda _vault: False)
     monkeypatch.setattr(M, "reading_learning_objects", lambda _vault, _repo, _target: list(los))
     runtime = fake_runtime(decider=FakeDecider(choice=choice), seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))
+    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_VERSIONS
+
+    if version in ROUTER_OBJECTIVE_VERSIONS:
+        # These steer R2b's mixture with a Decider; at router objective RO4's tag the Decider is advice only, so the
+        # frame they exercise is the objective switched off (RO4's own arms: tests/test_ro4_objective_serving.py).
+        toml = f"{toml or ''}\n[router_objective]\nenabled = false\n"
     return mixture_env(tmp_path, runtime, version=version, toml=toml)
 
 

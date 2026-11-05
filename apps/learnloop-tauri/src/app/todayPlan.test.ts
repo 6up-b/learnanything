@@ -116,6 +116,20 @@ describe("planSentence", () => {
     expect(planSentence(plan({}))).toBeNull();
   });
 
+  it("says the plan's minutes are a suggestion under the router objective (RO4), and the minutes past them", () => {
+    const current = block({ id: "b1", learningObjectTitles: ["Bayes"] });
+    expect(planSentence(plan({ minutesAreASuggestion: true, blocks: [current], currentBlockId: "b1" }))).toBe(
+      "About 25 minutes suggested today: 1 short question from earlier days."
+    );
+    const begun = [block({ id: "b0", status: "done" }), block({ id: "b1", startedAt: "2026-10-26T10:00:00Z" })];
+    expect(planSentence(plan({ minutesAreASuggestion: true, minutesLeft: -6, minutesPastPlan: 6, blocks: begun, currentBlockId: "b1" }))).toBe(
+      "About 6 minutes past today's suggested time: 1 short question from earlier days."
+    );
+    expect(planSentence(plan({ minutesAreASuggestion: true, minutesLeft: 8, minutesPastPlan: 0, blocks: begun, currentBlockId: "b1" }))).toBe(
+      "About 8 minutes left of today's suggested time: 1 short question from earlier days."
+    );
+  });
+
   it("lists the remaining blocks as rows, without the finished ones", () => {
     const rows = todayRows(plan({ blocks: [block({ id: "b0", status: "done" }), block({ id: "b1", lane: "repair", learningObjectTitles: ["A", "B", "C"] })], currentBlockId: "b1" }));
     expect(rows.map((row) => [row.text, row.minutes, row.current])).toEqual([["Fix a mix-up · A, B and more", "about 5 min", true]]);

@@ -195,6 +195,16 @@ export function planSentence(plan: Plan): string | null {
   }
   if (phrases.length === 0) return null;
   const begun = plan.blocks.some((block) => block.status === "done" || Boolean(block.startedAt));
+  if (plan.minutesAreASuggestion) {
+    // Router objective RO4: the plan's minutes are a suggestion; past them, say so plainly.
+    const past = Math.round(plan.minutesPastPlan ?? 0);
+    const suggested = begun
+      ? past > 0
+        ? `About ${minutesWord(past)} past today's suggested time`
+        : `About ${minutesWord(Math.max(1, Math.round(plan.minutesLeft)))} left of today's suggested time`
+      : `About ${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} suggested today`;
+    return `${suggested}: ${joinPhrases(phrases)}.`;
+  }
   const head = begun
     ? `About ${minutesWord(Math.max(1, Math.round(plan.minutesLeft)))} left today`
     : `${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} today`;
