@@ -74,7 +74,13 @@ ROW_LIMITS: Mapping[str, int] = {
     # Codex review F6: H2's inquiries read directly, their exchanges (branch links) and roots, and the
     # logged status changes that place each root's status at the serve.
     "inquiries": 100, "exchanges": 200, "inquiry_roots": 100, "status_changes": 400,
+    # Codex re-review F7: the newest inquiries of any LO, for those only the anchor's mapping at the serve
+    # places on the scope (the scope's own are selected before the limit, ``inquiries``).
+    "recent_inquiries": 100,
 }
+#: ``keep`` (Codex re-review F8): the most reads up the inquiry branch links in one serve, sharing the
+#: ``exchanges`` row budget; past either, the unread ancestry is ``unknown``. A work bound, never a judgement.
+ANCESTRY_ROUNDS = 16
 #: ``keep``: the text bound of one entry (a whole answer, a help text, a question, a digest; bytes).
 ANSWER_TEXT_LIMIT = 4_000
 TEXT_LIMIT = 1_500
@@ -179,8 +185,9 @@ class _Reads:
         self.scope_items = sorted({str(found.id) for lo_id in self.scope
                                    for found in view.items(learning_object_id=lo_id)} | {str(item.id)})
 
-    def _bounded(self, name: str, table: str, where: str, args: Sequence[Any], order: str) -> list[dict[str, Any]]:
-        limit = ROW_LIMITS[name]
+    def _bounded(self, name: str, table: str, where: str, args: Sequence[Any], order: str, *,
+                 limit: int | None = None) -> list[dict[str, Any]]:
+        limit = ROW_LIMITS[name] if limit is None else limit
         read = self.view.rows(self.connection, table, where, tuple(args), order=order, limit=limit)
         if len(read) >= limit:
             self.limits_reached.append(name)
@@ -243,18 +250,39 @@ class _Reads:
                              "AND dismissed_at IS NULL",
                              (*extractions, self.served_at), "created_at DESC, id DESC")
 
-    def inquiries(self) -> list[dict[str, Any]]:
+    def inquiries(self, *, scoped: bool) -> list[dict[str, Any]]:
         """The learner's Reader and library questions known at the serve, newest first (Codex review F6:
-        read directly, answered or not; the caller keeps those on the scope's LOs)."""
+        read directly, answered or not; the caller keeps those on the scope's LOs by the full rule).
+
+        ``scoped`` (Codex re-review F7): the questions that name the scope by what they recorded (a
+        candidate LO recorded at the ask, an item of the scope, a note on a scope LO), selected before
+        the row limit so questions on other LOs never displace them. Otherwise the newest questions on
+        any LO, for the ones only the anchor's mapping at the serve places on the scope."""
 
         available = available_sql(self.connection, "question_events")
-        marks = _marks(sorted(READER_CONTEXTS))
-        return self._bounded("inquiries", "question_events", f"context IN ({marks}) AND {available} <= ?",
-                             (*sorted(READER_CONTEXTS), self.served_at), "created_at DESC, id DESC")
+        contexts = sorted(READER_CONTEXTS)
+        if not scoped:
+            return self._bounded("recent_inquiries", "question_events",
+                                 f"context IN ({_marks(contexts)}) AND {available} <= ?",
+                                 (*contexts, self.served_at), "created_at DESC, id DESC")
+        scope = set(self.scope)
+        notes = sorted(str(note_id) for note_id, note in (getattr(self.vault, "notes", None) or {}).items()
+                       if {str(lo) for lo in getattr(note, "related_los", None) or []} & scope)
+        # An unparseable context names nothing (json_each of NULL is empty), never an error.
+        candidates = ("EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(source_context_json) THEN "
+                      "source_context_json END, '$.candidate_learning_object_ids') WHERE value IN "
+                      f"({_marks(self.scope)}))")
+        return self._bounded(
+            "inquiries", "question_events",
+            f"context IN ({_marks(contexts)}) AND {available} <= ? AND ({candidates} OR practice_item_id IN "
+            f"({_marks(self.scope_items)}) OR note_id IN ({_marks(notes)}))",
+            (*contexts, self.served_at, *self.scope, *self.scope_items, *notes), "created_at DESC, id DESC")
 
-    def exchanges(self, *, question_ids: Sequence[str] = (), event_ids: Sequence[str] = ()) -> list[dict[str, Any]]:
+    def exchanges(self, *, question_ids: Sequence[str] = (), event_ids: Sequence[str] = (),
+                  limit: int | None = None) -> list[dict[str, Any]]:
         """Completed Reader exchanges (``reader_answer_submitted``) of these questions or with these ids,
-        known at the serve: their payload carries the branch link (``parent_exchange_id``)."""
+        known at the serve: their payload carries the branch link (``parent_exchange_id``). ``limit``:
+        what is left of the inquiry ancestry's shared row budget (Codex re-review F8)."""
 
         if not question_ids and not event_ids:
             return []
@@ -263,7 +291,7 @@ class _Reads:
             "exchanges", "interaction_events",
             f"kind = 'reader_answer_submitted' AND (json_extract(payload_json, '$.question_event_id') IN "
             f"({_marks(question_ids)}) OR id IN ({_marks(event_ids)})) AND {available} <= ?",
-            (*question_ids, *event_ids, self.served_at), "created_at DESC, id DESC")
+            (*question_ids, *event_ids, self.served_at), "created_at DESC, id DESC", limit=limit)
 
     def status_changes(self, question_ids: Sequence[str]) -> list[dict[str, Any]]:
         """Every logged inquiry status change of these root questions (``inquiry_status_set``), whenever
@@ -333,20 +361,30 @@ def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str
     serve is the last logged change at or before it, else the first later change's
     ``previous_resolution``, else the stored value when it is still the default ``open``; a status a
     path changed without logging is ``unknown`` (its time is not recorded). Every read is bounded and
-    through the view (a withheld question, exchange or change is absent). Returns the entries and the
-    readings they were asked on (for the digests)."""
+    through the view (a withheld question, exchange or change is absent): the scope's questions are
+    selected before their row limit (Codex re-review F7), and the walk up the branch links shares one
+    row budget and :data:`ANCESTRY_ROUNDS` reads, past which an inquiry's root and status are
+    ``unknown`` and ``inquiry_ancestry`` is listed among the reads that reached their limit (F8).
+    Returns the entries and the readings they were asked on (for the digests)."""
 
     from learnloop.adaptive_difficulty.reading import VaultReadingMap
 
     days = reads.days
     mapping = VaultReadingMap(vault, reads.view.repository, reads.view)
     scope = set(reads.scope)
-    kept = [row for row in reads.inquiries()
-            if days(row.get("created_at")) is not None and _inquiry_los(reads, mapping, row) & scope]
+    # Codex re-review F7: the scope's own questions, selected before the limit, and the newest of any LO
+    # that the anchor's mapping at the serve places on the scope; newest first, one row limit in all.
+    union = {str(row["id"]): row for row in reads.inquiries(scoped=False) + reads.inquiries(scoped=True)}
+    kept = sorted((row for row in union.values()
+                   if days(row.get("created_at")) is not None and _inquiry_los(reads, mapping, row) & scope),
+                  key=lambda row: (str(row.get("created_at") or ""), str(row["id"])), reverse=True)
+    if len(kept) > ROW_LIMITS["inquiries"]:
+        kept = kept[: ROW_LIMITS["inquiries"]]
+        reads.limits_reached.append("inquiries")
     question_of: dict[str, str] = {}
     parent_of: dict[str, str] = {}
 
-    def link(exchanges: list[dict[str, Any]]) -> None:
+    def link(exchanges: list[dict[str, Any]]) -> int:
         for exchange in exchanges:
             payload = _json(exchange.get("payload_json"), {})
             if not isinstance(payload, Mapping) or not payload.get("question_event_id"):
@@ -354,16 +392,29 @@ def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str
             question_of[str(exchange["id"])] = str(payload["question_event_id"])
             if payload.get("parent_exchange_id"):
                 parent_of.setdefault(str(payload["question_event_id"]), str(payload["parent_exchange_id"]))
+        return len(exchanges)
 
-    link(reads.exchanges(question_ids=[str(row["id"]) for row in kept]))
+    # Codex re-review F8: one row budget (the exchanges' limit) and at most ANCESTRY_ROUNDS reads up the
+    # branch links, shared by every inquiry; past it the unread parents are unresolved ancestry.
+    budget = ROW_LIMITS["exchanges"] - link(reads.exchanges(question_ids=[str(row["id"]) for row in kept]))
+    # A first read that used the whole budget may have left a question's own exchange unread.
+    unread = {str(row["id"]) for row in kept} - set(question_of.values()) if budget <= 0 else set()
     asked: set[str] = set()
     pending = {parent for parent in parent_of.values() if parent not in question_of}
-    while pending:  # up the branch links, each parent asked once (a cycle or a missing parent ends it)
+    rounds = 0
+    while pending and budget > 0 and rounds < ANCESTRY_ROUNDS:  # each parent asked once (a cycle ends it)
+        rounds += 1
         asked |= pending
-        link(reads.exchanges(event_ids=sorted(pending)))
+        budget -= link(reads.exchanges(event_ids=sorted(pending), limit=budget))
         pending = {parent for parent in parent_of.values() if parent not in question_of and parent not in asked}
+    if pending or unread:
+        reads.limits_reached.append("inquiry_ancestry")
 
-    def root(question_id: str) -> str:
+    def root(question_id: str) -> str | None:
+        """The inquiry's root question, ``None`` when the walk stops at a link the budget left unread."""
+
+        if question_id in unread:
+            return None
         seen = {question_id}
         while parent_of.get(question_id) in question_of:
             nxt = question_of[parent_of[question_id]]
@@ -371,9 +422,10 @@ def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str
                 break
             seen.add(nxt)
             question_id = nxt
-        return question_id
+        return None if parent_of.get(question_id) in pending else question_id
 
-    roots = {str(row["id"]): root(str(row["id"])) for row in kept}
+    found = {str(row["id"]): root(str(row["id"])) for row in kept}
+    roots = {question_id: root_id for question_id, root_id in found.items() if root_id is not None}
     current = {str(row["id"]): str(row.get("resolution") or "open") for row in kept}
     missing = sorted(set(roots.values()) - set(current))
     current.update({str(row["id"]): str(row.get("resolution") or "open") for row in reads.questions_by_id(missing)})
@@ -397,13 +449,16 @@ def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str
     entries, extractions = [], set()
     for row in kept:
         question_id = str(row["id"])
-        state = status(roots[question_id])
+        root_id = roots.get(question_id)
+        # Past the ancestry budget the root and its status are unknown (Codex re-review F8).
+        state = status(root_id) if root_id is not None else "unknown"
         answered_at = row.get("answered_at")
         answered = (days(answered_at) is not None) if answered_at else row.get("answer_status") == "answered"
         entries.append({"evidence_id": f"question:{question_id}", "days_before": days(row.get("created_at")),
                         "context": row.get("context"), "question": _excerpt(row.get("question_md"), TEXT_LIMIT),
                         "tutor_answered": bool(answered),
-                        "root": None if roots[question_id] == question_id else f"question:{roots[question_id]}",
+                        "root": "unknown" if root_id is None else None if root_id == question_id
+                        else f"question:{root_id}",
                         "status": state, "open": state == "open"})
         context = _json(row.get("source_context_json"), {})
         if isinstance(context, Mapping) and context.get("extraction_id"):
@@ -650,5 +705,5 @@ def evidence_ids(state: Mapping[str, Any]) -> set[str]:
     return found
 
 
-__all__ = ["CARD_VERSION", "ROW_LIMITS", "RUNGS", "SECTIONS", "available_sql", "build_sections", "evidence_ids",
+__all__ = ["ANCESTRY_ROUNDS", "CARD_VERSION", "ROW_LIMITS", "RUNGS", "SECTIONS", "available_sql", "build_sections", "evidence_ids",
            "rung_card"]

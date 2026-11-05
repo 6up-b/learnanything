@@ -477,6 +477,10 @@ _reg_const("router_objective_question_state:_WORKED_LEVEL", "constraint", kind="
 _reg_const("ad_history_card:ROW_LIMITS", "operational", kind="structural", owner="ad_history_card",
            rationale="keep: each bounded read's row limit before any trimming, so the serve transaction's work is "
            "bounded (spec 6.3); a work bound, never a judgement; the card says which reads reached it.")
+_reg_const("ad_history_card:ANCESTRY_ROUNDS", "operational", kind="structural", owner="ad_history_card",
+           rationale="keep (Codex re-review F8): the most reads up the inquiry branch links in one serve, sharing "
+           "the exchanges row budget, so a long thread's work is bounded; past it the root and status are "
+           "unknown and the card says so (inquiry_ancestry). A work bound, never a judgement.")
 _reg_const("ad_history_card:ANSWER_TEXT_LIMIT", "operational", kind="structural", owner="ad_history_card",
            rationale="keep: one whole answer's text bound on the card (prompt size), never a judgement.")
 _reg_const("ad_history_card:TEXT_LIMIT", "operational", kind="structural", owner="ad_history_card",

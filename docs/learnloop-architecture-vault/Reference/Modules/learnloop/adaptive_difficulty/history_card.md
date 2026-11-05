@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/history_card.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/history_card.py"
-source_commit: "workspace/uncommitted @ HEAD 5a4f18feff72f2759ad90fe426bc5021ea5948f1"
-source_commit_timestamp: "2026-11-04T23:02:05-05:00"
+source_commit: "workspace/uncommitted @ HEAD 8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b"
+source_commit_timestamp: "2026-11-05T00:29:18-05:00"
 source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
@@ -50,20 +50,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py) |
-| Source lines | 654 |
+| Source lines | 709 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 5a4f18feff72f2759ad90fe426bc5021ea5948f1` |
-| Commit timestamp | `2026-11-04T23:02:05-05:00` |
+| Source commit | `workspace/uncommitted @ HEAD 8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b` |
+| Commit timestamp | `2026-11-05T00:29:18-05:00` |
 
 ## Public API
 
-- `available_sql(connection: Any, table: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 104) — A table's availability time in SQL: ``coalesce(received_at, created_at)`` where it has ``received_at``, else ``created_at`` (spec §6.3).
-- `build_sections(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 414) — Every rung's sections, from the bounded reads (oldest entry first in each list), with the clocks' input (days since the latest exposure to the LO) and the reads that hit their limit.
-- `rung_card(vault: Any, item: Any, built: Mapping[str, Any], rung: str, *, budget: int) -> tuple[dict[str, Any], dict]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 595) — The state sent for ``rung``: the served item, the rung's sections and every lower rung's, held to ``budget`` bytes by trimming oldest first within each rung (one entry per rung per round), with what it left out.
-- `evidence_ids(state: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 642) — Every evidence id a card carries (the rationale's citations are checked against it, unvalidated).
+- `available_sql(connection: Any, table: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 110) — A table's availability time in SQL: ``coalesce(received_at, created_at)`` where it has ``received_at``, else ``created_at`` (spec §6.3).
+- `build_sections(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 469) — Every rung's sections, from the bounded reads (oldest entry first in each list), with the clocks' input (days since the latest exposure to the LO) and the reads that hit their limit.
+- `rung_card(vault: Any, item: Any, built: Mapping[str, Any], rung: str, *, budget: int) -> tuple[dict[str, Any], dict]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 650) — The state sent for ``rung``: the served item, the rung's sections and every lower rung's, held to ``budget`` bytes by trimming oldest first within each rung (one entry per rung per round), with what it left out.
+- `evidence_ids(state: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 697) — Every evidence id a card carries (the rationale's citations are checked against it, unvalidated).
 
 ### Module constants
 
@@ -71,16 +71,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `RUNGS` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 62)
 - `SECTIONS` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 64)
 - `ROW_LIMITS` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 71)
-- `ANSWER_TEXT_LIMIT` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 79)
-- `TEXT_LIMIT` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 80)
-- `GAP_TEXT_LIMIT` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 81)
-- `EXAM_TYPES` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 82)
-- `READER_CONTEXTS` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 83)
+- `ANCESTRY_ROUNDS` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 83)
+- `ANSWER_TEXT_LIMIT` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 85)
+- `TEXT_LIMIT` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 86)
+- `GAP_TEXT_LIMIT` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 87)
+- `EXAM_TYPES` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 88)
+- `READER_CONTEXTS` ([src/learnloop/adaptive_difficulty/history_card.py](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 89)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `ANCESTRY_ROUNDS`
 - `CARD_VERSION`
 - `ROW_LIMITS`
 - `RUNGS`
@@ -92,20 +94,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_excerpt(text: Any, limit: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 86)
-- `_json(value: Any, default: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 91)
-- `_columns(connection: Any, table: str) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 100)
-- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 114)
-- `class _Days` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 118)
-- `_result(correctness: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 129)
-- `_withheld(vault: Any, view: Any, attempts: Sequence[Mapping[str, Any]]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 140) — ``learner_protection``'s set over what the view lets AD see: the withheld items (the view's) and the diagnostic probes (the vault's own modes); unknown items are withheld by ``known_items``.
-- `_protection(withheld: Any, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 161)
-- `class _Reads` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 168) — Every bounded read the card makes, once per serve (shared by the rungs).
-- `_topic(vault: Any, lo_id: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 294)
-- `_oldest_first(entries: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 299)
-- `_inquiry_los(reads: _Reads, mapping: Any, row: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 303) — The LOs a Reader question is on, by the reading sweep's rule (``reading_sources``' tutor events: its anchor span's LOs, a note's, its item's) and the candidate LOs it recorded at the ask.
-- `_inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 326) — H2's inquiries (Codex review F6): the learner's Reader and library questions on the scope's LOs, known at the serve, answered by the tutor or not, each with its inquiry's status at the serve.
-- `_size(state: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 591)
+- `_excerpt(text: Any, limit: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 92)
+- `_json(value: Any, default: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 97)
+- `_columns(connection: Any, table: str) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 106)
+- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 120)
+- `class _Days` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 124)
+- `_result(correctness: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 135)
+- `_withheld(vault: Any, view: Any, attempts: Sequence[Mapping[str, Any]]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 146) — ``learner_protection``'s set over what the view lets AD see: the withheld items (the view's) and the diagnostic probes (the vault's own modes); unknown items are withheld by ``known_items``.
+- `_protection(withheld: Any, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 167)
+- `class _Reads` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 174) — Every bounded read the card makes, once per serve (shared by the rungs).
+- `_topic(vault: Any, lo_id: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 322)
+- `_oldest_first(entries: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 327)
+- `_inquiry_los(reads: _Reads, mapping: Any, row: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 331) — The LOs a Reader question is on, by the reading sweep's rule (``reading_sources``' tutor events: its anchor span's LOs, a note's, its item's) and the candidate LOs it recorded at the ask.
+- `_inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 354) — H2's inquiries (Codex review F6): the learner's Reader and library questions on the scope's LOs, known at the serve, answered by the tutor or not, each with its inquiry's status at the serve.
+- `_size(state: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_card.py), line 646)
 
 ## Who imports or calls it
 
@@ -144,7 +146,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_inquiry_ancestry_reads_within_a_shared_budget_and_says_unknown_past_it`
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
+  - `test_unrelated_inquiries_never_displace_the_scopes_inquiries`
 
 ## Modification guidance
 

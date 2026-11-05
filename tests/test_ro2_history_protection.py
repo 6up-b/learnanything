@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import closing
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -305,6 +306,88 @@ def test_h2_carries_open_inquiries_by_their_status_at_the_serve(tmp_path):
     assert inquiries["question:qe_branch"]["root"] == "question:qe_open" and inquiries["question:qe_branch"]["open"]
     assert inquiries["question:qe_pending"]["question"] == "INQUIRY qe_pending"
     assert "TUTOR-ANSWER-TEXT" not in json.dumps(cards["H3"])
+
+
+def _reader_question(connection, question_id: str, los: list[str], created: str, **extra) -> None:
+    _insert(connection, "question_events", {
+        "id": question_id, "context": "reader", "question_md": f"INQUIRY {question_id}", "answer_status": "answered",
+        "answered_at": created, "resolution": "open", "created_at": created,
+        "source_context_json": json.dumps({"candidate_learning_object_ids": los, "extraction_id": "ext_any"}), **extra})
+
+
+def _exchange(connection, event_id: str, question_id: str, parent: str | None, created: str) -> None:
+    _insert(connection, "interaction_events", {
+        "id": event_id, "kind": "reader_answer_submitted", "origin": "system", "subject_type": "reader_span",
+        "subject_id": "span:ext_any/sp_1", "created_at": created,
+        "payload_json": json.dumps({"question_event_id": question_id, "parent_exchange_id": parent,
+                                    "extraction_id": "ext_any", "span_id": "sp_1"})})
+
+
+def _built(paths, item_id: str, served_at: str, statements: list[str] | None = None) -> dict:
+    """``build_sections``' output, every statement its connection ran collected in ``statements``."""
+
+    from learnloop.adaptive_difficulty import history_card as HC
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    with ad_operation(vault, repository, read_only=True) as op:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            if statements is not None:
+                connection.set_trace_callback(statements.append)
+            return HC.build_sections(op.vault, connection, op.view.item(item_id), served_at=served_at, view=op.view)
+
+
+def test_unrelated_inquiries_never_displace_the_scopes_inquiries(tmp_path):
+    """Codex re-review F7: the inquiry read selects the scope's inquiries before its row limit, so a
+    hundred newer Reader questions on another LO leave the target LO's one in H2, with the reading it
+    was asked on (fails before the fix: the newest 100 across every LO were read and filtered after)."""
+
+    from learnloop.adaptive_difficulty import history_card as HC
+    from tests.ad_fakes import ad_plan_vault
+
+    paths = ad_plan_vault(tmp_path)
+    limit = HC.ROW_LIMITS["inquiries"]
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        _reader_question(connection, "qe_target", ["lo_m1"], "2026-10-01T09:00:00Z")
+        for index in range(limit):
+            _reader_question(connection, f"qe_other_{index:03d}", ["lo_elsewhere"], BEFORE)
+    built = _built(paths, "pi_m1a", SERVED)
+    inquiries = [entry["evidence_id"] for entry in built["sections"]["inquiries"]]
+    assert inquiries == ["question:qe_target"]
+    assert inquiries == [e["evidence_id"] for e in _cards(paths, "pi_m1a", SERVED)["H2"]["history"]["inquiries"]]
+
+
+def test_inquiry_ancestry_reads_within_a_shared_budget_and_says_unknown_past_it(tmp_path):
+    """Codex re-review F8: a branch chain longer than the ancestry budget costs a bounded number of
+    reads, records the truncation, and gives the scoped inquiry an unknown root and status (never the
+    furthest ancestor read as if it were the root); a short chain still resolves to its root (fails
+    before the fix: one read per ancestor, 300 ancestors 300 reads)."""
+
+    from learnloop.adaptive_difficulty import history_card as HC
+    from tests.ad_fakes import ad_plan_vault
+
+    paths = ad_plan_vault(tmp_path)
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        depth = 300
+        for index in range(depth + 1):  # q_000 is the root; q_300, the newest branch, is on the scope
+            stamp = (datetime(2026, 10, 1, tzinfo=timezone.utc) + timedelta(minutes=index)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            _reader_question(connection, f"q_{index:03d}", ["lo_m1"] if index == depth else ["lo_elsewhere"], stamp)
+            _exchange(connection, f"ex_{index:03d}", f"q_{index:03d}", f"ex_{index - 1:03d}" if index else None, stamp)
+        _reader_question(connection, "q_short_root", ["lo_m1"], BEFORE)
+        _exchange(connection, "ex_short_root", "q_short_root", None, BEFORE)
+        _reader_question(connection, "q_short_branch", ["lo_m1"], BEFORE)
+        _exchange(connection, "ex_short_branch", "q_short_branch", "ex_short_root", BEFORE)
+    statements: list[str] = []
+    built = _built(paths, "pi_m1a", SERVED, statements)
+    exchange_reads = [s for s in statements if "reader_answer_submitted" in s and "FROM interaction_events" in s]
+    assert len(exchange_reads) <= HC.ANCESTRY_ROUNDS + 1, len(exchange_reads)
+    assert "inquiry_ancestry" in built["row_limits_reached"]
+    inquiries = {entry["evidence_id"]: entry for entry in built["sections"]["inquiries"]}
+    assert (inquiries["question:q_300"]["root"], inquiries["question:q_300"]["status"],
+            inquiries["question:q_300"]["open"]) == ("unknown", "unknown", False)
+    assert (inquiries["question:q_short_branch"]["root"], inquiries["question:q_short_branch"]["status"]) == (
+        "question:q_short_root", "open")
 
 
 @pytest.mark.parametrize("version", ["mvp-0.22", "mvp-0.46"], ids=["below_tag", "tag"])

@@ -130,3 +130,95 @@ The 159 files are:
   - `test_registry_audit.py`
 
 The exact list is in `docs/reviews/router-ro2-codex-review.targeted-tests.txt`.
+
+## Re-review (job `20261105-002958-O9NnwK`) and fixes
+
+Codex reviewed `5a4f18feff..router/ro2-forecaster`. It confirmed F1 to F6 fixed (the reversed-predictor slope
+converged to -0.425324) and reopened the stage on two new retrieval defects in H2's inquiries. I reproduced both with a
+failing test first, then fixed them.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1-F6 | | (above) | confirmed fixed by Codex | `8af1a25c40` | (above) |
+| F7 | Medium | Unrelated inquiries displace inquiries on the target LO | fixed | (this commit) | `tests/test_ro2_history_protection.py::test_unrelated_inquiries_never_displace_the_scopes_inquiries` (before the fix: H2 held `[]`, not the target inquiry) |
+| F8 | Medium | Inquiry ancestry bypasses the bounded retrieval budget | fixed | (this commit) | `tests/test_ro2_history_protection.py::test_inquiry_ancestry_reads_within_a_shared_budget_and_says_unknown_past_it` (before the fix: 301 exchange reads for a 300-ancestor chain; after it, at most 17) |
+
+No finding was rejected.
+
+### What changed (`history_card.py`, one registry entry)
+
+- **F7.** The inquiry read now selects the scope's own questions in SQL, before its row limit. A question counts as on
+  the scope when it has:
+  - a candidate LO recorded at the ask (`json_each` over `source_context_json`, guarded by `json_valid`, so a
+    malformed context names nothing), or
+  - an item of the scope, or
+  - a note whose `related_los` meet the scope.
+
+  Every Reader question records its span's candidate LOs at the ask (`tutor_qa`), so this covers the Reader path. A
+  second read, `recent_inquiries` (100, `keep`), keeps the old newest-of-any-LO read. It catches the questions that
+  only the anchor's mapping at the serve places on the scope, for example after an LO's provenance changed since the
+  ask. The union is filtered by the full rule as before, newest first, under one `inquiries` limit. So questions on
+  another LO can no longer push the target LO's inquiries, or the digests of the readings they were asked on, out of
+  H2. Protection and availability are unchanged: every read still goes through the view with the availability
+  predicate.
+- **F8.** The walk up the branch links now shares one row budget, the `exchanges` limit (200), with the first exchange
+  read. It also makes at most `ANCESTRY_ROUNDS = 16` reads. That is a new `keep` work bound, registered as
+  `ad_history_card:ANCESTRY_ROUNDS`, structural. So one serve makes at most 17 exchange reads. If either bound runs out:
+  - parents left unread are unresolved;
+  - an inquiry whose walk stops at one gets `root: "unknown"`, `status: "unknown"` and `open: false`;
+  - so does an inquiry whose own exchange the first read did not reach;
+  - the card lists `inquiry_ancestry` under `row_limits_reached`.
+
+  The furthest ancestor read is never presented as the root. A chain within the budget resolves as before.
+- Spec §6.6 ("What it reads") now says how the scoped selection and the ancestry bound work.
+- The module catalog is regenerated.
+
+### Re-review process notes
+
+- Early in this step I fixed a timestamp expression in the new test with a one-off `python3` text substitution, outside
+  the `env -i` wrapper. It used the system Python, imported nothing from LearnLoop and touched no network, vault or
+  config. It was a rule slip, the same one recorded above: after it I used only the Edit tool.
+- No live or paid call was made. Fakes only. None of the owner's off-limits paths was touched.
+- The paid route is unchanged from the section above: 2 calls per eligible presentation (H3 plus one drawn rung),
+  enabled by default through `adaptive_difficulty.outside_forecasters`, with the same token figures. The F7 and F8 fixes
+  add no call. They change only which inquiry rows the card can hold, and the card stays within the same 48,000-byte
+  budget.
+
+### Re-review gate (this step; the full suite runs once at landing)
+
+| What ran | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0` | ok |
+| `uv run lint-imports --no-cache` (under `env -i`, frozen cycles included) | 43 kept, 0 broken |
+| Both new tests on the pre-fix source | 2 failed, as expected (F7: `[]`; F8: 301 reads) |
+| `tests/test_ro2_history_protection.py` after the fix | 11 passed |
+| Targeted, `systemd-run ... MemoryMax=5G -- uv run pytest -n 6`, 78 files (list below) | 7074 passed, 12 skipped, 1 xfailed, 0 failed (47 min 44 s) |
+| `--durable-sqlite`: `test_ro2_history_protection.py`, `test_ro2_history_forecaster.py` | 16 passed |
+| `module_generate.py` / `module_validate.py` (under `env -i`) | regenerated; PASS |
+
+No migration, schema, DB or connection change (the DB reference scripts were not needed). No frontend change, and
+nothing under `src-tauri`.
+
+The 78 files are:
+
+- every test file that names `history_card`, `build_sections`, `rung_card`, `ROW_LIMITS`, `parameter_registry`,
+  `ad-forecast-state` or `llm_history_v1`;
+- the contract tests:
+  - `test_cli_help_snapshot.py`
+  - `test_measurement_state_labels.py` (display labels)
+  - `test_codex_lockdown_round3.py` (process-launch list)
+  - `test_desktop_rpc_contract.py`
+  - `test_mobile_allowlist.py`
+  - `test_sidecar_serializer_snapshot.py`
+  - `test_table_roles.py`
+  - `test_coordinated_migrations.py`
+  - `test_tracked_fixture_databases.py`
+  - `test_architecture.py`
+  - `test_module_catalog_inventory.py`
+  - `test_registry_audit.py`
+  - `test_ad_guard.py`, `test_ad_guard_reachable_reads.py`, `test_ad_protected_tables.py`
+  - `test_ad3_reading.py`
+  - `test_salience_firewall.py`
+- the Reader inquiry readers `test_reader_inquiry_status.py` and `test_router_reader_activity.py`.
+
+The exact list is in `docs/reviews/router-ro2-codex-rereview.targeted-tests.txt`.
