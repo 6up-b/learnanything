@@ -30,10 +30,11 @@ from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
 from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
 from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
 from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
+from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_245" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_246" / "state.sqlite"
 #: Every schema object 222 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 C0A_ADDED_OBJECTS = frozenset({
     "section_coverage", "sqlite_autoindex_section_coverage_1", "idx_section_coverage_judged",
@@ -66,7 +67,7 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245]
+    assert [migration.version for migration in applied] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246]
     after = _schema(database)
     # Reader CA2's 223 (one workbench_sessions column) and RW5d P1's 224 (its table, and
     # interactive_figures rebuilt) follow on the way to head.
@@ -74,12 +75,12 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     assert {name for name in before if before[name] != after.get(name)} == (
         CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES)
     )
-    assert set(after) - set(before) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS == C0A_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS == C0A_ADDED_OBJECTS
 
 
 def test_the_head_fixture_is_at_222_in_rollback_mode():
     versions = applied_versions(HEAD)
-    assert max(versions) == max(m.version for m in discover_migrations()) == 245
+    assert max(versions) == max(m.version for m in discover_migrations()) == 246
     assert 221 in versions  # rebuilt at the landing on main's head 221 (LP-min (a)'s claim fixes)
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
@@ -142,7 +143,7 @@ def test_222_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 221)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245]
+        assert [migration.version for migration in apply_migrations(database)] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:

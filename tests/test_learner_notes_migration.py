@@ -19,7 +19,7 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TableRole, role_for_table
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_245" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_246" / "state.sqlite"
 #: Every schema object 229 adds (it alters nothing): the earlier migrations' "nothing
 #: else changed" diffs on the way to head read these.
 C2_ADDED_OBJECTS = frozenset({
@@ -100,7 +100,7 @@ def test_the_checks_and_the_append_only_triggers(tmp_path):
 
 def test_the_head_fixture_holds_exactly_229s_objects_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 245
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 246
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert C2_ADDED_OBJECTS <= names

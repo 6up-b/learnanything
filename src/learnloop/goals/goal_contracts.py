@@ -35,6 +35,8 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 CONTRACT_SCHEMA_VERSION = 1
 DEPTH_ENVELOPE_SNAPSHOT_SCHEMA_VERSION = 1
 CHANGE_CLASS_PARTITION_VERSION = 1
+#: Router objective RO4 (§8.5): an edit to a contract's use weights alone.
+USE_WEIGHT_CHANGE = "use_weight_change"
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +193,7 @@ def canonicalize_body(body: Mapping[str, Any]) -> dict[str, Any]:
     evaluation["acceptable_performance"] = acceptable
     evaluation.setdefault("rubric", body.get("rubric") or {})
 
-    return {
+    canonical = {
         "schema_version": int(body.get("schema_version", CONTRACT_SCHEMA_VERSION)),
         "kind": body.get("kind", "terminal"),
         "purpose": body.get("purpose"),
@@ -224,6 +226,38 @@ def canonicalize_body(body: Mapping[str, Any]) -> dict[str, Any]:
         "baseline_milestone": body.get("baseline_milestone"),
         "depth_envelope": body.get("depth_envelope"),
     }
+    # Router objective RO4 (§8.5): the use weights, only when the body carries them, so a contract without
+    # the field keeps its bytes and its hash (no old hash is rewritten).
+    if body.get("use_weight") is not None:
+        canonical["use_weight"] = canonical_use_weight(body["use_weight"])
+    return canonical
+
+
+def canonical_use_weight(value: Any) -> dict[str, Any]:
+    """RO4 §8.5: ``{"dated": ω, "per_lo": {lo: ω_L}, "undated_density": c}`` with every number a float >= 0."""
+
+    if not isinstance(value, Mapping):
+        raise ValueError("use_weight must be a mapping")
+
+    def number(raw: Any, what: str) -> float:
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise ValueError(f"use_weight {what} must be a number")
+        if not raw >= 0:
+            raise ValueError(f"use_weight {what} must be at least 0")
+        return float(raw)
+
+    per_lo = value.get("per_lo") or {}
+    if not isinstance(per_lo, Mapping):
+        raise ValueError("use_weight per_lo must be a mapping")
+    return {
+        "dated": number(value.get("dated", 1.0), "dated"),
+        "per_lo": {str(lo): number(weight, f"per_lo[{lo}]") for lo, weight in sorted(per_lo.items())},
+        "undated_density": number(value.get("undated_density"), "undated_density"),
+    }
+
+
+def _use_weight_subset(body: Mapping[str, Any]) -> Any:
+    return body.get("use_weight")
 
 
 def _exemplar_identities(body: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -283,6 +317,10 @@ def compute_change_class(prev: Mapping[str, Any], new: Mapping[str, Any]) -> str
         return "evaluation_change"
     if canonical_json(_exemplar_weights(prev)) != canonical_json(_exemplar_weights(new)):
         return "reweight"
+    # RO4 §8.5: the use weights' own class (migration 246); a contract that never had them and still has
+    # none is unchanged here.
+    if canonical_json(_use_weight_subset(prev)) != canonical_json(_use_weight_subset(new)):
+        return USE_WEIGHT_CHANGE
     return "metadata"
 
 
@@ -383,7 +421,7 @@ def confirm_goal_contract(
     byte-identical bytes returns the existing v1.
     """
 
-    body = canonicalize_body(contract_body)
+    body = canonicalize_body(_with_use_weight(contract_body, goal_id, vault))
     exemplars = body.get("exemplars") or []
     scope = body.get("facet_scope") or {}
     has_blueprint = bool(scope.get("concepts") or scope.get("facets") or body.get("required_capabilities"))
@@ -432,6 +470,50 @@ def confirm_goal_contract(
     if vault is not None:
         _mirror_head_to_yaml(vault, goal_id, version.id, version.content_hash)
     return version
+
+
+def _with_use_weight(body: Mapping[str, Any], goal_id: str, vault: LoadedVault | None) -> Mapping[str, Any]:
+    """Router objective RO4 (§8.5): a contract confirmed at the tag carries the goal's use weights, the ones its
+    goal was created with (else the config's, copied now). Off, or below the tag, or a body that already carries
+    them: unchanged."""
+
+    if body.get("use_weight") is not None or vault is None:
+        return body
+    from learnloop.router_objective_switches import objective_on
+
+    if not objective_on(vault.config):
+        return body
+    from learnloop.goals.use_weights import COPIED, copy_at_creation, for_goal
+
+    goal = next((g for g in getattr(vault, "goals", None) or () if getattr(g, "id", None) == goal_id), None)
+    weights = for_goal(goal, None, vault.config) if goal is not None else None
+    if weights is not None and weights.source == COPIED:
+        copied = {"dated": weights.dated, "per_lo": dict(weights.per_lo), "undated_density": weights.undated_density}
+    else:
+        copied = copy_at_creation(vault.config)
+    return {**body, "use_weight": copied}
+
+
+def set_use_weight(
+    repository: Repository,
+    *,
+    goal_id: str,
+    use_weight: Mapping[str, Any],
+    author: str = "learner",
+    vault: LoadedVault | None = None,
+    clock: Clock | None = None,
+) -> ContractVersion:
+    """RO4 §8.5: adjust a confirmed goal's use weights: a successor whose class is ``use_weight_change`` (the
+    support hash unchanged). Raises :class:`NotConfirmed` with no confirmed head."""
+
+    head_row = repository.fetch_goal_contract_head(goal_id)
+    if head_row is None:
+        raise NotConfirmed(goal_id)
+    prev = repository.fetch_goal_contract_version(head_row["head_version_id"])
+    assert prev is not None
+    body = {**_loads_json(prev["contract_json"]), "use_weight": canonical_use_weight(use_weight)}
+    return append_successor(repository, goal_id=goal_id, proposed_body=body, author=author,
+                            reason="use_weight_change", vault=vault, clock=clock)
 
 
 def append_successor(

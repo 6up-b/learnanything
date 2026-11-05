@@ -48,6 +48,7 @@ from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
 from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
 from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
 from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
+from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
@@ -238,17 +239,17 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
                            "'2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')")
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245]
+        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246]
     after = schema()
-    assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS == set(before)
+    assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == (
         CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES)
     )
     with closing(sqlite3.connect(database)) as connection:
         # A problem from before 223 reads as no opening carried.
         assert connection.execute("SELECT earlier_opened_at FROM workbench_sessions").fetchone() == (None,)
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_245" / "state.sqlite"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 245
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_246" / "state.sqlite"
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 246
     assert 223 in applied_versions(head)
     assert head.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:

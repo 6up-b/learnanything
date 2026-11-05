@@ -196,6 +196,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # lower rung asked beside H3 per presentation, with its propensity and what each frozen card
     # holds. Immutable, written in the serve transaction; replay and rebuild never touch it.
     ("ad_history_forecast_draws", TableRole.RECEIPT),
+    # Router objective RO4 (migration 246; spec_router_objective_v1 §8.8): one immutable trace per
+    # decision (each sensor, the objective's terms, both policies, the mix, the evaluation's frozen
+    # uses, the versions), written with the decision; replay and rebuild never touch it.
+    ("router_objective_traces", TableRole.RECEIPT),
     # Deliverable curriculum C0b (migration 228): the learner's scope inputs
     # (their own words, append-only), the resolver's resolutions and the
     # curated path's rows with the learner's verdicts (paid outputs, never

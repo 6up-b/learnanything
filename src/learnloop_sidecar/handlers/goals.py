@@ -562,6 +562,14 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
         "created_at": now,
         "updated_at": now,
     }
+    from learnloop.router_objective_switches import objective_on
+
+    if objective_on(vault.config):
+        # Router objective RO4 (spec §8.5): the goal's use weights, copied from config at creation, so a later
+        # config change never rewrites this goal's history. Adjustable later (set_goal_use_weight).
+        from learnloop.goals.use_weights import copy_at_creation
+
+        entry["use_weight"] = copy_at_creation(vault.config)
     Goal.model_validate(entry)  # fail loudly before touching the file
     goals.append(entry)
     goals_data["schema_version"] = 2

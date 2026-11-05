@@ -158,6 +158,55 @@ def decision_state(connection: sqlite3.Connection, decision_id: str) -> dict[str
     return found
 
 
+TRACES = "router_objective_traces"
+TRACE_COLUMNS: tuple[str, ...] = (
+    "id", "decision_id", "decision_kind", "decision_state_id", "trace_version", "objective_version", "algorithm_version",
+    "local_date", "session_id", "session_minutes", "remembered_minutes", "kappa0", "kappa_how", "kappa_regime",
+    "chosen_ref", "drawn_component", "propensity", "w", "numeric_ref", "llm_status", "numeric_status",
+    "stop_in_support", "guard_crossed", "window_closes_at", "trace_json", "content_hash", "created_at",
+)
+
+
+def insert_trace(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
+    """RO4 §8.8: one decision's trace (migration 246), in its own savepoint; False (a warning) when refused."""
+
+    if not table_present(connection, TRACES):
+        return False
+    return _append(connection, TRACES, TRACE_COLUMNS, row)
+
+
+def trace(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None:
+    """One decision's trace with its JSON decoded (read-only), or None."""
+
+    if not table_present(connection, TRACES):
+        return None
+    row = connection.execute("SELECT * FROM router_objective_traces WHERE decision_id = ? OR id = ?",
+                             (decision_id, decision_id)).fetchone()
+    if row is None:
+        return None
+    found = dict(row)
+    found["trace"] = json.loads(found.pop("trace_json"))
+    return found
+
+
+def traces(connection: sqlite3.Connection, *, since: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    """The traces' columns (not their JSON), oldest first."""
+
+    if not table_present(connection, TRACES):
+        return []
+    columns = ", ".join(column for column in TRACE_COLUMNS if column != "trace_json")
+    sql = f"SELECT {columns} FROM router_objective_traces"
+    parameters: list[Any] = []
+    if since is not None:
+        sql += " WHERE created_at >= ?"
+        parameters.append(since)
+    sql += " ORDER BY created_at, id"
+    if limit is not None:
+        sql += " LIMIT ?"
+        parameters.append(int(limit))
+    return [dict(row) for row in connection.execute(sql, parameters)]
+
+
 def insert_goal_event(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
     return _append(connection, GOAL_EVENTS, GOAL_COLUMNS, row)
 
@@ -173,6 +222,11 @@ def latest_goal_events(connection: sqlite3.Connection) -> dict[str, dict[str, An
 
 __all__ = [
     "DECISION_STATE",
+    "TRACES",
+    "TRACE_COLUMNS",
+    "insert_trace",
+    "trace",
+    "traces",
     "GOAL_COLUMNS",
     "GOAL_EVENTS",
     "SESSION_COLUMNS",

@@ -37,6 +37,16 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Router objective RO4 (migration 246), `router/ro4-objective`, 2026-11-05
+
+Renamed from `migration_head_245` on RO4's branch (base: RO2's branch at `cf1019a3cf`).
+`246_router_objective_traces.sql` (one append-only RECEIPT table, `router_objective_traces`, empty, with its two
+indexes and its two guards) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the
+tracked, sanitized `migration_head_245/state.sqlite` outside the checkout, under the scratch-copy upgrade allowance;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; written into place from a backup-API copy in rollback mode, with no companion files. No
+row changes. The head holds 229 through 246.
+
 ## Router objective RO2 (migration 245), `router/ro2-forecaster`, 2026-11-04
 
 Renamed from `migration_head_244` on RO2's branch (base: RO1's landing branch at `248421272c`).
