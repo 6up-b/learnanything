@@ -103,6 +103,10 @@ stage, no real request was sent, no owner vault was opened, no tracked working v
 
 ## The first week (copy-shaped synthetic vault)
 
+Superseded by the rerun in `docs/reviews/router-ro5-codex-review.md`. The fake answers below were ungraded, and the
+pre-fix resolver read them as zeros (Codex review F1). The return model's numbers below came from the observational
+fit that F3 replaced.
+
 `tests/test_ro5_calibration.py::test_the_first_week_on_a_copy_shaped_synthetic_vault`: six practised topics with four
 unseen items each, both policies answering (fake LLM), the default arms, seven days with one (day 4) without a session,
 nobody pressing "keep going".
