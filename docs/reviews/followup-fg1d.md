@@ -50,9 +50,10 @@ It isn't FG1's: any diagnostic probe answered on a presentation in a canonical-s
 
 ### Which side is wrong
 
-Replay. `spec_followup_generate_serve_v1.md` §4.1: "**Evidence.** Answers count as evidence from the first serve, as for any
-diagnostic probe. The admissibility rule stays exactly as it is (§6.0)." The live write was a stale cache of the canonical fold, not a
-different rule.
+Live; replay is the reference. `spec_followup_generate_serve_v1.md` §4.1: "**Evidence.** Answers count as evidence from the first
+serve, as for any diagnostic probe. The admissibility rule stays exactly as it is (§6.0)." The live write was a stale cache of the
+canonical fold, not a different rule, so the fix makes live follow replay. (This line read "Replay." until the Codex review caught the
+reversal; see `followup-fg1d-codex-review.md`.)
 
 **Should the answer touch the item-scope cell at all?** Yes, unchanged. The single-use rule (§4.2) governs serving: the item is never
 administered again and "stays in the vault so attempts and replays resolve". It says nothing about the projection, and the canonical
