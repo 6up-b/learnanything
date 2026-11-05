@@ -130,3 +130,150 @@ Test files added or changed by this step, for the landing gate: `tests/test_ro6_
 - `20a5e984d0` RO6 Codex review fixes: F1-F6, the tests, the registry entry, spec §10.1 and the stage record's note.
 - `f8722c8562` References regenerated.
 - This file.
+
+---
+
+# Re-review (job `20261105-140523-n40uvz`, on `02a3ee8563`)
+
+Verdict REOPENED: F1 and F3 reopened, F2, F4, F5, F6 confirmed fixed, one new finding F7 (Medium). Every reopened or new
+finding was reproduced first. The new file `tests/test_ro6_codex_rereview.py` was run against the pre-fix tree
+(`git archive 02a3ee8563 src migrations`, unpacked in the stage's scratch directory outside the worktree, put on
+pytest's `pythonpath`): **9 of 10 failed** there. The tenth,
+`test_f1_complete_returns_with_identical_arms_give_no_contrast`, is a control (complete returns, identical arms, no
+contrast) and passes on both trees. All 10 pass on the fix. Fakes and synthetic data only; no paid or real model call;
+no owner vault opened; no tracked working vault touched. RO6 still adds **no model request**.
+
+## Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | Pooled per-arm observation shares do not correct observation that depends on a pre-coin feature | fixed | `5d726bbc21` | `test_ro6_codex_rereview.py::test_f1_observation_on_a_pre_coin_feature_leaves_the_contrast_unidentified`: 8,000 balanced draws, identical returns `G = 1 + x` in both arms, offer stop losing low-`x` returns and present next losing high-`x` ones (pooled shares 0.683 and 0.673). Pre-fix: status `identified`, `ŵ = 0.493` (slope 0.493, sd 0.121). Now `unidentified`, `ŵ = 0`. Also `::test_f1_the_contrasts_read_every_window_complete`, `::test_f1_a_complete_return_leaves_an_unknown_dated_use_out_and_keeps_a_window_with_no_checkable_use`, and the control `::test_f1_complete_returns_with_identical_arms_give_no_contrast` |
+| F2 | High | Same-day exam crossings | confirmed fixed | `20a5e984d0` | (Codex) |
+| F3 | Medium (reopened) | `q − past_trim` is not the value at the carried cutoff (ranking, branch choice and quadrature use the longer horizon) | fixed | `5d726bbc21` | `::test_f3_a_carried_cutoff_runs_every_rollout_at_it`: `evaluate(cutoff=c)` with `c` off the day grid equals, draw for draw, the model whose inputs' own cutoff is `c` (an independent route: the probe's branch choice and the ranking read it too). `::test_f3_the_backup_reads_the_values_and_features_at_the_carried_cutoff` (pre-fix `cutoff_unmatched`). `::test_f3_a_trimmed_value_alone_is_no_value_at_the_carried_cutoff` (pre-fix: fitted through `q − past_trim`, next value 2.125). `::test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff`. `test_ro6_codex_review.py::test_f3_no_carried_cutoff_leaves_the_rollouts_as_ro4s` |
+| F4 | Medium | Serving features read newer state | confirmed fixed | `20a5e984d0` | (Codex) |
+| F5 | Medium | Contrast-return reader admits later imports | confirmed fixed | `20a5e984d0` | (Codex) |
+| F6 | Medium | Partial-history windows omit decisions | confirmed fixed | `20a5e984d0` | (Codex) |
+| F7 | Medium | Legacy frozen 13-feature vectors break fitting after the upgrade | fixed | `5d726bbc21` | `::test_f7_an_earlier_builds_thirteen_features_are_rebuilt`: two legacy decisions sharing an absolute cutoff. Pre-fix: `IndexError: tuple index out of range`. Now one transition, 14-wide vectors rebuilt, a 14-coefficient fit. `::test_f7_the_served_features_version_is_part_of_the_generator` |
+
+None rejected. Nothing re-argues the owner's decisions in §1 or §12. No new config key, weight, margin, threshold or
+numerical constant. The cutoff-equality tolerance reused is `tail_data._SAME_CUTOFF_SECONDS`, already registered. The
+old item difficulty scalar is neither read nor written. `value.py` is byte-identical to RO5's base (`5f02be6eb2`)
+except for the optional `cutoff` argument; with it None (every caller below the tag, and with `learned_tail` off), the
+rollouts are RO4's/RO5's (`test_f3_no_carried_cutoff_leaves_the_rollouts_as_ro4s`, `test_ro4_value.py`,
+`test_ro6_serving.py::test_below_the_tag_and_switched_off_serve_mvp_048_exactly`).
+
+## What changed
+
+- **F1** (`scores.observed_return(complete=True)`, `observed_returns(complete=…)`, `window_uses(left_out=…)`;
+  `learned_tail.coin_contrasts`; `tail_data.contrasts`): I took Codex's second option and did not model observation
+  probabilities. Nothing in the log justifies an observation probability for a return that goes unobserved after the
+  coin, so the stop coin's contrasts now read every window's return **complete**, and nothing is left to correct:
+  - The bracket is unbiased for its own sum over the uses a check could observe (the checks' exact assignment
+    probabilities `r`). A window with no such use is therefore its cost term alone, `−(C − C⁰)` (noted
+    `no_randomized_use`).
+  - A dated use whose result is not known at the cutoff is left out of the sum (noted `dated_left_out:n`). Whether it
+    is known is `exam_result_known(lo, date, at)`: a function of the use and the cutoff, the same for every decision
+    whose window holds that use, whichever arm its coin drew.
+
+  `coin_contrasts` drops the share weighting. `Ĉ = (1[offer]/p − 1[present_next]/p)·Ĝ`, and the `policy` arm's
+  contrast is zero. Any forced draw that still arrives with no return leaves the contrast `unidentified` (no contrast,
+  `ŵ` at its prior), and the record says how many, by arm and reason, plus each arm's notes. RO5's `scores()` and the
+  cross-check keep the default reader, unchanged. `WEIGHT_VERSION` moves to `ro6_residual_weight_slope_rank_v3`.
+- **F3** (`value._Model(cutoff=…)`, `value.evaluate(cutoff=…)`; `tail_serve.previous_cutoff`, `carried_cutoff`,
+  `with_carried_values`, `features(cutoff_days=…)`; `objective_chooser.run_numeric`; `tail_data._logged`,
+  `transitions`; `tail_report`):
+  - The trim (`past_trim`, `trim_at`) is removed entirely.
+  - When the latest earlier decision's cutoff differs from this one's (`carried`), the candidates are valued a second
+    time after the answer, on the answer's inputs and the first batch's draws, with every rollout run at `C_prev`:
+    the tail's topic ranking (its remaining span to `C_prev + H`), a probe's repair choice in the belief's world (the
+    belief model carries the cutoff), the quadrature's boundaries and the end. The results go in
+    `residual.previous.q`, together with the candidates' features taken at `C_prev`'s span
+    (`residual.previous.features`, the same function).
+  - The backup reads `Σ π·previous.q` and `Σ π·previous.features`. A shared cutoff (`same_cutoff`) needs no second
+    valuation.
+  - Anything less is censored `cutoff_unmatched`: an earlier build's trace, a second valuation the deadline cut
+    short, or a published answer served before it.
+  - This decision's own `Q̄`, terms and choice are untouched.
+  - Measured on the pre-fix tree's trim against the carried valuation, for two topics, a dated use at 3.5 days,
+    `H = 6` and 16 draws: shift 0.37 d gives the same values to 9 places; shift 1.6 d gives 1.993417 against 1.993000
+    (review); shift 2.9 d gives 1.792058 against 1.791225.
+- **F7** (`tail_data.served_features_version`, `generator_payload(features=…)`, `_logged`; `tail_serve.residual`
+  records `features_version`): frozen features are read only at this build's features version and width. A trace
+  frozen by another version (an earlier RO6 build's thirteen, read from its fit's `features_version`; `unversioned`
+  if none) is rebuilt with this build's function from its frozen belief numbers and RO0's receipt, like any earlier
+  trace. Its carried values are not read. The features version a decision's residual served with is part of its
+  generator key, so two loggers never share a fit. A decision with no applied residual never read features, so it
+  keeps this build's version (`generator_now` is unchanged for it). `tail_data.VERSION` moves to
+  `ro6_tail_data_v3`.
+
+## A few simulated weeks, rerun (copy-shaped synthetic vault)
+
+`tests/test_ro6_tail_data.py::test_a_few_weeks_on_a_copy_shaped_synthetic_vault`, `LEARNLOOP_RO6_DAYS=21`, `-s`, on
+the fix. The same test on the pre-fix tree is beside it. The number of traced decisions varies from run to run on
+both trees: the prefetch threads' timing decides which block boundaries the fake session hits. The stage record's
+110 came from a third run.
+
+| Measure | Fix | Pre-fix tree (`02a3ee8563`), same test |
+|---|---|---|
+| Decisions, transitions | 94, 93 (1 `no_later_decision`; none `cutoff_unmatched`). Previous cutoff `carried:valued` at 93 of 93 | 77, 76 |
+| The fit | n 93, 14 coefficients, σ² 4.18, condition 2.8e5; features frozen at all 94 | n 76, σ² 4.65, condition 1.4e5 |
+| `ŵ`'s path (each day's last decision) | 0 every day; contrasts 0 through 10-25, then 4, 5, 11, 18, 27, 37 (11-01). At the end: 37 contrasts, 8 forced, slope −2.56 sd 0.41, rank −0.83, `P(rank > 0)` 0.014, `ŵ = 0` | 0 every day; 31 contrasts at 11-01 |
+| Residual's share of `Ṽ` per candidate | 0 at all 449 candidate valuations; argmax moved 0 times | 0 at 376 |
+| Serving time per decision against mvp-0.48 | the residual's step: median 25.5 ms, max 98 ms (n 94). **The second valuation at the carried cutoff: median 472 ms, max 665 ms (n 93)**. It runs in the numeric prefetch job after the answer is complete, not on the serve path | residual step median 28 ms; no second valuation |
+| Cross-check (one step) | estimate −0.0065, se 0.0036, ESS 29.7 of 40, max weight 3.31 | −0.0006, se 0.0038 |
+
+In a first run of the fix (an earlier draft that valued the carried cutoff at the answer's refined draws), `ŵ` moved to
+0.132 on 10-30 with 12 contrasts and back to 0.015 by 11-01. Noise on few contrasts, as in the stage's first build. No
+gate is added, by the owner's decision.
+
+**For the orchestrator (cost):** the second valuation adds no model request, but about as much CPU per traced decision
+as the numeric policy's own first batch: one more evaluation at `rollout_theta_draws`. It runs inside the prefetch job,
+after the answer is published, so the learner should not wait on it. A serve that takes the earlier published answer
+leaves the next transition `cutoff_unmatched` rather than waiting.
+
+## Not done, and the smallest way to finish
+
+- **A goal added between two decisions:** the carried valuation runs the later decision's goals at the earlier
+  cutoff, so a goal added in between is valued inside it. The earlier decision's objective had no such goal. Smallest
+  finish: censor such a transition as a change of objective (compare the two traces' goal ids) if it ever shows in
+  the report.
+- **The checkable-use support** (F1): the bracket's estimand is the sum over the uses a check could observe. That
+  support comes from RO5's check draws (the last draw stands on a day with no session), and a coin's arm can move
+  later days' eligible sets. This is the same estimand RO5's scores use, and it is not changed here.
+- Everything in the first review's and the stage record's "Not built" lists, except the trimmed-path ranking caveat,
+  which this fix removes.
+
+## The gate (this step)
+
+This step did not run the full suite, the whole durability lane or vitest; those belong to the landing gate. No
+frontend, `src-tauri`, migration, schema or DB/connection code changed, so no npm, vitest, cargo or durability step
+applies.
+
+| Step | What ran | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` (under `env -i`) | 43 kept, 0 broken |
+| Reproductions on the pre-fix tree | `tests/test_ro6_codex_rereview.py` with `-o pythonpath=<02a3ee8563's src>` | 9 failed, 1 passed (the control) |
+| RO6 set on the fix | `test_ro6_codex_rereview.py`, `test_ro6_codex_review.py`, `test_ro6_learned_tail.py`, `test_ro6_tail_data.py`, `test_ro6_serving.py`, `test_ro6_successor.py`, `test_ro4_value.py`, `test_ro1_availability_reads.py`, `-n 6` | 104 passed |
+| A few simulated weeks | `test_ro6_tail_data.py::test_a_few_weeks_on_a_copy_shaped_synthetic_vault`, `LEARNLOOP_RO6_DAYS=21`, `-s` (fix, then the pre-fix tree for comparison) | 1 passed, 1 passed (numbers above) |
+| Targeted batch | 84 files, `-n 6` under `flock /tmp/learnloop-fullsuite.lock`: every test file naming the objective chooser, the mixture helpers or the router objective's `value`, `scores`, `tail_data`, `tail_serve`, `tail_report` or `learned_tail`; every `test_ro[0-9]*.py`; the display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_architecture` (frozen cycles), `test_table_roles`, `test_registry_audit`, the process-launch allowlist (`test_ai_tool_isolation`, `test_e0_isolation`, `test_codex_tool_lockdown`), `test_module_catalog_inventory`, `test_cli_help_snapshot`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_sidecar_registry`, `test_mobile_allowlist`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_public_tip_guards`, `test_sqlite_file_copies`, `test_data_capture_successor`, `test_config_refactor` | 1531 passed, 4 skipped, 1 failed: the new `test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff`, whose 4-item run sometimes held only one block decision (no earlier decision to carry). Now 16 items |
+| The fixed test rerun | `test_ro6_codex_rereview.py`, `test_ro6_codex_review.py`, `test_ro6_serving.py`, `-n 6`, three times | 29 passed ×3 |
+| After the references | `test_module_catalog_inventory.py`, `test_cli_help_snapshot.py`, `test_architecture.py`, `test_ro6_codex_rereview.py`, `test_registry_audit.py`, `-n 6` | 56 passed |
+| References | `module_generate.py` / `module_validate.py` (1236 module notes, 1384 test files: PASS), `db_generate_reference.py` / `db_validate_reference.py` (393 table notes; errors []), `validate_vault.py` (2223 notes: passed), under `env -i`; stamp-only churn left out | ok |
+
+Every test ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`, one run at a
+time. Every script outside pytest (lint-imports, the reference scripts, the two comparison scripts for F1 and F3, run
+from the stage's scratch directory with `python -I`) ran under `env -i` with empty `HOME`, `CODEX_HOME` and
+`LEARNLOOP_CONFIG_DIR`. One deviation from the patch rule: a single literal in the new test file was changed with
+`sed` instead of the Edit tool (no Python text patch). An empty `python3` heredoc ran once outside `env -i`; it
+executed nothing.
+
+Test files added or changed by this step, for the landing gate: `tests/test_ro6_codex_rereview.py` (new) and
+`tests/test_ro6_codex_review.py` (its helper's trace records `features_version`; the trim tests replaced by
+`test_f3_no_carried_cutoff_leaves_the_rollouts_as_ro4s`; F1's censored cohort now expects `unidentified`).
+
+## Commits (re-review)
+
+- `5d726bbc21` RO6 Codex re-review fixes: F1, F3, F7, the tests, spec §10.1 and the stage record's note.
+- `76b6bd7e66` References regenerated.
+- This file.
