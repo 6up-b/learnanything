@@ -39,6 +39,17 @@ the residual ``ΔV_residual`` (stop minus the blocks at their logged shares). **
 approximation (one half with fewer than three). ``ŵ = clip(E[b], 0, 1) · P(rank > 0)``: the scale it has earned,
 times the chance its order is right. No promotion step, threshold or minimum sample: with no contrast ``ŵ = 0``.
 
+**Missing terms** (RO6's landing ruling R1, partial identification). A term of ``Ĝ`` whose measurement can be missing
+(an exam result not known as of the window's closure, a use no check could observe, a forced draw with no return) is
+carried as missing, never as zero, bounded by its structural range (performance in ``[0, 1]`` times its known
+weight; costs are always observed), so each ``Ĉ_i`` lies in an interval. The slope and rank that move ``ŵ`` are
+taken at the fill of the missing terms least favourable to the residual: the fill that minimizes ``E[b]`` within
+the bounds (Manski's worst-case bounds; ``E[b]`` is linear in ``Ĉ`` at a given noise, so each ``Ĉ_i`` goes to the
+end of its interval that lowers it, by the sign of its influence on ``b``), and ``ŵ = clip(E[b]_lower, 0, 1) ·
+P(rank > 0 at that fill)``. With no missing term this is the estimate above exactly; as missingness shrinks the
+bound tightens by itself. No threshold, minimum sample or observation model. The estimate with the missing terms
+left out (the unbounded one) is kept beside it, shown only.
+
 **The partial-history cross-check** (:func:`partial_history`, report only): importance weights of the improvement
 step (the mix with the numeric policy's argmax taken on ``Q_tail + ρ``) against the logger's served distribution,
 one step and over each decision's window, near the logger where the weights stay usable.
@@ -59,7 +70,10 @@ import numpy as np
 
 FEATURES_VERSION = "ro6_belief_features_v2"
 FIT_VERSION = "ro6_fqe_ridge_v1"
-WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v3"
+WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v4"
+#: ``ŵ``'s bound (RO6's landing ruling R1): the least favourable fill of the missing terms, or none to fill
+LEAST_FAVOURABLE = "least_favourable_fill"
+NO_BOUND = "none"
 CROSS_CHECK_VERSION = "ro6_partial_history_v2"
 
 STATE_FEATURES: tuple[str, ...] = ("session_load", "days_to_go", "pending_reports", "mastery_p", "mastery_var",
@@ -317,6 +331,17 @@ class Contrast:
     #: whether the coin forced its arm (offer stop or present the next block), and P(forced) (twice its rate)
     forced: bool = False
     forced_probability: float = 0.0
+    #: R1: the interval ``realized`` lies in with its window's missing terms at their bounds (None: no missing term,
+    #: the interval is ``realized`` itself), and how many terms were missing
+    realized_lo: float | None = None
+    realized_hi: float | None = None
+    missing: int = 0
+
+    @property
+    def bounds(self) -> tuple[float, float]:
+        lo = self.realized if self.realized_lo is None else self.realized_lo
+        hi = self.realized if self.realized_hi is None else self.realized_hi
+        return float(lo), float(hi)
 
 
 @dataclass(frozen=True)
@@ -333,12 +358,20 @@ class WeightFit:
     prior_sd: float
     source: str
     version: str = WEIGHT_VERSION
+    #: R1: the bound used (:data:`LEAST_FAVOURABLE`, or :data:`NO_BOUND` with no missing term), the contrasts and
+    #: terms missing, and the estimate with the missing terms left out beside it (shown only; never served)
+    bound: str = NO_BOUND
+    missing_contrasts: int = 0
+    missing_terms: int = 0
+    unbounded: Mapping[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {"w_hat": self.w_hat, "slope_mean": self.slope_mean, "slope_sd": self.slope_sd,
-                "tail_slope": self.tail_slope, "n": self.n, "forced": self.forced, "rank": self.rank,
-                "p_rank": self.p_rank, "sigma2": self.sigma2, "prior_sd": self.prior_sd, "source": self.source,
-                "version": self.version}
+        own = {"w_hat": self.w_hat, "slope_mean": self.slope_mean, "slope_sd": self.slope_sd,
+               "tail_slope": self.tail_slope, "rank": self.rank, "p_rank": self.p_rank, "sigma2": self.sigma2}
+        return {**own, "n": self.n, "forced": self.forced, "prior_sd": self.prior_sd, "source": self.source,
+                "version": self.version, "bound": self.bound,
+                "missing": {"contrasts": self.missing_contrasts, "terms": self.missing_terms},
+                "unbounded": dict(self.unbounded) if self.unbounded is not None else dict(own)}
 
 
 def _ranks(values: Sequence[float]) -> list[float]:
@@ -382,32 +415,73 @@ def residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str |
                          rank=None, p_rank=0.5, sigma2=None, prior_sd=float(prior_sd),
                          source="prior: no randomized contrast with a frozen residual")
     x = np.asarray([[row.tail, row.residual] for row in rows], dtype=np.float64)
-    y = np.asarray([row.realized for row in rows], dtype=np.float64)
     precision = np.diag([0.0, 1.0 / float(prior_sd) ** 2])
-    sigma2 = float(np.mean(y * y)) if np.any(y) else 0.0
-    beta = np.zeros(2)
+    forced = [i for i, row in enumerate(rows) if row.forced and row.forced_probability > 0]
+    point = np.asarray([row.realized for row in rows], dtype=np.float64)
+    bounds = np.asarray([row.bounds for row in rows], dtype=np.float64)
+    lo, hi = bounds[:, 0], bounds[:, 1]
+    open_rows = [i for i, row in enumerate(rows) if row.missing > 0 and hi[i] > lo[i]]
+    unbounded = _slope_and_rank(rows, x, point, precision, forced)
+    if not open_rows:
+        estimate, source, bound = unbounded, "randomized_contrasts", NO_BOUND
+    else:
+        # R1: the fill least favourable to the residual. At a given noise E[b] is linear in Ĉ, so the fill that
+        # minimizes it sends each open Ĉ_i to the end of its interval against the sign of its influence on b;
+        # the noise is then refit at that fill, until the fill and the noise settle.
+        y = point.copy()
+        sigma2 = float(unbounded["sigma2"])
+        for _ in range(_FIT_PASSES):
+            influence = (np.linalg.pinv(x.T @ x + max(sigma2, _TINY) * precision) @ x.T)[1]
+            filled = point.copy()
+            filled[open_rows] = np.where(influence[open_rows] > 0, lo[open_rows], hi[open_rows])
+            updated, _beta = _noise(x, filled, precision, sigma2)
+            settled = bool(np.array_equal(filled, y)) and abs(updated - sigma2) <= _FIT_TOLERANCE * max(sigma2, _TINY)
+            y, sigma2 = filled, updated
+            if settled:
+                break
+        # The slope and rank at that fill, by the same estimator as with no missing term.
+        estimate = _slope_and_rank(rows, x, y, precision, forced)
+        source, bound = "randomized_contrasts at the least favourable fill of the missing terms", LEAST_FAVOURABLE
+    w_hat = min(max(estimate["slope_mean"], 0.0), 1.0) * estimate["p_rank"]
+    shown = {**unbounded, "w_hat": min(max(unbounded["slope_mean"], 0.0), 1.0) * unbounded["p_rank"]}
+    return WeightFit(w_hat=w_hat, slope_mean=estimate["slope_mean"], slope_sd=estimate["slope_sd"],
+                     tail_slope=estimate["tail_slope"], n=len(rows), forced=len(forced), rank=estimate["rank"],
+                     p_rank=estimate["p_rank"], sigma2=estimate["sigma2"], prior_sd=float(prior_sd), source=source,
+                     bound=bound, missing_contrasts=sum(1 for row in rows if row.missing > 0),
+                     missing_terms=sum(int(row.missing) for row in rows),
+                     unbounded=shown if open_rows else None)
+
+
+def _noise(x: np.ndarray, y: np.ndarray, precision: np.ndarray, sigma2: float) -> tuple[float, np.ndarray]:
+    """The regression's noise at ``y``, refined from ``sigma2`` until it settles, and the coefficients of its last
+    pass."""
+
+    beta = np.zeros(x.shape[1])
     for _ in range(_FIT_PASSES):
-        matrix = x.T @ x + max(sigma2, _TINY) * precision
-        beta = np.linalg.pinv(matrix) @ (x.T @ y)
+        beta = np.linalg.pinv(x.T @ x + max(sigma2, _TINY) * precision) @ (x.T @ y)
         residual = y - x @ beta
         updated = float(np.mean(residual * residual))
         settled = abs(updated - sigma2) <= _FIT_TOLERANCE * max(sigma2, _TINY)
         sigma2 = updated
         if settled:
             break
+    return sigma2, beta
+
+
+def _slope_and_rank(rows: Sequence[Contrast], x: np.ndarray, y: np.ndarray, precision: np.ndarray,
+                    forced: Sequence[int]) -> dict[str, Any]:
+    """The slope (posterior mean and sd of ``b``, the tail's ``a``) and the rank at the contrasts ``y``, the noise
+    refined from ``y``'s mean square (module docstring)."""
+
+    sigma2, beta = _noise(x, y, precision, float(np.mean(y * y)) if np.any(y) else 0.0)
     matrix = x.T @ x + max(sigma2, _TINY) * precision
     covariance = max(sigma2, _TINY) * np.linalg.pinv(matrix)
-    slope_mean = float(beta[1])
-    slope_sd = float(math.sqrt(max(covariance[1, 1], 0.0)))
-    tail_slope = float(beta[0]) if np.any(x[:, 0]) else None
-    forced = [row for row in rows if row.forced and row.forced_probability > 0]
-    partial = [row.forced_probability * row.realized - float(beta[0]) * row.tail for row in forced]
-    rank = spearman([row.residual for row in forced], partial) if len(forced) >= 3 else None
-    p_rank = _NORMAL.cdf(rank * math.sqrt(len(forced) - 1)) if rank is not None else 0.5
-    w_hat = min(max(slope_mean, 0.0), 1.0) * p_rank
-    return WeightFit(w_hat=w_hat, slope_mean=slope_mean, slope_sd=slope_sd, tail_slope=tail_slope, n=len(rows),
-                     forced=len(forced), rank=rank, p_rank=p_rank, sigma2=sigma2, prior_sd=float(prior_sd),
-                     source="randomized_contrasts")
+    partial = [rows[i].forced_probability * float(y[i]) - float(beta[0]) * rows[i].tail for i in forced]
+    rank = spearman([rows[i].residual for i in forced], partial) if len(forced) >= 3 else None
+    return {"slope_mean": float(beta[1]), "slope_sd": float(math.sqrt(max(covariance[1, 1], 0.0))),
+            "tail_slope": float(beta[0]) if np.any(x[:, 0]) else None, "rank": rank,
+            "p_rank": _NORMAL.cdf(rank * math.sqrt(len(forced) - 1)) if rank is not None else 0.5,
+            "sigma2": sigma2}
 
 
 def coin_contrast(arm: str | None, rate: float) -> float:
@@ -425,7 +499,8 @@ def coin_contrast(arm: str | None, rate: float) -> float:
 @dataclass(frozen=True)
 class CoinDraw:
     """One randomized stop-coin decision of the cohort (chosen on what was fixed before the coin: a frozen residual,
-    stop in the support, a closed window) with its window's observed return (None: not observed, and why)."""
+    stop in the support, a closed window) with its window's return: ``value`` the observed terms (None: no return at
+    all, and why), ``[value + lo, value + hi]`` with its ``missing`` terms at their bounds (RO6's landing ruling R1)."""
 
     decision_id: str
     decided_at: str
@@ -436,6 +511,9 @@ class CoinDraw:
     reason: str | None
     tail: float
     residual: float
+    lo: float = 0.0
+    hi: float = 0.0
+    missing: int = 0
 
 
 OFFER_STOP = "offer_stop"
@@ -444,43 +522,51 @@ UNIDENTIFIED = "unidentified"
 
 
 def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str, Any]]:
-    """The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1; re-review F1).
+    """The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1; RO6's landing ruling R1).
 
     The cohort is chosen before the coin, and every draw stays: ``Ĉ_i = (1[offer]/p − 1[present_next]/p)·Ĝ_i``, the
-    ``policy`` arm's zero whatever its return. That is unbiased only if every forced draw's ``Ĝ_i`` is observed: a
-    return that goes unobserved after the coin can go so for reasons tied to the arm and to anything about the
-    decision (a pre-coin feature, the return itself), and no share of observed returns, pooled or by arm, is a
-    justified observation probability for it. So the return reader makes every window's return complete
-    (:func:`learnloop.router_objective.scores.observed_return`'s ``complete``: the bracket over the uses a check could
-    observe, at the checks' exact assignment probabilities, with a dated use whose result is not yet known left out
-    of every window holding it alike), and a forced draw that still arrives with no return leaves the contrast
-    **unidentified**: no contrast is returned (``ŵ`` stays at its prior) and the record says how many, by arm and
-    reason, rather than correcting by a probability nothing justifies."""
+    ``policy`` arm's zero whatever its return. A return that goes unobserved after the coin can go so for reasons tied
+    to the arm and to anything about the decision (a pre-coin feature, the return itself), so no observation model is
+    assumed: every term of ``Ĝ_i`` whose measurement is missing is carried as missing, bounded by its structural
+    range (the reader's :class:`learnloop.router_objective.scores.Bounded`), and each forced ``Ĉ_i`` becomes an
+    interval (:attr:`Contrast.bounds`) that :func:`residual_weight` reads at the fill least favourable to the
+    residual. A forced draw with no return at all has no known range (an unbounded missing term, at whose least
+    favourable fill the slope is unbounded below): the contrast is then **unidentified** and no contrast is returned
+    (``ŵ`` stays at zero), said by arm and reason. The record lists each forced window's missing terms with their
+    bounds."""
 
     assigned: dict[str, int] = {OFFER_STOP: 0, PRESENT_NEXT: 0}
     observed: dict[str, int] = {OFFER_STOP: 0, PRESENT_NEXT: 0}
     reasons: dict[str, dict[str, int]] = {}
     notes: dict[str, dict[str, int]] = {}
+    windows: list[dict[str, Any]] = []
     for draw in draws:
         if draw.arm in assigned:
             assigned[draw.arm] += 1
             if draw.value is not None:
                 observed[draw.arm] += 1
+                if draw.missing:
+                    windows.append({"decision_id": draw.decision_id, "arm": draw.arm, "missing": int(draw.missing),
+                                    "lo": float(draw.lo), "hi": float(draw.hi)})
         into = reasons if draw.value is None else notes
         if draw.value is None or draw.reason:
             by_arm = into.setdefault(str(draw.arm), {})
-            for reason in str(draw.reason).split(";"):
+            for reason in str(draw.reason).split(";"):  # draws by reason (the terms are counted in "missing")
                 key = reason.split(":")[0]
                 by_arm[key] = by_arm.get(key, 0) + 1
     record: dict[str, Any] = {"cohort": len(draws), "assigned": dict(assigned), "observed": dict(observed),
                               "unobserved": reasons, "notes": notes,
-                              "assumption": "every forced draw's return observed (the reader's complete return)"}
-    missing = [arm for arm in assigned if observed[arm] < assigned[arm]]
-    if missing:
+                              "missing": {"windows": len(windows), "terms": sum(entry["missing"] for entry in windows),
+                                          "by_window": windows},
+                              "assumption": "no observation model: each missing term bounded by its structural range "
+                                            "(performance in [0, 1] times its weight; costs observed), w^ read at "
+                                            "the least favourable fill"}
+    unbounded = [arm for arm in assigned if observed[arm] < assigned[arm]]
+    if unbounded:
         record["status"] = UNIDENTIFIED
-        record["why"] = (f"{sum(assigned[a] - observed[a] for a in missing)} forced draw(s) with no observed return "
-                         f"on the {', '.join(missing)} arm: no justified observation probability, so the contrast is "
-                         f"not identified")
+        record["why"] = (f"{sum(assigned[a] - observed[a] for a in unbounded)} forced draw(s) with no return at all on "
+                         f"the {', '.join(unbounded)} arm: an unbounded missing term, so the contrast is not "
+                         f"identified")
         return [], record
     record["status"] = "identified"
     out: list[Contrast] = []
@@ -488,12 +574,16 @@ def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str,
         weight = coin_contrast(draw.arm, draw.rate)
         forced = draw.arm in assigned
         if weight == 0.0 or draw.value is None:
-            realized = 0.0
+            realized, ends, missing = 0.0, None, 0
         else:
             realized = weight * float(draw.value)
+            ends = sorted((weight * (float(draw.value) + float(draw.lo)), weight * (float(draw.value) + float(draw.hi))))
+            missing = int(draw.missing)
         out.append(Contrast(decision_id=draw.decision_id, decided_at=draw.decided_at,
                             window_closes_at=draw.window_closes_at, realized=realized, tail=draw.tail,
-                            residual=draw.residual, forced=forced, forced_probability=2.0 * float(draw.rate)))
+                            residual=draw.residual, forced=forced, forced_probability=2.0 * float(draw.rate),
+                            realized_lo=ends[0] if ends and missing else None,
+                            realized_hi=ends[1] if ends and missing else None, missing=missing))
     return out, record
 
 

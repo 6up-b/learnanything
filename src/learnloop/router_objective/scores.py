@@ -58,6 +58,38 @@ class Detail:
     extra: Mapping[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class MissingTerm:
+    """RO6's landing ruling R1: one term of a window's return whose measurement is missing, ``v·(Y − m⁰)`` with
+    ``Y`` unknown, bounded by its structural range: ``Y`` (a performance) in ``[0, 1]`` times its known weight
+    ``v``, less its frozen baseline. Never filled as zero."""
+
+    key: str
+    reason: str
+    lo: float
+    hi: float
+
+    @classmethod
+    def of(cls, key: str, reason: str, *, weight: float, baseline: float) -> "MissingTerm":
+        ends = (float(weight) * (0.0 - float(baseline)), float(weight) * (1.0 - float(baseline)))
+        return cls(key=key, reason=reason, lo=min(ends), hi=max(ends))
+
+
+@dataclass(frozen=True)
+class Bounded:
+    """RO6's landing ruling R1: a window's return with its missing terms carried as missing. ``value`` is the
+    observed terms' bracket (the cost included: costs are always observed); the return lies in
+    ``[value + lo, value + hi]``, the sums of the ``missing`` terms' bounds (:class:`MissingTerm`). ``value`` None: no
+    return at all (unbounded). ``reason``: the missing terms counted by reason (``dated_missing:n``,
+    ``no_check_support:n``)."""
+
+    value: float | None
+    reason: str | None = None
+    lo: float = 0.0
+    hi: float = 0.0
+    missing: int = 0
+
+
 def _distribution(trace: Mapping[str, Any]) -> tuple[dict[str, float], dict[str, float], str | None, float | None]:
     mixing = trace.get("mixing") or {}
     mu = {str(k): float(v) for k, v in (mixing.get("mu") or {}).items()}
@@ -245,14 +277,15 @@ def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any
                 resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
                 r_lookup: Callable[[str], dict[str, float]],
                 exam_result: Callable[[Any, str, str], float | None] | None = None,
-                left_out: list[str] | None = None) -> tuple[list[W.Use], list[str]] | None:
+                missing: list[MissingTerm] | None = None) -> tuple[list[W.Use], list[str]] | None:
     """The frozen uses of one decision's window with what the randomized checks observed of them (and the
     completed assessments' keys), or None when a dated use in the window has no imported result (``no_result``).
 
     ``exam_result(connection, lo, on)``: the dated use's imported result (:func:`score_decision` hands in RO5's
     :func:`_exam_result` through its window's closure; RO6's return reader one that also applies THE availability
-    predicate, Codex review of RO6, F5). ``left_out`` (RO6's contrasts only): a dated use with no result is left out
-    of the uses and its key appended there, instead of the window carrying none."""
+    predicate, Codex review of RO6, F5). ``missing`` (RO6's contrasts only, landing ruling R1): a dated use with no
+    result is carried as a missing term there, bounded by its structural range, instead of the window carrying
+    none."""
 
     evaluation = trace.get("evaluation") or {}
     window = int(evaluation.get("window_days") or 14)
@@ -277,8 +310,10 @@ def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any
     for dated in (evaluation.get("uses") or {}).get("dated") or ():
         on = dated_use_date(trace, row, dated)
         result = read_exam(connection, str(dated["lo"]), on)
-        if result is None and left_out is not None:
-            left_out.append(f"G:{dated['goal_id']}:{dated['lo']}:{on}")
+        if result is None and missing is not None:
+            missing.append(MissingTerm.of(f"G:{dated['goal_id']}:{dated['lo']}:{on}", RO6_DATED_MISSING,
+                                          weight=float(dated.get("omega") or 0.0),
+                                          baseline=float(dated.get("m0") or 0.0)))
             continue
         if result is None:
             return None
@@ -305,38 +340,46 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
                     r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
                     gap_minutes: float,
                     exam_result: Callable[[Any, str, str], float | None] | None = None,
-                    complete: bool = False) -> tuple[float | None, str | None]:
+                    complete: bool = False) -> tuple[float | None, str | None] | Bounded:
     """RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action
     contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
     ``(None, reason)`` when a dated use has no result or no use has ``r > 0`` (effort alone is no return).
     ``exam_result``: as :func:`window_uses` (:func:`observed_returns` hands in the as-of reader).
 
-    ``complete`` (the stop coin's contrasts; Codex re-review F1): every window has a return, so no draw of the
-    randomized cohort goes unobserved. The bracket is an unbiased estimate of its own sum over the uses a check could
-    observe (``r > 0``, the checks' exact assignment probabilities), so a window with none is its cost term alone
-    (``no_randomized_use``, said); and a dated use whose result is not known at the cutoff is left out of the sum
-    (``dated_left_out``, said). Whether that result is known is one function of the use (its topic and date) and the
-    cutoff, the same for every decision whose window holds it, whichever arm its coin drew."""
+    ``complete`` (the stop coin's contrasts; RO6's landing ruling R1, superseding Codex re-review F1's reading): a
+    :class:`Bounded` return, every term whose measurement can be missing carried as missing, never as zero. The
+    observed terms are the bracket over the uses a check could observe (``r > 0``, the checks' exact assignment
+    probabilities) with the dated uses whose result is known as of the window's closure, and the cost (always
+    observed). Missing, each bounded by its structural range (performance in ``[0, 1]`` times its known weight, less
+    its frozen baseline, :class:`MissingTerm`): a dated use whose result is not known as of the closure
+    (``dated_missing``) and a use no check could observe, ``r = 0`` (``no_check_support``)."""
 
-    left_out: list[str] | None = [] if complete else None
+    missing: list[MissingTerm] | None = [] if complete else None
     found_uses = window_uses(connection, row, trace, resolved=resolved, completion_rate=completion_rate,
-                             r_lookup=r_lookup, exam_result=exam_result, left_out=left_out)
+                             r_lookup=r_lookup, exam_result=exam_result, missing=missing)
     if found_uses is None:
         return None, W.NO_RESULT
     uses, _assessments = found_uses
-    notes = [f"{RO6_DATED_LEFT_OUT}:{len(left_out)}"] if left_out else []
-    if not any(use.r > 0 for use in uses):
-        if not complete:
-            return None, W.NO_RANDOMIZED_USE
-        notes.append(RO6_NO_RANDOMIZED_USE)
+    if not complete and not any(use.r > 0 for use in uses):
+        return None, W.NO_RANDOMIZED_USE
     cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
-    return (W.score(d_taken=1.0, mu_taken=1.0, uses=uses, cost=cost, cost_baseline=c0),
-            ";".join(notes) if notes else None)
+    value = W.score(d_taken=1.0, mu_taken=1.0, uses=uses, cost=cost, cost_baseline=c0)
+    if not complete:
+        return value, None
+    terms = list(missing or ())
+    terms += [MissingTerm.of(use.key, RO6_NO_CHECK_SUPPORT, weight=use.weight, baseline=use.baseline)
+              for use in uses if use.r <= 0]
+    counts: dict[str, int] = {}
+    for term in terms:
+        counts[term.reason] = counts.get(term.reason, 0) + 1
+    notes = ";".join(f"{reason}:{count}" for reason, count in sorted(counts.items())) or None
+    return Bounded(value=value, reason=notes, lo=sum(term.lo for term in terms), hi=sum(term.hi for term in terms),
+                   missing=len(terms))
 
 
-#: RO6's notes on a complete return (:func:`observed_return`'s ``complete``)
-RO6_DATED_LEFT_OUT = "dated_left_out"
-RO6_NO_RANDOMIZED_USE = "no_randomized_use"
+#: RO6's missing terms of a bounded return (landing ruling R1; :func:`observed_return`'s ``complete``)
+RO6_DATED_MISSING = "dated_missing"
+RO6_NO_CHECK_SUPPORT = "no_check_support"
 
 
 @dataclass(frozen=True)
@@ -383,21 +426,22 @@ def _context(connection: Any, *, at: str | None = None) -> Callable[[str], AsOf]
 
 
 def observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Mapping[str, Any]],
-                     complete: bool = False) -> dict[str, tuple[float | None, str | None]]:
+                     complete: bool = False) -> dict[str, Any]:
     """RO6: :func:`observed_return` for each of ``rows`` (a trace's columns with its parsed ``trace``) whose window
     closed before ``at``, keyed by decision id. Each reads as of its own window's closure, as :func:`scores` does
     (RO6's landing ruling R4 on RO5's R1 and R11: the checks, the completion rate, the assignment probabilities and
     the daily prices), and an imported result counts only once THE availability predicate admits it by ``at`` and the
     closure admits it on its occurrence and received time (:func:`exam_result_known`; Codex review of RO6, F5; RO5's
     landing ruling R10: an import that arrives after the window closed is never that window's).
-    ``complete``: as :func:`observed_return` (the stop coin's contrasts)."""
+    ``complete``: as :func:`observed_return` (the stop coin's contrasts: each value a :class:`Bounded`; else a
+    ``(value, reason)`` pair)."""
 
     closed = [row for row in rows if row.get("window_closes_at") and str(row["window_closes_at"]) < at]
     if not closed:
         return {}
     as_of = _context(connection, at=at)
     gap = float(config.router_objective.session_gap_minutes)
-    out: dict[str, tuple[float | None, str | None]] = {}
+    out: dict[str, Any] = {}
     for row in closed:
         found = as_of(str(row["window_closes_at"]))
 
@@ -439,5 +483,5 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
     return out
 
 
-__all__ = ["AsOf", "Detail", "VERSION", "WindowSession", "dated_use_date", "exam_result_known", "goal_date",
+__all__ = ["AsOf", "Bounded", "Detail", "MissingTerm", "RO6_DATED_MISSING", "RO6_NO_CHECK_SUPPORT", "VERSION", "WindowSession", "dated_use_date", "exam_result_known", "goal_date",
            "observed_return", "observed_returns", "score_decision", "scores", "window_cost", "window_uses"]

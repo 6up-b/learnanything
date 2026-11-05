@@ -61,7 +61,8 @@ def test_f1_observation_on_a_pre_coin_feature_leaves_the_contrast_unidentified()
     # Before the fix: status "identified" (pooled shares 0.683 and 0.673) and ŵ = 0.493 (slope 0.493, sd 0.121) from
     # the observation pattern alone.
     assert record["status"] == LT.UNIDENTIFIED and found == []
-    assert "no justified observation probability" in record["why"]
+    # RO6's landing ruling R1: a draw with no return at all is an unbounded missing term (no observation model).
+    assert "unbounded missing term" in record["why"]
     assert record["unobserved"][SC.OFFER_STOP]["no_result"] == record["assigned"][SC.OFFER_STOP] - record["observed"][SC.OFFER_STOP]
     assert LT.residual_weight(found, prior_sd=1.0, at=AT).w_hat == 0.0
 
@@ -106,13 +107,14 @@ def test_f1_a_complete_return_leaves_an_unknown_dated_use_out_and_keeps_a_window
                              gap_minutes=float(vault.config.router_objective.session_gap_minutes),
                              prices=S._day_prices(connection), own=(0.0, 20.0))
     assert default["d1"] == (None, "no_result")  # RO5's reading and the cross-check's: unchanged
-    value, note = before["d1"]
-    # The exam imported later is left out; no checkable use: the bracket is the cost term alone (−(C − C⁰)).
-    assert value == pytest.approx(-cost) and note == "dated_left_out:1;no_randomized_use"
+    found = before["d1"]
+    # RO6's landing ruling R1 (superseding this fix's "left out"): the exam imported later is a missing term,
+    # bounded by ω·[0, 1] less its baseline, never zero; the observed terms are the cost term alone (−(C − C⁰)).
+    assert isinstance(found, S.Bounded) and found.value == pytest.approx(-cost)
+    assert (found.missing, found.lo, found.hi, found.reason) == (1, 0.0, 1.0, "dated_missing:1")
     # RO6's landing (ruling R4 on RO5's R1 and R10): each window reads as of its own closure, so an import received
     # after the window closed (May 19, the window May 4) is never that window's, however late the read.
-    later_value, later_note = after["d1"]
-    assert later_value == pytest.approx(value) and later_note == note
+    assert after["d1"] == found
     assert default_after["d1"] == (None, "no_result")
 
 

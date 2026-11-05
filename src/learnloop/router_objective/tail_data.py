@@ -607,13 +607,14 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
 
     The cohort is chosen on what was fixed before the coin (a frozen residual, stop in the support, a predicted
     contrast, a closed window), never on whether the return was observed afterwards: every draw stays, each window's
-    return read complete (``scores.observed_return``'s ``complete``; Codex re-review F1), and a forced draw with none
-    leaves the contrast unidentified (:func:`learned_tail.coin_contrasts`). The record says how many were left out
-    before the coin and why, and each arm's notes on its returns (dated uses left out, windows with no checkable use)."""
+    return read with its missing terms carried as missing and bounded (``scores.observed_return``'s ``complete``, a
+    ``scores.Bounded``; RO6's landing ruling R1), and :func:`learned_tail.residual_weight` reads them at the fill
+    least favourable to the residual. The record says how many were left out before the coin and why, each arm's
+    notes on its returns, and each forced window's missing terms with their bounds."""
 
     eligible = [row for row in rows if row.coin and row.q_tail is not None and _frozen_residual(row) is not None
                 and row.window_closes_at and str(row.window_closes_at) < at and STOP in row.support]
-    # Every window's return complete (Codex re-review F1): no forced draw goes unobserved after the coin.
+    # Every window's return with its missing terms bounded (R1): no term is ever filled as zero.
     returns = S.observed_returns(connection, config, at=at, rows=_with_traces(connection, eligible), complete=True)
     draws: list[LT.CoinDraw] = []
     before_coin: Counter[str] = Counter()
@@ -623,12 +624,17 @@ def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) 
         if tail is None or residual is None:
             before_coin["no_block_in_support"] += 1  # frozen before the coin: not a selection on the outcome
             continue
-        value, reason = returns.get(row.decision_id, (None, "window_open"))
+        found = returns.get(row.decision_id)
+        if isinstance(found, tuple):  # a (value, reason) pair: no missing term
+            found = S.Bounded(value=found[0], reason=found[1])
+        if not isinstance(found, S.Bounded):
+            found = S.Bounded(value=None, reason="window_open")
         draws.append(LT.CoinDraw(decision_id=row.decision_id, decided_at=row.created_at,
                                  window_closes_at=str(row.window_closes_at), arm=(row.coin or {}).get("arm"),
                                  rate=float((row.coin or {}).get("rate") or 0.0),
-                                 value=float(value) if value is not None else None, reason=reason, tail=tail,
-                                 residual=residual))
+                                 value=float(found.value) if found.value is not None else None, reason=found.reason,
+                                 tail=tail, residual=residual, lo=float(found.lo), hi=float(found.hi),
+                                 missing=int(found.missing)))
     out, record = LT.coin_contrasts(draws)
     record["before_coin"] = dict(before_coin)
     return out, record

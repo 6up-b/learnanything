@@ -10,7 +10,8 @@ value, recommendation value, whole policy), never standing in for them:
 * **the fits** as of now, one per generator version (its own transitions only), with their size, coefficients by
   feature, noise, conditioning and source; the change points between versions; the transitions censored by reason;
 * **ŵ's history** from the traces (each decision froze the ``ŵ`` it used, with its slope, rank and count), and ``ŵ``
-  as of now;
+  as of now; with each, the missing terms (RO6's landing ruling R1: counted per window), the bound used and the
+  estimate with the missing terms left out beside it (shown only, never served);
 * **the residual's share** of ``Ṽ`` at each decision, and how often the residual moved the numeric policy's argmax;
 * **the partial-history cross-check** (importance weights of the improvement step near the logger) beside the fit's
   own projection of the same step: if they disagree beyond the weighted interval, the fit does not decide (a
@@ -68,9 +69,15 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         if previous.get("status"):
             previous_statuses[f"{previous.get('status')}:{previous.get('q_status', '-')}"] += 1
         weight = record.get("weight") or {}
+        unbounded = weight.get("unbounded") if isinstance(weight.get("unbounded"), Mapping) else {}
+        missing = weight.get("missing") if isinstance(weight.get("missing"), Mapping) else {}
         days[str(local_date)].append({"at": created_at, "w_hat": record.get("w_hat"), "n": weight.get("n"),
                                       "slope_mean": weight.get("slope_mean"), "slope_sd": weight.get("slope_sd"),
                                       "rank": weight.get("rank"), "p_rank": weight.get("p_rank"),
+                                      "bound": weight.get("bound"), "missing_contrasts": missing.get("contrasts"),
+                                      "missing_terms": missing.get("terms"),
+                                      "w_hat_unbounded": unbounded.get("w_hat"),
+                                      "slope_unbounded": unbounded.get("slope_mean"),
                                       "fit_basis": record.get("fit_basis"),
                                       "transitions": (record.get("transitions") or {}).get("n")})
         for entry in (record.get("candidates") or {}).values():
@@ -82,7 +89,10 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
             moved += 1
     history = [{"local_date": day, "decisions": len(rows), "w_hat_first": rows[0]["w_hat"], "w_hat_last": rows[-1]["w_hat"],
                 "contrasts": rows[-1]["n"], "slope_mean": rows[-1]["slope_mean"], "slope_sd": rows[-1]["slope_sd"],
-                "rank": rows[-1]["rank"], "p_rank": rows[-1]["p_rank"], "fit_basis": rows[-1]["fit_basis"],
+                "rank": rows[-1]["rank"], "p_rank": rows[-1]["p_rank"], "bound": rows[-1]["bound"],
+                "missing_contrasts": rows[-1]["missing_contrasts"], "missing_terms": rows[-1]["missing_terms"],
+                "w_hat_unbounded": rows[-1]["w_hat_unbounded"], "slope_unbounded": rows[-1]["slope_unbounded"],
+                "fit_basis": rows[-1]["fit_basis"],
                 "transitions": rows[-1]["transitions"]} for day, rows in sorted(days.items())]
     summary = {"decisions_with_residual": applied, "statuses": dict(statuses), "argmax_moved": moved,
                "share_of_v_tilde": ({"median": median(shares), "max": max(shares), "n": len(shares)} if shares else None),
@@ -144,6 +154,9 @@ def lines(report: Mapping[str, Any]) -> list[str]:
            f"- w^ {weight['w_hat']:.4f} (slope {weight['slope_mean']:+.4f} sd {weight['slope_sd']:.4f}, rank "
            f"{weight['rank']}, P(rank > 0) {weight['p_rank']:.3f}, {weight['n']} randomized contrasts, "
            f"{weight['forced']} forced; {weight['source']})",
+           f"- missing terms: {weight['missing']['terms']} in {weight['missing']['contrasts']} contrasts; bound "
+           f"{weight['bound']}; with the missing terms left out (shown only, never served) w^ "
+           f"{weight['unbounded']['w_hat']:.4f}, slope {weight['unbounded']['slope_mean']:+.4f}",
            f"- transitions {report['transitions']['n']} of {report['transitions']['decisions']} decisions; censored "
            f"{report['transitions']['censored']}; change points {len(report['change_points'])}"]
     for entry in report["versions"]:
@@ -152,7 +165,9 @@ def lines(report: Mapping[str, Any]) -> list[str]:
                    f"decisions {entry.get('first')} .. {entry.get('last')}): fit n {fit.get('n')}, {fit.get('source')}")
     for day in report["w_hat_history"]:
         out.append(f"- {day['local_date']}: w^ {day['w_hat_first']} -> {day['w_hat_last']} over {day['decisions']} "
-                   f"decisions ({day['contrasts']} contrasts, {day['transitions']} transitions, {day['fit_basis']})")
+                   f"decisions ({day['contrasts']} contrasts, {day['missing_terms']} missing terms in "
+                   f"{day['missing_contrasts']}, bound {day['bound']}, unbounded w^ {day['w_hat_unbounded']}; "
+                   f"{day['transitions']} transitions, {day['fit_basis']})")
     serving = report["serving"]
     out.append(f"- residual applied at {serving['decisions_with_residual']} decisions, argmax moved "
                f"{serving['argmax_moved']}, share of V~ {serving['share_of_v_tilde']}, serving ms {serving['serving_ms']}, "

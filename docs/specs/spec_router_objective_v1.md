@@ -775,7 +775,9 @@ differs from §10:
 - **Trajectories**: §4 row 12's links (`trajectory.rows`) walked from each traced `plan_block` decision to the next
   one. The reward of `(t_i, t_{i+1}]` is this objective's `R`: minus the attention cost the objective charges over
   it (`scores.window_cost`), plus each randomized check completed in it at `c_L·Y/r` (`r` the day's assignment
-  probability times the completion rate as it stood at the interval's end: unbiased for `Σ_L c_L·P`), plus each dated
+  probability times the completion rate as it stood at the interval's end: unbiased for `Σ_L c_L·P`; every check,
+  rate and daily price read through RO5's landed `checks.Closure`, the checks as of the moment, the rate and prices
+  as of the interval's end, landing ruling R4), plus each dated
   use whose moment (`due_at`) falls in it at `ω·Y` (the import for its date known by the moment; an exam later the
   same day counts, Codex review F2). Censored by reason: `no_later_decision`, `change_point`, `value_missing`,
   `past_cutoff`, `reward_open`, `no_result`, `cutoff_unmatched`. §3.2's time handling (Codex review F3): the next
@@ -807,14 +809,19 @@ differs from §10:
   before the decision; with no contrast it is zero. The mix's own floor draws are also randomized with logged
   probabilities and are not used here (the spec names the coin and the checks). **The cohort** (Codex review F1) is
   chosen on what was fixed before the coin, never on whether the return was observed: every draw stays and the
-  `policy` arm's contrast is zero whatever its return. Every window's return is read **complete** (Codex re-review
-  F1; `scores.observed_return(complete=True)`): the bracket is unbiased for its own sum over the uses a check could
-  observe (the checks' exact `r`), so a window with none is its cost term alone, and a dated use whose result is not
-  known at the cutoff is left out of every window holding it alike (whether it is known is a function of the use
-  and the cutoff, not of a coin's arm); both are noted by arm. No share of observed returns, pooled or by arm, is
-  used as an observation probability: a forced draw that still has no return leaves the contrast `unidentified` (no
-  contrast, `ŵ` at its prior, said; `learned_tail.coin_contrasts`). The returns admit an import only once it was known at the cutoff (`scores.exam_result_known`,
-  Codex review F5).
+  `policy` arm's contrast is zero whatever its return. **Missing terms, partially identified** (landing ruling R1,
+  superseding the re-review's "complete" reading): every term of a window's return whose measurement can be missing
+  (an exam result not known as of the window's closure, a use no check could observe, `r = 0`) is carried as
+  missing, never as zero, bounded by its structural range (performance in `[0, 1]` times its known weight, less its
+  frozen baseline; costs are always observed): `scores.Bounded`. Each forced `Ĉ` is an interval, and the slope and
+  rank that move `ŵ` are taken at the fill least favourable to the residual (the fill minimizing `E[b]` within the
+  bounds; Manski's worst-case bounds): `ŵ = clip(E[b]_lower, 0, 1)·P(rank > 0 at that fill)`. With no missing term
+  this is the estimate above exactly; as missingness shrinks the bound tightens by itself. No threshold, minimum
+  sample or observation model. A forced draw with no return at all is an unbounded missing term: the contrast is
+  `unidentified` (`ŵ` zero, said). The trace and the report give the missing terms per window, the bound used and
+  the estimate with the missing terms left out beside it (shown only). The returns admit an import only once it was
+  known at the cutoff (`scores.exam_result_known`, Codex review F5) and as of the window's closure (RO5's
+  `checks.Closure`, landing ruling R4).
 - **How it enters** (`router_objective/tail_serve.py`, `objective_chooser.run_numeric`): at a `plan_block`
   decision, before the rollouts; `π_Q`'s argmax and tie rule run on `Ṽ`, each candidate's draws shifted by the
   constant `ŵ·V_residual`, so the paired precision is the tail's. `Q̄` (`terms.q`) stays `V_tail`, so RO5's readers
