@@ -250,6 +250,41 @@ def test_r1_an_answer_received_after_the_closure_is_not_seen_at_it():
     assert [e.status for e in C.resolve(connection, closure=C.Closure.through("2026-01-04"))] == [C.COMPLETED]
 
 
+def test_r11_a_price_trace_appended_after_the_closure_never_moves_a_closed_score_or_the_weight():
+    """Codex's reproduction (scoped verify 20261105-120414-0Bm9lB): the daily price a score charges came from every
+    trace, so a day's first trace created after the window closed changed the closed score's realized cost and the
+    weight that serves. Pre-fix the cost moved (the January 3 activity priced at the later trace's κ0)."""
+
+    import json
+
+    from learnloop.router_objective import scores as S
+    from learnloop.router_objective import weight as W
+
+    from tests.test_ro5_checks import _row, _trace
+
+    connection = _ledger_db()
+    row = _row()  # decided January 1 at 10:00, its window closing January 3 at 10:00
+    connection.execute("INSERT INTO router_objective_traces VALUES ('t1', ?, 'plan_block', ?, ?, ?, 'answered', "
+                       "'answered', 1.0, 10.0, ?)", (row["decision_id"], row["local_date"], row["created_at"],
+                                                     row["window_closes_at"], json.dumps(_trace())))
+    _check_day(connection, "2026-01-02", item="i2")
+    _answer(connection, "i2", "2026-01-02T13:00:00Z")
+    _answer(connection, "other", "2026-01-03T09:00:00Z")  # in the window, before its closure and any trace that day
+    before = S.scores(connection, _Config, at="2026-01-04T00:00:00Z")
+    assert len(before) == 1 and before[0].scored.value is not None and before[0].cost is not None
+    # The day's first objective trace, created after the window closed (a price source only: no window of its own).
+    connection.execute("INSERT INTO router_objective_traces VALUES ('t2', 'd2', 'plan_block', '2026-01-03', "
+                       "'2026-01-03T11:00:00Z', NULL, 'answered', 'answered', 5.0, 10.0, ?)", (json.dumps({}),))
+    after = S.scores(connection, _Config, at="2026-01-04T00:00:00Z")
+    assert [(d.cost, d.scored.value) for d in after] == [(d.cost, d.scored.value) for d in before]
+    seeds = W.Seeds()
+    assert W.posterior([d.scored for d in after], seeds, at="2026-01-04T00:00:00Z").as_dict() == \
+        W.posterior([d.scored for d in before], seeds, at="2026-01-04T00:00:00Z").as_dict()
+    # From the closure on, a trace already in force before it prices that day.
+    assert S._day_prices(connection, S.C.Closure.at("2026-01-03T12:00:00Z"))["2026-01-03"] == (5.0, 10.0)
+    assert "2026-01-03" not in S._day_prices(connection, S.C.Closure.at(row["window_closes_at"]))
+
+
 def test_r1_one_function_reads_every_counted_event_as_of_its_closure():
     """The structure: ``checks.Closure.admits`` is the one cutoff; resolve, completion, r_for and the scores take a
     closure and never read an event's time through another path."""

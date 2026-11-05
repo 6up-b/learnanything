@@ -146,12 +146,25 @@ def dated_use_date(trace: Mapping[str, Any], row: Mapping[str, Any], dated: Mapp
     return moment.date().isoformat()
 
 
-def _day_prices(connection: Any) -> dict[str, tuple[float, float]]:
-    """``(κ0, m̄)`` in force each local date: the day's first trace's."""
+def _price_rows(connection: Any) -> list[tuple[Any, Any, Any, Any]]:
+    """Every price-source trace, ``(local_date, κ0, m̄, created_at)``, in the order the day's first one is read."""
+
+    return [tuple(row) for row in connection.execute(
+        "SELECT local_date, kappa0, remembered_minutes, created_at FROM router_objective_traces "
+        "ORDER BY created_at, id")]
+
+
+def _day_prices(connection: Any, closure: C.Closure, rows: Sequence[tuple[Any, Any, Any, Any]] | None = None
+                ) -> dict[str, tuple[float, float]]:
+    """``(κ0, m̄)`` in force each local date as of a window's ``closure``: the day's first trace's, every
+    price-source trace admitted through :meth:`checks.Closure.admits` on its created time (landing ruling R11: a
+    trace written after the window closed never prices it). ``rows``: :func:`_price_rows`, read once for many
+    closures."""
 
     out: dict[str, tuple[float, float]] = {}
-    for local_date, kappa0, mbar in connection.execute(
-            "SELECT local_date, kappa0, remembered_minutes FROM router_objective_traces ORDER BY created_at, id"):
+    for local_date, kappa0, mbar, created in (rows if rows is not None else _price_rows(connection)):
+        if not closure.admits(created):
+            continue
         if local_date not in out and kappa0 is not None:
             out[str(local_date)] = (float(kappa0), max(float(mbar or 1.0), 1e-9))
     return out
@@ -231,8 +244,9 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
 
 def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
     """Every decision's score from the traces whose windows closed before ``at`` (no peeking), RO5's checks the
-    observations. Each score reads as of its own window's closure (landing ruling R1, :class:`checks.Closure`): the
-    checks it observes, the completion rate in its ``r``, the assignment probabilities and the dated uses' results,
+    observations. Each score reads as of its own window's closure (landing rulings R1, R11, :class:`checks.Closure`):
+    the checks it observes, the completion rate in its ``r``, the assignment probabilities, the dated uses' results
+    and the daily prices its cost charges,
     every event through the one cutoff, so a closed score never moves with later data (a grade's later hold or
     regrade aside, as the closure names)."""
 
@@ -257,7 +271,10 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
             by_closure[closes_at] = (closure, resolved, rate, r_lookup)
         return by_closure[closes_at]
 
-    prices = _day_prices(connection)
+    # Landing ruling R11: the daily prices a score charges stand as of its window's closure (built per closure from
+    # one read of the price-source traces); the activity they price stays on occurrence time (R10).
+    price_rows = _price_rows(connection)
+    prices_by_closure: dict[str, dict[str, tuple[float, float]]] = {}
     gap = float(config.router_objective.session_gap_minutes)
     out: list[Detail] = []
     for row in connection.execute(
@@ -266,9 +283,13 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
             "window_closes_at IS NOT NULL AND window_closes_at < ? ORDER BY created_at, id", (at,)):
         record = dict(row)
         trace = json.loads(record.pop("trace_json"))
-        closure, resolved, rate, r_lookup = as_of(str(record["window_closes_at"]))
+        closes_at = str(record["window_closes_at"])
+        closure, resolved, rate, r_lookup = as_of(closes_at)
+        if closes_at not in prices_by_closure:
+            prices_by_closure[closes_at] = _day_prices(connection, closure, price_rows)
         out.append(score_decision(connection, record, trace, resolved=resolved, completion_rate=rate,
-                                  r_lookup=r_lookup, prices=prices, gap_minutes=gap, closure=closure))
+                                  r_lookup=r_lookup, prices=prices_by_closure[closes_at], gap_minutes=gap,
+                                  closure=closure))
     return out
 
 
