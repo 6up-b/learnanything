@@ -346,10 +346,11 @@ def test_the_decision_time_readers_ask_the_predicate():
         ("learnloop/learner_context.py", "_traces"),
         ("learnloop/reader_learner_state.py", "_build"),
         # Router objective RO6 (§10): every feature read of the learned tail (the traces and RO0's receipts it
-        # rebuilds features from) and the dated reward's imported result ask the predicate.
+        # rebuilds features from) and the dated reward's imported result ask the predicate; the imported result is
+        # read by one as-of reader the transitions and the contrasts' returns share (Codex review of RO6, F5).
         ("learnloop/router_objective/tail_data.py", "logged"),
         ("learnloop/router_objective/tail_data.py", "_receipt"),
-        ("learnloop/router_objective/tail_data.py", "_exam_result_known"),
+        ("learnloop/router_objective/scores.py", "exam_result_known"),
     }
     asking = set()
     for path in sorted(SRC.rglob("*.py")):

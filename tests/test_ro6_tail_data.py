@@ -33,7 +33,8 @@ from tests.test_ro5_calibration import _end_session, _grade_answers, _new_sessio
 from tests.router_mixture_helpers import run
 
 TAG = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
-REASONS = {TD.NO_LATER_DECISION, TD.CHANGE_POINT, TD.VALUE_MISSING, TD.PAST_CUTOFF, TD.REWARD_OPEN, TD.NO_RESULT}
+REASONS = {TD.NO_LATER_DECISION, TD.CHANGE_POINT, TD.VALUE_MISSING, TD.PAST_CUTOFF, TD.REWARD_OPEN, TD.NO_RESULT,
+           TD.CUTOFF_UNMATCHED}
 
 
 def _days(env, runtime, days: range, *, skip: frozenset[int] = frozenset(), steps: int = 60) -> None:
@@ -95,6 +96,9 @@ def test_the_transitions_carry_the_objectives_reward_with_named_censoring(tmp_pa
         steps = TD.transitions(connection, env.vault.config, rows, at=env.now_iso())
     assert rows and steps.transitions
     assert set(steps.censored) <= REASONS and steps.censored.get(TD.NO_LATER_DECISION) == 1
+    # Every next decision valued its state at the earlier decision's cutoff too (Codex review F3): none unmatched.
+    assert steps.censored.get(TD.CUTOFF_UNMATCHED, 0) == 0
+    assert {step.detail["cutoff"] for step in steps.transitions} <= {"same_cutoff", "previous_cutoff"}
     assert {row.features_source for row in rows} == {"frozen"}
     for step in steps.transitions:
         assert len(step.phi) == len(step.next_phi)

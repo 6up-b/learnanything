@@ -6,7 +6,8 @@ serve time (over the frozen inputs and RO0's snapshot readers) and at fit time (
 
 * the belief at the decision (:class:`Belief`): the session's load ``m/m̄``; days to go to the nearest active dated
   goal, as ``exp(−days/H)`` (0 with none; ``H`` the objective's own horizon); pending reports, ``log(1 + n)``; the
-  candidates' mastery, the mean ``sigmoid(logit mean)`` and the mean logit variance (RO0 row 9's numbers);
+  candidates' mastery, the mean ``sigmoid(logit mean)`` and the mean logit variance (RO0 row 9's numbers); the
+  cutoff's span ``(C − t)/H`` (at a backup's next state, the earlier decision's ``C``: Codex review F3);
 * the candidate (:class:`ActionView`): stop, reading or probe (practice the baseline); its predicted minutes over
   ``m̄``; its topics' AD predictive (mean probability); their FSRS lag ``log(1 + elapsed/S)`` over practised topics
   (monotone in retrievability, free of the FSRS weights); stop and the minutes each times the session's load.
@@ -17,10 +18,12 @@ data and irrelevant to every decision, which compares candidates at one state.
 **The fitted Q evaluation** (:func:`fit`). The logger's value is modelled as the tail's plus a residual,
 ``Q̂(x, a) = Q_tail(x, a) + ρ(x, a)``, ``ρ = θᵀz(x, a)`` linear in the standardized features. The backup is §10's,
 ``y_i = R_i + Σ_a′ π_ref(a′|x′_i)·Q̂(x′_i, a′)`` with ``π_ref`` the logger's exact served distribution at ``x′_i`` and
-§3.2's carried cutoff (the caller hands in ``Σ π_ref·Q_tail`` already moved back to the decision's cutoff). The
+§3.2's carried cutoff: the caller hands in ``Σ π_ref·Q_tail(x′, ·; C)`` evaluated at the decision's own cutoff ``C``
+on the next decision's rollouts (their value with the net value past ``C + H`` kept apart and taken off), and the
+next state's features with their cutoff span at ``C`` (Codex review F3). The
 estimate is FQE's fixed point under a Gaussian prior ``θ ~ N(0, s²)`` (``residual_prior_sd``, labelled), solved in
 closed form, ``(ZᵀZ − ZᵀZ̄′ + (σ²/s²)·I)·θ = Zᵀ(R + V̄_tail′ − Q_tail)``, with the noise ``σ²`` the Bellman residuals'
-mean square, refined until it settles. **Model class**: Bayesian linear regression (ridge) on thirteen features. One
+mean square, refined until it settles. **Model class**: Bayesian linear regression (ridge) on fourteen features. One
 learner's log is hundreds of decisions a month, one long dependent trajectory; a deep net would fit noise and could
 not be read in a trace, where a linear residual's every coefficient and term can be (§8.4's "linear kernel first";
 the report's T7 for anything richer). It is **never accepted on its TD fit**: its share of the value is ``ŵ``.
@@ -54,12 +57,13 @@ from typing import Any
 
 import numpy as np
 
-FEATURES_VERSION = "ro6_belief_features_v1"
+FEATURES_VERSION = "ro6_belief_features_v2"
 FIT_VERSION = "ro6_fqe_ridge_v1"
-WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v1"
-CROSS_CHECK_VERSION = "ro6_partial_history_v1"
+WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v2"
+CROSS_CHECK_VERSION = "ro6_partial_history_v2"
 
-STATE_FEATURES: tuple[str, ...] = ("session_load", "days_to_go", "pending_reports", "mastery_p", "mastery_var")
+STATE_FEATURES: tuple[str, ...] = ("session_load", "days_to_go", "pending_reports", "mastery_p", "mastery_var",
+                                   "cutoff_span")
 ACTION_FEATURES: tuple[str, ...] = ("stop", "reading", "probe", "minutes", "topic_p", "topic_lag", "stop_x_load",
                                     "minutes_x_load")
 NAMES: tuple[str, ...] = (*STATE_FEATURES, *ACTION_FEATURES)
@@ -96,9 +100,13 @@ class Belief:
     pending_reports: float
     mastery_p: float
     mastery_var: float
+    #: ``(C − t)/H``: how far the value's cutoff lies from the state (Codex review F3: the backup evaluates the next
+    #: state at the earlier decision's cutoff, so the residual sees that cutoff too)
+    cutoff_span: float = 1.0
 
     def as_tuple(self) -> tuple[float, ...]:
-        return (self.session_load, self.days_to_go, self.pending_reports, self.mastery_p, self.mastery_var)
+        return (self.session_load, self.days_to_go, self.pending_reports, self.mastery_p, self.mastery_var,
+                self.cutoff_span)
 
 
 @dataclass(frozen=True)
@@ -114,9 +122,11 @@ class TopicNumbers:
 
 def belief(*, session_minutes: float | None, remembered: float | None, nearest_goal_days: float | None,
            horizon_days: float, pending_reports: int | float | None,
-           mastery: Sequence[tuple[float, float]], topics: Sequence[TopicNumbers]) -> Belief:
+           mastery: Sequence[tuple[float, float]], topics: Sequence[TopicNumbers],
+           cutoff_days: float | None = None) -> Belief:
     """The state features. ``mastery``: RO0's snapshot of the candidates' LOs (logit mean, logit variance); with none
-    recorded, the topics' frozen belief numbers stand in (AD's predictive and its variance)."""
+    recorded, the topics' frozen belief numbers stand in (AD's predictive and its variance). ``cutoff_days``: the
+    value's cutoff in days from the state (``C − t``; None: ``H``, the cutoff with no goal past the horizon)."""
 
     mbar = max(float(remembered or 0.0), 1.0)
     load = max(float(session_minutes or 0.0), 0.0) / mbar
@@ -129,7 +139,10 @@ def belief(*, session_minutes: float | None, remembered: float | None, nearest_g
         var = sum(max(float(v), 0.0) for _mean, v in pairs) / len(pairs)
     else:
         p, var = 0.5, 0.0
-    return Belief(session_load=load, days_to_go=go, pending_reports=pending, mastery_p=p, mastery_var=var)
+    horizon = max(float(horizon_days), 1.0)
+    span = (float(cutoff_days) / horizon) if cutoff_days is not None else float(horizon_days) / horizon
+    return Belief(session_load=load, days_to_go=go, pending_reports=pending, mastery_p=p, mastery_var=var,
+                  cutoff_span=span)
 
 
 @dataclass(frozen=True)
@@ -409,6 +422,77 @@ def coin_contrast(arm: str | None, rate: float) -> float:
     return 0.0
 
 
+@dataclass(frozen=True)
+class CoinDraw:
+    """One randomized stop-coin decision of the cohort (chosen on what was fixed before the coin: a frozen residual,
+    stop in the support, a closed window) with its window's observed return (None: not observed, and why)."""
+
+    decision_id: str
+    decided_at: str
+    window_closes_at: str
+    arm: str | None
+    rate: float
+    value: float | None
+    reason: str | None
+    tail: float
+    residual: float
+
+
+OFFER_STOP = "offer_stop"
+PRESENT_NEXT = "present_next"
+UNIDENTIFIED = "unidentified"
+
+
+def coin_contrasts(draws: Sequence[CoinDraw]) -> tuple[list[Contrast], dict[str, Any]]:
+    """The randomized cohort's contrasts, every draw kept (Codex review of RO6, F1).
+
+    A window's return can go unobserved after the coin (no import for a dated use, no use a check could reach), and
+    offering stop can move whether it is. Dropping the unobserved forced draws while the ``policy`` arm's zeros stay
+    selects the cohort after randomization (an arm difference in observation alone then reads as a contrast). So
+    every draw stays: the ``policy`` arm's contrast is zero whatever its return (its weight is zero), and a forced
+    arm's observed return is weighted by the inverse of that arm's observed share in the cohort,
+    ``Ĉ_i = (1[offer]/p − 1[present_next]/p)·Ĝ_i·1[observed]/q_arm``, an unobserved one contributing zero. That is
+    unbiased when whether a return is observed depends on the arm alone (missing at random given the arm); a return
+    missing because of its own value is not corrected, and the record says how many were missing, by arm and reason.
+    A forced arm with draws and no observed return leaves the contrast **unidentified**: no contrast is returned (so
+    ``ŵ`` stays at its prior) and the record says so, rather than fitting the other arm alone as randomized
+    evidence."""
+
+    assigned: dict[str, int] = {OFFER_STOP: 0, PRESENT_NEXT: 0}
+    observed: dict[str, int] = {OFFER_STOP: 0, PRESENT_NEXT: 0}
+    reasons: dict[str, dict[str, int]] = {}
+    for draw in draws:
+        if draw.arm in assigned:
+            assigned[draw.arm] += 1
+            if draw.value is not None:
+                observed[draw.arm] += 1
+        if draw.value is None:
+            by_arm = reasons.setdefault(str(draw.arm), {})
+            by_arm[str(draw.reason)] = by_arm.get(str(draw.reason), 0) + 1
+    share = {arm: (observed[arm] / assigned[arm]) if assigned[arm] else None for arm in assigned}
+    record: dict[str, Any] = {"cohort": len(draws), "assigned": dict(assigned), "observed": dict(observed),
+                              "observed_share": share, "unobserved": reasons,
+                              "assumption": "a return's observation depends on the coin's arm alone"}
+    empty = [arm for arm in assigned if assigned[arm] and not observed[arm]]
+    if empty:
+        record["status"] = UNIDENTIFIED
+        record["why"] = f"no observed return on the {', '.join(empty)} arm: the contrast is not identified"
+        return [], record
+    record["status"] = "identified"
+    out: list[Contrast] = []
+    for draw in draws:
+        weight = coin_contrast(draw.arm, draw.rate)
+        forced = draw.arm in assigned
+        if weight == 0.0 or draw.value is None:
+            realized = 0.0
+        else:
+            realized = weight * float(draw.value) / float(share[str(draw.arm)])  # type: ignore[arg-type]
+        out.append(Contrast(decision_id=draw.decision_id, decided_at=draw.decided_at,
+                            window_closes_at=draw.window_closes_at, realized=realized, tail=draw.tail,
+                            residual=draw.residual, forced=forced, forced_probability=2.0 * float(draw.rate)))
+    return out, record
+
+
 def predicted_contrast(values: Mapping[str, float], mu: Mapping[str, float], stop_ref: str) -> float | None:
     """A frozen value's contrast between the coin's arms: stop minus the blocks at the mix's shares among them (what
     ``present_next`` serves where the mix drew stop, and the mix's own block elsewhere)."""
@@ -434,20 +518,47 @@ class WeightedRow:
     decided_at: str
     ratio: float
     realized: float
+    #: the window's end (the trace's ``window_closes_at``); None: ``decided_at`` plus the window's days
+    window_closes_at: str | None = None
 
 
-def partial_history(rows: Sequence[WeightedRow], *, window_days: int) -> dict[str, Any]:
+@dataclass(frozen=True)
+class Ratio:
+    """One decision of the whole logged sequence and its importance ratio (None: not computable, e.g. a decision
+    with no frozen residual), whether or not its own window has closed."""
+
+    decision_id: str
+    decided_at: str
+    ratio: float | None
+
+
+INCOMPLETE_HISTORY = "incomplete_history"
+
+
+def partial_history(rows: Sequence[WeightedRow], *, window_days: int,
+                    sequence: Sequence[Ratio] | None = None) -> dict[str, Any]:
     """Report only: importance-weighted estimates of the improvement step minus the logger on the window's return,
-    one step (``(ρ_i − 1)·Ĝ_i``) and over each decision's window (the product of the ratios of the decisions in
+    one step (``(ρ_i − 1)·Ĝ_i``) and over each decision's window (the product of the ratios of **every** decision in
     it), each with its standard error and effective sample size. Near the logger the weights stay usable; far from
-    it they do not, and the effective sample size says so."""
+    it they do not, and the effective sample size says so.
+
+    ``rows`` are the windows that can be evaluated (closed, their return observed); ``sequence`` is the complete
+    sequence of logged decisions with their ratios (Codex review of RO6, F6: a decision inside an evaluated window
+    whose own window is still open is one of its factors). A window holding a decision whose ratio is unknown is
+    censored ``incomplete_history``, never a product with a factor left out. With no ``sequence``, ``rows`` are
+    their own sequence."""
 
     ordered = sorted(rows, key=lambda row: (row.decided_at, row.decision_id))
     if not ordered:
         return {"version": CROSS_CHECK_VERSION, "n": 0, "status": "no closed window with a logged probability"}
+    steps = sorted(sequence if sequence is not None else
+                   [Ratio(row.decision_id, row.decided_at, row.ratio) for row in ordered],
+                   key=lambda step: (step.decided_at, step.decision_id))
 
-    def summary(weights: list[float]) -> dict[str, Any]:
-        values = [(w - 1.0) * row.realized for w, row in zip(weights, ordered)]
+    def summary(weights: list[float], realized: list[float]) -> dict[str, Any] | None:
+        if not weights:
+            return None
+        values = [(w - 1.0) * value for w, value in zip(weights, realized)]
         n = len(values)
         mean = sum(values) / n
         se = (math.sqrt(sum((v - mean) ** 2 for v in values) / (n - 1)) / math.sqrt(n)) if n > 1 else None
@@ -455,25 +566,38 @@ def partial_history(rows: Sequence[WeightedRow], *, window_days: int) -> dict[st
         return {"estimate": mean, "se": se, "ess": (total * total / squares) if squares > 0 else None,
                 "max_weight": max(weights), "n": n}
 
-    one = [row.ratio for row in ordered]
     span = timedelta(days=int(window_days))
-    stamps = [_parse(row.decided_at) for row in ordered]
+    stamps = [_parse(step.decided_at) for step in steps]
     window: list[float] = []
-    for i, start in enumerate(stamps):
-        product = 1.0
-        for j in range(i, len(ordered)):
-            if stamps[j] - start >= span:
+    window_realized: list[float] = []
+    censored = 0
+    for row in ordered:
+        start = _parse(row.decided_at)
+        end = _parse(row.window_closes_at) if row.window_closes_at else start + span
+        product: float | None = 1.0
+        for stamp, step in zip(stamps, steps):
+            if stamp < start or stamp >= end:
+                continue
+            if step.ratio is None:
+                product = None
                 break
-            product *= ordered[j].ratio
+            product *= float(step.ratio)
+        if product is None:
+            censored += 1
+            continue
         window.append(product)
-    return {"version": CROSS_CHECK_VERSION, "n": len(ordered), "one_step": summary(one),
-            "window": summary(window), "window_days": int(window_days),
+        window_realized.append(row.realized)
+    return {"version": CROSS_CHECK_VERSION, "n": len(ordered),
+            "one_step": summary([row.ratio for row in ordered], [row.realized for row in ordered]),
+            "window": summary(window, window_realized), "window_censored": {INCOMPLETE_HISTORY: censored},
+            "window_days": int(window_days),
             "label": "importance-weighted, near the logger; the window's observed return, not the cutoff's value"}
 
 
 __all__ = [
-    "ACTION_FEATURES", "ActionView", "Belief", "CROSS_CHECK_VERSION", "Contrast", "FEATURES_VERSION", "FIT_VERSION",
-    "Fit", "NAMES", "STATE_FEATURES", "TopicNumbers", "Transition", "WEIGHT_VERSION", "WeightFit", "WeightedRow",
+    "ACTION_FEATURES", "ActionView", "Belief", "CROSS_CHECK_VERSION", "CoinDraw", "Contrast", "FEATURES_VERSION",
+    "FIT_VERSION", "Fit", "INCOMPLETE_HISTORY", "NAMES", "OFFER_STOP", "PRESENT_NEXT", "Ratio", "STATE_FEATURES",
+    "TopicNumbers", "Transition", "UNIDENTIFIED", "WEIGHT_VERSION", "WeightFit", "WeightedRow", "coin_contrasts",
     "belief", "coin_contrast", "fit", "kind_group", "partial_history", "predicted_contrast", "prior_fit",
     "residual_weight", "spearman", "vector",
 ]

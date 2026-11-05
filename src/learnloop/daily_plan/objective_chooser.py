@@ -308,7 +308,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 candidates: Mapping[str, BlockCandidate], now_iso: str, seed: str, deadline: float | None,
                 keep_going: Any = None, forecasts: Any = None, clock: Any = time.monotonic, publish: Any = None,
                 sequences: Mapping[str, Sequence[BlockCandidate]] | None = None,
-                learned_tail: bool = False) -> NumericPolicy:
+                learned_tail: bool = False, tail_snapshot: Mapping[str, Any] | None = None) -> NumericPolicy:
     """π_Q end to end: the frozen inputs, the day's price, ``Q̄`` with common random numbers (more draws while
     ``keep_going()``), then, once the LLM policy's forecasts are in (``forecasts()``: None while out), the effect
     correction; the argmax with the tie rule; the evaluation's baselines.
@@ -320,7 +320,9 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
 
     ``learned_tail`` (RO6, §10; a ``plan_block`` decision): at the tag with the switch on, the argmax and its tie
     rule run on ``Ṽ = V_tail + ŵ·V_residual`` (:mod:`learnloop.router_objective.tail_serve`), computed before the
-    rollouts; ``Q̄`` and every term stay the tail's."""
+    rollouts; ``Q̄`` and every term stay the tail's. ``tail_snapshot``: the residual's mutable inputs read at the
+    decision's moment (:func:`learnloop.router_objective.tail_serve.snapshot`, taken by the caller before any
+    asynchronous work: Codex review of RO6, F4)."""
 
     started = clock()
     config = vault.config
@@ -335,7 +337,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             from learnloop.router_objective import tail_serve
 
             residual_record = tail_serve.residual(repository, config, inputs=inputs, actions=actions, now_iso=now_iso,
-                                                  generator_now=generator_now(config), clock=clock)
+                                                  generator_now=generator_now(config), frozen=tail_snapshot,
+                                                  clock=clock)
         local_date = _local_date(now_iso)
         # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
         # of two large sums; at 8 draws its noise is of the order of the signal).
@@ -367,8 +370,13 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         if publish is not None:
             def on_complete(evaluation: V.Evaluation) -> None:
                 publish(answered(evaluation, inputs, actions, False))
+        trim: float | None = None
+        if residual_record is not None:
+            from learnloop.router_objective import tail_serve
+
+            trim = tail_serve.trim_at(residual_record)
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
-                                deadline=deadline, clock=clock, on_complete=on_complete)
+                                deadline=deadline, clock=clock, on_complete=on_complete, trim_at=trim)
         corrected = False
         if evaluation.complete and forecasts is not None and bool(section.sensors_in_value):
             got = forecasts()
@@ -381,7 +389,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                                  float(section.effect_slope_prior_variance)))
                     with_llm = replace(inputs, effect=effect, reference_forecast=float(reference))
                     acts = [replace(action, forecast=by_ref.get(action.ref)) for action in actions]
-                    again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock)
+                    again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
+                                       trim_at=trim)
                     if again.complete:
                         evaluation, inputs, actions, corrected = again, with_llm, acts, True
         if not evaluation.complete:
@@ -504,7 +513,7 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
             now_iso=material["decided_at"], seed=material["numeric_seed"], deadline=entry.deadline,
             keep_going=lambda: LLM in entry.events and not entry.events[LLM].is_set() and runtime.clock() < entry.deadline,
             forecasts=(lambda: _wait_llm(entry, runtime)) if LLM in entry.events else None, clock=runtime.clock,
-            publish=publish, learned_tail=True)
+            publish=publish, learned_tail=True, tail_snapshot=material.get("tail_snapshot"))
         with entry.lock:
             entry.components[NUMERIC] = ComponentResult(name=NUMERIC, status=numeric.status, parsed=numeric,  # type: ignore[arg-type]
                                                         latency_ms=numeric.latency_ms, error=numeric.error)
@@ -776,12 +785,30 @@ class ObjectiveChooser(RouterChooser):
             numeric = run_numeric(self.vault, self.repository, state=state, support=support, candidates=by_id,
                                   now_iso=now_iso, seed=_hash({"numeric": key}),
                                   deadline=self.runtime.clock() + float(config.router.timeout_seconds),
-                                  clock=self.runtime.clock, learned_tail=True)
+                                  clock=self.runtime.clock, learned_tail=True,
+                                  tail_snapshot=self._tail_snapshot(now_iso))
             entry = _NoModels(key, {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
                                     "decided_at": now_iso, "numeric": numeric}, self.runtime.clock())
         self._freeze_objective(record, staged, feasible, support)
         return self._decide_objective(entry, state, staged, staged_ref, record, support, by_id, feasible, readiness,
                                       settings, now_iso)
+
+    def _tail_snapshot(self, now_iso: str) -> Mapping[str, Any] | None:
+        """RO6: the residual's mutable inputs read now, in the decision's own thread at its moment (F4); None below
+        the tag or with the switch off (nothing read, the predecessor's path), or when it cannot be read (the
+        residual is then left out and the trace says so)."""
+
+        from learnloop.router_objective_switches import learned_tail_on
+
+        if not learned_tail_on(self.vault.config):
+            return None
+        from learnloop.router_objective import tail_serve
+
+        try:
+            return tail_serve.snapshot(self.repository, now_iso=now_iso)
+        except Exception:  # noqa: BLE001 - the residual never blocks the numeric policy
+            LOG.warning("router objective: the learned tail's snapshot was not read", exc_info=True)
+            return None
 
     def _start_objective(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str],
                          by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...], now_iso: str) -> Prefetch:
@@ -797,6 +824,9 @@ class ObjectiveChooser(RouterChooser):
             "options": options, "evidence": list(rq.evidence_from_card(card.json)), "decided_at": now_iso,
             "state": state, "support": list(support), "by_id": dict(by_id), "numeric_seed": _hash({"numeric": key}),
         }
+        frozen = self._tail_snapshot(now_iso)
+        if frozen is not None:
+            material["tail_snapshot"] = frozen
         return self.runtime.start(
             self.scope, key, kind="plan_block", budget=float(config.router.prefetch_timeout_seconds),
             material=material, components=(*ready, NUMERIC),

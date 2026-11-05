@@ -19,12 +19,17 @@ decision, with censoring) walked from each logged decision to the next logged on
 is this objective's ``R`` (§3.2), never ``S``: minus the attention cost the objective charges over the interval
 (``scores.window_cost``, the objective's own clock), plus every completed randomized check administered in it at
 ``c_L·Y/r`` (``r`` the day's exact assignment probability times the running completion rate as it stood at the
-interval's end: unbiased for the undated uses' ``Σ c_L·P``), plus every dated use whose date falls in it at
-``ω·Y`` from the result imported by the moment (availability, ``attempt_time_sql``). Censored, by reason:
-``no_later_decision``, ``change_point``, ``value_missing`` (a policy's ``Q̄`` was not computed), ``past_cutoff``
-(the next decision lies past the decision's cutoff ``C``), ``reward_open`` (a check in the interval still open),
-``no_result`` (a dated use with no result yet). The next state's tail value is moved back to the decision's own
-cutoff (§3.2: one ``C`` per decision): ``V(x′; C) = V(x′; C′) − (C′ − C)·T_{C′}(x′)/H``.
+interval's end: unbiased for the undated uses' ``Σ c_L·P``), plus every dated use whose moment falls in it (its
+``due_at``, so an exam later the same day counts: Codex review F2) at ``ω·Y`` from the result imported for its date
+by the moment (availability, ``attempt_time_sql``). Censored, by reason: ``no_later_decision``, ``change_point``,
+``value_missing`` (a policy's ``Q̄`` was not computed), ``past_cutoff`` (the next decision lies past the decision's
+cutoff ``C``), ``reward_open`` (a check in the interval still open), ``no_result`` (a dated use with no result yet),
+``cutoff_unmatched``. The next state is valued at the decision's own cutoff (§3.2: one ``C`` per decision; Codex
+review F3): with the same cutoff, the next decision's ``Q̄``; otherwise the next decision's rollouts kept the net
+value past ``C + H`` apart for this decision (``terms.past_trim``, :func:`learnloop.router_objective.tail_serve.
+previous_cutoff`), so ``V(x′; C) = Σ_a′ π(a′|x′)·(q − past_trim)(a′)`` on the same draws, and the next state's
+features carry ``C``'s span. A next decision that did not value this one's cutoff is ``cutoff_unmatched``, never
+moved back by an average terminal rate.
 
 A leaf over the vault's tables and the router objective's modules.
 """
@@ -47,7 +52,7 @@ from learnloop.router_objective import scores as S
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import trajectory as TJ
 
-VERSION = "ro6_tail_data_v1"
+VERSION = "ro6_tail_data_v2"
 STOP = SC.STOP
 
 NO_LATER_DECISION = "no_later_decision"
@@ -56,6 +61,10 @@ VALUE_MISSING = "value_missing"
 PAST_CUTOFF = "past_cutoff"
 REWARD_OPEN = "reward_open"
 NO_RESULT = "no_result"
+CUTOFF_UNMATCHED = "cutoff_unmatched"
+
+#: Two cutoffs this close are one (the trace keeps ``cutoff_days`` to six places, about 0.09 s; numerical only).
+_SAME_CUTOFF_SECONDS = 1.0
 
 #: Parsed traces kept by (id, content hash): a trace never changes, so it is parsed once a process (an upper bound
 #: on what is kept, a resource guard only).
@@ -118,9 +127,10 @@ class Logged:
     phi: Mapping[str, tuple[float, ...]]
     features_source: str
     cutoff_at: datetime | None
-    terminal_rate: float
+    horizon_days: float
     population: Mapping[str, float]
-    dated: tuple[tuple[str, str, str, float], ...]
+    #: each frozen dated use: (goal id, LO, its calendar date for the import's join, ω, its moment)
+    dated: tuple[tuple[str, str, str, float, datetime], ...]
     kappa0: float
     remembered: float
     coin: Mapping[str, Any] | None
@@ -129,6 +139,12 @@ class Logged:
     effective: Mapping[str, float]
     epsilon: float
     row: Mapping[str, Any] = field(default_factory=dict)
+    #: §3.2 for the backup (Codex review F3): the earlier decision this one's rollouts also valued at its cutoff
+    #: (``residual.previous``: its id and ``C_prev − t`` in days), and each candidate's ``Q_tail(x, a; C_prev)`` there
+    #: (``q − past_trim``; None unless every candidate of the support has one)
+    previous_id: str | None = None
+    previous_cutoff_days: float | None = None
+    q_at_previous: Mapping[str, float] | None = None
 
 
 def _topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]:
@@ -179,7 +195,8 @@ def rebuilt_features(trace: Mapping[str, Any], receipt: Mapping[str, Any] | None
                        nearest_goal_days=nearest_goal_days(trace),
                        horizon_days=float((trace.get("versions") or {}).get("horizon_days") or 90.0),
                        pending_reports=(receipt or {}).get("pending_reports"),
-                       mastery=snapshot_mastery(state.get("los") or {}, list(topics)), topics=list(topics.values()))
+                       mastery=snapshot_mastery(state.get("los") or {}, list(topics)), topics=list(topics.values()),
+                       cutoff_days=(float(trace["cutoff_days"]) if trace.get("cutoff_days") is not None else None))
     return {ref: LT.vector(belief, LT.ActionView(ref=ref, kind=str(entry.get("kind") or ""),
                                                  minutes=float(entry.get("minutes") or 0.0), topics=_topics(entry)),
                            remembered=remembered)
@@ -220,6 +237,25 @@ def _receipt(connection: Any, decision_id: str, config: Any, at: str) -> dict[st
     return found
 
 
+def use_moment(trace: Mapping[str, Any], created: datetime, use: Mapping[str, Any]) -> datetime:
+    """The moment a frozen dated use falls at (Codex review of RO6, F2): the goal's ``due_at`` as the rollouts parse
+    it (``clock.parse_utc``, the use's own or the goal's frozen in the trace), else the decision's moment plus the
+    use's exact delay. The calendar date (``scores.dated_use_date``) stays the join key for an imported result."""
+
+    from learnloop.clock import parse_utc
+
+    due = use.get("due_at") or (((trace.get("inputs_sources") or {}).get("goals") or {}).get(
+        str(use.get("goal_id"))) or {}).get("due_at")
+    if due:
+        try:
+            moment = parse_utc(str(due))
+        except ValueError:
+            moment = None
+        if moment is not None:
+            return moment
+    return created + timedelta(days=float(use.get("at_days") or 0.0))
+
+
 def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], config: Any, at: str,
             receipts: bool) -> Logged:
     candidates = trace.get("candidates") or {}
@@ -241,6 +277,7 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
     population = {str(use["lo"]): float(use.get("c") or 0.0) for use in (evaluation.get("uses") or {}).get("topics") or ()}
     dated = []
     goals = (trace.get("inputs_sources") or {}).get("goals") or {}
+    created = _parse(str(row["created_at"]))
     for use in ((trace.get("goal_dates") or {}).get("uses") or (evaluation.get("uses") or {}).get("dated") or ()):
         on = S.dated_use_date(trace, row, use)
         weight = use.get("omega")
@@ -250,13 +287,17 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
             weight = (goal.get("per_lo") or {}).get(str(use.get("lo")), goal.get("dated"))
         if weight is None:
             continue  # no frozen weight: not a use this decision valued
-        dated.append((str(use.get("goal_id")), str(use.get("lo")), on, float(weight)))
+        dated.append((str(use.get("goal_id")), str(use.get("lo")), on, float(weight),
+                      use_moment(trace, created, use)))
     cutoff_days = trace.get("cutoff_days")
-    created = _parse(str(row["created_at"]))
-    reference = trace.get("reference") or {}
     horizon = float((trace.get("versions") or {}).get("horizon_days") or 90.0)
-    terminal = float((reference.get("terms") or {}).get("terminal") or 0.0)
     mixing = trace.get("mixing") or {}
+    previous = (residual or {}).get("previous") if isinstance((residual or {}).get("previous"), Mapping) else None
+    trimmed = {ref: float((entry.get("terms") or {})["q"]) - float((entry.get("terms") or {})["past_trim"])
+               for ref, entry in candidates.items()
+               if (entry.get("terms") or {}).get("q") is not None
+               and (entry.get("terms") or {}).get("past_trim") is not None}
+    q_at_previous = trimmed if previous and support and all(ref in trimmed for ref in support) else None
     return Logged(
         decision_id=str(row["decision_id"]), trace_id=str(row["id"]), created_at=str(row["created_at"]),
         local_date=str(row["local_date"]), window_closes_at=row.get("window_closes_at"),
@@ -265,14 +306,18 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         mu={str(k): float(v) for k, v in (mixing.get("mu") or {}).items()}, q_tail=q_tail, phi=phi,
         features_source=source,
         cutoff_at=(created + timedelta(days=float(cutoff_days))) if cutoff_days is not None else None,
-        terminal_rate=terminal / max(horizon, 1.0), population=population, dated=tuple(dated),
+        horizon_days=horizon, population=population, dated=tuple(dated),
         kappa0=float(row.get("kappa0") or 0.0), remembered=max(float(row.get("remembered_minutes") or 1.0), 1e-9),
         coin=trace.get("stop_coin") if isinstance(trace.get("stop_coin"), Mapping) else None, residual=residual,
         numeric_choice=((trace.get("policies") or {}).get("numeric") or {}).get("choice"),
         effective={str(k): float(v) for k, v in (mixing.get("effective") or {}).items()},
         epsilon=float(mixing.get("epsilon") or 0.0),
         row={key: row[key] for key in ("decision_id", "created_at", "local_date", "window_closes_at", "kappa0",
-                                       "remembered_minutes", "llm_status", "numeric_status")})
+                                       "remembered_minutes", "llm_status", "numeric_status")},
+        previous_id=str(previous["decision_id"]) if previous and previous.get("decision_id") else None,
+        previous_cutoff_days=(float(previous["cutoff_days"]) if previous and previous.get("cutoff_days") is not None
+                              else None),
+        q_at_previous=q_at_previous)
 
 
 def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
@@ -331,15 +376,10 @@ def _next_links(connection: Any, logged_ids: set[str]) -> tuple[dict[str, str | 
 
 
 def _exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None:
-    """A dated use's ``Y``: the results imported for the goal's date, known by ``at`` (THE availability predicate)."""
+    """A dated use's ``Y``: the results imported for the goal's date, known by ``at`` (THE availability predicate;
+    the one reader the contrasts' returns share, ``scores.exam_result_known``)."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
-
-    known = attempt_time_sql(config, connection)
-    rows = [float(row[0]) for row in connection.execute(
-        f"SELECT correctness FROM practice_attempts WHERE attempt_type = 'exam_evidence' AND learning_object_id = ? "
-        f"AND substr(created_at, 1, 10) = ? AND correctness IS NOT NULL AND {known} <= ?", (lo, on, at))]
-    return sum(rows) / len(rows) if rows else None
+    return S.exam_result_known(connection, config, lo, on, at)
 
 
 @dataclass(frozen=True)
@@ -420,8 +460,11 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
             censored[REWARD_OPEN] += 1
             continue
         missing = False
-        for goal_id, lo, on, omega in row.dated:
-            if _local(start) < on <= _local(end):
+        opened, closed = _parse(start), _parse(end)
+        for _goal_id, lo, on, omega, moment in row.dated:
+            # The use's own moment in (t_i, t_{i+1}] (F2: an exam later the same day falls in this interval, not in
+            # none); its calendar date joins the import.
+            if opened < moment <= closed:
                 result = _exam_result_known(connection, config, lo, on, at)
                 if result is None:
                     missing = True
@@ -430,18 +473,35 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
         if missing:
             censored[NO_RESULT] += 1
             continue
+        # §3.2: the next state valued at this decision's own cutoff C (Codex review F3). With the same cutoff the
+        # next decision's own Q̄ is that value; otherwise its rollouts must have kept the value past C + H apart for
+        # this decision (``q − past_trim``), and the next state's cutoff span is C's. Anything else is censored,
+        # never moved back by an average terminal rate.
         shift_days = 0.0
         if row.cutoff_at is not None and later.cutoff_at is not None:
-            shift_days = max((later.cutoff_at - row.cutoff_at).total_seconds() / 86400.0, 0.0)
-        next_v = sum(float(later.served_dist.get(ref, 0.0)) * later.q_tail[ref] for ref in later.support)
-        next_v -= shift_days * later.terminal_rate
+            shift_days = (later.cutoff_at - row.cutoff_at).total_seconds() / 86400.0
+        if abs(shift_days) * 86400.0 <= _SAME_CUTOFF_SECONDS:
+            values, span, basis = later.q_tail, None, "same_cutoff"
+        elif (later.previous_id == row.decision_id and later.q_at_previous is not None
+              and later.previous_cutoff_days is not None):
+            values = later.q_at_previous
+            span = later.previous_cutoff_days / max(float(later.horizon_days), 1.0)
+            basis = "previous_cutoff"
+        else:
+            censored[CUTOFF_UNMATCHED] += 1
+            continue
+        next_v = sum(float(later.served_dist.get(ref, 0.0)) * values[ref] for ref in later.support)
         width = len(LT.NAMES)
-        next_phi = tuple(sum(float(later.served_dist.get(ref, 0.0)) * later.phi[ref][k] for ref in later.support
-                             if ref in later.phi) for k in range(width))
+        span_at = LT.NAMES.index("cutoff_span")
+        next_phi = tuple(
+            (span if span is not None and k == span_at else
+             sum(float(later.served_dist.get(ref, 0.0)) * later.phi[ref][k] for ref in later.support if ref in later.phi))
+            for k in range(width))
         steps.append(LT.Transition(
             decision_id=row.decision_id, generator=row.generator, decided_at=row.created_at,
             phi=tuple(row.phi[row.served]), next_phi=next_phi, reward=reward, q_taken=row.q_tail[row.served],
-            next_v_tail=next_v, detail={"next": later.decision_id, "checks": observed, "shift_days": shift_days}))
+            next_v_tail=next_v, detail={"next": later.decision_id, "checks": observed, "shift_days": shift_days,
+                                        "cutoff": basis}))
     return Steps(transitions=tuple(steps), censored=dict(censored), change_points=tuple(change_points),
                  returns_censored=dict(Counter(str(value) for value in returns.values() if value)))
 
@@ -501,36 +561,35 @@ def _with_traces(connection: Any, rows: Sequence[Logged]) -> list[dict[str, Any]
     return out
 
 
-def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> tuple[list[LT.Contrast], dict[str, int]]:
+def contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> tuple[list[LT.Contrast], dict[str, Any]]:
     """Every stop-coin decision with a frozen residual whose window closed before ``at``: its realized contrast
-    (the coin's, times the window's observed return) and its frozen predicted ones (tail and residual)."""
+    (the coin's, times the window's observed return) and its frozen predicted ones (tail and residual).
+
+    The cohort is chosen on what was fixed before the coin (a frozen residual, stop in the support, a predicted
+    contrast, a closed window), never on whether the return was observed afterwards: every draw stays, and the
+    observation is handled by :func:`learned_tail.coin_contrasts` (Codex review of RO6, F1). The record says how many
+    were left out before the coin and why, and how many returns went unobserved, by arm and reason."""
 
     eligible = [row for row in rows if row.coin and row.q_tail is not None and _frozen_residual(row) is not None
                 and row.window_closes_at and str(row.window_closes_at) < at and STOP in row.support]
     returns = S.observed_returns(connection, config, at=at, rows=_with_traces(connection, eligible))
-    out: list[LT.Contrast] = []
-    censored: Counter[str] = Counter()
+    draws: list[LT.CoinDraw] = []
+    before_coin: Counter[str] = Counter()
     for row in eligible:
-        value, reason = returns.get(row.decision_id, (None, "window_open"))
-        rate = float((row.coin or {}).get("rate") or 0.0)
-        arm = (row.coin or {}).get("arm")
-        weight = LT.coin_contrast(arm, rate)
-        if value is None:
-            if weight == 0.0:
-                value = 0.0  # the policy arm's contrast is zero whatever the return (it is still a draw)
-            else:
-                censored[str(reason)] += 1
-                continue
         tail = LT.predicted_contrast(row.q_tail or {}, row.mu, STOP)
         residual = LT.predicted_contrast(_frozen_residual(row) or {}, row.mu, STOP)
         if tail is None or residual is None:
-            censored["no_block_in_support"] += 1
+            before_coin["no_block_in_support"] += 1  # frozen before the coin: not a selection on the outcome
             continue
-        out.append(LT.Contrast(decision_id=row.decision_id, decided_at=row.created_at,
-                               window_closes_at=str(row.window_closes_at), realized=weight * float(value),
-                               tail=tail, residual=residual, forced=arm in (SC.OFFER_STOP, SC.PRESENT_NEXT),
-                               forced_probability=2.0 * rate))
-    return out, dict(censored)
+        value, reason = returns.get(row.decision_id, (None, "window_open"))
+        draws.append(LT.CoinDraw(decision_id=row.decision_id, decided_at=row.created_at,
+                                 window_closes_at=str(row.window_closes_at), arm=(row.coin or {}).get("arm"),
+                                 rate=float((row.coin or {}).get("rate") or 0.0),
+                                 value=float(value) if value is not None else None, reason=reason, tail=tail,
+                                 residual=residual))
+    out, record = LT.coin_contrasts(draws)
+    record["before_coin"] = dict(before_coin)
+    return out, record
 
 
 def improvement_ratio(row: Logged) -> float | None:
@@ -554,20 +613,28 @@ def improvement_ratio(row: Logged) -> float | None:
 
 
 def cross_check(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> dict[str, Any]:
-    """The partial-history weights' estimate of the improvement step, beside the fit (report only)."""
+    """The partial-history weights' estimate of the improvement step, beside the fit (report only).
 
+    The windows evaluated are those closed before ``at`` with a ratio and an observed return; each window's product
+    runs over the complete logged sequence (Codex review of RO6, F6: every decision inside the window, its own
+    window open or not), and a window holding a decision with no computable ratio is censored, never shortened."""
+
+    ratios = {row.decision_id: improvement_ratio(row) for row in rows}
+    sequence = [LT.Ratio(decision_id=row.decision_id, decided_at=row.created_at, ratio=ratios[row.decision_id])
+                for row in rows]
     eligible = [row for row in rows if row.window_closes_at and str(row.window_closes_at) < at
-                and improvement_ratio(row) is not None]
+                and ratios[row.decision_id] is not None]
     returns = S.observed_returns(connection, config, at=at, rows=_with_traces(connection, eligible))
     weighted = []
     for row in eligible:
         value, _reason = returns.get(row.decision_id, (None, None))
-        ratio = improvement_ratio(row)
+        ratio = ratios[row.decision_id]
         if value is None or ratio is None:
             continue
         weighted.append(LT.WeightedRow(decision_id=row.decision_id, decided_at=row.created_at, ratio=ratio,
-                                       realized=float(value)))
-    return LT.partial_history(weighted, window_days=int(config.router_objective.evaluation_window_days))
+                                       realized=float(value), window_closes_at=str(row.window_closes_at)))
+    return LT.partial_history(weighted, window_days=int(config.router_objective.evaluation_window_days),
+                              sequence=sequence)
 
 
 def predicted_improvement(rows: Sequence[Logged]) -> dict[str, Any]:
@@ -594,7 +661,8 @@ def is_finite(value: Any) -> bool:
 
 
 __all__ = [
-    "CHANGE_POINT", "Fits", "Logged", "NO_LATER_DECISION", "NO_RESULT", "PAST_CUTOFF", "REWARD_OPEN", "Steps",
-    "VALUE_MISSING", "VERSION", "contrasts", "cross_check", "fits", "generator", "generator_key", "generator_payload",
-    "improvement_ratio", "logged", "nearest_goal_days", "predicted_improvement", "rebuilt_features", "transitions",
+    "CHANGE_POINT", "CUTOFF_UNMATCHED", "Fits", "Logged", "NO_LATER_DECISION", "NO_RESULT", "PAST_CUTOFF",
+    "REWARD_OPEN", "Steps", "VALUE_MISSING", "VERSION", "contrasts", "cross_check", "fits", "generator",
+    "generator_key", "generator_payload", "improvement_ratio", "logged", "nearest_goal_days", "predicted_improvement",
+    "rebuilt_features", "transitions", "use_moment",
 ]

@@ -35,6 +35,13 @@ touched, no manual run touched a copy (none was needed: every measurement below 
 
 ## Choices where the spec was open, or the code had moved (the smallest alternative, recorded)
 
+Codex review (job 20261105-125456-EfabRp, `docs/reviews/router-ro6-codex-review.md`) superseded parts of choices 5-9
+and the cross-check: fourteen features (the cutoff's span added), the residual's inputs snapshotted at the decision's
+moment, dated uses placed by their moment, the next state valued at the decision's own cutoff through the next
+decision's trimmed rollouts (no average-rate move-back), the coin's cohort kept whole with per-arm observation
+weights, the return reader as of its cutoff, and the window products over the complete sequence. The text below is
+the stage as first built.
+
 1. **No migration, no fits table.** The fit is recomputed from the traces and RO0's receipts as of each decision and
    frozen into that decision's trace (`residual`: the fit's standardization and coefficients, its version, size,
    noise and conditioning, `ŵ` with its slope and rank, each candidate's features, `V_tail`, `V_residual`, `Ṽ`), which

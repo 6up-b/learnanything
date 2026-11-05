@@ -166,6 +166,19 @@ def _exam_result(connection: Any, lo: str, on: str) -> float | None:
     return sum(rows) / len(rows) if rows else None
 
 
+def exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None:
+    """RO6: a dated use's ``Y`` as known at ``at``: the results imported for the goal's date that THE availability
+    predicate (``router_objective_switches.attempt_time_sql``) admits by ``at``, their mean."""
+
+    from learnloop.router_objective_switches import attempt_time_sql
+
+    known = attempt_time_sql(config, connection)
+    rows = [float(row[0]) for row in connection.execute(
+        f"SELECT correctness FROM practice_attempts WHERE attempt_type = 'exam_evidence' AND learning_object_id = ? "
+        f"AND substr(created_at, 1, 10) = ? AND correctness IS NOT NULL AND {known} <= ?", (lo, on, at))]
+    return sum(rows) / len(rows) if rows else None
+
+
 def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
                    resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
                    r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
@@ -199,9 +212,15 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
 
 def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
                 resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
-                r_lookup: Callable[[str], dict[str, float]]) -> tuple[list[W.Use], list[str]] | None:
+                r_lookup: Callable[[str], dict[str, float]],
+                exam_result: Callable[[Any, str, str], float | None] | None = None
+                ) -> tuple[list[W.Use], list[str]] | None:
     """The frozen uses of one decision's window with what the randomized checks observed of them (and the
-    completed assessments' keys), or None when a dated use in the window has no imported result (``no_result``)."""
+    completed assessments' keys), or None when a dated use in the window has no imported result (``no_result``).
+
+    ``exam_result(connection, lo, on)``: the dated use's imported result; RO5's :func:`_exam_result` by default (its
+    scores read every import, as at RO5's base). RO6's return reader hands in one that applies THE availability
+    predicate at its cutoff (Codex review of RO6, F5)."""
 
     evaluation = trace.get("evaluation") or {}
     window = int(evaluation.get("window_days") or 14)
@@ -222,9 +241,10 @@ def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any
             baseline = m0[j - 1] if j - 1 < len(m0) and m0[j - 1] is not None else 0.0
             uses.append(W.Use(key=f"L:{lo}:{day}", weight=float(topic.get("c") or 0.0), baseline=float(baseline),
                               r=r_assign * rate, observed=observed, outcome=found.outcome if observed else None))
+    read_exam = exam_result if exam_result is not None else _exam_result
     for dated in (evaluation.get("uses") or {}).get("dated") or ():
         on = dated_use_date(trace, row, dated)
-        result = _exam_result(connection, str(dated["lo"]), on)
+        result = read_exam(connection, str(dated["lo"]), on)
         if result is None:
             return None
         uses.append(W.Use(key=f"G:{dated['goal_id']}:{dated['lo']}", weight=float(dated.get("omega") or 0.0),
@@ -248,13 +268,15 @@ def _window_cost_and_baseline(connection: Any, row: Mapping[str, Any], trace: Ma
 def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
                     resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
                     r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
-                    gap_minutes: float) -> tuple[float | None, str | None]:
+                    gap_minutes: float,
+                    exam_result: Callable[[Any, str, str], float | None] | None = None) -> tuple[float | None, str | None]:
     """RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action
     contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
-    ``(None, reason)`` when a dated use has no result or no use has ``r > 0`` (effort alone is no return)."""
+    ``(None, reason)`` when a dated use has no result or no use has ``r > 0`` (effort alone is no return).
+    ``exam_result``: as :func:`window_uses` (:func:`observed_returns` hands in the as-of reader)."""
 
     found_uses = window_uses(connection, row, trace, resolved=resolved, completion_rate=completion_rate,
-                             r_lookup=r_lookup)
+                             r_lookup=r_lookup, exam_result=exam_result)
     if found_uses is None:
         return None, W.NO_RESULT
     uses, _assessments = found_uses
@@ -294,16 +316,22 @@ def _context(connection: Any, *, at: str) -> tuple[dict[tuple[str, str], C.Resol
 def observed_returns(connection: Any, config: Any, *, at: str,
                      rows: Sequence[Mapping[str, Any]]) -> dict[str, tuple[float | None, str | None]]:
     """RO6: :func:`observed_return` for each of ``rows`` (a trace's columns with its parsed ``trace``) whose window
-    closed before ``at``, keyed by decision id, as of ``at`` exactly as :func:`scores` reads it."""
+    closed before ``at``, keyed by decision id, as of ``at`` as :func:`scores` reads it, except that an imported
+    result counts only once THE availability predicate admits it by ``at`` (:func:`exam_result_known`; Codex review
+    of RO6, F5: an exam imported after ``at`` is no return yet, so ``ŵ`` never reads past its cutoff)."""
 
     closed = [row for row in rows if row.get("window_closes_at") and str(row["window_closes_at"]) < at]
     if not closed:
         return {}
     resolved, completion_at, r_lookup, prices = _context(connection, at=at)
     gap = float(config.router_objective.session_gap_minutes)
+
+    def known(conn: Any, lo: str, on: str) -> float | None:
+        return exam_result_known(conn, config, lo, on, at)
+
     return {str(row["decision_id"]): observed_return(
         connection, row, row["trace"], resolved=resolved, completion_rate=completion_at(str(row["window_closes_at"])),
-        r_lookup=r_lookup, prices=prices, gap_minutes=gap) for row in closed}
+        r_lookup=r_lookup, prices=prices, gap_minutes=gap, exam_result=known) for row in closed}
 
 
 def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
@@ -329,5 +357,5 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
     return out
 
 
-__all__ = ["Detail", "VERSION", "WindowSession", "dated_use_date", "goal_date", "observed_return",
+__all__ = ["Detail", "VERSION", "WindowSession", "dated_use_date", "exam_result_known", "goal_date", "observed_return",
            "observed_returns", "score_decision", "scores", "window_cost", "window_uses"]

@@ -1577,6 +1577,10 @@ _reg_const("router_objective_tail_data:_CACHE_LIMIT", "constraint", kind="struct
            owner="router_objective_tail_data",
            rationale="keep (resource bound): the parsed immutable traces kept per process before the cache is cleared; "
            "it changes no number, only how often a trace is parsed again.")
+_reg_const("router_objective_tail_data:_SAME_CUTOFF_SECONDS", "numerical", kind="structural",
+           owner="router_objective_tail_data",
+           rationale="numerical (Codex review F3): two cutoffs this close are one; the trace keeps cutoff_days to six "
+           "places (about 0.09 s), so a shared cutoff read back from two traces differs by rounding only.")
 
 # ---------------------------------------------------------------------------
 # Inventory A -- config-leaf classification rules (ordered; first match wins).

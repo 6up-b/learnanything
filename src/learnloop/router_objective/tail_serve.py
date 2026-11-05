@@ -3,15 +3,19 @@ policy's value.
 
 At a ``plan_block`` decision at the tag with ``[router_objective] learned_tail`` on, before the rollouts:
 
-1. each candidate's features from the decision's frozen inputs and RO0's snapshot readers (the pending reports and
-   the candidates' mastery, read by ``decision_state``'s own functions, so the trace's frozen features and a rebuild
-   from RO0's receipt are the same function of the same numbers);
+1. each candidate's features from the decision's frozen inputs and its :func:`snapshot` (the pending reports and
+   the LOs' mastery, read by ``decision_state``'s own readers in the decision's own thread at its moment, before the
+   prefetch job runs: Codex review F4), so the trace's frozen features and a rebuild from RO0's receipt are the same
+   function of numbers read at the decision;
 2. the fitted Q evaluation as of now (:func:`learnloop.router_objective.tail_data.fits`): the current generator
    version's own fit, or with none of its transitions yet the latest earlier version's ("version k+1 uses the
    result"), else none (the residual zero). It is refit at every decision, so every mixture change is followed by a
    refit;
 3. ``ŵ`` as of now from the randomized stop-coin contrasts whose windows closed (:func:`learned_tail.residual_weight`);
-4. ``V_residual(a) = ρ̂(x, a)`` per candidate; the numeric policy's argmax and its tie rule run on ``Ṽ``.
+4. ``V_residual(a) = ρ̂(x, a)`` per candidate; the numeric policy's argmax and its tie rule run on ``Ṽ``;
+5. the latest earlier decision's cutoff (:func:`previous_cutoff`): the rollouts keep the net value past
+   ``C_prev + H`` apart (``terms.past_trim``), so that decision's backup reads this state's value at its own cutoff
+   exactly (Codex review F3); ``Q̄`` itself is unchanged.
 
 Everything is frozen into the decision's trace (``residual``: ``ŵ`` with its slope and rank, the fit's
 coefficients, standardization, version and size, and per candidate the features, ``V_tail``, ``V_residual`` and
@@ -34,17 +38,39 @@ LOG = logging.getLogger(__name__)
 VERSION = "ro6_learned_tail_v1"
 
 
-def features(connection: Any, inputs: Any, actions: Sequence[Any], *, now_iso: str) -> tuple[dict[str, tuple[float, ...]],
-                                                                                            dict[str, Any]]:
-    """Each candidate's features at serve time (the module docstring's step 1)."""
+SNAPSHOT_VERSION = "ro6_tail_snapshot_v1"
+
+
+def snapshot(repository: Any, *, now_iso: str) -> dict[str, Any]:
+    """The decision's own reads of the residual's mutable inputs, taken **at the decision's moment** (Codex review of
+    RO6, F4): the pending reports (``decision_state``'s reader) and every LO's mastery numbers (RO0 row 9's), so a
+    diagnosis queued or a projection moved after ``now_iso`` while the prefetch job waits for its turn never enters
+    the decision's features. The caller takes it in the decision's own thread, before any asynchronous work, and
+    hands it to :func:`residual`."""
 
     from learnloop.router_objective import decision_state as DS
 
+    with repository.connection() as connection:
+        pending = DS._pending_reports(connection, now_iso)
+        mastery: dict[str, dict[str, Any]] = {}
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'learning_object_mastery'"
+                              ).fetchone() is not None:
+            for lo, mean, variance in connection.execute(
+                    "SELECT learning_object_id, logit_mean, logit_variance FROM learning_object_mastery"):
+                mastery[str(lo)] = {"logit_mean": DS._round(mean), "logit_variance": DS._round(variance)}
+    return {"version": SNAPSHOT_VERSION, "at": now_iso, "pending_reports": dict(pending), "los": mastery}
+
+
+def features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any]) -> tuple[dict[str, tuple[float, ...]],
+                                                                                         dict[str, Any]]:
+    """Each candidate's features at serve time (the module docstring's step 1), from the decision's ``frozen``
+    :func:`snapshot` and its frozen inputs only: nothing here reads the vault."""
+
     topic_by_lo = {topic.lo: topic for topic in inputs.topics}
     los = list(dict.fromkeys(lo for action in actions for lo in action.item_los if lo in topic_by_lo))
-    pending = DS._pending_reports(connection, now_iso)
+    pending = frozen.get("pending_reports") or {}
     total = sum(value for value in pending.values() if value is not None)
-    snapshot = DS._lo_rows(connection, los, {})
+    snapshot = {lo: (frozen.get("los") or {}).get(lo) or {} for lo in los}
     numbers = {lo: LT.TopicNumbers(eta=float(topic_by_lo[lo].eta_mean), eta_var=float(topic_by_lo[lo].eta_var),
                                    practiced=bool(topic_by_lo[lo].practiced),
                                    stability=float(topic_by_lo[lo].stability),
@@ -53,7 +79,8 @@ def features(connection: Any, inputs: Any, actions: Sequence[Any], *, now_iso: s
     remembered = float(inputs.price.remembered)
     belief = LT.belief(session_minutes=float(inputs.session_minutes), remembered=remembered,
                        nearest_goal_days=nearest, horizon_days=float(inputs.horizon_days), pending_reports=total,
-                       mastery=TD.snapshot_mastery(snapshot, los), topics=list(numbers.values()))
+                       mastery=TD.snapshot_mastery(snapshot, los), topics=list(numbers.values()),
+                       cutoff_days=float(inputs.cutoff))
     out = {}
     for action in actions:
         own = tuple(numbers[lo] for lo in dict.fromkeys(action.item_los) if lo in numbers)
@@ -65,13 +92,19 @@ def features(connection: Any, inputs: Any, actions: Sequence[Any], *, now_iso: s
 
 
 def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any], now_iso: str,
-             generator_now: str, clock: Any = time.monotonic) -> dict[str, Any]:
-    """The decision's residual record (module docstring), or its failure: ``{"status": ...}``."""
+             generator_now: str, frozen: Mapping[str, Any] | None, clock: Any = time.monotonic) -> dict[str, Any]:
+    """The decision's residual record (module docstring), or its failure: ``{"status": ...}``. ``frozen``: the
+    decision's :func:`snapshot`, taken at its moment; with none the residual is left out (``no_snapshot``), never
+    computed from a later read."""
 
     started = clock()
+    if not isinstance(frozen, Mapping) or frozen.get("at") != now_iso:
+        return {"status": "no_snapshot", "version": VERSION,
+                "error": "no decision-time snapshot of the residual's inputs", "elapsed_ms": 0}
     try:
+        phi, basis = features(inputs, actions, frozen=frozen)
+        basis["snapshot"] = {"version": frozen.get("version"), "at": frozen.get("at")}
         with repository.connection() as connection:
-            phi, basis = features(connection, inputs, actions, now_iso=now_iso)
             rows = TD.logged(connection, config, at=now_iso)
             fitted = TD.fits(connection, config, at=now_iso, rows=rows)
             fit_ms = int(round((clock() - started) * 1000))
@@ -87,6 +120,7 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
             fit_record[key] = [_exact(value) for value in fit_record[key]]
         return {
             "status": "applied", "version": VERSION, "w_hat": weight.w_hat, "weight": weight.as_dict(),
+            "previous": previous_cutoff(rows, inputs, now_iso=now_iso),
             "contrasts": {"n": len(contrasts), "censored": censored_contrasts},
             "generator": generator_now, "fit_basis": basis_of_fit, "fit": fit_record,
             "transitions": {"n": len(fitted.steps.transitions), "censored": dict(fitted.steps.censored),
@@ -100,6 +134,42 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
         LOG.warning("router objective: the learned tail was not computed", exc_info=True)
         return {"status": "failed", "version": VERSION, "error": f"{type(exc).__name__}: {str(exc)[:200]}",
                 "elapsed_ms": int(round((clock() - started) * 1000))}
+
+
+def previous_cutoff(rows: Sequence[Any], inputs: Any, *, now_iso: str) -> dict[str, Any] | None:
+    """§3.2 for the backup (Codex review F3): the latest earlier logged decision (``tail_data.Logged``), its cutoff
+    ``C_prev``, and where the rollouts keep the net value past ``C_prev + H`` apart (``trim_at_days`` from now), so
+    the trace holds each candidate's ``Q_tail(x, a; C_prev) = q − past_trim`` on the same draws. ``trim_at_days`` is
+    None when ``C_prev + H`` lies past this decision's own rollout end (a goal dropped since) or ``C_prev`` is already
+    past: the value at that cutoff is not in these rollouts, and the transition is censored, never approximated."""
+
+    earlier = [row for row in rows if str(row.created_at) < now_iso and row.cutoff_at is not None]
+    if not earlier:
+        return None
+    prev = max(earlier, key=lambda row: (row.created_at, row.decision_id))
+    now = TD._parse(now_iso)
+    cutoff_days = (prev.cutoff_at - now).total_seconds() / 86400.0
+    trim = cutoff_days + float(prev.horizon_days)
+    end = float(inputs.cutoff) + float(inputs.horizon_days)
+    if cutoff_days <= 0:
+        status = "past_cutoff"
+    elif trim > end + 1e-9:
+        status = "beyond_this_rollout"
+    else:
+        status = "covered"
+    return {"decision_id": prev.decision_id, "cutoff_at": prev.cutoff_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "cutoff_days": _exact(cutoff_days), "horizon_days": float(prev.horizon_days),
+            "trim_at_days": trim if status == "covered" else None, "status": status}
+
+
+def trim_at(record: Mapping[str, Any] | None) -> float | None:
+    """The rollouts' trim for an applied record (:func:`previous_cutoff`), else None (RO4's terms exactly)."""
+
+    if not applied(record):
+        return None
+    previous = record.get("previous") if isinstance(record, Mapping) else None  # type: ignore[union-attr]
+    value = (previous or {}).get("trim_at_days") if isinstance(previous, Mapping) else None
+    return float(value) if value is not None else None
 
 
 def _exact(value: float) -> str:
@@ -135,4 +205,5 @@ def candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -
             "v_tilde": (v_tail + w_hat * float(v_residual)) if v_tail is not None and v_residual is not None else None}
 
 
-__all__ = ["VERSION", "applied", "candidate_terms", "features", "residual", "shifted"]
+__all__ = ["SNAPSHOT_VERSION", "VERSION", "applied", "candidate_terms", "features", "previous_cutoff", "residual",
+           "shifted", "snapshot", "trim_at"]

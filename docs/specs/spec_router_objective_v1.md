@@ -758,10 +758,12 @@ under `[router_objective]`: the kill switch `learned_tail` (true; off, or below 
 labelled priors `residual_prior_sd` (0.01) and `residual_weight_prior_sd` (1.0). No model request is added. Where it
 differs from §10:
 
-- **Features** (`router_objective/learned_tail.py`; read by `router_objective/tail_data.py`): thirteen numbers, the
+- **Features** (`router_objective/learned_tail.py`; read by `router_objective/tail_data.py`): fourteen numbers, the
   same function at serve time and over a trace. The state: the session's load `m/m̄`, days to go to the nearest active
-  dated goal as `exp(−days/H)`, `log(1 + pending reports)` and the candidates' mastery (mean `sigmoid` of RO0's logit
-  mean and its mean logit variance; RO0 row 9's numbers, read at serve time by `decision_state`'s own readers). The
+  dated goal as `exp(−days/H)`, `log(1 + pending reports)`, the candidates' mastery (mean `sigmoid` of RO0's logit
+  mean and its mean logit variance; RO0 row 9's numbers) and the cutoff's span `(C − t)/H`. The pending reports and
+  the mastery are read by `decision_state`'s own readers **at the decision's moment, in its own thread, before the
+  prefetch job runs** (`tail_serve.snapshot`, Codex review F4); with no snapshot the residual is left out. The
   candidate: stop, reading or probe, its minutes over `m̄`, its topics' AD predictive, their FSRS lag
   `log(1 + elapsed/S)` (monotone in retrievability and free of the FSRS weights, which a trace does not hold), and
   stop and the minutes each times the load. No intercept: with no discount the backup cancels a level. At the tag the
@@ -772,10 +774,17 @@ differs from §10:
   one. The reward of `(t_i, t_{i+1}]` is this objective's `R`: minus the attention cost the objective charges over
   it (`scores.window_cost`), plus each randomized check completed in it at `c_L·Y/r` (`r` the day's assignment
   probability times the completion rate as it stood at the interval's end: unbiased for `Σ_L c_L·P`), plus each dated
-  use whose date falls in it at `ω·Y` (the import known by the moment). Censored by reason: `no_later_decision`,
-  `change_point`, `value_missing`, `past_cutoff`, `reward_open`, `no_result`. §3.2's time handling: the next state's
-  `V_tail` is moved back to the decision's own cutoff, `V(x′; C) = V(x′; C′) − (C′ − C)·T_{C′}(x′)/H`; a next decision
-  past `C` is censored rather than bootstrapped.
+  use whose moment (`due_at`) falls in it at `ω·Y` (the import for its date known by the moment; an exam later the
+  same day counts, Codex review F2). Censored by reason: `no_later_decision`, `change_point`, `value_missing`,
+  `past_cutoff`, `reward_open`, `no_result`, `cutoff_unmatched`. §3.2's time handling (Codex review F3): the next
+  state is valued at the decision's own cutoff `C`. Each decision's rollouts keep the net value past the previous
+  decision's `C_prev + H` apart on the same draws (`terms.past_trim`, `value.evaluate(trim_at=…)`; `q` unchanged),
+  so `V(x′; C) = Σ_a′ π(a′|x′)·(q − past_trim)(a′)` exactly, and the next state's features carry `C`'s span. A next
+  decision that did not value that cutoff (an earlier version's trace, a goal dropped so that `C + H` lies past its
+  rollouts) is censored `cutoff_unmatched`, never moved back by an average terminal rate; a next decision past `C`
+  is censored rather than bootstrapped. (The tail's topic ranking reads the remaining span to its own end, so with a
+  dated use competing the trimmed path can differ from a rollout ended at `C + H` in which topic a session practises;
+  undated uses rank the same.)
 - **The fitted Q evaluation**: `Q̂ = Q_tail + ρ`, `ρ` linear in the standardized features, at FQE's fixed point under
   the Gaussian prior (closed form, the noise refined from the Bellman residuals): Bayesian linear regression, because
   one learner's log is one long dependent trajectory of hundreds of decisions a month, and a linear residual's every
@@ -793,7 +802,14 @@ differs from §10:
   correlation of `ΔV_residual` with the forced arms' contrast less the tail's part, read as `P(rank > 0)` by its
   normal approximation (one half with fewer than three). `ŵ = clip(E[b], 0, 1)·P(rank > 0)`, from windows closed
   before the decision; with no contrast it is zero. The mix's own floor draws are also randomized with logged
-  probabilities and are not used here (the spec names the coin and the checks).
+  probabilities and are not used here (the spec names the coin and the checks). **The cohort** (Codex review F1) is
+  chosen on what was fixed before the coin, never on whether the return was observed: every draw stays, the
+  `policy` arm's contrast is zero whatever its return, and a forced arm's observed return is weighted by the inverse
+  of that arm's observed share (`learned_tail.coin_contrasts`; unbiased when observation depends on the arm alone, a
+  return missing because of its own value is not corrected, and the record says how many were missing by arm and
+  reason). A forced arm with draws and no observed return leaves the contrast `unidentified`: no contrast, `ŵ` at
+  its prior, said. The returns admit an import only once it was known at the cutoff (`scores.exam_result_known`,
+  Codex review F5).
 - **How it enters** (`router_objective/tail_serve.py`, `objective_chooser.run_numeric`): at a `plan_block`
   decision, before the rollouts; `π_Q`'s argmax and tie rule run on `Ṽ`, each candidate's draws shifted by the
   constant `ŵ·V_residual`, so the paired precision is the tail's. `Q̄` (`terms.q`) stays `V_tail`, so RO5's readers
@@ -804,7 +820,9 @@ differs from §10:
 - **Partial-history weights** (`tail_data.cross_check`, report only): the improvement step is the mix with the numeric
   policy's argmax taken on `Q_tail + ρ` under the same coin; its ratio to the logger's served probability, one step and
   as the product over each decision's window, weights the window's observed return; beside it the fit's own
-  projection of the same step (a different horizon, labelled).
+  projection of the same step (a different horizon, labelled). A window's product runs over **every** logged decision
+  in it, its own window open or not, and a window holding a decision with no computable ratio is censored
+  `incomplete_history` (Codex review F6).
 - **The report** (`router_objective/tail_report.py`): `learnloop router objective-report`'s `learned_tail` section at
   the tag: the claim, no guarantee, the kept evaluations, the fits by version with change points and censoring, `ŵ`
   now and its history, the residual's share of `Ṽ`, how often it moved the argmax, serving time, the cross-check.
