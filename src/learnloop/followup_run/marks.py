@@ -99,8 +99,19 @@ def _claim_checked_ids(vault: Any, repository: Repository, attempt_id: str) -> t
     return tuple(str(row["hypothesis_id"]) for row in (feedback or {}).get("causal_hypotheses") or [])
 
 
-def markable_list(vault: Any, repository: Repository, attempt_id: str) -> MarkableList | None:
-    """The attempt's list, or None with no concrete cause to mark. Holding is the caller's check."""
+def claim_checked_ids_of(causal_feedback: Mapping[str, Any] | None) -> tuple[str, ...]:
+    """The cause ids of a feedback bundle's ``causalFeedback`` (the camel-cased
+    ``claim_checked_feedback`` the bundle already computed), as ``_claim_checked_ids`` reads them."""
+
+    return tuple(str(row["hypothesisId"]) for row in (causal_feedback or {}).get("causalHypotheses") or [])
+
+
+def markable_list(vault: Any, repository: Repository, attempt_id: str, *,
+                  claim_checked_ids: Sequence[str] | None = None) -> MarkableList | None:
+    """The attempt's list, or None with no concrete cause to mark. Holding is the caller's check.
+
+    ``claim_checked_ids``: the attempt's claim-checked causes when the caller already has them (the
+    desktop's feedback bundle computed them a moment ago, FG1d); None reads them here."""
 
     from learnloop.diagnosis.split.jobs import diagnosis_status
 
@@ -110,7 +121,8 @@ def markable_list(vault: Any, repository: Repository, attempt_id: str) -> Markab
     workflow = wf.attempt_workflow(repository, attempt_id)
     factor_id, ids = _chosen_factor(repository, attempt_id, workflow)
     if not ids:
-        ids = _claim_checked_ids(vault, repository, attempt_id)
+        ids = (tuple(claim_checked_ids) if claim_checked_ids is not None
+               else _claim_checked_ids(vault, repository, attempt_id))
     rows = [row for row in (repository.causal_hypothesis(value) for value in ids) if row is not None]
     if not rows:
         return None
@@ -133,7 +145,8 @@ def _state(repository: Repository, listed: MarkableList) -> dict[str, Any]:
         return M.probe_state(connection, factor_id=listed.factor_id, workflow=listed.workflow)
 
 
-def view(vault: Any, repository: Repository, attempt_id: str, *, surface: str = SURFACE_FEEDBACK) -> dict[str, Any] | None:
+def view(vault: Any, repository: Repository, attempt_id: str, *, surface: str = SURFACE_FEEDBACK,
+         claim_checked_ids: Sequence[str] | None = None) -> dict[str, Any] | None:
     """What the panel shows for one attempt, or None: the switch is off, the list is held, or there
     is nothing to mark. Replaces the diagnosis card's tap only on the probe lane (§7)."""
 
@@ -144,7 +157,7 @@ def view(vault: Any, repository: Repository, attempt_id: str, *, surface: str = 
             return None
     if is_holding(wf.attempt_workflow(repository, attempt_id)):
         return None
-    listed = markable_list(vault, repository, attempt_id)
+    listed = markable_list(vault, repository, attempt_id, claim_checked_ids=claim_checked_ids)
     if listed is None:
         return None
     with repository.connection() as connection:
@@ -167,16 +180,21 @@ def view(vault: Any, repository: Repository, attempt_id: str, *, surface: str = 
     }
 
 
-def bundle_view(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any] | None:
+def bundle_view(vault: Any, repository: Repository, attempt_id: str, *,
+                claim_checked_ids: Sequence[str] | None = None) -> dict[str, Any] | None:
     """§3 step 8: an answer to a generated probe shows the earlier miss's list, since that is what
-    its answer was about. Any other attempt shows its own."""
+    its answer was about. Any other attempt shows its own.
+
+    ``claim_checked_ids`` are ``attempt_id``'s own claim-checked causes, from the bundle the panel
+    rides on (FG1d: recomputing them cost every feedback open tens of milliseconds). A probe answer's
+    list is the earlier miss's, whose causes that bundle doesn't carry, so they are read there."""
 
     if not hypothesis_marks_on(vault.config):
         return None
     source = source_of_probe_attempt(repository, attempt_id)
     if source is not None:
         return view(vault, repository, source, surface=SURFACE_PROBE_FEEDBACK)
-    return view(vault, repository, attempt_id)
+    return view(vault, repository, attempt_id, claim_checked_ids=claim_checked_ids)
 
 
 def record_exposure(
