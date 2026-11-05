@@ -238,10 +238,14 @@ def _door_bundle(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: s
     return bundle
 
 
-def _with_hypothesis_marks(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str, bundle: dict[str, Any]) -> dict[str, Any]:
+def _with_hypothesis_marks(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str, bundle: dict[str, Any],
+                           claim_checked_ids: tuple[str, ...] | None = None) -> dict[str, Any]:
     """FG1c (spec §7): the marks panel's read rides on the desktop's bundle, only when there is a list
     to show. Off, held or nothing to mark: no key, so the bundle stays as it was. A failed read
-    costs the panel, never the feedback."""
+    costs the panel, never the feedback.
+
+    FG1d: ``claim_checked_ids`` are the causes the bundle already computed, taken before any hold
+    blanked them, so the panel doesn't compute them again."""
 
     from learnloop.followup_run.marks import bundle_view
     from learnloop.followup_serve.gates import hypothesis_marks_on
@@ -249,7 +253,10 @@ def _with_hypothesis_marks(ctx: SidecarContext, vault: Any, repository: Any, att
     if ctx.request_origin is not None or not hypothesis_marks_on(vault.config):
         return bundle
     try:
-        marks = bundle_view(vault, repository, attempt_id)
+        # A read only: one connection for its ~20 repository reads, which otherwise each open
+        # their own (most of what the panel cost on a miss with a factor).
+        with repository.pinned():
+            marks = bundle_view(vault, repository, attempt_id, claim_checked_ids=claim_checked_ids)
     except Exception:  # noqa: BLE001 - optional, and never in the way of the feedback
         logging.getLogger(__name__).warning("the marks panel could not be read for %s", attempt_id, exc_info=True)
         return bundle
@@ -275,6 +282,10 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
         # FG1 §6.0: what the hold kept off the first open is charged at the first open after its release.
         _debit_released_feedback(vault, repository, attempt, stored_feedback)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
+    from learnloop.followup_run.marks import claim_checked_ids_of
+
+    # Read before a hold can blank them (a held list shows no panel anyway).
+    claim_checked_ids = claim_checked_ids_of(bundle.get("causalFeedback"))
     _attach_common_repair(repository, params.attempt_id, bundle)
     # Daily-loop DL2: an attempt that answered a "Check once" says so after
     # the measurement, with the way back to where it was studied when the
@@ -292,7 +303,7 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     if claim_line is not None:
         bundle["claimCheck"] = to_camel(claim_line)
     bundle = _with_followup(ctx, vault, repository, params.attempt_id, bundle, followup_holding)
-    bundle = _with_hypothesis_marks(ctx, vault, repository, params.attempt_id, bundle)
+    bundle = _with_hypothesis_marks(ctx, vault, repository, params.attempt_id, bundle, claim_checked_ids)
     log_event(
         "feedback_shown",
         session_id=session_id,

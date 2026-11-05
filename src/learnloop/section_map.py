@@ -177,17 +177,48 @@ def extraction_sections(ir: Any) -> tuple[list[dict[str, Any]], dict[str, Any], 
     return section_rows, block_by_span, span_to_section
 
 
+# The mapping comes in two forms (RO2 landing ruling R6). The ``*_in_ir`` functions take the
+# extraction's document IR from their caller: adaptive difficulty passes the one its material view
+# hands out (``MaterialView.document_ir``, the reading chokepoint, after the withheld rule), because
+# a raw ``source_document_*`` read inside AD's operation is refused by AD's guard and rolls back
+# every AD write of the serve. The raw-loading versions below them are thin wrappers for callers
+# outside AD (the Reader, data capture, the router's reading reads, gap sources).
+
+
+def section_id_in_ir(ir: Any, span_id: str) -> str | None:
+    """The normalized section of ``ir`` holding one reader span."""
+
+    _sections, _block_by_span, span_to_section = extraction_sections(ir)
+    section = span_to_section.get(span_id)
+    return str(section) if section is not None else None
+
+
 def section_id_for_span(
     repository: Repository, *, extraction_id: str, span_id: str
 ) -> str | None:
-    """Resolve one reader span to its containing normalized section."""
+    """Resolve one reader span to its containing normalized section (loads the IR; outside AD)."""
 
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
         return None
-    _sections, _block_by_span, span_to_section = extraction_sections(ir)
-    section = span_to_section.get(span_id)
-    return str(section) if section is not None else None
+    return section_id_in_ir(ir, span_id)
+
+
+def learning_objects_for_span_in_ir(
+    vault: LoadedVault,
+    repository: Repository,
+    ir: Any,
+    *,
+    extraction_id: str,
+    span_id: str,
+) -> list[str]:
+    """:func:`learning_objects_for_span` over a given IR."""
+
+    section_id = section_id_in_ir(ir, span_id)
+    if section_id is None:
+        return []
+    return learning_objects_for_section_in_ir(vault, repository, ir, extraction_id=extraction_id,
+                                              section_id=section_id)
 
 
 def learning_objects_for_span(
@@ -197,19 +228,12 @@ def learning_objects_for_span(
     extraction_id: str,
     span_id: str,
 ) -> list[str]:
-    """Provenance-linked Learning Objects available as promotion targets."""
+    """Provenance-linked Learning Objects available as promotion targets (loads the IR; outside AD)."""
 
-    section_id = section_id_for_span(
-        repository, extraction_id=extraction_id, span_id=span_id
-    )
-    if section_id is None:
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
         return []
-    return learning_objects_for_section(
-        vault,
-        repository,
-        extraction_id=extraction_id,
-        section_id=section_id,
-    )
+    return learning_objects_for_span_in_ir(vault, repository, ir, extraction_id=extraction_id, span_id=span_id)
 
 
 def learning_objects_for_section(
@@ -219,7 +243,28 @@ def learning_objects_for_section(
     extraction_id: str,
     section_id: str,
 ) -> list[str]:
-    """Active Learning Objects whose provenance cites spans inside the section.
+    """Active Learning Objects whose provenance cites spans inside the section (loads the IR; outside AD).
+
+    See :func:`learning_objects_for_section_in_ir`."""
+
+    if repository.get_extraction_run(extraction_id) is None:
+        return []
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return []
+    return learning_objects_for_section_in_ir(vault, repository, ir, extraction_id=extraction_id,
+                                              section_id=section_id)
+
+
+def learning_objects_for_section_in_ir(
+    vault: LoadedVault,
+    repository: Repository,
+    ir: Any,
+    *,
+    extraction_id: str,
+    section_id: str,
+) -> list[str]:
+    """Active Learning Objects whose provenance cites spans inside the section of ``ir``.
 
     Reuses the guide plan's span resolution (`span_for_ref`) so item passages,
     quick-checks, and progression triggers agree on what belongs to a section.
@@ -232,9 +277,6 @@ def learning_objects_for_section(
         return []
     revision = repository.get_source_revision(run["revision_id"])
     source_id = str((revision or {}).get("source_id") or "")
-    ir = repository.load_document_ir(extraction_id)
-    if ir is None:
-        return []
     section_rows, block_by_span, _span_to_section = extraction_sections(ir)
     section = next((row for row in section_rows if row["id"] == section_id), None)
     if section is None:

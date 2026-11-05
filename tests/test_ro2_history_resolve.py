@@ -314,6 +314,10 @@ def test_the_dry_run_estimates_the_runs_own_output_budget_and_retry(tmp_path):
     assert abs(plan["estimated_tokens"] - estimated_call_tokens(prompt, HF.HistoryForecastV1, 16_384)) < 20_000
     assert plan["estimated_tokens"] > 16_384 > 1_200
     assert plan["estimated_tokens_with_retries"] > 2 * plan["estimated_tokens"]
+    # RO2 landing: the dry run says what the estimate counts (prompt bytes as tokens, the reserved output).
+    assert plan["reserved_output_tokens"] == 16_384 and plan["prompt_bytes"] > 0
+    assert plan["estimated_tokens"] >= plan["prompt_bytes"] + plan["reserved_output_tokens"]
+    assert "upper bound" in plan["estimate_counts"] and "not expected usage" in plan["estimate_counts"]
     assert HF.expected_calls(vault)["output_tokens_per_call"] == 16_384
     # The background job's caps admit the call and its retry exactly as charged (a recording client).
     seen = {}

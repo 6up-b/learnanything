@@ -313,6 +313,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_state_write_on_change.py](../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_field_workbench_signals.py](../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_the_successor_vocabulary_is_one_constant_after_its_predecessor`
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
 - [tests/test_followup_successor.py](../../../../../tests/test_followup_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_data_capture`
 - [tests/test_followups_batch5_recap_dependencies.py](../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import

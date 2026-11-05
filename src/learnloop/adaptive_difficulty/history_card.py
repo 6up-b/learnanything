@@ -365,7 +365,11 @@ def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str
     through the view (a withheld question, exchange or change is absent): the scope's questions are
     selected before their row limit (Codex re-review F7), and the walk up the branch links shares one
     row budget and :data:`ANCESTRY_ROUNDS` reads, past which an inquiry's root and status are
-    ``unknown`` and ``inquiry_ancestry`` is listed among the reads that reached their limit (F8).
+    ``unknown`` and ``inquiry_ancestry`` is listed among the reads that reached their limit (F8); a
+    parent a capped read left unread is unresolved the same way (Codex final verify F9). An older
+    question placed on the scope only by its anchor's mapping at the serve can fall behind the
+    ``recent_inquiries`` limit; the card then lists that read among the ones that reached their limit
+    (F7's remainder, accepted as Low at landing: model input, nothing a learner sees).
     Returns the entries and the readings they were asked on (for the digests)."""
 
     from learnloop.adaptive_difficulty.reading import VaultReadingMap
@@ -401,14 +405,22 @@ def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str
     # A first read that used the whole budget may have left a question's own exchange unread.
     unread = {str(row["id"]) for row in kept} - set(question_of.values()) if budget <= 0 else set()
     asked: set[str] = set()
+    # Codex final verify F9: the parents a capped read left unread (its LIMIT cut the batch), beside the
+    # ones never asked; a walk that reaches either has an unknown root, never a false intermediate one.
+    # A parent an uncapped read did not return is absent (withheld or never written), as before.
+    unresolved: set[str] = set()
     pending = {parent for parent in parent_of.values() if parent not in question_of}
     rounds = 0
     while pending and budget > 0 and rounds < ANCESTRY_ROUNDS:  # each parent asked once (a cycle ends it)
         rounds += 1
         asked |= pending
-        budget -= link(reads.exchanges(event_ids=sorted(pending), limit=budget))
+        returned = link(reads.exchanges(event_ids=sorted(pending), limit=budget))
+        if returned >= budget:
+            unresolved |= {parent for parent in pending if parent not in question_of}
+        budget -= returned
         pending = {parent for parent in parent_of.values() if parent not in question_of and parent not in asked}
-    if pending or unread:
+    unresolved |= pending
+    if unresolved or unread:
         reads.limits_reached.append("inquiry_ancestry")
 
     def root(question_id: str) -> str | None:
@@ -423,7 +435,7 @@ def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str
                 break
             seen.add(nxt)
             question_id = nxt
-        return None if parent_of.get(question_id) in pending else question_id
+        return None if parent_of.get(question_id) in unresolved else question_id
 
     found = {str(row["id"]): root(str(row["id"])) for row in kept}
     roots = {question_id: root_id for question_id, root_id in found.items() if root_id is not None}

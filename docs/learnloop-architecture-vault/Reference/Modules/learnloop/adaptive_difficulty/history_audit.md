@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/history_audit.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/history_audit.py"
-source_commit: "8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b"
-source_commit_timestamp: "2026-11-05T00:29:18-05:00"
+source_commit: "219f7e78873bb39d86f6aa81df48fe46079280fe"
+source_commit_timestamp: "2026-11-05T03:13:27-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,18 +50,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/history_audit.py](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py) |
-| Source lines | 203 |
+| Source lines | 214 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8af1a25c40d715fd86ddaddf7e4191b6e7b30d4b` |
-| Commit timestamp | `2026-11-05T00:29:18-05:00` |
+| Source commit | `219f7e78873bb39d86f6aa81df48fe46079280fe` |
+| Commit timestamp | `2026-11-05T03:13:27-05:00` |
 
 ## Public API
 
 - `plan_audit(vault: Any, repository: Any, *, mode: str, limit: int | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py), line 92) — The dry run: what ``mode`` would send and what it would cost; no call, no write.
-- `run_audit(vault: Any, repository: Any, *, mode: str, limit: int | None=None, clients: Clients | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py), line 131) — The paid run (``permuted``) or the free sweep (``prior-sweep``).
+- `run_audit(vault: Any, repository: Any, *, mode: str, limit: int | None=None, clients: Clients | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py), line 142) — The paid run (``permuted``) or the free sweep (``prior-sweep``).
 
 ### Module constants
 
@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_decoded(row: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py), line 45)
 - `_plan(connection: Any, view: Any, *, limit: int | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py), line 55) — The permuted pairs: each frozen H3 card with a donor of a similar level served no later.
-- `_version_points(vault: Any, repository: Any) -> dict[str, list[tuple[float, float]]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py), line 183)
+- `_version_points(vault: Any, repository: Any) -> dict[str, list[tuple[float, float]]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_audit.py), line 194)
 
 ## Who imports or calls it
 

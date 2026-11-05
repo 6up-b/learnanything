@@ -389,6 +389,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f7_next_through_the_sidecar_after_the_switch`
 - [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
 - [tests/test_followup_journey.py](../../../../../tests/test_followup_journey.py) — direct import
   - `test_with_no_plan_a_ready_probe_heads_todays_queue`
   - `test_with_the_switch_off_nothing_changes_in_the_feedback`
