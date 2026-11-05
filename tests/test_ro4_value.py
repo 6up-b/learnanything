@@ -225,8 +225,9 @@ def test_f2_the_probe_branch_never_sees_the_repairs_future_result():
     leaves the choice of every draw unchanged."""
 
     inputs, probe = _probe_case()
-    # A price at which the repair is worth it after some results and not others.
-    inputs = replace_inputs(inputs, price=V.Price(kappa0=0.05, remembered=10.0))
+    # A price at which the repair is worth it after some results and not others (re-review: after a miss only, on
+    # the branches' averages; at 0.05 the averaged repair wins after either result).
+    inputs = replace_inputs(inputs, price=V.Price(kappa0=0.1, remembered=10.0))
     model = V._Model(inputs, 64, "f2")
     _ledger, extra = model.value(probe)
     flipped = V._Model(inputs, 64, "f2")
@@ -352,3 +353,86 @@ def test_f7_a_refinement_cut_by_the_deadline_keeps_the_last_complete_batch():
                      clock=clock, on_complete=seen.append)
     assert out.complete and out.draws == 4 and {row.ref for row in out.valued} == {"a", "stop_for_today"}
     assert out.reference is not None and len(seen) == 1
+
+
+# -- Codex re-review (router-ro4, job 20261105-053337-BJGTug): each fails on the pre-fix value estimator ---------
+
+
+def _permute_world(world, perm):
+    """Permute every per-draw array of a model's streams and θ along the draw axis: the same empirical
+    distribution, each draw's imagined outcomes moved to another draw."""
+
+    for name, array in vars(world.streams).items():
+        if isinstance(array, np.ndarray):
+            setattr(world.streams, name, array[perm].copy())
+    for name, array in vars(world.theta).items():
+        setattr(world.theta, name, array[perm].copy())
+
+
+def test_f2_reopened_the_branch_is_chosen_on_the_average_over_imagined_outcomes():
+    """§8.1: on each result, the repair or no repair, whichever ``Q̄`` on the updated posterior prefers. Draws with the
+    same post-probe belief make the same choice (whatever their probe's duration), and moving the imagined outcomes
+    between draws (the same average) changes no choice."""
+
+    inputs, probe = _probe_case()
+    inputs = replace_inputs(inputs, price=V.Price(kappa0=0.1, remembered=10.0))
+    noisy = replace_inputs(probe, minutes_log_sd=0.5)
+    model = V._Model(inputs, 256, "f2r")
+    _ledger, extra = model.value(noisy)
+    branches = extra["branches"]
+    # One choice per result, and here the result decides it: repair after a miss, none after a success.
+    assert branches["repair_after_miss"] == 1.0
+    assert branches["repair_after_success"] == 0.0
+    # The record names the per-result choice and the averages it compared.
+    for result in ("success", "miss"):
+        means = branches["on_result"][result]
+        assert means["repair"] == (means["q_repair"] > means["q_none"])
+    assert branches["repair_after_miss"] == float(branches["on_result"]["miss"]["repair"])
+    moved = V._Model(inputs, 256, "f2r")
+    _permute_world(moved._belief_model(), np.random.default_rng(7).permutation(256))
+    _again, extra_moved = moved.value(noisy)
+    assert extra_moved["branches"]["repair_share"] == branches["repair_share"]
+    assert extra_moved["branches"]["repair_after_miss"] == branches["repair_after_miss"]
+    assert extra_moved["branches"]["repair_after_success"] == branches["repair_after_success"]
+
+
+def _clock_case(**changes):
+    """One topic, a goal 14.4 minutes away, a 40-minute remembered session in 10-minute one-item blocks; no price."""
+
+    base = dict(topics=(V.Topic("lo_a", 0.0, 0.0),), dated=(V.DatedUse("exam", "lo_a", 14.4 / 1440.0, 1.0),),
+                price=V.Price(kappa0=0.0, remembered=40.0), session_minutes=0.0, tail_block_minutes=10.0,
+                tail_block_items=1, horizon_days=1.0, learning=V.Learning(gamma=(1.0, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
+    base.update(changes)
+    return _inputs(**base)
+
+
+def test_f12_one_draws_action_duration_never_moves_another_draws_clock():
+    """The isolated reproduction: draw 0's action lasts 1.44 minutes; changing only draw 1's from 1.44 to 28.8
+    minutes leaves draw 0's goal reward unchanged."""
+
+    inputs = _clock_case(combiner=M.Combiner(mean=(0.0, 1.0, 1.0), variance=(0.0, 0.0, 0.0)))
+    rewards = []
+    for other in (1.44, 28.8):
+        model = V._Model(inputs, 2, "f12")
+        state, ledger = model.initial(), V._Ledger.zeros(2)
+        minutes = np.array([1.44, other])
+        model.run_tail(state, ledger, today_minutes=minutes, after=minutes / 1440.0,
+                       dated_done=np.zeros((2, 1), dtype=bool))
+        rewards.append(float(ledger.tail_reward[0]))
+    assert rewards[0] == pytest.approx(rewards[1], rel=1e-12, abs=1e-15)
+
+
+def test_f12_a_goal_inside_the_continuation_session_sees_only_the_blocks_before_it():
+    """A 1.44-minute review, then today's session from there to 40 minutes in 10-minute blocks (ending at 11.44,
+    21.44, 31.44 and 41.44 minutes): the goal at 14.4 minutes is scored after the review and the first block only,
+    ``σ(0 + 1 + 1)``, never on the blocks after its date (``σ(5)``)."""
+
+    inputs = _clock_case()
+    review = V.Action(ref="review", kind=V.REVIEW, item_los=("lo_a",), minutes=1.44)
+    row = V.evaluate(inputs, [review], draws=4, seed="f12b").by_ref()["review"]
+    assert row.terms["crossed_date_reward"] == 0.0
+    assert row.terms["tail_reward"] == pytest.approx(M.sigmoid(2.0).item())
+    # A goal after the whole session still sees every block of it.
+    after = V.evaluate(_clock_case(dated=(V.DatedUse("exam", "lo_a", 0.5, 1.0),)), [review], draws=4,
+                       seed="f12b").by_ref()["review"]
+    assert after.terms["tail_reward"] == pytest.approx(M.sigmoid(5.0).item())

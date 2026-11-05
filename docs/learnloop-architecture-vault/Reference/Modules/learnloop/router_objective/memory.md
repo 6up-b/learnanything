@@ -135,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro4_value.py](../../../../../../tests/test_ro4_value.py) — direct import
   - `test_a_date_inside_a_long_action_is_scored_at_the_date_on_the_state_before_it`
   - `test_a_probe_is_scored_through_its_repair_branches`
+  - `test_f12_a_goal_inside_the_continuation_session_sees_only_the_blocks_before_it`
+  - `test_f12_one_draws_action_duration_never_moves_another_draws_clock`
   - `test_f5_a_sequence_values_its_steps_in_order_with_their_own_kinds`
   - `test_f7_a_refinement_cut_by_the_deadline_keeps_the_last_complete_batch`
   - `test_the_combiner_is_its_prior_without_outcomes_and_learns_with_them`

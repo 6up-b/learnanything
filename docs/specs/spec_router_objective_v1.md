@@ -530,15 +530,18 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   review F3): an action is a chronological list of segments (one block; a probe and its repair; a mid-block
   alternative's two blocks); each segment charges its minutes from the session minutes it starts at, earns the
   undated uses over its own interval and every dated use it crosses on the state before its effect, then applies its
-  effect; the tail starts at the last segment's end and counts no interval, and starts no session, before it. `T_C`
+  effect; the tail starts at the last segment's end and counts no interval, and starts no session, before it. Each
+  draw keeps its own clock through the tail (never a batch's maximum), and a tail session's blocks land at their ends
+  the same way: a dated use a block's end crosses is scored on the state before that block (Codex re-review F12). `T_C`
   is the same tail for a further `H` past `C`. θ: each topic's ability from AD's predictive and its variance, the
   combiner's coefficients, AD's `γ` and reading curve (their **prior** means and variances: AD's bank posterior for
   them is not read at this version), the effect slope, `p_accept`. Reading starts from AD's dose-curve position for
-  the LO (the subject view's open `reading` window on its main facet, F8). The probe's branch choice is made on the
-  posterior right after the probe, in the belief's own world (ability drawn from the updated belief, the believed
-  parameters, noise independent of the true path's), one rollout per draw and branch (not a nested `Q̄`), so it
-  integrates over the repair's outcomes and never sees them (F2); the chosen repair is then simulated on the true
-  path. Its information is reported as the gain over the better fixed branch. A mid-block alternative (§8.3) is an
+  the LO (the subject view's open `reading` window on its main facet, F8). The probe's branch choice is made once per
+  result, on `Q̄` on the posterior right after the probe (§8.1's table): each branch is averaged over the belief's own
+  world (every draw from the same post-probe belief, ability drawn from it, the believed parameters, noise
+  independent of the true path's) before the two are compared, so it integrates over the repair's outcomes and never
+  sees them (F2; the re-review replaced the earlier one rollout per draw and branch, which compared single imagined
+  outcomes); the chosen repair is then simulated on the true path. Its information is reported as the gain over the better fixed branch. A mid-block alternative (§8.3) is an
   ordered **sequence** of its two blocks, each step its own interface, duration and observation, and the same step
   draws the same noise in either order (F5). The lesson interface exists but no lesson is a plan-block candidate;
   offer-type actions are valued by branches (tested by hand) and none is in a plan block's support yet.

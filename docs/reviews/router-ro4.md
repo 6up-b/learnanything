@@ -63,7 +63,9 @@ this stage, and no real request was sent.
 6. **The combiner's feed**: the Bayesian logistic fit (`memory.fit_combiner`) exists and is tested; joining the traces'
    frozen sensors to resolved cold outcomes (RO2's resolver) is not wired, so the combiner is its labelled prior.
 7. **The effect correction's forecast**: `f(a)` uses the 7-day forecast; the 1- and 30-day ones are in the trace.
-8. **The probe's branch choice** uses one rollout on the updated belief per draw instead of a nested `Q̄`.
+8. **The probe's branch choice** ~~uses one rollout on the updated belief per draw instead of a nested `Q̄`~~
+   (superseded by the Codex re-review's F2): one choice per probe result, on each branch's `Q̄` averaged over the
+   belief's own world (all its draws from that result's posterior), two extra rollout batches per result.
 9. **Reading's dose**: one dose per LO the section's provenance maps (`section_map.learning_objects_for_section`); a
    section with no mapped LO is valued at its cost alone and the trace says which.
 10. **`C⁰`**: the tail's cost at `m̄` (the spec's first-week rule) at every decision; the preceding-window mean is a

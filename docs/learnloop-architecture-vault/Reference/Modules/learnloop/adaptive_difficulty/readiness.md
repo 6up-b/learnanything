@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/readiness.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/readiness.py"
-source_commit: "workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25"
-source_commit_timestamp: "2026-11-05T04:42:23-05:00"
-source_worktree_state: "modified"
+source_commit: "96ba40f55c3587f2e716522918d4ae4d06b172ea"
+source_commit_timestamp: "2026-11-05T05:31:58-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 220bb12fda841f33b5a7166e8f8bdd5266a28a25` |
-| Commit timestamp | `2026-11-05T04:42:23-05:00` |
+| Worktree state | `clean` |
+| Source commit | `96ba40f55c3587f2e716522918d4ae4d06b172ea` |
+| Commit timestamp | `2026-11-05T05:31:58-05:00` |
 
 ## Public API
 
