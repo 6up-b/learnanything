@@ -65,7 +65,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline#^module-purpose|purpose]] | `ACTIVE` | 2 | 17 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/report|learnloop.diagnosis.text_gaps.report]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
-| [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/sources#^module-purpose|purpose]] | `ACTIVE` | 4 | 23 |
+| [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/sources#^module-purpose|purpose]] | `ACTIVE` | 4 | 24 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/tier1|learnloop.diagnosis.text_gaps.tier1]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/tier1#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 
 ## Cross-package dependencies

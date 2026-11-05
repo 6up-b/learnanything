@@ -490,10 +490,12 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "prompt_version created_at",
         derived="target_key how how_line state_key"),
     # Router objective RO2: a named gap stands or falls by its attempt, its item, the item it seeded and
-    # what it targets (by kind); the learner's words and the judge's record are values of a kept row.
+    # what it targets (by kind), and by the learner text it was named from, through that source's own
+    # rule (its ``self`` rule, by ``source_kind``: Codex review F1); the learner's words and the judge's
+    # record are values of a kept row.
     "learner_text_gaps": _table({
         "attempt_id": "attempt", "practice_item_id": "item", "seed_practice_item_id": "item",
-        "target_id": "entity@target_kind", "source_id": "entity@source_kind",
+        "target_id": "entity@target_kind", "source_id": "self",
     },
         values="id source_kind anchor_learning_object_id subject_id learner_text chooser context_judge "
                "context_kind decider_kind decider_json kind named_json action target_kind target_subject_id "
@@ -575,8 +577,23 @@ ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
     "question_event": "question_event",
     "reader_authored_question": "reader_question",
     "source_note": "note",
-    # Router objective RO2: a gap named from a tutor question (learner_text_gaps.source_kind).
     "tutor_question": "question_event",
+})
+
+#: Router objective RO2 (Codex review F1): how a gap's learner-text source (``learner_text_gaps``'
+#: ``source_kind`` and ``source_id``) is judged by its own rule (``MaterialView._gap_source_withheld``).
+#: A kind not listed is withheld (fail closed: a new source kind is judged here before AD reads it).
+GAP_SOURCES: Mapping[str, str] = MappingProxyType({
+    "tutor_question": "the tutor question (question_events' rule: its whole recorded source context)",
+    "reader_formative": "the Reader question (its reading, anchors and cited spans), or a figure prediction "
+                        "(the prediction's and its figure's reading; a figure with no passage of its own is "
+                        "withheld, since the passages it was grounded in are a column AD never reads)",
+    "hint_feedback": "the help row replied to (help_assists' rule: its item, attempt and cited spans)",
+    "workbench_text": "a workbench help row by help_assists' rule; a stuck step by the gap's item and attempt "
+                      "(the session's problem is its item)",
+    "stuck_answer": "the attempt",
+    "diagnosis": "the diagnosed attempt (the gap's own attempt_id; none is withheld)",
+    "learner_note": "withheld: AD reads no personal note (none is allowlisted for the card)",
 })
 
 #: There is no incumbent scope (the final round: inversion, owner decision 2026-10-24). The plan
@@ -721,5 +738,5 @@ def write_verdict(table: str) -> str | None:
 
 
 __all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "DERIVED", "DERIVED_TREATMENT", "ENTITY_KINDS", "EPOCH",
-           "ITEM_PROVENANCE", "READING",
+           "GAP_SOURCES", "ITEM_PROVENANCE", "READING",
            "NEUTRAL", "PREDICATE", "PROTECTED", "ROLES", "VALUE", "read_verdict", "role", "write_verdict"]

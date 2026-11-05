@@ -488,8 +488,6 @@ _reg_const("ad_history_forecast:LAGS", "constraint", kind="structural", owner="a
            "weights them; past the last an outcome is censored beyond_measured_lag.")
 _reg_const("ad_history_forecast:RATIONALE_SENTENCES", "display", kind="structural", owner="ad_history_forecast",
            rationale="keep (spec 6.2): at most three sentences of rationale, unvalidated and trace-only.")
-_reg_const("ad_history_forecast:OUTPUT_TOKENS", "operational", kind="structural", owner="ad_history_forecast",
-           rationale="keep: one call's output budget beside the card; a spend bound, never a judgement.")
 _reg_const("ad_history_resolve:MAX_LAG_DAYS", "constraint", kind="structural", owner="ad_history_resolve",
            rationale="structural: the forecaster's last lag (LAGS); past it an outcome is censored "
            "beyond_measured_lag until a longer lag is added (spec 6.2).")
@@ -498,6 +496,14 @@ _reg_const("ad_history_audit:PRIOR_SCALES", "numerical", kind="structural", owne
            "a sensitivity read, never applied to anything.")
 _reg_const("ad_scoring:CLIP", "numerical", kind="structural", owner="ad_scoring",
            rationale="numerical: the log loss's probability clip, so a 0 or 1 forecast scores finitely.")
+_reg_const("ad_scoring:FIT_TOLERANCE", "numerical", kind="structural", owner="ad_scoring",
+           rationale="numerical: the calibration fit converges when the log posterior's gradient is below it "
+           "(Codex review F2); an unconverged fit states no slope.")
+_reg_const("ad_scoring:FIT_ITERATIONS", "numerical", kind="structural", owner="ad_scoring",
+           rationale="numerical: the damped Newton fit's work bound; past it an unconverged fit is reported as such.")
+_reg_const("ad_scoring:FIT_ARMIJO", "numerical", kind="structural", owner="ad_scoring",
+           rationale="numerical: the backtracking line search's sufficient-increase share (Armijo's textbook "
+           "1e-4), so every step raises the log posterior.")
 _reg_const("ad_scoring:SLOPE_PRIOR", "prior", owner="ad_scoring",
            rationale="seeded prior, basis a calibrated forecaster (intercept 0, slope 1 on the log-odds), each "
            "with its sd: a model and prompt version's calibration slope shrinks to the population's posterior "

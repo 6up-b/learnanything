@@ -282,6 +282,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_dispatcher_reads_the_answer_with_its_question_passage_and_expected_answer`
 - [tests/test_reader_rw1b_review.py](../../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
+- [tests/test_ro2_history_protection.py](../../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_the_registry_restates_the_figure_source_grammar`
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_text_gap_kind_is_reused_never_paid_for_twice`
 - [tests/test_workbench_text_gaps.py](../../../../../../../tests/test_workbench_text_gaps.py) — direct import

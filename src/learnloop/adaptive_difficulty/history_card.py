@@ -8,8 +8,9 @@ the one below:
 * **H1**: whole answers with the learner's confidence taps; ordered help from ``help_assists`` (kind,
   level, strategy, timing, text); the learner's questions on the LO with the disclosure state at the
   ask; reveals;
-* **H2**: the Reader: reading opportunities on the LO, the learner's inquiries and their text,
-  self-check verdicts, session digests;
+* **H2**: the Reader: reading opportunities on the LO, the learner's inquiries and their text (read
+  directly, answered or not, each with its root and its learner-owned status at the serve:
+  :func:`_inquiries`), self-check verdicts, session digests;
 * **H3**: the whole history: other LOs by shared facets and recency, teach-backs, gaps named from the
   learner's text, exam sittings and imports (result only), goals and their dates.
 
@@ -33,7 +34,9 @@ What it reads, and what it never does:
   created_at)`` (so a backdated import is out until it arrived, whatever the tag); per table
   ``coalesce(received_at, created_at)`` where it has ``received_at``, else ``created_at`` (a help row,
   which has neither, its ``coalesce(shown_at, requested_at)``; a reading receipt its source's write
-  time). Every entry carries an evidence id and its days before the serve.
+  time). An inquiry's status is the one in force at the serve (a later logged change is read only for
+  its ``previous_resolution``, the state it replaced). Every entry carries an evidence id and its days
+  before the serve.
 * **Bounded**: every read has a row limit (``keep``: :data:`ROW_LIMITS`) before any trimming, so the
   serve transaction's work is bounded and not only the prompt; then the card is held to
   ``adaptive_difficulty.history_card_token_budget`` (UTF-8 bytes, an upper bound on its tokens) by
@@ -68,6 +71,9 @@ SECTIONS: Mapping[str, tuple[str, ...]] = {
 ROW_LIMITS: Mapping[str, int] = {
     "attempts": 400, "other_attempts": 200, "help": 200, "questions": 100, "reveals": 100, "reading": 200,
     "reader_sources": 100, "digests": 20, "gaps": 50, "goals": 20,
+    # Codex review F6: H2's inquiries read directly, their exchanges (branch links) and roots, and the
+    # logged status changes that place each root's status at the serve.
+    "inquiries": 100, "exchanges": 200, "inquiry_roots": 100, "status_changes": 400,
 }
 #: ``keep``: the text bound of one entry (a whole answer, a help text, a question, a digest; bytes).
 ANSWER_TEXT_LIMIT = 4_000
@@ -237,6 +243,46 @@ class _Reads:
                              "AND dismissed_at IS NULL",
                              (*extractions, self.served_at), "created_at DESC, id DESC")
 
+    def inquiries(self) -> list[dict[str, Any]]:
+        """The learner's Reader and library questions known at the serve, newest first (Codex review F6:
+        read directly, answered or not; the caller keeps those on the scope's LOs)."""
+
+        available = available_sql(self.connection, "question_events")
+        marks = _marks(sorted(READER_CONTEXTS))
+        return self._bounded("inquiries", "question_events", f"context IN ({marks}) AND {available} <= ?",
+                             (*sorted(READER_CONTEXTS), self.served_at), "created_at DESC, id DESC")
+
+    def exchanges(self, *, question_ids: Sequence[str] = (), event_ids: Sequence[str] = ()) -> list[dict[str, Any]]:
+        """Completed Reader exchanges (``reader_answer_submitted``) of these questions or with these ids,
+        known at the serve: their payload carries the branch link (``parent_exchange_id``)."""
+
+        if not question_ids and not event_ids:
+            return []
+        available = available_sql(self.connection, "interaction_events")
+        return self._bounded(
+            "exchanges", "interaction_events",
+            f"kind = 'reader_answer_submitted' AND (json_extract(payload_json, '$.question_event_id') IN "
+            f"({_marks(question_ids)}) OR id IN ({_marks(event_ids)})) AND {available} <= ?",
+            (*question_ids, *event_ids, self.served_at), "created_at DESC, id DESC")
+
+    def status_changes(self, question_ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Every logged inquiry status change of these root questions (``inquiry_status_set``), whenever
+        it happened: one after the serve says, by its ``previous_resolution``, what held at the serve."""
+
+        if not question_ids:
+            return []
+        return self._bounded(
+            "status_changes", "interaction_events",
+            "kind = 'reader_action_invoked' AND subject_type = 'reader_inquiry' AND "
+            "json_extract(payload_json, '$.event') = 'inquiry_status_set' AND "
+            f"json_extract(payload_json, '$.question_event_id') IN ({_marks(question_ids)})",
+            tuple(question_ids), "created_at, id")
+
+    def questions_by_id(self, ids: Sequence[str]) -> list[dict[str, Any]]:
+        if not ids:
+            return []
+        return self._bounded("inquiry_roots", "question_events", f"id IN ({_marks(ids)})", tuple(ids), "id")
+
     def gaps(self, los: Sequence[str], attempt_ids: Sequence[str]) -> list[dict[str, Any]]:
         available = available_sql(self.connection, "learner_text_gaps")
         return self._bounded(
@@ -252,6 +298,117 @@ def _topic(vault: Any, lo_id: Any) -> str:
 
 def _oldest_first(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda entry: (-(entry.get("days_before") or 0.0), str(entry.get("evidence_id"))))
+
+
+def _inquiry_los(reads: _Reads, mapping: Any, row: Mapping[str, Any]) -> set[str]:
+    """The LOs a Reader question is on, by the reading sweep's rule (``reading_sources``' tutor events:
+    its anchor span's LOs, a note's, its item's) and the candidate LOs it recorded at the ask."""
+
+    from learnloop.ingest.locators import parse_block_span
+
+    los: set[str] = set()
+    context = _json(row.get("source_context_json"), {})
+    if isinstance(context, Mapping):
+        los |= {str(lo) for lo in context.get("candidate_learning_object_ids") or [] if lo}
+    note_id = row.get("note_id")
+    parsed = parse_block_span(str(note_id)) if note_id else None
+    if parsed is not None:
+        los |= {str(lo) for lo in mapping.los_for_span(parsed[0], parsed[1])}
+    elif note_id:
+        los |= {str(lo) for lo in mapping.los_for_note(str(note_id))}
+    if row.get("practice_item_id"):
+        lo = reads.view.lo_for_item(row.get("practice_item_id"))
+        if lo:
+            los.add(str(lo))
+    return los
+
+
+def _inquiries(vault: Any, reads: _Reads) -> tuple[list[dict[str, Any]], set[str]]:
+    """H2's inquiries (Codex review F6): the learner's Reader and library questions on the scope's LOs,
+    known at the serve, answered by the tutor or not, each with its inquiry's status at the serve.
+
+    An inquiry is a root question and its branches (the branch link rides each completed exchange's
+    payload, ``parent_exchange_id``); its status is the root's learner-owned ``resolution`` (``open``,
+    ``resolved``, ``dismissed``; reopen included), never whether the tutor answered. The status at the
+    serve is the last logged change at or before it, else the first later change's
+    ``previous_resolution``, else the stored value when it is still the default ``open``; a status a
+    path changed without logging is ``unknown`` (its time is not recorded). Every read is bounded and
+    through the view (a withheld question, exchange or change is absent). Returns the entries and the
+    readings they were asked on (for the digests)."""
+
+    from learnloop.adaptive_difficulty.reading import VaultReadingMap
+
+    days = reads.days
+    mapping = VaultReadingMap(vault, reads.view.repository, reads.view)
+    scope = set(reads.scope)
+    kept = [row for row in reads.inquiries()
+            if days(row.get("created_at")) is not None and _inquiry_los(reads, mapping, row) & scope]
+    question_of: dict[str, str] = {}
+    parent_of: dict[str, str] = {}
+
+    def link(exchanges: list[dict[str, Any]]) -> None:
+        for exchange in exchanges:
+            payload = _json(exchange.get("payload_json"), {})
+            if not isinstance(payload, Mapping) or not payload.get("question_event_id"):
+                continue
+            question_of[str(exchange["id"])] = str(payload["question_event_id"])
+            if payload.get("parent_exchange_id"):
+                parent_of.setdefault(str(payload["question_event_id"]), str(payload["parent_exchange_id"]))
+
+    link(reads.exchanges(question_ids=[str(row["id"]) for row in kept]))
+    asked: set[str] = set()
+    pending = {parent for parent in parent_of.values() if parent not in question_of}
+    while pending:  # up the branch links, each parent asked once (a cycle or a missing parent ends it)
+        asked |= pending
+        link(reads.exchanges(event_ids=sorted(pending)))
+        pending = {parent for parent in parent_of.values() if parent not in question_of and parent not in asked}
+
+    def root(question_id: str) -> str:
+        seen = {question_id}
+        while parent_of.get(question_id) in question_of:
+            nxt = question_of[parent_of[question_id]]
+            if nxt in seen:
+                break
+            seen.add(nxt)
+            question_id = nxt
+        return question_id
+
+    roots = {str(row["id"]): root(str(row["id"])) for row in kept}
+    current = {str(row["id"]): str(row.get("resolution") or "open") for row in kept}
+    missing = sorted(set(roots.values()) - set(current))
+    current.update({str(row["id"]): str(row.get("resolution") or "open") for row in reads.questions_by_id(missing)})
+    changes: dict[str, list[Mapping[str, Any]]] = {}
+    for change in reads.status_changes(sorted(set(roots.values()))):
+        payload = _json(change.get("payload_json"), {})
+        if isinstance(payload, Mapping) and payload.get("question_event_id"):
+            changes.setdefault(str(payload["question_event_id"]), []).append(
+                {**payload, "at": change.get("created_at")})
+
+    def status(root_id: str) -> str:
+        logged = changes.get(root_id, [])
+        before = [change for change in logged if days(change.get("at")) is not None]
+        if before:
+            return str(before[-1].get("resolution") or "unknown")
+        if logged:
+            return str(logged[0].get("previous_resolution") or "unknown")
+        stored = current.get(root_id)
+        return "open" if stored == "open" else "unknown"
+
+    entries, extractions = [], set()
+    for row in kept:
+        question_id = str(row["id"])
+        state = status(roots[question_id])
+        answered_at = row.get("answered_at")
+        answered = (days(answered_at) is not None) if answered_at else row.get("answer_status") == "answered"
+        entries.append({"evidence_id": f"question:{question_id}", "days_before": days(row.get("created_at")),
+                        "context": row.get("context"), "question": _excerpt(row.get("question_md"), TEXT_LIMIT),
+                        "tutor_answered": bool(answered),
+                        "root": None if roots[question_id] == question_id else f"question:{roots[question_id]}",
+                        "status": state, "open": state == "open"})
+        context = _json(row.get("source_context_json"), {})
+        if isinstance(context, Mapping) and context.get("extraction_id"):
+            extractions.add(str(context["extraction_id"]))
+    return entries, extractions
 
 
 def build_sections(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any) -> dict[str, Any]:
@@ -341,16 +498,8 @@ def build_sections(vault: Any, connection: Any, item: Any, *, served_at: str, vi
     by_table: dict[str, list[str]] = {}
     for row in opportunities:
         by_table.setdefault(str(row.get("source_table")), []).append(str(row.get("source_id")))
-    inquiries, self_checks, extractions = [], [], set()
-    for row in reads.reader_sources("question_events", by_table.get("question_events", [])):
-        if days(row.get("created_at")) is None:
-            continue
-        inquiries.append({"evidence_id": f"question:{row['id']}", "days_before": days(row.get("created_at")),
-                          "context": row.get("context"), "question": _excerpt(row.get("question_md"), TEXT_LIMIT),
-                          "open": row.get("answered_at") is None and row.get("answer_status") != "answered"})
-        context = _json(row.get("source_context_json"), {})
-        if isinstance(context, Mapping) and context.get("extraction_id"):
-            extractions.add(str(context["extraction_id"]))
+    inquiries, extractions = _inquiries(vault, reads)
+    self_checks: list[dict[str, Any]] = []
     for row in reads.reader_sources("reader_authored_questions", by_table.get("reader_authored_questions", [])):
         if days(row.get("created_at")) is None:
             continue

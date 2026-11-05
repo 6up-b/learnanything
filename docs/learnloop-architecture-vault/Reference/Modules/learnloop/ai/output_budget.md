@@ -99,6 +99,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]] — imports `TRUNCATION_RETRY_FACTOR`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `output_budget`; statically calls `output_budget`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `TRUNCATION_RETRY_FACTOR`, `record_truncation`; statically calls `record_truncation`
 - [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `output_budget`, `record_truncation`; statically calls `output_budget`, `record_truncation`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `output_budget`; statically calls `output_budget`
@@ -144,7 +145,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/field_classification|learnloop.cli.field_classification]] and 20 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] and 21 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

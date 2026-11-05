@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/scoring.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/scoring.py"
-source_commit: "workspace/uncommitted @ HEAD 8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
+source_commit: "workspace/uncommitted @ HEAD 5a4f18feff72f2759ad90fe426bc5021ea5948f1"
+source_commit_timestamp: "2026-11-04T23:02:05-05:00"
 source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/scoring.py](../../../../../../src/learnloop/adaptive_difficulty/scoring.py) |
-| Source lines | 336 |
+| Source lines | 382 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 8d1272482fc14d002b0c0671f74e5f37d2427af9` |
-| Commit timestamp | `2026-11-04T21:28:27-05:00` |
+| Source commit | `workspace/uncommitted @ HEAD 5a4f18feff72f2759ad90fe426bc5021ea5948f1` |
+| Commit timestamp | `2026-11-04T23:02:05-05:00` |
 
 ## Public API
 
@@ -64,8 +64,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `brier(p: float, y: float) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 38)
 - `score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 43) — The scores of every item forecast receipt (pure reads; zero model calls).
 - `rebuild(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 114) — Clear and rebuild ``item_forecast_scores`` (zero model calls).
-- `calibration_slopes(points: Mapping[str, list[tuple[float, float]]], *, scale: float=1.0, prior: Mapping[str, tuple[float, float]]=SLOPE_PRIOR) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 214) — Each model and prompt version's calibration slope under the hierarchical prior: the population (every version pooled) is fitted under the seeded prior, and each version under a prior centred at the population's posterior with the seeded spread, so a new version starts from the p…
-- `history_report(connection: Any, vault: Any, repository: Any, *, now: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 231) — RO2's comparisons (spec §6.4): ``llm_history_v1:H3`` against ``mastery_ekf``, ``lo_general+composite`` and ``llm_v3:llm`` on the same presentations (log loss and calibration on field's first-attempt split first, then repeats), delayed cold between the rungs (intention to treat)…
+- `calibration_slopes(points: Mapping[str, list[tuple[float, float]]], *, scale: float=1.0, prior: Mapping[str, tuple[float, float]]=SLOPE_PRIOR) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 253) — Each model and prompt version's calibration slope under the hierarchical prior: the population (every version pooled) is fitted under the seeded prior, and each version under a prior centred at the population's posterior with the seeded spread, so a new version starts from the p…
+- `history_report(connection: Any, vault: Any, repository: Any, *, now: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 277) — RO2's comparisons (spec §6.4): ``llm_history_v1:H3`` against ``mastery_ekf``, ``lo_general+composite`` and ``llm_v3:llm`` on the same presentations (log loss and calibration on field's first-attempt split first, then repeats), delayed cold between the rungs (intention to treat)…
 
 ### Module constants
 
@@ -75,6 +75,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `HISTORY_SUBJECT` ([src/learnloop/adaptive_difficulty/scoring.py](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 136)
 - `HISTORY_COMPARATORS` ([src/learnloop/adaptive_difficulty/scoring.py](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 138)
 - `SLOPE_PRIOR` ([src/learnloop/adaptive_difficulty/scoring.py](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 144)
+- `FIT_TOLERANCE` ([src/learnloop/adaptive_difficulty/scoring.py](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 184)
+- `FIT_ITERATIONS` ([src/learnloop/adaptive_difficulty/scoring.py](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 185)
+- `FIT_ARMIJO` ([src/learnloop/adaptive_difficulty/scoring.py](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 187)
 
 ### Explicit exports
 
@@ -97,7 +100,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_paired(left: Mapping[str, tuple[float, float]], right: Mapping[str, tuple[float, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 145) — The mean paired log-loss difference ``left - right`` (below zero, ``left`` scores better) on the keys both hold (each ``(p, y)``, the same outcome), with AD's anytime-valid confidence sequence on it (``monitoring.confidence_sequence`` over each difference's predictable range, §8…
 - `_calibration(points: list[tuple[float, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 164)
 - `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 173)
-- `_map_fit(points: list[tuple[float, float]], prior: Mapping[str, tuple[float, float]], scale: float=1.0, iterations: int=50) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 178) — The MAP intercept and slope of ``y ~ Bernoulli(sigmoid(a + b * logit(p)))`` under independent normal priors (each sd times ``scale``), by Newton's method, with the Laplace sd of each.
+- `_log1pexp(z: float) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 178)
+- `_map_fit(points: list[tuple[float, float]], prior: Mapping[str, tuple[float, float]], scale: float=1.0, iterations: int=FIT_ITERATIONS) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/scoring.py), line 190) — The MAP intercept and slope of ``y ~ Bernoulli(sigmoid(a + b * logit(p)))`` under independent normal priors (each sd times ``scale``), with the Laplace sd of each at the optimum.
 
 ## Who imports or calls it
 
@@ -150,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_an_unconverged_calibration_fit_is_reported_not_presented`
+  - `test_calibration_slopes_converge_on_a_reversed_forecaster`
   - `test_calibration_slopes_shrink_a_new_version_to_the_population`
   - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
 

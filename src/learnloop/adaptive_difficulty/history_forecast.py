@@ -97,8 +97,6 @@ DRAWN = ("H0", "H1", "H2")
 LAGS = (1, 7, 30)
 #: ``keep``: at most this many sentences of rationale are kept (spec §6.2), unvalidated.
 RATIONALE_SENTENCES = 3
-#: ``keep``: one call's output budget beside the card (tokens): a spend bound, never a judgement.
-OUTPUT_TOKENS = 1_200
 FROZEN_PREFIX = "ad_llm_history_state:plan_presentation:"
 NOW_EVENT = EVENT
 COLD_EVENT = "lo_cold_unassisted_success"
@@ -360,9 +358,8 @@ def _ask(vault: Any, repository: Any, client: Any, *, prompt: str, owner_id: str
     price = vault.config.adaptive_difficulty.price_per_million
     if not subscription and price is None:
         raise SpendLimitExceeded("a metered ad_forecast_llm route needs adaptive_difficulty.price_per_million")
-    budget = _budget(vault)
     caps = dict(max_candidates=0, max_pairs=0, max_retries=1, max_calls=2,
-                max_total_tokens=2 * (budget + OUTPUT_TOKENS) + 4_000)
+                max_total_tokens=call_tokens(route, prompt)["with_retry"])
     answer, calls = sending.ask_llm(send, route, client, price=price, repository=repository, caps=caps,
                                     owner_kind=ad_spend.FORECAST_OWNER_KIND, owner_id=owner_id, purpose=PURPOSE,
                                     prompt=prompt, result_model=HistoryForecastV1, metadata={"owner_id": owner_id},
@@ -525,17 +522,38 @@ def _forecast_rung(vault: Any, worker: Any, rung: str, presentation: Mapping[str
     return outcome
 
 
-def expected_calls() -> dict[str, Any]:
+def call_tokens(route: Any, prompt: str) -> dict[str, int]:
+    """What one logical call on ``route`` is charged, as the paid path charges it (Codex review F5): the
+    request is reserved at the route's own output budget (``route.output_tokens``, which
+    :func:`sending.ask_llm` passes on), and its one allowed retry (``max_retries=1``: a provider failure
+    at that budget, or a truncation at double it, held to the transport's ceiling) at most double. The
+    background job's caps and the audit's dry run both read this, so the dry run plans exactly what the
+    run admits. Metered tokens count each physical request (``METERED_REQUESTS_PER_CALL``)."""
+
+    from learnloop.practice_index.paid import METERED_REQUESTS_PER_CALL, estimated_call_tokens
+
+    output = int(route.output_tokens)
+    initial = estimated_call_tokens(prompt, HistoryForecastV1, output) * METERED_REQUESTS_PER_CALL
+    retry = estimated_call_tokens(prompt, HistoryForecastV1, 2 * output) * METERED_REQUESTS_PER_CALL
+    return {"output_tokens": output, "initial": initial, "with_retry": initial + retry}
+
+
+def expected_calls(vault: Any = None) -> dict[str, Any]:
     """What one eligible presentation costs (for the owner, before landing): two calls (H3 and the drawn
     rung), each the frozen card (at most ``history_card_token_budget`` bytes) plus the instructions in,
-    and at most :data:`OUTPUT_TOKENS` out."""
+    and at most the route's output budget out (``ai.route_output_tokens.ad_forecast_llm``, else the
+    serving profile's ``max_tokens``, else ``ai.output_tokens``), one retry at most double."""
 
+    from learnloop.ai.output_budget import output_budget
+    from learnloop.practice_index.paid import plan_route
+
+    out = plan_route(vault, LLM_ROUTE).output_tokens if vault is not None else output_budget(None, LLM_ROUTE)
     return {"calls_per_presentation": 2, "rungs": [ANCHOR, "one of " + ", ".join(DRAWN)],
-            "output_tokens_per_call": OUTPUT_TOKENS}
+            "output_tokens_per_call": out, "retries_per_call": 1}
 
 
 __all__ = [
     "ANCHOR", "CARD_VERSION", "COLD_EVENT", "DRAWN", "DRAW_VERSION", "FORECASTER", "HistoryForecastV1", "LABEL", "LAGS",
-    "PROMPT_VERSION", "draw", "draw_key", "expected_calls", "forecast_history_presentation", "forecaster_name",
+    "PROMPT_VERSION", "call_tokens", "draw", "draw_key", "expected_calls", "forecast_history_presentation", "forecaster_name",
     "freeze_history_inputs", "frozen_key", "prompt_for", "receipt_keys",
 ]

@@ -61,7 +61,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] | [[Reference/Modules/learnloop/ingest/fetchers#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/ingest/hashing|learnloop.ingest.hashing]] | [[Reference/Modules/learnloop/ingest/hashing#^module-purpose|purpose]] | `ACTIVE` | 12 | 20 |
 | [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] | [[Reference/Modules/learnloop/ingest/ir#^module-purpose|purpose]] | `ACTIVE` | 18 | 67 |
-| [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] | [[Reference/Modules/learnloop/ingest/locators#^module-purpose|purpose]] | `ACTIVE` | 27 | 11 |
+| [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] | [[Reference/Modules/learnloop/ingest/locators#^module-purpose|purpose]] | `ACTIVE` | 28 | 11 |
 | [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] | [[Reference/Modules/learnloop/ingest/models#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/ingest/originals|learnloop.ingest.originals]] | [[Reference/Modules/learnloop/ingest/originals#^module-purpose|purpose]] | `ACTIVE` | 10 | 16 |
 | [[Reference/Modules/learnloop/ingest/reanchor|learnloop.ingest.reanchor]] | [[Reference/Modules/learnloop/ingest/reanchor#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
@@ -89,7 +89,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 2 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 2 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 2 static module edges
@@ -133,7 +133,7 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|6| center
     n_learnloop_content_synthesis -->|5| center
     n_learnloop_content_authoring -->|4| center
-    n_learnloop_adaptive_difficulty -->|2| center
+    n_learnloop_adaptive_difficulty -->|3| center
     n_learnloop_db -->|2| center
 ```
 

@@ -2824,10 +2824,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_factor_kept_the_shadow_reports_no_schedule_change`
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_a_gap_whose_source_is_marked_held_out_after_it_was_named_is_withheld`
   - `test_content_held_out_after_the_serve_is_never_sent`
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_a_reread_past_ads_daily_dose_cap_is_an_intervening_exposure`
   - `test_the_audit_dry_run_calls_and_writes_nothing`
+  - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
   - `test_the_permuted_run_sends_another_presentations_history`
   - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import

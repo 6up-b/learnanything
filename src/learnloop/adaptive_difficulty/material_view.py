@@ -179,7 +179,15 @@ _ENTITY_TABLES: dict[str, tuple[str, str]] = {
     "receipt": ("forecast_receipts", "id"),
     "administration": ("activity_administrations", "id"),
     "surface": ("activity_surfaces", "id"),
+    "help_assist": ("help_assists", "id"),
 }
+
+
+#: A figure prediction's learner-text source id (``diagnosis.text_gaps.sources``' grammar, restated:
+#: AD imports nothing of the diagnosis package, by contract): the prediction id, with this suffix for
+#: its later "what changed?" text. ``tests/test_ro2_history_protection.py`` pins the two equal.
+_FIGURE_PREDICTION_PREFIX = "fpr_"
+_FIGURE_EXPLANATION_SUFFIX = ":explained"
 
 
 def _spans(raw: Any) -> list[str]:
@@ -479,7 +487,55 @@ class MaterialView:
             except Exception:  # noqa: BLE001 - fail closed
                 return True
             return self.keys_withheld(keys, whole)
+        if table == "learner_text_gaps":
+            return self._gap_source_withheld(connection, row)
         raise ValueError(f"no self rule for {table}")
+
+    def _gap_source_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
+        """Router objective RO2 (Codex review F1): a gap is withheld with the learner text it was named
+        from, by that source's own rule (``protected_tables.GAP_SOURCES``): its words can quote what the
+        source showed. A kind the registry does not list is withheld (fail closed); a source row since
+        deleted is merely absent, as any entity reference (the gap's other references still judge it)."""
+
+        kind, source = str(row.get("source_kind") or ""), str(row.get("source_id") or "")
+        if kind not in _T.GAP_SOURCES or not source or kind == "learner_note":
+            return True
+        if kind == "tutor_question":
+            return self._entity_withheld(connection, "question_event", source)
+        if kind == "stuck_answer":
+            return self._entity_withheld(connection, "attempt", source)
+        if kind == "diagnosis":
+            # The diagnosis row is the incumbent's (denied); its text is the attempt's own answer.
+            return not row.get("attempt_id")
+        if kind == "hint_feedback":
+            return self._entity_withheld(connection, "help_assist", source)
+        if kind == "workbench_text":
+            # A workbench help row by its rule; a stuck step (no help row) by the gap's item and attempt.
+            return self._entity_withheld(connection, "help_assist", source)
+        if source.startswith(_FIGURE_PREDICTION_PREFIX):
+            return self._figure_prediction_withheld(connection, source.removesuffix(_FIGURE_EXPLANATION_SUFFIX))
+        return self._entity_withheld(connection, "reader_question", source)
+
+    def _figure_prediction_withheld(self, connection: Any, prediction_id: str) -> bool:
+        """A figure prediction, for a gap named from it: withheld with its row or its figure's (each a
+        READING row of its extraction), and when its figure has no passage of its own (a figure grounded
+        in retrieved passages, whose keys AD never reads: fail closed) or either row is missing."""
+
+        found = []
+        for table in ("figure_predictions", "interactive_figures"):
+            if not _has_table(connection, table):
+                return True
+            key = prediction_id if table == "figure_predictions" else (found[0].get("figure_id") if found else None)
+            rows = _rows(connection, f"/* ad-rules */ SELECT {_select(table)} FROM {table} WHERE id = ?",
+                         (str(key),)) if key else []
+            if not rows or not self.keep(connection, table, rows[0]):
+                return True
+            found.append(rows[0])
+        figure = found[1]
+        region = _json(figure.get("region_json"), {})
+        own = _spans(figure.get("span_ids_json")) or (
+            [region["span_id"]] if isinstance(region, Mapping) and region.get("span_id") else [])
+        return not figure.get("extraction_id") or not own
 
     def _proposal_withheld(self, row: Mapping[str, Any]) -> bool:
         """A proposal is withheld when the item its effective payload (the edit, else the payload)

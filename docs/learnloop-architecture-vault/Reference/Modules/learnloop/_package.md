@@ -155,7 +155,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] | [[Reference/Modules/learnloop/reader_followups_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] | [[Reference/Modules/learnloop/reader_learner_state#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] | [[Reference/Modules/learnloop/reading_path_plan_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/reading_sources|learnloop.reading_sources]] | [[Reference/Modules/learnloop/reading_sources#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
+| [[Reference/Modules/learnloop/reading_sources|learnloop.reading_sources]] | [[Reference/Modules/learnloop/reading_sources#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] | [[Reference/Modules/learnloop/recurrence#^module-purpose|purpose]] | `ACTIVE` | 10 | 6 |
 | [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] | [[Reference/Modules/learnloop/regrade_contract_upgrade#^module-purpose|purpose]] | `ACTIVE` | 15 | 2 |
 | [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] | [[Reference/Modules/learnloop/replay_ledger_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
@@ -258,8 +258,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 46 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 44 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 36 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 32 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 32 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 31 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 31 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 31 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 27 static module edges

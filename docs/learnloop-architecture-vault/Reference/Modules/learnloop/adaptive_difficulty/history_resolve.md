@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/history_resolve.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/history_resolve.py"
-source_commit: "8d1272482fc14d002b0c0671f74e5f37d2427af9"
-source_commit_timestamp: "2026-11-04T21:28:27-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 5a4f18feff72f2759ad90fe426bc5021ea5948f1"
+source_commit_timestamp: "2026-11-04T23:02:05-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -50,26 +50,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py) |
-| Source lines | 208 |
+| Source lines | 264 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `8d1272482fc14d002b0c0671f74e5f37d2427af9` |
-| Commit timestamp | `2026-11-04T21:28:27-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 5a4f18feff72f2759ad90fe426bc5021ea5948f1` |
+| Commit timestamp | `2026-11-04T23:02:05-05:00` |
 
 ## Public API
 
-- `interpolate(curve: Mapping[str, Any], lag_days: float) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 66) — The curve's probability at ``lag_days``: linear in log time between the stated lags; the first lag's value below it; None past the last (censored ``beyond_measured_lag``).
-- `resolve(connection: Any, vault: Any, repository: Any, *, now: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 105) — Every ``lo_cold_success`` curve resolved under both bindings (pure reads; zero model calls).
+- `interpolate(curve: Mapping[str, Any], lag_days: float) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 74) — The curve's probability at ``lag_days``: linear in log time between the stated lags; the first lag's value below it; None past the last (censored ``beyond_measured_lag``).
+- `resolve(connection: Any, vault: Any, repository: Any, *, now: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 164) — Every ``lo_cold_success`` curve resolved under both bindings (pure reads; zero model calls).
 
 ### Module constants
 
-- `RESOLVER_VERSION` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 50)
-- `PER_PROTOCOL` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 51)
-- `INTENTION_TO_TREAT` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 52)
-- `BINDINGS` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 53)
-- `MAX_LAG_DAYS` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 56)
+- `RESOLVER_VERSION` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 58)
+- `PER_PROTOCOL` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 59)
+- `INTENTION_TO_TREAT` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 60)
+- `BINDINGS` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 61)
+- `MAX_LAG_DAYS` ([src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 64)
 
 ### Explicit exports
 
@@ -85,9 +85,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_days(later: Any, earlier: Any) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 59)
-- `_groups(receipts: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 82) — One forecast curve per presentation and forecaster (the receipts of one call).
-- `_log_loss(p: float | None, y: float | None) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 201)
+- `_days(later: Any, earlier: Any) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 67)
+- `_groups(receipts: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 90) — One forecast curve per presentation and forecaster (the receipts of one call).
+- `class _Uncapped` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 112) — The material view as the reading collectors see it, with nothing on record: each source event is listed whether or not a sweep recorded (or a cap refused) its receipt.
+- `_opportunities(connection: Any, vault: Any, repository: Any, view: Any, *, now: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 132) — Every learning opportunity on any LO up to ``now`` (``id``, ``learning_object_id``, ``at``): the uncapped source events and AD's receipts, one per source row and LO.
+- `_outcome_state(row: Mapping[str, Any], category: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 155) — The outcome's help state beside its binary label (spec §6.2: A4's states stay distinct).
+- `_log_loss(p: float | None, y: float | None) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 257)
 
 ## Who imports or calls it
 
@@ -104,9 +107,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] — imports `CENSORED`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] — imports `module`; calls `unassisted_success`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `VaultReadingMap`; calls `VaultReadingMap`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `load_events`
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `log_loss`; calls `log_loss`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/ad_receipts|learnloop.db.stores.ad_receipts]] — imports `module`
+- [[Reference/Modules/learnloop/reading_sources|learnloop.reading_sources]] — imports `listed_events`, `source_stamp`; calls `listed_events`, `source_stamp`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `LO_COLD_SUCCESS`
 
 ### Platform and third-party dependencies

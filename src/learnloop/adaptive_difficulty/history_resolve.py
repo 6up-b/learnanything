@@ -16,11 +16,17 @@ The resolver gives two bindings of the same receipts:
 **The block** is the presentation's: it starts at the serve and ends at the latest attempt answering
 any presentation of its block (the serve when none did). **A qualifying outcome** is an attempt on an
 item of the LO the learner never attempted before, after the block, outside it, that AD's outcome
-categories grade (``outcomes.category`` not None): help, a reveal during it or an empty "stuck" answer
-make it a failure, as AD's event says; a censored category (a primed answer) censors it; an excluded
-attempt (not graded, exposed before it was served) is passed over and recorded. **An exposure to the
-LO** is any visible attempt on the LO, any reveal on it (a lesson's or a tutor's teaching text
-reaches the ledger as reveals: the "intervening lesson" case) and any reading receipt on it.
+categories grade (``outcomes.category`` not None), scored by AD's binary event
+(``outcomes.unassisted_success``): help, a reveal during it or an empty "stuck" answer make it a
+failure, AD's censored category included (a correct answer whose help timing is unknown, a primed
+answer revealed during its presentation: neither is an unassisted success; Codex review F4), its state
+recorded (``outcome_state``); an excluded attempt (not graded, exposed before it was served) is passed
+over and recorded. **An exposure to the LO** is any visible attempt on the LO, any reveal on it (a
+lesson's or a tutor's teaching text reaches the ledger as reveals: the "intervening lesson" case) and
+any learning opportunity on it from its **uncapped source events** (``reading_sources.listed_events``
+through the material view, every one whether or not AD's sweep recorded a receipt for it: AD's dose caps,
+one passage view per LO per day, bound a dose, never what coldness sees; Codex review F3), with AD's
+reading receipts kept beside them (a receipt whose source was since deleted still stands).
 
 **Scored at the realized lag** by interpolating the curve linearly in log time between the stated lags
 (below the first lag the 1-day forecast stands). Past the last lag (30 days) the outcome is censored
@@ -47,7 +53,9 @@ from learnloop.scheduling.forecast_receipts import LO_COLD_SUCCESS
 from learnloop.adaptive_difficulty import outcomes as O
 from learnloop.adaptive_difficulty.model import CENSORED
 
-RESOLVER_VERSION = "ad-history-resolver-v1"
+#: v2 (Codex review F3, F4): exposures from the uncapped source events; AD's censored category scored
+#: by AD's binary event (a failure), not censored.
+RESOLVER_VERSION = "ad-history-resolver-v2"
 PER_PROTOCOL = "per_protocol"
 INTENTION_TO_TREAT = "intention_to_treat"
 BINDINGS = (PER_PROTOCOL, INTENTION_TO_TREAT)
@@ -101,6 +109,57 @@ def _groups(receipts: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return list(groups.values())
 
 
+class _Uncapped:
+    """The material view as the reading collectors see it, with nothing on record: each source event is
+    listed whether or not a sweep recorded (or a cap refused) its receipt. Every protection rule is the
+    view's own (``rows``, ``question``, ``administration_item``...); only the receipt lookup differs."""
+
+    def __init__(self, view: Any) -> None:
+        self._view = view
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._view, name)
+
+    def lookup(self, connection: Any, table: str, where: str, args: Any = (), *,
+               stale_as_missing: bool = False) -> tuple[str, Any]:
+        from learnloop.db.stores import ad_receipts as store
+
+        if table == store.READING:
+            return "missing", None
+        return self._view.lookup(connection, table, where, args, stale_as_missing=stale_as_missing)
+
+
+def _opportunities(connection: Any, vault: Any, repository: Any, view: Any, *, now: str) -> list[dict[str, Any]]:
+    """Every learning opportunity on any LO up to ``now`` (``id``, ``learning_object_id``, ``at``): the
+    uncapped source events and AD's receipts, one per source row and LO."""
+
+    from learnloop.adaptive_difficulty.reading import VaultReadingMap
+    from learnloop.reading_sources import listed_events, source_stamp
+
+    upper = source_stamp(now) or now
+    found: dict[tuple[str, str], dict[str, Any]] = {}
+    for event in listed_events(connection, VaultReadingMap(vault, repository, view), None, upper, view=_Uncapped(view)):
+        for lo in event.learning_object_ids:
+            ref = f"{event.source_table}:{event.source_id}"
+            found.setdefault((ref, str(lo)), {"id": ref, "learning_object_id": str(lo), "at": str(event.written_at),
+                                              "subkind": event.subkind})
+    for receipt in view.reading_opportunities(connection):
+        ref = f"{receipt.get('source_table')}:{receipt.get('source_id')}"
+        found.setdefault((ref, str(receipt.get("learning_object_id") or "")), {
+            "id": ref, "learning_object_id": str(receipt.get("learning_object_id") or ""),
+            "at": source_stamp(receipt.get("source_written_at")) or str(receipt.get("source_written_at") or ""),
+            "subkind": receipt.get("subkind")})
+    return list(found.values())
+
+
+def _outcome_state(row: Mapping[str, Any], category: int) -> str:
+    """The outcome's help state beside its binary label (spec §6.2: A4's states stay distinct)."""
+
+    if category != CENSORED:
+        return {2: "unassisted_success", 1: "partial_or_helped", 0: "failure"}.get(category, "failure")
+    return "primed_revealed" if row.get("primed") else "help_timing_unknown"
+
+
 @entry(read_only=True)
 def resolve(connection: Any, vault: Any, repository: Any, *, now: str | None = None) -> list[dict[str, Any]]:
     """Every ``lo_cold_success`` curve resolved under both bindings (pure reads; zero model calls)."""
@@ -117,7 +176,7 @@ def resolve(connection: Any, vault: Any, repository: Any, *, now: str | None = N
     attempts = view.attempts(connection)
     events = {event.attempt_id: event for event in RP.load_events(connection, vault, repository, view=view).attempts}
     reveals = view.reveals(connection)
-    readings = view.reading_opportunities(connection)
+    readings = _opportunities(connection, vault, repository, view, now=now)
     first_seen: dict[str, str] = {}
     for row in attempts:
         first_seen.setdefault(str(row["practice_item_id"]), str(row["id"]))
@@ -161,32 +220,29 @@ def resolve(connection: Any, vault: Any, repository: Any, *, now: str | None = N
             continue
         row, category = candidate
         at = str(row["created_at"])
-        exposures = (
-            [{"kind": "attempt", "id": str(other["id"]), "at": str(other["created_at"])} for other in on_lo
-             if str(other["id"]) not in block_ids and block_end < str(other["created_at"]) < at]
+        # Every exposure to the LO, with its time (compared as instants: the sources stamp differently).
+        touches = (
+            [{"kind": "attempt", "id": str(other["id"]), "at": str(other["created_at"]),
+              "in_block": str(other["id"]) in block_ids} for other in on_lo]
             + [{"kind": "reveal", "id": str(reveal["id"]), "at": str(reveal["created_at"]),
                 "source_kind": reveal.get("source_kind")} for reveal in reveals
-               if str(reveal.get("learning_object_id") or "") == lo and block_end < str(reveal["created_at"]) < at]
-            + [{"kind": "reading", "id": str(reading["id"]), "at": str(reading.get("source_written_at"))}
-               for reading in readings if str(reading.get("learning_object_id") or "") == lo
-               and block_end < str(reading.get("source_written_at") or "") < at])
-        before = ([str(other["created_at"]) for other in on_lo if str(other["created_at"]) < at]
-                  + [str(r["created_at"]) for r in reveals if str(r.get("learning_object_id") or "") == lo
-                     and str(r["created_at"]) < at]
-                  + [str(r.get("source_written_at")) for r in readings if str(r.get("learning_object_id") or "") == lo
-                     and str(r.get("source_written_at") or "") < at])
+               if str(reveal.get("learning_object_id") or "") == lo]
+            + [{"kind": "reading", "id": str(reading["id"]), "at": str(reading["at"]), "subkind": reading.get("subkind")}
+               for reading in readings if reading["learning_object_id"] == lo])
+        before = [touch for touch in touches if (_days(at, touch["at"]) or 0.0) > 0.0]
+        exposures = [{k: v for k, v in touch.items() if k != "in_block"} for touch in before
+                     if not touch.get("in_block") and (_days(touch["at"], block_end) or 0.0) > 0.0]
         lag = _days(at, block_end) or 0.0
-        delay = _days(at, max(before)) if before else None
+        latest = max(before, key=lambda touch: parse_utc(touch["at"])) if before else None
+        delay = _days(at, latest["at"]) if latest is not None else None
         found = {**base, "attempt_id": str(row["id"]), "lag_days": round(lag, 6),
                  "delay_since_exposure_days": None if delay is None else round(delay, 6),
-                 "category": category, "exposures": sorted(exposures, key=lambda e: (e["at"], e["id"])),
+                 "category": category, "outcome_state": _outcome_state(row, category),
+                 "exposures": sorted(exposures, key=lambda e: (parse_utc(e["at"]), e["id"])),
                  "passed_over": passed}
         for binding in BINDINGS:
             if lag > MAX_LAG_DAYS:
                 out.append({**found, "binding": binding, "status": "censored", "reason": "beyond_measured_lag"})
-                continue
-            if category == CENSORED:
-                out.append({**found, "binding": binding, "status": "censored", "reason": "censored_outcome"})
                 continue
             if binding == PER_PROTOCOL and exposures:
                 out.append({**found, "binding": binding, "status": "censored", "reason": "intervening_exposure"})

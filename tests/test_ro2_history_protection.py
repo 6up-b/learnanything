@@ -169,6 +169,144 @@ def test_content_held_out_after_the_serve_is_never_sent(tmp_path):
     assert rows(paths.sqlite_path, "SELECT * FROM forecast_receipts WHERE forecaster LIKE 'llm_history_v1:%'") == []
 
 
+def _gap(connection, gap_id: str, source_kind: str, source_id: str, lo: str, text: str, **extra) -> None:
+    _insert(connection, "learner_text_gaps", {
+        "id": gap_id, "source_kind": source_kind, "source_id": source_id, "anchor_learning_object_id": lo,
+        "learner_text": text, "chooser": "decider", "context_judge": "gap_reader", "kind": "prerequisite",
+        "action": "none", "algorithm_version": "v", "pipeline_version": "v", "created_at": BEFORE, **extra})
+
+
+def _gap_texts(cards) -> list[str]:
+    return sorted(str(entry.get("learner_text")) for entry in cards["H3"]["history"]["gaps"] if entry.get("learner_text"))
+
+
+def test_a_gap_is_withheld_with_the_source_it_was_named_from(tmp_path):
+    """Codex review F1: a gap stands or falls by the learner text it was named from, through that
+    source's own rule: a Reader formative answer on a reading the held-out material touches, a hint reply
+    to a help row citing a held-out span, and any source kind the registry cannot judge are withheld,
+    while a gap from a visible attempt's stuck answer stays (fails before the fix: only a tutor question
+    source was resolved, so the first two and the unknown kind reached H3)."""
+
+    paths, _repository, spans, vault = _textbook(tmp_path)
+    lo = vault.practice_items["pi_eigen_1"].learning_object_id
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        _insert(connection, "reader_authored_questions", {
+            "id": "rq_text", "extraction_id": "ext_text", "section_id": "sec", "question_md": "why?",
+            "expected_answer_md": "because", "anchor_span_ids_json": json.dumps([spans["worked"][1]]),
+            "prompt_version": "v", "status": "answered", "response_md": "my answer", "answered_at": BEFORE,
+            "created_at": BEFORE, "updated_at": BEFORE})
+        _gap(connection, "gap_reader", "reader_formative", "rq_text", lo, f"{SENTINEL} formative")
+        _gap(connection, "gap_hint", "hint_feedback", "ha_cited", lo, f"{SENTINEL} hint reply",
+             attempt_id="att_pub", practice_item_id="pi_eigen_1")
+        _gap(connection, "gap_stuck", "stuck_answer", "att_pub", lo, "PUBLIC-STUCK", attempt_id="att_pub",
+             practice_item_id="pi_eigen_1")
+        connection.execute("PRAGMA ignore_check_constraints = ON")
+        _gap(connection, "gap_unknown", "a_future_source", "x", lo, f"{SENTINEL} unknown source")
+    cards = _cards(paths, "pi_eigen_2", SERVED)
+    assert _gap_texts(cards) == ["PUBLIC-STUCK"]
+    assert SENTINEL not in json.dumps(cards["H3"])
+
+
+def test_a_gap_whose_source_is_marked_held_out_after_it_was_named_is_withheld(tmp_path):
+    """Codex review F1's regression: a formative answer's gap shows while its passage is public, and is
+    withheld once the passage's unit is marked held out after the gap was recorded."""
+
+    from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+    from tests.source_service_fakes import build_textbook_vault
+
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    lo = vault.practice_items["pi_eigen_1"].learning_object_id
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        _insert(connection, "reader_authored_questions", {
+            "id": "rq_text", "extraction_id": "ext_text", "section_id": "sec", "question_md": "why?",
+            "expected_answer_md": "because", "anchor_span_ids_json": json.dumps([spans["worked"][1]]),
+            "prompt_version": "v", "status": "answered", "response_md": "my answer", "answered_at": BEFORE,
+            "created_at": BEFORE, "updated_at": BEFORE})
+        _gap(connection, "gap_reader", "reader_formative", "rq_text", lo, "FORMATIVE-GAP")
+        # Figure predictions: one on a figure anchored on the passage, one on a figure with no passage of
+        # its own (grounded in retrieved passages AD never reads: withheld, fail closed).
+        for figure_id, anchored in (("fig_anchored", [spans["worked"][1]]), ("fig_grounded", [])):
+            _insert(connection, "interactive_figures", {
+                "id": figure_id, "extraction_id": "ext_text", "span_ids_json": json.dumps(anchored),
+                "origin": "selection", "spec_version": "v", "verification": "failed", "prompt_version": "v",
+                "input_hash": figure_id, "created_at": BEFORE})
+            _insert(connection, "figure_predictions", {
+                "id": f"fpr_{figure_id}", "figure_id": figure_id, "extraction_id": "ext_text", "prediction_index": 0,
+                "learner_answer": "rises", "observed_json": "{}", "matched": 0, "created_at": BEFORE})
+        _gap(connection, "gap_fig", "reader_formative", "fpr_fig_anchored:explained", lo, "FIGURE-GAP")
+        _gap(connection, "gap_fig_grounded", "reader_formative", "fpr_fig_grounded", lo, "GROUNDED-FIGURE-GAP")
+    assert _gap_texts(_cards(paths, "pi_eigen_2", SERVED)) == ["FIGURE-GAP", "FORMATIVE-GAP"]
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"worked": "held_out_evaluation"})
+    assert _gap_texts(_cards(paths, "pi_eigen_2", SERVED)) == []
+
+
+def test_the_registry_restates_the_figure_source_grammar():
+    """AD imports nothing of the diagnosis package (a contract), so the figure-prediction source id's
+    grammar is restated in the material view: pinned equal here."""
+
+    from learnloop.adaptive_difficulty import material_view as MV
+    from learnloop.adaptive_difficulty.protected_tables import GAP_SOURCES
+    from learnloop.diagnosis.text_gaps import sources as S
+
+    assert (MV._FIGURE_PREDICTION_PREFIX, MV._FIGURE_EXPLANATION_SUFFIX) == (
+        S.FIGURE_PREDICTION_PREFIX, S.FIGURE_EXPLANATION_SUFFIX)
+    # Every source kind the gap pipeline reads is judged by the registry (a new one fails here first).
+    import inspect
+
+    kinds = set(__import__("re").findall(r'source_kind == "([a-z_]+)"', inspect.getsource(S.learner_text)))
+    assert kinds == set(GAP_SOURCES)
+
+
+def test_h2_carries_open_inquiries_by_their_status_at_the_serve(tmp_path):
+    """Codex review F6: H2's inquiries are the learner's Reader questions on the LO, read directly (not
+    only through the receipts of completed exchanges), each with its inquiry's status at the serve: the
+    root question's learner-owned ``resolution`` as the logged status changes place it, never whether the
+    tutor answered. A tutor-answered inquiry the learner left open is open; an unanswered one is there,
+    open; one resolved before the serve and reopened after it was resolved at the serve; a branch carries
+    its root's status; a question asked after the serve is absent (fails before the fix: H2 found
+    inquiries only through reading receipts and read "open" from the tutor's answer)."""
+
+    from tests.ad_fakes import ad_plan_vault
+
+    paths = ad_plan_vault(tmp_path)
+    context = json.dumps({"candidate_learning_object_ids": ["lo_m1"], "extraction_id": "ext_any"})
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        for question_id, status, answered, created in (
+                ("qe_open", "answered", BEFORE, BEFORE), ("qe_pending", "pending", None, BEFORE),
+                ("qe_reopened", "answered", BEFORE, BEFORE), ("qe_branch", "answered", BEFORE, BEFORE),
+                ("qe_after", "pending", None, "2026-10-12T10:00:00Z")):
+            _insert(connection, "question_events", {
+                "id": question_id, "context": "reader", "question_md": f"INQUIRY {question_id}",
+                "answer_md": "TUTOR-ANSWER-TEXT", "answer_status": status, "answered_at": answered,
+                "source_context_json": context, "resolution": "open", "created_at": created})
+        for event_id, question_id, parent in (("ex_open", "qe_open", None), ("ex_reopened", "qe_reopened", None),
+                                               ("ex_branch", "qe_branch", "ex_open")):
+            _insert(connection, "interaction_events", {
+                "id": event_id, "kind": "reader_answer_submitted", "origin": "system", "subject_type": "reader_span",
+                "subject_id": "span:ext_any/sp_1", "created_at": BEFORE,
+                "payload_json": json.dumps({"question_event_id": question_id, "parent_exchange_id": parent,
+                                            "extraction_id": "ext_any", "span_id": "sp_1"})})
+        for event_id, resolution, previous, at in (("st_1", "resolved", "open", "2026-10-11T12:00:00Z"),
+                                                   ("st_2", "open", "resolved", "2026-10-12T12:00:00Z")):
+            _insert(connection, "interaction_events", {
+                "id": event_id, "kind": "reader_action_invoked", "origin": "learner", "subject_type": "reader_inquiry",
+                "subject_id": "ex_reopened", "created_at": at,
+                "payload_json": json.dumps({"event": "inquiry_status_set", "extraction_id": "ext_any",
+                                            "root_exchange_id": "ex_reopened", "question_event_id": "qe_reopened",
+                                            "resolution": resolution, "previous_resolution": previous})})
+    cards = _cards(paths, "pi_m1a", SERVED)
+    inquiries = {entry["evidence_id"]: entry for entry in cards["H2"]["history"]["inquiries"]}
+    assert set(inquiries) == {"question:qe_open", "question:qe_pending", "question:qe_reopened", "question:qe_branch"}
+    assert (inquiries["question:qe_open"]["status"], inquiries["question:qe_open"]["open"]) == ("open", True)
+    assert inquiries["question:qe_open"]["tutor_answered"] is True
+    assert (inquiries["question:qe_pending"]["open"], inquiries["question:qe_pending"]["tutor_answered"]) == (True, False)
+    assert (inquiries["question:qe_reopened"]["status"], inquiries["question:qe_reopened"]["open"]) == ("resolved", False)
+    assert inquiries["question:qe_branch"]["root"] == "question:qe_open" and inquiries["question:qe_branch"]["open"]
+    assert inquiries["question:qe_pending"]["question"] == "INQUIRY qe_pending"
+    assert "TUTOR-ANSWER-TEXT" not in json.dumps(cards["H3"])
+
+
 @pytest.mark.parametrize("version", ["mvp-0.22", "mvp-0.46"], ids=["below_tag", "tag"])
 def test_no_event_known_after_the_serve_reaches_a_card(tmp_path, version):
     """The leak test: an exam imported after the serve and dated before it, and help, questions and

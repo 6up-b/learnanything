@@ -121,6 +121,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `listed_events`, `source_stamp`; statically calls `listed_events`, `source_stamp`
 - [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `EXPOSURE_CONTEXTS`, `IN_PASSAGE_STYLES`, `ListedEvent`, `ReadingMap`, `SWEEP_OVERLAP`, `TUTOR_ANSWER_MODES`, `UNKNOWN_ANSWER_MODE`, `listed_events`, `source_stamp`; statically calls `listed_events`, `source_stamp`
 - [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] — imports `IN_PASSAGE_STYLES`, `TUTOR_ANSWER_MODES`, `UNKNOWN_ANSWER_MODE`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `SWEEP_OVERLAP`, `listed_events`, `source_stamp`; statically calls `listed_events`, `source_stamp`
@@ -145,7 +146,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -153,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_ro2_history_resolve.py](../../../../../tests/test_ro2_history_resolve.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
 - [tests/test_ad1_fix_round4.py](../../../../../tests/test_ad1_fix_round4.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad1_reading_opportunities.py](../../../../../tests/test_ad1_reading_opportunities.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad23_contract.py](../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
@@ -164,7 +166,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad_projection.py](../../../../../tests/test_ad_projection.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad_protected_readings.py](../../../../../tests/test_ad_protected_readings.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_salience_firewall.py](../../../../../tests/test_salience_firewall.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
-- [tests/test_ad3_reading.py](../../../../../tests/test_ad3_reading.py) — imports consumer [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]]
 
 ## Modification guidance
 

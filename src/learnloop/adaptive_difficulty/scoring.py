@@ -175,40 +175,79 @@ def _logit(p: float) -> float:
     return math.log(q / (1.0 - q))
 
 
+def _log1pexp(z: float) -> float:
+    return z + math.log1p(math.exp(-z)) if z > 0 else math.log1p(math.exp(z))
+
+
+#: ``keep``: the fit's numerical bounds (an optimizer's tolerance and work bound, never a judgement):
+#: converged when the log posterior's gradient is below :data:`FIT_TOLERANCE` in every coordinate.
+FIT_TOLERANCE = 1e-8
+FIT_ITERATIONS = 100
+#: ``keep``: the line search's sufficient-increase share (Armijo's constant, the textbook value).
+FIT_ARMIJO = 1e-4
+
+
 def _map_fit(points: list[tuple[float, float]], prior: Mapping[str, tuple[float, float]], scale: float = 1.0,
-             iterations: int = 50) -> dict[str, Any]:
+             iterations: int = FIT_ITERATIONS) -> dict[str, Any]:
     """The MAP intercept and slope of ``y ~ Bernoulli(sigmoid(a + b * logit(p)))`` under independent normal
-    priors (each sd times ``scale``), by Newton's method, with the Laplace sd of each."""
+    priors (each sd times ``scale``), with the Laplace sd of each at the optimum.
+
+    Damped Newton (Codex review F2): the log posterior is strictly concave (a Bernoulli likelihood times
+    a normal prior), so each Newton direction ascends, and a backtracking (Armijo) line search on the
+    log posterior keeps every step an improvement: no oscillation on a reversed or separable forecaster.
+    Converged when the gradient vanishes; otherwise the fit says so (``converged`` false) and states no
+    slope and no sd, never the last iterate as a posterior."""
 
     (a0, sa), (b0, sb) = prior["intercept"], prior["slope"]
     sa, sb = sa * scale, sb * scale
-    a, b = a0, b0
-    hessian = [[1.0 / sa ** 2, 0.0], [0.0, 1.0 / sb ** 2]]
-    for _ in range(iterations):
+    xs = [(_logit(p), float(y)) for p, y in points]
+
+    def objective(a: float, b: float) -> float:
+        value = -0.5 * ((a - a0) / sa) ** 2 - 0.5 * ((b - b0) / sb) ** 2
+        for x, y in xs:
+            z = a + b * x
+            value += y * z - _log1pexp(z)
+        return value
+
+    def derivatives(a: float, b: float) -> tuple[float, float, float, float, float]:
         ga, gb = -(a - a0) / sa ** 2, -(b - b0) / sb ** 2
         haa, hab, hbb = 1.0 / sa ** 2, 0.0, 1.0 / sb ** 2
-        for p, y in points:
-            x = _logit(p)
-            mu = 1.0 / (1.0 + math.exp(-(a + b * x)))
+        for x, y in xs:
+            z = a + b * x
+            mu = 1.0 / (1.0 + math.exp(-z)) if z >= 0 else math.exp(z) / (1.0 + math.exp(z))
             ga += y - mu
             gb += (y - mu) * x
             w = mu * (1.0 - mu)
             haa += w
             hab += w * x
             hbb += w * x * x
-        det = haa * hbb - hab * hab
-        if det <= 0:
+        return ga, gb, haa, hab, hbb
+
+    a, b = a0, b0
+    converged = False
+    for _ in range(iterations):
+        ga, gb, haa, hab, hbb = derivatives(a, b)
+        if abs(ga) < FIT_TOLERANCE and abs(gb) < FIT_TOLERANCE:
+            converged = True
             break
+        det = haa * hbb - hab * hab  # the negative Hessian: positive definite (the prior's term alone is)
         da, db = (hbb * ga - hab * gb) / det, (haa * gb - hab * ga) / det
-        a, b = a + da, b + db
-        hessian = [[haa, hab], [hab, hbb]]
-        if abs(da) < 1e-10 and abs(db) < 1e-10:
-            break
-    det = hessian[0][0] * hessian[1][1] - hessian[0][1] ** 2
-    sd_a = math.sqrt(hessian[1][1] / det) if det > 0 else None
-    sd_b = math.sqrt(hessian[0][0] / det) if det > 0 else None
-    return {"n": len(points), "intercept": round(a, 6), "slope": round(b, 6),
-            "intercept_sd": None if sd_a is None else round(sd_a, 6), "slope_sd": None if sd_b is None else round(sd_b, 6)}
+        current, slope, step = objective(a, b), ga * da + gb * db, 1.0
+        # Armijo backtracking: halve until the step raises the log posterior by its share of the slope
+        # (finite for an ascent direction of a concave objective; a step halved to zero ends unconverged).
+        while step > 0.0 and objective(a + step * da, b + step * db) < current + FIT_ARMIJO * step * slope:
+            step *= 0.5
+        a, b = a + step * da, b + step * db
+    else:
+        ga, gb, *_rest = derivatives(a, b)
+        converged = abs(ga) < FIT_TOLERANCE and abs(gb) < FIT_TOLERANCE
+    if not converged:
+        return {"n": len(points), "converged": False, "intercept": None, "slope": None, "intercept_sd": None,
+                "slope_sd": None}
+    _ga, _gb, haa, hab, hbb = derivatives(a, b)
+    det = haa * hbb - hab * hab
+    return {"n": len(points), "converged": True, "intercept": round(a, 6), "slope": round(b, 6),
+            "intercept_sd": round(math.sqrt(hbb / det), 6), "slope_sd": round(math.sqrt(haa / det), 6)}
 
 
 def calibration_slopes(points: Mapping[str, list[tuple[float, float]]], *, scale: float = 1.0,
@@ -219,10 +258,17 @@ def calibration_slopes(points: Mapping[str, list[tuple[float, float]]], *, scale
 
     pooled = [point for version in points.values() for point in version]
     population = _map_fit(pooled, prior, scale)
-    centred = {"intercept": (population["intercept"], prior["intercept"][1]),
-               "slope": (population["slope"], prior["slope"][1])}
+    # An unconverged population states no posterior: its versions are then fitted under the seeded prior
+    # itself, and the report says so (Codex review F2).
+    centre = population if population["converged"] else {"intercept": prior["intercept"][0],
+                                                           "slope": prior["slope"][0]}
+    centred = {"intercept": (centre["intercept"], prior["intercept"][1]),
+               "slope": (centre["slope"], prior["slope"][1])}
     return {"prior": {"seeded": {k: list(v) for k, v in prior.items()}, "scale": scale,
-                      "label": "seeded: a calibrated forecaster; versions shrink to the population"},
+                      "label": ("seeded: a calibrated forecaster; versions shrink to the population"
+                                if population["converged"] else
+                                "seeded: a calibrated forecaster; the population fit did not converge, so "
+                                "versions shrink to the seeded prior")},
             "population": population,
             "versions": {version: _map_fit(found, centred, scale) for version, found in sorted(points.items())}}
 

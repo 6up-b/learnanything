@@ -261,6 +261,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_content_held_out_after_the_serve_is_never_sent`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
   - `test_the_permuted_run_sends_another_presentations_history`
 
 ## Modification guidance

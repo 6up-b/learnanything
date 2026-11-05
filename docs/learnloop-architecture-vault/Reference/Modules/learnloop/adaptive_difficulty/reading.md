@@ -118,6 +118,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]] — imports `sweep`; statically calls `sweep`
 - [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] — imports `VaultReadingMap`; statically calls `VaultReadingMap`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `VaultReadingMap`; statically calls `VaultReadingMap`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `VaultReadingMap`; statically calls `VaultReadingMap`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] — imports `sweep`; statically calls `sweep`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `sweep`; statically calls `sweep`
 
@@ -150,7 +152,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]], [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -179,6 +181,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
   - `test_marking_and_release_flip_the_epoch_and_the_reading_with_it`
   - `test_probe_candidates_are_taken_in_reading_order_not_span_id_order`
+- [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_a_reread_past_ads_daily_dose_cap_is_an_intervening_exposure`
 - [tests/test_salience_firewall.py](../../../../../../tests/test_salience_firewall.py) — direct import
   - `test_carve_out_allowlist_is_the_sweeps_list_and_the_only_typed_value_is_the_verdict`
 

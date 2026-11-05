@@ -93,7 +93,7 @@ def plan_audit(vault: Any, repository: Any, *, mode: str, limit: int | None = No
     """The dry run: what ``mode`` would send and what it would cost; no call, no write."""
 
     from learnloop.adaptive_difficulty.material_view import material_view
-    from learnloop.practice_index.paid import estimated_call_tokens, plan_route
+    from learnloop.practice_index.paid import plan_route
 
     if mode not in MODES:
         raise ValueError(f"mode is one of {', '.join(MODES)}")
@@ -103,18 +103,28 @@ def plan_audit(vault: Any, repository: Any, *, mode: str, limit: int | None = No
     view = material_view(vault, repository)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         pairs = _plan(connection, view, limit=limit)
+    # The route and the charge the run uses (Codex review F5): the route's own output budget reserved
+    # on each call, and at most one retry at double it (``HF.call_tokens``, which the run's caps read).
     route = plan_route(vault, HF.LLM_ROUTE)
-    tokens = [estimated_call_tokens(HF.prompt_for(pair["content"]["state"]), HF.HistoryForecastV1, HF.OUTPUT_TOKENS)
-              for pair in pairs]
+    charges = [HF.call_tokens(route, HF.prompt_for(pair["content"]["state"])) for pair in pairs]
+    initial, worst = sum(c["initial"] for c in charges), sum(c["with_retry"] for c in charges)
     price = vault.config.adaptive_difficulty.price_per_million
     metered = route.billing != "subscription"
+
+    def usd(tokens: int) -> float | None:
+        if not metered:
+            return 0.0
+        return round(tokens / 1e6 * float(price), 4) if price is not None else None
+
     return {"status": "dry_run", "mode": mode, "model_calls": 0, "writes": 0, "calls": len(pairs),
-            "estimated_tokens": sum(tokens), "route": {"provider": route.provider, "model": route.model,
-                                                       "billing": route.billing},
-            "estimated_usd": (round(sum(tokens) / 1e6 * float(price), 4) if metered and price is not None else
-                              (0.0 if not metered else None)),
+            "output_tokens_per_call": route.output_tokens, "retries_per_call": 1,
+            "estimated_tokens": initial, "estimated_tokens_with_retries": worst,
+            "route": {"provider": route.provider, "model": route.model, "billing": route.billing},
+            "estimated_usd": usd(initial), "estimated_usd_with_retries": usd(worst),
             "pairs": [{"plan_presentation_id": p["plan_presentation_id"], "donor": p["donor"], "levels": p["levels"],
-                       "bytes": tokens[index]} for index, p in enumerate(pairs)]}
+                       "estimated_tokens": charges[index]["initial"],
+                       "estimated_tokens_with_retry": charges[index]["with_retry"]}
+                      for index, p in enumerate(pairs)]}
 
 
 @entry(durable="it sends to a model: its claim, spend and receipts commit per unit")

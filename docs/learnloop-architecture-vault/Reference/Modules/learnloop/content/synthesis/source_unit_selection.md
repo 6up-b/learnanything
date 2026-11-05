@@ -223,6 +223,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reread_safety.py](../../../../../../../tests/test_reread_safety.py) — direct import
   - `test_redesign_a_study_map_save_keeps_the_owners_marks`
 - [tests/test_ro2_history_protection.py](../../../../../../../tests/test_ro2_history_protection.py) — direct import
+  - `test_a_gap_whose_source_is_marked_held_out_after_it_was_named_is_withheld`
   - `test_content_held_out_after_the_serve_is_never_sent`
 - [tests/test_router_r2a_landing.py](../../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_rw4d_rw3b_composition.py](../../../../../../../tests/test_rw4d_rw3b_composition.py) — direct import

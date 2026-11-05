@@ -132,8 +132,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]] — imports `PaidCalls`, `estimated_call_tokens`, `plan_route`; statically calls `PaidCalls`, `estimated_call_tokens`, `plan_route`
 - [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `plan_route`, `resolve_client`; statically calls `plan_route`, `resolve_client`
-- [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] — imports `estimated_call_tokens`, `plan_route`; statically calls `estimated_call_tokens`, `plan_route`
-- [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `plan_route`; statically calls `plan_route`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] — imports `plan_route`; statically calls `plan_route`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `METERED_REQUESTS_PER_CALL`, `estimated_call_tokens`, `plan_route`; statically calls `estimated_call_tokens`, `plan_route`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `plan_route`, `resolve_client`; statically calls `plan_route`, `resolve_client`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `plan_route`, `resolve_client`; statically calls `plan_route`, `resolve_client`
 - [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] — imports `PaidCalls`; statically calls `PaidCalls`
@@ -254,6 +254,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_find_dry_run_bounds_the_rerank_pool_the_query_vector_will_fill`
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_the_plan_down_means_no_narrative_and_no_other_provider`
+- [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
 - [tests/test_source_retrieval_codex_unavailable.py](../../../../../../tests/test_source_retrieval_codex_unavailable.py) — direct import
   - `test_the_unset_t6_routes_follow_the_active_plan_profile`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import

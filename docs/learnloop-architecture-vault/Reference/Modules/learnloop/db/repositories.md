@@ -3146,7 +3146,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
+  - `test_a_reread_past_ads_daily_dose_cap_is_an_intervening_exposure`
   - `test_the_audit_dry_run_calls_and_writes_nothing`
+  - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
   - `test_the_permuted_run_sends_another_presentations_history`
   - `test_the_report_compares_on_the_same_presentations_and_reports_missing_pairs`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import

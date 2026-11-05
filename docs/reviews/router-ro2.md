@@ -30,9 +30,13 @@ Fakes only: no paid call was made in this stage, and no real forecast was sent.
 - **Calls per eligible presentation: 2** (H3, plus the one drawn rung of H0, H1, H2, each with probability 1/3). Eligible:
   every plan presentation AD records whose item is not protected (the same set `llm_v3` freezes).
 - **Tokens per call:** the frozen card, at most `history_card_token_budget` = 48,000 UTF-8 bytes (an upper bound on its
-  tokens; real tokens are roughly a quarter to a third of that), plus about 1,000 bytes of instructions and the schema, in;
-  at most 1,200 tokens out. A learner with little history sends a few kilobytes. H0 is the smallest (about `llm_v3`'s card).
-  So at most about 2 x (14k in + 1.2k out) tokens per presentation; typically far less.
+  tokens; real tokens are roughly a quarter to a third of that), plus about 1,000 bytes of instructions and the schema, in.
+  Out (corrected by the Codex review's F5; the earlier "1,200" was a constant the send never used): each call reserves the
+  route's own output budget, `ai.route_output_tokens.ad_forecast_llm`, else the serving profile's `max_tokens`, else
+  `ai.output_tokens` (16,384 by default), and one retry at most double; the answer itself is four probabilities and at
+  most three sentences (a few hundred tokens). A learner with little history sends a few kilobytes. H0 is the smallest
+  (about `llm_v3`'s card). So per presentation at most about 2 x (14k in + 16k reserved out), plus one retry each at
+  worst; typically far less in, and a few hundred out.
 - **Route and money:** `ai.routing.ad_forecast_llm` (the ChatGPT plan by default: `estimated_only`, counted at $0 against
   `adaptive_difficulty.daily_spend_cap_usd`). A metered route is refused unless `adaptive_difficulty.price_per_million` is
   set, and then counts against the same daily cap. A plan usage pause, the cap, an unavailable route or an invalid answer
