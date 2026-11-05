@@ -229,3 +229,64 @@ def test_r2_a_served_decision_logs_its_objective_under_the_generator_it_served(t
         residual = trace["residual"]
         assert residual["objective"]["hash"] == TD.trace_objective_hash(trace)
         assert residual["generator"] == TD.generator(trace, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+
+
+# -- R3: the carried valuation never runs on the learner's serving path ----------------------------------------
+
+
+def test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_carried_backup(tmp_path, monkeypatch):
+    """Codex's F9 with an instrumented clock: 100 ms for each evaluation at the decision's own cutoff, 472 ms for one at
+    a carried cutoff. Before the fix the no-model branch ran both before answering (572 ms); now its answer returns
+    within the first pass's time, the carried valuation is not run on the serving path, and the transition into the
+    decision is censored ``cutoff_unmatched``."""
+
+    from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.db.stores import router_objective as store
+
+    from tests.router_mixture_helpers import mixture_env, run
+    from tests.router_model_fakes import fake_runtime
+
+    clock = {"ms": 0.0, "first_pass": 0.0}
+    real = OC.V.evaluate
+
+    def instrumented(*args, **kwargs):
+        if kwargs.get("cutoff") is not None:
+            clock["ms"] += 472.0
+        else:
+            clock["ms"] += 100.0
+            clock["first_pass"] += 100.0
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(OC.V, "evaluate", instrumented)
+    served: list[tuple[float, float]] = []
+    real_run = OC.run_numeric
+
+    def timed(*args, **kwargs):
+        before, first = clock["ms"], clock["first_pass"]
+        policy = real_run(*args, **kwargs)
+        # (the serve's time on the instrumented clock, its evaluations at the decision's own cutoff alone)
+        served.append((clock["ms"] - before, clock["first_pass"] - first))
+        return policy
+
+    monkeypatch.setattr(OC, "run_numeric", timed)
+    for attempt in range(6):  # a run whose first draw is stop ends after one decision: redone (no earlier decision)
+        (tmp_path / f"run{attempt}").mkdir()
+        env = mixture_env(tmp_path / f"run{attempt}", fake_runtime(), version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+        served.clear()
+        run(env, steps=16)
+        with env.repository.connection() as connection:
+            traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)
+                      if row["decision_kind"] == "plan_block"]
+        if len(traces) >= 2:
+            break
+    assert len(traces) >= 2 and all(trace["policies"]["numeric"]["status"] == "answered" for trace in traces)
+    later = [trace["residual"]["previous"] for trace in traces[1:]]
+    assert all(previous["status"] == TS.CARRIED for previous in later)
+    # Before the fix: each decision after the first answered after its first pass plus 472 ms (Codex: 572 ms).
+    assert len(served) == len(traces) and all(spent == first for spent, first in served), served
+    assert all(previous["q_status"] == TS.NOT_ON_THE_SERVING_PATH and "q" not in previous for previous in later)
+    with env.repository.connection() as connection:
+        steps = TD.fits(connection, env.vault.config, at="2100-01-01T00:00:00Z").steps
+    assert not any(step.detail.get("cutoff") == "previous_cutoff" for step in steps.transitions)
+    assert steps.censored.get(TD.CUTOFF_UNMATCHED, 0) >= 1

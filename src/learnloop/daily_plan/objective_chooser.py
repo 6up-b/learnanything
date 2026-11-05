@@ -313,7 +313,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 candidates: Mapping[str, BlockCandidate], now_iso: str, seed: str, deadline: float | None,
                 keep_going: Any = None, forecasts: Any = None, clock: Any = time.monotonic, publish: Any = None,
                 sequences: Mapping[str, Sequence[BlockCandidate]] | None = None,
-                learned_tail: bool = False, tail_snapshot: Mapping[str, Any] | None = None) -> NumericPolicy:
+                learned_tail: bool = False, tail_snapshot: Mapping[str, Any] | None = None,
+                carried_valuation: bool = True) -> NumericPolicy:
     """π_Q end to end: the frozen inputs, the day's price, ``Q̄`` with common random numbers (more draws while
     ``keep_going()``), then, once the LLM policy's forecasts are in (``forecasts()``: None while out), the effect
     correction; the argmax with the tie rule; the evaluation's baselines.
@@ -327,7 +328,10 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
     rule run on ``Ṽ = V_tail + ŵ·V_residual`` (:mod:`learnloop.router_objective.tail_serve`), computed before the
     rollouts; ``Q̄`` and every term stay the tail's. ``tail_snapshot``: the residual's mutable inputs read at the
     decision's moment (:func:`learnloop.router_objective.tail_serve.snapshot`, taken by the caller before any
-    asynchronous work: Codex review of RO6, F4)."""
+    asynchronous work: Codex review of RO6, F4). ``carried_valuation``: the second valuation at the latest earlier
+    decision's cutoff runs after the answer is published (the prefetch job's, after ``publish``); False where the
+    answer is served at once with nothing to publish into (the no-model branch): it is not run on the learner's
+    serving path and the transition into this decision is censored ``cutoff_unmatched`` (RO6's landing ruling R3)."""
 
     started = clock()
     config = vault.config
@@ -406,7 +410,10 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             from learnloop.router_objective import tail_serve
 
             carried = tail_serve.carried_cutoff(residual_record)
-            if carried is not None:
+            if carried is not None and not carried_valuation:
+                # Landing ruling R3: never on the learner's serving path; the backup into it is censored.
+                residual_record = tail_serve.not_on_the_serving_path(residual_record)
+            elif carried is not None:
                 # RO6 (Codex re-review F3): the candidates valued again with every rollout at the latest earlier
                 # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
                 # target, so the first batch's draws: its noise averages out in the fit, and no refinement is paid).
@@ -802,7 +809,9 @@ class ObjectiveChooser(RouterChooser):
                                   now_iso=now_iso, seed=_hash({"numeric": key}),
                                   deadline=self.runtime.clock() + float(config.router.timeout_seconds),
                                   clock=self.runtime.clock, learned_tail=True,
-                                  tail_snapshot=self._tail_snapshot(now_iso))
+                                  tail_snapshot=self._tail_snapshot(now_iso),
+                                  # R3: the answer is served at once here; no second valuation on the serving path.
+                                  carried_valuation=False)
             entry = _NoModels(key, {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
                                     "decided_at": now_iso, "numeric": numeric}, self.runtime.clock())
         self._freeze_objective(record, staged, feasible, support)

@@ -788,7 +788,8 @@ differs from §10:
   `V(x′; C) = Σ_a′ π(a′|x′)·Q_tail(x′, a′; C)` is that cutoff's own value; its own `Q̄` and choice are untouched. A
   shared cutoff (a goal date beyond the horizon) needs no second valuation. A next decision that did not value that
   cutoff (an earlier version's trace, a second valuation the deadline cut short, a published answer served before
-  it) is censored `cutoff_unmatched`, never trimmed or moved back by an average terminal rate; a next decision past
+  it, or a decision of the no-model branch, whose answer is served at once: the second valuation never runs on the
+  learner's serving path, landing ruling R3) is censored `cutoff_unmatched`, never trimmed or moved back by an average terminal rate; a next decision past
   `C` is censored rather than bootstrapped. The second valuation costs one more evaluation at the answer's draws.
 - **The fitted Q evaluation**: `Q̂ = Q_tail + ρ`, `ρ` linear in the standardized features, at FQE's fixed point under
   the Gaussian prior (closed form, the noise refined from the Bellman residuals): Bayesian linear regression, because

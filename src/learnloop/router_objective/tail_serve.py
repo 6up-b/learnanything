@@ -16,7 +16,10 @@ At a ``plan_block`` decision at the tag with ``[router_objective] learned_tail``
 5. the latest earlier decision's cutoff (:func:`previous_cutoff`): after the rollouts at this decision's own
    cutoff, the candidates are valued again with every rollout run at ``C_prev`` (``residual.previous.q``) and their
    features taken at ``C_prev``'s span (``residual.previous.features``), so that decision's backup reads this state's
-   value at its own cutoff exactly (Codex re-review F3); this decision's ``Q̄`` and choice are unchanged by it.
+   value at its own cutoff exactly (Codex re-review F3); this decision's ``Q̄`` and choice are unchanged by it. It
+   runs in the numeric policy's prefetch job after the answer is published, never on the learner's serving path:
+   with no prefetch job (the no-model branch) it is not run, and the transition into this decision is censored
+   ``cutoff_unmatched`` (:func:`not_on_the_serving_path`, RO6's landing ruling R3).
 
 Everything is frozen into the decision's trace (``residual``: ``ŵ`` with its slope and rank, the fit's
 coefficients, standardization, version and size, and per candidate the features, ``V_tail``, ``V_residual`` and
@@ -201,6 +204,22 @@ def with_carried_values(record: Mapping[str, Any], evaluation: Any) -> dict[str,
     return {**dict(record), "previous": previous}
 
 
+#: ``previous.q_status`` of a decision whose second valuation would have run on the learner's serving path (RO6's
+#: landing ruling R3): not run; a transition into the decision is censored ``cutoff_unmatched``
+NOT_ON_THE_SERVING_PATH = "not_valued_on_the_serving_path"
+
+
+def not_on_the_serving_path(record: Mapping[str, Any]) -> dict[str, Any]:
+    """The record of a decision served with no prefetch job (the no-model branch, RO6's landing ruling R3): its
+    answer is published and served at once and its trace written with it, so a second valuation at the carried
+    cutoff has nowhere to run but the learner's serving path. It is not run; the transition into this decision is
+    censored ``cutoff_unmatched``."""
+
+    previous = dict(record.get("previous") or {})
+    previous["q_status"] = NOT_ON_THE_SERVING_PATH
+    return {**dict(record), "previous": previous}
+
+
 def _exact(value: float) -> str:
     """A number the trace keeps exactly (its ``repr``): the trace rounds every float to six places, and the fit's
     standardized coefficients and the features must recompute ``V_residual`` to float precision."""
@@ -234,5 +253,6 @@ def candidate_terms(record: Mapping[str, Any], ref: str, v_tail: float | None) -
             "v_tilde": (v_tail + w_hat * float(v_residual)) if v_tail is not None and v_residual is not None else None}
 
 
-__all__ = ["CARRIED", "PAST_CUTOFF", "SAME_CUTOFF", "SNAPSHOT_VERSION", "VERSION", "applied", "candidate_terms",
-           "carried_cutoff", "features", "previous_cutoff", "residual", "shifted", "snapshot", "with_carried_values"]
+__all__ = ["CARRIED", "NOT_ON_THE_SERVING_PATH", "PAST_CUTOFF", "SAME_CUTOFF", "SNAPSHOT_VERSION", "VERSION",
+           "applied", "candidate_terms", "carried_cutoff", "features", "not_on_the_serving_path", "previous_cutoff",
+           "residual", "shifted", "snapshot", "with_carried_values"]
