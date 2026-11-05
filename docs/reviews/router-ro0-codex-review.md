@@ -138,7 +138,7 @@ its own commit, and its tests carry Codex's reproductions. The tests are in `tes
 
 | Id | Ruling | Commit | Tests |
 |---|---|---|---|
-| F1 | R1 | `811e16a98f` | `test_r1_*` (31: 26 journeys, a keyed pick, an answer and a source opening at three versions, an arranged check's delay and an unserved check's type at 0.44 and 0.45, each under an insert-refusing and a fill-refusing trigger; every writer at the store; the five writers are the only inserts; the guards name every column and refuse every other update) |
+| F1 | R1 | `811e16a98f` | `test_r1_*`, 31 tests. 26 are journeys: a keyed pick, an answer and a source opening at three versions, and an arranged check's delay and an unserved check's type at 0.44 and 0.45, each under an insert-refusing and a fill-refusing trigger. Five more check every writer at the store, that the five writers are the only inserts, and that the guards name every column and refuse every other update |
 | F7 | R2 | `ed0e027193` | `test_r2_*` (Codex's late visit; two sessions fitting, none fitting; two blocks in force, an ended block; the client's capture; a learner's visit names no block; an opening with two open sessions; off writes no link) |
 
 **R1.** No RO0 field on a table that existed before it is written in its row's insert. The writers are the only five inserts into
@@ -158,7 +158,7 @@ Callers are unchanged: the writer splits the fields off itself, so no caller can
 disclosure state's own helper (`set_question_state`) is folded into the fill. `ask_availability.serve_fields` no longer
 raises, since a keyed pick's serve propagates what fails inside it.
 
-Three of the tables are append-only. Migration 242 now replaces their update guards
+Three of the tables are append-only. Migration 242 (243 since the landing) now replaces their update guards
 (`plan_presentations_no_update`, `decision_objectives_no_update`, `decision_measurement_events_no_update`) with guards that allow exactly the fill:
 RO0's columns set once from null, every other column unchanged. Each guard names every column of its table, and a test fails if a
 later column is missing from it. Every other update, a second fill, and a fill that changes another column are still
