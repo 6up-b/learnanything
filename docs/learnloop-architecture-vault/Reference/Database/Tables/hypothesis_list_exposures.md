@@ -3,8 +3,8 @@ title: "hypothesis_list_exposures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eff30f881a7d3ea5b06e0a10156b37049285cf52"
-source_commit_timestamp: "2026-11-04T20:48:34-05:00"
+source_commit: "3a1b94c35c56468fe829e38e0d94a32a053c335d"
+source_commit_timestamp: "2026-11-04T22:29:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_list_exposures"
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
+- `tests/test_followup_fg1d_panel_read.py`
 - `tests/test_hypothesis_marks.py`
 - `tests/test_hypothesis_marks_migration.py`
 

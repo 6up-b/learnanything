@@ -140,6 +140,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_iii_a_shadow_rebuild_is_zero_with_the_checks_present`
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
   - `test_a_shadow_rebuild_is_zero_and_never_reads_a_deliverable_path`
+- [tests/test_followup_fg1d_probe_shadow.py](../../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
+  - `test_a_generated_probes_answer_on_its_presentation_reads_zero_in_the_shadow`
+  - `test_an_answer_without_its_presentation_is_incidental_on_both_sides`
+  - `test_the_diagnosis_job_after_the_answer_changes_nothing_further`
 - [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_replay_neither_reads_nor_writes_forecast_receipts`
