@@ -83,3 +83,71 @@ def test_the_contract_is_copied_at_confirmation_at_the_tag_and_adjustable(tmp_pa
     # The first version's row and hash are unchanged.
     first = repository.fetch_goal_contract_version(version.id)
     assert first["content_hash"] == version.content_hash
+
+
+# Landing ruling R2: the desktop goal form asks the dated use weight, frictionlessly: one optional field, prefilled
+# with the default (goal_feasibility says what it is, and only at the tag with the objective on), that can be left
+# alone; create_goal copies the asked weight (else the default) with the config's undated density.
+
+
+def _sidecar(tmp_path, version: str):
+    import learnloop_sidecar.handlers  # noqa: F401 - registers methods
+    from learnloop_sidecar.context import SidecarContext
+
+    from tests.helpers import create_basic_vault, set_algorithm_version
+
+    paths = create_basic_vault(tmp_path / "vault", fresh=True)
+    set_algorithm_version(paths, version)
+    context = SidecarContext()
+    context.load(paths.root)
+    return context, paths
+
+
+def _rpc(ctx, name: str, params: dict):
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    spec = METHOD_REGISTRY[name]
+    return spec.handler(ctx, spec.params_model.model_validate(params))
+
+
+_NEW_GOAL = {"title": "Midterm", "targetRecall": 0.85, "concepts": ["singular_value_decomposition"], "facets": [],
+             "examEnabled": False, "dueAt": "2026-12-15T23:59:59Z"}
+
+
+def _yaml_use_weight(paths, goal_id: str):
+    from learnloop.vault.yaml_io import read_yaml
+
+    entries = read_yaml(paths.goals_path).get("goals") or []
+    return next(entry for entry in entries if entry.get("id") == goal_id).get("use_weight")
+
+
+def test_the_goal_form_is_told_the_default_use_weight_at_the_tag_only(tmp_path):
+    feasibility = {key: _NEW_GOAL[key] for key in ("title", "targetRecall", "concepts", "facets", "examEnabled",
+                                                   "dueAt")}
+    on, _ = _sidecar(tmp_path / "on", ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+    assert _rpc(on, "goal_feasibility", feasibility)["useWeightDefault"] == {"dated": 1.0}
+    below, _ = _sidecar(tmp_path / "below", INTERVAL_FACTOR_ALGORITHM_VERSION)
+    assert _rpc(below, "goal_feasibility", feasibility)["useWeightDefault"] is None
+
+
+def test_create_goal_copies_the_asked_use_weight_or_the_default_when_left_alone(tmp_path):
+    from learnloop_sidecar.errors import SidecarError
+
+    ctx, paths = _sidecar(tmp_path / "on", ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+    asked = _rpc(ctx, "create_goal", {**_NEW_GOAL, "datedUseWeight": 2.5})["goal"]["id"]
+    assert _yaml_use_weight(paths, asked) == {"dated": 2.5, "per_lo": {}, "undated_density": pytest.approx(1 / 90)}
+    left_alone = _rpc(ctx, "create_goal", dict(_NEW_GOAL))["goal"]["id"]
+    assert _yaml_use_weight(paths, left_alone) == {"dated": 1.0, "per_lo": {},
+                                                   "undated_density": pytest.approx(1 / 90)}
+    vault, repository = ctx.require_vault()
+    goal = next(g for g in vault.goals if g.id == asked)
+    assert (U.for_goal(goal, repository, vault.config).dated, U.for_goal(goal, repository, vault.config).source) == (
+        2.5, U.COPIED)
+    with pytest.raises((SidecarError, ValueError)):
+        _rpc(ctx, "create_goal", {**_NEW_GOAL, "datedUseWeight": -1.0})
+
+
+def test_create_goal_below_the_tag_writes_no_use_weight_even_when_asked(tmp_path):
+    ctx, paths = _sidecar(tmp_path / "below", INTERVAL_FACTOR_ALGORITHM_VERSION)
+    goal_id = _rpc(ctx, "create_goal", {**_NEW_GOAL, "datedUseWeight": 2.5})["goal"]["id"]
+    assert _yaml_use_weight(paths, goal_id) is None

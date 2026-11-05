@@ -5004,6 +5004,9 @@ export interface GoalFeasibilityResult {
   materialGaps: GoalMaterialGap[];
   resolvedQuestSentence: string | null;
   questBasis: GoalDto["questBasis"];
+  /** Router objective RO4 (§8.5): what the form's optional use-weight field is prefilled with; null below the
+   *  tag or with the objective off, where the form asks nothing. Optional: an older sidecar omits it. */
+  useWeightDefault?: { dated: number } | null;
 }
 
 export interface GenerateStarterPracticeResult {
@@ -5058,6 +5061,9 @@ export interface CreateGoalInput {
   /** Opt out of the resolved-scope guard: create a goal that tracks nothing,
    *  as a stated intent rather than a silent default. */
   allowEmptyScope?: boolean;
+  /** Router objective RO4 (§8.5): the dated use weight the learner set; omitted when the field was left alone,
+   *  so the default is copied. */
+  datedUseWeight?: number;
 }
 
 export interface CreateGoalResult {

@@ -80,6 +80,9 @@ class CreateGoalInput(ParamsModel):
     #: Opt out of the resolved-scope guard. Creating a goal that tracks nothing
     #: stays possible, but only as a stated intent, never as a silent default.
     allow_empty_scope: bool = False
+    #: Router objective RO4 (§8.5, landing ruling R2): the dated use weight the goal form asks, optional and
+    #: prefilled with the default; left alone (None) the config's default is copied. Ignored below the tag.
+    dated_use_weight: float | None = None
 
 
 class UpdateGoalStatusInput(ParamsModel):
@@ -397,6 +400,14 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
     }
     uncovered = [concept for concept in params.concepts if concept not in covered_concepts]
     quest = resolve_goal_quest(transient)
+    from learnloop.goals.use_weights import config_defaults
+    from learnloop.router_objective_switches import objective_on
+
+    # Router objective RO4 (§8.5, landing ruling R2): what the goal form prefills its optional use-weight field
+    # with; None below the tag or with the objective off, where the form shows no field.
+    use_weight_default = (
+        {"dated": config_defaults(vault.config)["dated"]} if objective_on(vault.config) else None
+    )
     return versioned(
         {
             "scope_facet_count": report.total,
@@ -413,6 +424,7 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
                 quest.sentence if quest is not None else None
             ),
             "quest_basis": quest.basis if quest is not None else None,
+            "use_weight_default": use_weight_default,
         }
     )
 
@@ -490,6 +502,8 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
         raise SidecarError("goal_scope_empty", "A goal needs at least one concept or facet.")
     if not (0.0 < params.target_recall <= 1.0):
         raise SidecarError("goal_invalid_target", "target_recall must be in (0, 1].")
+    if params.dated_use_weight is not None and not params.dated_use_weight >= 0:
+        raise SidecarError("goal_invalid_use_weight", "The goal's use weight must be a number at least 0.")
     now = utc_now_iso()
     # A non-empty concepts list is not the same thing as a non-empty SCOPE. Two
     # distinct ways a goal ends up tracking less than it appears to, both silent
@@ -566,10 +580,11 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
 
     if objective_on(vault.config):
         # Router objective RO4 (spec §8.5): the goal's use weights, copied from config at creation, so a later
-        # config change never rewrites this goal's history. Adjustable later (set_goal_use_weight).
+        # config change never rewrites this goal's history. Adjustable later (set_goal_use_weight). The dated
+        # weight is the one the goal form asked (landing ruling R2), else the default.
         from learnloop.goals.use_weights import copy_at_creation
 
-        entry["use_weight"] = copy_at_creation(vault.config)
+        entry["use_weight"] = copy_at_creation(vault.config, dated=params.dated_use_weight)
     Goal.model_validate(entry)  # fail loudly before touching the file
     goals.append(entry)
     goals_data["schema_version"] = 2
