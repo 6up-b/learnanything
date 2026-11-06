@@ -186,16 +186,25 @@ def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_pri
 def _lesson_curve(read: Any) -> V.LessonCurve | None:
     """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): the lesson interface's effect, AD's ``landed`` curve as
     ``decision_state_fields`` read it through AD's read-only entry (present only at TE3a's tag with its switch on;
-    absent: RO4's placeholder)."""
+    absent: RO4's placeholder). With its seeded prior's moments (Codex review F2): the objective adds to the
+    placeholder only what lessons taught the curve beyond them (none read: nothing learned, the placeholder)."""
 
     if not isinstance(read, Mapping) or not read.get("mean") or not read.get("cov"):
         return None
-    mean, cov = read["mean"], read["cov"]
-    return V.LessonCurve(mean=(float(mean[0]), float(mean[1])),
-                         cov=((float(cov[0][0]), float(cov[0][1])), (float(cov[1][0]), float(cov[1][1]))),
+
+    def pair(value: Any) -> tuple[float, float]:
+        return float(value[0]), float(value[1])
+
+    def matrix(value: Any) -> tuple[tuple[float, float], tuple[float, float]]:
+        return pair(value[0]), pair(value[1])
+
+    prior_mean, prior_cov = read.get("prior_mean"), read.get("prior_cov")
+    return V.LessonCurve(mean=pair(read["mean"]), cov=matrix(read["cov"]),
                          positions={str(lo): float(n) for lo, n in (read.get("positions") or {}).items()},
                          version=str(read.get("version") or ""),
-                         source=f"adaptive_difficulty subject view ({read.get('source') or 'unknown'})")
+                         source=f"adaptive_difficulty subject view ({read.get('source') or 'unknown'})",
+                         prior_mean=pair(prior_mean) if prior_mean else None,
+                         prior_cov=matrix(prior_cov) if prior_cov else None)
 
 
 def _combiner(repository: Any, now_iso: str) -> M.Combiner:
@@ -530,7 +539,10 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         # Teacher TE3a: the lesson interface's effect source (absent: RO4's placeholder, as before).
         curve = inputs.learning.lesson
         sources["lesson_curve"] = {"version": curve.version, "source": curve.source, "mean": list(curve.mean),
-                                   "cov": [list(row) for row in curve.cov], "positions": dict(curve.positions)}
+                                   "cov": [list(row) for row in curve.cov], "positions": dict(curve.positions),
+                                   "prior_mean": list(curve.prior_mean) if curve.prior_mean else None,
+                                   "prior_cov": [list(row) for row in curve.prior_cov] if curve.prior_cov else None,
+                                   "effect": "RO4's placeholder plus the curve's learned shift from its prior"}
     return inputs, actions, sources
 
 

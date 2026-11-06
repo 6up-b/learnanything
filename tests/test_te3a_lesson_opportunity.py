@@ -463,10 +463,15 @@ def _inputs(learning: V.Learning) -> V.Inputs:
         return_gaps_days=(1.0, 2.0), combiner=MEM.Combiner(), learning=learning)
 
 
-def _prior_curve(positions: dict[str, float] | None = None) -> V.LessonCurve:
+def _prior_curve(positions: dict[str, float] | None = None, *, mean: tuple[float, float] | None = None,
+                 cov: Any = None) -> V.LessonCurve:
+    """The seeded prior as AD's entry reads it (``mean``/``cov``: a posterior in its place, the prior kept)."""
+
     prior = lesson_curve_moments(type("S", (), {"bank": M.Bank((P.LO_VIEW_POINT,))})())
-    return V.LessonCurve(mean=tuple(prior["mean"]), cov=tuple(tuple(row) for row in prior["cov"]),
-                         positions=positions or {}, version=prior["version"])
+    prior_mean, prior_cov = tuple(prior["prior_mean"]), tuple(tuple(row) for row in prior["prior_cov"])
+    assert prior_mean == tuple(prior["mean"]) and prior_cov == tuple(tuple(row) for row in prior["cov"])
+    return V.LessonCurve(mean=mean or prior_mean, cov=cov or prior_cov, positions=positions or {},
+                         version=prior["version"], prior_mean=prior_mean, prior_cov=prior_cov)
 
 
 def _lesson_q(learning: V.Learning) -> tuple[float, tuple[float, ...]]:
@@ -484,14 +489,125 @@ def test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder():
     q_curve, draws_curve = _lesson_q(curved)
     assert q_curve == pytest.approx(q_placeholder, abs=1e-12)
     assert np.allclose(draws_curve, draws_placeholder, atol=1e-12, rtol=0.0)  # draw for draw
-    # Off the prior the curve, not the placeholder, decides: a larger learned lesson effect raises the lesson's Q-bar.
+    # Off the prior the curve's learned shift decides: a larger learned lesson effect raises the lesson's Q-bar.
     larger = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]),
-                        lesson=V.LessonCurve(mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
-    assert _lesson_q(larger)[0] > q_placeholder
-    # A topic further along its lesson window takes a smaller step.
-    far = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]),
-                     lesson=_prior_curve({"lo_a": 3.0, "lo_b": 3.0}))
-    assert _lesson_q(far)[0] != pytest.approx(q_placeholder, abs=1e-9)
+                        lesson=_prior_curve(mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
+    q_larger = _lesson_q(larger)[0]
+    assert q_larger > q_placeholder
+    # At the prior a topic's place on its lesson window moves nothing (Codex review F2); off it, a topic further
+    # along takes a smaller learned shift (AD's window).
+    far = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve({"lo_a": 3.0, "lo_b": 3.0}))
+    assert np.array_equal(_lesson_q(far)[1], draws_placeholder)
+    far_larger = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
+        {"lo_a": 3.0, "lo_b": 3.0}, mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
+    assert q_placeholder < _lesson_q(far_larger)[0] < q_larger
+
+
+def _f2_choice(learning: V.Learning, *, mass: float) -> tuple[dict[str, V.Valued], str]:
+    """Codex review F2's case: practised topics, equal one-minute lesson and practice actions on ``lo_a``."""
+
+    inputs = _inputs(learning)
+    inputs = replace(inputs, topics=tuple(replace(topic, practiced=True, stability=3.0, elapsed_days=1.0)
+                                          for topic in inputs.topics))
+    lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a",), minutes=1.0, mass=mass)
+    practice = V.Action(ref="practice", kind=V.REVIEW, item_los=("lo_a",), minutes=1.0)
+    out = V.evaluate(inputs, [lesson, practice], draws=64, seed="te3a-f2").by_ref()
+    return out, max(("lesson", "practice"), key=lambda ref: out[ref].q)
+
+
+@pytest.mark.parametrize("mass", [P.LESSON_CHECK_MASS_PRIOR, 0.8])
+@pytest.mark.parametrize("positions", [{}, {"lo_a": 1.0}])
+def test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_moves_no_decision(mass, positions):
+    """Codex review F2: ordinary practice has fitted ``γ`` (moments (0.05, 0.01)) and no lesson has informed the
+    lesson curve (its coefficients at their seeded prior). The lesson's value is then RO4's placeholder at the fitted
+    ``γ`` and the lesson's learned mass, draw for draw, whatever the topic's place on its lesson window: no decision
+    moves. (Before the fix the curve stood in for the placeholder centred on ``γ``'s *prior*, and the lesson won.)"""
+
+    fitted = (0.05, 0.01)
+    placeholder, chose_placeholder = _f2_choice(V.Learning(gamma=fitted), mass=mass)
+    curved, chose_curve = _f2_choice(V.Learning(gamma=fitted, lesson=_prior_curve(positions)), mass=mass)
+    assert chose_curve == chose_placeholder
+    for ref in ("lesson", "practice"):
+        assert curved[ref].q == placeholder[ref].q
+        assert np.array_equal(curved[ref].q_draws, placeholder[ref].q_draws)
+
+
+def _ad_lesson_steps(sequence: str, coefficients: tuple[float, float]) -> list[float]:
+    """The oracle: AD's own transition (``View.reading`` on the lesson window, ``close_windows`` for a graded
+    attempt) with the ``landed`` coefficients' means set to ``coefficients``: each lesson's step on the facet."""
+
+    view = _view(lessons=True)
+    spec = _spec()
+    view.ensure(spec, 0.0)
+    view.bank.ensure_lessons()
+    for m in (1, 2):
+        view.bank.mu[:, view.bank.index[P.lesson_coordinate("landed", m)]] = coefficients[m - 1]
+    steps = []
+    for step in sequence:
+        if step == "L":
+            before = float(view.prediction(spec)[0][0])
+            view.reading("s", "lesson", {"f0": 1.0}, 0.0, subkind="landed")
+            steps.append(float(view.prediction(spec)[0][0]) - before)
+        else:
+            view.close_windows(("f0",))
+    return steps
+
+
+def _objective_lesson_steps(sequence: str, learning: V.Learning) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """The objective's rollout state through ``sequence`` on ``lo_a`` (``L`` a lesson, ``P`` a graded practice
+    attempt, ``B`` a probe): each lesson's step on the belief and on the true ability, per draw."""
+
+    model = V._Model(_inputs(learning), 32, "te3a-f3")
+    state = model.initial()
+    everyone, at = np.ones(model.k, dtype=bool), np.zeros(model.k)
+    lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a",), minutes=15.0, mass=P.LESSON_CHECK_MASS_PRIOR)
+    practice = V.Action(ref="practice", kind=V.REVIEW, item_los=("lo_a",), minutes=10.0)
+    believed, true = [], []
+    for step in sequence:
+        if step == "L":
+            bel, eta = state.bel[:, 0].copy(), state.eta[:, 0].copy()
+            model.apply(state, lesson, at, everyone)
+            believed.append(state.bel[:, 0] - bel)
+            true.append(state.eta[:, 0] - eta)
+        elif step == "P":
+            model.apply(state, practice, at, everyone)
+        else:
+            model._observe(state, 0, model.streams.action_u[:, 0, 0], everyone)
+    return believed, true
+
+
+@pytest.mark.parametrize("sequence", ["LL", "LPL", "LBL", "LLPL"])
+def test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does(sequence):
+    """Codex review F3: a rollout's lessons advance the topic's lesson window and a graded attempt (practice or probe)
+    resets it, as AD's transition does. The learned part of each lesson step (the curve's shift from its seeded prior,
+    added to RO4's placeholder) equals AD's step with the learned coefficients minus AD's step with the prior ones,
+    lesson by lesson; at the seeded prior every step is the placeholder's (the spec's neutrality, §14.2)."""
+
+    gm = P.GAMMA_PRIOR[1]
+    placeholder = gm * P.LESSON_CHECK_MASS_PRIOR
+    prior = _prior_curve()
+    posterior = (prior.prior_mean[0] + 0.3, prior.prior_mean[1] - 0.05)
+    learned = V.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve(mean=posterior, cov=prior.prior_cov))
+    believed, _true = _objective_lesson_steps(sequence, learned)
+    oracle = [post - pri for post, pri in zip(_ad_lesson_steps(sequence, posterior),
+                                              _ad_lesson_steps(sequence, prior.prior_mean))]
+    assert len(believed) == len(oracle) == sequence.count("L")
+    for step, expected in zip(believed, oracle):
+        assert np.allclose(step, placeholder + expected, atol=1e-12, rtol=0.0)
+    # The window moved: a second consecutive lesson's learned shift is AD's second-dose one, not a first dose again;
+    # after a graded attempt the window is closed and the next lesson is a first dose.
+    if sequence.startswith("LL"):
+        assert oracle[1] < oracle[0]
+    else:
+        assert oracle[1] == pytest.approx(oracle[0], abs=1e-15)
+    if sequence == "LLPL":
+        assert oracle[2] == pytest.approx(oracle[0], abs=1e-15)
+    # At the seeded prior (positions anywhere) every lesson step is the placeholder's, on the belief and draw for draw.
+    at_prior = V.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve({"lo_a": 2.0}))
+    believed_prior, true_prior = _objective_lesson_steps(sequence, at_prior)
+    believed_off, true_off = _objective_lesson_steps(sequence, V.Learning(gamma=(gm, P.GAMMA_PRIOR[2])))
+    for a, b in zip(believed_prior + true_prior, believed_off + true_off):
+        assert np.array_equal(a, b)
 
 
 def test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on(tmp_path):

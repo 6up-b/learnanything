@@ -171,15 +171,18 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
 def lesson_curve_moments(subject: Any, subkind: str = "landed") -> dict[str, Any]:
     """Teacher TE3a: a lesson subkind's dose-curve coefficients ``(c_1, c_2)``: the mixture's mean and covariance over
     the bank's first group (as :func:`_learning_moments`), a read, never a write; the seeded prior
-    (``ad_lesson_priors_v1``) while the bank has no lesson coordinate (no lesson opportunity applied yet)."""
+    (``ad_lesson_priors_v1``) while the bank has no lesson coordinate (no lesson opportunity applied yet), and the
+    seeded prior's moments beside them (``prior_mean``, ``prior_cov``)."""
 
     names = [P.lesson_coordinate(subkind, m) for m in (1, 2)]
     bank = subject.bank
+    seeded = {name: (mean, var) for name, mean, var in P.LESSON_PRIORS}
+    prior_mean = [float(seeded[name][0]) for name in names]
+    prior_cov = [[float(seeded[names[0]][1]), 0.0], [0.0, float(seeded[names[1]][1])]]
+    # Codex review F2: the prior beside the posterior, so the objective values only what lessons taught the curve.
+    out = {"version": P.LESSON_PRIORS_VERSION, "subkind": subkind, "prior_mean": prior_mean, "prior_cov": prior_cov}
     if not all(name in bank.index for name in names):
-        prior = {name: (mean, var) for name, mean, var in P.LESSON_PRIORS}
-        return {"version": P.LESSON_PRIORS_VERSION, "subkind": subkind, "source": "prior",
-                "mean": [float(prior[name][0]) for name in names],
-                "cov": [[float(prior[names[0]][1]), 0.0], [0.0, float(prior[names[1]][1])]]}
+        return {**out, "source": "prior", "mean": list(prior_mean), "cov": [list(row) for row in prior_cov]}
     import numpy as np
 
     weights = bank.weights()[0]
@@ -187,11 +190,15 @@ def lesson_curve_moments(subject: Any, subkind: str = "landed") -> dict[str, Any
     index = [bank.index[name] for name in names]
     mu = bank.mu[:rows][:, index]
     cov = bank.S[:rows][:, index][:, :, index]
+    if np.array_equal(mu, np.broadcast_to(prior_mean, mu.shape)) and np.array_equal(
+            cov, np.broadcast_to(prior_cov, cov.shape)):
+        # Every component still at the seeded prior (a lesson applied, no later answer informed it): the mixture is
+        # the prior exactly (the moment arithmetic below would round it by an ulp).
+        return {**out, "source": "posterior", "mean": list(prior_mean), "cov": [list(row) for row in prior_cov]}
     mean = weights @ mu
     second = np.einsum("b,bij->ij", weights, cov + np.einsum("bi,bj->bij", mu, mu))
     covariance = second - np.outer(mean, mean)
-    return {"version": P.LESSON_PRIORS_VERSION, "subkind": subkind, "source": "posterior",
-            "mean": [float(value) for value in mean],
+    return {**out, "source": "posterior", "mean": [float(value) for value in mean],
             "cov": [[float(covariance[0, 0]), float(covariance[0, 1])], [float(covariance[1, 0]), float(covariance[1, 1])]]}
 
 

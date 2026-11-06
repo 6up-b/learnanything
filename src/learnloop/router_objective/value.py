@@ -43,8 +43,9 @@ averaged over the belief's own world before the two are compared (every draw the
 ability drawn from it, the believed parameters, noise independent of the true world's), so the choice is one per
 result, integrates over the repair's possible outcomes and never sees the simulated repair's result or the true
 path's noise (Codex review F2, re-review); the chosen repair is simulated afterwards. A lesson is AD's ``γ`` at the
-lesson's learned mass (RO4's placeholder), or, from teacher TE3a, one landed dose of AD's learned lesson curve
-(:class:`LessonCurve`, centred and spread on the placeholder at its seeded prior);
+lesson's learned mass (RO4's placeholder), plus, from teacher TE3a, what lessons have taught AD's lesson curve
+beyond its seeded prior at the topic's place on its lesson window (:class:`LessonCurve`; zero at the prior, so
+the placeholder exactly until lesson data arrive);
 an offer-type action is valued accepted and declined **as branches**, ``Q = p·E[R+V | acc] + (1−p)·E[R+V | dec]``;
 the stop offer is two branches, accepted (no more today; the next session after a drawn return gap) and
 overridden (the tail's next non-stop block at the same session minutes, so its value is never defined in terms
@@ -129,14 +130,37 @@ class DatedUse:
 class LessonCurve:
     """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): AD's ``lesson`` dose curve per ``landed`` dose, as the decision
     read it (``readiness.decision_state_fields``' ``lesson_curve``): its two coefficients' posterior mean and
-    covariance on :attr:`Learning.dose_scales`, and each topic's position ``n`` on it (its lessons since its last
-    graded attempt)."""
+    covariance on :attr:`Learning.dose_scales`, their seeded prior's (``prior_mean``, ``prior_cov``; None: the
+    posterior's, so nothing is learned), and each topic's position ``n`` on it (its lessons since its last graded
+    attempt).
+
+    The objective values a lesson as RO4's placeholder plus what lessons have taught this curve beyond its prior
+    (Codex review F2): one dose's shift at the topic's position, ``Δμ(n) = Σ_m b_m'(n)·(μ_m − μ⁰_m)``, and the change
+    in that step's variance, ``Δv(n) = s(n)ᵀ(Σ − Σ⁰)s(n)`` (``s(n)`` the two scales' increments). So at the seeded
+    prior the lesson is the placeholder exactly, at fitted ``γ``, at the lesson's learned mass and at any position, and
+    no decision moves until lessons inform the curve."""
 
     mean: tuple[float, float]
     cov: tuple[tuple[float, float], tuple[float, float]]
     positions: Mapping[str, float] = field(default_factory=dict)
     version: str = "ad_lesson_priors_v1"
     source: str = "adaptive_difficulty subject view"
+    prior_mean: tuple[float, float] | None = None
+    prior_cov: tuple[tuple[float, float], tuple[float, float]] | None = None
+
+    def deviation(self, n: np.ndarray, scales: tuple[float, float]) -> tuple[np.ndarray, np.ndarray]:
+        """``(Δμ(n), Δv(n))`` per draw at positions ``n``: zero (exactly) while the curve is at its prior."""
+
+        h1, h2 = scales
+        n = np.asarray(n, dtype=np.float64)
+        s1 = np.exp(-n / h1) - np.exp(-(n + 1.0) / h1)
+        s2 = np.exp(-n / h2) - np.exp(-(n + 1.0) / h2)
+        mean0 = self.prior_mean if self.prior_mean is not None else self.mean
+        cov0 = self.prior_cov if self.prior_cov is not None else self.cov
+        shift = s1 * (self.mean[0] - mean0[0]) + s2 * (self.mean[1] - mean0[1])
+        dc = [[self.cov[i][j] - cov0[i][j] for j in (0, 1)] for i in (0, 1)]
+        dvar = s1 * s1 * dc[0][0] + s1 * s2 * (dc[0][1] + dc[1][0]) + s2 * s2 * dc[1][1]
+        return shift, dvar
 
 
 @dataclass(frozen=True)
@@ -344,17 +368,21 @@ class _State:
     practiced: np.ndarray  # (K, N) bool
     last: np.ndarray       # (K, N) time of the last review (days)
     reading: np.ndarray    # (K, N)
+    #: Teacher TE3a (Codex review F3): each topic's lesson window (lessons since its last graded attempt), AD's
+    #: ``(lesson, facet)`` window: a lesson advances it, a graded attempt (practice, a probe) resets it.
+    lesson: np.ndarray     # (K, N)
 
     def copy(self) -> "_State":
-        return _State(*(np.array(getattr(self, name), copy=True) for name in
-                        ("eta", "bel", "bel_var", "d", "s", "practiced", "last", "reading")))
+        return _State(*(np.array(getattr(self, name), copy=True) for name in _STATE_FIELDS))
 
     def select(self, mask: np.ndarray, other: "_State") -> "_State":
         """Per draw: this state where ``mask``, else ``other``'s."""
 
         m = mask[:, None]
-        return _State(*(np.where(m, getattr(self, name), getattr(other, name)) for name in
-                        ("eta", "bel", "bel_var", "d", "s", "practiced", "last", "reading")))
+        return _State(*(np.where(m, getattr(self, name), getattr(other, name)) for name in _STATE_FIELDS))
+
+
+_STATE_FIELDS = ("eta", "bel", "bel_var", "d", "s", "practiced", "last", "reading", "lesson")
 
 
 _LEDGER_FIELDS = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
@@ -500,6 +528,8 @@ class _Model:
             practiced=np.broadcast_to(np.array([t.practiced for t in topics], dtype=bool)[None, :], (k, n)).copy(),
             last=column([-t.elapsed_days for t in topics]),
             reading=column([t.reading_count for t in topics]),
+            lesson=column([float(inputs.learning.lesson.positions.get(t.lo, 0.0)) if inputs.learning.lesson
+                           is not None else 0.0 for t in topics]),
         )
 
     # the memory forecast ---------------------------------------------------------------------------
@@ -537,6 +567,7 @@ class _Model:
         state.eta[:, lo] = np.where(mask, state.eta[:, lo] + self.theta.gamma * mass, state.eta[:, lo])
         state.bel[:, lo] = np.where(mask, bel + gm * mass, state.bel[:, lo])
         state.bel_var[:, lo] = np.where(mask, var, state.bel_var[:, lo])
+        state.lesson[:, lo] = np.where(mask, 0.0, state.lesson[:, lo])  # a graded attempt closes the lesson window
 
     def _observe(self, state: _State, lo: int, u: np.ndarray, mask: np.ndarray,
                  observed: np.ndarray | None = None) -> np.ndarray:
@@ -549,6 +580,7 @@ class _Model:
         bel = state.bel[:, lo] + var * (good.astype(np.float64) - p_bel)
         state.bel[:, lo] = np.where(mask, bel, state.bel[:, lo])
         state.bel_var[:, lo] = np.where(mask, var, state.bel_var[:, lo])
+        state.lesson[:, lo] = np.where(mask, 0.0, state.lesson[:, lo])  # a probe is a graded attempt too
         return good
 
     def _read(self, state: _State, lo: int, mask: np.ndarray, dose: float = 1.0) -> None:
@@ -573,29 +605,26 @@ class _Model:
             for slot, lo in enumerate(los):
                 self._practice(state, lo, at, u[:, slot % u.shape[1]], mask, float(action.mass))
         elif action.kind == LESSON:
+            # RO4's placeholder: AD's γ at the lesson's learned mass (as the decision read both).
+            gm, gv = float(self.inputs.learning.gamma[0]), float(self.inputs.learning.gamma[1])
             curve = self.inputs.learning.lesson
-            if curve is None:
-                # RO4's placeholder: AD's γ at the lesson's learned mass.
-                gm = float(self.inputs.learning.gamma[0])
-                for lo in dict.fromkeys(los):
-                    state.eta[:, lo] = np.where(mask, state.eta[:, lo] + self.theta.gamma * action.mass,
-                                                state.eta[:, lo])
-                    state.bel[:, lo] = np.where(mask, state.bel[:, lo] + gm * action.mass, state.bel[:, lo])
-            else:
-                # Teacher TE3a: AD's lesson curve, one landed dose from the topic's position: its posterior mean
-                # (the belief) and a draw of mean + sd·z on γ's stream, so at the curve's seeded prior (centred
-                # and spread on the placeholder) every draw is the placeholder's.
-                h1, h2 = self.inputs.learning.dose_scales
-                for topic in dict.fromkeys(name for name in action.item_los if name in self.index):
-                    lo = self.index[topic]
-                    n = float(curve.positions.get(topic, 0.0))
-                    inc = (math.exp(-n / h1) - math.exp(-(n + 1.0) / h1), math.exp(-n / h2) - math.exp(-(n + 1.0) / h2))
-                    mean = inc[0] * curve.mean[0] + inc[1] * curve.mean[1]
-                    var = (inc[0] * inc[0] * curve.cov[0][0] + inc[0] * inc[1] * (curve.cov[0][1] + curve.cov[1][0])
-                           + inc[1] * inc[1] * curve.cov[1][1])
-                    true = mean + math.sqrt(max(var, 0.0)) * self.streams.gamma_z
-                    state.eta[:, lo] = np.where(mask, state.eta[:, lo] + true, state.eta[:, lo])
-                    state.bel[:, lo] = np.where(mask, state.bel[:, lo] + mean, state.bel[:, lo])
+            for lo in dict.fromkeys(los):
+                true = self.theta.gamma * action.mass
+                believed = gm * action.mass
+                if curve is not None:
+                    # Teacher TE3a (Codex review F2, F3): plus what lessons taught AD's lesson curve beyond its
+                    # seeded prior, one landed dose from the topic's place on its lesson window (carried through
+                    # the rollout): the step's mean shift on both, and its variance change on the draw's spread
+                    # along γ's stream. At the prior both are exactly zero: the placeholder, draw for draw.
+                    n = state.lesson[:, lo]
+                    shift, dvar = curve.deviation(n, self.inputs.learning.dose_scales)
+                    base = max(gv, 0.0) * float(action.mass) ** 2
+                    spread = np.sqrt(np.maximum(base + dvar, 0.0)) - math.sqrt(base)
+                    true = true + shift + spread * self.streams.gamma_z
+                    believed = believed + shift
+                    state.lesson[:, lo] = np.where(mask, n + 1.0, n)
+                state.eta[:, lo] = np.where(mask, state.eta[:, lo] + true, state.eta[:, lo])
+                state.bel[:, lo] = np.where(mask, state.bel[:, lo] + believed, state.bel[:, lo])
         elif action.kind == READING:
             for lo in los:
                 self._read(state, lo, mask)
@@ -641,6 +670,7 @@ class _Model:
         state.eta[r, c] = eta + self.theta.gamma[r]
         state.bel[r, c] = bel + gm
         state.bel_var[r, c] = var
+        state.lesson[r, c] = 0.0
 
     def _session(self, state: _State, ledger: _Ledger, at: np.ndarray, mask: np.ndarray, start: np.ndarray, day: int,
                  *, past_cutoff: bool, target: float | None = None,
@@ -947,11 +977,14 @@ class _Model:
 
         if self._belief is None:
             inputs, learning = self.inputs, self.inputs.learning
+            zero = ((0.0, 0.0), (0.0, 0.0))
+            # TE3a: the lesson curve's means only (no variance change on a draw-free spread).
+            lesson = (replace(learning.lesson, cov=zero, prior_cov=zero) if learning.lesson is not None else None)
             believed = replace(
                 inputs,
                 combiner=replace(inputs.combiner, variance=(0.0, 0.0, 0.0)),
                 learning=replace(learning, gamma=(learning.gamma[0], 0.0),
-                                 gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
+                                 gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0)), lesson=lesson),
                 effect=None, stop_accept=(1.0, 1.0))
             self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried)
         return self._belief
