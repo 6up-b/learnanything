@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
-source_commit_timestamp: "2026-11-03T12:40:09-05:00"
+source_commit: "f10149a27153ac3072c69e7e09ed57fa2e286b1a"
+source_commit_timestamp: "2026-11-06T16:40:39-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,20 +50,24 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py) |
-| Source lines | 210 |
+| Source lines | 268 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `01fa9698ae962d7b0977b90915e12e269c3b8db5` |
-| Commit timestamp | `2026-11-03T12:40:09-05:00` |
+| Source commit | `f10149a27153ac3072c69e7e09ed57fa2e286b1a` |
+| Commit timestamp | `2026-11-06T16:40:39-05:00` |
 
 ## Public API
 
 - `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 152) — One queue build's device, and what it held back.
   - `refuses(self, item: Any) -> bool` (line 174; public)
   - `holds_back(self, item: Any) -> bool` (line 177; public) — ``refuses``, for an item the build would otherwise serve.
-- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 186) — Why ``device_class`` cannot answer ``item``, or None when it can.
+- `class PlanStepFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 198) — Mobile v2 §2.2: the phone's door into the shared plan, which filters at the step.
+  - `holds(self, item: Any) -> str | None` (line 223; public) — Why the device leaves ``item`` for the desktop, or None when it can serve it.
+  - `detail(self) -> dict[str, str]` (line 234; public) — What a decision taken at a boundary under this device records (its ``device`` entry).
+  - `held_count(self) -> int` (line 240; public)
+- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 244) — Why ``device_class`` cannot answer ``item``, or None when it can.
 
 ### Module constants
 
@@ -90,6 +94,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_LOCAL_SCHEMES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 90)
 - `_FILE_SUFFIX` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 91)
 - `_MARKDOWN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 98)
+- `READING_BEFORE_PHONE_READER` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 188)
+- `GENERATED_PROBE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 191)
+- `PHONE_PLAN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 194)
 
 ## Internal implementation anchors
 
@@ -103,7 +110,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `DeviceFilter`
-- [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `DESKTOP`, `PHONE`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `PlanStepFilter`; statically calls `PlanStepFilter`
+- [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `DESKTOP`, `PHONE`, `PHONE_PLAN`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `DEVICE_POLICY`, `DEVICE_POLICY_OFF`, `DeviceFilter`, `ineligibility_reason`; statically calls `DeviceFilter`, `ineligibility_reason`
 
 ## Dependencies
@@ -124,7 +132,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]], [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]], [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]], [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -147,6 +155,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_what_the_renderer_shows_as_text_or_a_web_link_stays_eligible`
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
+- [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import
+  - `test_j6_a_check_the_phone_can_show_is_served_on_the_phone_as_an_ordinary_item`
 
 ## Modification guidance
 

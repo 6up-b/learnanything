@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/feedback"
-source_commit: "52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80"
-source_commit_timestamp: "2026-11-04T08:56:43-05:00"
+source_commit: "30213eb58031832c7ea2ce41e29ae27866751e9c"
+source_commit_timestamp: "2026-11-06T16:40:48-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -40,7 +40,8 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|FeedbackSurface.tsx]] | `ACTIVE` | Implements the `FeedbackSurface` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 2 |
 | [[Reference/Desktop/TypeScript/screens/feedback/FollowupPanel|FollowupPanel.tsx]] | `ACTIVE` | Implements the `FollowupPanel` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/screens/feedback/HypothesisMarks|HypothesisMarks.tsx]] | `ACTIVE` | Implements the `HypothesisMarks` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/feedback/answerExposure|answerExposure.ts]] | `ACTIVE` | Provides `EXPOSURE`, `DisplayReceipt`, `RecordDisplay`, `ExposureStatus` and related exports within the desktop's TypeScript/screens/feedback ownership area. | 0 | 2 |
+| [[Reference/Desktop/TypeScript/screens/feedback/answerExposure|answerExposure.ts]] | `ACTIVE` | Provides `useAnswerExposure` within the desktop's TypeScript/screens/feedback ownership area. | 1 | 2 |
+| [[Reference/Desktop/TypeScript/screens/feedback/answerExposureGate|answerExposureGate.ts]] | `ACTIVE` | Provides `EXPOSURE`, `DisplayReceipt`, `RecordDisplay`, `ExposureStatus` and related exports within the desktop's TypeScript/screens/feedback ownership area. | 0 | 1 |
 
 ## Modification guidance
 

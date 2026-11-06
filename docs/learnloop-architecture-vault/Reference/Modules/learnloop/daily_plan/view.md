@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/view.py"
 source_paths:
   - "src/learnloop/daily_plan/view.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit: "f10149a27153ac3072c69e7e09ed57fa2e286b1a"
+source_commit_timestamp: "2026-11-06T16:40:39-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,21 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py) |
-| Source lines | 331 |
+| Source lines | 348 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Source commit | `f10149a27153ac3072c69e7e09ed57fa2e286b1a` |
+| Commit timestamp | `2026-11-06T16:40:39-05:00` |
 
 ## Public API
 
 - `project_blocks(record: PlanRecord, context: PoolContext | None, policy: PlanPolicy, *, max_blocks: int=MAX_PROJECTED_BLOCKS) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 40) — The blocks after the chosen ones, if nothing changes: a projection only.
 - `minute_choices(presets: list[int], remembered: int) -> list[int]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 199)
-- `plan_view(env: PlanEnv, record: PlanRecord, *, context: PoolContext | None, next_step: dict[str, Any] | None, reentry_panel: dict[str, Any] | None=None, streak: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 203)
-- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 318)
-- `now_payload(moment: datetime) -> str` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 327)
+- `device_current(record: PlanRecord, next_step: dict[str, Any] | None) -> PlannedBlock | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 203) — Mobile v2 §2.2: a device's current block is its step's, not the plan's first open block (which may be one it left for the desktop).
+- `plan_view(env: PlanEnv, record: PlanRecord, *, context: PoolContext | None, next_step: dict[str, Any] | None, reentry_panel: dict[str, Any] | None=None, streak: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 211)
+- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 335)
+- `now_payload(moment: datetime) -> str` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 344)
 
 ### Module constants
 
@@ -96,7 +97,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] — imports `plan_view`; statically calls `plan_view`
-- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `disabled_view`, `plan_view`; statically calls `disabled_view`, `plan_view`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `device_current`, `disabled_view`, `plan_view`; statically calls `device_current`, `disabled_view`, `plan_view`
 
 ## Dependencies
 

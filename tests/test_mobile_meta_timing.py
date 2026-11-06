@@ -48,6 +48,8 @@ def test_meta_names_the_allowlist_the_host_enforces(world):
     assert response.json() == {
         "host_version": HOST_VERSION, "api_version": API_VERSION, "allowlist_digest": allowlist_digest(),
         "schema_version": max(migration.version for migration in discover_migrations()),
+        # Mobile v2 V2: whether Today is the shared plan (the host's kill switch, mobile.toml).
+        "phone_plan": True,
     }
     assert host.schema_version == response.json()["schema_version"]
 
