@@ -119,10 +119,15 @@ def _mastery(connection: Any, los: Sequence[str]) -> dict[str, tuple[float, floa
         f"WHERE learning_object_id IN ({marks})", list(los)) if row[1] is not None and row[2] is not None}
 
 
-def _ad(vault: Any, repository: Any, los: Sequence[str], *, learning_moments: bool = False) -> dict[str, Any]:
+def _ad(vault: Any, repository: Any, los: Sequence[str], *, learning_moments: bool = False,
+        eta_moments: bool = False) -> dict[str, Any]:
     try:
         from learnloop.adaptive_difficulty.readiness import decision_state_fields
 
+        if eta_moments:
+            # The follow-up batch's landing ruling R10 (with R9's link): AD's latent posterior beside the predictive.
+            return dict(decision_state_fields(vault, repository, list(los), reading_doses=True,
+                                              learning_moments=learning_moments, eta_moments=True))
         if learning_moments:
             # RO5 §9 item 7: AD's fitted γ and reading curve beside the predictive (one read of the snapshot).
             return dict(decision_state_fields(vault, repository, list(los), reading_doses=True, learning_moments=True))
@@ -502,7 +507,12 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
     from learnloop.router_objective_switches import fitted_models_on
 
     fitted = fitted_models_on(config)
-    ad = _ad(vault, repository, kept, learning_moments=True) if fitted else _ad(vault, repository, kept)
+    link = _ad_link(vault)
+    if link is not None:
+        # R10: with R9's link, AD's latent posterior too (the rollouts start from it).
+        ad = _ad(vault, repository, kept, learning_moments=fitted, eta_moments=True)
+    else:
+        ad = _ad(vault, repository, kept, learning_moments=True) if fitted else _ad(vault, repository, kept)
     ad_los = ad.get("los") or {}
     from learnloop.adaptive_difficulty.priors import COLD_START_VARIANCE, DOSE_SCALES, GAMMA_PRIOR, READING_PRIORS
 
@@ -530,9 +540,14 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         enrolled = in_goal or practiced or lo in candidate_los or lo in reading_los
         c = densities.get(lo, default_c) if enrolled else 0.0
         dose = fields.get("reading_dose")
+        latent = fields.get("eta_at_top") if link is not None and raw is not None else None
         topics.append(V.Topic(lo=lo, eta_mean=float(eta), eta_var=float(max(variance, 1e-9)), practiced=practiced,
                               difficulty=float(difficulty), stability=float(stability), elapsed_days=float(elapsed),
-                              undated_density=float(c), reading_count=float(dose or 0.0)))
+                              undated_density=float(c), reading_count=float(dose or 0.0),
+                              eta_latent=((float(latent["mean"]), float(max(latent["variance"], 1e-9)))
+                                          if latent else None)))
+        if latent:
+            eta_source = f"{eta_source}+ad_latent_posterior"
         topic_sources[lo] = {"eta": eta_source, "fsrs_items": len(memory),
                              "density": "goal" if in_goal else ("config" if practiced else
                                                                 ("candidate_only" if enrolled else "not_enrolled")),

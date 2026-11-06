@@ -120,7 +120,8 @@ def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
 @entry(read_only=True)
 def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequence[str], *,
                           snapshot: RP.Snapshot | None = None, view: Any = None,
-                          reading_doses: bool = False, learning_moments: bool = False) -> dict[str, Any]:
+                          reading_doses: bool = False, learning_moments: bool = False,
+                          eta_moments: bool = False) -> dict[str, Any]:
     """RO0 row 9 (spec_router_objective_v1 §4): the card's numbers for each candidate LO at one decision, and the state
     they were read from. A receipt, not a claim: an untested cell keeps its mark beside its raw prediction, which no
     display reads. Through the material view, so a protected item never shapes it (A8).
@@ -132,7 +133,12 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
 
     ``learning_moments`` (router objective RO5, §9 item 7): also the subject view's fitted ``γ`` and reading curve
     (``learning``: each parameter's posterior mean and variance), so the rollouts read the posterior and not the
-    prior means. Off for every other caller."""
+    prior means. Off for every other caller.
+
+    ``eta_moments`` (the router objective follow-up batch's landing ruling R10): each LO also carries
+    ``eta_at_top``, the posterior moments of the latent ``η`` its ``p_bar_at_top_raw`` integrates (the mixture's
+    mean and variance over the bank's rows, the target point's epistemic variance, before the item residual) and the
+    point's guess, so the rollouts start from AD's own latent distribution. Off for every other caller."""
 
     if not subject_view_live(vault.config):
         return {"status": "not_live"}
@@ -142,9 +148,11 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
     snapshot = snapshot or RP.snapshot(vault, repository, view=view)
     los: dict[str, Any] = {}
     for learning_object_id in learning_object_ids:
-        fields = _lo_fields(vault, view, snapshot, learning_object_id)
+        fields = _lo_fields(vault, view, snapshot, learning_object_id, moments=eta_moments)
         if fields is not None:
             los[learning_object_id] = {key: fields[key] for key in ("p_band_next", "p_bar_at_top_raw", "untested", "cell")}
+            if eta_moments:
+                los[learning_object_id]["eta_at_top"] = fields.get("eta_at_top")
             if reading_doses:
                 window = snapshot.subject.windows.get(("reading", fields["cell"][0]))
                 los[learning_object_id]["reading_dose"] = float(window.mean()) if window is not None else 0.0
@@ -178,8 +186,10 @@ def _learning_moments(subject: Any) -> dict[str, list[float]]:
     return out
 
 
-def _lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id: str) -> dict[str, Any] | None:
-    """One LO's AD numbers in its main cell, or None with no visible cell."""
+def _lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id: str, *,
+               moments: bool = False) -> dict[str, Any] | None:
+    """One LO's AD numbers in its main cell, or None with no visible cell. ``moments`` (R10, see
+    :func:`decision_state_fields`): also ``eta_at_top``."""
 
     cells = _cells(view, learning_object_id)
     if not cells:
@@ -200,16 +210,35 @@ def _lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id:
     scored = PR.score(snapshot.subject, specs, constants=constants, information=False)
     target = S.default_target(capability)
     untested = (facet, capability) not in snapshot.observed_cells
-    at_target = PR.predict(snapshot.subject, PR.point_spec(
-        target, learning_object_id=learning_object_id, subject=subject, facet=facet, capability_name=capability),
-        band=constants.band).p_bar if target is not None else None
-    return {
+    target_spec = PR.point_spec(target, learning_object_id=learning_object_id, subject=subject, facet=facet,
+                                capability_name=capability) if target is not None else None
+    prediction = PR.predict(snapshot.subject, target_spec, band=constants.band) if target_spec is not None else None
+    at_target = prediction.p_bar if prediction is not None else None
+    out = {
         "kind": "prediction", "cell": [facet, capability],
         "p_band_next": round(max((s.p_band for s in scored), default=0.0), 4),
         "p_bar_at_top": None if untested or at_target is None else round(at_target, 4),
         "p_bar_at_top_raw": None if at_target is None else round(at_target, 4),
         "untested": untested,
     }
+    if moments:
+        out["eta_at_top"] = (_latent_moments(snapshot.subject, prediction, target_spec)
+                             if prediction is not None else None)
+    return out
+
+
+def _latent_moments(subject: Any, prediction: PR.Prediction, spec: Any) -> dict[str, float]:
+    """R10: the latent ``η`` the prediction integrates, as a mixture's mean and variance over the bank's rows (each
+    row's ``(m, v_e)``, weighted as ``predict`` weights them), and the spec's guess. A read, never a write."""
+
+    weights = PR.mixture_weights(subject)
+    rows = prediction.rows
+    w = [float(x) for x in weights[:len(rows)]]
+    total = sum(w) or 1.0
+    mean = sum(wi * m for wi, (m, _v) in zip(w, rows)) / total
+    second = sum(wi * (v + m * m) for wi, (m, v) in zip(w, rows)) / total
+    return {"mean": float(mean), "variance": float(max(second - mean * mean, 0.0)), "guess": float(spec.guess),
+            "rows": len(rows)}
 
 
 @entry(read_only=True)

@@ -48,9 +48,14 @@ def test_a_decisions_p_bar_enters_as_ads_latent_and_reads_back_as_itself():
     inputs = _inputs(link=LINK)
     model = V._Model(inputs, 16, "link")
     p_bar = M.sigmoid(np.array([t.eta_mean for t in inputs.topics]))
-    assert np.allclose(LINK.p(np.array(model.eta_means)), p_bar, atol=1e-10)
-    # the combiner at its prior mean (a0 0, aA 1) on an unpractised topic reads AD's predictive alone: F(η) = p̄
-    believed = V._Model(replace(inputs, combiner=M.Combiner().at_mean()), 16, "link")
+    # R10: the variance-integrated predictive at the model's latent mean and variance is p̄
+    assert np.allclose(LINK.p_integrated(np.array(model.eta_means), np.array(model.eta_vars)), p_bar, atol=1e-10)
+    # with no variance, the combiner at its prior mean (a0 0, aA 1) on an unpractised topic reads AD's predictive
+    # alone at the point: F(η) = p̄
+    sharp = replace(inputs, topics=tuple(replace(t, eta_var=0.0) for t in inputs.topics),
+                    combiner=M.Combiner().at_mean())
+    believed = V._Model(sharp, 16, "link")
+    assert np.allclose(LINK.p(np.array(believed.eta_means)), p_bar, atol=1e-10)
     assert np.allclose(believed.performance(believed.initial(), 0.0, belief=True), p_bar[None, :], atol=1e-10)
 
 
@@ -97,18 +102,20 @@ def test_without_the_link_the_rollouts_are_mvp049s_bitwise():
 
 PROBE_CASES = ((-0.5, 40.0), (0.5, 40.0), (1.5, 40.0), (0.5, 2.0), (1.5, 2.0))
 
-#: G(0), G(30), G(40) per case with AD's F (this commit); the σ side is test_rofu_monotone's "monotone" pins.
+#: G(0), G(30), G(40) per case with AD's F; the σ side is test_rofu_monotone's "monotone" pins. Moved by landing
+#: ruling R10 (the latent mean is the variance-integrated inverse: η's variance is 0.3 here); R9's own values are in
+#: its commit 8a19c2698b and the review record.
 PROBE_AFTER = {
-    64: {(-0.5, 40.0): (14.935919316474363, 14.955161639146066, 14.95870764972206),
-         (0.5, 40.0): (15.05814366336411, 15.072317019601712, 15.078329561069648),
-         (1.5, 40.0): (15.137632020180021, 15.14835134155262, 15.151792710111986),
-         (0.5, 2.0): (15.00860766485248, 15.031870995750191, 15.035031770513042),
-         (1.5, 2.0): (15.09479026376814, 15.111604927479027, 15.115624538129175)},
-    512: {(-0.5, 40.0): (14.876563544594932, 14.893998421418623, 14.897816363918842),
-          (0.5, 40.0): (15.010382257658357, 15.025266238441365, 15.02950222547057),
-          (1.5, 40.0): (15.105042250739189, 15.117066312922091, 15.119801332019804),
-          (0.5, 2.0): (14.95666712423221, 14.975610510082516, 14.979976897113248),
-          (1.5, 2.0): (15.058737024706843, 15.072729960396918, 15.075614458442601)},
+    64: {(-0.5, 40.0): (14.93333931874283, 14.95244338284236, 14.955931650899817),
+         (0.5, 40.0): (15.060551132781987, 15.074471158417024, 15.08039999738742),
+         (1.5, 40.0): (15.142255555818418, 15.152633328578993, 15.155520510015782),
+         (0.5, 2.0): (15.01139033677842, 15.035324623431599, 15.037341906877352),
+         (1.5, 2.0): (15.098567420654335, 15.115735146532781, 15.119170677356228)},
+    512: {(-0.5, 40.0): (14.873997865626462, 14.89102602822088, 14.894582514783757),
+          (0.5, 40.0): (15.014200142630242, 15.027989654568888, 15.032036879723488),
+          (1.5, 40.0): (15.109772159625608, 15.121911257751687, 15.124715750252323),
+          (0.5, 2.0): (14.959923288620274, 14.978412179794862, 14.982492745241842),
+          (1.5, 2.0): (15.063988344635199, 15.077597114406466, 15.08071502466796)},
 }
 
 

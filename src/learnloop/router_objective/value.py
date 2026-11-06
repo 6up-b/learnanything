@@ -116,9 +116,12 @@ class AdLink:
     (``adaptive_difficulty.model.residual_success``), with ``g = 0`` (a valued topic's unseen constructed item),
     lapse ``λ``, and ``ε`` integrated by AD's own Gauss-Hermite rule; the caller hands in AD's constants, so this
     module stays a leaf. With it the rollouts' ``η`` is AD's latent ability (practice's ``γ``, reading's dose and a
-    lesson add where AD adds them), a decision's ``p̄`` enters as ``F⁻¹(p̄)``, and wherever the rollouts read AD's
-    predictive (an unpractised topic, a probe, the combiner's ``η`` input, which is ``logit p̄``) they read
-    ``F(η)``, not ``σ(η)``. The decision's ``η`` variance is read as the latent's (AD's posterior is on its latent)."""
+    lesson add where AD adds them), and wherever the rollouts read AD's predictive (an unpractised topic, a probe,
+    the combiner's ``η`` input, which is ``logit p̄``) they read ``F(η)``, not ``σ(η)``.
+
+    Landing ruling R10: the rollouts start from AD's own latent posterior (``Topic.eta_latent``: its mean and
+    variance, read through AD's read-only entry point); where only ``p̄`` and a variance exist, the mean is the inverse
+    of the **variance-integrated** predictive (:meth:`p_integrated`), so the draws' predictive is ``p̄`` again."""
 
     lapse: float
     spread: float
@@ -141,15 +144,26 @@ class AdLink:
         s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
         return (1.0 - self.lapse) * (self._w * s * (1.0 - s)).sum(-1)
 
-    def inverse(self, p: np.ndarray) -> np.ndarray:
-        """``F⁻¹(p)`` by bisection on AD's range (a ``p`` at or past ``1 − λ`` is held just inside it)."""
+    def p_integrated(self, mean: np.ndarray, variance: np.ndarray) -> np.ndarray:
+        """``E[F(η)]`` for ``η ~ N(mean, variance)``: ``F`` with the residual's spread widened to
+        ``√(a²τ0² + variance)``, AD's own ``expected_success`` (R10). ``variance`` 0 is :meth:`p`."""
+
+        mean = np.asarray(mean, dtype=np.float64)
+        scale = np.sqrt(self.spread ** 2 + np.maximum(np.asarray(variance, dtype=np.float64), 0.0)) / self.spread
+        e = mean[..., None] - scale[..., None] * self._shift
+        return (1.0 - self.lapse) * (self._w * sigmoid(e)).sum(-1)
+
+    def inverse(self, p: np.ndarray, variance: np.ndarray | float = 0.0) -> np.ndarray:
+        """The mean whose variance-integrated predictive is ``p`` (``F⁻¹(p)`` at variance 0), by bisection on AD's
+        range (a ``p`` at or past ``1 − λ`` is held just inside it)."""
 
         top = (1.0 - self.lapse) * (1.0 - 1e-9)
         target = np.clip(np.asarray(p, dtype=np.float64), 1e-9, top)
+        var = np.broadcast_to(np.asarray(variance, dtype=np.float64), target.shape)
         low, high = np.full_like(target, -60.0), np.full_like(target, 60.0)
         for _ in range(200):
             mid = 0.5 * (low + high)
-            below = self.p(mid) < target
+            below = self.p_integrated(mid, var) < target
             low, high = np.where(below, mid, low), np.where(below, high, mid)
             if float(np.max(high - low, initial=0.0)) < 1e-12:
                 break
@@ -179,6 +193,9 @@ class Topic:
     undated_density: float = 0.0
     #: AD's reading-dose count on the LO (the dose curve's position).
     reading_count: float = 0.0
+    #: Landing ruling R10: AD's latent posterior of ``η`` at the LO's top point, ``(mean, variance)``, read only with
+    #: R9's link (``Inputs.ad_link``); None: reconstructed from ``eta_mean`` (``logit p̄``) and ``eta_var``.
+    eta_latent: tuple[float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -489,9 +506,16 @@ class _Model:
         #: Landing ruling R9: AD's own predictive (None: ``σ`` on ``logit p̄``, mvp-0.49's), and each topic's ``η``
         #: mean on the scale the rollouts move it on (AD's latent ``F⁻¹(p̄)`` with the link; ``logit p̄`` without).
         self.link = inputs.ad_link
-        means = [t.eta_mean for t in inputs.topics]
-        self.eta_means: list[float] = (means if self.link is None or not means else
-                                       [float(v) for v in self.link.inverse(sigmoid(np.array(means)))])
+        self.eta_means: list[float] = [t.eta_mean for t in inputs.topics]
+        self.eta_vars: list[float] = [t.eta_var for t in inputs.topics]
+        if self.link is not None and inputs.topics:
+            # R10: AD's latent posterior where it was read; else the mean whose variance-integrated predictive is
+            # p̄ (never a point inverse with the variance added again).
+            rebuilt = self.link.inverse(sigmoid(np.array(self.eta_means)), np.array(self.eta_vars))
+            self.eta_means = [float(t.eta_latent[0]) if t.eta_latent is not None else float(m)
+                              for t, m in zip(inputs.topics, rebuilt)]
+            self.eta_vars = [float(t.eta_latent[1]) if t.eta_latent is not None else float(t.eta_var)
+                             for t in inputs.topics]
         self.cutoff = inputs.cutoff if self.carried is None else self.carried
         self.end = self.cutoff + float(inputs.horizon_days)
         self.days = int(math.ceil(self.end))
@@ -520,7 +544,7 @@ class _Model:
     def _draw_theta(self) -> _Theta:
         inputs, st = self.inputs, self.streams
         mean = np.array(self.eta_means, dtype=np.float64)
-        sd = np.sqrt(np.maximum(np.array([t.eta_var for t in inputs.topics], dtype=np.float64), 0.0))
+        sd = np.sqrt(np.maximum(np.array(self.eta_vars, dtype=np.float64), 0.0))
         eta = mean[None, :] + sd[None, :] * st.eta_z[:, : self.n]
         # The combiner's draws on (a0, aA, aR), in its own form's parameters (landing ruling R6: monotone at the tag)
         coef = inputs.combiner.coefficients(st.coef_z)
@@ -558,7 +582,7 @@ class _Model:
         return _State(
             eta=self.theta.eta.copy(),
             bel=column(self.eta_means),
-            bel_var=column([max(t.eta_var, 1e-12) for t in topics]),
+            bel_var=column([max(v, 1e-12) for v in self.eta_vars]),
             d=column([t.difficulty for t in topics]),
             s=column([t.stability for t in topics]),
             practiced=np.broadcast_to(np.array([t.practiced for t in topics], dtype=bool)[None, :], (k, n)).copy(),
