@@ -160,6 +160,8 @@ export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): 
   if (step.kind === "done") return "today's plan is done";
   if (step.kind === "waiting") return `back in ${waitingMinutes(step.until, step.minutes)} min`;
   if (step.kind === "reading") return `next: continue reading ${step.reading.sectionTitle ?? ""}`.trim();
+  // Teacher TE3b: a lesson offer's block (its card is on Today).
+  if (step.kind === "lesson_offer") return `next: a lesson you could take on ${step.offer.suggestion.title}`;
   if (step.boundary) return "next block";
   return `next: ${(step as PlanItemStepDto).learningObjectTitle ?? "next item"}`;
 }

@@ -750,6 +750,10 @@ export function TodayScreen({
           onShowList={() => setShowFullList(true)}
           onSkip={(id) => void skipPlanItem(id)}
           onSkipReading={() => void skipPlanReading()}
+          sessionId={session?.sessionId ?? null}
+          onStartLesson={onStartLesson}
+          onOfferAnswered={() => void refetchPlan().catch(() => undefined)}
+          onError={onError}
         />
       </div>
     );
