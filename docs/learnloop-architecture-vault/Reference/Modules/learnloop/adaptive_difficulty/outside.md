@@ -263,6 +263,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
   - `test_the_permuted_run_sends_another_presentations_history`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_codex_f1_the_teachers_close_records_each_delivered_passages_reading`
 
 ## Modification guidance
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/service.py"
 source_paths:
   - "src/learnloop/teacher/service.py"
-source_commit: "450a72924e2fe9a219d0cae5137343622913d817"
-source_commit_timestamp: "2026-11-06T05:34:06-05:00"
+source_commit: "586a9ebbf5d6515ce128d304a34be9658b920103"
+source_commit_timestamp: "2026-11-06T06:12:12-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py) |
-| Source lines | 2013 |
+| Source lines | 2036 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `450a72924e2fe9a219d0cae5137343622913d817` |
-| Commit timestamp | `2026-11-06T05:34:06-05:00` |
+| Source commit | `586a9ebbf5d6515ce128d304a34be9658b920103` |
+| Commit timestamp | `2026-11-06T06:12:12-05:00` |
 
 ## Public API
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, payload: Mapping[str, Any], clients: Clients, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 760) — One learner action on an open lesson (``reply``, ``answer_prediction``, ``answer_check``, ``stop``), or ``resume``: run the teacher's turn an outage interrupted (nothing new from the learner).
 - `located(field: str, indices: Sequence[int]) -> str` ([source](../../../../../../src/learnloop/teacher/service.py), line 1293) — ``check.anchors[0], check.anchors[2]``: a refusal's fields by location (landing ruling R1 (b)).
 - `displayed_texts(state: LessonState, *, extra: Sequence[str]=()) -> list[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1768) — Everything the lesson displayed to the learner so far (accepted turns' fields), and ``extra``.
-- `view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1924) — The lesson as the screen shows it: what was shown, in order, the plan map, the open check (never its solution), the open prediction, and the close card.
+- `view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1947) — The lesson as the screen shows it: what was shown, in order, the plan map, the open check (never its solution), the open prediction, and the close card.
 
 ### Module constants
 
@@ -159,9 +159,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_close(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None, clock: Clock | None, outcome: _Outcome, turn_entry: Mapping[str, Any] | None=None, effect: str='close') -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1704) — Close the lesson: commit the delayed checks, write the receipt, close the row and append the close entry in one transaction (§7 step 7; review F9: never a closed row without its close entry).
 - `_lesson_shown(vault: Any, state: LessonState) -> list[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1760) — The lesson's own check items and the vault items its displayed text reproduced so far.
 - `_receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None, delayed_checks: Sequence[Mapping[str, Any]], warnings: Sequence[str], landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], usage: Mapping[str, int], shown_items: Sequence[str]=(), closed_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1784) — ``LessonReceiptV1`` (§8.3).
-- `_passage_readings(book: SourceBook) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1862) — ``exposure.readings``: ``{alias, extraction_id, span_id}`` per delivered passage, in alias order (no text).
-- `_receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1869) — §8.3's ``episodes`` (the lesson's episode ids by kind) and ``minutes`` (active and elapsed, and their source; never blended), and the ``lesson_node_held`` receipt keys; ``{}`` while ``teacher.episode_log`` is off.
-- `_stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], state: LessonState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1890) — Per landed node, the liquid-stability inputs ``u`` (§8.3; logged before the family activates).
+- `_passage_readings(book: SourceBook) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1865) — ``exposure.readings``: ``{alias, extraction_id, span_id}`` per delivered passage, in alias order (no text).
+- `_exposed_identities(vault: Any, item_ids: Sequence[Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1872) — ``exposure.identities`` (Codex re-review F1): per exposed item still in the vault, in id order, its revision's protection identity, ``{practice_item_id, keys, whole}`` (the block keys and whole extractions its canonical exercise and provenance refs cite; ids, no text), the shape…
+- `_receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1892) — §8.3's ``episodes`` (the lesson's episode ids by kind) and ``minutes`` (active and elapsed, and their source; never blended), and the ``lesson_node_held`` receipt keys; ``{}`` while ``teacher.episode_log`` is off.
+- `_stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], state: LessonState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1913) — Per landed node, the liquid-stability inputs ``u`` (§8.3; logged before the family activates).
 
 ## Who imports or calls it
 
@@ -184,6 +185,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `TEACHER_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `record_reveal_strict`; calls `record_reveal_strict`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `item_source_keys`; calls `item_source_keys`
 - [[Reference/Modules/learnloop/db/stores/help_assists|learnloop.db.stores.help_assists]] — imports `insert_assist`; calls `insert_assist`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `append_turn`, `checks`, `close_lesson`, `episode_tables_present`, `insert_lesson`, `insert_plan`, `insert_receipt`, `lesson`, `plans`, `turns`
 - [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `lesson_exists`, `release_for`, `response_for`, `tables_present`

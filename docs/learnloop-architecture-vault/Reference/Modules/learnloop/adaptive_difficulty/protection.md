@@ -133,6 +133,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_epoch_changes_on_mark_unmark_reserve_and_release_and_not_on_unrelated_edits`
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_held_out_sentinel_never_reaches_ad_inputs`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_codex_rereview_f1_a_lesson_is_judged_by_the_revision_it_showed_not_the_items_current_one`
 
 ## Modification guidance
 

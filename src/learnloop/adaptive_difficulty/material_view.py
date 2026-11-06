@@ -537,7 +537,8 @@ class MaterialView:
         receipt) is withheld when any reading it names (an extraction, a span, a section, a passage's key: a Reader
         selection's goal above all, and a receipt's ``exposure.readings``: the readings of the passages it delivered)
         is one the withheld material touches, or while the predicate cannot tell; a receipt is withheld too when an
-        item it showed or revealed is withheld now, or when it names passages without their readings
+        item it showed or revealed is withheld now, when the revision it exposed is, by its frozen identity (Codex
+        re-review F1), or when it names passages without their readings or an exposed item without its identity
         (:func:`_lesson_exposure`); an unreadable record is withheld (fail closed)."""
 
         try:

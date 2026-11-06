@@ -62,7 +62,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/sources/__init__|learnloop.content.sources]] | [[Reference/Modules/learnloop/content/sources/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/sources/block_health|learnloop.content.sources.block_health]] | [[Reference/Modules/learnloop/content/sources/block_health#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] | [[Reference/Modules/learnloop/content/sources/exam_material#^module-purpose|purpose]] | `ACTIVE` | 58 | 40 |
+| [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] | [[Reference/Modules/learnloop/content/sources/exam_material#^module-purpose|purpose]] | `ACTIVE` | 59 | 41 |
 | [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] | [[Reference/Modules/learnloop/content/sources/exercise_statements#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/content/sources/extraction_health|learnloop.content.sources.extraction_health]] | [[Reference/Modules/learnloop/content/sources/extraction_health#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/sources/front_matter|learnloop.content.sources.front_matter]] | [[Reference/Modules/learnloop/content/sources/front_matter#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
@@ -114,6 +114,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 1 static module edge
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 1 static module edge
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 1 static module edge

@@ -1544,7 +1544,10 @@ spread 0.05 (sd), shaped between the two scales by AD's rule for a new kind; `ta
 their records content): a lesson, its plan or its receipt naming a reading the withheld material touches is withheld
 (Option B), and so is a receipt whose shown or revealed item is withheld now; the teacher's close records each
 delivered passage's reading in the receipt (`exposure.readings`, ids only), so the lesson's book is judged too (a
-receipt with passages but no readings, closed before TE3a, is withheld); the learner's typed goal is never read. The
+receipt with passages but no readings, closed before TE3a, is withheld), and each exposed item's revision as of the
+close by its frozen identity (`exposure.identities`, the serve's `source_identity`: id, block keys, whole
+extractions), revalidated by `Protection.covers_identity`, so a revision protected after a public replacement still
+withholds the lesson (an exposed item without an identity is withheld); the learner's typed goal is never read. The
 objective's `LESSON` branch reads the `landed` curve's posterior and prior moments and each LO's position through
 `readiness.decision_state_fields(learning_moments=True)` (`lesson_curve`, at the tag with the switch on and
 `fitted_models`): RO4's placeholder (`γ` as the decision read it, times the lesson's learned mass) plus what lessons

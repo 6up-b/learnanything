@@ -118,3 +118,79 @@ frontend or Rust change (no durability lane, DB reference scripts, npm, vitest o
 * References: `module_generate.py`, then `module_validate.py` (**PASS**) and `validate_vault.py` (**passed**);
   stamp-only churn (five package maps and the catalog's commit timestamps) left out.
 * `git diff --check`: clean.
+
+## Re-review
+
+Codex re-review job `20261106-060104-TXdkLs` on `14aec49e17`: verdict REOPENED. F1 was reopened, F2 and F3 were
+confirmed fixed, and no new defect was found. No model request is added (0 paid calls a day; no paid call was made by
+this step). No migration, schema, config key, decision constant or frontend change. No reader or writer of the old
+item difficulty scalar is added.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened) | High | Historical item revisions a lesson exposed are not revalidated (only current ids are) | Fixed | `586a9ebbf5` | `test_te3a_lesson_opportunity.py::test_codex_rereview_f1_a_lesson_is_judged_by_the_revision_it_showed_not_the_items_current_one` (fails on the pre-fix code; also fails with the identity rule neutralized), `::test_codex_f1_the_teachers_close_records_each_delivered_passages_reading` (now pins `exposure.identities`) |
+| F2 | Medium | The seeded lesson prior changes decisions | Confirmed fixed by Codex (no change) | `92b69287ef` | n/a |
+| F3 | Medium | Rollouts never advance or reset the lesson window | Confirmed fixed by Codex (no change) | `92b69287ef` | n/a |
+
+### F1 (reopened): what was wrong, what changed
+
+Reproduced on a synthetic vault (`ad23_vault`, fakes only): a receipt showed `pi_l1`. The revision it showed cites
+block `ext_old/b1`, and the item's current revision cites nothing protected. Then `ext_old/b1` became held out (the
+predicate's `held_out_material` patched, as in `test_ad_epoch.py`). The item's current id was still visible
+(`pi_l1 not in Protection.ids`), and the receipt carried no revision identity, so the pre-fix rule kept the lesson.
+A receipt naming an exposed item with no identity was also admitted.
+
+* `teacher/service._receipt`: `exposure.identities`. For each exposed item (revealed or shown) that is still in the
+  vault at the close, in id order, it records `{practice_item_id, keys, whole}`: the block keys and whole
+  extractions that the revision's canonical exercise and provenance refs cite (`exam_material.item_source_keys`; ids,
+  no text). This is the shape of AD's `outside.source_identity`, and a test pins the two equal.
+* `material_view._lesson_exposure` / `_lesson_record_withheld`: every identity is revalidated against today's
+  protection by `Protection.covers_identity`. That is the same frozen-revision rule the AD serve uses (Codex
+  re-review F11 of AD23). A revision protected after its item got a public replacement therefore still withholds the
+  lesson. The rule also withholds a receipt (fail closed) when it names an exposed item without an identity (closed
+  before this change, or the item was gone from the vault at the close), when it has a malformed identity list, or
+  when the predicate is unavailable. Protection that changes moves the epoch, so the sweep at the new epoch
+  re-resolves each receipt by this rule, and the replay reads only what that sweep recorded (the test checks the
+  replay after the change).
+* Residual, recorded in `teacher-te3a.md`: the identity is the revision current at the close. An item edited while
+  its lesson was still open is judged by its closing revision. The smallest way to finish: record each reveal's
+  identity on that turn's reveal rows and take their union at the close. A lesson lasts minutes, so under the
+  proportionate protection bar this is left for later. Receipts closed before TE3a are withheld, as with F1's legacy
+  passages; the owner's census had no lesson at the build.
+* Docs: spec_teacher_v1 §20 "As built" and the build record's Option B row and "not built" note name the identity
+  rule. The module references were regenerated (stamp-only churn left out).
+
+### Gate (re-review step)
+
+Every pytest ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at `-n 6` or serial, one
+run at a time. Scripts ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. With no
+migration, schema, frontend or Rust change, the durability lane, DB reference scripts, npm, vitest and cargo were not
+needed.
+
+* `uv sync --extra dev --extra mobile`; `uv pip install --offline pypdfium2==5.14.0`: done.
+* `uv run lint-imports --no-cache`: **43 kept, 0 broken**.
+* One targeted run at `-n 6`, **9946 passed** (0 failed), over these files:
+  * the stage: `test_te3a_*.py`;
+  * the teacher: every `test_teacher_*.py`;
+  * AD's guard and material view: `test_ad23_contract.py`, `test_ad23_fix_r7.py`, `test_ad23_fix_r8.py`,
+    `test_ad23_fix_r9.py`, `test_ad23_fix_review.py`, `test_ad23_inversion.py`, `test_ad2_serving.py`,
+    `test_ad3_subject_view.py`, `test_ad_epoch.py`, `test_ad_guard.py`, `test_ad_guard_offer_receipts.py`,
+    `test_ad_guard_reachable_reads.py`, `test_ad_projection.py`, `test_ad_protected_readings.py`,
+    `test_ad_protected_tables.py`, `test_ro2_ad_raw_document_reads.py`, `test_ro2_history_protection.py`,
+    `test_salience_firewall.py`;
+  * every other test file that reads lesson receipts: `test_data_capture_a6_delayed_pick.py`,
+    `test_followups_batch5_lesson.py`, `test_goal_contracts.py`, `test_intervention_outcomes_replayer.py`,
+    `test_library_exercises.py`, `test_reader_ca6_side_by_side.py`, `test_reader_rw5d_p4b_teacher_visuals.py`,
+    `test_reader_rw6b_landing.py`, `test_source_first_needs.py`, `test_substrate_cutover.py`,
+    `test_ux_phase4_feedback.py`;
+  * the contracts: `test_sidecar_measurement.py` (display-label audit), `test_codex_lockdown_round3.py`
+    (process-launch allowlist), `test_codex_lockdown_frozen.py`, `test_cli_help_snapshot.py`, `test_architecture.py`,
+    `test_table_roles.py`, `test_coordinated_migrations.py`, `test_tracked_fixture_databases.py`,
+    `test_desktop_rpc_contract.py`, `test_mobile_allowlist.py`, `test_sidecar_serializer_snapshot.py`,
+    `test_config_refactor.py` (config defaults), `test_public_tip_guards.py`, `test_sqlite_file_copies.py`,
+    `test_figures_prefetch_boundary.py`. The frozen deferred cycles contract is in `lint-imports` above.
+* After a docstring-only edit and the reference regeneration: `test_te3a_lesson_opportunity.py` and
+  `test_architecture.py`, **45 passed**.
+* References: `module_generate.py`, then `module_validate.py` (**PASS**) and `validate_vault.py` (**passed**).
+  Stamp-only churn (the catalog and three package maps) was left out.
+* `git diff --check`: clean.

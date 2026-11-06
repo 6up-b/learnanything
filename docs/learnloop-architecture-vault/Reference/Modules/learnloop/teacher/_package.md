@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/teacher/service.py"
   - "src/learnloop/teacher/visuals.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T05:34:06-05:00"
+source_commit_timestamp: "2026-11-06T06:12:12-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -86,6 +86,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 2 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
