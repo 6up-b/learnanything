@@ -245,13 +245,11 @@ def test_rebuild_equivalence_on_a_lesson_with_a_probe(tmp_path):
     assert result.live_database_unchanged
     summary = result.learner_state_diff["summary"]
     assert summary["mastery"] == 0 and summary["facet"] == 0
-    # The one schedule row that differs is the probe's own state, by its content stamp alone (FG1's persist parks
-    # it with no stamp; the rebuild's sync stamps every item): never active, never due, the same last attempt.
-    for change in result.learner_state_diff["schedule"]["changes"]:
-        before, after = dict(change["before"]), dict(change["after"])
-        assert change["key"]["practice_item_id"] == _first_probe_item(lesson)
-        assert before.pop("content_hash") is None and after.pop("content_hash")
-        assert before == after and after["active"] == 0 and after["due_at"] is None
+    # Landing ruling R3: FG1's persist_item stamps the generated item's content hash (as the rebuild's sync does),
+    # so no schedule row differs, the probe's own included (before R3 its state differed by that stamp alone).
+    assert result.learner_state_diff["schedule"]["changes"] == []
+    probe_row = lesson.repository.practice_item_state(_first_probe_item(lesson))
+    assert probe_row is not None and probe_row.content_hash and not probe_row.active
     rebuild_all_derived_state(lesson.vault(), lesson.repository)
     again = {table: lesson.rows(f"SELECT * FROM {table} ORDER BY 1") for table in tables}
     for table in tables:

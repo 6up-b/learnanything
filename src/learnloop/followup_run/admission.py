@@ -313,7 +313,14 @@ def persist_item(
             workflow_id=workflow_id, probe_episode_id=episode_id, clock=clock,
         )
     upsert_practice_item(vault.root, payload, clock=clock)
-    repository.upsert_practice_item_state(payload["id"], active=False, clock=clock)
+    # TE2 landing ruling R3: the state row carries the item's content hash, as state sync would stamp it (and as
+    # the remint does), so a rebuild of a vault holding a generated probe reproduces its row exactly.
+    from learnloop.vault.hashes import practice_item_hash
+    from learnloop.vault.models import PracticeItem
+
+    repository.upsert_practice_item_state(
+        payload["id"], active=False, content_hash=practice_item_hash(PracticeItem.model_validate(payload)), clock=clock,
+    )
     return str(payload["id"])
 
 
