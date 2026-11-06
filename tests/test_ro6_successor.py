@@ -38,8 +38,9 @@ RO6_KEYS = {"learned_tail": True, "residual_prior_sd": 0.01, "residual_weight_pr
 
 def test_the_successor_is_one_constant_after_ro5_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.48"
-    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
-    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG})
+    # The follow-up batch (mvp-0.50) landed after it and keeps it.
+    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.50"
+    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG, "mvp-0.50"})
 
 
 def test_the_seeds_are_labelled_and_validated():
@@ -58,7 +59,10 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     # mvp-0.48's value at this branch's base (5f02be6eb2), frozen here: dropping RO6's keys reproduces it.
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
-    for key in RO6_KEYS:
+    # The follow-up batch's keys (mvp-0.50; tests/test_rofu_successor.py) are in every snapshot, inert below it.
+    from tests.test_rofu_successor import FOLLOWUP_KEYS
+
+    for key in (*RO6_KEYS, *FOLLOWUP_KEYS):
         dumped["router_objective"].pop(key)
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "dc39796ffa66ee54c1877cba358f697f24fe449020fba6b2e3a1f14ec521a2b1"
@@ -89,8 +93,9 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
     from learnloop import router_learned_tail_upgrade
 
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    # The follow-up batch's link (mvp-0.50) is the chain's latest; it hands earlier journals to this link.
+    assert "learnloop.router_followups_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.router_followups_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to RO5's completion, which hands it on in turn.
     assert "learnloop.router_calibration_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_learned_tail_upgrade)
@@ -129,6 +134,6 @@ def test_the_cli_upgrade_reaches_the_tag_by_default(tmp_path):
 
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"{OLD} -> {TAG}" in result.output

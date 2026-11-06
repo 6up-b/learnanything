@@ -25,6 +25,9 @@ serving (the coin and the checks live in its frame; the open picks only need the
 Router objective RO6's (§10; ``ROUTER_LEARNED_TAIL_VERSIONS``, mvp-0.49): :func:`learned_tail_on` (the tag, the
 objective serving and ``[router_objective] learned_tail``).
 
+The follow-up batch's (``ROUTER_FOLLOWUPS_VERSIONS``, mvp-0.50): :func:`followup_on` (the tag, the objective serving
+and the part's own ``[router_objective]`` switch).
+
 :func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
 snapshot, §5.5), so ``doctor`` can say when persisted due dates were derived under another setting.
 """
@@ -37,6 +40,7 @@ from typing import Any
 from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_VERSIONS,
     ROUTER_CALIBRATION_VERSIONS,
+    ROUTER_FOLLOWUPS_VERSIONS,
     ROUTER_LEARNED_TAIL_VERSIONS,
     ROUTER_OBJECTIVE_VERSIONS,
 )
@@ -248,6 +252,21 @@ def learned_tail_on(config: Any) -> bool:
     return learned_tail_tag(config) and objective_on(config) and bool(getattr(section, "learned_tail", False))
 
 
+def followups_tag(config: Any) -> bool:
+    """The router objective's follow-up batch: the vault is at its successor (mvp-0.50) or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in ROUTER_FOLLOWUPS_VERSIONS
+
+
+def followup_on(config: Any, key: str) -> bool:
+    """One part of the follow-up batch serves: the tag, the objective serving and its own ``[router_objective]``
+    switch ``key`` (default true). Off, or below the tag, that part is mvp-0.49's exactly."""
+
+    section = getattr(config, "router_objective", None)
+    return followups_tag(config) and objective_on(config) and bool(getattr(section, key, False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -270,6 +289,8 @@ __all__ = [
     "calibration_tag",
     "check_mode",
     "fitted_models_on",
+    "followup_on",
+    "followups_tag",
     "interval_factor_removed",
     "learned_tail_on",
     "learned_tail_tag",

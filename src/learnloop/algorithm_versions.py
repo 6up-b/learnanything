@@ -797,6 +797,14 @@ ROUTER_CALIBRATION_ALGORITHM_VERSION = "mvp-0.48"
 # switch: off, or below the tag, mvp-0.48 serves exactly.
 ROUTER_LEARNED_TAIL_ALGORITHM_VERSION = "mvp-0.49"
 
+# mvp-0.50 (the router objective's follow-up batch after RO6; owner decisions
+# 2026-11-03 to 2026-11-05; docs/specs/spec_router_objective_v1.md §8.11,
+# §9.1, §10.1; docs/reviews/router-followups-nov5.md), on top of mvp-0.49 (the
+# chain stays linear): the follow-up batch's serving changes, each behind its
+# own [router_objective] switch (the review file lists them); every one off,
+# or below the tag, mvp-0.49 serves exactly.
+ROUTER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.50"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -845,6 +853,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
+    ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
 )
 
 
@@ -1075,6 +1084,11 @@ ROUTER_CALIBRATION_VERSIONS: frozenset[str] = successors_from(ROUTER_CALIBRATION
 # ``router_objective.learned_tail``. Every later successor keeps them; gates
 # must use this set, never equality.
 ROUTER_LEARNED_TAIL_VERSIONS: frozenset[str] = successors_from(ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+
+# Versions that serve the router objective's follow-up batch (mvp-0.50), each
+# part behind its own ``router_objective`` switch. Every later successor keeps
+# them; gates must use this set, never equality.
+ROUTER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it
