@@ -375,8 +375,10 @@ import type {
   AdjudicationRecordResultDto,
   AdjudicationScoreboardDto,
   LessonActivityIntervalDto,
+  LessonGoalDto,
   LessonTurnInput,
   LessonViewDto,
+  OpenLessonDto,
   LessonSuggestionDto,
   LessonSuggestionResponseDto
 } from "./dto";
@@ -1746,6 +1748,9 @@ export const api = {
   // Teacher TE2-log: the lesson screen's activity intervals (logging only; no model call).
   lessonActivity: (input: { lessonId: string; intervals: LessonActivityIntervalDto[]; occurredAt?: string }) =>
     call<{ recorded: number; enabled: boolean }>("lesson_activity", { input }),
+  // Teacher TE2: a typed goal resolved (one plan call; none for words resolved before) and Today's open lessons.
+  lessonGoal: (input: { text: string }) => call<LessonGoalDto>("lesson_goal", { input }),
+  lessonOpenLessons: () => call<{ lessons: OpenLessonDto[] }>("lesson_open_lessons", { input: {} }),
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),

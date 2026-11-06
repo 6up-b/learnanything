@@ -685,6 +685,8 @@ fn main() {
                 lesson_turn,
                 lesson_view,
                 lesson_activity,
+                lesson_goal,
+                lesson_open_lessons,
                 lesson_suggestion,
                 lesson_suggestion_respond,
                 reader_side_by_side_section,

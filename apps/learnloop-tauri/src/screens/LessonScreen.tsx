@@ -28,13 +28,23 @@
 // screen reports its own activity intervals (foreground with input, or not) to
 // lesson.activity, before every lesson step, when the window hides and when the
 // screen closes (lessonActivity.ts). Times only; logging never blocks a step.
+//
+// Teacher TE2 (spec_teacher_v1 §11.3, §11.5, §19): a quick question the teacher asks for is written while the
+// learner reads ("Preparing a question on this…", with "Teach it anyway"); the screen checks back until it is
+// ready, then it opens like any question on your own: no sources, no help, the reply box away, until it is
+// answered. A lesson can start from what the learner types ("What do you want to learn?"): the topics it needs are
+// listed, and each part nothing in their books covers is offered once ("Not in your books yet: … Add it as a
+// topic?"); a topic added that way is taught from LearnLoop's model.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { createLessonActivity, type LessonActivityTracker } from "./lessonActivity";
-import type { FigureViewDto, LessonFeedEntryDto, LessonFigureStatus, LessonTurnInput, LessonViewDto } from "../api/dto";
+import type {
+  FigureViewDto, LessonFeedEntryDto, LessonFigureStatus, LessonGoalDto, LessonTurnInput, LessonViewDto,
+} from "../api/dto";
 import { getCommandError } from "../errors";
 import { COLOR, FONT_MONO, Faint } from "../components/term";
+import { DIAGNOSIS_POLL_MS } from "../components/DiagnosisCard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { FigureInline } from "./reader/figures/FigureInline";
 import { figurePlacementKey, type FiguresContract, type FiguresCtl } from "./reader/figures/useFigures";
@@ -44,7 +54,12 @@ export type LessonEntry =
       selection?: { extractionId: string; spanIds: string[] }; title?: string;
       /** Teacher TE1b: the Start of Today's suggestion card (its decision and the lesson id its response recorded). */
       suggestion?: { decisionId: string; lessonId: string } }
-  | { kind: "resume"; lessonId: string };
+  | { kind: "resume"; lessonId: string }
+  /** Teacher TE2: start from what the learner types. */
+  | { kind: "typed" };
+
+/** How often the screen checks back on a question being prepared (the diagnosis card's own interval, reused). */
+export const PROBE_POLL_MS = DIAGNOSIS_POLL_MS;
 
 const TAP_LABELS = ["1", "2", "3", "4", "5"];
 const CLOSE_WORDS: Record<string, string> = {
@@ -88,6 +103,13 @@ export function LessonScreen({
   const [retry, setRetry] = useState<LessonTurnInput | null>(null);
   /** TE2-log: the screen's activity intervals (null while the view doesn't ask for them). */
   const activity = useRef<LessonActivityTracker | null>(null);
+  /** TE2: the quick question's answer, and the typed goal before the lesson opens. */
+  const [probeAnswer, setProbeAnswer] = useState("");
+  const [probeTap, setProbeTap] = useState<number | null>(null);
+  const [goalText, setGoalText] = useState("");
+  const [goal, setGoal] = useState<LessonGoalDto | null>(null);
+  const [addTopics, setAddTopics] = useState<Record<string, boolean>>({});
+  const [subjectId, setSubjectId] = useState<string>("");
 
   const run = useCallback(async (input: LessonTurnInput) => {
     setBusy(true);
@@ -136,7 +158,9 @@ export function LessonScreen({
 
   useEffect(() => {
     let cancelled = false;
-    if (entry.kind === "resume") {
+    if (entry.kind === "typed") {
+      // TE2: nothing opens until the learner says what they want to learn.
+    } else if (entry.kind === "resume") {
       void api.lessonView({ lessonId: entry.lessonId }).then((next) => { if (!cancelled) setView(next); })
         .catch((error: unknown) => onError(getCommandError(error)?.message ?? String(error)));
     } else {
@@ -183,6 +207,55 @@ export function LessonScreen({
     setTap(null);
     setCheckOpen(false);
   }, [openCheck?.checkRef]);
+  const probe = view?.probe ?? null;
+  const probeOpen = Boolean(probe && probe.status === "open");
+  useEffect(() => {
+    setProbeAnswer("");
+    setProbeTap(null);
+  }, [probe?.probeRef]);
+  useEffect(() => {
+    // TE2: check back on a question being prepared (no model call: lesson.view), until it is ready.
+    if (!lessonId || !probe || probe.status !== "preparing" || busy) return;
+    const timer = window.setTimeout(() => {
+      void api.lessonView({ lessonId }).then(setView).catch(() => undefined);
+    }, PROBE_POLL_MS);
+    return () => window.clearTimeout(timer);
+  }, [lessonId, probe, busy]);
+
+  const findGoal = useCallback(async () => {
+    const text = goalText.trim();
+    if (!text) return;
+    setBusy(true);
+    try {
+      const found = await api.lessonGoal({ text });
+      setGoal(found);
+      setAddTopics({});
+      setSubjectId(found.subjectId ?? found.subjects[0]?.subjectId ?? "");
+    } catch (error) {
+      onError(getCommandError(error)?.message ?? String(error));
+    } finally {
+      setBusy(false);
+    }
+  }, [goalText, onError]);
+
+  const startTyped = useCallback(async () => {
+    const text = goalText.trim();
+    if (!text) return;
+    const accepted = Object.entries(addTopics).filter(([, yes]) => yes).map(([phrase]) => phrase);
+    await run({ action: "open", entry: "typed_goal", goalText: text, addTopics: accepted,
+                ...(accepted.length && subjectId ? { subjectId } : {}) });
+  }, [goalText, addTopics, subjectId, run]);
+
+  const submitProbe = useCallback(async () => {
+    if (!lessonId || !probe || !probeAnswer.trim()) return;
+    await run({ action: "answer_probe", lessonId, probeRef: probe.probeRef, answer: probeAnswer.trim(),
+                ...(probeTap !== null ? { tap: probeTap } : {}) });
+  }, [lessonId, probe, probeAnswer, probeTap, run]);
+
+  const teachAnyway = useCallback(async () => {
+    if (!lessonId) return;
+    await run({ action: "teach_anyway", lessonId });
+  }, [lessonId, run]);
 
   const send = useCallback(async () => {
     if (!lessonId || !reply.trim()) return;
@@ -240,6 +313,62 @@ export function LessonScreen({
       </div>
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <article style={{ flex: 1, overflowY: "auto", padding: "18px 32px", maxWidth: 820, lineHeight: 1.6 }}>
+          {entry.kind === "typed" && !view ? (
+            <section data-testid="lesson-goal-start">
+              <label htmlFor="lesson-goal-text" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+                What do you want to learn?
+              </label>
+              <textarea id="lesson-goal-text" aria-label="What do you want to learn?" value={goalText}
+                        placeholder="e.g. how do I diagonalize a matrix, and when can't I"
+                        onChange={(e) => { setGoalText(e.target.value); setGoal(null); }}
+                        style={{ width: "100%", minHeight: 60 }} />
+              <div style={{ marginTop: 6 }}>
+                <button type="button" data-testid="lesson-goal-find" disabled={busy || !goalText.trim()}
+                        onClick={() => void findGoal()}>
+                  Find it in my books
+                </button>
+              </div>
+              {goal && (goal.status === "unavailable" || goal.status === "no_inputs") ? (
+                <div role="status" style={{ color: COLOR.textDim, marginTop: 8 }}>{goal.message}</div>
+              ) : null}
+              {goal && goal.topics.length ? (
+                <div data-testid="lesson-goal-topics" style={{ marginTop: 10 }}>
+                  <Faint>This lesson covers</Faint>
+                  <ul>{goal.topics.map((topic) => <li key={topic.learningObjectId}>{topic.title}</li>)}</ul>
+                </div>
+              ) : null}
+              {goal ? goal.unmatched.map((left) => (
+                <div key={left.phrase} data-testid="lesson-goal-unmatched" style={{ marginTop: 8 }}>
+                  Not in your books yet: “{left.phrase}”. Add it as a topic?{" "}
+                  <button type="button" aria-pressed={addTopics[left.phrase] === true}
+                          onClick={() => setAddTopics((prev) => ({ ...prev, [left.phrase]: true }))}>Yes</button>{" "}
+                  <button type="button" aria-pressed={addTopics[left.phrase] === false}
+                          onClick={() => setAddTopics((prev) => ({ ...prev, [left.phrase]: false }))}>No</button>
+                  {addTopics[left.phrase] ? (
+                    <Faint style={{ display: "block" }}>
+                      It will be taught from LearnLoop&apos;s model, not from your books.
+                    </Faint>
+                  ) : null}
+                </div>
+              )) : null}
+              {goal && Object.values(addTopics).some(Boolean) && !goal.subjectId && goal.subjects.length > 1 ? (
+                <label style={{ display: "block", marginTop: 8 }}>
+                  <Faint>Which subject is it part of?</Faint>{" "}
+                  <select aria-label="Subject" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+                    {goal.subjects.map((s) => <option key={s.subjectId} value={s.subjectId}>{s.title}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              {goal && (goal.topics.length || Object.values(addTopics).some(Boolean)) ? (
+                <div style={{ marginTop: 10 }}>
+                  <button type="button" data-testid="lesson-goal-start-button" disabled={busy}
+                          onClick={() => void startTyped()}>
+                    Start the lesson
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           {feed.map((item, index) => (
             <FeedEntry key={index} item={item} openCheckRef={openCheck?.checkRef ?? null} checkOpen={checkOpen}
                        onOpenCheck={() => setCheckOpen(true)} />
@@ -250,6 +379,40 @@ export function LessonScreen({
                 Start a fresh lesson
               </button>
             </div>
+          ) : null}
+          {view && !view.closed && probe && probe.status === "preparing" ? (
+            <section data-testid="lesson-probe-preparing" role="status" style={{ margin: "10px 0" }}>
+              <Faint>{probe.label}</Faint>
+              {probe.teachAnyway ? (
+                <div style={{ marginTop: 6 }}>
+                  <button type="button" data-testid="lesson-teach-anyway" disabled={busy} onClick={() => void teachAnyway()}>
+                    Teach it anyway
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+          {view && !view.closed && probe && probeOpen ? (
+            <section data-testid="lesson-probe" style={{ margin: "10px 0", padding: 10, border: `1px solid ${COLOR.border}` }}>
+              <Faint>{probe.label}</Faint>
+              <MarkdownMath value={probe.question ?? ""} />
+              <Faint style={{ display: "block", marginTop: 4 }}>On your own: no notes or help for this one.</Faint>
+              <textarea aria-label="Your answer to the question" value={probeAnswer}
+                        onChange={(e) => setProbeAnswer(e.target.value)} style={{ width: "100%", minHeight: 70, marginTop: 6 }} />
+              {probeAnswer.trim() ? (
+                <div data-testid="lesson-probe-tap" style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6 }}>
+                  <Faint>How sure are you?</Faint>
+                  {TAP_LABELS.map((label, index) => (
+                    <button key={label} type="button" aria-pressed={probeTap === index + 1}
+                            onClick={() => setProbeTap(index + 1)}>{label}</button>
+                  ))}
+                </div>
+              ) : null}
+              <button type="button" data-testid="lesson-probe-submit" disabled={busy || !probeAnswer.trim()}
+                      onClick={() => void submitProbe()} style={{ marginTop: 8 }}>
+                Submit answer
+              </button>
+            </section>
           ) : null}
           {busy ? <Faint>The teacher is writing…</Faint> : null}
           {unavailable ? (
@@ -303,7 +466,7 @@ export function LessonScreen({
               </button>
             </section>
           ) : null}
-          {view && !view.closed ? (
+          {view && !view.closed && !probeOpen ? (
             <section style={{ marginTop: 14 }}>
               <textarea aria-label="Reply to the teacher" placeholder={openCheck ? "ask for help with the check…" : "reply…"}
                         value={reply} onChange={(e) => setReply(e.target.value)} style={{ width: "100%", minHeight: 50 }} />
@@ -429,6 +592,13 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck }: {
           <strong>{item.result}</strong>
           {item.graderFeedback ? <div><MarkdownMath value={item.graderFeedback} /></div> : null}
           {item.answerLabel ? <Faint>{item.answerLabel}</Faint> : null}
+        </div>
+      );
+    case "probe_result":
+      return (
+        <div data-testid="lesson-probe-result" style={{ margin: "6px 0 12px", color: COLOR.textDim }}>
+          <strong>{item.result}</strong>
+          {item.graderFeedback ? <div><MarkdownMath value={item.graderFeedback} /></div> : null}
         </div>
       );
     case "notice":
