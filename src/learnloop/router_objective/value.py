@@ -130,19 +130,29 @@ class AdLink:
     version: str = AD_LINK_VERSION
 
     def __post_init__(self) -> None:
-        # The quadrature's arrays, built once (the rollouts call F per day, topic and draw).
+        # The quadrature's arrays and constants, built once (the rollouts call F per day, topic and draw).
         object.__setattr__(self, "_shift", self.spread * np.asarray(self.nodes, dtype=np.float64))
         object.__setattr__(self, "_w", np.asarray(self.weights, dtype=np.float64))
+        object.__setattr__(self, "_keep", 1.0 - self.lapse)
+
+    def quadrature(self, eta: np.ndarray, *, slope: bool = True) -> tuple[np.ndarray, np.ndarray | None]:
+        """``F(η)`` and (``slope``) ``dF/dη`` from **one** evaluation of the quadrature's sigmoids, elementwise over
+        any array of ``η`` (router speed, item 1: a caller stacks every ``η`` it needs, the draws' and the belief's,
+        into one array). The same operations, in the same order, as :meth:`p` and :meth:`slope` each did alone, so
+        every element's bits are theirs."""
+
+        with np.errstate(over="ignore"):  # σ of a far-left node is 0 (the log-space path covers what underflows)
+            s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
+        f = self._keep * (self._w * s).sum(-1)
+        return f, (self._keep * (self._w * s * (1.0 - s)).sum(-1) if slope else None)
 
     def p(self, eta: np.ndarray) -> np.ndarray:
-        e = np.asarray(eta, dtype=np.float64)[..., None] - self._shift
-        return (1.0 - self.lapse) * (self._w * sigmoid(e)).sum(-1)
+        return self.quadrature(eta, slope=False)[0]
 
     def slope(self, eta: np.ndarray) -> np.ndarray:
         """``dF/dη``."""
 
-        s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
-        return (1.0 - self.lapse) * (self._w * s * (1.0 - s)).sum(-1)
+        return self.quadrature(eta)[1]  # type: ignore[return-value]
 
     def p_integrated(self, mean: np.ndarray, variance: np.ndarray) -> np.ndarray:
         """``E[F(η)]`` for ``η ~ N(mean, variance)``: ``F`` with the residual's spread widened to
@@ -176,11 +186,12 @@ class AdLink:
         directly; ``log F`` is direct while ``F`` is a normal float, and in log space (log-sum-exp over the
         quadrature) where it underflows (``η`` below about −700)."""
 
-        with np.errstate(over="ignore"):  # σ of a far-left node is 0, as the log-space path below takes over
-            s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
-        keep = 1.0 - self.lapse
-        f = keep * (self._w * s).sum(-1)
-        df = keep * (self._w * s * (1.0 - s)).sum(-1)
+        f, df = self.quadrature(eta)
+        return self.logit_and_slope_from(eta, f, df)  # type: ignore[arg-type]
+
+    def logit_and_slope_from(self, eta: np.ndarray, f: np.ndarray, df: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """:meth:`logit_and_slope` from ``F(η)`` and ``dF/dη`` already computed (:meth:`quadrature`)."""
+
         tiny = ~(f > 1e-300)
         safe = np.where(tiny, 1.0, f)
         out = np.log(safe) - np.log1p(-safe)
@@ -195,7 +206,11 @@ class AdLink:
     def logit_p(self, eta: np.ndarray) -> np.ndarray:
         """``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path)."""
 
-        f = self.p(eta)
+        return self.logit_p_from(eta, self.p(eta))
+
+    def logit_p_from(self, eta: np.ndarray, f: np.ndarray) -> np.ndarray:
+        """:meth:`logit_p` from ``F(η)`` already computed (:meth:`quadrature`)."""
+
         tiny = ~(f > 1e-300)
         safe = np.where(tiny, 1.0, f)
         out = np.log(safe) - np.log1p(-safe)
@@ -555,6 +570,9 @@ class _Model:
         #: Landing ruling R9: AD's own predictive (None: ``σ`` on ``logit p̄``, mvp-0.49's), and each topic's ``η``
         #: mean on the scale the rollouts move it on (AD's latent ``F⁻¹(p̄)`` with the link; ``logit p̄`` without).
         self.link = inputs.ad_link
+        #: router speed, item 1: the last ``(η, logit F(η))`` per role (the draws' ``η``, the belief's), compared bit
+        #: for bit (:meth:`_linked_logit`); one model's, never shared across threads or decisions
+        self._logit_held: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self.eta_means: list[float] = [t.eta_mean for t in inputs.topics]
         self.eta_vars: list[float] = [t.eta_var for t in inputs.topics]
         if self.link is not None and inputs.topics:
@@ -651,8 +669,61 @@ class _Model:
         if self.link is not None:
             # R9: the combiner's η input is AD's predictive on the logit scale, logit F(η) (``logit p̄`` at the start),
             # R11: its own stable logit, not FSRS's clipped one
-            eta = self.link.logit_p(eta)
+            eta = self._linked_logit(eta, "bel" if belief else "eta")
         return perform(self.theta.coef, eta, r, state.practiced)
+
+    def _link_compute(self, x: np.ndarray, slope: bool) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
+        """``F(η)``, ``dF/dη`` (``slope``) and ``logit F(η)`` elementwise, from one quadrature."""
+
+        assert self.link is not None
+        f, df = self.link.quadrature(x, slope=slope)
+        return f, df, self.link.logit_p_from(x, f)
+
+    def _linked_logit(self, eta: np.ndarray, role: str) -> np.ndarray:
+        """``logit F(η)`` elementwise (:meth:`AdLink.logit_p`), recomputed only where ``η`` changed since this role's
+        last call (router speed, item 1). The tail reads ``P(perform)`` several times a day on a state its sessions
+        change in a few cells, so the quadrature runs on the changed cells alone; the comparison is of the bits,
+        so every element is exactly what the full call gives (the function is elementwise), whatever state, copy or
+        candidate the call is on. The role's ``F`` (and the belief's ``F'``) are held too, for :meth:`_link_cells`."""
+
+        x = np.asarray(eta, dtype=np.float64)
+        slope = role == "bel"
+        held = self._logit_held.get(role)
+        if held is None or held[0].shape != x.shape:
+            f, df, out = self._link_compute(x, slope)
+        else:
+            changed = x.view(np.int64) != held[0].view(np.int64)
+            if not changed.any():
+                return held[3]
+            f, df, out = (np.array(part, copy=True) if part is not None else None for part in held[1:])
+            f[changed], part_df, out[changed] = self._link_compute(x[changed], slope)
+            if df is not None:
+                df[changed] = part_df
+        for part in (f, df, out):
+            if part is not None:
+                part.flags.writeable = False
+        self._logit_held[role] = (np.array(x, copy=True), f, df, out)
+        return out
+
+    def _link_cells(self, x: np.ndarray, role: str, cells: tuple[Any, Any] | None, slope: bool
+                    ) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
+        """``F``, ``F'`` (``slope``) and ``logit F`` at the cells ``(rows, cols)`` whose ``η`` is ``x``: the role's held
+        values where the cell's bits are the ones held (:meth:`_linked_logit`'s), one quadrature over the rest. A
+        merged session practises cells its ranking just read, so it computes nothing here (router speed, item 1)."""
+
+        held = self._logit_held.get(role)
+        if cells is None or held is None or (slope and held[2] is None):
+            return self._link_compute(x, slope)
+        hit = held[0][cells].view(np.int64) == x.view(np.int64)
+        f, out = held[1][cells], held[3][cells]
+        df = held[2][cells] if slope else None
+        miss = ~hit
+        if miss.any():
+            f_miss, df_miss, out_miss = self._link_compute(x[miss], slope)
+            f[miss], out[miss] = f_miss, out_miss
+            if df is not None:
+                df[miss] = df_miss
+        return f, df, out
 
     def cost(self, start: np.ndarray, minutes: np.ndarray) -> np.ndarray:
         """``∫[m, m+d] κ(u) du = κ0·((m+d)² − m²)/(2m̄)``."""
@@ -661,8 +732,8 @@ class _Model:
 
     # effects ---------------------------------------------------------------------------------------
     def _graded(self, eta: np.ndarray, bel: np.ndarray, bel_var: np.ndarray, stability: np.ndarray,
-                practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray
-                ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+                practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray,
+                cells: tuple[Any, Any] | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """A graded attempt, elementwise (``coef``: each element's combiner draw, shaped ``(M, 3)``): its result,
         then the belief's one-step Laplace update on it (mean, variance; before the learning increment).
 
@@ -673,10 +744,11 @@ class _Model:
         ``bel``, its slope in ``η`` ``aA − aR``), so the belief does not read a memory effect as ability.
 
         Landing ruling R9 (``self.link``): AD's predictive is ``F(η)``, so ``η`` enters as ``logit F(η)`` and every
-        slope carries its derivative (:meth:`_graded_linked`)."""
+        slope carries its derivative (:meth:`_graded_linked`; ``cells``: where in the state the elements are, which
+        only that path reads, to reuse what :meth:`performance` computed on the same bits)."""
 
         if self.link is not None:
-            return self._graded_linked(eta, bel, bel_var, stability, practiced, elapsed, coef, u)
+            return self._graded_linked(eta, bel, bel_var, stability, practiced, elapsed, coef, u, cells)
         if not self.consistent:
             good = u < sigmoid(eta)
             p_bel = sigmoid(bel)
@@ -692,20 +764,26 @@ class _Model:
         return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
 
     def _graded_linked(self, eta: np.ndarray, bel: np.ndarray, bel_var: np.ndarray, stability: np.ndarray,
-                       practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray
-                       ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+                       practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray,
+                       cells: tuple[Any, Any] | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """:meth:`_graded` with AD's own predictive (R9): ``ẽ = logit F(η)`` where ``σ(η)`` stood. Without R1's draw,
         every result is drawn from ``F(η)``; with it, a practised topic's from the combiner over ``ẽ`` and ``R``.
         The belief's Laplace step uses the same prediction at ``bel`` and its slope in ``η`` (``dẽ/dη``, times
         ``aA − aR`` for a practised topic under R1's draw). Landing ruling R11: AD's own probability is drawn from
         directly (``F(η)``, never ``σ`` of a clipped logit); only the combiner reads ``ẽ``, its stable logit; FSRS's
-        retrievability keeps FSRS's clip."""
+        retrievability keeps FSRS's clip.
+
+        Router speed, item 1: ``cells`` (the ``(rows, cols)`` of the state the elements are, or None) lets the
+        quadrature be read from the values :meth:`performance` already computed on the same bits (:meth:`_link_cells`);
+        it was four quadratures a call, each element's ``F``, ``F'`` and logit the bits those gave."""
 
         assert self.link is not None
-        f_true, f_bel = self.link.p(eta), self.link.p(bel)
-        eb, deb = self.link.logit_and_slope(bel)
+        eta, bel = np.asarray(eta, dtype=np.float64), np.asarray(bel, dtype=np.float64)
+        f_true, _df, e = self._link_cells(eta, "eta", cells, False)
+        f_bel, df_bel, _eb = self._link_cells(bel, "bel", cells, True)
+        assert df_bel is not None
+        eb, deb = self.link.logit_and_slope_from(bel, f_bel, df_bel)
         if self.consistent:
-            e, _de = self.link.logit_and_slope(eta)
             a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
             lr = logit(self.fsrs.retrievability(stability, elapsed))
             p_true = np.where(practiced, sigmoid(a0 + a_eta * e + a_r * (lr - e)), f_true)
@@ -723,7 +801,8 @@ class _Model:
         elapsed = at - state.last[:, lo]
         # The belief observes the graded attempt (a one-step Laplace update), then learns as the model predicts.
         good, bel, var = self._graded(state.eta[:, lo], state.bel[:, lo], state.bel_var[:, lo], state.s[:, lo],
-                                      state.practiced[:, lo], elapsed, self.theta.coef, u)
+                                      state.practiced[:, lo], elapsed, self.theta.coef, u,
+                                      cells=(np.arange(self.k), lo))
         d, s = self.fsrs.review(state.d[:, lo], state.s[:, lo], state.practiced[:, lo], elapsed, good)
         gm = float(self.inputs.learning.gamma[0])
         state.d[:, lo] = np.where(mask, d, state.d[:, lo])
@@ -740,10 +819,14 @@ class _Model:
         the result given, for valuing the branches on one result). With R9's link, AD's own ``F``."""
 
         if self.link is not None:
-            _eb, deb = self.link.logit_and_slope(state.bel[:, lo])
-            good = (u < self.link.p(state.eta[:, lo]) if observed is None
-                    else np.asarray(observed, dtype=bool))
-            p_bel = self.link.p(state.bel[:, lo])
+            # Router speed, item 1: the quadratures read from what performance() computed on the same bits where it
+            # can (each element's bits as before).
+            cells = (np.arange(self.k), lo)
+            f_true, _df, _e = self._link_cells(np.asarray(state.eta[:, lo], dtype=np.float64), "eta", cells, False)
+            p_bel, df_bel, _l = self._link_cells(np.asarray(state.bel[:, lo], dtype=np.float64), "bel", cells, True)
+            assert df_bel is not None
+            _eb, deb = self.link.logit_and_slope_from(state.bel[:, lo], p_bel, df_bel)
+            good = (u < f_true if observed is None else np.asarray(observed, dtype=bool))
             var = 1.0 / (1.0 / state.bel_var[:, lo] + deb * deb * p_bel * (1 - p_bel))
             bel = state.bel[:, lo] + var * deb * (good.astype(np.float64) - p_bel)
             state.bel[:, lo] = np.where(mask, bel, state.bel[:, lo])
@@ -819,7 +902,7 @@ class _Model:
         eta = state.eta[r, c]
         elapsed = when - state.last[r, c]
         good, bel, var = self._graded(eta, state.bel[r, c], state.bel_var[r, c], state.s[r, c], state.practiced[r, c],
-                                      elapsed, self.theta.coef[r], u[active])
+                                      elapsed, self.theta.coef[r], u[active], cells=(r, c))
         d, s = self.fsrs.review(state.d[r, c], state.s[r, c], state.practiced[r, c], elapsed, good)
         gm = float(self.inputs.learning.gamma[0])
         state.d[r, c] = d
