@@ -58,20 +58,22 @@ export function TodayScreen({
 
   if (!session) {
     return (
-      <div className="main">
+      <div className="screen">
         <h1>Today</h1>
         {finished ? (
           <p className="banner" role="status">
             Session finished: {finished.attemptsRecorded} {finished.attemptsRecorded === 1 ? "answer" : "answers"}.
           </p>
         ) : null}
-        <p className="dim">How long have you got?</p>
-        <div className="row">
-          {MINUTES.map((minutes) => (
-            <button key={minutes} className="primary" type="button" disabled={busy} onClick={() => onBegin(minutes)}>
-              {minutes} min
-            </button>
-          ))}
+        <div className="actions">
+          <p className="dim">How long have you got?</p>
+          <div className="chips">
+            {MINUTES.map((minutes) => (
+              <button key={minutes} className="primary" type="button" disabled={busy} onClick={() => onBegin(minutes)}>
+                {minutes} min
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -80,29 +82,29 @@ export function TodayScreen({
   const rows = queueRows(query.data, held);
   const [head, ...rest] = rows;
   const waiting = waitingLine(query.data?.deviceDeferredCount ?? 0);
+  // One primary action, in the thumb zone: Next. The rest of today's list sits above it.
   return (
-    <div className="main">
+    <div className="screen">
       <h1>Today</h1>
       {query.loading ? <p className="dim">Reading today's list…</p> : null}
-      {head ? (
-        <>
-          <div className="row">
-            <button className="primary" type="button" onClick={() => onOpen(head)}>Next: {head.learningObjectTitle}</button>
-          </div>
-          <ul className="list" aria-label="Today's items">
-            {rest.map((row) => (
-              <li key={row.practiceItemId}>
-                <button type="button" onClick={() => onOpen(row)}>{row.learningObjectTitle}</button>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : query.loading ? null : (
-        <p className="dim">Nothing more for now.</p>
-      )}
+      {head && rest.length ? (
+        <ul className="list" aria-label="Today's items">
+          {rest.map((row) => (
+            <li key={row.practiceItemId}>
+              <button type="button" onClick={() => onOpen(row)}>{row.learningObjectTitle}</button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {!head && !query.loading ? <p className="dim">Nothing more for now.</p> : null}
       {waiting ? <p className="dim" role="status">{waiting}</p> : null}
-      <div className="row">
-        <button className="plain" type="button" disabled={busy} onClick={onEnd}>End session</button>
+      <div className="actions">
+        {head ? (
+          <button className="primary block" type="button" onClick={() => onOpen(head)}>Next: {head.learningObjectTitle}</button>
+        ) : null}
+        <div className="row">
+          <button className="plain" type="button" disabled={busy} onClick={onEnd}>End session</button>
+        </div>
       </div>
     </div>
   );

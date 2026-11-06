@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readCredential, saveCredential } from "./credential";
-import { addToOutbox, flushOutbox, listOutbox, removeFromOutbox, requestFor, type OutboxRecord } from "./outbox";
+import {
+  addToOutbox,
+  CAPTURE_INTENT,
+  flushOutbox,
+  INTENT_KINDS,
+  listOutbox,
+  removeFromOutbox,
+  requestFor,
+  responseClass,
+  type IntentKind,
+  type OutboxProblem,
+  type OutboxRecord
+} from "./outbox";
 import { resetCredentialForTests } from "./credential";
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -105,5 +117,61 @@ describe("the outbox (§7)", () => {
     await addToOutbox(record("a"));
     await expect(flushOutbox()).resolves.toEqual({ reason: "not_paired", waiting: 1 });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a capture saved twice under one id is one record: the id is what the host dedupes on", async () => {
+    await addToOutbox(record("a"));
+    await addToOutbox(record("a", { text: "edited" }));
+    await expect(listOutbox()).resolves.toEqual([record("a", { text: "edited" })]);
+  });
+});
+
+describe("the outbox generalized to intents (mobile v2 §5.4)", () => {
+  /** A second kind of intent, in memory, standing in for the ones later stages add. */
+  function memoryKind(name: string, ids: string[]) {
+    const records = ids.map((id) => ({ id, problem: null as OutboxProblem | null }));
+    const sent: string[] = [];
+    const kind: IntentKind<{ id: string; problem: OutboxProblem | null }> = {
+      name,
+      list: async () => records,
+      clientId: (one) => one.id,
+      problem: (one) => one.problem,
+      send: async (one) => {
+        sent.push(`${name}:${one.id}`);
+        return fetch(`/${name}`, { method: "POST" });
+      },
+      remove: async (one) => void records.splice(records.indexOf(one), 1),
+      keepWithProblem: async (one, problem) => void (one.problem = problem)
+    };
+    return { kind: kind as IntentKind<never>, records, sent };
+  }
+
+  it("V1 flushes one kind, the capture, exactly as built", () => {
+    expect(INTENT_KINDS).toEqual([CAPTURE_INTENT]);
+  });
+
+  it("every kind together, oldest client id first", async () => {
+    const first = memoryKind("progress", ["01B", "01D"]);
+    const second = memoryKind("activity", ["01A", "01C"]);
+    fetchMock.mockImplementation(async () => respond(201));
+    await expect(flushOutbox([first.kind, second.kind])).resolves.toEqual({ reason: "drained" });
+    const order = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(order).toEqual(["/activity", "/progress", "/activity", "/progress"]);
+    expect(first.records).toEqual([]);
+    expect(second.records).toEqual([]);
+  });
+
+  it("the response classes are §7's for every kind: a stop keeps the rest in order", async () => {
+    const one = memoryKind("progress", ["01A", "01B", "01C"]);
+    fetchMock.mockResolvedValueOnce(respond(201)).mockResolvedValueOnce(respond(409, "conflict")).mockResolvedValueOnce(respond(503));
+    await expect(flushOutbox([one.kind])).resolves.toEqual({ reason: "offline" });
+    expect(one.records.map((record) => [record.id, record.problem?.kind ?? null])).toEqual([["01B", "conflict"], ["01C", null]]);
+  });
+
+  it.each([
+    [200, "sent"], [201, "sent"], [429, "stop_offline"], [500, "stop_offline"], [503, "stop_offline"], [401, "stop_unpaired"],
+    [403, "stop_forbidden"], [409, "conflict"], [413, "refused"], [422, "refused"]
+  ])("%i is %s", (status, kind) => {
+    expect(responseClass(status)).toBe(kind);
   });
 });

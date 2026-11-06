@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/service.py"
 source_paths:
   - "src/learnloop/teacher/service.py"
-source_commit: "workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201"
-source_commit_timestamp: "2026-11-06T11:48:24-05:00"
-source_worktree_state: "modified"
+source_commit: "7d9172c742ef11fa03cc9654bbe7ffff354fd5ce"
+source_commit_timestamp: "2026-11-06T12:34:07-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201` |
-| Commit timestamp | `2026-11-06T11:48:24-05:00` |
+| Worktree state | `clean` |
+| Source commit | `7d9172c742ef11fa03cc9654bbe7ffff354fd5ce` |
+| Commit timestamp | `2026-11-06T12:34:07-05:00` |
 
 ## Public API
 

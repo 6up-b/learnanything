@@ -1,0 +1,23 @@
+{
+  "method": "get_practice_item",
+  "requests": [
+    {
+      "wrapper": "getPracticeItem",
+      "envelope": {
+        "method": "get_practice_item",
+        "params": {
+          "practiceItemId": "i1",
+          "sessionId": "s1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "learningObjectTitle",
+    "attemptTypesAllowed",
+    "assessmentContractVersionId",
+    "presentation.blocks[].kind",
+    "presentation.blocks[].markdown",
+    "presentation.blocks[].label"
+  ]
+}

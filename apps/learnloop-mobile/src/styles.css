@@ -1,3 +1,16 @@
+/*
+ * The phone's look (mobile v2 §4.6): paper and ink, quiet by default; the text is the design.
+ * Theme tokens first, then components. No component library, no design system.
+ *
+ * Three token blocks, which `src/shell/theme.test.ts` reads: dark (today's palette, the default),
+ * light (warm paper), and light again under `prefers-color-scheme` unless dark was chosen by
+ * hand. The test checks both themes for WCAG AA contrast and the two light blocks for sameness.
+ *
+ * Sizes are rem, and the root is `-apple-system-body`, so iOS Dynamic Type scales all of it
+ * (§4.7); nothing has a fixed height that text could clip, and rows wrap.
+ */
+
+/* theme:dark */
 :root {
   --bg: #14161a;
   --panel: #1c1f25;
@@ -5,54 +18,203 @@
   --text: #e8e6e1;
   --dim: #9a9ca3;
   --accent: #e0a458;
+  --on-accent: #1a1408;
   --bad: #e07a6a;
+  --scrim: rgb(0 0 0 / 0.5);
   color-scheme: dark;
 }
+/* end */
+
+/* theme:light */
+:root[data-theme="light"] {
+  --bg: #f7f4ee;
+  --panel: #fffdf8;
+  --border: #d9d2c5;
+  --text: #1f1d1a;
+  --dim: #5f5a52;
+  --accent: #8a4f0f;
+  --on-accent: #fffaf2;
+  --bad: #b3261e;
+  --scrim: rgb(31 29 26 / 0.35);
+  color-scheme: light;
+}
+/* end */
+
+@media (prefers-color-scheme: light) {
+  /* theme:light-system */
+  :root:not([data-theme="dark"]) {
+    --bg: #f7f4ee;
+    --panel: #fffdf8;
+    --border: #d9d2c5;
+    --text: #1f1d1a;
+    --dim: #5f5a52;
+    --accent: #8a4f0f;
+    --on-accent: #fffaf2;
+    --bad: #b3261e;
+    --scrim: rgb(31 29 26 / 0.35);
+    color-scheme: light;
+  }
+  /* end */
+}
+
+:root {
+  --ui-face: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  /* The book's voice (§4.6), for the Reader of a later stage: New York on iOS. */
+  --book-face: ui-serif, "New York", Georgia, serif;
+  --motion: 200ms;
+  --target: 2.75rem; /* 44 pt at the default text size, and larger with it (§4.3) */
+}
+
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
+html {
+  /* 17 px where the system font keyword is unknown; Dynamic Type's body size where it is. */
+  font-size: 106.25%;
+  font: -apple-system-body;
+  -webkit-text-size-adjust: 100%;
+  height: 100%;
+}
+body, #root { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  -webkit-text-size-adjust: 100%;
+  font-family: var(--ui-face);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
 }
-.shell { display: flex; flex-direction: column; min-height: 100%; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
-.main { flex: 1; padding: 14px 16px 24px; max-width: 720px; width: 100%; margin: 0 auto; }
-.tabs { display: flex; border-top: 1px solid var(--border); position: sticky; bottom: 0; background: var(--bg); padding-bottom: env(safe-area-inset-bottom); }
-.tabs button { flex: 1; border: 0; background: none; color: var(--dim); padding: 13px 0; font: inherit; }
-.tabs button[aria-current="page"] { color: var(--accent); }
-h1 { font-size: 21px; margin: 0 0 10px; font-weight: 600; }
-h2 { font-size: 17px; margin: 14px 0 6px; font-weight: 600; }
+
+/* The shell: a top bar, the scrolling frame, and the tab bar under it. */
+.shell { display: flex; flex-direction: column; height: 100%; height: 100dvh; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: env(safe-area-inset-top) 0.5rem 0; background: var(--bg); flex: none;
+}
+.topbar-spacer { min-width: var(--target); min-height: var(--target); }
+.topbar-actions { display: flex; gap: 0.5rem; }
+.frame { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; outline: none; padding: 0 1rem; }
+.screen {
+  display: flex; flex-direction: column; min-height: 100%; max-width: 45rem; margin: 0 auto;
+  animation: screen-in var(--motion) ease-out;
+}
+/* The thumb zone: the screen's one primary action, kept above the keyboard (§4.3). */
+.actions {
+  position: sticky; bottom: var(--keyboard-inset, 0px); margin-top: auto;
+  display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0; background: var(--bg);
+}
+.covering .actions { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+
+.tabs {
+  display: flex; flex: none; border-top: 1px solid var(--border); background: var(--bg);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabs button {
+  flex: 1; min-height: var(--target); border: 0; background: none; color: var(--dim);
+  padding: 0.5rem 0.25rem; font: inherit; font-size: 0.88rem; white-space: normal;
+}
+.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.tabs .tab-plus { font-size: 1.6rem; line-height: 1; color: var(--accent); }
+
+/* Text. */
+h1 { font-size: 1.25rem; margin: 0.25rem 0 0.6rem; font-weight: 600; line-height: 1.3; }
+h2 { font-size: 1rem; margin: 0.85rem 0 0.35rem; font-weight: 600; }
 .banner h2 { margin-top: 0; }
-p { margin: 8px 0; }
-.dim { color: var(--dim); font-size: 15px; }
+p { margin: 0.5rem 0; }
+code { font: 0.88rem ui-monospace, monospace; overflow-wrap: anywhere; }
+.dim { color: var(--dim); font-size: 0.88rem; }
 .bad { color: var(--bad); }
-.banner { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
-.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-button.primary, button.plain { font: inherit; border-radius: 8px; padding: 10px 14px; min-height: 44px; }
-button.primary { background: var(--accent); color: #1a1408; border: 0; font-weight: 600; }
-button.plain { background: none; color: var(--text); border: 1px solid var(--border); }
-button:disabled { opacity: 0.5; }
-.list { list-style: none; margin: 12px 0; padding: 0; }
-.list li { border-top: 1px solid var(--border); }
-.list button { display: block; width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit; padding: 12px 0; }
-.list .head { color: var(--accent); }
-.markdown { overflow-x: auto; }
+.score { font-size: 1.5rem; font-weight: 600; }
+.criterion { border-top: 1px solid var(--border); padding: 0.5rem 0; }
+.markdown { overflow-x: auto; overflow-wrap: anywhere; }
 .markdown p:first-child { margin-top: 0; }
+/* KaTeX inherits currentColor in both themes; wide display math scrolls in its own box (§3.1). */
+.katex { color: inherit; }
 .katex-display { overflow-x: auto; overflow-y: hidden; }
+
+/* The connection line (§4.4): one quiet line, never a modal. */
+.line {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem;
+  color: var(--dim); font-size: 0.88rem; padding: 0.25rem 0 0.5rem;
+}
+
+.banner { border: 1px solid var(--border); background: var(--panel); border-radius: 0.5rem; padding: 0.6rem 0.75rem; margin-bottom: 0.75rem; }
+.row, .chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.row { margin-top: 0.6rem; }
+.actions .row { margin-top: 0; }
+
+/* Controls: 44 pt targets, 8 pt apart, a pressed state at once (§4.3, §4.5). */
+button { font: inherit; }
+button.primary, button.plain {
+  border-radius: 0.5rem; padding: 0.6rem 0.9rem; min-height: var(--target); white-space: normal;
+}
+button.primary { background: var(--accent); color: var(--on-accent); border: 0; font-weight: 600; }
+button.plain { background: none; color: var(--text); border: 1px solid var(--border); }
+button.block { width: 100%; }
+button.link { background: none; border: 0; color: var(--accent); text-decoration: underline; padding: 0.5rem 0; min-height: var(--target); }
+button.icon, button.chevron {
+  min-width: var(--target); min-height: var(--target); border: 0; background: none; color: var(--accent);
+  border-radius: 0.5rem;
+}
+button.chevron { font-size: 1.75rem; line-height: 1; text-align: left; }
+button:active:not(:disabled) { opacity: 0.7; }
+button:disabled { opacity: 0.5; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.list { list-style: none; margin: 0.75rem 0; padding: 0; }
+.list li { border-top: 1px solid var(--border); }
+.list button {
+  display: block; width: 100%; text-align: left; background: none; border: 0; color: inherit;
+  padding: 0.75rem 0; min-height: var(--target);
+}
+
+textarea, input { width: 100%; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.6rem 0.75rem; }
+label { display: block; margin: 0.6rem 0 0.25rem; color: var(--dim); font-size: 0.88rem; }
+
+/* The answer editor and M2a's symbol bar, now in the thumb zone above Submit. */
 .mle-editor {
-  display: block; width: 100%; min-height: 150px; max-height: 45vh; overflow-y: auto;
-  border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 10px 12px;
-  white-space: pre-wrap; word-break: break-word; outline: none; font-size: 17px;
+  display: block; width: 100%; min-height: 9rem; max-height: 45vh; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel); padding: 0.6rem 0.75rem;
+  white-space: pre-wrap; word-break: break-word; outline: none; font-size: 1rem;
 }
 .mle-editor:focus { border-color: var(--accent); }
 .mle-editor:empty::before { content: attr(data-placeholder); color: var(--dim); }
 .mle-editor[contenteditable="false"] { color: var(--dim); }
 .mle-math { display: inline-block; }
 .mle-math.mle-display { display: block; text-align: center; }
-.symbols { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; -webkit-overflow-scrolling: touch; }
-.symbols button { flex: none; min-width: 40px; min-height: 40px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font: 15px ui-monospace, monospace; }
-textarea, input { width: 100%; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
-label { display: block; margin: 10px 0 4px; color: var(--dim); font-size: 15px; }
-.score { font-size: 26px; font-weight: 600; }
-.criterion { border-top: 1px solid var(--border); padding: 8px 0; }
+.symbols { display: flex; gap: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.symbols button {
+  flex: none; min-width: var(--target); min-height: var(--target); border: 1px solid var(--border); border-radius: 0.4rem;
+  background: none; color: var(--text); font: 0.88rem ui-monospace, monospace;
+}
+
+/* Sheets (§4.3): from the bottom, a handle to swipe down, always a button to close. */
+.sheet-layer { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: flex-end; }
+.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); }
+.sheet {
+  position: relative; background: var(--panel); border-radius: 0.9rem 0.9rem 0 0; outline: none;
+  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom)); max-height: 85%; overflow-y: auto;
+  animation: sheet-in var(--motion) ease-out; transition: transform var(--motion) ease-out;
+}
+.sheet .actions { background: var(--panel); }
+.sheet-handle { height: 1.5rem; touch-action: none; position: relative; }
+.sheet-handle::after {
+  content: ""; position: absolute; left: 50%; top: 0.5rem; width: 2.5rem; height: 0.3rem;
+  margin-left: -1.25rem; border-radius: 0.15rem; background: var(--border);
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.sheet-head h2 { margin: 0; }
+.choices { border: 0; padding: 0; margin: 0.5rem 0; }
+.choices legend { color: var(--dim); font-size: 0.88rem; padding: 0; }
+.choice { display: flex; align-items: center; gap: 0.75rem; min-height: var(--target); margin: 0; color: var(--text); font-size: 1rem; }
+.choice input { width: auto; min-width: 1.25rem; min-height: 1.25rem; accent-color: var(--accent); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Motion: only sheets and screens, and none at all when the phone asks for less (§4.6). */
+@keyframes sheet-in { from { transform: translateY(100%); } }
+@keyframes screen-in { from { opacity: 0; transform: translateX(1.5rem); } }
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .screen { animation: none; transition: none; }
+}

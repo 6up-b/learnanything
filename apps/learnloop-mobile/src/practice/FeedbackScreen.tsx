@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CommandError, DiagnosisCardDto, ElicitingResponseResultDto, FeedbackBundle, GradingClarificationDto } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
+import { staleRefusal } from "../api/http";
 import { phone } from "../api/phone";
 import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
@@ -34,7 +35,8 @@ function FollowUpQuestions({ attemptId, feedback }: { attemptId: string; feedbac
       setPosition((value) => value + 1);
     } catch (failure) {
       // What was typed stays in the box. A second tap is the learner's choice: this call is not retried for them.
-      setError((failure as CommandError).message);
+      // A stale app is the connection line's to say (F3).
+      setError(staleRefusal(failure) ? null : (failure as CommandError).message);
     } finally {
       setBusy(false);
     }
@@ -60,7 +62,7 @@ function FollowUpQuestions({ attemptId, feedback }: { attemptId: string; feedbac
           <textarea id="follow-up" rows={3} value={answer} disabled={busy} onChange={(event) => setAnswer(event.target.value)} />
           {error ? <p className="bad" role="alert">{error}</p> : null}
           <div className="row">
-            <button className="primary" type="button" disabled={busy || !answer.trim()} onClick={() => void send(current.index)}>Send</button>
+            <button className="plain" type="button" disabled={busy || !answer.trim()} onClick={() => void send(current.index)}>Send</button>
           </div>
         </>
       ) : (
@@ -94,7 +96,8 @@ export function FeedbackScreen({
       .getFeedback(attemptId)
       .then(setFeedback)
       .catch((error: CommandError) => {
-        setLoadError(error.message);
+        // A stale app: the connection line says so and offers Reload; Try again and Next stay (F3).
+        setLoadError(staleRefusal(error) ? "" : error.message);
         onError(error);
       });
     phone
@@ -148,20 +151,22 @@ export function FeedbackScreen({
     }
   }
 
-  if (loadError) {
+  if (loadError !== null) {
     return (
-      <div className="main">
-        <p className="bad" role="alert">{loadError}</p>
-        <div className="row">
-          <button className="primary" type="button" onClick={() => setRevision((value) => value + 1)}>Try again</button>
-          <button className="plain" type="button" onClick={onNext}>Next</button>
+      <div className="screen">
+        {loadError ? <p className="bad" role="alert">{loadError}</p> : null}
+        <div className="actions">
+          <button className="primary block" type="button" onClick={() => setRevision((value) => value + 1)}>Try again</button>
+          <div className="row">
+            <button className="plain" type="button" onClick={onNext}>Next</button>
+          </div>
         </div>
       </div>
     );
   }
-  if (!feedback) return <div className="main"><p className="dim">Reading your feedback…</p></div>;
+  if (!feedback) return <div className="screen"><p className="dim">Reading your feedback…</p></div>;
   return (
-    <div className="main">
+    <div className="screen">
       <h1>{feedback.learningObjectTitle}</h1>
       <p className="score">{feedback.rubricScore} / {feedback.maxPoints}</p>
       {feedback.manualReviewReason ? <p className="dim">{feedback.manualReviewReason}</p> : null}
@@ -191,13 +196,13 @@ export function FeedbackScreen({
           <label htmlFor="clarify">Your answer (optional; skipping leaves the grade as it stands)</label>
           <textarea id="clarify" rows={3} value={answer} onChange={(event) => setAnswer(event.target.value)} />
           <div className="row">
-            <button className="primary" type="button" disabled={busy || !answer.trim()} onClick={() => void answerClarification()}>Send</button>
+            <button className="plain" type="button" disabled={busy || !answer.trim()} onClick={() => void answerClarification()}>Send</button>
           </div>
         </div>
       ) : null}
       {note ? <p className="dim" role="status">{note}</p> : null}
-      <div className="row">
-        <button className="primary" type="button" onClick={onNext}>Next</button>
+      <div className="actions">
+        <button className="primary block" type="button" onClick={onNext}>Next</button>
       </div>
     </div>
   );

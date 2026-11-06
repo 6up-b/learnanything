@@ -1,0 +1,20 @@
+{
+  "method": "answer_grading_clarification",
+  "requests": [
+    {
+      "wrapper": "answerClarification",
+      "envelope": {
+        "method": "answer_grading_clarification",
+        "params": {
+          "attemptId": "a1",
+          "answerMd": "I meant the transpose."
+        },
+        "request_id": "r1"
+      }
+    }
+  ],
+  "reads": [
+    "feedback",
+    "error"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "method": "get_probe_contract",
+  "requests": [
+    {
+      "wrapper": "getProbeContract",
+      "envelope": {
+        "method": "get_probe_contract",
+        "params": {
+          "practiceItemId": "i1",
+          "sessionId": "s1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "active"
+  ]
+}

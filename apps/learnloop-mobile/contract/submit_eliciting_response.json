@@ -1,0 +1,23 @@
+{
+  "method": "submit_eliciting_response",
+  "requests": [
+    {
+      "wrapper": "submitElicitingResponse",
+      "envelope": {
+        "method": "submit_eliciting_response",
+        "params": {
+          "attemptId": "a1",
+          "suggestionIndex": 0,
+          "responseMd": "logits"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "admissibleAsIndependent"
+  ],
+  "replyPinnedBy": [
+    "tests/test_dialogue_causal_join.py",
+    "tests/test_ux_phase4_feedback.py"
+  ]
+}
