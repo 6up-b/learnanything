@@ -182,10 +182,11 @@ def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_pri
                       source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)")
 
 
-def _combiner(repository: Any, now_iso: str) -> M.Combiner:
+def _combiner(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
     """RO5 §9 item 7: the memory model's Bayesian logistic combination fitted on resolved randomized checks (each
     check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior. The
-    checks stand as of the decision (landing ruling R1: ``checks.Closure`` at ``now_iso``)."""
+    checks stand as of the decision (landing ruling R1: ``checks.Closure`` at ``now_iso``). With ``vault`` at the
+    follow-up batch's tag and ``combiner_trace_outcomes``, the traces' outcomes too (:func:`_combiner_with_traces`)."""
 
     from learnloop.router_objective import checks as C
 
@@ -201,11 +202,58 @@ def _combiner(repository: Any, now_iso: str) -> M.Combiner:
         if entry.status != "completed" or entry.outcome is None or sensors.get("eta") is None:
             continue
         rows.append((float(sensors["eta"]), sensors.get("retrievability"), int(entry.outcome >= 0.5)))
+    if vault is not None:
+        from learnloop.router_objective_switches import followup_on
+
+        if followup_on(vault.config, "combiner_trace_outcomes"):
+            return _combiner_with_traces(vault, repository, now_iso, rows,
+                                         {str(entry.attempt_id) for entry in resolved if entry.attempt_id})
     if not rows:
         return M.Combiner(source="prior (no resolved randomized check yet)")
     fitted = M.fit_combiner(rows)
     return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n,
                       source="laplace_fit on resolved randomized checks")
+
+
+def _combiner_with_traces(vault: Any, repository: Any, now_iso: str, check_rows: list[tuple[float, Any, int]],
+                          check_attempts: set[str]) -> M.Combiner:
+    """The follow-up batch's item 2 (RO4's item 6): the checks' rows plus the traces' frozen sensors joined to
+    resolved cold outcomes (``router_objective.combiner_data``: RO2's resolver, per protocol, as of ``now_iso``
+    through the availability predicate), refitted with the labelled prior. The trace names the fit's sources."""
+
+    import numpy as np
+
+    from learnloop.adaptive_difficulty.history_resolve import resolve_curves
+    from learnloop.params.fitted_params import resolve_fsrs_weights
+    from learnloop.router_objective import combiner_data as CD
+    from learnloop.router_objective_switches import known_at
+
+    joined: list[tuple[float, Any, int]] = []
+    counts: dict[str, Any] = {"version": CD.JOIN_VERSION, "status": "not_read"}
+    try:
+        fsrs = M.Fsrs(tuple(resolve_fsrs_weights(repository)))
+
+        def retrievability(stability: float, elapsed: float) -> float:
+            return float(fsrs.retrievability(np.array([stability]), np.array([elapsed]))[0])
+
+        with repository.connection() as connection:
+            groups, skipped = CD.groups(connection, now=now_iso)
+            resolved = resolve_curves(connection, vault, repository, groups, now=now_iso) if groups else []
+            joined, counts = CD.rows(connection, resolved, now=now_iso,
+                                     known_at=lambda row: known_at(row, vault.config),
+                                     retrievability=retrievability, exclude=check_attempts)
+        counts = {**counts, "status": "read", "decisions_joined_nothing": skipped}
+    except Exception:  # noqa: BLE001 - the checks' fit (or the prior) stands in, and the trace says so
+        LOG.warning("router objective: the combiner's trace outcomes were not read", exc_info=True)
+        counts = {"version": CD.JOIN_VERSION, "status": "unavailable"}
+    sources = {"randomized_checks": len(check_rows), "trace_outcomes": len(joined), "join": counts}
+    rows = [*check_rows, *joined]
+    if not rows:
+        return M.Combiner(source="prior (no resolved outcome yet)", sources=sources)
+    fitted = M.fit_combiner(rows)
+    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n, sources=sources,
+                      source="laplace_fit on resolved randomized checks and the traces' sensors joined to resolved "
+                             "cold outcomes")
 
 
 def population(vault: Any, repository: Any, now_iso: str) -> dict[str, float]:
@@ -490,7 +538,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         tail_block_minutes=float(block_minutes), tail_block_items=int(block_items),
         horizon_days=float(section.horizon_days), fsrs_weights=tuple(resolve_fsrs_weights(repository)),
         return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,
-        combiner=_combiner(repository, now_iso) if fitted else M.Combiner(),
+        combiner=_combiner(repository, now_iso, vault) if fitted else M.Combiner(),
         learning=_learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES),
     )
     sources = {
@@ -510,6 +558,15 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         "ad_status": ad.get("status"), "ad_state_hash": ad.get("state_hash"),
         "kappa0": kappa0, "kappa_how": kappa_how,
     }
+    from learnloop.router_objective_switches import followups_tag
+
+    if followups_tag(config):
+        # The follow-up batch (RO4's landing ruling R3, closed): the numbers the rollouts drew γ and the reading
+        # curve from, beside their source, so a trace shows which posterior (or prior) valued its candidates.
+        learning = inputs.learning
+        sources["learning"] = {"gamma": list(learning.gamma), "gbar": [list(part) for part in learning.gbar],
+                               "dose_scales": list(learning.dose_scales), "source": learning.source,
+                               "ad_parameters_read": sorted((ad.get("learning") or {}) if fitted else ())}
     return inputs, actions, sources
 
 

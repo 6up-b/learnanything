@@ -23,13 +23,17 @@ checks it against the scalar one). A leaf: numpy and the standard library; the F
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import math
+from typing import Any
 
 import numpy as np
 
 MEMORY_MODEL_VERSION = "fsrs_ad_logistic_v1"
+#: The follow-up batch's fit (item 2): the randomized checks' rows and the traces' sensors joined to resolved cold
+#: outcomes (``router_objective.combiner_data``), under the same prior and form.
+COMBINER_FIT_VERSION = "combiner_fit_v2:checks+trace_outcomes"
 #: The combiner's prior: (a0, aA, aR) means and variances (module docstring). A labelled seed.
 COMBINER_PRIOR_MEAN: tuple[float, float, float] = (0.0, 1.0, 0.5)
 COMBINER_PRIOR_VARIANCE: tuple[float, float, float] = (0.25, 0.25, 0.25)
@@ -57,10 +61,18 @@ class Combiner:
     variance: tuple[float, float, float] = COMBINER_PRIOR_VARIANCE
     n: int = 0
     source: str = "prior"
+    #: The follow-up batch (item 2): how many rows each source gave the fit (the randomized checks, the traces'
+    #: joined outcomes) and the join's counts; None before it, so the trace keeps its predecessor's bytes.
+    sources: Mapping[str, Any] | None = None
 
     def as_dict(self) -> dict[str, object]:
-        return {"mean": [round(v, 6) for v in self.mean], "variance": [round(v, 6) for v in self.variance],
-                "n": self.n, "source": self.source, "version": MEMORY_MODEL_VERSION}
+        out: dict[str, object] = {"mean": [round(v, 6) for v in self.mean],
+                                  "variance": [round(v, 6) for v in self.variance],
+                                  "n": self.n, "source": self.source, "version": MEMORY_MODEL_VERSION}
+        if self.sources is not None:
+            out["sources"] = dict(self.sources)
+            out["fit_version"] = COMBINER_FIT_VERSION
+        return out
 
 
 def features(eta: np.ndarray, retrievability: np.ndarray | None, practiced: np.ndarray) -> np.ndarray:
