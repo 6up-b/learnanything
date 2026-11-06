@@ -289,6 +289,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_method_outside_the_m2_row_is_http_denied`
 - [tests/test_mobile_jobs.py](../../../../../tests/test_mobile_jobs.py) — direct import
   - `test_the_submission_endpoint_covers_a_desktops_submissions`
+- [tests/test_mobile_phone_contract.py](../../../../../tests/test_mobile_phone_contract.py) — direct import
+  - `test_a_renamed_field_fails_the_model_not_the_phone`
+  - `test_every_recorded_request_passes_the_hosts_own_checks`
 - [tests/test_mobile_rpc.py](../../../../../tests/test_mobile_rpc.py) — direct import
   - `test_a_locked_database_is_503_retryable`
   - `test_an_unknown_id_is_404_and_a_handler_crash_is_500_with_no_detail`

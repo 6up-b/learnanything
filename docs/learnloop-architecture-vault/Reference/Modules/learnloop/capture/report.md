@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/report.py"
 source_paths:
   - "src/learnloop/capture/report.py"
-source_commit: "cc6654de6bbb022870d630437d7b0b8dc15eb6a3"
-source_commit_timestamp: "2026-11-03T14:57:32-05:00"
+source_commit: "7b11b0d67c8f1d36cf4072bd603a6bd5b7bc47f8"
+source_commit_timestamp: "2026-11-06T15:33:03-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,18 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py) |
-| Source lines | 138 |
+| Source lines | 184 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cc6654de6bbb022870d630437d7b0b8dc15eb6a3` |
-| Commit timestamp | `2026-11-03T14:57:32-05:00` |
+| Source commit | `7b11b0d67c8f1d36cf4072bd603a6bd5b7bc47f8` |
+| Commit timestamp | `2026-11-06T15:33:03-05:00` |
 
 ## Public API
 
 - `suspected_figure(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/capture/report.py), line 35) — The phrase that reads like a missing figure, or None.
-- `mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/report.py), line 62) — §9's M2a report, §10's device split and §6.4's suspected figures.
+- `round_trips(rows: list[Mapping[str, Any]], *, short_methods: frozenset[str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/report.py), line 67) — Per method: the host's own time (``rpc:``), the phone's round trip (``client:``) and the network's part of it (``network:``), each p50/p95 in ms, from the request log (mobile v2 §4.5).
+- `mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None=None, short_methods: frozenset[str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/report.py), line 100) — §9's M2a report, §10's device split and §6.4's suspected figures.
 
 ### Module constants
 
@@ -71,6 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_NOUN` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 26)
 - `_LOCATOR` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 27)
 - `_SUSPECTED_FIGURE` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 30)
+- `SHORT_READ_P50_BUDGET_MS` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 64)
 
 ## Internal implementation anchors
 
@@ -110,20 +112,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_capture_domain.py](../../../../../../tests/test_capture_domain.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_capture_originals_race.py](../../../../../../tests/test_capture_originals_race.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_capture_route_recovery.py](../../../../../../tests/test_capture_route_recovery.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_mobile_https.py](../../../../../../tests/test_mobile_https.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
-- [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_meta_timing.py](../../../../../../tests/test_mobile_meta_timing.py) — direct import
+  - `test_round_trips_are_p50_and_p95_per_method_with_the_network_share`
 
 ## Modification guidance
 

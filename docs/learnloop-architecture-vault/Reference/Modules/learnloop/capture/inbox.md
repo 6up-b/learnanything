@@ -124,6 +124,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
+- [tests/test_mobile_shortcuts.py](../../../../../../tests/test_mobile_shortcuts.py) — direct import
+  - `test_capture_saves_before_running_flush_and_generates_ulid`
 
 ## Modification guidance
 

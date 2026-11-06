@@ -14,7 +14,7 @@ source_paths:
   - "src/learnloop/capture/report.py"
   - "src/learnloop/capture/routing.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T14:57:32-05:00"
+source_commit_timestamp: "2026-11-06T15:33:03-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.capture"
@@ -51,13 +51,13 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] | [[Reference/Modules/learnloop/capture/__init__#^module-purpose|purpose]] | `ACTIVE` | 4 | 12 |
+| [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] | [[Reference/Modules/learnloop/capture/__init__#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]] | [[Reference/Modules/learnloop/capture/devices#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop/capture/errors|learnloop.capture.errors]] | [[Reference/Modules/learnloop/capture/errors#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
-| [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] | [[Reference/Modules/learnloop/capture/inbox#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] | [[Reference/Modules/learnloop/capture/inbox#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] | [[Reference/Modules/learnloop/capture/jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/capture/maintenance|learnloop.capture.maintenance]] | [[Reference/Modules/learnloop/capture/maintenance#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/capture/report|learnloop.capture.report]] | [[Reference/Modules/learnloop/capture/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/capture/report|learnloop.capture.report]] | [[Reference/Modules/learnloop/capture/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/capture/routing|learnloop.capture.routing]] | [[Reference/Modules/learnloop/capture/routing#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 
 ## Cross-package dependencies
