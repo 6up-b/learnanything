@@ -403,6 +403,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
 - [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
 - [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
+- [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2bc_landing.py](../../../../../../tests/test_router_r2bc_landing.py) — direct import
   - `test_router_embeddings_and_the_source_backfill_each_answer_to_their_own_guard`

@@ -247,6 +247,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_attempt_evidence_from_a_visible_span_of_a_mixed_reading_is_unchanged`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
+- [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
+  - `test_the_indexed_resolver_gives_the_landing_codes_rows`
 
 ## Modification guidance
 

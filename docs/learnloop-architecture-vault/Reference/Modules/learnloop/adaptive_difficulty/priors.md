@@ -243,6 +243,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_ad_link.py](../../../../../../tests/test_rofu_ad_link.py) — direct import
   - `test_the_link_is_ads_own_predictive_and_inverts_it`
 - [tests/test_rofu_ad_stable.py](../../../../../../tests/test_rofu_ad_stable.py) — direct import
+- [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
 
 ## Modification guidance
 

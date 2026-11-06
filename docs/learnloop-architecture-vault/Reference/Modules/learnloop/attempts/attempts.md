@@ -678,6 +678,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
 - [tests/test_ro5_picks.py](../../../../../../tests/test_ro5_picks.py) — direct import
+- [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_ruled_grade_is_calibrated_under_the_rules_identity_and_so_is_its_regrade`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
