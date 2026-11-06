@@ -303,3 +303,12 @@ Tests (`tests/test_rofu_generator_switches.py`):
 
 On a full `git archive` of the pre-fix tree (`f7a21cf602`, with the switch list inlined), 5 fail and the 2 identities
 pass.
+
+### Gate after R6-R8
+
+| Step | Command / selection | Result |
+|---|---|---|
+| Targeted | 189 files, `-n 6` in a 5G scope: step 0's 187, `test_rofu_monotone`, `test_rofu_generator_switches`, and every test file naming `generator_payload`, `tail_data`, `fit_combiner` or `Combiner` | 3560 passed, 16 skipped, 6 xfailed |
+| Durability | `--durable-sqlite`: `test_rofu_monotone`, `test_rofu_generator_switches`, `test_rofu_review_draw`, `test_rofu_learning`, `test_rofu_scope`, `test_ro6_landing` | 70 passed |
+| Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
+| Not regenerated yet | the architecture reference (config leaves for `consistent_review_draw`, the module pages for `memory`, `value`, `tail_data`, `router_objective_switches`, `objective_chooser`, `objective_inputs`) | step 2 |
