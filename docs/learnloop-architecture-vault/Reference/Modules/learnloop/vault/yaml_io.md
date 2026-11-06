@@ -491,6 +491,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_landing_r1_an_item_replaced_before_the_close_is_judged_by_the_revision_the_lesson_revealed`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
+- [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`
+  - `test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
 - [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
 - [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import

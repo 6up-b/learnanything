@@ -633,6 +633,23 @@ Every learner-facing message passes three guards:
 
 On a hit, the message is withheld and the model re-prompted. In chat, LearnLoop can guard only what it returns (§16).
 
+**As built (teacher exam-question guard, Nov 6; `docs/reviews/teacher-exam-question-guard.md`).** TE2's landing smoke showed a gap: the keys guard covers answers, not questions. A teacher turn that quoted an exam-reserved question's prompt was accepted and shown. A fourth guard now covers this, `teacher/guards.py: reserved_guard`.
+- **What it checks.** Every field the guards check:
+  - the displayed ones: message, choices, prediction, check, plan statements, recap, visual goals;
+  - the identifier guard's logged fields;
+  - a posed check's committed solution and rubric facts (they become its vault item, which the grader reads);
+  - a built figure's words.
+- **What it compares against.** The questions `learner_protection.withheld_items` keeps for an exam or holds out (exam pools, held-out units and the items made from them, live assessment reservations), read through `practice_leakage.reserved_questions`. That is the matcher FG1's probes and TE2's typed goals use.
+- **What counts as a hit.** The matcher's span findings at its own shingle order: a reserved question's contiguous wording, or a whole stem. Lone numbers do not count. A span shorter than that order counts when it carries something distinctive (Codex review F1, re-review F1 and landing ruling R1, `docs/reviews/teacher-examguard-codex-review.md`):
+  - a distinctive number by the matcher's numeric rule, read from the text itself, so an ordinary item showing the number doesn't drop it ("Factor 9871 into primes.", also "Then factor 9871 into primes by trial division.");
+  - or, a whole stem the text holds contiguously (its normalized words), when the stem carries a word distinctive in this vault by the vault's own text: no other item's prompt, answer or rubric shows it, and no passage the learner can read does (document frequency 1; a held-out passage is protected, so it doesn't count; `practice_leakage.distinctive_words`). Punctuation and position don't matter: "Decrypt QEBNRFZH using Caesar cipher." is withheld on its own and inside "Please decrypt QEBNRFZH using Caesar cipher.".
+
+  A short stem made only of words the vault's other items or readable passages use is a phrase wherever it stands: "Define a basis.", "Later we define a basis carefully." and "Now we define a basis." are not withheld (ruling R2: a known limit, as is a distinctive number shown without the rest of its stem).
+- **The turn as a whole.** Besides each field, the displayed fields joined in order are screened as one text, so a question split between the message and the check is withheld (location `turn`; Codex review F2).
+- **On a hit,** the turn is withheld by location, like a key hit (`reserved_question`). The detail names no words.
+- **Unreadable protection** withholds every guarded field (`protection_unreadable`; fail closed).
+- **The inline grader's feedback.** On a lesson check or a lesson probe, feedback that quotes such a question is neither shown nor sent to the teacher. The grade stands.
+
 ---
 
 ## 10. Doctrine
