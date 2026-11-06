@@ -2880,6 +2880,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
+- [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
+  - `test_the_switch_reaches_every_rollout_from_the_config`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
   - `test_the_fit_is_the_landing_codes_through_regrades_holds_late_outcomes_and_late_activity`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import

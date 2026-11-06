@@ -2,9 +2,17 @@
 
 Base: main `516db1d862` (the follow-up batch landed at mvp-0.50, head 247).
 
-**No successor and no migration.** Every value the objective computes is the landing code's: bit for bit, proven by
-tests that put the landing code back (copied into the test files) and compare. No trace records anything new or
-different. Nothing moved onto the serving path, and no switch was added.
+**No algorithm successor and no migration.** At a fixed number of draws every value the objective computes is the
+landing code's: bit for bit, proven by tests that put the landing code back (copied into the test files) and compare.
+Nothing moved onto the serving path.
+
+**Corrected after the Codex review (docs/reviews/router-speed-codex-review.md).** Fixed-draw equality is not serving
+equality: serving refines until the LLM answers or the deadline runs out, so the faster link completes more draws and
+can change `Q̄` and the choice (F1). Item 1 is therefore a serving change behind its own kill switch,
+`[router_objective] held_ad_link` (default on, at mvp-0.50), which is in RO6's generator payload, the trace's
+`versions.serving_switches` and the prefetch key. Item 2's shared fit is revalidated by the database's commit version,
+so a regrade or hold committed between the card's build and the numeric policy's reaches the numeric policy (F2). The
+statements below that say "no switch" or "one read per decision" are superseded by that file.
 
 The owner's measurement (docs/reviews/router-followups-nov5.md, "Landing onto main") was:
 - the numeric policy was 1.6 to 3.4 times slower than mvp-0.49;
@@ -20,8 +28,9 @@ measurement is on a synthetic vault under the worktree's `fixtures-local/rospeed
 
 ## For the owner
 
-- **Nothing to upgrade, nothing to switch.** No version moves and nothing recorded changes. Restart the phone host and
-  rebuild the desktop app to pick up the faster code.
+- **Nothing to upgrade.** No version moves. Restart the phone host and rebuild the desktop app to pick up the faster
+  code. One new switch, `[router_objective] held_ad_link` (on by default; off restores the batch's landing code). The
+  traces now record it, so RO6's generator changes once at the upgrade (one change point).
 - **Paid routes: none added.** No model request, no learner minutes.
 - **Speed**: see "The target" below.
 
