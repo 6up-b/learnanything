@@ -564,17 +564,19 @@ def test_a_schema_refusal_names_fields_by_location_never_by_their_input(tmp_path
 def test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off(tmp_path):
     """Ruling R2: TE1's ``forecast`` copies its ``node`` (and the node's LO) into its receipt's key and inputs. With
     ``teacher.episode_log`` off, an unknown node is refused by location, and a plan node whose id or ``lo_id`` carries
-    a reserved key (TE1 stores such a plan) is refused by the identifier guard; no receipt holds the key."""
+    a reserved key is refused by the identifier guard; no receipt holds the key. A plan is now guarded when it is
+    written, so the reserved plan here is one stored before this landing (inserted directly)."""
 
-    def reserved_plan(context):
-        turn = plan_turn(context)
-        turn["requests"][0]["plan"].append({"id": OTHER_SENTINEL, "statement": "A neighbouring idea.",
-                                            "lo_id": "lo_eigen", "anchors": [], "premises": []})
-        turn["requests"][0]["plan"][1]["lo_id"] = OTHER_SENTINEL
-        return turn
+    from learnloop.db.stores import lessons as store
 
-    lesson = _Lesson(tmp_path, [reserved_plan], config={("teacher", "episode_log"): False},
+    lesson = _Lesson(tmp_path, [plan_turn], config={("teacher", "episode_log"): False},
                      prepare=_reserve_on_another_lo)
+    outline = S.load_state(lesson.repository, lesson.lesson_id).plans[-1]["outline"]
+    outline = [*outline, {**outline[0], "id": OTHER_SENTINEL, "lo_id": "lo_eigen"}]
+    outline[1] = {**outline[1], "lo_id": OTHER_SENTINEL}
+    with lesson.repository.atomic():
+        store.insert_plan(lesson.repository.connection(), lesson_id=lesson.lesson_id, outline=outline,
+                          created_at="2026-11-05T15:01:30Z")
     # Two refusals and an accepted turn per action (three refusals in a row would end the lesson).
     lesson.act("reply", {"text": "Go."}, turns=[landed_turn(node="n_unknown"), landed_turn(node=OTHER_SENTINEL),
                                                 landed_turn(node="n1")])
@@ -592,6 +594,36 @@ def test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off(tmp_path
     # The refused turns' forecasts were never recorded, so the transcript names none of them either.
     forecasts = [e for e in S.transcript(S.load_state(lesson.repository, lesson.lesson_id)) if "forecast_recorded" in e]
     assert [e["forecast_recorded"]["node"] for e in forecasts] == ["n1"]
+
+
+def test_te1s_plan_ids_reaching_the_lesson_receipt_are_guarded_with_the_switch_off(tmp_path):
+    """Rulings R1 (a), R2, found at the landing's smoke: with ``teacher.episode_log`` off, TE1's plan node ids and
+    ``lo_id`` reach the lesson receipt's ``nodes`` (and ``lesson_plans``); a posed check's node reaches a visual's
+    record. Each is guarded on every turn, so a reserved key there is withheld by location and the closed lesson's
+    receipt and plans hold none of it."""
+
+    def reserved_lo_plan(context):
+        turn = plan_turn(context)
+        turn["requests"][0]["plan"][1]["lo_id"] = OTHER_SENTINEL
+        return turn
+
+    def reserved_check(context):
+        turn = check_turn()
+        turn["check"]["node"] = OTHER_SENTINEL
+        turn["requests"] = []
+        return turn
+
+    lesson = _Lesson(tmp_path, [plan_turn], config={("teacher", "episode_log"): False},
+                     prepare=_reserve_on_another_lo)
+    lesson.act("reply", {"text": "Go."}, turns=[reserved_lo_plan, reserved_check, {"message": "Fine."}])
+    lesson.act("reply", {"text": "done"}, turns=[close_turn()])
+    assert lesson.view["closed"]
+    assert [(r["refused"], r["detail"].split(": ")[0]) for r in _refusals(lesson)] == [
+        ("answer_key", "requests[0].plan[1].lo_id"), ("answer_key", "check.node")]
+    _no_text(lesson.repository, "OTHERSENTINEL", "ninety-one")
+    receipts = [row[0] for row in _rows(lesson.repository, "SELECT receipt_json FROM lesson_receipts")]
+    assert receipts and not [r for r in receipts if "OTHERSENTINEL" in r]
+    assert "OTHERSENTINEL" not in lesson.fake.all_prompts()
 
 
 def test_te1s_forecast_on_a_known_node_is_unchanged_with_the_switch_off(tmp_path):

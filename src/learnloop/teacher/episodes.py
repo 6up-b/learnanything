@@ -447,8 +447,9 @@ def turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]:
 
 
 def logged_fields(turn_obj: Any) -> list[tuple[str, str]]:
-    """``(location, text)`` of every field an episode turn's model wrote that a log row, a receipt or a note's payload
-    may copy: a note's ``hypothesis`` and ``node``, each plan node's ``id`` and ``lo_id``. Each passes the output
+    """``(location, text)`` of every field a turn's model wrote that a log row, a receipt or a note's payload may
+    copy: a note's ``hypothesis`` and ``node`` (episode turns only), each plan node's ``id`` and ``lo_id`` (every turn:
+    they reach the lesson receipt's ``nodes``). Each passes the output
     guards and the vault-wide identifier guard before the turn is accepted (Codex review F1; landing ruling R1), and
     a refusal names it by its location (``requests[i].plan[j].id``), never by its text. An ``lo_id`` is still copied
     only when it is a vault LO (:func:`outline_lo`)."""

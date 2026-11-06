@@ -1087,12 +1087,19 @@ def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
     return [(name, text) for name, text in out if text]
 
 
-def _logged(state: LessonState, turn_obj: TeacherTurnV1, *, episodes: bool) -> list[tuple[str, str]]:
-    """The model's fields a log row, a receipt or a note's payload copies, never shown, by location. TE2-log: a
-    ``note_detour``'s hypothesis and node, the plan nodes' ids and ``lo_id`` (Codex review F1; landing ruling R1).
-    Every turn, TE1's included (landing ruling R2): each ``forecast``'s node and the LO its receipt will hold."""
+def _logged(state: LessonState, turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
+    """The model's fields a log row, a receipt or a note's payload copies, never shown, by location, on every turn
+    (TE1's included, with ``teacher.episode_log`` off): the plan nodes' ids and ``lo_id`` (they reach the lesson
+    receipt's ``nodes`` and, on, the episode rows), the posed check's and prediction's node (a visual's record in the
+    receipt), and each ``forecast``'s node and the LO its receipt will hold (landing rulings R1, R2); a ``note_detour``'s
+    hypothesis and node exist only under the episode paragraph (Codex review F1; TE1's schema has no
+    ``note_detour``)."""
 
-    out = E.logged_fields(turn_obj) if episodes else []
+    out = E.logged_fields(turn_obj)
+    if turn_obj.check is not None:
+        out.append(("check.node", str(turn_obj.check.node or "")))
+    if turn_obj.prediction is not None:
+        out.append(("prediction.node", str(turn_obj.prediction.node or "")))
     for index, request in enumerate(turn_obj.requests):
         if request.action == "forecast":
             out.append((f"requests[{index}].node", str(request.node or "")))
@@ -1247,10 +1254,11 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": turn_obj.model_dump()}, clock=clock)
             return None
-    # TE2-log: a detour's hypothesis and the ids a row copies are logged, never shown, but they pass the same guards
-    # before they are stored (spec §11.9: exam or held-out material is never in a hypothesis), and the identifier
-    # guard against every key the vault records (landing ruling R1); a hit withholds the turn, named by location.
-    for name, text in _logged(state, turn_obj, episodes=episodes):
+    # The ids a row or a receipt copies (and, TE2-log, a detour's hypothesis) are never shown, but they pass the same
+    # guards before they are stored (spec §11.9: exam or held-out material is never in a hypothesis), and the
+    # identifier guard against every key the vault records (landing rulings R1, R2); a hit withholds the turn, named
+    # by location.
+    for name, text in _logged(state, turn_obj):
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
                               open_check=state.open_check and state.open_check.get("check"), help_reply=False)
         if verdict.ok:
