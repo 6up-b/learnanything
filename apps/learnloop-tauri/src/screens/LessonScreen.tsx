@@ -82,12 +82,16 @@ export function LessonScreen({
   entry,
   onClose,
   onQuickCheck,
+  onLookInLibrary,
   onError,
 }: {
   entry: LessonEntry;
   onClose: () => void;
   /** "Check what I already know first" over the lesson's topics (the existing quick check). */
   onQuickCheck?: (learningObjectIds: string[]) => void;
+  /** TE2 landing ruling R2 (spec_teacher_v1 rev 5 §11.5): a typed goal's leftover offers "Look in my library"
+   *  first, opening the Library search with its phrase, before "Create it". */
+  onLookInLibrary?: (phrase: string) => void;
   onError: (message: string) => void;
 }) {
   const [view, setView] = useState<LessonViewDto | null>(null);
@@ -340,8 +344,14 @@ export function LessonScreen({
               {goal ? goal.unmatched.map((left) => (
                 <div key={left.phrase} data-testid="lesson-goal-unmatched" style={{ marginTop: 8 }}>
                   Not in your books yet: “{left.phrase}”. Add it as a topic?{" "}
+                  {onLookInLibrary ? (
+                    <>
+                      <button type="button" data-testid="lesson-goal-look-in-library"
+                              onClick={() => onLookInLibrary(left.phrase)}>Look in my library</button>{" "}
+                    </>
+                  ) : null}
                   <button type="button" aria-pressed={addTopics[left.phrase] === true}
-                          onClick={() => setAddTopics((prev) => ({ ...prev, [left.phrase]: true }))}>Yes</button>{" "}
+                          onClick={() => setAddTopics((prev) => ({ ...prev, [left.phrase]: true }))}>Create it</button>{" "}
                   <button type="button" aria-pressed={addTopics[left.phrase] === false}
                           onClick={() => setAddTopics((prev) => ({ ...prev, [left.phrase]: false }))}>No</button>
                   {addTopics[left.phrase] ? (

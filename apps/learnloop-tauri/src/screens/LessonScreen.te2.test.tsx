@@ -93,7 +93,7 @@ it("a typed goal lists what it covers, offers each leftover once, and starts wit
   expect(screen.getByTestId("lesson-goal-topics").textContent).toContain("Eigenvalues");
   const leftover = screen.getByTestId("lesson-goal-unmatched");
   expect(leftover.textContent).toContain("Not in your books yet: “when diagonalization fails”. Add it as a topic?");
-  fireEvent.click(screen.getByText("Yes"));
+  fireEvent.click(screen.getByText("Create it"));
   expect(leftover.textContent).toContain("taught from LearnLoop's model");
   api.lessonTurn.mockResolvedValueOnce(lesson());
   await act(async () => { fireEvent.click(screen.getByTestId("lesson-goal-start-button")); });
@@ -114,4 +114,31 @@ it("no to every leftover still starts on what the books cover", async () => {
   await act(async () => { fireEvent.click(screen.getByTestId("lesson-goal-start-button")); });
   expect(api.lessonTurn).toHaveBeenCalledWith({ action: "open", entry: "typed_goal", goalText: "eigenvalues",
                                                 addTopics: [] });
+});
+
+it("a leftover offers 'Look in my library' first, with its words, before 'Create it' (landing ruling R2)", async () => {
+  const onLookInLibrary = vi.fn();
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "typed" }} onClose={vi.fn()} onError={vi.fn()}
+                         onLookInLibrary={onLookInLibrary} />);
+  });
+  fireEvent.change(screen.getByLabelText("What do you want to learn?"), { target: { value: "eigenvalues" } });
+  api.lessonGoal.mockResolvedValueOnce(GOAL);
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-goal-find")); });
+  const buttons = Array.from(screen.getByTestId("lesson-goal-unmatched").querySelectorAll("button"))
+    .map((button) => button.textContent);
+  expect(buttons).toEqual(["Look in my library", "Create it", "No"]);
+  fireEvent.click(screen.getByTestId("lesson-goal-look-in-library"));
+  expect(onLookInLibrary).toHaveBeenCalledWith("when diagonalization fails");
+  expect(api.lessonTurn).not.toHaveBeenCalled();  // nothing is created or opened by looking
+});
+
+it("without a library to look in, a leftover offers only 'Create it' and 'No'", async () => {
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "typed" }} onClose={vi.fn()} onError={vi.fn()} />);
+  });
+  fireEvent.change(screen.getByLabelText("What do you want to learn?"), { target: { value: "eigenvalues" } });
+  api.lessonGoal.mockResolvedValueOnce(GOAL);
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-goal-find")); });
+  expect(screen.queryByTestId("lesson-goal-look-in-library")).toBeNull();
 });
