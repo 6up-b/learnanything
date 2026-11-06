@@ -17,6 +17,7 @@ a copy (every measurement below is on a synthetic vault, in a test or a scratch 
   |---|---|---|
   | `combiner_trace_outcomes` | 2: the combiner also fitted on the traces' joined outcomes | RO5's checks-only fit |
   | `merged_sessions` | 3: the tail's sessions merged (faster, so a deadline admits more draws; Codex review F2) | the per-block loop |
+  | `consistent_review_draw` | 7 (landing ruling R1): a practised topic's practice outcome in the rollouts drawn from the memory model's own `P(perform)` | AD's predictive alone |
   | `carried_in_prefetch` | 4: the carried valuation deferred to the next prefetch, recorded in a later trace | RO6's R12/R3 (censored) |
   | `scope_extension` | 5: a growing retention scope is not an objective change | RO6's R11 (a change point) |
 
@@ -211,7 +212,9 @@ Codex's R1 reproductions rerun with floor draws in the cohort. A switch `floor_c
   from the forecast gain), so it is not the fix. Smallest fix, a serving change for the owner's ruling: draw a
   practised topic's review outcome from the memory model's own `P(perform)` at that moment (the combiner over `η` and
   `R`), so a review FSRS calls a lapse is one the model expects, behind its own switch; then rerun the probe and the
-  smoke's linear_algebra day.
+  smoke's linear_algebra day. **Built at landing (ruling R1, `[router_objective] consistent_review_draw`)**: the probe
+  before and after, and what still makes the marginal negative, are in `docs/reviews/router-followups-codex-review.md`
+  ("Landing ruling R1").
 - **The closed-window score cache**: see item 3.
 
 ### 8. Small items

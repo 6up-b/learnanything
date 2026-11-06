@@ -602,6 +602,11 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   when no topic repeats and no dated use can be crossed (bitwise equal to the per-block loop here; a test holds it to
   1e-12); arxiv_v2-shaped evaluation 435 to 232 ms. Behind `[router_objective] merged_sessions` at the tag: a faster
   draw lets a deadline-bound refinement complete more draws, which moves `Q̄` and the tie rule (Codex review F2).
+  Landing ruling R1 (`[router_objective] consistent_review_draw`): a practised topic's practice outcome in the
+  rollouts is drawn from the memory model's own `P(perform)` at that moment (the combiner over the draw's `η` and
+  FSRS's `R` at the elapsed lag, as above), and the belief observes it under the same likelihood (slope `aA − aR` in
+  `η`), so a review FSRS calls a lapse is one the model expects; an unpractised topic's first attempt and a probe read
+  AD's predictive as before. The trace names it (`versions.review_draw`); off, or below the tag, mvp-0.49's draw.
 
 ## 9. RO5: return and calibration
 
