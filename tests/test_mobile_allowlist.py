@@ -10,7 +10,7 @@ M2_ALLOWED = frozenset({
     "clear_session_checkpoint", "get_today_queue", "open_queue_item", "get_practice_item", "get_probe_contract",
     "save_practice_draft", "submit_attempt", "submit_dont_know", "skip_practice_item",
     "acknowledge_practice_submission", "get_feedback", "get_attempt", "get_grading_clarification",
-    "answer_grading_clarification", "diagnosis_status",
+    "answer_grading_clarification", "diagnosis_status", "submit_eliciting_response",
 })
 
 

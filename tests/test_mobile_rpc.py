@@ -30,7 +30,7 @@ M2_ROW = {
     "clear_session_checkpoint", "get_today_queue", "open_queue_item", "get_practice_item", "get_probe_contract",
     "save_practice_draft", "submit_attempt", "submit_dont_know", "skip_practice_item",
     "acknowledge_practice_submission", "get_feedback", "get_attempt", "get_grading_clarification",
-    "answer_grading_clarification", "diagnosis_status",
+    "answer_grading_clarification", "diagnosis_status", "submit_eliciting_response",
 }
 
 
@@ -60,7 +60,7 @@ def test_the_allowlist_is_the_m2_row_and_every_name_is_a_registered_method():
 
 
 def test_the_retry_policy_is_section_6_2s():
-    never = {"start_session", "adopt_session", "end_session", "skip_practice_item"}
+    never = {"start_session", "adopt_session", "end_session", "skip_practice_item", "submit_eliciting_response"}
     assert {name for name, entry in ALLOWLIST.items() if not entry.retry_safe} == never
 
 

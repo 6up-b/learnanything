@@ -58,8 +58,10 @@ No Scriptable or other companion app is required.
    an older Flush. Copy your token from the private installed copy before
    replacing it; the existing pairing remains valid.
 
-The workflow creates a ULID using a base32 epoch-millisecond prefix and 16
-random base32 characters. The manifest holds the original timestamp, kind and
+The workflow creates a 26-digit ID in the host's ULID alphabet: 17 digits of local
+timestamp (`yyyyMMddHHmmssSSS`, down to the millisecond) and 9 zeros, with no random
+part. A second device capturing in the same millisecond would get a 409 and keep its
+files. The manifest holds the original timestamp, kind and
 text/URL; photos have a sibling `<id>.jpg`. Save order is JPEG then manifest,
 both **before networking**. Retries load those exact saved values/files, never
 regenerating the ID, timestamp or JPEG. Files may sync via iCloud and contain
@@ -94,7 +96,7 @@ practice or invoke AI.
 ### Owner acceptance required (A3)
 
 Sign/import on the target iOS release; inspect action parameters/file-provider
-bindings; confirm a 26-character ULID accepted by the host; share a HEIC image and
+bindings; confirm a 26-character ID accepted by the host; share a HEIC image and
 confirm actual JPEG multipart `file` bytes; verify text and URL JSON requests;
 disable networking and confirm manifest/JPEG persistence; reconnect and flush
 twice (one server capture); verify 401 and 409 leave files intact; cancel setup;

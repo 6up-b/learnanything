@@ -1,5 +1,6 @@
 """Structural checks, not a substitute for signed import/on-device acceptance."""
 
+from datetime import datetime
 import importlib.util
 import json
 from pathlib import Path
@@ -8,6 +9,10 @@ import re
 
 import pytest
 
+from learnloop.capture.inbox import _ULID as CAPTURE_ID
+
+ID_DATE_FORMAT = "yyyyMMddHHmmssSSS"
+ID_PADDING = "000000000"
 ROOT = Path(__file__).resolve().parents[1]
 IOS = ROOT / "integrations" / "ios"
 
@@ -50,10 +55,14 @@ def test_capture_saves_before_running_flush_and_generates_ulid():
         assert "downloadurl" not in ids
         assert ids.index("documentpicker.save") < ids.index("runworkflow")
         assert ids.count("documentpicker.save") == (2 if name.startswith("Photo") else 1)
-        repeats = [a["WFWorkflowActionParameters"]["WFRepeatCount"]
-                   for a in actions if a["WFWorkflowActionParameters"].get("WFControlFlowMode") == 0
-                   and a["WFWorkflowActionIdentifier"].endswith("repeat.count")]
-        assert repeats == [10, 16]
+        # The ID comes from one date format: no arithmetic or list lookup to fail on iOS.
+        assert not {"math", "round", "getitemfromlist", "repeat.count", "number.random"} & set(ids)
+        formats = [a["WFWorkflowActionParameters"] for a in actions
+                   if a["WFWorkflowActionIdentifier"].endswith("format.date")
+                   and a["WFWorkflowActionParameters"].get("WFDateFormatStyle") == "Custom"]
+        assert [f["WFDateFormat"] for f in formats] == [ID_DATE_FORMAT]
+        sample = datetime(2026, 11, 4, 0, 30, 39, 718000).strftime("%Y%m%d%H%M%S%f")[:-3] + ID_PADDING
+        assert len(sample) == 26 and CAPTURE_ID.fullmatch(sample)
         if name.startswith("Photo"):
             convert = actions[ids.index("image.convert")]["WFWorkflowActionParameters"]
             assert convert["WFImageFormat"] == "JPEG"

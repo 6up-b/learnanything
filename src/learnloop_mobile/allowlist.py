@@ -131,6 +131,8 @@ _M2 = (
     _long("answer_grading_clarification"),
     # Slice 1 landed, so §4.5's "once Slice 1 lands" holds.
     _short("diagnosis_status", retry_safe=True),
+    # The diagnosis's follow-up questions. Each call writes a new report, so it is not retried.
+    _short("submit_eliciting_response", retry_safe=False),
 )
 
 ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in _M2})
