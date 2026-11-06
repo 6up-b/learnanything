@@ -12,12 +12,52 @@ M2_ALLOWED = frozenset({
     "acknowledge_practice_submission", "get_feedback", "get_attempt", "get_grading_clarification",
     "answer_grading_clarification", "diagnosis_status", "submit_eliciting_response",
 })
+#: Mobile v2 §8's V2 row (§2.1 J1-J6, J16 partial): the plan, the router's decisions, feedback
+#: parity without probes and the item's own hints. ``followup_next`` and the adaptive hint jobs are
+#: not here (V3, and docs/reviews/phone-v2-v2-today-plan.md).
+V2_ALLOWED = frozenset({
+    "get_daily_plan", "get_today_headline", "get_start_summary", "next_plan_item", "set_plan_minutes",
+    "plan_keep_going", "plan_more_new", "plan_reading_ended", "plan_learner_pick", "router_objective_explain",
+    "record_answer_display", "record_diagnosis_feedback", "trigger_regrade", "rate_followup", "followup_status",
+    "followup_continue_without", "followup_show_anyway", "record_hypothesis_exposure", "record_hypothesis_mark",
+    "practice.record_hint_reveal",
+})
+PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED
 
 
-def test_the_allowlist_is_the_m2_row_and_frozen():
-    assert set(ALLOWLIST) == M2_ALLOWED
+def test_the_allowlist_is_the_m2_and_v2_rows_and_frozen():
+    assert set(ALLOWLIST) == PHONE_ALLOWED
+    assert {name for name, entry in ALLOWLIST.items() if entry.milestone == "V2"} == V2_ALLOWED
     with pytest.raises(TypeError):
         ALLOWLIST["run_cli_command"] = object()
+
+
+def test_v2_holds_back_what_v3_and_later_open():
+    """A generated probe is never served or answered on the phone in V2 (§8, D3), and the adaptive
+    hint jobs are in-memory threads of one sidecar, not the host's durable jobs."""
+
+    for name in ("followup_next", "practice.request_hint", "practice.hint_job", "practice.cancel_hint",
+                 "lesson.turn", "reader.ask", "ask_tutor_question"):
+        assert name not in ALLOWLIST, name
+    from learnloop_mobile.allowlist import ParamRejected, check_parameters
+
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["submit_attempt"], {"submissionId": "s", "probePresentationId": "p"})
+
+
+def test_v2_constraints():
+    from learnloop_mobile.allowlist import PLAN_METHODS, ParamRejected, check_parameters
+
+    assert PLAN_METHODS <= V2_ALLOWED
+    assert ALLOWLIST["next_plan_item"].kind == "long"
+    assert ALLOWLIST["trigger_regrade"].kind == "long"
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["plan_learner_pick"], {"practiceItemId": "i", "proposalId": "p"})
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["trigger_regrade"], {"attemptId": "a", "learnerReason": "x"})
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["trigger_regrade"], {"attemptId": "a", "contestId": "k"})
+    check_parameters(ALLOWLIST["trigger_regrade"], {"attemptId": "a", "learnerReason": "", "contestId": "k"})
 
 
 @pytest.mark.parametrize("value", [
@@ -36,7 +76,7 @@ def test_every_other_registered_method_is_denied():
     assert METHOD_REGISTRY
     for method in METHOD_REGISTRY:
         name = validate_envelope({"method": method, "params": {}})["method"]
-        assert (name in ALLOWLIST) == (name in M2_ALLOWED), name
+        assert (name in ALLOWLIST) == (name in PHONE_ALLOWED), name
 
 
 def test_the_clients_retry_policy_is_the_allowlists():
@@ -110,10 +150,9 @@ STUCK_PROMPT_RPCS = (
 )
 
 
-# Daily-loop DL1 (mvp-0.14): the finite plan. Desktop-only, pinned by name.
-# Mobile M2a settled it (docs/reviews/mobile-m2a.md, 2026-11-03): the phone shows the
-# allowlisted queue, because §4.5 lists no plan RPC and the plan's stored record is
-# shared between devices. DL1 also extends get_today_queue (no re-entry cap while the plan
+# Daily-loop DL1 (mvp-0.14): the finite plan, pinned by name. Mobile M2a kept it desktop-only
+# (docs/reviews/mobile-m2a.md, 2026-11-03); mobile v2 V2 (owner decision D1) allows it, filtered
+# at the step (V2_ALLOWED above), so the pins below now say "phone-allowed exactly as V2 lists". DL1 also extends get_today_queue (no re-entry cap while the plan
 # serves) and reader.mark_section_progress (the reading block's progress),
 # pinned here too.
 DAILY_PLAN_RPCS = (
@@ -891,4 +930,4 @@ def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
     from learnloop_sidecar.registry import METHOD_REGISTRY
     assert method in METHOD_REGISTRY
-    assert (method in ALLOWLIST) == (method in M2_ALLOWED)
+    assert (method in ALLOWLIST) == (method in PHONE_ALLOWED)

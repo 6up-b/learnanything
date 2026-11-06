@@ -468,6 +468,30 @@ def require_owned_session(
     return _require_owned(repository, session_id, ctx.origin_device_id, expected_generation=expected_generation)
 
 
+def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None) -> None:
+    """Mobile v2 §5.6 (PR-4's open list, mobile-m2a §3 item 9): a session-keyed write outside
+    practice (a plan step, a tutor question, a lesson suggestion's answer) from a device that does
+    not own the session is refused with ``session_moved``, as practice writes are.
+
+    Only the move is new. A write naming no session, an unknown session or an ended one keeps
+    what it did before (those writes never required an open session), so the desktop's own
+    session answers exactly as it did.
+    """
+
+    if not session_id:
+        return
+    session = repository.fetch_session(session_id)
+    if session is None or session.get("ended_at") is not None:
+        return
+    origin = ctx.request_origin
+    device_id = ctx.origin_device_id
+    if origin is not None and origin.accepted_session_id == session_id:
+        # A job accepted for this session: its acceptance checked the owner (§6.3, §6.5).
+        device_id = session.get("owner_device_id")
+    with owned_session_errors():
+        repository.require_session_owner(session_id, device_id, require_open=False)
+
+
 def _merged_value(existing: dict[str, Any], params: SessionCheckpointInput, fields: set[str], name: str):
     if name in fields:
         return getattr(params, name)

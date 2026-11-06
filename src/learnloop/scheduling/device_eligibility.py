@@ -183,6 +183,64 @@ class DeviceFilter:
         return True
 
 
+#: Mobile v2 §2.2: a plan step held back because the phone has no Reader yet (V4 lifts it:
+#: "a reading block is never ineligible, because the phone has a Reader").
+READING_BEFORE_PHONE_READER = "reading_before_phone_reader"
+#: Mobile v2 V3 (D3): a generated follow-up probe is answered on the phone from V3 on; until then
+#: it waits for the desktop, as FG1 §10 says.
+GENERATED_PROBE = "generated_probe"
+#: The plan surface of a phone step (mobile v2 §2.2), beside PR-5's ``phone_queue`` and
+#: ``phone_practice``: what a decision taken at a boundary under a phone origin records.
+PHONE_PLAN = "phone_plan"
+
+
+@dataclass
+class PlanStepFilter:
+    """Mobile v2 §2.2: the phone's door into the shared plan, which filters at the step.
+
+    The plan's build and the router's support are the desktop's, exactly: no item is held
+    back from a build or a decision. Only the serving door skips. The engine
+    (``daily_plan.engine.advance_with_context``) asks :meth:`holds` of each open item in plan
+    order and serves the first the device can show; what it passes over stays assigned in its
+    block for the desktop's next Next, and is counted here (``held``), as the queue counts
+    ``deferred``. ``None`` in the engine is the desktop, whose steps never come here.
+    """
+
+    #: The PR-6 rules, or None with ``practice.device_eligibility_enabled`` off (then only a
+    #: generated probe, which a phone door refuses whatever the switch says, is held).
+    device_filter: DeviceFilter | None
+    #: The surface its boundary decisions record (``phone_plan``) and the device rules in
+    #: force (``device_eligibility_v1`` or ``off``), named in each decision's inputs.
+    surface: str = PHONE_PLAN
+    device_policy: str = DEVICE_POLICY
+    #: ``practice_item_id -> bool``: a generated FG1 probe, which the phone serves from V3 on.
+    generated_probe: Any = None
+    #: What this step passed over, by item id, with its reason.
+    held: dict[str, str] = field(default_factory=dict)
+    #: Reading blocks this step passed over (the phone's Reader is V4's).
+    held_readings: set[str] = field(default_factory=set)
+
+    def holds(self, item: Any) -> str | None:
+        """Why the device leaves ``item`` for the desktop, or None when it can serve it."""
+
+        if self.generated_probe is not None and self.generated_probe(item.id):
+            return GENERATED_PROBE
+        if self.device_filter is None:
+            return None
+        if item.id in self.device_filter.left_for_desktop:
+            return DESKTOP_ONLY_MODE
+        return ineligibility_reason(self.device_filter.vault, item, self.device_filter.device_class)
+
+    def detail(self) -> dict[str, str]:
+        """What a decision taken at a boundary under this device records (its ``device`` entry)."""
+
+        return {"surface": self.surface, "device_policy": self.device_policy}
+
+    @property
+    def held_count(self) -> int:
+        return len(self.held)
+
+
 def ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None:
     """Why ``device_class`` cannot answer ``item``, or None when it can.
 

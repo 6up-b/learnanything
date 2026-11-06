@@ -12,6 +12,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.request_origin import host_mutation
 
 
 class FollowupInput(ParamsModel):
@@ -80,6 +81,7 @@ def followup_next(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]:
 
 
 @method("followup_continue_without", FollowupInput)
+@host_mutation
 def followup_continue_without(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]:
     from learnloop.followup_run.serving import continue_without
 

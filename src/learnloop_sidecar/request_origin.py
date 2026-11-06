@@ -26,13 +26,13 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 
-from learnloop.scheduling.device_eligibility import DESKTOP, PHONE
+from learnloop.scheduling.device_eligibility import DESKTOP, PHONE, PHONE_PLAN
 from learnloop_sidecar.errors import SidecarError
 
 #: The surfaces the desktop has always recorded (the stores' own defaults).
 DESKTOP_PRACTICE = "desktop_practice"
 DESKTOP_QUEUE = "desktop_queue"
-#: The surfaces of a phone request (§6.8, G11).
+#: The surfaces of a phone request (§6.8, G11; mobile v2 §2.2 adds the plan's).
 PHONE_PRACTICE = "phone_practice"
 PHONE_QUEUE = "phone_queue"
 
@@ -71,6 +71,16 @@ def offer_surface(origin: RequestOrigin | None) -> str:
     """``entry_surface`` of a published scheduler offer."""
 
     return DESKTOP_QUEUE if origin is None else PHONE_QUEUE
+
+
+def plan_surface(origin: RequestOrigin) -> str:
+    """Mobile v2 §2.2: the surface a phone's plan step and its boundary decisions record. The
+    desktop's plan decisions keep their own (``router.plan_log.SURFACE``); this is never asked
+    for a None origin."""
+
+    if origin is None:
+        raise ValueError("The desktop's plan surface is the plan log's own.")
+    return PHONE_PLAN
 
 
 #: A refusal whose mutation committed all the same: the attempt is in, and only

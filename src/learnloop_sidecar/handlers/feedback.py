@@ -594,6 +594,7 @@ def contest_causal_diagnosis(
 
 
 @method("trigger_regrade", TriggerRegradeInput)
+@host_mutation
 def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)

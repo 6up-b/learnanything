@@ -5,9 +5,16 @@
 ``plan_learner_pick`` and ``get_today_headline``. While the plan is off (a
 pre-``mvp-0.14`` vault or ``plan.enabled = false``) every one of them answers
 ``enabled: false`` without building a queue or writing a row, and Today, Start
-and ``get_today_queue`` are mvp-0.13's (G1). Never phone-allowed. Mobile M2a planned to add them and
-settled the other way (2026-11-03, docs/reviews/mobile-m2a.md): the plan's stored record is
-shared between devices, so the phone shows the allowlisted queue.
+and ``get_today_queue`` are mvp-0.13's (G1).
+
+**The phone** (mobile v2 §2.2, owner decision D1, reversing M2a's "the phone shows the queue"):
+the same stored plan serves both devices, and the phone's door filters at the step
+(``PlanStepFilter``): the build, the router's support and every desktop reply are unchanged, and
+with no request origin nothing here differs from before. A phone request's boundary decisions
+record the surface ``phone_plan`` and the device rules they served under. Plan writes that name a
+session check its owner (§5.6, :func:`refuse_moved_session`); reads never do. The host's
+secondary attach runs none of the plan's background work (D6): the deliverable refresh, AD's
+preparation and the figure prefetch stay the desktop's.
 """
 
 from __future__ import annotations
@@ -43,10 +50,12 @@ from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.goals import _nearest_active_goal
 from learnloop_sidecar.handlers.queue import prepare_queue_build
+from learnloop_sidecar.handlers.sessions import refuse_moved_session
+from learnloop_sidecar.request_origin import host_mutation
 from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
 from learnloop_sidecar.registry import method
 
-#: The DL1 RPCs (pinned never phone-allowed in tests/test_mobile_allowlist.py).
+#: The DL1 RPCs (phone-allowed from mobile v2 stage V2, tests/test_mobile_allowlist.py).
 DAILY_PLAN_RPCS = (
     "get_daily_plan",
     "set_plan_minutes",
@@ -144,21 +153,56 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
         session_id=session_id,
         eligible=eligible,
         policy=policy_for(vault, repository, session_id=session_id, serve=serve),
+        device=_step_filter(ctx, vault, repository, session_id),
     )
 
 
-def _require(ctx: SidecarContext, session_id: str | None, *, serve: bool = False) -> tuple[Any, Any, PlanEnv] | None:
+def _step_filter(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> Any:
+    """Mobile v2 §2.2: the requesting device's step filter, from the request's origin (never a
+    parameter); None for the desktop. The PR-6 rules, the diagnostic check this session left for
+    the desktop, and (until V3) a generated follow-up probe, which no phone door serves."""
+
+    if ctx.request_origin is None:
+        return None
+    from learnloop.followup_serve import identity
+    from learnloop.scheduling.device_eligibility import PlanStepFilter
+    from learnloop_sidecar.request_origin import plan_surface
+    from learnloop_sidecar.serving import device_filter, device_policy
+
+    return PlanStepFilter(
+        device_filter=device_filter(ctx.request_origin, vault, repository, session_id),
+        surface=plan_surface(ctx.request_origin),
+        device_policy=device_policy(vault),
+        generated_probe=lambda practice_item_id: identity.is_generated_probe(repository, practice_item_id),
+    )
+
+
+def _require(ctx: SidecarContext, session_id: str | None, *, serve: bool = False,
+             writes: bool = False) -> tuple[Any, Any, PlanEnv] | None:
+    """``writes``: the call is a plan write naming a session, so the session's owner is checked
+    first (mobile v2 §5.6). A read never checks."""
+
     vault, repository = ctx.require_vault()
     if not plan_active(vault):
         return None
-    # Curriculum C1 (spec §7.6): the daily quiet re-judgment of the nearest
-    # deliverable's stale path starts before the plan is built (background,
-    # once a day; nothing here waits on it).
-    from learnloop_sidecar.handlers.deliverables import refresh_for_plan
+    if writes:
+        refuse_moved_session(ctx, repository, session_id)
+    if not _secondary(ctx):
+        # Curriculum C1 (spec §7.6): the daily quiet re-judgment of the nearest
+        # deliverable's stale path starts before the plan is built (background,
+        # once a day; nothing here waits on it). Never on the phone host's
+        # secondary attach (mobile v2 D6): a background spender is the desktop's.
+        from learnloop_sidecar.handlers.deliverables import refresh_for_plan
 
-    refresh_for_plan(ctx, vault, repository)
+        refresh_for_plan(ctx, vault, repository)
     prepare_queue_build(ctx, vault, repository, session_id)
     return vault, repository, _env(ctx, vault, repository, session_id, serve=serve)
+
+
+def _secondary(ctx: SidecarContext) -> bool:
+    """The phone host's attach (``load_secondary``): it runs only the phone's own work (D6)."""
+
+    return bool(getattr(ctx, "secondary", False))
 
 
 def _off(ctx: SidecarContext) -> dict[str, Any]:
@@ -199,12 +243,13 @@ def _view(env: PlanEnv, record: Any, step: dict[str, Any] | None, context: Any) 
         reentry_panel=panel,
         streak=env.repository.session_day_streak(),
     )
-    return {**view, **_router_decision_line(env, record)}
+    return {**view, **_router_decision_line(env, record, step)}
 
 
-def _router_decision_line(env: PlanEnv, record: Any) -> dict[str, Any]:
+def _router_decision_line(env: PlanEnv, record: Any, step: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """FG1 §6.4: the router's decision on the block in hand, for debugging and calibration.
-    Absent with the switch or ``ui.show_router_decisions`` off, so the reply stays as it was."""
+    Absent with the switch or ``ui.show_router_decisions`` off, so the reply stays as it was.
+    A device's block in hand is its step's (mobile v2 §2.2, J4)."""
 
     from learnloop.followup_serve.gates import generate_and_serve_on
 
@@ -214,7 +259,12 @@ def _router_decision_line(env: PlanEnv, record: Any) -> dict[str, Any]:
 
     if not show_router_decisions(env.vault):
         return {}
-    current = record.current_block()
+    if env.device is not None:
+        from learnloop.daily_plan.view import device_current
+
+        current = device_current(record, step)
+    else:
+        current = record.current_block()
     decision = decision_view(env.repository, current.decision_ref) if current is not None else None
     return {"routerDecision": to_camel(decision)} if decision is not None else {}
 
@@ -268,6 +318,10 @@ def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] |
     (feature audit, then ``llm_v1:item``), and a served step's presentation
     gets its ``llm_v3`` forecasts. Never waits, fails or changes the step."""
 
+    if _secondary(ctx):
+        # Mobile v2 D6: the phone host runs only the phone's own work; AD's preparation, its
+        # forecasts and a commission's generation stay the desktop's (they read the plan later).
+        return
     try:
         from learnloop.adaptive_difficulty.background import (
             schedule_item_preparation,
@@ -326,12 +380,13 @@ def _commission_enqueue(ctx: SidecarContext) -> Any:
 
 
 @method("set_plan_minutes", PlanMinutesInput)
+@host_mutation
 def set_plan_minutes(ctx: SidecarContext, params: PlanMinutesInput) -> dict[str, Any]:
     """A minutes chip (§6.6): remembered, and the remaining blocks re-planned."""
 
     if params.minutes <= 0 or params.minutes > 600:
         raise SidecarError("validation_error", "minutes must be between 1 and 600.", details={"field": "minutes"})
-    required = _require(ctx, params.session_id)
+    required = _require(ctx, params.session_id, writes=True)
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
@@ -340,12 +395,15 @@ def set_plan_minutes(ctx: SidecarContext, params: PlanMinutesInput) -> dict[str,
 
 
 @method("next_plan_item", NextPlanItemInput)
+@host_mutation
 def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, Any]:
     """The next step: ``{"kind": "item" | "reading" | "done", ...}`` (§6.10 typed steps)."""
 
     if params.serve and not params.session_id:
         raise SidecarError("validation_error", "serving a plan item needs a session.", details={"field": "sessionId"})
-    required = _require(ctx, params.session_id, serve=params.serve)
+    # A serve or a skip is the session's step (mobile v2 §5.6); the prefetch read is not.
+    required = _require(ctx, params.session_id, serve=params.serve,
+                        writes=params.serve or bool(params.skip_practice_item_id))
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
@@ -367,10 +425,11 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
 
 
 @method("plan_reading_ended", PlanReadingEndedInput)
+@host_mutation
 def plan_reading_ended(ctx: SidecarContext, params: PlanReadingEndedInput) -> dict[str, Any]:
     """End the current reading block (left the reader, skipped, or completed)."""
 
-    required = _require(ctx, params.session_id)
+    required = _require(ctx, params.session_id, writes=True)
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
@@ -380,10 +439,11 @@ def plan_reading_ended(ctx: SidecarContext, params: PlanReadingEndedInput) -> di
 
 
 @method("plan_keep_going", PlanKeepGoingInput)
+@host_mutation
 def plan_keep_going(ctx: SidecarContext, params: PlanKeepGoingInput) -> dict[str, Any]:
     """Keep going (§6.5): one more block of minutes; or "Done" (``stop``)."""
 
-    required = _require(ctx, params.session_id)
+    required = _require(ctx, params.session_id, writes=True)
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
@@ -395,10 +455,11 @@ def plan_keep_going(ctx: SidecarContext, params: PlanKeepGoingInput) -> dict[str
 
 
 @method("plan_more_new", PlanMoreNewInput)
+@host_mutation
 def plan_more_new(ctx: SidecarContext, params: PlanMoreNewInput) -> dict[str, Any]:
     """"More new material" (§6.3): the trade-off first, then a labelled extension."""
 
-    required = _require(ctx, params.session_id)
+    required = _require(ctx, params.session_id, writes=params.confirm)
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
@@ -410,6 +471,7 @@ def plan_more_new(ctx: SidecarContext, params: PlanMoreNewInput) -> dict[str, An
 
 
 @method("plan_learner_pick", PlanLearnerPickInput)
+@host_mutation
 def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]:
     """Open an item from the full list: a one-item learner-pick block (L3, G12).
 
@@ -430,6 +492,8 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     if params.source_exercise_import_id and not params.proposal_id:
         raise SidecarError("validation_error", "An imported exercise is delivered with its proposal.",
                            details={"field": "proposalId"})
+    # Mobile v2 §5.6: the owner is checked before the proposal's selection is recorded.
+    refuse_moved_session(ctx, ctx.require_vault()[1], params.session_id)
     selection = _proposal_selection(ctx, params) if params.proposal_id else None
     required = _require(ctx, params.session_id)
     if required is None:

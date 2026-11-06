@@ -49,26 +49,29 @@ def world(tmp_path, monkeypatch):
 
 
 def test_the_allowlist_is_the_m2_row_and_every_name_is_a_registered_method():
-    assert set(ALLOWLIST) == M2_ROW
-    assert M2_ROW <= set(METHOD_REGISTRY)
-    assert {entry.name for entry in ALLOWLIST.values() if entry.kind == "long"} == {
+    """M2's row is unchanged; mobile v2's later rows (tests/test_mobile_allowlist.py) sit beside it."""
+
+    m2 = {name for name, entry in ALLOWLIST.items() if entry.milestone == "M2"}
+    assert m2 == M2_ROW
+    assert set(ALLOWLIST) <= set(METHOD_REGISTRY)
+    assert {entry.name for entry in ALLOWLIST.values() if entry.kind == "long" and entry.milestone == "M2"} == {
         "submit_attempt", "submit_dont_know", "answer_grading_clarification",
     }
-    assert all(entry.milestone == "M2" for entry in ALLOWLIST.values())
+    assert {entry.milestone for entry in ALLOWLIST.values()} == {"M2", "V2"}
     with pytest.raises(TypeError):
         ALLOWLIST["run_cli_command"] = object()  # type: ignore[index]
 
 
 def test_the_retry_policy_is_section_6_2s():
     never = {"start_session", "adopt_session", "end_session", "skip_practice_item", "submit_eliciting_response"}
-    assert {name for name, entry in ALLOWLIST.items() if not entry.retry_safe} == never
+    assert {name for name, entry in ALLOWLIST.items() if not entry.retry_safe and entry.milestone == "M2"} == never
 
 
 def test_every_other_registered_method_answers_403(world):
     phone, *_ = world
-    denied = sorted(set(METHOD_REGISTRY) - M2_ROW)
+    denied = sorted(set(METHOD_REGISTRY) - set(ALLOWLIST))
     assert len(denied) > 300
-    assert {"get_queue_revision", "recover_practice_submission", "run_cli_command", "get_daily_plan",
+    assert {"get_queue_revision", "recover_practice_submission", "run_cli_command", "followup_next",
             "stop_probe_diagnosing", "get_next_probe_item", "start_overconfidence_probe"} <= set(denied)
     for name in denied:
         status, error = phone.error(name)

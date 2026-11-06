@@ -22,6 +22,9 @@ class MobileConfig(BaseModel):
     port: int = Field(default=8765, ge=1, le=65535, strict=True)
     https_port: int = Field(default=443, ge=1, le=65535, strict=True)
     max_upload_mb: int = Field(default=20, ge=1, le=20, strict=True)
+    #: Mobile v2 §2.2's kill switch (``mobile.phone_plan``): the phone's Today is the shared plan.
+    #: Off, the plan's methods are refused (``phone_plan_off``) and Today is M2a's queue.
+    phone_plan: bool = Field(default=True, strict=True)
 
     @property
     def https_authority(self) -> str:

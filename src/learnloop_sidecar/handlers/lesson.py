@@ -343,6 +343,10 @@ def lesson_suggestion_respond(ctx: SidecarContext, params: LessonSuggestionRespo
     from learnloop.daily_plan.lesson_suggestion import SuggestionError, respond
 
     vault, repository = ctx.require_vault()
+    # Mobile v2 §5.6: a response bound to a session another device now holds is refused.
+    from learnloop_sidecar.handlers.sessions import refuse_moved_session
+
+    refuse_moved_session(ctx, repository, params.session_id)
     try:
         result = respond(vault, repository, decision_id=params.decision_id, response=params.response,
                          candidate_ref=params.candidate_ref, session_id=params.session_id)

@@ -783,6 +783,10 @@ class PlanEnv:
     policy: PlanPolicy = DEFAULT_POLICY
     #: Data capture A1: the last scheduler build's trace (``build_eligible``).
     last_trace: Any = field(default=None, repr=False, compare=False)
+    #: Mobile v2 §2.2: the requesting device's step filter
+    #: (``scheduling.device_eligibility.PlanStepFilter``), or None for the desktop, whose
+    #: steps, builds and decisions are exactly as they were.
+    device: Any = field(default=None, repr=False, compare=False)
 
     def now(self) -> datetime:
         return (self.clock or SystemClock()).now().astimezone(UTC)
@@ -2886,6 +2890,7 @@ def _boundary(
             {"practice_item_id": item.practice_item_id, "origin": forced_origin, "est_minutes": round(item.est_minutes, 4)}
             for item in forced
         ],
+        **_device_detail(env),
     }
     if ad_deferrals:
         # Adaptive difficulty (spec §6.1 step 0): the AD deferrals this boundary
@@ -2932,6 +2937,12 @@ def _boundary(
         )
         if waiting is not None:
             raise PlanWaiting(waiting)
+        if env.device is not None and not decision.feasible and record.current_block() is not None:
+            # Mobile v2 §2.2: a device's step crossed this boundary past open work it left for the
+            # desktop. Nothing more is feasible, so no draw was made, and the plan is not finished:
+            # its held work waits for the desktop's next Next. A stop the chooser drew while work was
+            # feasible is that stop, on either device (its logged probability is the mix's).
+            raise PlanWaiting(_held_step(env, record))
         _close(
             env, record, status="complete", reason=choice.why or "nothing more worth doing today",
             stop_detail=detail, log_decision=True, router_record=router_record, prefilter=context.prefilter,
@@ -3126,6 +3137,7 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
                     "est_minutes": round(item.est_minutes, 4)} for item, origin in items],
         "ro5_check_block": {"version": "ro5_check_before_decision_v1",
                             "assignments": [placement.assignment_id for placement in placed]},
+        **_device_detail(env),
     }
     with env.repository.atomic(), env.repository.connection() as connection:
         block_id = new_ulid()
@@ -4352,6 +4364,7 @@ def _log_interrupt(
                 "why": outcome.why,
                 "decided_at": env.now_iso(),
                 "config": env.vault.config,
+                **_device_detail(env),
             },
         )
         if decision_ref is not None:
@@ -4446,6 +4459,96 @@ def _done_step(record: PlanRecord) -> dict[str, Any]:
     return {"kind": "done", "plan_id": record.id, "status": record.status, "stop_reason": record.row.get("stop_reason")}
 
 
+# -- mobile v2 §2.2: the step filter of a device that is not the desktop ---------------------
+
+#: The step a device gets when every open block holds only what it can't show: the plan is the
+#: desktop's until a boundary (the device's Next crosses one, a read never does).
+DEVICE_HELD_STEP = "held_for_desktop"
+#: The ``attention_block_events`` kind that records, once per block and item, that a device's
+#: step passed over a randomized check (RO5 §9 item 2): the check waits for the desktop and is
+#: never re-drawn for the device. Written only under a device, so the desktop writes none.
+ITEM_DEVICE_DEFERRED = "item_device_deferred"
+
+
+def _device_detail(env: PlanEnv) -> dict[str, Any]:
+    """A decision's ``device`` entry (its surface and device rules); nothing for the desktop."""
+
+    return {} if env.device is None else {"device": env.device.detail()}
+
+
+def _device_item(env: PlanEnv, block: PlannedBlock) -> PlannedItem | None:
+    """The block's next item the device can show, in :meth:`PlannedBlock.next_item`'s order
+    (served first, then follow-ups, then position); each one passed over stays assigned and is
+    counted on the device's filter. A randomized check passed over is recorded once."""
+
+    device = env.device
+    open_items = [item for item in block.items if not item.resolved]
+    served = [item for item in open_items if item.served_at is not None]
+    followups = [item for item in open_items if item.served_at is None and item.origin == ORIGIN_FOLLOWUP]
+    rest = sorted((item for item in open_items if item.served_at is None and item.origin != ORIGIN_FOLLOWUP),
+                  key=lambda item: item.position)
+    for planned in [*served, *followups, *rest]:
+        practice_item = env.vault.practice_items.get(planned.practice_item_id)
+        reason = device.holds(practice_item) if practice_item is not None else None
+        if reason is None:
+            return planned
+        device.held[planned.practice_item_id] = reason
+        if planned.origin == ro5_check_origin():
+            _note_check_deferral(env, block, planned, reason)
+    return None
+
+
+def _note_check_deferral(env: PlanEnv, block: PlannedBlock, item: PlannedItem, reason: str) -> None:
+    """RO5 §9 item 2 under a device (mobile v2 §2.2): the day's check waits for the desktop, its
+    trace says so, and nothing re-draws it. The draw and its logged probability are untouched."""
+
+    with env.repository.atomic(), env.repository.connection() as connection:
+        seen = connection.execute(
+            "SELECT 1 FROM attention_block_events WHERE block_id = ? AND kind = ? "
+            "AND json_extract(detail_json, '$.practice_item_id') = ? LIMIT 1",
+            (block.id, ITEM_DEVICE_DEFERRED, item.practice_item_id),
+        ).fetchone()
+        if seen is None:
+            _event(connection, block.id, ITEM_DEVICE_DEFERRED, {
+                "practice_item_id": item.practice_item_id, "origin": item.origin, "reason": reason,
+                "surface": env.device.surface, "session_id": env.session_id,
+            }, env.now_iso())
+
+
+def _device_block(env: PlanEnv, record: PlanRecord) -> tuple[PlannedBlock | None, PlannedItem | None]:
+    """The device's current block and item: the first open block, in plan order, with something it
+    can show. A reading block waits for the desktop until the phone has its Reader (V4)."""
+
+    for block in sorted(record.blocks, key=lambda b: b.ordinal):
+        if block.finished:
+            continue
+        if block.is_reading:
+            env.device.held_readings.add(block.id)
+            continue
+        item = _device_item(env, block)
+        if item is not None:
+            return block, item
+    return None, None
+
+
+def _check_held(env: PlanEnv, record: PlanRecord) -> bool:
+    """An open randomized check is among what the device left for the desktop."""
+
+    origin = ro5_check_origin()
+    return any(item.origin == origin and item.practice_item_id in env.device.held
+               for item in record.items() if not item.resolved)
+
+
+def _held_step(env: PlanEnv, record: PlanRecord) -> dict[str, Any]:
+    """What the device shows when everything open waits for the desktop: how many, and the first
+    item's id, which its "Skip" names (the desktop's own skip link; never a reason or a label)."""
+
+    first = next((item.practice_item_id for item in record.items()
+                  if not item.resolved and item.practice_item_id in env.device.held), None)
+    return {"kind": DEVICE_HELD_STEP, "plan_id": record.id, "held_count": env.device.held_count,
+            "held_readings": len(env.device.held_readings), "first_held_item_id": first}
+
+
 def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None) -> tuple[PlanRecord, dict[str, Any]]:
     """Reconcile, insert follow-ups, cross a boundary if needed, and name the next step.
 
@@ -4481,6 +4584,16 @@ def advance_with_context(
     record, forced = _insert_followups(env, record, built)
     context = _context(env, record, built, day=())
     block = record.current_block()
+    device_item = None
+    if env.device is not None and block is not None:
+        # Mobile v2 §2.2: the device serves the first open block it can show; the rest stay
+        # assigned for the desktop. When every open block is held, a read says so, and the
+        # device's Next crosses a boundary past them (the decision's support is the desktop's).
+        block, device_item = _device_block(env, record)
+        if block is None and (not serve or _check_held(env, record)):
+            # RO5 §9 item 2: the day's check comes first on every device. While it waits for the desktop,
+            # the device crosses no boundary, so no draw of a later decision (a stop) can leave it unanswered.
+            return record, _held_step(env, record), context
     if block is None:
         forced_origin = ORIGIN_FOLLOWUP
         if not record.blocks and not record.receipts and _forced_rows(record.split):
@@ -4520,6 +4633,14 @@ def advance_with_context(
         if block_id is None:
             return record, _done_step(record), context
         block = next(b for b in record.blocks if b.id == block_id)
+        if env.device is not None:
+            # One boundary per step: a block the device can't show waits for the desktop.
+            if block.is_reading:
+                env.device.held_readings.add(block.id)
+                return record, _held_step(env, record), context
+            device_item = _device_item(env, block)
+            if device_item is None:
+                return record, _held_step(env, record), context
     boundary = block.started_at is None
     if block.is_reading:
         step = _reading_step(env, record, block, boundary=boundary)
@@ -4529,10 +4650,13 @@ def advance_with_context(
                     _event(connection, block.id, "block_started", {"session_id": env.session_id}, env.now_iso())
             record = _reload(env, record.id)
         return record, step, context
-    item = block.next_item()
+    item = block.next_item() if env.device is None else device_item
     if item is None:  # pragma: no cover - an unfinished item block has an open item
         return record, _done_step(record), context
-    if serve and item.served_at is None and _ad_selection(env):
+    # Mobile v2 §2.2: AD's slot draw is the desktop serve's. Under a device it is not asked, so its
+    # support and logged probabilities never depend on what the device can show: the planned item
+    # is served, as when AD is unavailable for a slot.
+    if serve and item.served_at is None and env.device is None and _ad_selection(env):
         from learnloop.adaptive_difficulty.serving import slot_applies
 
         if slot_applies(env.vault.config, item):
@@ -5193,6 +5317,7 @@ def _pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practic
             "candidate_set": [],
             "state": {"minutes_left": round(record.minutes_left(), 4), "lane_minutes_left": {k: round(v, 4) for k, v in lefts.items()}},
             **({"idempotency_key": idempotency_key} if idempotency_key else {}),
+            **_device_detail(env),
         }
         # Router R2a (G9; Codex review F4): the pick is the learner's own block
         # decision, logged (no propensity) in this block's transaction before

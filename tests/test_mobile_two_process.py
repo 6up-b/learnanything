@@ -47,6 +47,24 @@ def _host_process(root: str, token: str, device_id: str, sessions: list[str], pi
                     # A real interleaving, read as the phone reads: the queue beside its own submit.
                     phone.rpc("get_session", {"sessionId": session_id})
                     pipe.send(("submitted", response.status_code, response.json()))
+                elif kind == "adopt":
+                    session_id, generation = payload
+                    phone.rpc("adopt_session", {"sessionId": session_id, "expectedGeneration": generation})
+                    pipe.send(("adopted",))
+                elif kind == "plan_step":
+                    # Mobile v2 V2: the phone's Next on the shared plan, then its answer.
+                    session_id, key = payload
+                    reply = phone.rpc("next_plan_item", {"sessionId": session_id, "serve": True},
+                                      request_id=f"next_{key}")
+                    step = reply["step"]
+                    if step and step["kind"] == "item":
+                        response = phone.post("submit_dont_know", {
+                            "sessionId": session_id, "practiceItemId": step["practiceItemId"],
+                            "submissionId": f"dk_{key}", "hintsUsed": 0,
+                            "planPresentationId": step.get("presentationId"),
+                        }, request_id=f"dk_{key}")
+                        assert response.status_code == 200, response.text
+                    pipe.send(("stepped", step))
                 elif kind == "workers":
                     runtime = app.state.host.runtime
                     pipe.send(("workers", runtime.rpc_worker.context.secondary, runtime.job_worker.context.secondary,
@@ -158,6 +176,84 @@ def test_the_desktop_and_the_host_coexist_with_no_lost_writes(tmp_path):
         assert process.exitcode == 0
     finally:
         stop_sync.set()
+        desktop.close()
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=10)
+        parent.close()
+
+
+def test_the_phone_and_the_desktop_take_turns_on_one_plan(tmp_path):
+    """Mobile v2 V2 (§5.6): one stored plan, read by both, its steps committed atomically. The session is
+    handed over each turn (PR-4), each device serves the plan's next step and answers it; no item is
+    served twice, every answer is recorded once, and each boundary records its device's surface."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+    import learnloop_sidecar.handlers  # noqa: F401
+    from tests.helpers import create_daily_plan_vault
+    from tests.mobile_host_helpers import pair, rows
+
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={
+        f"lo_turn_{index}": [(f"pi_turn_{index}_a", 2.0), (f"pi_turn_{index}_b", 2.0)] for index in range(3)
+    })
+    repository = Repository(paths.sqlite_path)
+    device = pair(repository)
+
+    def call(name: str, params: dict):
+        spec = METHOD_REGISTRY[name]
+        return spec.handler(desktop, spec.params_model.model_validate(params))
+
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe()
+    process = context.Process(
+        target=_host_process, args=(str(paths.root), device["token"], device["device_id"], [], child)
+    )
+    process.start()
+    child.close()
+    desktop = SidecarContext()
+    try:
+        assert _receive(parent) == ("started",)
+        desktop.load(paths.root, maintenance=False)
+        desktop.grading_provider_override = "manual"
+        parent.send(("start", None))
+        sid = _receive(parent)[1]["sessionId"]
+        steps: list[tuple[str, dict | None]] = []
+        for turn in range(8):
+            phone_turn = turn % 2 == 0
+            generation = repository.fetch_session(sid).get("owner_generation") or 0
+            if phone_turn:
+                if turn:
+                    parent.send(("adopt", (sid, generation)))
+                    assert _receive(parent) == ("adopted",)
+                parent.send(("plan_step", (sid, str(turn))))
+                step = _receive(parent)[1]
+            else:
+                call("adopt_session", {"sessionId": sid, "expectedGeneration": generation})
+                step = call("next_plan_item", {"sessionId": sid, "serve": True})["step"]
+                if step and step["kind"] == "item":
+                    call("submit_dont_know", {"sessionId": sid, "practiceItemId": step["practiceItemId"],
+                                              "hintsUsed": 0, "planPresentationId": step.get("presentationId")})
+            steps.append(("phone" if phone_turn else "desktop", step))
+            if step is None or step["kind"] == "done":
+                break
+        served = [step["practiceItemId"] for _who, step in steps if step and step["kind"] == "item"]
+        assert served and len(served) == len(set(served)), steps
+        assert {who for who, step in steps if step and step["kind"] == "item"} == {"phone", "desktop"}
+        events = rows(repository, "SELECT block_id, json_extract(detail_json, '$.practice_item_id') AS item "
+                                  "FROM attention_block_events WHERE kind = 'item_served'")
+        assert len(events) == len({(row["block_id"], row["item"]) for row in events})
+        attempts = rows(repository, "SELECT practice_item_id, entry_surface FROM practice_attempts")
+        assert sorted(row["practice_item_id"] for row in attempts) == sorted(served)
+        surfaces = {row["surface"] for row in rows(
+            repository, "SELECT surface FROM router_decisions WHERE decision_kind = 'plan_block'")}
+        assert surfaces <= {"daily_plan", "phone_plan"}
+        parent.send("stop")
+        assert _receive(parent) == ("stopped",)
+        process.join(timeout=30)
+        assert process.exitcode == 0
+    finally:
         desktop.close()
         if process.is_alive():
             process.terminate()
