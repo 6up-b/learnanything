@@ -3255,6 +3255,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
+- [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_reserved_book_is_unreadable_when_withheld_items_is`
+  - `test_the_matcher_reads_both_items_as_withheld_questions`
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
 - [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
   - `test_a_note_never_reaches_the_grader`

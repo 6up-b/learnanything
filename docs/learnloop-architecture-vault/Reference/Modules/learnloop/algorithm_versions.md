@@ -597,6 +597,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
   - `test_below_the_tag_and_with_the_switch_off_nothing_runs`
 - [tests/test_teach_back.py](../../../../../tests/test_teach_back.py) — direct import
+- [tests/test_teacher_exam_question_guard.py](../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_a_logged_field_quoting_a_reserved_stem_is_withheld_by_location`
 - [tests/test_teacher_te1_curriculum_c4.py](../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
 - [tests/test_teacher_te1_successor.py](../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`

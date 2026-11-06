@@ -158,6 +158,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_backfill_locator_schemes_stamps_and_is_idempotent`
   - `test_block_span_locator_round_trip`
   - `test_locator_scheme_shape_detection`
+- [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
 
 ## Modification guidance
 

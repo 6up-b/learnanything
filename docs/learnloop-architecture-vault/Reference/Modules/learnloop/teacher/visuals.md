@@ -184,6 +184,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
   - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
   - `test_the_figure_never_reaches_the_grader_and_is_never_a_help_row`
+- [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_a_figure_quoting_a_reserved_stem_is_not_shown`
 
 ## Modification guidance
 

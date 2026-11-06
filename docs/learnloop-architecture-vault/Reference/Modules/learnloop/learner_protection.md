@@ -189,6 +189,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `WITHHELD_EXAM`, `WITHHELD_RESERVED`, `attempt_protection`, `withheld_items`; statically calls `attempt_protection`, `withheld_items`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `withheld_items`; statically calls `withheld_items`
+- [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `withheld_items`; statically calls `withheld_items`
 
 ## Dependencies
@@ -214,7 +215,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] and 18 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] and 19 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -277,6 +278,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_or_reserved_work_is_never_summarized`
 - [tests/test_secondary_attach.py](../../../../../tests/test_secondary_attach.py) — direct import
   - `test_a_directory_alias_does_not_hide_a_truncated_source_sets_file_from_the_chat_runtime`
+- [tests/test_teacher_exam_question_guard.py](../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_reserved_book_is_unreadable_when_withheld_items_is`
+  - `test_the_matcher_reads_both_items_as_withheld_questions`
 - [tests/test_teacher_te0_confidence_events.py](../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
   - `test_the_hint_writers_events_fail_closed_when_the_protection_cannot_be_read`
 - [tests/test_teacher_te0_fix_round2.py](../../../../../tests/test_teacher_te0_fix_round2.py) — direct import
