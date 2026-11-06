@@ -1492,6 +1492,90 @@ def learning_objects_of(entries: Iterable[Mapping[str, Any]]) -> list[str]:
     return [str(entry["learning_object_id"]) for entry in entries]
 
 
+# ---------------------------------------------------------------------------
+# Teacher TE2: a typed lesson goal through this resolver (spec_teacher_v1 rev 5 §11.5)
+# ---------------------------------------------------------------------------
+
+#: A typed lesson goal's resolution rows are keyed by this prefix and the text's key: never a learner goal (nothing
+#: is written to goals.yaml, and :func:`deliverable_goals` lists only learner goals).
+TYPED_GOAL_PREFIX = "lesson_goal:"
+
+
+def typed_goal_key(text: str) -> str:
+    return TYPED_GOAL_PREFIX + content_key(" ".join(str(text or "").split()).casefold())[:24]
+
+
+def resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client: Any | None = None,
+                       clock: Clock | None = None) -> ScopeResult:
+    """C0b's resolver on a lesson's typed goal alone (§11.5): one call returns the needed LOs, each with the phrase
+    it answers, and the phrases it could not match with a proposed title and statement; ids are validated. The same
+    text over the same LOs is answered from the stored resolution (``fresh``, no call). Writes C0b's resolution row
+    and its ledger verdict under :func:`typed_goal_key`; nothing to goals.yaml. Never raises for a model failure."""
+
+    words = _one_line(text, INPUT_CHARS)
+    if not words:
+        return ScopeResult("no_inputs", message="Say what you want to learn first.")
+    key = typed_goal_key(words)
+    budget = int(vault.config.curriculum.max_prompt_tokens) * _CHARS_PER_TOKEN - _OVERHEAD_CHARS
+    context = {"deliverable": {"sentence": words, "deadline": "", "exam": False},
+               "inputs": [{"n": 1, "kind": "text", "text": words}],
+               "topics": _bounded_topics(vault, max(0, budget - len(words) - 400))}
+    prompt = render_structured_prompt("Deliverable scope", SCOPE_PROMPT_VERSION,
+                                      {"instructions": _INSTRUCTIONS, "context": context})
+    state_key = content_key({"prompt_version": SCOPE_PROMPT_VERSION, "prompt": prompt})
+    with repository.connection() as connection:
+        cached = store.resolver_state(connection, key, state_key) if store.tables_present(connection) else None
+    if cached is not None:
+        return ScopeResult("fresh", resolution=cached)
+    route = ChatRoute(vault, repository, SCOPE_ROUTE, client=client,
+                      envelope=daily_envelope(vault, repository, clock=clock), label="your lesson's goal")
+    try:
+        output = route.ask(prompt, ScopeResolutionV1, owner_id=f"{key}:{state_key[:16]}",
+                           prompt_version=SCOPE_PROMPT_VERSION)
+    except RouteUnavailable as exc:
+        return ScopeResult("unavailable", reason=exc.reason, message=exc.message)
+    needs, unmatched = validate_resolution(vault, output)
+    now = utc_now_iso(clock)
+    row = {"id": "dsr_" + new_ulid(), "goal_id": key, "origin": "resolver", "input_ids_json": "[]",
+           "learning_objects_json": json.dumps(needs), "unmatched_json": json.dumps(unmatched),
+           "facet_scope_json": json.dumps(scope_for(vault, repository, learning_objects_of(needs)), sort_keys=True),
+           "state_key": state_key, "model": route.model, "prompt_version": SCOPE_PROMPT_VERSION, "created_at": now}
+    with repository.atomic():
+        connection = repository.connection()
+        row["ledger_id"] = append_judgment(
+            connection, task=SCOPE_LEDGER_TASK, left_kind="lesson_goal", left_id=key, right_kind="scope_resolution",
+            right_id=row["id"], judge="llm", judge_model=route.model, prompt_version=SCOPE_PROMPT_VERSION,
+            input_hash=state_key, verdict="resolved",
+            rationale=json.dumps({"needs": needs, "unmatched": unmatched}, sort_keys=True), created_at=now)
+        store.insert_resolution(connection, row)
+        written = store.resolution(connection, row["id"])
+    return ScopeResult("ready", resolution=written)
+
+
+def create_lesson_topic(vault: Any, repository: Repository, *, lesson_id: str, phrase: str, title: str,
+                        statement: str, subject_id: str, anchors: Sequence[Mapping[str, Any]] = (),
+                        clock: Clock | None = None) -> dict[str, Any]:
+    """A typed lesson goal's phrase the learner said *yes* to: ``create_goal_lo`` with ``mechanism =
+    teacher_goal_v1`` (``origin = codex_proposal``, the anchors in ``source_refs``, none: unsourced), the lesson's
+    id as its goal id; undoable; the daily cap shared with text-gap creations, plus one a day. The learner's yes is
+    the decision: no judge."""
+
+    from learnloop.goals import goal_lo as GL
+
+    try:
+        return GL.create_goal_lo(vault.root, repository, GL.GoalLoRequest(
+            goal_id=lesson_id, phrase=phrase, title=title, statement=statement, subject_id=subject_id,
+            mechanism=GL.TEACHER_MECHANISM, anchors=tuple(dict(anchor) for anchor in anchors)), clock=clock)
+    except GL.GoalLoError as exc:
+        raise DeliverableError(exc.code, str(exc)) from exc
+
+
+def typed_goal_subject(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None:
+    """The subject a typed goal's new topic joins (:func:`_subject_for`'s rule)."""
+
+    return _subject_for(vault, needs)
+
+
 __all__ = [
     "ADMISSION_REASONS",
     "ChatRoute",

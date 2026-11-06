@@ -68,6 +68,9 @@ LESSON_RPCS: tuple[str, ...] = ("lesson.turn", "lesson.view", "lesson.suggestion
 #: Teacher TE2-log's RPC (desktop only; pinned in tests/test_teacher_te2log_activity.py; the blanket denial of
 #: tests/test_mobile_allowlist.py covers it).
 LESSON_ACTIVITY_RPCS: tuple[str, ...] = ("lesson.activity",)
+#: Teacher TE2's RPCs (desktop only; pinned in tests/test_teacher_te2_sidecar.py; the blanket denial of
+#: tests/test_mobile_allowlist.py covers them): the typed goal's resolution, and Today's open lessons.
+LESSON_TE2_RPCS: tuple[str, ...] = ("lesson.goal", "lesson.open_lessons")
 
 
 class LessonSelection(ParamsModel):
@@ -76,13 +79,18 @@ class LessonSelection(ParamsModel):
 
 
 class LessonTurnInput(ParamsModel):
-    action: Literal["open", "reply", "answer_prediction", "answer_check", "stop", "resume"]
+    # TE2: answer_probe (the open question), teach_anyway (one being prepared), close (Today's "Close it").
+    action: Literal["open", "reply", "answer_prediction", "answer_check", "stop", "resume", "answer_probe",
+                    "teach_anyway", "close"]
     lesson_id: str | None = None
-    # open
-    entry: Literal["learning_object", "reader_selection", "new_topic"] | None = None
+    # open (TE2: typed_goal, its accepted new topics' phrases and their subject)
+    entry: Literal["learning_object", "reader_selection", "new_topic", "typed_goal"] | None = None
     learning_object_ids: list[str] = []
     selection: LessonSelection | None = None
     goal_text: str | None = None
+    add_topics: list[str] = Field(default_factory=list, max_length=12)
+    subject_id: str | None = None
+    probe_ref: str | None = None
     # TE1b: a router suggestion's Start (the decision; ``lesson_id`` is the id its response recorded)
     origin: Literal["learner_pick", "router_suggestion"] = "learner_pick"
     suggestion_decision_id: str | None = None
@@ -96,6 +104,16 @@ class LessonTurnInput(ParamsModel):
 
 class LessonViewInput(ParamsModel):
     lesson_id: str
+
+
+class LessonGoalInput(ParamsModel):
+    """TE2 (§11.5): the typed goal to resolve (C0b's resolver; no lesson is written)."""
+
+    text: str = Field(min_length=1, max_length=6000)
+
+
+class LessonOpenLessonsInput(ParamsModel):
+    pass
 
 
 class LessonActivityInterval(ParamsModel):
@@ -213,12 +231,13 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                 goal_text=params.goal_text, clients=clients,
                 origin="router" if suggested else "learner_pick",
                 origin_ref=params.suggestion_decision_id if suggested else None,
-                lesson_id=params.lesson_id if suggested else None)
+                lesson_id=params.lesson_id if suggested else None,
+                add_topics=params.add_topics, subject_id=params.subject_id)
         else:
             if not params.lesson_id:
                 raise SidecarError("validation_error", "lesson_id is required.")
             payload = {"text": params.text, "answer": params.answer, "check_ref": params.check_ref,
-                       "tap": params.tap, "thinking": params.thinking}
+                       "tap": params.tap, "thinking": params.thinking, "probe_ref": params.probe_ref}
             result = S.take_turn(vault, repository, lesson_id=params.lesson_id, action=params.action, payload=payload,
                             clients=clients)
     except S.LessonError as exc:
@@ -229,8 +248,13 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
         saved = params.action != "open" or bool(exc.details.get("lesson_id"))
         raise SidecarError(exc.code, route_unavailable_message(exc.label, saved=saved), retryable=True,
                            details=dict(exc.details)) from exc
-    if result.get("vault_changed"):
+    if result.get("vault_changed") or (params.action == "open" and params.entry == "typed_goal"):
         ctx.reload(maintenance=False)
+    if result.get("te2"):
+        # TE2: a probe's generation or a gap's reading may have been queued: the worker drains it now.
+        worker = getattr(ctx, "post_attempt_worker", None)
+        if worker is not None:
+            worker.notify()
     lesson_id = result.get("lesson_id") or params.lesson_id
     if lesson_id and result.get("plan"):
         # RW5d P5 (spec §10b.2, §10.4): the plan's nodes not yet reached, and
@@ -253,6 +277,35 @@ def lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]:
         return versioned(S.view_lesson(vault, repository, params.lesson_id))
     except S.LessonError as exc:
         raise _error(exc) from exc
+
+
+@method("lesson.goal", LessonGoalInput)
+def lesson_goal(ctx: SidecarContext, params: LessonGoalInput) -> dict[str, Any]:
+    """Teacher TE2 (§11.5): a typed goal resolved by C0b's resolver (one plan call; none when the same words over
+    the same topics were resolved before): the topics it needs, each with the phrase it answers, and what nothing
+    matched with a proposed topic. Nothing is written but the resolution and its ledger verdict."""
+
+    from learnloop.teacher import te2 as T2
+    from learnloop.teacher import topics as TP
+
+    vault, repository = ctx.require_vault()
+    try:
+        S.require_active(vault)
+        if not T2.on(vault):
+            raise SidecarError("teacher_unavailable", "Typing a goal needs this vault upgraded (learnloop upgrade).")
+        return versioned(TP.resolve(vault, repository, params.text))
+    except S.LessonError as exc:
+        raise _error(exc) from exc
+    except TP.TopicsRefused as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+
+
+@method("lesson.open_lessons", LessonOpenLessonsInput)
+def lesson_open_lessons(ctx: SidecarContext, params: LessonOpenLessonsInput) -> dict[str, Any]:
+    """Teacher TE2 (§11.8): Today's *Continue your lesson on X* (no model call; empty unless TE2 serves)."""
+
+    vault, repository = ctx.require_vault()
+    return versioned({"lessons": S.open_lessons(vault, repository)})
 
 
 @method("lesson.activity", LessonActivityInput)

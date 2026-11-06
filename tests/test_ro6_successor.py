@@ -38,8 +38,9 @@ RO6_KEYS = {"learned_tail": True, "residual_prior_sd": 0.01, "residual_weight_pr
 
 def test_the_successor_is_one_constant_after_ro5_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.48"
-    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
-    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG})
+    # Teacher TE2 (mvp-0.50) landed after it and keeps it.
+    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.50"
+    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG, "mvp-0.50"})
 
 
 def test_the_seeds_are_labelled_and_validated():
@@ -61,6 +62,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     for key in RO6_KEYS:
         dumped["router_objective"].pop(key)
     assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
+    from tests.test_teacher_te2_successor import drop_te2_keys
+
+    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.50; tests/test_teacher_te2_successor.py), inert below it
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "dc39796ffa66ee54c1877cba358f697f24fe449020fba6b2e3a1f14ec521a2b1"
 
@@ -90,8 +94,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
     from learnloop import router_learned_tail_upgrade
 
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to RO5's completion, which hands it on in turn.
     assert "learnloop.router_calibration_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_learned_tail_upgrade)
@@ -130,6 +134,6 @@ def test_the_cli_upgrade_reaches_the_tag_by_default(tmp_path):
 
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", TAG])
     assert result.exit_code == 0, result.output
     assert f"{OLD} -> {TAG}" in result.output

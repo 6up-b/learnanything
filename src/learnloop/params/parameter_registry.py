@@ -1953,6 +1953,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "learned mass (off: the type's configured 0.5) / the forecast pool on top of it (parametric: the "
         "learned mass alone) / curriculum C4's deliverable and notes in the brief. Operational only: the "
         "learned quantities move with the data, never with these."),
+    # Teacher TE2 (spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8, §18.3, §18.4): the successor's kill
+    # switch, and the probes one lesson may ask for (keep: a burden guardrail, the teacher decides when to stop).
+    _ConfigRule(_exact(
+        "teacher.probes", "teacher.placement.max_probes",
+    ), "structural", "operational",
+        "kill switch for teacher TE2's successor (generated single-use probes inside lessons, gaps filed from a "
+        "lesson's learner text, typed lesson goals and their new topics, the brief without vault probe headers, "
+        "the resume card; off, or below the tag: TE1's and TE2-log's lessons exactly) / keep: at most 8 probes "
+        "a lesson (a burden guardrail; the teacher decides when to stop, this only bounds it)."),
     # Teacher TE2-log (spec_teacher_v1 §11.6, §11.9, §20): item 5's logging. A boolean
     # (classified so every new key has a rule); it decides no lesson, only whether the
     # episode rows, the activity intervals and the node forecasts are written.

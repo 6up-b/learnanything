@@ -37,6 +37,8 @@ GENERATED_PROBE_RESERVED = "generated_probe_reserved"
 
 SERVED = "served"
 RETIRED = "retired"
+#: Teacher TE2 (migration 248): a lesson's probe, reserved for its lesson until served (no workflow owns it).
+LESSON_SOURCE = "lesson"
 
 #: Who a machine admission receipt, and a withdrawal, say moved the candidate.
 MACHINE_REVIEWER = "system:followup_machine_admission_v1"
@@ -256,13 +258,17 @@ def door_refusal(repository: Repository, practice_item_id: str, *, workflow_id: 
     owner = identity.get("workflow_id")
     if owner is not None and workflow_id != owner:
         return GENERATED_PROBE_RESERVED
+    if identity.get("source") == LESSON_SOURCE:
+        # Teacher TE2: reserved for its lesson, which serves it through its own ledger (never a door's).
+        return GENERATED_PROBE_RESERVED
     return None
 
 
 def door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]:
     """(closed, reserved): what every selector leaves out, read once.
 
-    Reserved: unserved and owned by a workflow, which alone may open it.
+    Reserved: unserved and owned by a workflow, which alone may open it, or a lesson's (teacher TE2), which only its
+    lesson serves.
     """
 
     with repository.connection() as connection:
@@ -271,7 +277,8 @@ def door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]:
         closed = store.closed_generated_probe_ids(connection)
         owned = frozenset(
             str(row[0]) for row in connection.execute(
-                "SELECT practice_item_id FROM generated_probe_items WHERE workflow_id IS NOT NULL")
+                "SELECT practice_item_id FROM generated_probe_items WHERE workflow_id IS NOT NULL OR source = ?",
+                (LESSON_SOURCE,))
         )
     return closed, owned - closed
 
@@ -290,7 +297,8 @@ def replay_inactive_ids(repository: Repository) -> frozenset[str]:
 
 
 __all__ = [
-    "Claim", "GENERATED_PROBE_CLOSED", "GENERATED_PROBE_RESERVED", "MACHINE_REVIEWER", "RETIRED", "SERVED", "claim_serve",
+    "Claim", "GENERATED_PROBE_CLOSED", "GENERATED_PROBE_RESERVED", "LESSON_SOURCE", "MACHINE_REVIEWER", "RETIRED", "SERVED",
+    "claim_serve",
     "closed_probe_ids", "door_refusal", "door_sets", "exclude_ids", "generated_probe_ids", "is_generated_probe", "item_revision",
     "register", "replay_inactive_ids", "retire", "retire_unbound", "retired_probe_ids", "withdraw",
 ]

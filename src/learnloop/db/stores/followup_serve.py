@@ -233,6 +233,15 @@ def cancel_generation_jobs(connection: sqlite3.Connection, *, workflow_id: str |
     return int(cursor.rowcount)
 
 
+def skip_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, reason: str, at: str) -> bool:
+    """A queued job whose reason has gone, by its key (teacher TE2's lesson probes): never run."""
+
+    cursor = connection.execute(
+        "UPDATE followup_generation_jobs SET state = 'skipped', last_error = ?, updated_at = ? "
+        "WHERE dedupe_key = ? AND state = 'queued'", (reason, at, dedupe_key))
+    return cursor.rowcount > 0
+
+
 def runnable_generation_jobs(connection: sqlite3.Connection) -> int:
     row = connection.execute(
         "SELECT COUNT(*) FROM followup_generation_jobs WHERE state IN ('queued', 'leased')").fetchone()

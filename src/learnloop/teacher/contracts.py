@@ -219,8 +219,81 @@ class TeacherTurnVisualsEpisodesV1(TeacherTurnVisualsV1):
     requests: list[ActionRequestVisualsEpisodesV1] = Field(default_factory=list, max_length=8)
 
 
+# --- Teacher TE2: probes and gaps (teacher.probes, rev 5 §9, §11.3, §11.7) ------------------------------
+
+#: The actions TE2 adds: a generated single-use probe (FG1's generation path, lesson origin) and a gap filed from
+#: the learner's words (the text-gap pipeline, ``source_kind = 'lesson'``).
+TE2_ACTIONS: tuple[str, ...] = ("serve_probe", "propose_gap")
+GAP_KINDS: tuple[str, ...] = ("prerequisite", "misconception")
+#: The readings a probe may tell apart (a prompt size, ``keep``): one is "held or not held"; two or more are rivals.
+MAX_READINGS = 4
+_TE2Action = Literal[
+    "read_source", "find_sources", "find_practice", "read_history", "read_note", "write_plan", "forecast", "close",
+    "serve_probe", "propose_gap",
+]
+_TE2EpisodeAction = Literal[
+    "read_source", "find_sources", "find_practice", "read_history", "read_note", "write_plan", "forecast", "close",
+    "note_detour", "serve_probe", "propose_gap",
+]
+
+
+class _TE2Fields(WireModel):
+    """``serve_probe {node, readings, p}`` (``p``: the teacher's forecast of a right answer) and
+    ``propose_gap {ref, gap_kind, gap}`` (``ref``: the learner's turn, as the transcript names it)."""
+
+    readings: list[str] = Field(default_factory=list, max_length=MAX_READINGS)
+    ref: str | None = Field(default=None, max_length=20)
+    gap_kind: Literal["prerequisite", "misconception"] | None = None
+    gap: str | None = Field(default=None, max_length=600)
+
+
+class ActionRequestTE2V1(_TE2Fields, ActionRequestV1):
+    action: _TE2Action
+
+
+class TeacherTurnTE2V1(TeacherTurnV1):
+    requests: list[ActionRequestTE2V1] = Field(default_factory=list, max_length=8)
+
+
+class ActionRequestTE2EpisodesV1(_TE2Fields, ActionRequestEpisodesV1):
+    action: _TE2EpisodeAction
+
+
+class TeacherTurnTE2EpisodesV1(TeacherTurnV1):
+    requests: list[ActionRequestTE2EpisodesV1] = Field(default_factory=list, max_length=8)
+
+
+class ActionRequestTE2VisualsV1(_TE2Fields, ActionRequestVisualsV1):
+    action: _TE2Action
+
+
+class TeacherTurnTE2VisualsV1(TeacherTurnVisualsV1):
+    requests: list[ActionRequestTE2VisualsV1] = Field(default_factory=list, max_length=8)
+
+
+class ActionRequestTE2VisualsEpisodesV1(_TE2Fields, ActionRequestVisualsEpisodesV1):
+    action: _TE2EpisodeAction
+
+
+class TeacherTurnTE2VisualsEpisodesV1(TeacherTurnVisualsV1):
+    """Every switch on: the widest stored shape."""
+
+    requests: list[ActionRequestTE2VisualsEpisodesV1] = Field(default_factory=list, max_length=8)
+
+
 __all__ = [
     "ACTIONS",
+    "ActionRequestTE2EpisodesV1",
+    "ActionRequestTE2V1",
+    "ActionRequestTE2VisualsEpisodesV1",
+    "ActionRequestTE2VisualsV1",
+    "GAP_KINDS",
+    "MAX_READINGS",
+    "TE2_ACTIONS",
+    "TeacherTurnTE2EpisodesV1",
+    "TeacherTurnTE2V1",
+    "TeacherTurnTE2VisualsEpisodesV1",
+    "TeacherTurnTE2VisualsV1",
     "ActionRequestEpisodesV1",
     "ActionRequestVisualsEpisodesV1",
     "BRIEF_VERSION",

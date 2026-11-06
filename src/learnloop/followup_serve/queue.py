@@ -51,9 +51,36 @@ def enqueue_entry(repository: Repository, episode_id: str, *, clock: Clock | Non
         )
 
 
+def lesson_dedupe_key(lesson_id: str, node_id: str) -> str:
+    """Teacher TE2: one generation per (lesson, node); the key names the lesson (no column of its own)."""
+
+    return f"lesson:{lesson_id}:{node_id}"
+
+
+def enqueue_lesson(repository: Repository, lesson_id: str, node_id: str, *, clock: Clock | None = None) -> str | None:
+    """A lesson's ``serve_probe`` (teacher TE2, spec_teacher_v1 §11.3): its one generation job, deduplicated on
+    (lesson, node); the worker writes it through FG1's authoring operation (``followup_run.lesson_probe``)."""
+
+    with repository.atomic(), repository.connection() as connection:
+        return store.enqueue_generation_job(
+            connection, kind="lesson", dedupe_key=lesson_dedupe_key(lesson_id, node_id), at=utc_now_iso(clock),
+        )
+
+
+def skip_lesson_job(repository: Repository, lesson_id: str, node_id: str, *, reason: str,
+                    clock: Clock | None = None) -> bool:
+    """A lesson probe no one will answer ("Teach it anyway", the lesson's close): its queued job never runs. One
+    already leased runs on and its question is retired when it lands (``teacher.probes.record_ready``)."""
+
+    with repository.atomic(), repository.connection() as connection:
+        return store.skip_generation_job(connection, lesson_dedupe_key(lesson_id, node_id), reason=reason,
+                                         at=utc_now_iso(clock))
+
+
 def pending_jobs(repository: Repository) -> int:
     with repository.connection() as connection:
         return store.runnable_generation_jobs(connection) if store.present(connection, "followup_generation_jobs") else 0
 
 
-__all__ = ["enqueue_entry", "enqueue_factor", "enqueue_need", "enqueue_workflow", "pending_jobs"]
+__all__ = ["enqueue_entry", "enqueue_factor", "enqueue_lesson", "enqueue_need", "enqueue_workflow", "lesson_dedupe_key",
+           "pending_jobs", "skip_lesson_job"]

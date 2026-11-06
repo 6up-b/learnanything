@@ -41,8 +41,8 @@ RO5_KEYS = {
 def test_the_successor_is_one_constant_after_ro4_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.47"
     # Router objective RO6 (mvp-0.49) landed after it and keeps it.
-    assert TAG == "mvp-0.48" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.49"
-    assert ROUTER_CALIBRATION_VERSIONS == frozenset({TAG, "mvp-0.49"})
+    assert TAG == "mvp-0.48" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.50"
+    assert ROUTER_CALIBRATION_VERSIONS == frozenset({TAG, "mvp-0.49", "mvp-0.50"})
 
 
 def test_the_seeds_are_the_specs_and_validated():
@@ -72,6 +72,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     for key in (*RO5_KEYS, *RO6_KEYS):
         dumped["router_objective"].pop(key)
     assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
+    from tests.test_teacher_te2_successor import drop_te2_keys
+
+    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.50; tests/test_teacher_te2_successor.py), inert below it
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "fa0065c811aa4288783fb0f01567c35eab688a18d941122918499efb8305bfa2"
 
@@ -114,8 +117,8 @@ def test_the_openers_install_this_links_completion():
     # RO6's link (mvp-0.49) is the chain's latest: it hands this link's journal to this link's completion.
     from learnloop import router_learned_tail_upgrade
 
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.router_calibration_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_learned_tail_upgrade)
 
