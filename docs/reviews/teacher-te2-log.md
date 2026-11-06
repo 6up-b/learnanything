@@ -185,3 +185,202 @@ fingerprint parity tests, `tests/test_reader_rw5d_p4b_teacher_visuals.py`, `Less
   next free number, rebuild the head from main's head with only it applied, and repeat the substitutions of item 9.
 - `lesson.activity` can join `TEACHER_TE1_RPCS` in `tests/test_mobile_allowlist.py` once the owner's phone edits land.
 - The owner's vaults gain the two empty tables at their next migration; nothing else changes for them.
+
+## Landing onto main
+
+Main stayed at `c2e810f940` (the base) throughout, so no merge was needed and migration 247 keeps its number (the
+router follow-up batch adds no migration).
+
+### Orchestrator rulings (verbatim)
+
+- R1: "F1's two residual paths are fixed structurally: (a) the identifier guard on every model-supplied field that reaches a log row or a receipt (note_detour's node, plan node ids, lo_id, receipt keys and inputs) checks against the vault's protected and reserved keys across the whole vault, including LOs a plan adds in the same turn, not only the initial brief's; (b) every contract refusal names the offending field by its location (request and node index), never by its text, so no untrusted identifier enters the transcript before the guard. Codex's two reproductions are tests (failing on the pre-fix source). No further Codex round on this class; I read the diff before landing."
+- R2: "TE1's own forecast action copies request.node into its receipts unchecked: it gets the same node resolution and identifier guard, with a test, and TE1 lessons with teacher.episode_log off stay byte-identical apart from a refusal that now fires where protected text would have been written."
+- R3: "Accepted as recorded: episode rows closed once by a trigger, as lessons.closed_at (§11.9's append-only read as insert-then-close-once); experiment ids taken from the lesson's local day up to its opening (a lesson has no session id); lesson.activity pinned in its own LESSON_ACTIVITY_RPCS tuple while tests/test_mobile_allowlist.py holds the owner's edits; probe refusal reasons left to TE2; the head-rename substitutions done by sed (mechanical, test pins only)."
+- R4: "Owner, Nov 5: the old item difficulty scalar is to be retired in the refactor. TE2-log adds no new reader or writer of it; the landing checks this with a grep of the diff against main for the difficulty columns, mastery.irt.difficulty_from_prior and surprise's b, and records the result."
+
+### Step 1: R1 and R2, reproduced first
+
+Each fix's tests failed on the source before it. The details are in `docs/reviews/teacher-te2-log-codex-review.md`
+("Scoped verify and the landing's rulings R1, R2").
+
+| Ruling | Commit | What |
+|---|---|---|
+| R1 | `c301f12a6f` | (a) `guards.identifier_guard` checks every model-supplied field a log row, a receipt or a note's payload copies against every answer key the vault records, on any LO, with no exemption (`guards.key_sets` reads the KeyBook once for both key sets). (b) Every contract refusal (`service._contract_problem`, `visuals.contract_problem`) and every schema refusal (`service._schema_detail`: the location and pydantic's message, never the input) names the field by its location |
+| R2 | `1c4bb43506` | TE1's `forecast`: a node its receipt copies must resolve (a plan node, a node of a plan the turn writes, a brief LO), else it is refused by location; the node and the LO its receipt will hold (`service._forecast_lo`) pass the guards |
+| R1 (a) and R2, found at the smoke | `c1bfacd662` | With the switch off, TE1's own plan node ids and `lo_id` reached a receipt (the lesson receipt's `nodes`), `lesson_plans` and the transcript unguarded, as on main. They, and a posed check's and prediction's node (a visual's record in the receipt), now pass the identifier guard on every turn. A refusal fires only where protected text would have been written |
+
+One wording change is visible with the switch off: a contract or schema refusal's detail line (the transcript's
+`refused` entry) names a location instead of echoing the model's text. Two TE1 and visuals pins moved for it. Nothing
+else of a TE1 lesson changes (the smoke's identity below).
+
+### Steps 2 and 3: early checks and references
+
+- `test_measurement_state_labels`, `test_cli_help_snapshot`, `test_codex_lockdown_round3`, `test_desktop_rpc_contract`,
+  `test_sidecar_serializer_snapshot` and the rest of step 1's set (52 files, `-n 6`): 786 passed. `lint-imports
+  --no-cache`: 43 kept, 0 broken.
+- References (`6dec0ef3a9`, `7de9d232ed`): `db_generate_reference` / `db_validate_reference` (errors []),
+  `desktop_generate` / `desktop_validate` (320/320 TS/TSX, 6/6 Rust), `module_generate` / `module_validate` (PASS),
+  `validate_vault.py` (passed). Stamp-only churn was left out. No defaults snapshot's fingerprint moved.
+
+### Step 4: the gate (at `7de9d232ed`)
+
+| Lane | Result |
+|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0`: ok |
+| Import contracts | 43 kept, 0 broken |
+| Full suite (`-n 8`, 10G scope, under the shared lock) | 26717 passed, 90 skipped, 47 xfailed, 0 failed in 54.9 min (`test_regrade_contract_successor::test_a_held_unrecorded_grade_is_no_evidence` did not flake) |
+| Durability lane (`-m durability`) | 403 passed, 1 skipped |
+| Owner lane (fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-te2log/`, since deleted) | 83 passed, 4 skipped, and the 2 known failures: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]` |
+| Desktop | typecheck ok; whole vitest at `--maxWorkers=4`: 2763 passed; `frontend:build` ok |
+| Rust | `cargo check`: ok |
+| Mobile | typecheck ok, build ok |
+
+A first gate run at `6dec0ef3a9` was stopped at 22% of the full suite when the smoke's finding (`c1bfacd662`) changed
+the source; the gate above ran whole on the final source.
+
+### Step 5: the smoke
+
+**Setup.**
+- Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (arxiv_v2, linear_algebra, probability) under
+  `fixtures-local/landing-te2log-smoke/`, since deleted.
+- Every AI route pointed at 127.0.0.1:9. The teacher, its inline grader and retrieval were the tests' `TeacherFake`
+  (a `StructuredClientFake`; a schema failure reported as the providers report it: `AIInvalidOutput` chained from the
+  `ValidationError`). The Today driver is RO6's (`drive5.py`: router LLM and Decider fakes, `BlindRivalClient`,
+  `AuthorFake`).
+- Main `c2e810f940` and branch `c1bfacd662` code were each `git archive`d with `migrations/`.
+- Upgrades on main code, as RO6's record says: mvp-0.45, rebuild, mvp-0.46, mvp-0.47, rebuild, mvp-0.48, then the
+  default to mvp-0.49 (head 246). Each copy was then opened once with branch code: **migration 247 applied on open**
+  (head 247, algorithm still mvp-0.49).
+- Lessons went through the real sidecar handlers (`lesson.turn`, `lesson.view`, `lesson.activity`), ids seeded and
+  the clock frozen (one minute per action). LOs: `lo_compute_scaled_causal_self_attention`,
+  `lo_add_vectors_coordinate_by_coordinate`, `lo_construct_a_complete_sample_space`.
+
+**Switch off: identical to main on all three copies.** The script: a plan, a check with its forecast, a missed
+answer, a revised plan inserting a foundation with a retention forecast, the close. Main's lesson against the branch's
+with `teacher.episode_log = false`:
+- the 6 teacher prompts, byte for byte;
+- the schema (`TeacherTurnVisualsV1`, 4518 bytes, `cf732d340e1d`, TE1's visuals pin);
+- the transcript, every view and the final view;
+- every written row in every table (ledger, plans, checks, receipt, forecast receipts, reveals and grading rows);
+- no refusal on either side.
+
+**Switch on** (defaults). The script: `p_held` on two plan nodes; a `note_detour` after the miss; a revised plan
+inserting a foundation with no note (unlogged); the screen's intervals in three batches (seq 1, 2 background, 4, 5; seq
+3 never sent); a re-check on the node; the close. The same on every copy:
+
+| Rows per kind | |
+|---|---|
+| `lesson_episodes`, kind `detour` | 2: `reteach` (hypothesis count 1, `teacher_p` 0.6, closed `rechecked`) and `unlogged` (count 0, closed `lesson_closed`) |
+| `lesson_episodes`, kinds `probe`, `gap`, `goal_lo` | 0 |
+| `lesson_activity_intervals` | 4 |
+| `forecast_receipts` | `lesson_node_held` 4 (two plan versions × two nodes), `lesson_check_correct` 2, `lesson_step_retained` 1 |
+
+- The receipt's `episodes`: 2 detour ids.
+- The receipt's minutes: active 2.0, elapsed 9.0, unreported 6.6, 1 interval missing, 4 intervals, source
+  `lesson_activity`. Active and elapsed are given apart. The first interval is clipped to the lesson's opening; the
+  background one is covered but not active.
+- Per episode: the detour has active 48 s over 240 s elapsed; the unlogged one 42 s over 300 s.
+
+`learnloop teacher report` exits 0. Its new lines on linear_algebra:
+
+```
+lessons: 1 opened, 0 open; closed: goal_reached 1
+lesson minutes: active 2.0 (over 1 lesson(s) with intervals; 0 with none, active unknown) · elapsed 9.0 · 1 interval(s) missing
+delayed checks: 0 committed, 0 due, 0 answered
+episodes: probe 0, detour 2, gap 0, goal_lo 0
+probes: 0 generated, 0 refused, 0 retired unused, 0 answered
+detours by repair: reteach 1, unlogged 1 (1 unlogged)
+gaps: none
+probe forecasts (lesson_probe_correct) against their grades: none scored yet
+placement forecasts (lesson_node_held, 4 receipt(s)) against natural outcomes (self-selected): none scored yet
+placement forecasts against RO5's randomized checks (randomized): none scored yet
+coverage of item 5's fields over 2 episode(s): hypothesis 1/2, repair_class 2/2, teacher_p 1/2, predicted_success 2/2, mastery 2/2, open_misconceptions_and_hypotheses 2/2, elapsed_minutes 2/2, active_minutes 2/2, origin 2/2, objective_trace 0/2, experiment_assignments 0/2, outcome 1/2
+```
+
+**Protection.** KEY is a real answer key on an LO outside the lesson's brief:
+- linear_algebra: an exam-reserved item's key (`pi_axiom_commutative_recall_02`, 22 characters);
+- arxiv_v2 and probability: no reserved items, so another LO's item key (142 and 41 characters).
+
+With the switch on, three turns each carried KEY:
+- a revised plan with KEY as an inserted node's id and another node's `lo_id`;
+- the same plan with only the `lo_id`;
+- a `note_detour` whose hypothesis is KEY.
+
+Each was refused by location:
+- `requests[0].plan[0].id`: the identifier guard; on arxiv_v2 the schema's 80-character limit, since KEY is longer;
+- `requests[0].plan[2].lo_id`;
+- `requests[0].hypothesis`.
+
+No episode row, interval, forecast receipt, plan, lesson receipt, later prompt, transcript or view holds KEY. Only the
+refused turns' own `lesson_turn_payloads` rows keep the model's raw turn (2 or 3 rows), as TE1 does for every
+withheld or invalid turn. That record is write-only: neither the transcript, the view nor any report reads a refused
+turn's `turn`.
+
+**R2 (switch off, TE1).** The script: a forecast on node KEY, then a plan with KEY as `n2`'s `lo_id` and a forecast
+on `n2`.
+- **Main** wrote KEY into `forecast_receipts` (1-2), `lesson_plans`, `lesson_receipts`, the later prompts and the
+  views. On arxiv_v2 main's schema refusal echoed it into the transcript.
+- **Branch:**
+  - the forecast was refused by location: `requests[0].node`, contract, or schema on arxiv_v2;
+  - the plan was refused: `requests[0].plan[1].lo_id`;
+  - KEY is in no receipt, plan, prompt, transcript or view, only in the refused turns' raw payloads (1 or 2);
+  - the later forecast on `n2` was written normally.
+
+**Today, Next and the follow-up gate are unchanged against main.** RO6's driver ran one day per copy at mvp-0.49,
+the seed pinned, the second served item missed with FG1's follow-up, the first stop declined. The branch (migration
+247, switch on) against main was IDENTICAL on all three copies (ids and times aside):
+- Today and the plan;
+- every step and every written row, the RO6 traces included;
+- the 5 router LLM requests and the 5 Decider requests;
+- the follow-up gate (`insert_now`, `no_room_to_wait`).
+
+The trace comparison sets aside the timing field `fit_ms`, which RO6's comparer did not list.
+
+**Shadow and survival** (each lesson copy, branch code):
+- `rebuild --shadow`: facet 0, schedule 0, mastery 33 / 20 / 17, every one stamp-only (`algorithm_version` alone);
+  the live database unchanged.
+- Every `lesson_episodes` and `lesson_activity_intervals` row is identical after `rebuild-derived-state` and a
+  state sync.
+
+**R4.** `git diff c2e810f940...HEAD -- src migrations` adds no line matching "difficulty" or "surprise". The only `b`
+in an added line is a local interval bound in `episodes._overlap` (`a, b = max(start, lo), min(end, hi)`), not
+surprise's `b`. So no reader or writer of the difficulty columns, `mastery.irt.difficulty_from_prior` or surprise's
+`b` is added.
+
+**Isolation.**
+- The lessons wrote no `model_call_receipts`. The Today runs' 20 per copy came from the fakes (`fake`, `fake_llm`,
+  `fake_decider`). probability's chatgpt and openrouter receipts are the backup's own, from Oct 25.
+- The socket watch logged no connect at all and no non-loopback address.
+- The only subprocesses were `powerprofilesctl get` (24) and `git -C` (6, the code stamp). No Codex process was
+  started.
+
+### What the owner runs after the fast-forward
+
+No successor and no tag: the vaults stay at mvp-0.49. Migration 247 adds two empty RECEIPT tables
+(`lesson_episodes`, `lesson_activity_intervals`).
+
+For each vault (`~/learnloop-vaults/<name>`), after RO6's commands:
+
+```bash
+learnloop doctor --vault ~/learnloop-vaults/<name>   # or just open the vault in the app: migration 247 applies on open
+```
+
+Then rebuild the desktop app (the lesson screen sends its activity intervals) and restart the phone host.
+
+**To turn the episode log off**, add this to the vault's `learnloop.toml`. Lessons are then TE1's exactly (TE1's
+prompt, schema and forecaster family; no episode or interval row), apart from the location-only refusal wording above:
+
+```toml
+[teacher]
+episode_log = false
+```
+
+### Open items
+
+1. **A refused turn's raw record.** The refused turn's own ledger payload still records the model's raw turn,
+   protected text included when that is why it was refused. This is TE1's design for every withheld message, and
+   nothing reads it. Redacting it would change TE1's ledger, so it is left for the owner to decide.
+2. **Wording.** The identifier guard's refusal reads "…use a plain id such as n1, and never an answer" for a
+   hypothesis too; a field-neutral sentence is a one-line follow-up.
+3. **Carried over:** `lesson.activity` can join `TEACHER_TE1_RPCS` once the owner's phone edits land; the probe
+   refusal reason is TE2's (R3).
