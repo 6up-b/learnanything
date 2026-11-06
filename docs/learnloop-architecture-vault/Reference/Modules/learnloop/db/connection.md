@@ -913,6 +913,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_table_roles.py](../../../../../../tests/test_table_roles.py) — direct import
   - `test_migration_head_user_tables_match_role_registry_exactly`
   - `test_synthetic_unclassified_table_fails_registry_check`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_replay_equivalence_live_fresh_and_rebuilt`
+  - `test_the_reports_lesson_row_at_the_prior_and_after_lessons`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_migration_020_allows_teach_back_on_existing_db`
   - `test_regrade_teach_back_attempt_without_evidence_falls_back_to_core`

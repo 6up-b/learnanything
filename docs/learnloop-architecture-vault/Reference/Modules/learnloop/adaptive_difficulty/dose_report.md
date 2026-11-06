@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/dose_report.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/dose_report.py"
-source_commit: "2778e23fe57cb9e86780e5e1e0b93ad814872e6e"
-source_commit_timestamp: "2026-10-19T00:49:53-04:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/dose_report.py](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py) |
-| Source lines | 387 |
+| Source lines | 457 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2778e23fe57cb9e86780e5e1e0b93ad814872e6e` |
-| Commit timestamp | `2026-10-19T00:49:53-04:00` |
+| Source commit | `04d1b40e19aa935b9233c007868ca3c58d217e99` |
+| Commit timestamp | `2026-11-06T04:58:47-05:00` |
 
 ## Public API
 
@@ -73,7 +73,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `moderated_contrasts(records: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 251) — Observational "helps when" contrasts (§10.4): per kind, the realized cold success of first attempts after at least one event of the kind against those after none, within each predicted level band (the forecast fixed before the attempt), and per subkind moderator (answer mode, qu…
 - `helps_when_lines(contrasts: Mapping[str, Mapping[str, Any]], randomized: Mapping[str, Mapping[str, Any] | None]) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 279) — A "helps when" line appears only when its moderated contrast's interval excludes 0 (and the contrast is a help); "tested by randomized offers" when the offers' moderated estimate agrees in sign with an interval excluding 0, else "what preceded better recall for you".
 - `recommendation(kind: str, n_star: Mapping[str, Any], tag: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 305)
-- `analyse(view: Any, *, visits: Sequence[Mapping[str, Any]], answer_minutes: float | None, median_doses: Mapping[str, float], offers: Mapping[str, Sequence[OfferOutcome]] | None=None, records: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 316) — The whole section (``ad_dose_report_v1``): curves, gains, minutes, useful doses, offers, lines.
+- `lesson_draws(view: Any, subkind: str, *, draws: int=DRAWS, seed: str=SEED) -> tuple[np.ndarray, np.ndarray, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 320) — Teacher TE3a: posterior draws of a lesson subkind's two curve coefficients from the subject view's mixture (as :func:`coefficient_draws`), or from the seeded prior (``ad_lesson_priors_v1``) while the bank has no lesson coordinate; and which of the two it is.
+- `lesson_row(view: Any, inputs: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 345) — Teacher TE3a (spec_teacher_v1 rev 5 §14.2): the ``lesson`` row.
+- `analyse(view: Any, *, visits: Sequence[Mapping[str, Any]], answer_minutes: float | None, median_doses: Mapping[str, float], offers: Mapping[str, Sequence[OfferOutcome]] | None=None, records: Sequence[Mapping[str, Any]]=(), lessons: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 380) — The whole section (``ad_dose_report_v1``): curves, gains, minutes, useful doses, offers, lines; with ``lessons`` (teacher TE3a, while lesson opportunities are live), the ``lesson`` row and its lines.
 
 ### Module constants
 
@@ -90,6 +92,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `BAND_TEXT` ([src/learnloop/adaptive_difficulty/dose_report.py](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 222)
 - `SUBKIND_MODERATORS` ([src/learnloop/adaptive_difficulty/dose_report.py](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 225)
 - `SUBKIND_TEXT` ([src/learnloop/adaptive_difficulty/dose_report.py](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 229)
+- `LESSON_NAME` ([src/learnloop/adaptive_difficulty/dose_report.py](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 316)
+- `PRIOR_ONLY` ([src/learnloop/adaptive_difficulty/dose_report.py](../../../../../../src/learnloop/adaptive_difficulty/dose_report.py), line 317)
 
 ### Explicit exports
 
@@ -106,6 +110,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `curve`
 - `helps_when_lines`
 - `label`
+- `lesson_draws`
+- `lesson_row`
 - `level_band`
 - `minutes_per_event`
 - `moderated_contrasts`
@@ -136,7 +142,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] — imports `module`; calls `dose_basis`, `residual_success`, `success_inverse`
 - [[Reference/Modules/learnloop/adaptive_difficulty/monitoring|learnloop.adaptive_difficulty.monitoring]] — imports `module`; calls `confidence_sequence`
-- [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] — imports `module`
+- [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] — imports `module`; calls `lesson_coordinate`
 
 ### Platform and third-party dependencies
 
@@ -162,6 +168,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_helps_when_lines_only_when_the_moderated_contrast_excludes_zero`
   - `test_recommendations_never_act`
   - `test_tested_label_only_when_the_offers_agree_in_sign_and_exclude_zero`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_the_reports_lesson_row_at_the_prior_and_after_lessons`
 
 ## Modification guidance
 

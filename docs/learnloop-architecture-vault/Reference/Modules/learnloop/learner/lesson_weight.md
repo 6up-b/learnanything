@@ -229,6 +229,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_the_prior_is_centred_and_spread_on_ro4s_placeholder_with_ads_shape`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f2_a_held_cold_grade_resolves_nothing_until_released`
   - `test_f5_a_forecast_agreeing_with_the_cold_prediction_leaves_the_mass_near_the_learned_one`

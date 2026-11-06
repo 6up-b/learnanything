@@ -1523,6 +1523,36 @@ LO, bound as `lesson_step_retained` and resolved by the forecast report. The rec
 from the replayer's trace. Not built here (TE2's): probe, gap and goal-LO writers, the `lesson_probe_correct` kind
 (the report already reads it), a probe refusal's reason (an enum column in TE2's migration). Paid calls: none.
 
+*As built (TE3a, `docs/reviews/teacher-te3a.md`; branch `ad/te3a-lesson-opportunity` on main `5565bede25`):* an AD
+successor, `LESSON_OPPORTUNITY_ALGORITHM_VERSION` = `mvp-0.50` on the branch (one constant, renumbered at landing,
+expected `mvp-0.52`), switch `adaptive_difficulty.lesson_opportunities` (default true; off or below the tag, AD is
+`mvp-0.49`'s exactly and the objective keeps RO4's placeholder); `learnloop.lesson_opportunity_upgrade` is the
+chain's next journalled link; every defaults snapshot recomputed. Migration 248 (renumbered at landing if TE2's
+lands first; head `migration_head_248`) rebuilds `ad_reading_opportunities` with `'lesson'` in its kind CHECK. AD's
+sweep (`adaptive_difficulty.lessons`, called from `reading.sweep`) records one opportunity per closed lesson's node
+with a vault LO whose final status is `landed` or `taught` (the subkind; `held`, `uncertain` and any other status is
+none), source `lesson_receipts` / `<lesson id>/<node id>`, source time the receipt's write time (when the outcome
+became known), dose one on each of the LO's facets (§14.2's "one per node": one landed dose then moves the LO's
+predicted `η` by one step of the curve whatever its facet count); every unrecorded receipt is read, however old. The
+firewall's allowlist gains `("lesson", landed|taught, "lesson_receipts")` (A12 limit 1 as amended, recorded in the
+AD spec's §5.11 and D20); `View.reading`'s kind gate admits `lesson` behind its own flag, each subkind with its own
+two-coefficient curve (`ad_lesson_priors_v1`, created at the first lesson so a bank no lesson reached is its
+predecessor's exactly) on one lesson window per facet that a graded attempt closes. The prior: one first dose moves
+`η` by RO4's placeholder, `γ`'s prior mean x the lesson-check mass prior 0.5 = 0.1 logit, with the placeholder's
+spread 0.05 (sd), shaped between the two scales by AD's rule for a new kind; `taught` the same as `landed`.
+`lessons`, `lesson_plans` and `lesson_receipts` move from DENIED to READING (PROTECTED; `column_classes` unchanged,
+their records content): a lesson, its plan or its receipt naming a reading the withheld material touches is withheld
+(Option B), the learner's typed goal is never read. The objective's `LESSON` branch reads the `landed` curve's
+posterior moments and each LO's position through `readiness.decision_state_fields(learning_moments=True)`
+(`lesson_curve`, at the tag with the switch on and `fitted_models`): one dose from the position, the belief its mean,
+the true draw mean + sd·z on `γ`'s stream, so at the seeded prior every draw is the placeholder's (`Q̄` equal to
+1e-12). The report: an `ad_threshold@subject:nolesson` arm, the `lessons_worse_than_no_lessons` auto-flag
+(recommends `lesson_opportunities = false`) and the dose-and-burden `lesson` row (per subkind the first lesson's step
+in logits and points with a 90% interval, the curve, the lesson count, RO4's placeholder beside it), all only while
+lessons are live. A graded lesson check is never an AD attempt (§14.1), so no `γ` is applied to one and nothing is
+replaced (the in-passage hook stays unwired). Paid calls: none. Not built: the receipt naming the readings of the
+lesson's book (they live only in turn payloads AD never reads; the review file names the smallest addition).
+
 ---
 
 ## 21. Measurement

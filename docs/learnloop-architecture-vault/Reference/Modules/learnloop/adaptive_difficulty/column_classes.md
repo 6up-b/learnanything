@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/column_classes.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
-source_commit: "586a53eca7cff05b133d1e2409b239f90f8bde26"
-source_commit_timestamp: "2026-11-05T23:00:02-05:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,24 +50,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py) |
-| Source lines | 701 |
+| Source lines | 704 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `586a53eca7cff05b133d1e2409b239f90f8bde26` |
-| Commit timestamp | `2026-11-05T23:00:02-05:00` |
+| Source commit | `04d1b40e19aa935b9233c007868ca3c58d217e99` |
+| Commit timestamp | `2026-11-06T04:58:47-05:00` |
 
 ## Public API
 
-- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 692) — A column's class.
+- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 695) — A column's class.
 
 ### Module constants
 
 - `METADATA` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 26)
 - `CONTENT` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 27)
 - `_CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 30)
-- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 685)
+- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 688)
 
 ### Explicit exports
 

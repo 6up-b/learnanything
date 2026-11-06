@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/priors.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/priors.py"
-source_commit: "c57b2057798723352479f5c1b2cd134fcf96a807"
-source_commit_timestamp: "2026-10-18T21:18:46-04:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py) |
-| Source lines | 304 |
+| Source lines | 363 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c57b2057798723352479f5c1b2cd134fcf96a807` |
-| Commit timestamp | `2026-10-18T21:18:46-04:00` |
+| Source commit | `04d1b40e19aa935b9233c007868ca3c58d217e99` |
+| Commit timestamp | `2026-11-06T04:58:47-05:00` |
 
 ## Public API
 
@@ -67,10 +67,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `hyper_grid(version: str=HYPER_VERSION) -> tuple[HyperPoint, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 74) — The grid in its fixed order (split, then coupling, then implication).
 - `uniform_points(grid: Iterable[HyperPoint]) -> tuple[HyperPoint, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 87)
 - `offset_variance(split: float) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 94) — The facet and cell offsets' prior variance: the cold-start variance's remainder, halved.
-- `feature_coding(features: Mapping[str, Any] | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 203) — ``φ(x)``: the β coordinates with coefficient 1 for this tuple (relative to ``x_ref``).
-- `features_complete(features: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 241)
-- `prior_demand(features: Mapping[str, Any] | None) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 247) — ``β̄·φ(x)`` at the prior means (display and sims only; never certification, A11).
-- `versions() -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 254)
+- `lesson_coordinate(subkind: str, m: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 207)
+- `feature_coding(features: Mapping[str, Any] | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 255) — ``φ(x)``: the β coordinates with coefficient 1 for this tuple (relative to ``x_ref``).
+- `features_complete(features: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 293)
+- `prior_demand(features: Mapping[str, Any] | None) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 299) — ``β̄·φ(x)`` at the prior means (display and sims only; never certification, A11).
+- `versions() -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 306)
 
 ### Module constants
 
@@ -109,15 +110,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `READING_PRIORS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 147)
 - `VERDICT_PRIORS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 152)
 - `VERDICT_CLASSES` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 156)
-- `RATING_PRIORS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 159)
-- `TIMING_PRIORS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 164)
-- `RATINGS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 168)
-- `REFERENCE_TUPLE` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 172)
-- `TRANSFER_ORDER` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 180)
-- `SPAN_ORDER` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 181)
-- `SCAFFOLDING_VALUES` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 182)
-- `RESPONSE_VALUES` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 183)
-- `MODELLED_DIMENSIONS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 184)
+- `LESSON_PRIORS_VERSION` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 166)
+- `LESSON_KIND` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 167)
+- `LESSON_SUBKINDS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 169)
+- `LESSON_CHECK_MASS_PRIOR` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 174)
+- `LESSON_PRIORS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 203)
+- `LESSON_NAMES` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 204)
+- `RATING_PRIORS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 211)
+- `TIMING_PRIORS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 216)
+- `RATINGS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 220)
+- `REFERENCE_TUPLE` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 224)
+- `TRANSFER_ORDER` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 232)
+- `SPAN_ORDER` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 233)
+- `SCAFFOLDING_VALUES` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 234)
+- `RESPONSE_VALUES` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 235)
+- `MODELLED_DIMENSIONS` ([src/learnloop/adaptive_difficulty/priors.py](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 236)
 
 ### Explicit exports
 
@@ -140,6 +147,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `HyperPoint`
 - `KAPPA`
 - `LAPSE`
+- `LESSON_CHECK_MASS_PRIOR`
+- `LESSON_KIND`
+- `LESSON_NAMES`
+- `LESSON_PRIORS`
+- `LESSON_PRIORS_VERSION`
+- `LESSON_SUBKINDS`
 - `LO_VIEW_POINT`
 - `LO_VIEW_SPLIT`
 - `MAX_COUPLED`
@@ -164,6 +177,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `feature_coding`
 - `features_complete`
 - `hyper_grid`
+- `lesson_coordinate`
 - `offset_variance`
 - `prior_demand`
 - `uniform_points`
@@ -171,8 +185,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_complexity(value: Any) -> int | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 187)
-- `_tools(value: Any) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 195)
+- `_lesson_priors() -> tuple[tuple[str, float, float], ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 177) — ``ad_lesson_priors_v1``: each subkind's two coefficients, independent, with the same prior for both subkinds (the data separate them; no hand-set ratio).
+- `_complexity(value: Any) -> int | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 239)
+- `_tools(value: Any) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/priors.py), line 247)
 
 ## Who imports or calls it
 
@@ -180,15 +195,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]] — imports `module`; statically calls `feature_coding`
-- [[Reference/Modules/learnloop/adaptive_difficulty/dose_report|learnloop.adaptive_difficulty.dose_report]] — imports `module`
+- [[Reference/Modules/learnloop/adaptive_difficulty/dose_report|learnloop.adaptive_difficulty.dose_report]] — imports `module`; statically calls `lesson_coordinate`
+- [[Reference/Modules/learnloop/adaptive_difficulty/lessons|learnloop.adaptive_difficulty.lessons]] — imports `module`
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `LESSON_KIND`
 - [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] — imports `module`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] — imports `module`
 - [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `module`
+- [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `module`; statically calls `lesson_coordinate`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; statically calls `hyper_grid`, `uniform_points`, `versions`
 - [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `module`; statically calls `versions`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `module`; statically calls `versions`
-- [[Reference/Modules/learnloop/adaptive_difficulty/state|learnloop.adaptive_difficulty.state]] — imports `module`; statically calls `feature_coding`
+- [[Reference/Modules/learnloop/adaptive_difficulty/state|learnloop.adaptive_difficulty.state]] — imports `module`; statically calls `feature_coding`, `lesson_coordinate`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `COLD_START_VARIANCE`, `DOSE_SCALES`, `GAMMA_PRIOR`, `READING_PRIORS`
 - [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]] — imports `module`; statically calls `hyper_grid`
 - [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] — imports `module`; statically calls `feature_coding`, `hyper_grid`, `offset_variance`, `uniform_points`
@@ -211,7 +229,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose_report|learnloop.adaptive_difficulty.dose_report]], [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]], [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]], [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose_report|learnloop.adaptive_difficulty.dose_report]], [[Reference/Modules/learnloop/adaptive_difficulty/lessons|learnloop.adaptive_difficulty.lessons]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -239,6 +257,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_subject_view_mixture_keeps_propensities_exact`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_the_rollouts_read_ads_fitted_learning_posterior_at_the_tag_and_priors_otherwise`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder`
+  - `test_replay_equivalence_live_fresh_and_rebuilt`
+  - `test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on`
+  - `test_the_prior_is_centred_and_spread_on_ro4s_placeholder_with_ads_shape`
+  - `test_the_reports_lesson_row_at_the_prior_and_after_lessons`
+  - `test_the_view_gate_applies_each_subkinds_curve_and_off_is_the_predecessor_exactly`
 
 ## Modification guidance
 

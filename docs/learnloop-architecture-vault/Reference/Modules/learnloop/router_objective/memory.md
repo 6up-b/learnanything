@@ -147,6 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v_recomputed_from_the_logged_rows_is_the_tails_next_action`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_the_combiner_is_fitted_on_resolved_checks_and_is_its_prior_with_none`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
 
 ## Modification guidance
 

@@ -3,13 +3,13 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 247
+schema_head: 248
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/234_teacher_lessons.sql"
+  - "src/learnloop/adaptive_difficulty/arms.py"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/dose_report.py"
+  - "src/learnloop/adaptive_difficulty/history_card.py"
+  - "src/learnloop/adaptive_difficulty/lessons.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/ai/disclosures.py"
-  - "src/learnloop/algorithm_versions.py"
-  - "src/learnloop/cli/router.py"
-  - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
-  - "src/learnloop/daily_plan/lesson_suggestion.py"
+  - "src/learnloop/adaptive_difficulty/reading.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -126,6 +126,8 @@ None found by exact static reference scan.
 - `tests/test_followups_batch6_review_fixes.py`
 - `tests/test_followups_batch6_router_report.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
+- `tests/test_ro2_ad_raw_document_reads.py`
+- `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`
@@ -136,7 +138,6 @@ None found by exact static reference scan.
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/test_teacher_te2log_migration.py`
 - `tests/test_teacher_te2log_receipt.py`
-- `tests/test_teacher_te2log_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

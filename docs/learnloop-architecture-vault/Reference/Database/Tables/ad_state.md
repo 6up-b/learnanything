@@ -3,13 +3,13 @@ title: "ad_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_state"
   - "table ad_state"
-schema_head: 247
+schema_head: 248
 table_name: "ad_state"
 table_role: "derived"
 functionality_status: "active"
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 - `tests/test_ad_guard_offer_receipts.py`
 - `tests/test_architecture.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_te3a_lesson_opportunity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

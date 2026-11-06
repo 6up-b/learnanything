@@ -213,6 +213,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fault_after_each_boundary_recovers_to_the_no_fault_state`
   - `test_projection_failure_defers_without_half_update`
   - `test_submit_writes_full_lineage_in_one_unit`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
 
 ## Modification guidance
 

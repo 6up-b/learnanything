@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/salience_firewall.py"
 source_paths:
   - "src/learnloop/attempts/salience_firewall.py"
-source_commit: "6df9761722934fe9a15e17c92a3b74cb50b9425c"
-source_commit_timestamp: "2026-11-03T19:25:26-05:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,44 +50,46 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py) |
-| Source lines | 358 |
+| Source lines | 378 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `6df9761722934fe9a15e17c92a3b74cb50b9425c` |
-| Commit timestamp | `2026-11-03T19:25:26-05:00` |
+| Source commit | `04d1b40e19aa935b9233c007868ca3c58d217e99` |
+| Commit timestamp | `2026-11-06T04:58:47-05:00` |
 
 ## Public API
 
-- `class SalienceEvidenceRejected(ValueError)` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 117) — Raised when a salience-only signal is fed into an evidence/belief API.
-- `salience_payload(payload: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 121) — Stamp ``authority_class='salience_only'`` onto a reader/reading event payload.
-- `is_salience_only(obj: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 155)
-- `reject_salience(obj: Any, *, context: str='evidence_ingestion') -> None` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 159) — Hard reject: raise if ``obj`` carries salience-only authority.
-- `proposal_priority_signal(events: list[Mapping[str, Any]]) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 171) — The ONE allowed downstream of salience (§8.2): reorder PROPOSAL priority only.
-- `salience_projection_v1(events: list[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 196) — Versioned salience projector v1 (§8.2, design B step 9).
-- `learning_opportunity_events(rows: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 322) — The confirmed exception's only path (A12, §5.11): learning opportunities, never evidence.
+- `class SalienceEvidenceRejected(ValueError)` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 127) — Raised when a salience-only signal is fed into an evidence/belief API.
+- `salience_payload(payload: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 131) — Stamp ``authority_class='salience_only'`` onto a reader/reading event payload.
+- `is_salience_only(obj: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 165)
+- `reject_salience(obj: Any, *, context: str='evidence_ingestion') -> None` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 169) — Hard reject: raise if ``obj`` carries salience-only authority.
+- `proposal_priority_signal(events: list[Mapping[str, Any]]) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 181) — The ONE allowed downstream of salience (§8.2): reorder PROPOSAL priority only.
+- `salience_projection_v1(events: list[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 206) — Versioned salience projector v1 (§8.2, design B step 9).
+- `learning_opportunity_events(rows: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 342) — The confirmed exception's only path (A12, §5.11): learning opportunities, never evidence.
 
 ### Module constants
 
-- `SALIENCE_ONLY` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 65)
-- `DWELL_SEGMENT_MAX` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 69)
-- `READING_EVENT_KINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 74)
-- `SALIENCE_PROJECTIONS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 105)
-- `SALIENCE_PROJECTOR_VERSION` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 186)
-- `_DEPTH_SUGGEST_HIGHLIGHT_WEIGHT` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 191)
-- `_DEPTH_SUGGEST_QUESTION_WEIGHT` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 192)
-- `_DEPTH_SUGGEST_REVISIT_WEIGHT` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 193)
-- `SELF_CHECK_SUBKINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 274)
-- `LEARNING_OPPORTUNITY_SOURCES` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 279)
-- `LEARNING_OPPORTUNITY_KINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 290)
-- `LEARNING_OPPORTUNITY_FIELDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 294)
-- `_ALLOWED` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 298)
+- `SALIENCE_ONLY` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 75)
+- `DWELL_SEGMENT_MAX` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 79)
+- `READING_EVENT_KINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 84)
+- `SALIENCE_PROJECTIONS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 115)
+- `SALIENCE_PROJECTOR_VERSION` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 196)
+- `_DEPTH_SUGGEST_HIGHLIGHT_WEIGHT` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 201)
+- `_DEPTH_SUGGEST_QUESTION_WEIGHT` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 202)
+- `_DEPTH_SUGGEST_REVISIT_WEIGHT` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 203)
+- `SELF_CHECK_SUBKINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 284)
+- `LESSON_SUBKINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 287)
+- `LEARNING_OPPORTUNITY_SOURCES` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 292)
+- `READING_OPPORTUNITY_KINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 308)
+- `LEARNING_OPPORTUNITY_KINDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 311)
+- `LEARNING_OPPORTUNITY_FIELDS` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 314)
+- `_ALLOWED` ([src/learnloop/attempts/salience_firewall.py](../../../../../../src/learnloop/attempts/salience_firewall.py), line 318)
 
 ## Internal implementation anchors
 
-- `_extract_authority_class(obj: Any) -> str | None` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 129) — Best-effort recovery of an authority class from a dict, an event row, or an object carrying a payload/metadata/draft.
-- `_doses(value: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 301)
+- `_extract_authority_class(obj: Any) -> str | None` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 139) — Best-effort recovery of an authority class from a dict, an event row, or an object carrying a payload/metadata/draft.
+- `_doses(value: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/salience_firewall.py), line 321)
 
 ## Who imports or calls it
 
@@ -199,6 +201,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_salience_payload_always_stamps_authority_class`
   - `test_salience_projection_dwell_is_bounded`
   - `test_salience_projection_v1_is_salience_only_and_rejected_as_evidence`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_the_firewall_admits_exactly_the_lesson_subkinds_and_they_stay_salience_only`
+  - `test_the_prior_is_centred_and_spread_on_ro4s_placeholder_with_ads_shape`
 - [tests/test_workbench_hint_service.py](../../../../../../tests/test_workbench_hint_service.py) — direct import
   - `test_help_events_are_salience_only`
 

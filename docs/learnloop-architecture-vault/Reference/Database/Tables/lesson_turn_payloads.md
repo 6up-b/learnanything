@@ -3,13 +3,13 @@ title: "lesson_turn_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_turn_payloads"
   - "table lesson_turn_payloads"
-schema_head: 247
+schema_head: 248
 table_name: "lesson_turn_payloads"
 table_role: "workflow"
 functionality_status: "active"
@@ -99,6 +99,7 @@ None found by exact static reference scan.
 - `tests/test_followups_batch5_recap_dependencies.py`
 - `tests/test_followups_batch5_recap_protection.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
+- `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`

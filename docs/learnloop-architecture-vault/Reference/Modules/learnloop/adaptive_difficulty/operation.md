@@ -299,6 +299,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables`
 
 ## Modification guidance
 

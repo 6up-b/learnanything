@@ -396,6 +396,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_migration_head_user_tables_match_role_registry_exactly`
   - `test_synthetic_unclassified_table_fails_registry_check`
 - [tests/test_task_blueprints.py](../../../../../../tests/test_task_blueprints.py) — direct import
+- [tests/test_te3a_migration.py](../../../../../../tests/test_te3a_migration.py) — direct import
+  - `test_248_is_the_head_and_the_table_stays_a_receipt_ad_reads_by_its_rules`
+  - `test_248_widens_the_kind_and_keeps_every_row_key_index_and_trigger`
+  - `test_the_head_fixture_holds_248_in_rollback_mode`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_migration_020_allows_teach_back_on_existing_db`
 - [tests/test_teacher_te1_migration.py](../../../../../../tests/test_teacher_te1_migration.py) — direct import

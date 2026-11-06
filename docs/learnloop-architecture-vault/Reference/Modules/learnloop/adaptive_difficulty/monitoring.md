@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/monitoring.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/monitoring.py"
-source_commit: "2778e23fe57cb9e86780e5e1e0b93ad814872e6e"
-source_commit_timestamp: "2026-10-19T00:49:53-04:00"
+source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
+source_commit_timestamp: "2026-11-06T04:58:47-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/monitoring.py](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py) |
-| Source lines | 285 |
+| Source lines | 287 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2778e23fe57cb9e86780e5e1e0b93ad814872e6e` |
-| Commit timestamp | `2026-10-19T00:49:53-04:00` |
+| Source commit | `04d1b40e19aa935b9233c007868ca3c58d217e99` |
+| Commit timestamp | `2026-11-06T04:58:47-05:00` |
 
 ## Public API
 
@@ -71,13 +71,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `wilson(failures: int, n: int, z: float=1.96) -> list[float] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 144)
 - `class Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 155)
   - `as_dict(self) -> dict[str, Any]` (line 161; public)
-- `comparison_flag(name: str, differences: Sequence[float], ranges: Sequence[tuple[float, float]] | None=None) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 176) — Fires when the live model is worse (its loss minus the comparator's), the sequence excluding 0.
-- `readiness_flag(errors: Sequence[float | None]) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 184) — Band-region reliability error of ``@subject`` above 0.05 in two consecutive reports.
-- `band_missed_flag(outcomes: Sequence[float]) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 193) — Realized success on AD-selected practice outside 0.60-0.88 over (at least) 200 selections.
-- `dose_burden_flag(delivered: Sequence[Mapping[str, Any]], density_lowerings: Sequence[str], *, now: str) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 203) — Of the last 30 delivered extra offers at least 80% dismissed; or the cue density lowered within a visit after an offer three times in 14 days.
-- `log_loss_difference(p_challenger: float, p_comparator: float, y: float) -> tuple[float, tuple[float, float]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 223) — The challenger's log loss minus the comparator's, and the two values it could take (its predictable range: both forecasts are fixed before the outcome).
-- `difference_terms(records: Iterable[Mapping[str, Any]], challenger: str, comparator: str, *, split: str | None=None) -> tuple[list[float], list[tuple[float, float]]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 234) — Per scored record, the log-loss difference and its predictable range (the split's records).
-- `differences(records: Iterable[Mapping[str, Any]], challenger: str, comparator: str, *, split: str | None=None) -> list[float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 252) — Per scored record, the challenger's log loss minus the comparator's (the split's records only).
+- `comparison_flag(name: str, differences: Sequence[float], ranges: Sequence[tuple[float, float]] | None=None) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 178) — Fires when the live model is worse (its loss minus the comparator's), the sequence excluding 0.
+- `readiness_flag(errors: Sequence[float | None]) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 186) — Band-region reliability error of ``@subject`` above 0.05 in two consecutive reports.
+- `band_missed_flag(outcomes: Sequence[float]) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 195) — Realized success on AD-selected practice outside 0.60-0.88 over (at least) 200 selections.
+- `dose_burden_flag(delivered: Sequence[Mapping[str, Any]], density_lowerings: Sequence[str], *, now: str) -> Flag` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 205) — Of the last 30 delivered extra offers at least 80% dismissed; or the cue density lowered within a visit after an offer three times in 14 days.
+- `log_loss_difference(p_challenger: float, p_comparator: float, y: float) -> tuple[float, tuple[float, float]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 225) — The challenger's log loss minus the comparator's, and the two values it could take (its predictable range: both forecasts are fixed before the outcome).
+- `difference_terms(records: Iterable[Mapping[str, Any]], challenger: str, comparator: str, *, split: str | None=None) -> tuple[list[float], list[tuple[float, float]]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 236) — Per scored record, the log-loss difference and its predictable range (the split's records).
+- `differences(records: Iterable[Mapping[str, Any]], challenger: str, comparator: str, *, split: str | None=None) -> list[float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/monitoring.py), line 254) — Per scored record, the challenger's log loss minus the comparator's (the split's records only).
 
 ### Module constants
 
