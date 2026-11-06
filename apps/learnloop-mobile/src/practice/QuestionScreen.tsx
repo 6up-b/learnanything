@@ -16,6 +16,7 @@ import {
   type SubmitOutcome
 } from "../store/sessionCache";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
+import { Sheet } from "../shell/Sheet";
 
 /** §3.4: plain LaTeX entry with a small bar of common commands; a real math keyboard is later. */
 const SYMBOLS = ["$", "^{}", "_{}", "\\frac{}{}", "\\sqrt{}", "\\sum", "\\int", "\\infty", "\\pi", "\\theta", "\\lambda", "\\le", "\\ge", "\\ne", "\\to"];
@@ -26,6 +27,10 @@ export interface QuestionTarget {
   readonly schedulerCandidateId: string | null;
   /** A draft the checkpoint holds for this item. */
   readonly restored?: { answer: string; submissionId: string | null; stuck: boolean; assist: DraftAssist } | null;
+  /** Mobile v2 J1: the plan presentation this serve is (router R2a), which the answer binds to. */
+  readonly planPresentationId?: string | null;
+  /** Mobile v2 J6: a randomized check is answered cold. No help is offered, and no label says why. */
+  readonly noHelp?: boolean;
 }
 
 /** Into the focused editor at the caret; at the end of the answer if it isn't focused. */
@@ -66,12 +71,14 @@ function openedDraft(sessionId: string, target: QuestionTarget) {
   const own = readQuestionDraft(sessionId, target.practiceItemId);
   if (own) return { ...own, schedulerCandidateId: own.schedulerCandidateId ?? target.schedulerCandidateId, own: true };
   const restored = target.restored;
+  const assist = restored?.assist ?? NO_ASSIST;
   return {
     answer: restored?.answer ?? "",
     stuck: restored?.stuck ?? false,
     submissionId: restored?.submissionId ?? newUlid(),
     schedulerCandidateId: target.schedulerCandidateId,
-    assist: restored?.assist ?? NO_ASSIST,
+    // A plan step names its presentation; a checkpoint's own wins (it is the serve this draft is to).
+    assist: target.planPresentationId && !assist.planPresentationId ? { ...assist, planPresentationId: target.planPresentationId } : assist,
     sentInput: null as SubmitInput | null,
     // A key that came with the checkpoint may have a job or an attempt behind it.
     outcome: (restored?.submissionId ? "unknown" : "none") as SubmitOutcome,
@@ -114,7 +121,11 @@ export function QuestionScreen({
   const { practiceItemId } = target;
   const sessionId = session.sessionId;
   const [opened] = useState(() => openedDraft(session.sessionId, target));
-  const { assist } = opened;
+  // The help this draft has had: an item's own hint revealed here adds to it (J16).
+  const [assist, setAssist] = useState<DraftAssist>(opened.assist);
+  const assistRef = useRef(assist);
+  assistRef.current = assist;
+  const [helpOpen, setHelpOpen] = useState(false);
   // A fresh draft after a landed skip answers no offer: that serve's went with the skip.
   const schedulerCandidateId = useRef(opened.schedulerCandidateId);
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
@@ -158,7 +169,7 @@ export function QuestionScreen({
       stuck: next.stuck ?? latest.current.stuck,
       submissionId: submissionId.current,
       schedulerCandidateId: schedulerCandidateId.current,
-      assist,
+      assist: assistRef.current,
       sentInput: sentInput.current,
       outcome: outcome.current,
       revision: revision.current,
@@ -198,6 +209,7 @@ export function QuestionScreen({
   const saveDraft = useCallback(async () => {
     if (!dirty.current || skipInFlight.current || skipRevision.current !== null || latest.current.frozen || !latest.current.ready) return;
     dirty.current = false;
+    const assist = assistRef.current;
     try {
       await phone.saveDraft({
         sessionId,
@@ -217,14 +229,14 @@ export function QuestionScreen({
       dirty.current = true;
       throw error;
     }
-  }, [assist, practiceItemId, sessionId]);
+  }, [practiceItemId, sessionId]);
 
   useEffect(() => {
     if (!item || probeActive) return undefined;
     const timer = window.setTimeout(() => void saveWhenSettled().catch(onError), DRAFT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answer, stuck, item, probeActive, saveDraft]);
+  }, [answer, stuck, assist, item, probeActive, saveDraft]);
 
   // Leaving the screen is no reason to lose the last 800 ms of typing.
   const flushOnLeave = useRef(() => undefined as void);
@@ -237,6 +249,33 @@ export function QuestionScreen({
     revision.current += 1;
     setAnswer(next);
     remember({ answer: next });
+  }
+
+  /**
+   * J16 partial: the item's next own hint. The sheet said what it changes before this (◌ with help);
+   * the count rides on the draft and the submit as the desktop's does, and the reveal row is telemetry
+   * the screen never waits on (`practice.record_hint_reveal`, which the server refuses in a probe).
+   */
+  function revealHint() {
+    const current = assistRef.current;
+    const index = current.hintsUsed;
+    const next: DraftAssist = {
+      ...current,
+      hintsUsed: index + 1,
+      hintSeen: true,
+      firstHintProgress: current.firstHintProgress ?? (latest.current.answer.trim() ? "draft_started" : "no_draft")
+    };
+    assistRef.current = next;
+    setAssist(next);
+    dirty.current = true;
+    revision.current += 1;
+    remember();
+    void phone
+      .recordHintReveal({
+        sessionId, practiceItemId, submissionId: submissionId.current, authoredIndex: index,
+        answerMd: latest.current.answer, revealedAt: new Date().toISOString()
+      })
+      .catch(() => undefined);
   }
 
   /** Reads the checkpoint for a skip with no reply. Unreachable, the question stays and nothing is written. */
@@ -316,6 +355,7 @@ export function QuestionScreen({
   function nextRequest(key: string, currentItem: PracticeItemDetail): SubmitInput {
     // The desktop's count (`answerHints`): the authored reveals and one for the book. What the server
     // counts itself (its own hints, an earlier attempt's help) stays out of it.
+    const assist = assistRef.current;
     const hints = assist.hintsUsed + (assist.pageSeen ? 1 : 0);
     return {
       sessionId,
@@ -463,6 +503,11 @@ export function QuestionScreen({
       </div>
     );
   }
+  // J16: an item's own hints, unless this answer is to be cold (a randomized check, a check on your
+  // own, a cold follow-up lane), where help would make it a non-success: none is offered then.
+  const ownHints = item.hints ?? [];
+  const helpOffered = !target.noHelp && !item.intentCheck && !item.activeFollowupKind && ownHints.length > 0;
+  const revealed = helpOffered ? ownHints.slice(0, Math.min(assist.hintsUsed, ownHints.length)) : [];
   // Mobile v2 §4.3: the symbol bar and Submit sit together in the thumb zone, kept above the
   // keyboard by the shell's visual-viewport inset; the secondary actions wrap beneath.
   return (
@@ -476,6 +521,28 @@ export function QuestionScreen({
           <div className="markdown"><MarkdownMath value={block.markdown} components={RemoteImageAsLink} /></div>
         </div>
       ))}
+      {revealed.length ? (
+        <section className="banner" aria-label="Hints">
+          <p className="dim">◌ with help</p>
+          {revealed.map((hint, index) => (
+            <div key={index} className="markdown"><MarkdownMath value={hint} components={RemoteImageAsLink} /></div>
+          ))}
+        </section>
+      ) : null}
+      {helpOpen ? (
+        <Sheet title="A hint" onClose={() => setHelpOpen(false)}>
+          {assist.hintsUsed < ownHints.length ? (
+            <>
+              <p>With a hint, this answer counts as answered with help (◌), not on your own.</p>
+              <div className="actions">
+                <button className="primary block" type="button" onClick={() => { revealHint(); setHelpOpen(false); }}>Show a hint</button>
+              </div>
+            </>
+          ) : (
+            <p className="dim">That's every hint this question has.</p>
+          )}
+        </Sheet>
+      ) : null}
       <MathLiveEditor
         value={answer}
         onChange={edit}
@@ -510,6 +577,9 @@ export function QuestionScreen({
           {stuck ? null : (
             <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => { dirty.current = true; revision.current += 1; setStuck(true); remember({ stuck: true }); }}>I'm stuck</button>
           )}
+          {helpOffered ? (
+            <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => setHelpOpen(true)}>Hint</button>
+          ) : null}
           <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => void skip()}>Skip</button>
           <button className="plain" type="button" disabled={submitting || skipping} onClick={onBack}>Back</button>
         </div>

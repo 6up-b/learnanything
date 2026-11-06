@@ -4,9 +4,10 @@ import { useCachedQuery } from "@desktop/api/useCachedQuery";
 import { TAG } from "@desktop/api/queryTags";
 import { phone } from "../api/phone";
 
-/** The phone's Today is the allowlisted queue, never the shared stored plan (M2a open item 2). A
- *  `keep` bound on the rows it asks for: every row it is given it shows, so the offer's receipt is
- *  what the phone showed (open item 3), and a phone session does not need a longer list. */
+/** M2a's Today, the allowlisted queue: since mobile v2 V2 the phone's Today is the shared plan
+ *  (`PlanToday`), and this is Today only while the plan is off for the vault or the host's kill switch
+ *  (`phone_plan`) is. A `keep` bound on the rows it asks for: every row it is given it shows, so the
+ *  offer's receipt is what the phone showed (open item 3), and a phone session does not need a longer list. */
 export const PHONE_QUEUE_LIMIT = 20;
 /** The chips Start offers (the desktop's `MINUTE_PRESETS`, the three a phone session fits). */
 const MINUTES = [10, 15, 25];

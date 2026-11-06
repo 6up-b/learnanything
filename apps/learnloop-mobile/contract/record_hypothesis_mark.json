@@ -1,0 +1,38 @@
+{
+  "method": "record_hypothesis_mark",
+  "requests": [
+    {
+      "wrapper": "recordHypothesisMark",
+      "envelope": {
+        "method": "record_hypothesis_mark",
+        "params": {
+          "attemptId": "a1",
+          "mark": "my_gap",
+          "hypothesisVersionId": "h1",
+          "freeText": null,
+          "surface": "marks_feedback"
+        }
+      }
+    },
+    {
+      "wrapper": "recordHypothesisMark",
+      "envelope": {
+        "method": "record_hypothesis_mark",
+        "params": {
+          "attemptId": "a1",
+          "mark": "none_of_these",
+          "hypothesisVersionId": null,
+          "freeText": "Something else.",
+          "surface": "marks_feedback"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "recorded",
+    "marks"
+  ],
+  "replyPinnedBy": [
+    "tests/test_hypothesis_marks.py"
+  ]
+}

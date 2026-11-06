@@ -1,0 +1,22 @@
+{
+  "method": "practice.record_hint_reveal",
+  "requests": [
+    {
+      "wrapper": "recordHintReveal",
+      "envelope": {
+        "method": "practice.record_hint_reveal",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1",
+          "submissionId": "k1",
+          "authoredIndex": 0,
+          "answerMd": "Half",
+          "revealedAt": "2026-11-06T12:00:00.000Z"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "recorded"
+  ]
+}

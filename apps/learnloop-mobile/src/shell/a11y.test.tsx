@@ -17,6 +17,7 @@ import { markGradingDown, markOffline, markReachable, markStale } from "./connec
 import { DbBlockedScreen } from "./DbBlocked";
 import { DisplaySheet } from "./DisplaySheet";
 import { TabBar } from "./TabBar";
+import { PLAN_OFF } from "../test/planOff";
 
 /** No exemptions: every phone surface passes the desktop's list as it stands. */
 function jargonOf(text: string): string[] {
@@ -70,6 +71,7 @@ describe("today's practice through the shell (§4.1, §4.7)", () => {
     Object.assign(answers, {
       start_session: session,
       get_session: session,
+      get_daily_plan: PLAN_OFF,
       get_today_queue: { sessionId: "s1", sections: [{ title: "Due", items: [{ practiceItemId: "i1", schedulerCandidateId: "c1", learningObjectTitle: "Eigenvalues" }, { practiceItemId: "i2", schedulerCandidateId: "c2", learningObjectTitle: "Bases" }] }], deviceDeferredCount: 2 },
       get_practice_item: { learningObjectTitle: "Eigenvalues", attemptTypesAllowed: ["independent_attempt"], assessmentContractVersionId: "acv", presentation: { blocks: [{ kind: "prompt", markdown: "What is $\\lambda$?", label: null }] } },
       get_probe_contract: { active: false },

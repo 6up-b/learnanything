@@ -1,0 +1,32 @@
+{
+  "method": "trigger_regrade",
+  "requests": [
+    {
+      "wrapper": "contestGrade",
+      "envelope": {
+        "method": "trigger_regrade",
+        "params": {
+          "attemptId": "a1",
+          "learnerReason": "The other convention.",
+          "contestId": "contest_1"
+        },
+        "request_id": "contest_1"
+      }
+    },
+    {
+      "wrapper": "contestGrade",
+      "envelope": {
+        "method": "trigger_regrade",
+        "params": {
+          "attemptId": "a1",
+          "learnerReason": "",
+          "contestId": "contest_2"
+        },
+        "request_id": "contest_2"
+      }
+    }
+  ],
+  "reads": [
+    "contest"
+  ]
+}

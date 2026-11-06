@@ -1,0 +1,23 @@
+{
+  "method": "record_hypothesis_exposure",
+  "requests": [
+    {
+      "wrapper": "recordHypothesisExposure",
+      "envelope": {
+        "method": "record_hypothesis_exposure",
+        "params": {
+          "attemptId": "a1",
+          "surface": "marks_feedback",
+          "hypothesisVersionIds": [
+            "h1",
+            "h2"
+          ],
+          "shownAt": "2026-11-06T12:00:00.000Z"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "recorded"
+  ]
+}

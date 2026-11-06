@@ -1,0 +1,17 @@
+{
+  "method": "followup_show_anyway",
+  "requests": [
+    {
+      "wrapper": "followupShowAnyway",
+      "envelope": {
+        "method": "followup_show_anyway",
+        "params": {
+          "attemptId": "a1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "released"
+  ]
+}

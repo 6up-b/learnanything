@@ -1,0 +1,28 @@
+{
+  "method": "set_plan_minutes",
+  "requests": [
+    {
+      "wrapper": "setPlanMinutes",
+      "envelope": {
+        "method": "set_plan_minutes",
+        "params": {
+          "minutes": 40,
+          "sessionId": null
+        }
+      }
+    },
+    {
+      "wrapper": "setPlanMinutes",
+      "envelope": {
+        "method": "set_plan_minutes",
+        "params": {
+          "minutes": 10,
+          "sessionId": "s1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "enabled"
+  ]
+}

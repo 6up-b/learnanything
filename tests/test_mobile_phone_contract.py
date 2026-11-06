@@ -153,6 +153,11 @@ def host_world(tmp_path, monkeypatch):
 
     paths, repository = seeded_vault(tmp_path / "vault")
     install_grader(monkeypatch, CountingGrader())
+    # The contest's regrade finds no grader (it keeps the reason and asks for review): no model is asked.
+    import learnloop_sidecar.handlers.ai_providers as providers
+    from tests.mobile_host_helpers import DownRuntime
+
+    monkeypatch.setattr(providers, "ready_grading_provider", lambda vault, override=None: ("fake", DownRuntime(), None))
     first, second = pair(repository), pair(repository, label="Other phone")
     app = create_app(config_for(paths.root))
     with TestClient(app, base_url=f"https://{HOSTNAME}") as client:
@@ -191,6 +196,23 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     rpc("get_feedback", {"attemptId": attempt_id, "recordOpen": True})
     rpc("get_grading_clarification", {"attemptId": attempt_id})
     rpc("diagnosis_status", {"attemptId": attempt_id})
+    # Mobile v2 V2: feedback parity, the plan (off on this vault: each reply says so) and the router's account.
+    rpc("record_answer_display", {"attemptId": attempt_id, "displayId": "display_contract_1"})
+    rpc("followup_status", {"attemptId": attempt_id})
+    rpc("followup_continue_without", {"attemptId": attempt_id})
+    rpc("followup_show_anyway", {"attemptId": attempt_id})
+    rpc("record_hypothesis_exposure", {"attemptId": attempt_id, "surface": "marks_feedback", "hypothesisVersionIds": [],
+                                       "shownAt": "2026-11-06T12:00:00.000Z"})
+    rpc("router_objective_explain", {"decisionId": "no_such_decision"})
+    rpc("trigger_regrade", {"attemptId": attempt_id, "learnerReason": "The other convention.", "contestId": "contest_c1"},
+        request_id="contest_c1")
+    rpc("get_daily_plan", {"sessionId": session_id})
+    rpc("set_plan_minutes", {"minutes": 10, "sessionId": session_id})
+    rpc("plan_keep_going", {"sessionId": session_id})
+    rpc("next_plan_item", {"sessionId": session_id, "serve": True}, request_id="next_contract_1")
+    rpc("practice.record_hint_reveal", {"sessionId": session_id, "practiceItemId": first["practiceItemId"],
+                                        "submissionId": "sub_contract_hint", "authoredIndex": 0, "answerMd": "Half",
+                                        "revealedAt": "2026-11-06T12:00:00.000Z"})
     _clarify(repository, attempt_id)
     rpc("answer_grading_clarification", {"attemptId": attempt_id, "answerMd": "I meant the transpose."},
         request_id="clarify_contract_1")
@@ -203,7 +225,7 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
 
     unchecked = {name: contract.get("replyPinnedBy") for name, contract in contracts.items() if name not in replies}
     # Only a reply this journey cannot reach without a diagnosis model may be pinned elsewhere, by name.
-    assert set(unchecked) <= {"submit_eliciting_response"}, sorted(unchecked)
+    assert set(unchecked) <= {"submit_eliciting_response", "record_hypothesis_mark"}, sorted(unchecked)
     for pinned in unchecked.values():
         assert pinned and all((ROOT / path.split("::")[0]).is_file() for path in pinned), pinned
     for name, reply in replies.items():

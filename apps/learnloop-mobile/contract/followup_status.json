@@ -1,0 +1,17 @@
+{
+  "method": "followup_status",
+  "requests": [
+    {
+      "wrapper": "followupStatus",
+      "envelope": {
+        "method": "followup_status",
+        "params": {
+          "attemptId": "a1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "enabled"
+  ]
+}

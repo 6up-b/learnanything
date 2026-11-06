@@ -1,0 +1,36 @@
+{
+  "method": "plan_keep_going",
+  "requests": [
+    {
+      "wrapper": "planKeepGoing",
+      "envelope": {
+        "method": "plan_keep_going",
+        "params": {
+          "sessionId": "s1"
+        }
+      }
+    },
+    {
+      "wrapper": "planKeepGoing",
+      "envelope": {
+        "method": "plan_keep_going",
+        "params": {
+          "sessionId": "s1",
+          "stop": true
+        }
+      }
+    },
+    {
+      "wrapper": "planKeepGoing",
+      "envelope": {
+        "method": "plan_keep_going",
+        "params": {
+          "sessionId": null
+        }
+      }
+    }
+  ],
+  "reads": [
+    "enabled"
+  ]
+}
