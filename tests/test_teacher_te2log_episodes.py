@@ -558,6 +558,54 @@ def test_a_schema_refusal_names_fields_by_location_never_by_their_input(tmp_path
     assert "RESERVEDSENTINEL" not in lesson.fake.all_prompts() and "RESERVEDSENTINEL" not in str(lesson.view)
 
 
+# --- landing ruling R2: TE1's forecast action resolves and guards its node ----------------------------------
+
+
+def test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off(tmp_path):
+    """Ruling R2: TE1's ``forecast`` copies its ``node`` (and the node's LO) into its receipt's key and inputs. With
+    ``teacher.episode_log`` off, an unknown node is refused by location, and a plan node whose id or ``lo_id`` carries
+    a reserved key (TE1 stores such a plan) is refused by the identifier guard; no receipt holds the key."""
+
+    def reserved_plan(context):
+        turn = plan_turn(context)
+        turn["requests"][0]["plan"].append({"id": OTHER_SENTINEL, "statement": "A neighbouring idea.",
+                                            "lo_id": "lo_eigen", "anchors": [], "premises": []})
+        turn["requests"][0]["plan"][1]["lo_id"] = OTHER_SENTINEL
+        return turn
+
+    lesson = _Lesson(tmp_path, [reserved_plan], config={("teacher", "episode_log"): False},
+                     prepare=_reserve_on_another_lo)
+    # Two refusals and an accepted turn per action (three refusals in a row would end the lesson).
+    lesson.act("reply", {"text": "Go."}, turns=[landed_turn(node="n_unknown"), landed_turn(node=OTHER_SENTINEL),
+                                                landed_turn(node="n1")])
+    lesson.act("reply", {"text": "And?"}, turns=[landed_turn(node="n2"), {"message": "Fine."}])
+    refusals = _refusals(lesson)
+    assert [(r["refused"], r["detail"].split(": ")[0]) for r in refusals] == [
+        ("contract", "requests[0].node"), ("answer_key", "requests[0].node"),
+        ("answer_key", "requests[0].node's lo_id")]
+    assert all("OTHERSENTINEL" not in r["detail"] and "n_unknown" not in r["detail"] for r in refusals)
+    rows = _rows(lesson.repository, "SELECT receipt_key, inputs_json, learning_object_id FROM forecast_receipts "
+                                    "WHERE kind = 'lesson_step_retained'")
+    assert len(rows) == 1 and ":n1:" in rows[0][0] and rows[0][2] == "lo_eigen"
+    assert not [row for row in _rows(lesson.repository, "SELECT * FROM forecast_receipts")
+                if any(isinstance(v, str) and ("OTHERSENTINEL" in v or "ninety-one" in v) for v in row)]
+    # The refused turns' forecasts were never recorded, so the transcript names none of them either.
+    forecasts = [e for e in S.transcript(S.load_state(lesson.repository, lesson.lesson_id)) if "forecast_recorded" in e]
+    assert [e["forecast_recorded"]["node"] for e in forecasts] == ["n1"]
+
+
+def test_te1s_forecast_on_a_known_node_is_unchanged_with_the_switch_off(tmp_path):
+    """Ruling R2: a forecast on a plan node (or a brief LO) is written exactly as TE1 wrote it."""
+
+    lesson = _Lesson(tmp_path, [plan_turn], config={("teacher", "episode_log"): False})
+    lesson.act("reply", {"text": "Go."}, turns=[landed_turn(node="n2")])
+    lesson.act("reply", {"text": "And?"}, turns=[landed_turn(node="lo_det")])
+    assert _refusals(lesson) == []
+    rows = _rows(lesson.repository, "SELECT receipt_key, learning_object_id FROM forecast_receipts "
+                                    "WHERE kind = 'lesson_step_retained' ORDER BY created_at, receipt_key")
+    assert [(key.split(":")[2], lo) for key, lo in rows] == [("n2", "lo_eigen"), ("lo_det", "lo_det")]
+
+
 def test_teacher_episode_log_is_classified_and_on_by_default():
     from learnloop.config.schema import TeacherConfig
     from learnloop.params.parameter_registry import classify_config_path

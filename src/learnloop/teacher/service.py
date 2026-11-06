@@ -163,10 +163,14 @@ class LessonState:
     def los(self) -> list[str]:
         return [node["id"] for node in self.brief.get("nodes") or []]
 
-    def node_lo(self, node_id: str | None) -> str | None:
+    def node_lo(self, node_id: str | None, *,
+                outline: Sequence[Mapping[str, Any]] | None = None) -> str | None:
+        """The node's LO: its ``lo_id`` in ``outline`` (default: the latest stored plan), else the node as a brief
+        LO, else the goal's first LO (TE1's rule)."""
+
         if not node_id:
             return None
-        plan = self.plans[-1]["outline"] if self.plans else []
+        plan = outline if outline is not None else (self.plans[-1]["outline"] if self.plans else [])
         for node in plan:
             if node.get("id") == node_id and node.get("lo_id"):
                 return str(node["lo_id"])
@@ -1083,12 +1087,53 @@ def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
     return [(name, text) for name, text in out if text]
 
 
-def _logged(turn_obj: TeacherTurnV1, *, episodes: bool) -> list[tuple[str, str]]:
-    """TE2-log: the model's fields a log row, a receipt or a note's payload copies, never shown, by location: a
-    ``note_detour``'s hypothesis and node, the plan nodes' ids and ``lo_id`` (Codex review F1; landing ruling R1);
-    none in TE1's turn."""
+def _logged(state: LessonState, turn_obj: TeacherTurnV1, *, episodes: bool) -> list[tuple[str, str]]:
+    """The model's fields a log row, a receipt or a note's payload copies, never shown, by location. TE2-log: a
+    ``note_detour``'s hypothesis and node, the plan nodes' ids and ``lo_id`` (Codex review F1; landing ruling R1).
+    Every turn, TE1's included (landing ruling R2): each ``forecast``'s node and the LO its receipt will hold."""
 
-    return E.logged_fields(turn_obj) if episodes else []
+    out = E.logged_fields(turn_obj) if episodes else []
+    for index, request in enumerate(turn_obj.requests):
+        if request.action == "forecast":
+            out.append((f"requests[{index}].node", str(request.node or "")))
+            out.append((f"requests[{index}].node's lo_id", str(_forecast_lo(state, turn_obj, index, request) or "")))
+    return [(location, text) for location, text in out if text]
+
+
+def _outline_at(state: LessonState, turn_obj: TeacherTurnV1, index: int) -> list[dict[str, Any]]:
+    """The plan in force when request ``index`` runs: the last ``write_plan`` before it in the turn, else the latest
+    stored plan (``_execute`` stores each plan before the next request runs)."""
+
+    outline = state.plans[-1]["outline"] if state.plans else []
+    for request in turn_obj.requests[:index]:
+        if request.action == "write_plan":
+            outline = [node.model_dump() for node in request.plan]
+    return list(outline)
+
+
+def _copies_node(state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1) -> bool:
+    """Whether :func:`_forecast` copies the request's node into its receipt's key and inputs: every forecast but a
+    check forecast with a check open or posed in the turn (its receipt names the check's ref, code-made)."""
+
+    return not (request.forecast_kind == "lesson_check_correct"
+                and (state.open_check is not None or turn_obj.check is not None))
+
+
+def _forecast_lo(state: LessonState, turn_obj: TeacherTurnV1, index: int, request: ActionRequestV1) -> str | None:
+    """The LO :func:`_forecast` copies into request ``index``'s receipt (ruling R2: guarded before the turn is
+    accepted): for a check forecast, the open check's (one this turn poses included), else the node's."""
+
+    node = str(request.node or "")
+    if request.forecast_kind == "lesson_check_correct":
+        if state.open_check is not None:
+            lo = state.open_check.get("learning_object_id")
+        elif turn_obj.check is not None:
+            lo = state.node_lo(turn_obj.check.node, outline=_outline_at(state, turn_obj, 0))
+        else:
+            lo = None
+        if lo:
+            return str(lo)
+    return state.node_lo(node, outline=_outline_at(state, turn_obj, index))
 
 
 def _field_names(model: type[Any]) -> frozenset[str]:
@@ -1205,7 +1250,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     # TE2-log: a detour's hypothesis and the ids a row copies are logged, never shown, but they pass the same guards
     # before they are stored (spec §11.9: exam or held-out material is never in a hypothesis), and the identifier
     # guard against every key the vault records (landing ruling R1); a hit withholds the turn, named by location.
-    for name, text in _logged(turn_obj, episodes=episodes):
+    for name, text in _logged(state, turn_obj, episodes=episodes):
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
                               open_check=state.open_check and state.open_check.get("check"), help_reply=False)
         if verdict.ok:
@@ -1270,6 +1315,10 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
                             "passage or a section you were given")
         if request.action == "forecast" and (request.forecast_kind is None or request.p is None or not request.node):
             return f"{at}: a forecast needs forecast_kind, node and p"
+        if request.action == "forecast" and _copies_node(state, turn_obj, request) \
+                and not E.node_known(state, turn_obj, str(request.node)):
+            # Landing ruling R2: TE1's forecast copies its node into its receipt, so it is resolved as a note's is.
+            return f"{at}.node: not a node of your plan; name one of the plan's node ids"
         if request.action == "close" and request.close_reason is None:
             return f"{at}: close needs a close_reason"
         if request.action == "note_detour" and (not request.node or not getattr(request, "hypothesis", None)
