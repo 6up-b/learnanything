@@ -337,6 +337,89 @@ def test_no_row_holds_any_text(tmp_path):
                 assert not any(word in value for word in words), (column, value)
 
 
+def _log_texts(repository):
+    """Every text value in the TE2-log rows: the episodes and the forecast receipts."""
+
+    out = []
+    with repository.connection() as connection:
+        for table in ("lesson_episodes", "forecast_receipts"):
+            cursor = connection.execute(f"SELECT * FROM {table}")
+            out.extend((table, d[0], v) for row in cursor.fetchall() for d, v in zip(cursor.description, row)
+                       if isinstance(v, str))
+    return out
+
+
+def _no_reserved_text(repository):
+    leaked = [(t, c, v) for t, c, v in _log_texts(repository) if "RESERVEDSENTINEL" in v or "forty-two" in v]
+    assert not leaked, leaked
+
+
+def test_a_note_detour_on_a_node_the_plan_lacks_is_refused_back_and_never_logged(tmp_path):
+    """Codex review F1: a note's ``node`` must name a node of the plan (or a brief LO); reserved text there never
+    reaches a row, and an unknown node is not filed under the goal LO."""
+
+    from tests.teacher_fakes import RESERVED_SENTINEL
+
+    lesson = _Lesson(tmp_path, [plan_turn])
+    lesson.act("reply", {"text": "Go."}, turns=[check_turn()])
+    lesson.act("answer_check", {"answer": "no"}, right=False,
+               turns=[detour_turn(node=RESERVED_SENTINEL), detour_turn(node="n_unknown"), detour_turn()])
+    refused = _rows(lesson.repository, "SELECT validation FROM lesson_turns WHERE action = 'teacher_turn' "
+                                       "AND validation != 'ok'")
+    assert len(refused) == 2
+    (row,) = _episodes(lesson.repository)
+    assert row["node_id"] == "n1" and row["learning_object_id"] == "lo_eigen"
+    _no_reserved_text(lesson.repository)
+
+
+def test_a_note_on_a_node_its_own_turns_plan_introduces_is_logged_in_either_order(tmp_path):
+    def note_first(context):
+        turn = foundation_plan(context)
+        turn["requests"].insert(0, {"action": "note_detour", "node": "n0", "hypothesis": HYPOTHESIS,
+                                    "repair": "insert_foundation", "p": 0.5})
+        return turn
+
+    lesson = _Lesson(tmp_path, [plan_turn])
+    lesson.act("reply", {"text": "I'm lost on determinants."}, turns=[note_first])
+    (row,) = _episodes(lesson.repository)
+    assert row["node_id"] == "n0" and row["learning_object_id"] == "lo_det"
+    assert row["repair_class"] == "insert_foundation"
+
+
+def test_reserved_text_in_a_plan_node_id_never_reaches_a_row(tmp_path):
+    from tests.teacher_fakes import RESERVED_SENTINEL
+
+    def reserved_id(context):
+        turn = foundation_plan(context)
+        turn["requests"][0]["plan"][0]["id"] = RESERVED_SENTINEL
+        turn["requests"][0]["plan"][0]["p_held"] = 0.6
+        return turn
+
+    lesson = _Lesson(tmp_path, [plan_turn])
+    lesson.act("reply", {"text": "I'm lost on determinants."}, turns=[reserved_id, {"message": "Fine."}])
+    withheld = _rows(lesson.repository, "SELECT validation FROM lesson_turns WHERE action = 'teacher_turn' "
+                                        "AND validation = 'withheld'")
+    assert withheld
+    _no_reserved_text(lesson.repository)
+
+
+def test_a_plan_lo_id_that_is_no_vault_lo_never_reaches_a_row(tmp_path):
+    from tests.teacher_fakes import RESERVED_SENTINEL
+
+    def reserved_lo(context):
+        turn = foundation_plan(context)
+        turn["requests"][0]["plan"][0]["lo_id"] = RESERVED_SENTINEL
+        turn["requests"][0]["plan"][0]["p_held"] = 0.6
+        return turn
+
+    lesson = _Lesson(tmp_path, [plan_turn])
+    lesson.act("reply", {"text": "I'm lost on determinants."}, turns=[reserved_lo])
+    # The foundation is still an unlogged detour, on no LO (never the goal's by default).
+    (row,) = _episodes(lesson.repository)
+    assert row["node_id"] == "n0" and row["learning_object_id"] is None
+    _no_reserved_text(lesson.repository)
+
+
 def test_teacher_episode_log_is_classified_and_on_by_default():
     from learnloop.config.schema import TeacherConfig
     from learnloop.params.parameter_registry import classify_config_path

@@ -110,3 +110,30 @@ def test_a_refused_forecast_rolls_back_alone_and_the_plan_stands(tmp_path, monke
     _paths, repository, _fake, view = _open(tmp_path, [held_plan])
     assert view["plan"] and len(_rows(repository, "SELECT 1 FROM lesson_plans")) == 1
     assert _rows(repository, "SELECT COUNT(*) FROM forecast_receipts") == [(0,)]
+
+
+def test_one_refused_node_forecast_leaves_its_siblings(tmp_path, monkeypatch):
+    """Codex review F2: three nodes with ``p_held``, only the middle insert refused: both siblings are written."""
+
+    from learnloop.db.stores import forecast_receipts as receipt_store
+
+    original = receipt_store.insert_receipt
+
+    def refuse_middle(connection, **kwargs):
+        if kwargs.get("kind") == LESSON_NODE_HELD and kwargs["receipt_key"].endswith(":n1"):
+            original(connection, **kwargs)  # its row is written, then refused: the savepoint takes it back
+            raise RuntimeError("refused")
+        return original(connection, **kwargs)
+
+    def three_held(context):
+        turn = held_plan(context)
+        turn["requests"][0]["plan"][-1]["lo_id"] = "lo_eigen"
+        return turn
+
+    monkeypatch.setattr(receipt_store, "insert_receipt", refuse_middle)
+    _paths, repository, _fake, view = _open(tmp_path, [three_held])
+    assert view["plan"] and len(_rows(repository, "SELECT 1 FROM lesson_plans")) == 1
+    keys = [row[0].rsplit(":", 1)[-1] for row in _rows(
+        repository, "SELECT receipt_key FROM forecast_receipts WHERE kind = ? ORDER BY receipt_key",
+        (LESSON_NODE_HELD,))]
+    assert keys == ["n0", "nx"]

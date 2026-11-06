@@ -19,8 +19,10 @@ Behind ``teacher.episode_log`` (default on at every algorithm version; no succes
 
 Ids and numbers only in every row: a hypothesis's words stay in the turn's payload (``lesson_turn_payloads``),
 after the output guards ran on them (``service._call_teacher``); the row keeps their count, a hash and the payload's
-turn id. Every row is written in its own savepoint of the action's transaction: a refused row rolls back alone with
-a warning and never blocks a turn. Nothing serving, scheduling, certification or replay reads any of it.
+turn id. The model's ids a row copies are resolved first (Codex review F1): a note's node must name a plan node or a
+brief LO, a node id passes the same guards as a hypothesis (:func:`logged_ids`), and an LO is a vault LO or none
+(:func:`outline_lo`). Every row, each placement forecast included, is written in its own savepoint of the action's
+transaction: a refused row rolls back alone with a warning and never blocks a turn. Nothing serving, scheduling, certification or replay reads any of it.
 
 Off: nothing here runs, the prompt, the turn schema, the forecaster family and the receipt are TE1's exactly.
 """
@@ -29,7 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -401,10 +403,11 @@ def record_intervals(vault: Any, repository: Any, *, lesson_id: str, intervals: 
 # =============================================================================
 
 
-def node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, version: int, family: str,
-                       prompt: str, doctrine: str, now: str) -> list[Any]:
-    """One ``lesson_node_held`` forecast per plan node with ``p_held`` on a known LO (the node's ``lo_id``, or a node
-    named by its LO): bound to the first qualifying cold outcome on the LO, as ``lesson_step_retained`` is."""
+def node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, learning_objects: Collection[str],
+                       version: int, family: str, prompt: str, doctrine: str, now: str) -> list[Any]:
+    """One ``lesson_node_held`` forecast per plan node with ``p_held`` on a vault LO (the node's ``lo_id``, or a node
+    named by its LO; an ``lo_id`` that is no vault LO writes none): bound to the first qualifying cold outcome on the
+    LO, as ``lesson_step_retained`` is."""
 
     from learnloop.scheduling.forecast_receipts import LESSON_COLD_OUTCOME, LESSON_NODE_HELD, ForecastReceipt
 
@@ -413,7 +416,7 @@ def node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, vers
         p = node.get("p_held")
         if p is None:
             continue
-        lo = node.get("lo_id") or (node.get("id") if node.get("id") in state.los else None)
+        lo = outline_lo(outline, str(node.get("id")), learning_objects)
         if not lo:
             continue
         key = f"{LESSON_NODE_HELD}:{state.lesson_id}:{version}:{node['id']}"
@@ -428,6 +431,64 @@ def node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, vers
             versions={"doctrine": doctrine, "prompt": prompt, "episodes": EPISODES_VERSION},
             inputs_as_of=now, p=float(p), columns={"decision_ref": state.lesson_id, "learning_object_id": str(lo)}))
     return receipts
+
+
+# =============================================================================
+# The model's ids, resolved before any row holds one (Codex review F1)
+# =============================================================================
+
+
+def turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]:
+    """The outlines a turn's ``write_plan`` requests write, in request order."""
+
+    return [[node.model_dump() for node in request.plan] for request in getattr(turn_obj, "requests", None) or []
+            if request.action == "write_plan"]
+
+
+def logged_ids(turn_obj: Any) -> list[tuple[str, str]]:
+    """The ids an episode turn's model wrote that a row may copy (a note's ``node``, the plan nodes' ``id``): they
+    pass the output guards before the turn is accepted, as a hypothesis does. An ``lo_id`` is never copied unless it
+    is a vault LO (:func:`outline_lo`), so it needs no guard."""
+
+    out = [("note_detour node", str(request.node)) for request in getattr(turn_obj, "requests", None) or []
+           if request.action == "note_detour" and request.node]
+    out.extend(("plan node id", str(node.get("id"))) for outline in turn_plans(turn_obj) for node in outline)
+    return [(name, text) for name, text in out if text]
+
+
+def node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool:
+    """A note's node names a node of the lesson's latest plan, of a plan its own turn writes (before or after the
+    note), or a brief LO."""
+
+    if not node_id:
+        return False
+    latest = state.plans[-1]["outline"] if state.plans else []
+    ids = {str(node.get("id")) for outline in (latest, *turn_plans(turn_obj)) for node in outline}
+    return node_id in ids or node_id in state.los
+
+
+def outline_lo(outline: Sequence[Mapping[str, Any]], node_id: str, learning_objects: Collection[str]) -> str | None:
+    """The node's LO in ``outline``: its ``lo_id`` when that is a vault LO, else the node's id when that is one; None
+    otherwise (never a guess such as the goal's LO)."""
+
+    for node in outline:
+        if str(node.get("id")) == node_id:
+            lo = node.get("lo_id")
+            if lo and str(lo) in learning_objects:
+                return str(lo)
+            break
+    return node_id if node_id in learning_objects else None
+
+
+def node_lo(learning_objects: Collection[str], state: Any, turn_obj: Any, node_id: str) -> str | None:
+    """A note's node's LO: from the newest plan holding the node (a plan its own turn writes first), else the node
+    as an LO; :func:`outline_lo`'s rule."""
+
+    latest = state.plans[-1]["outline"] if state.plans else []
+    for outline in (*reversed(turn_plans(turn_obj)), latest):
+        if any(str(node.get("id")) == node_id for node in outline):
+            return outline_lo(outline, node_id, learning_objects)
+    return node_id if node_id in learning_objects else None
 
 
 def inserted_nodes(previous: Sequence[Mapping[str, Any]] | None, outline: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -472,11 +533,15 @@ __all__ = [
     "inserted_nodes",
     "instructions",
     "lesson_minutes",
+    "logged_ids",
     "minutes",
     "node_held_receipts",
+    "node_known",
+    "node_lo",
     "on",
     "open_episode",
     "origin_ids",
+    "outline_lo",
     "paragraph",
     "prior_belief",
     "prompt_version",
@@ -484,4 +549,5 @@ __all__ = [
     "record_intervals",
     "text_hash",
     "turn_model",
+    "turn_plans",
 ]

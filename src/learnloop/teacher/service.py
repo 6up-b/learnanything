@@ -1083,11 +1083,15 @@ def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
     return [(name, text) for name, text in out if text]
 
 
-def _logged(turn_obj: TeacherTurnV1) -> list[str]:
-    """TE2-log: the texts a turn asks to log, never shown (a ``note_detour``'s hypothesis; none in TE1's turn)."""
+def _logged(turn_obj: TeacherTurnV1, *, episodes: bool) -> list[tuple[str, str]]:
+    """TE2-log: the texts a turn asks to log, never shown, by field: a ``note_detour``'s hypothesis, and the ids an
+    episode row may copy (Codex review F1: the note's node, the plan's node ids); none in TE1's turn."""
 
-    return [str(request.hypothesis) for request in turn_obj.requests
-            if request.action == "note_detour" and getattr(request, "hypothesis", None)]
+    if not episodes:
+        return []
+    out = [("note_detour", str(request.hypothesis)) for request in turn_obj.requests
+           if request.action == "note_detour" and getattr(request, "hypothesis", None)]
+    return [*out, *E.logged_ids(turn_obj)]
 
 
 def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
@@ -1144,12 +1148,12 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
             return None
     # TE2-log: a detour's hypothesis is logged, never shown, but it passes the same guards before it is stored
     # (spec §11.9: exam or held-out material is never in a hypothesis); a hit withholds the turn.
-    for text in _logged(turn_obj):
+    for name, text in _logged(turn_obj, episodes=episodes):
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
                               open_check=state.open_check and state.open_check.get("check"), help_reply=False)
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
-                    payload={"reason": verdict.reason, "detail": f"note_detour: {verdict.detail}",
+                    payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": turn_obj.model_dump()}, clock=clock)
             return None
     # One transaction: the delivered results, the accepted turn and its exposure (reveal rows from every
@@ -1200,6 +1204,9 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
         if request.action == "note_detour" and (not request.node or not getattr(request, "hypothesis", None)
                                                 or getattr(request, "repair", None) is None or request.p is None):
             return "note_detour needs node, hypothesis, repair and p"
+        if request.action == "note_detour" and not E.node_known(state, turn_obj, str(request.node)):
+            # Codex review F1: the node is resolved before a row holds it (never echoed back here).
+            return "note_detour's node is not a node of your plan: name one of the plan's node ids"
     visual_problem = V.contract_problem(state, turn_obj)
     if visual_problem is not None:
         return visual_problem
@@ -1333,7 +1340,8 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
                       effect=effect)
         elif request.action == "note_detour":
             if _episodes_turn(vault, turn_entry):
-                _note_detour(repository, state, request, turn_entry=turn_entry, effect=effect, clock=clock)
+                _note_detour(vault, repository, state, turn_obj, request, turn_entry=turn_entry, effect=effect,
+                             clock=clock)
         elif request.action == "close":
             _close(vault, repository, state, reason=str(request.close_reason), recap=request.recap, clock=clock,
                    outcome=outcome, turn_entry=turn_entry, effect=effect)
@@ -1352,14 +1360,15 @@ def _episodes_turn(vault: Any, turn_entry: Mapping[str, Any] | None) -> bool:
     return bool(((turn_entry or {}).get("payload") or {}).get("episodes")) and E.on(vault)
 
 
-def _note_detour(repository: Any, state: LessonState, request: ActionRequestV1, *,
-                 turn_entry: Mapping[str, Any] | None, effect: str, clock: Clock | None) -> None:
+def _note_detour(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1,
+                 *, turn_entry: Mapping[str, Any] | None, effect: str, clock: Clock | None) -> None:
     """``note_detour`` (§11.7): the hypothesis in the turn's payload (a ``note_detour`` entry, marked as the turn's
     effect) and one ``detour`` episode row, its own savepoint (a refused row rolls back alone, with a warning).
-    Logging only: no plan, evidence or schedule changes."""
+    Logging only: no plan, evidence or schedule changes. The node was resolved at the contract check (a node of the
+    plan, this turn's included, or a brief LO); its LO is a vault LO or none (Codex review F1)."""
 
     node = str(request.node)
-    lo = state.node_lo(node)
+    lo = E.node_lo(vault.learning_objects, state, turn_obj, node)
     now = utc_now_iso(clock)
     data = {"node": node, "hypothesis": str(getattr(request, "hypothesis", "") or ""),
             "repair": getattr(request, "repair", None), "p": float(request.p or 0.0), "learning_object_id": lo}
@@ -1375,24 +1384,24 @@ def _plan_episodes(vault: Any, repository: Any, state: LessonState, turn_obj: Te
                    outline: Sequence[Mapping[str, Any]], previous: Sequence[Mapping[str, Any]] | None, *,
                    version: int, entry: Mapping[str, Any], model: str | None,
                    turn_entry: Mapping[str, Any] | None, clock: Clock | None) -> None:
-    """A stored plan's TE2-log rows: a ``lesson_node_held`` forecast receipt per node with ``p_held`` (§11.3; the
-    receipts' own savepoint), and an ``unlogged`` detour when it inserts a node before ones the previous plan had and
-    the turn has no ``note_detour`` (so coverage is measurable, §11.7)."""
+    """A stored plan's TE2-log rows: a ``lesson_node_held`` forecast receipt per node with ``p_held`` (§11.3; each
+    receipt its own savepoint, so a refused one leaves its siblings: Codex review F2), and an ``unlogged`` detour
+    when it inserts a node before ones the previous plan had and the turn has no ``note_detour`` (so coverage is
+    measurable, §11.7). LOs are vault LOs or none (Codex review F1)."""
 
     from learnloop.scheduling.forecast_receipts import record_receipts
 
     visuals = bool(((turn_entry or {}).get("payload") or {}).get("visuals"))
     now = utc_now_iso(clock)
-    receipts = E.node_held_receipts(state, outline, version=version,
+    receipts = E.node_held_receipts(state, outline, learning_objects=vault.learning_objects, version=version,
                                     family=_family_of(model, visuals=visuals, episodes=True),
                                     prompt=E.prompt_version(V.prompt_version(visuals), True), doctrine=DOCTRINE_VERSION,
                                     now=now)
-    if receipts:
-        record_receipts(repository, receipts, vault=vault, clock=clock, created_at=now)
+    for receipt in receipts:
+        record_receipts(repository, [receipt], vault=vault, clock=clock, created_at=now)
     inserted = E.inserted_nodes(previous, outline)
     if inserted and not any(request.action == "note_detour" for request in turn_obj.requests):
-        node = next(n for n in outline if str(n.get("id")) == inserted[0])
-        lo = node.get("lo_id") or state.node_lo(inserted[0])
+        lo = E.outline_lo(outline, inserted[0], vault.learning_objects)
         E.open_episode(repository, lesson=state.lesson, brief=state.brief, kind="detour", opened_by=str(entry["id"]),
                        opened_at=utc_now_iso(clock), node_id=inserted[0], learning_object_id=lo,
                        repair_class=E.UNLOGGED)
