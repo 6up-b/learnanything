@@ -3,8 +3,8 @@ title: "mobile_request_log"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b1c67e1f52ee99dcfab1eeca5de019d636162201"
-source_commit_timestamp: "2026-11-06T11:48:24-05:00"
+source_commit: "b1693676a83a561b40dd2333d6b480e71f6ad59f"
+source_commit_timestamp: "2026-11-06T18:53:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_request_log"
@@ -98,6 +98,7 @@ None found by exact static reference scan.
 - `tests/test_mobile_host_auth.py`
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_mobile_jobs.py`
+- `tests/test_mobile_meta_timing.py`
 - `tests/test_mobile_pairing.py`
 - `tests/test_mobile_rpc.py`
 
