@@ -5,7 +5,8 @@ import plistlib
 import uuid
 
 ROOT = Path(__file__).parent
-ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+ID_DATE_FORMAT = "yyyyMMddHHmmssSSS"
+ID_PADDING = "000000000"
 
 
 def var(name):
@@ -122,39 +123,14 @@ def capture(photo=False):
     w.add("format.date", WFDate=var("Now"), WFDateFormatStyle="ISO 8601",
           WFISO8601IncludeTime=True)
     w.set("Captured at")
-    # ULID: epoch milliseconds encoded as 10 base32 digits, then 80 random bits.
-    w.literal(ALPHABET, "Alphabet")
-    w.add("text.split", text=var("Alphabet"), WFTextSeparator="Every Character")
-    w.set("Characters")
-    w.add("date", WFDateActionMode="Specified Date", WFDateActionDate="1970-01-01T00:00:00Z")
-    w.set("Epoch")
-    w.add("gettimebetweendates", WFInput=var("Epoch"),
-          WFTimeUntilFromDate=var("Now"), WFTimeUntilUnit="Seconds")
-    w.add("math", WFMathOperation="×", WFMathOperand=1000)
-    w.add("round", WFRoundMode="Always Round Down", WFRoundTo="Ones Place")
-    w.set("Time")
-    w.literal("", "Capture ID")
-    group = w.block("repeat.count", WFRepeatCount=10)
-    w.add("math", WFInput=var("Time"), WFMathOperation="…",
-          WFScientificMathOperation="Modulus", WFScientificMathOperand=32)
-    w.add("math", WFMathOperation="+", WFMathOperand=1)
-    w.set("Index")
-    w.add("getitemfromlist", WFInput=var("Characters"), WFItemSpecifier="Item At Index",
-          WFItemIndex=var("Index"))
-    w.set("Character")
-    w.literal("CHARID", "Capture ID", CHAR="Character", ID="Capture ID")
-    w.add("math", WFInput=var("Time"), WFMathOperation="÷", WFMathOperand=32)
-    w.add("round", WFRoundMode="Always Round Down", WFRoundTo="Ones Place")
-    w.set("Time")
-    w.end("repeat.count", group)
-    group = w.block("repeat.count", WFRepeatCount=16)
-    w.add("number.random", WFRandomNumberMinimum=1, WFRandomNumberMaximum=32)
-    w.set("Index")
-    w.add("getitemfromlist", WFInput=var("Characters"), WFItemSpecifier="Item At Index",
-          WFItemIndex=var("Index"))
-    w.set("Character")
-    w.literal("IDCHAR", "Capture ID", ID="Capture ID", CHAR="Character")
-    w.end("repeat.count", group)
+    # A canonical-ULID-shaped ID built from one date format, with no arithmetic:
+    # 17 timestamp digits and 9 digits of padding. The base32 encoder this replaces
+    # failed on a real iPhone ("You asked for item 0") although its parameters
+    # round-tripped through Apple's registry. One phone cannot share a millisecond
+    # with itself, and a retry reuses the saved ID, so uniqueness needs no randomness.
+    w.add("format.date", WFDate=var("Now"), WFDateFormatStyle="Custom", WFDateFormat=ID_DATE_FORMAT)
+    w.set("ID time")
+    w.literal(f"STAMP{ID_PADDING}", "Capture ID", STAMP="ID time")
     if photo:
         w.save("Payload", "jpg")
     else:

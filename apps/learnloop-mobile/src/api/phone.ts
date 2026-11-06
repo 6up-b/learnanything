@@ -3,7 +3,8 @@ import type {
   AnswerGradingClarificationResultDto,
   AttemptResultDto,
   AttemptType,
-  DiagnosisStatusValue,
+  DiagnosisCardDto,
+  ElicitingResponseResultDto,
   FeedbackBundle,
   FirstHintProgress,
   GradingClarificationResultDto,
@@ -77,7 +78,10 @@ export const phone = {
   getClarification: (attemptId: string) => call<GradingClarificationResultDto>("get_grading_clarification", { attemptId }),
   answerClarification: (attemptId: string, answerMd: string, requestId: string) =>
     runLong<AnswerGradingClarificationResultDto>("answer_grading_clarification", { attemptId, answerMd }, requestId),
-  diagnosisStatus: (attemptId: string) => call<{ status: DiagnosisStatusValue; summary?: string | null }>("diagnosis_status", { attemptId }),
+  diagnosisStatus: (attemptId: string) => call<DiagnosisCardDto>("diagnosis_status", { attemptId }),
+  // `suggestionIndex` indexes the bundle's `repairSuggestions`, which is the handler's contract.
+  submitElicitingResponse: (attemptId: string, suggestionIndex: number, responseMd: string) =>
+    call<ElicitingResponseResultDto>("submit_eliciting_response", { attemptId, suggestionIndex, responseMd }),
   queueRevision: () => getJson<{ revision: number }>("/api/v1/queue-revision"),
   submissionStatus: (submissionId: string) =>
     getJson<JobState<AttemptResultDto>>(`/api/v1/submissions/${encodeURIComponent(submissionId)}`)
