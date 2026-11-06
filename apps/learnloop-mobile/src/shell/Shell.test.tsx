@@ -11,6 +11,10 @@ import { addToOutbox } from "../store/outbox";
 import { cacheSessionId } from "../store/sessionCache";
 import { BUSY_LINE, GRADING_LINE, UPDATED_LINE } from "./ConnectionLine";
 import { reloader } from "./freshness";
+import { IDBFactory } from "fake-indexeddb";
+import { resetCredentialForTests } from "../store/credential";
+import { resetDbForTests } from "../store/db";
+import { BLOCKED_LINE } from "./DbBlocked";
 
 interface Sent { readonly url: string; readonly method?: string }
 type Answer = unknown | { status: number; body: unknown };
@@ -23,6 +27,9 @@ let sent: Sent[];
 let answers: Record<string, Answer>;
 let gets: Record<string, Answer>;
 let reachable: boolean;
+let captures: number;
+/** Holds back the reply to the n-th capture sent, when set. */
+let captureGate: ((n: number) => Promise<void>) | null;
 
 function respond(answer: Answer, wrap: boolean): Response {
   if (answer && typeof answer === "object" && "status" in answer && "body" in answer) {
@@ -42,10 +49,16 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
     const method = JSON.parse(init?.body as string).method as string;
     sent.push({ url, method });
     if (!(method in answers)) return new Response(JSON.stringify({ ok: false, error: { code: "not_found", message: "no fake", retryable: false } }), { status: 404 });
-    return respond(answers[method], true);
+    // A function is a reply the test holds back: it answers when its promise does.
+    const answer = answers[method];
+    return respond(typeof answer === "function" ? await (answer as () => Promise<Answer>)() : answer, true);
   }
   sent.push({ url });
-  if (url === "/api/v1/capture") return new Response("{}", { status: 201 });
+  if (url === "/api/v1/capture") {
+    captures += 1;
+    if (captureGate) await captureGate(captures);
+    return new Response("{}", { status: 201 });
+  }
   if (url in gets) return respond(gets[url], false);
   return new Response(JSON.stringify({ ok: false, error: { code: "not_found", message: "no fake", retryable: false } }), { status: 404 });
 }
@@ -53,6 +66,8 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
 beforeEach(async () => {
   sent = [];
   reachable = true;
+  captures = 0;
+  captureGate = null;
   clearQueries();
   answers = { start_session: session, get_session: session, get_today_queue: queue, get_practice_item: item, get_probe_contract: { active: false }, save_practice_draft: { ok: true } };
   gets = { "/api/v1/queue-revision": { revision: 1 }, "/api/v1/meta": { host_version: "0.1.0", api_version: 1, allowlist_digest: ALLOWLIST_DIGEST, schema_version: 250 } };
@@ -191,6 +206,48 @@ describe("the connection line (§4.4)", () => {
     expect(sessionRead).toBeGreaterThan(capture);
     expect(token).toBeGreaterThan(sessionRead);
   });
+
+  it("each step of the reconnect waits for the one before it to finish, with replies held back (Codex review of V1)", async () => {
+    cacheSessionId("s1");
+    render(<App />);
+    await screen.findByRole("button", { name: /^Next: Topic i1/ });
+    reachable = false;
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    await screen.findByText(/Desktop offline/);
+    await addToOutbox({ clientCaptureId: "01C", kind: "text", text: "first", capturedAt: "t" });
+    await addToOutbox({ clientCaptureId: "01D", kind: "text", text: "second", capturedAt: "t" });
+    // The first capture's reply is what shows the desktop back; the second's is held.
+    const secondCapture = heldReply();
+    captureGate = async (n) => {
+      if (n === 2) await secondCapture.answer();
+    };
+    const sessionRead = heldReply();
+    answers.get_session = sessionRead.answer;
+    reachable = true;
+    sent = [];
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    const methods = () => sent.map((one) => one.method ?? one.url);
+    expect(methods().filter((one) => one === "/api/v1/capture")).toHaveLength(2);
+    expect(methods()).not.toContain("get_session");
+    await act(async () => {
+      secondCapture.release(undefined);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(methods()).toContain("get_session");
+    const tokenReads = () => methods().filter((one) => one === "/api/v1/queue-revision").length;
+    expect(tokenReads()).toBe(0);
+    await act(async () => {
+      sessionRead.release(session);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(tokenReads()).toBeGreaterThan(0);
+  });
 });
 
 describe("a stale cached app (§5.2)", () => {
@@ -229,5 +286,149 @@ describe("a stale cached app (§5.2)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "15 min" }));
     expect(await screen.findByText(UPDATED_LINE)).toBeTruthy();
     expect(screen.queryByText("method_not_allowed")).toBeNull();
+  });
+
+  describe("on the practice screens too (Codex review of V1, F3)", () => {
+    const refused = { status: 403, body: { ok: false, error: { code: "method_not_allowed", message: "method_not_allowed", retryable: false } } };
+
+    it("opening a question: the line, the way back, and no refusal", async () => {
+      answers.get_practice_item = refused;
+      render(<App />);
+      fireEvent.click(await screen.findByRole("button", { name: "15 min" }));
+      fireEvent.click(await screen.findByRole("button", { name: /^Next: Topic i1/ }));
+      expect(await screen.findByText(UPDATED_LINE)).toBeTruthy();
+      expect(await screen.findByRole("button", { name: "Try again" })).toBeTruthy();
+      expect(screen.queryByText("method_not_allowed")).toBeNull();
+    });
+
+    it("submitting: the line, the answer kept, and no refusal", async () => {
+      answers.submit_attempt = refused;
+      await openQuestion();
+      const editor = screen.getByRole("textbox", { name: "Your answer" });
+      editor.textContent = "My answer";
+      fireEvent.input(editor);
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      expect(await screen.findByText(UPDATED_LINE)).toBeTruthy();
+      await waitFor(() => expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(false));
+      expect(screen.queryByText("method_not_allowed")).toBeNull();
+      expect(screen.getByRole("textbox", { name: "Your answer" }).textContent).toBe("My answer");
+    });
+
+    it("reading feedback: the line, Next, and no refusal", async () => {
+      answers.submit_attempt = { attemptId: "a1", practiceItemId: "i1" };
+      answers.acknowledge_practice_submission = { status: "cleared", acknowledged: true };
+      answers.get_grading_clarification = { version: 1, clarification: null };
+      answers.get_feedback = refused;
+      await openQuestion();
+      const editor = screen.getByRole("textbox", { name: "Your answer" });
+      editor.textContent = "My answer";
+      fireEvent.input(editor);
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      expect(await screen.findByText(UPDATED_LINE)).toBeTruthy();
+      expect(await screen.findByRole("button", { name: "Next" })).toBeTruthy();
+      expect(screen.queryByText("method_not_allowed")).toBeNull();
+    });
+  });
+});
+
+/** A reply the test holds back until it releases it. */
+function heldReply(): { answer: () => Promise<Answer>; release: (value: Answer) => void } {
+  let release!: (value: Answer) => void;
+  const promise = new Promise<Answer>((resolve) => {
+    release = resolve;
+  });
+  return { answer: () => promise, release };
+}
+
+async function openQuestion() {
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "15 min" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Next: Topic i1/ }));
+  await screen.findByText("Define it.");
+}
+
+function swipeBack() {
+  const main = screen.getByRole("main");
+  fireEvent.touchStart(main, { touches: [{ clientX: 5, clientY: 300 }] });
+  fireEvent.touchEnd(main, { changedTouches: [{ clientX: 5 + window.innerWidth / 3 + 10, clientY: 300 }] });
+}
+
+describe("Back while a submit or a skip is on its way (Codex review of V1, F1)", () => {
+  it("a submit: neither the chevron nor the edge swipe leaves, and its reply opens its own feedback", async () => {
+    const reply = heldReply();
+    answers.submit_attempt = reply.answer;
+    answers.acknowledge_practice_submission = { status: "cleared", acknowledged: true };
+    answers.get_grading_clarification = { version: 1, clarification: null };
+    answers.get_feedback = { attemptId: "a1", practiceItemId: "i1", learningObjectTitle: "Topic i1", rubricScore: 3, maxPoints: 4, feedbackMd: "Close.", criterionEvidence: [], manualReviewReason: null };
+    await openQuestion();
+    const editor = screen.getByRole("textbox", { name: "Your answer" });
+    editor.textContent = "My answer";
+    fireEvent.input(editor);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(sent.some((one) => one.method === "submit_attempt")).toBe(true));
+    const chevron = screen.getByRole("button", { name: "Back to Today" }) as HTMLButtonElement;
+    expect(chevron.disabled).toBe(true);
+    fireEvent.click(chevron);
+    swipeBack();
+    expect(window.location.hash).toBe("#/today/question/i1");
+    expect(screen.queryByRole("button", { name: /^Next: Topic i1/ })).toBeNull();
+    await act(async () => {
+      reply.release({ attemptId: "a1", practiceItemId: "i1" });
+    });
+    expect(await screen.findByText("3 / 4")).toBeTruthy();
+  });
+
+  it("a skip: the same until it settles, and Back works again once it is refused", async () => {
+    const reply = heldReply();
+    answers.skip_practice_item = reply.answer;
+    await openQuestion();
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    await waitFor(() => expect(sent.some((one) => one.method === "skip_practice_item")).toBe(true));
+    const chevron = screen.getByRole("button", { name: "Back to Today" }) as HTMLButtonElement;
+    expect(chevron.disabled).toBe(true);
+    fireEvent.click(chevron);
+    swipeBack();
+    expect(window.location.hash).toBe("#/today/question/i1");
+    await act(async () => {
+      reply.release({ status: 409, body: { ok: false, error: { code: "skip_refused", message: "That can't be skipped now.", retryable: false } } });
+    });
+    await waitFor(() => expect((screen.getByRole("button", { name: "Back to Today" }) as HTMLButtonElement).disabled).toBe(false));
+    swipeBack();
+    await screen.findByRole("button", { name: /^Next: Topic i1/ });
+  });
+});
+
+describe("a database upgrade another tab holds up (Codex review of V1, F2)", () => {
+  it("says to close the other tab, offers Retry, and carries on once it closes", async () => {
+    globalThis.indexedDB = new IDBFactory();
+    resetDbForTests();
+    resetCredentialForTests();
+    // M2a's app in another tab: version 1, a paired token, and no `versionchange` handler.
+    const old = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("learnloop-phone", 1);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore("credential");
+        request.result.createObjectStore("outbox", { keyPath: "clientCaptureId" });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = old.transaction("credential", "readwrite");
+      tx.objectStore("credential").put({ token: "tok", deviceId: "dev", scope: "app" }, "device");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    const reload = vi.spyOn(reloader, "reload").mockImplementation(() => undefined);
+    render(<App />);
+    expect(await screen.findByText(BLOCKED_LINE)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      old.close();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(await screen.findByRole("button", { name: "15 min" })).toBeTruthy();
+    expect(screen.queryByText(BLOCKED_LINE)).toBeNull();
   });
 });

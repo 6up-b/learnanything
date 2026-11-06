@@ -17,6 +17,7 @@ import { ProgressScreen } from "./progress/ProgressScreen";
 import { ReadScreen } from "./read/ReadScreen";
 import { ConnectionLine } from "./shell/ConnectionLine";
 import { markOffline, onReconnect } from "./shell/connection";
+import { DbBlockedScreen, useDbBlocked } from "./shell/DbBlocked";
 import { DisplaySheet } from "./shell/DisplaySheet";
 import { checkFreshness } from "./shell/freshness";
 import { parseFragment, TABS, writeFragment, type Tab } from "./shell/navigation";
@@ -64,10 +65,13 @@ function useCredential(): Credential | null | undefined {
 
 export function App() {
   const credential = useCredential();
+  const blocked = useDbBlocked();
   const [waiting, setWaiting] = useState(0);
   useEffect(() => {
     if (credential === null) void listOutbox().then((records) => setWaiting(records.filter((one) => !one.problem).length));
   }, [credential]);
+  // An upgrade waiting on another tab: the credential can't be read until it closes (F2).
+  if (blocked) return <DbBlockedScreen />;
   if (credential === undefined) return null;
   if (credential === null) {
     return (
@@ -142,6 +146,9 @@ function Phone({ credential }: { credential: Credential }) {
   const [finished, setFinished] = useState<SessionEndSummary | null>(null);
   const [outboxWaiting, setOutboxWaiting] = useState(0);
   const [display, setDisplay] = useState(false);
+  // A submit or a skip on its way: the question's own Back is disabled meanwhile, and so are the
+  // frame's chevron and edge swipe, or its reply would land on whatever opened after (F1).
+  const [questionBusy, setQuestionBusy] = useState(false);
   // Diagnostic checks this session left for the desktop. The next build holds them back and counts
   // them; this covers a list read before that build (§6.4).
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
@@ -334,34 +341,42 @@ function Phone({ credential }: { credential: Credential }) {
   useVisibleInterval(pollRevision, REVISION_POLL_MS, pollToday);
 
   // §7: on open, on focus and every minute while open. iOS has no Background Sync.
-  const flush = useCallback(() => {
-    void flushOutbox()
-      .then((stop: FlushStop) => {
-        if (stop.reason === "offline") markOffline();
-        if (stop.reason === "forbidden") setNotice(stop.message);
-        return listOutbox();
-      })
-      .then((records) => setOutboxWaiting(records.filter((one) => !one.problem).length))
-      .catch(() => undefined);
-  }, []);
+  const flushNow = useCallback(
+    (): Promise<void> =>
+      flushOutbox()
+        .then((stop: FlushStop) => {
+          if (stop.reason === "offline") markOffline();
+          if (stop.reason === "forbidden") setNotice(stop.message);
+          return listOutbox();
+        })
+        .then((records) => setOutboxWaiting(records.filter((one) => !one.problem).length))
+        .catch(() => undefined),
+    []
+  );
+  const flush = useCallback(() => void flushNow(), [flushNow]);
   useVisibleInterval(flush, OUTBOX_FLUSH_MS);
 
-  // Mobile v2 §4.4: back from offline, in this order: the outbox, the session (it may have moved
-  // meanwhile), the token, and the screen in view. Today refreshes through its token, so nothing
-  // refreshes under an answer being typed.
-  const reconnect = useRef(() => undefined as void);
-  reconnect.current = () => {
-    flush();
+  // Mobile v2 §4.4: back from offline, in this order, each step done before the next starts: the
+  // outbox, the session (it may have moved meanwhile), the token, and the screen in view. Today
+  // refreshes through its token, so nothing refreshes under an answer being typed.
+  // The screen in view when the token's turn comes, not when the reconnect began.
+  const readTokenIfToday = useRef(() => undefined as void);
+  readTokenIfToday.current = () => {
+    if (pollToday) pollRevision();
+  };
+  const reconnect = useRef(async (): Promise<void> => undefined);
+  reconnect.current = async () => {
+    await flushNow();
     const open = sessionRef.current;
     if (open) {
-      void phone.getSession(open.sessionId).then((snapshot) => {
+      await phone.getSession(open.sessionId).then((snapshot) => {
         const away = movedFrom(snapshot, deviceId);
         if (away) setMoved(away);
       }, () => undefined);
     }
-    if (pollToday) pollRevision();
+    readTokenIfToday.current();
   };
-  useEffect(() => onReconnect(() => reconnect.current()), []);
+  useEffect(() => onReconnect(() => void reconnect.current()), []);
   useEffect(() => {
     const online = () => flush();
     window.addEventListener("online", online);
@@ -536,13 +551,20 @@ function Phone({ credential }: { credential: Credential }) {
   const toDisplay: FrameAction = { label: "Aa", name: "Display", onClick: () => setDisplay(true) };
   const frame = covering
     ? view.name === "question"
-      ? { title: "Question", onBack: () => setView({ name: "today" }), actions: [toCapture] }
-      : { title: view.name === "waiting" ? "Grading" : "Feedback", onBack: null, actions: [toCapture] }
-    : { title: TABS.find((spec) => spec.tab === tab)?.title ?? "Today", onBack: null, actions: [toDisplay] };
+      ? { title: "Question", onBack: () => setView({ name: "today" }), backDisabled: questionBusy, actions: [toCapture] }
+      : { title: view.name === "waiting" ? "Grading" : "Feedback", onBack: null, backDisabled: false, actions: [toCapture] }
+    : { title: TABS.find((spec) => spec.tab === tab)?.title ?? "Today", onBack: null, backDisabled: false, actions: [toDisplay] };
 
   return (
     <div className={covering ? "shell covering" : "shell"}>
-      <ScreenFrame screenKey={`${tab}:${pathKey}`} title={frame.title} onBack={frame.onBack} backName="Back to Today" actions={frame.actions}>
+      <ScreenFrame
+        screenKey={`${tab}:${pathKey}`}
+        title={frame.title}
+        onBack={frame.onBack}
+        backDisabled={frame.backDisabled}
+        backName="Back to Today"
+        actions={frame.actions}
+      >
         <ConnectionLine outboxWaiting={outboxWaiting} />
         {moved ? (
           <div className="banner" role="status">
@@ -582,6 +604,7 @@ function Phone({ credential }: { credential: Credential }) {
               onSkipped={skip}
               onSkipUnknown={settleSkip}
               onBack={() => setView({ name: "today" })}
+              onBusy={setQuestionBusy}
               onError={reportError}
             />
           ) : view.name === "waiting" ? (

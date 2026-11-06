@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { call } from "../api/http";
 import { readCredential, saveCredential } from "./credential";
-import { CREDENTIAL_STORE, OUTBOX_STORE, resetDbForTests } from "./db";
+import { CREDENTIAL_STORE, dbBlocked, OUTBOX_STORE, resetDbForTests, subscribeDbBlocked } from "./db";
 import {
   clearDisplayCache,
   dropExtraction,
@@ -118,4 +118,45 @@ it("opening a version 1 database keeps its token and its waiting captures, and a
   await expect(readCredential()).resolves.toEqual({ token: "old", deviceId: "d", scope: "app" });
   await putSection(key("s1"), "works");
   await expect(getSection(key("s1"))).resolves.toBe("works");
+});
+
+describe("an upgrade another tab holds up (Codex review of V1, F2)", () => {
+  /** M2a's database, left open in another tab: version 1, and no `versionchange` handler. */
+  function openVersionOne(): Promise<IDBDatabase> {
+    return new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("learnloop-phone", 1);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore(CREDENTIAL_STORE);
+        request.result.createObjectStore(OUTBOX_STORE, { keyPath: "clientCaptureId" });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  it("says it is blocked while the old connection stays open, and carries on when it closes", async () => {
+    const old = await openVersionOne();
+    resetDbForTests();
+    const seen: boolean[] = [];
+    const stop = subscribeDbBlocked(() => seen.push(dbBlocked()));
+    const reading = readCredential();
+    await vi.waitFor(() => expect(dbBlocked()).toBe(true));
+    old.close();
+    await expect(reading).resolves.toBeNull();
+    expect(dbBlocked()).toBe(false);
+    expect(seen).toEqual([true, false]);
+    stop();
+  });
+
+  it("this build closes its own connection when a newer build asks for the database", async () => {
+    await putLatest("plan", { step: 1 });
+    const newer = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("learnloop-phone", 3);
+      request.onblocked = () => reject(new Error("blocked by this build's open connection"));
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    expect(newer.version).toBe(3);
+    newer.close();
+  });
 });

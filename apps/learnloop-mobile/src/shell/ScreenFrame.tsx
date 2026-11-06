@@ -19,6 +19,7 @@ export function ScreenFrame({
   screenKey,
   title,
   onBack,
+  backDisabled = false,
   backName = "Back",
   actions = [],
   children
@@ -27,6 +28,8 @@ export function ScreenFrame({
   screenKey: string;
   title: string;
   onBack?: (() => void) | null;
+  /** Shown but not for now (a write on its way): the chevron is disabled and the swipe does nothing. */
+  backDisabled?: boolean;
   backName?: string;
   actions?: readonly FrameAction[];
   children: ReactNode;
@@ -48,24 +51,27 @@ export function ScreenFrame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenKey]);
 
+  const back = backDisabled ? null : onBack;
+
   function onTouchStart(event: React.TouchEvent) {
     const touch = event.touches[0];
-    swipe.current = onBack && touch && touch.clientX <= EDGE_ZONE_PX ? { x: touch.clientX, y: touch.clientY } : null;
+    swipe.current = back && touch && touch.clientX <= EDGE_ZONE_PX ? { x: touch.clientX, y: touch.clientY } : null;
   }
   function onTouchEnd(event: React.TouchEvent) {
     const start = swipe.current;
     swipe.current = null;
     const touch = event.changedTouches[0];
-    if (!start || !touch || !onBack) return;
+    // Asked again at the end: a write may have started during the swipe.
+    if (!start || !touch || !back) return;
     const dx = touch.clientX - start.x;
-    if (dx > window.innerWidth / 3 && Math.abs(touch.clientY - start.y) < dx) onBack();
+    if (dx > window.innerWidth / 3 && Math.abs(touch.clientY - start.y) < dx) back();
   }
 
   return (
     <>
       <header className="topbar">
         {onBack ? (
-          <button className="chevron" type="button" aria-label={backName} onClick={onBack}>
+          <button className="chevron" type="button" aria-label={backName} disabled={backDisabled} onClick={onBack}>
             <span aria-hidden="true">‹</span>
           </button>
         ) : (

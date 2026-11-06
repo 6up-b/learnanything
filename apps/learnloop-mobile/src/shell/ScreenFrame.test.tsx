@@ -35,6 +35,26 @@ describe("the frame", () => {
     expect(back).toHaveBeenCalledTimes(1);
   });
 
+  it("a back held for now: the chevron shows disabled and the swipe does nothing (Codex review of V1, F1)", () => {
+    const back = vi.fn();
+    const { rerender } = render(<ScreenFrame screenKey="a" title="Question" onBack={back} backDisabled backName="Back to Today"><p>body</p></ScreenFrame>);
+    const chevron = screen.getByRole("button", { name: "Back to Today" }) as HTMLButtonElement;
+    expect(chevron.disabled).toBe(true);
+    fireEvent.click(chevron);
+    const main = screen.getByRole("main");
+    swipe(main, 5, 5 + window.innerWidth / 3 + 10);
+    expect(back).not.toHaveBeenCalled();
+    // Held during the swipe: it started allowed and ends held.
+    rerender(<ScreenFrame screenKey="a" title="Question" onBack={back} backName="Back to Today"><p>body</p></ScreenFrame>);
+    fireEvent.touchStart(main, { touches: [{ clientX: 5, clientY: 300 }] });
+    rerender(<ScreenFrame screenKey="a" title="Question" onBack={back} backDisabled backName="Back to Today"><p>body</p></ScreenFrame>);
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 5 + window.innerWidth / 3 + 10, clientY: 300 }] });
+    expect(back).not.toHaveBeenCalled();
+    rerender(<ScreenFrame screenKey="a" title="Question" onBack={back} backName="Back to Today"><p>body</p></ScreenFrame>);
+    swipe(main, 5, 5 + window.innerWidth / 3 + 10);
+    expect(back).toHaveBeenCalledTimes(1);
+  });
+
   it("moves focus to the new screen and announces its title, not the first one's", () => {
     const { rerender } = render(<ScreenFrame screenKey="a" title="Today"><p>one</p></ScreenFrame>);
     const live = document.querySelector("[aria-live='polite']") as HTMLElement;

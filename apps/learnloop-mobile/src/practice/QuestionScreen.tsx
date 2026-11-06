@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, PracticeItemDetail, SessionSnapshot } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { MathLiveEditor } from "@desktop/render/MathLiveEditor";
-import { committedAttempt } from "../api/http";
+import { committedAttempt, staleRefusal } from "../api/http";
 import { phone, type SubmitInput } from "../api/phone";
 import { phoneAttemptType } from "../util/attemptType";
 import { newUlid } from "../util/ulid";
@@ -91,6 +91,7 @@ export function QuestionScreen({
   onSkipped,
   onSkipUnknown,
   onBack,
+  onBusy,
   onError
 }: {
   session: SessionSnapshot;
@@ -106,6 +107,8 @@ export function QuestionScreen({
   /** Landed, the App has dropped the phone's copy and moved on, unless `writtenSince` says there's more to keep. */
   onSkipUnknown: (practiceItemId: string, writtenSince: () => boolean) => Promise<SkipSettled>;
   onBack: () => void;
+  /** A submit or a skip on its way, so the frame's Back waits too (Codex review of V1, F1). */
+  onBusy?: (busy: boolean) => void;
   onError: (error: unknown) => void;
 }) {
   const { practiceItemId } = target;
@@ -138,6 +141,13 @@ export function QuestionScreen({
   const dirty = useRef(opened.own && !opened.sentInput);
   const latest = useRef({ answer, stuck, frozen, ready: false });
   latest.current = { answer, stuck, frozen, ready: item !== null && !probeActive };
+
+  const busy = submitting || skipping;
+  useEffect(() => {
+    onBusy?.(busy);
+  }, [busy, onBusy]);
+  // Gone from the screen, it holds nothing back.
+  useEffect(() => () => onBusy?.(false), [onBusy]);
 
   /** The phone's copy of all this, written as it changes. */
   function remember(next: { answer?: string; stuck?: boolean } = {}) {
@@ -175,7 +185,8 @@ export function QuestionScreen({
           return;
         }
         onError(error);
-        setLoadError(error.message);
+        // A stale app: the connection line says so and offers Reload; Try again and Back stay (F3).
+        setLoadError(staleRefusal(error) ? "" : error.message);
       });
     return () => {
       cancelled = true;
@@ -381,8 +392,9 @@ export function QuestionScreen({
         await finish(committed, submissionId.current);
         return;
       }
-      // The App's banner says where the session went; this screen has nothing to add.
-      if (command.code === "session_moved") {
+      // The App's banner says where the session went, and the connection line that this app is
+      // stale (F3); this screen has nothing to add.
+      if (command.code === "session_moved" || staleRefusal(command)) {
         onError(error);
       } else {
         setFailure(command);
@@ -423,10 +435,10 @@ export function QuestionScreen({
     if (settled !== "unreachable") void saveDraft().catch(onError);
   }
 
-  if (loadError) {
+  if (loadError !== null) {
     return (
       <div className="screen">
-        <p className="bad" role="alert">{loadError}</p>
+        {loadError ? <p className="bad" role="alert">{loadError}</p> : null}
         <div className="actions">
           <button className="primary block" type="button" onClick={() => setLoadRevision((value) => value + 1)}>Try again</button>
           <div className="row">

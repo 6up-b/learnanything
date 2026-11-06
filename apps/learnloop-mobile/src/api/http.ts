@@ -210,6 +210,15 @@ export interface JobState<T> {
 }
 
 /**
+ * A method this build names and the host no longer allows (§5.2). The connection line's *LearnLoop
+ * was updated.* with Reload is all a screen shows for it: never the refusal's own text (Codex review
+ * of V1, F3).
+ */
+export function staleRefusal(error: unknown): boolean {
+  return (error as CommandError | undefined)?.code === "method_not_allowed";
+}
+
+/**
  * Did the host say it refused this write, or could it have gone through? No reply, a reply that isn't
  * ours and the host's own `internal` don't say. Every other typed error is a refusal.
  */

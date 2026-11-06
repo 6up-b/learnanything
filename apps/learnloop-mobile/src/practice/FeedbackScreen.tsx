@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CommandError, DiagnosisCardDto, ElicitingResponseResultDto, FeedbackBundle, GradingClarificationDto } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
+import { staleRefusal } from "../api/http";
 import { phone } from "../api/phone";
 import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
@@ -34,7 +35,8 @@ function FollowUpQuestions({ attemptId, feedback }: { attemptId: string; feedbac
       setPosition((value) => value + 1);
     } catch (failure) {
       // What was typed stays in the box. A second tap is the learner's choice: this call is not retried for them.
-      setError((failure as CommandError).message);
+      // A stale app is the connection line's to say (F3).
+      setError(staleRefusal(failure) ? null : (failure as CommandError).message);
     } finally {
       setBusy(false);
     }
@@ -94,7 +96,8 @@ export function FeedbackScreen({
       .getFeedback(attemptId)
       .then(setFeedback)
       .catch((error: CommandError) => {
-        setLoadError(error.message);
+        // A stale app: the connection line says so and offers Reload; Try again and Next stay (F3).
+        setLoadError(staleRefusal(error) ? "" : error.message);
         onError(error);
       });
     phone
@@ -148,10 +151,10 @@ export function FeedbackScreen({
     }
   }
 
-  if (loadError) {
+  if (loadError !== null) {
     return (
       <div className="screen">
-        <p className="bad" role="alert">{loadError}</p>
+        {loadError ? <p className="bad" role="alert">{loadError}</p> : null}
         <div className="actions">
           <button className="primary block" type="button" onClick={() => setRevision((value) => value + 1)}>Try again</button>
           <div className="row">

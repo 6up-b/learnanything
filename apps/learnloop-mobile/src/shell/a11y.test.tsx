@@ -14,6 +14,7 @@ import { ReadScreen } from "../read/ReadScreen";
 import { GRADING_DOWN } from "../practice/QuestionScreen";
 import { ConnectionLine, BUSY_LINE, GRADING_LINE, UPDATED_LINE, offlineLine } from "./ConnectionLine";
 import { markGradingDown, markOffline, markReachable, markStale } from "./connection";
+import { DbBlockedScreen } from "./DbBlocked";
 import { DisplaySheet } from "./DisplaySheet";
 import { TabBar } from "./TabBar";
 
@@ -41,7 +42,8 @@ describe("plain words (§4.1)", () => {
     ["read", () => render(<ReadScreen />)],
     ["progress", () => render(<ProgressScreen />)],
     ["the tab bar", () => render(<TabBar current="today" onSelect={() => undefined} />)],
-    ["the display sheet", () => render(<DisplaySheet onClose={() => undefined} />)]
+    ["the display sheet", () => render(<DisplaySheet onClose={() => undefined} />)],
+    ["an upgrade another tab holds up", () => render(<DbBlockedScreen />)]
   ])("%s", (_name, mount) => {
     mount();
     expect(jargonOf(document.body.textContent ?? "")).toEqual([]);
