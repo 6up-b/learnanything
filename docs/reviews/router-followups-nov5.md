@@ -317,8 +317,23 @@ Added: `tests/test_rofu_successor.py`, `test_rofu_learning.py`, `test_rofu_speed
 
 ## Landing onto main
 
-In progress. The gate, the smoke and the owner's commands follow at step 5. What was built for each ruling is in
-`docs/reviews/router-followups-codex-review.md`, under "Landing ruling R1", "R6", "R7" and "R8".
+What was built for each ruling is in `docs/reviews/router-followups-codex-review.md`, under the sections for R1, R6,
+R7, R8, R9 and "Scoped verify and landing rulings R10-R12". The commits:
+
+| Ruling | Commits |
+|---|---|
+| R1 | `3d018ebf50` |
+| R6 | `58b727566e`, with its switch in `0ad1ebe661` |
+| R7 | `f7a21cf602` (a record only) |
+| R8 | `0767b917bd` |
+| R9 | `8a19c2698b` |
+| R10 | `f1129754c8` |
+| R11 | `0c448efaa7`, `a63fc11ba0` |
+| R12 | `f707b88555` |
+
+Main was merged twice: `c2e810f940` in `2db795f6d7`, and `5565bede25` (TE2-log, migration 247) in `1fd90d95da`. In
+the second merge every defaults snapshot was recomputed, and the successor test's frozen mvp-0.49 digest moved to
+main's own (`8031015473`).
 
 ### Orchestrator rulings (verbatim)
 
@@ -338,3 +353,239 @@ In progress. The gate, the smoke and the owner's commands follow at step 5. What
 - R11 (Codex N2): "Unpractised Bernoulli draws and probe observations use F directly; the combiner gets a numerically stable probability-logit of its own, with a derivative that matches the transformation actually applied; FSRS's retrievability clipping stays FSRS's. Codex's eta -14, u 5e-5 case must give the same outcome on the graded, observe and performance paths, all at F(-14)."
 - R12 (Codex N3): "The tag-gated switch snapshot is part of the prefetch boundary key, and each numeric answer freezes the switch settings it was computed under; the trace records those, never the current config's. Codex's reproduction is a test: flipping each of the six generator switches between prefetch and serve starts a new job, and a served cached answer's trace names the generator that produced it."
 - After R10-R12: "rerun the probe at 64 and 512 draws, then CONTINUE with steps 1-6 without stopping. No further Codex round; I'll read the R10-R12 diffs before landing, so keep each in its own commit. In step 4's smoke, report the numeric policy's time per decision and Next at a boundary against mvp-0.49 per copy, so the cost of R9's quadrature is measured (if Next regresses noticeably, say by how much; don't optimize in this landing)."
+- On main moving to 5565bede25: "merge main before step 5's record and step 6's checks (and rerun the targeted set after the merge ...)". The full gate below ran on the merged tree, so it covers the targeted set and `test_tracked_fixture_databases`, `test_coordinated_migrations` and `test_migrations`.
+
+### Step 1: early checks (on the merged tree)
+
+- **Command:** `-n 6` over 69 files: every `test_ro[0-9]*` and `test_rofu_*`, plus `test_measurement_state_labels`,
+  `test_cli_help_snapshot`, `test_codex_lockdown_round3` (the process-launch allowlist), `test_ro1_availability_reads`,
+  `test_tracked_fixture_databases`, `test_coordinated_migrations` and `test_migrations`.
+- **Result:** 788 passed, 2 failed.
+  - `test_rofu_successor`'s frozen mvp-0.49 digest, which the merge moved. It is fixed test-only in `8031015473`.
+  - `test_rofu_carried.py::test_an_early_publication_served_keeps_its_carried_valuation`, the timing-sensitive test
+    (see the review file). Alone it passed 2 of 3; it passed in the full suite.
+- **Import contracts:** `lint-imports --no-cache` kept 43 contracts, 0 broken.
+- **Also intermittent, before the merge:** `test_ro5_landing.py::test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
+  failed in the targeted set after R10-R12, and 4 of 22 times alone in the worktree.
+  - It failed 0 of 12 on a full archive of the same commit, and 0 of 24 on `5919b5a08c` and `591fd37f13`.
+  - It runs below the batch's tag (mvp-0.48), where the batch changes nothing. Its first boundary's decision seed is
+    unpinned, the class RO6's R8 and R14 pinned elsewhere.
+  - It passed in the full suite. A seed pin (test-only) is left for a ruling.
+
+### Step 2: references (`de22e2e670`)
+
+- `db_generate_reference` (395 table notes) and `db_validate_reference` (errors []). The prose counts in
+  `Database.md` and `Configuration.md` were updated to 1178 effective leaves.
+- `desktop_generate` and `desktop_validate`: 320/320 TS/TSX and 6/6 Rust modules.
+- `module_generate` (1239 module notes, 67 package maps) and `module_validate` (PASS).
+- `validate_vault.py`: passed, 2229 notes.
+- The defaults snapshots match the composed defaults: 41 of 41.
+
+### Step 3: the gate (at `8031015473`, the merged tree)
+
+| Lane | Result |
+|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0`: ok |
+| Import contracts | 43 kept, 0 broken |
+| Full suite (`-n 8`, 10G scope, under the shared lock) | 26845 passed, 91 skipped, 47 xfailed, 0 failed, in 67.0 min |
+| Durability lane (`-m durability`) | 403 passed, 1 skipped |
+| Owner lane (fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-rofu/`, since deleted) | 83 passed, 4 skipped, and the 2 known failures: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]` |
+| Desktop | typecheck ok; whole vitest at `--maxWorkers=4`: 2763 passed; `frontend:build` ok (`npm ci --offline` from the user's npm cache) |
+| Rust | `cargo check`: ok |
+| Mobile | typecheck ok, build ok (no phone file changed) |
+
+### Step 4: the smoke
+
+**Setup.**
+- **Copies.** Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (arxiv_v2, linear_algebra,
+  probability), neutralized, under `fixtures-local/landing-rofu-smoke/` (since deleted).
+- **Upgrades.** On main code (`c2e810f940`): mvp-0.45, rebuild, mvp-0.46, mvp-0.47, rebuild, then the default to
+  mvp-0.49. Then on branch code, the default upgrade to mvp-0.50. Head 246 throughout.
+- **Code.** The branch code was `fdcc287c1e`, before the second merge. That merge is teacher-only (TE2-log); the
+  gate above covers the merged tree. Main and branch were each `git archive`d with `migrations/`.
+- **Models.** Every AI route was pointed at 127.0.0.1:9. The router LLM and the Decider were in-process fakes;
+  grading and diagnosis were the tests' `BlindRivalClient`; probe authoring was `AuthorFake`.
+- **Driver.** RO6's driver, adapted. It runs through the real sidecar handlers and threads.
+
+**Identity.** The seed is pinned to the decision id on both sides, and ids and wall times are set aside. Each pair
+compares Today, the plan, every step, every written row (traces included, with their JSON read), every router LLM
+and Decider request, and the generated follow-up's gate.
+
+| Copy | Below the tag: main vs branch at mvp-0.49 | At the tag, all seven switches off, vs main at mvp-0.49 | Both with `[router_objective] enabled = false` |
+|---|---|---|---|
+| arxiv_v2 | identical (5 LLM, 5 Decider requests, 1 gate, 5 traces) | identical (6, 6, 1 gate, 5 traces) | identical (7, 7, 1 gate) |
+| linear_algebra | identical (5, 5, 1 gate, 5 traces) | identical (5, 5, 1 gate, 5 traces) | identical (8, 8, 1 gate) |
+| probability | identical (5, 5, 1 gate, 5 traces) | identical in two reruns (5, 5, 1 gate, 5 traces); see below | identical (4, 4, 1 gate) |
+
+- **Set aside for the at-the-tag pair only:**
+  - the boundary key's version string, and at mvp-0.50 its switch snapshot (R12), on both sides, because they seed
+    the rollouts' noise, as RO5's and RO6's landings did;
+  - the trace's generator key, which names the version;
+  - `versions.serving_switches` (all false);
+  - item 1's `inputs_sources.learning` (trace metadata with no switch).
+
+  Below the tag, only latencies (`fit_ms`) were set aside.
+- **probability's first at-the-tag run** differed in one trace's values only: 16 completed draws against 8, with the
+  same choices and rows. That is the deadline-bound refinement under load (Steam's shader compiles held the CPU),
+  the F2 phenomenon. Two reruns gave 8 draws on both sides and were identical.
+
+**Two simulated weeks per copy at the tag, every switch on** (RO6's journey):
+- RO5's arms were on.
+- A seeded ~70% learner answered the copy's real items.
+- Offered stops were kept going or accepted at random.
+- Days 3 and 10 had no session.
+- Next ran either right after feedback (dwell 0) or after a 3 s dwell.
+
+linear_algebra first (dwell 0, per day as of the day's end):
+
+| Day | Decisions | Longest session minutes (plan 30) | κ0 (source) | Transitions (censored) | Carried valuations recovered | Combiner fit n (joined rows) | Numeric ms median (max) |
+|---|---:|---:|---|---|---|---|---|
+| 11-05 | 1 | 1.5 | 0.007269 (day seed) | 0 (`no_later_decision` 1) | 0/1 | 1 (0) | 722 |
+| 11-06 | 9 | 31.5 | 0.001746 (day seed, carried) | 7 (`cutoff_unmatched` 2, 1) | 7/10 | 3 (1) | 1408 (1934) |
+| 11-07 | 7 | 33.0 | 0.003355 (posterior from stop offers) | 15 (1, 1) | 15/17 | 4 (1) | 1873 (2127) |
+| 11-09 | 5 | 10.5 | 0.004139 (posterior) | 19 (2, 1) | 19/22 | 6 (2) | 1715 (2174) |
+| 11-10 | 8 | 25.5 | 0.004127 (posterior) | 28 (1, 1) | 28/30 | 8 (3) | 1571 (2213) |
+| 11-11 | 3 | 13.5 | 0.004127 | 30 (2, 1) | 30/33 | 10 (4) | 1982 (2708) |
+| 11-12 | 3 | 12.0 | 0.004127 | 33 (2, 1) | 33/36 | 13 (6) | 2036 (2495) |
+| 11-13 | 8 | 31.5 | 0.005308 (posterior) | 41 (2, 1) | 41/44 | 14 (6) | 1925 (2723) |
+| 11-14 | 12 | 55.5 | 0.005797 (posterior) | 53 (2, 1) | 53/56 | 14 (6) | 1955 (3371) |
+| 11-16 | 2 | 0.0 | 0.005797 | 55 (2, 1) | 55/58 | 14 (6) | 3377 (4051) |
+| 11-17 | 3 | 13.5 | 0.008008 (posterior) | 58 (2, 1) | 58/61 | 15 (7) | 1871 (3163) |
+| 11-18 | 4 | 15.0 | 0.008008 | 62 (2, 1) | 62/65 | 15 (7) | 1847 (2459) |
+
+What the linear_algebra weeks show:
+- κ0 had a positive value every day. It started from the day's seed and was handed to RO5's posterior once a
+  randomized stop offer had a response (day 3).
+- Sessions stayed near the plan's 30 minutes, with one 55.5-minute day. RO6's landing recorded zero-price long
+  sessions here.
+
+All copies at the weeks' end:
+
+| Copy, dwell | Traced decisions | Transitions | Censored | Generator versions | Carried recovered | Combiner n (joined rows) | Numeric ms median (max) | Combiner join ms, first third / last third of the log (calls) |
+|---|---:|---:|---|---:|---|---|---|---|
+| linear_algebra, 0 s | 65 | 62 | `cutoff_unmatched` 2, `no_later_decision` 1 | 1 | 62/65 | 15 (7) | 1868 (4051) | 646 / 913 (157) |
+| linear_algebra, 3 s | 65 | 63 | 1, 1 | 1 | 63/65 | 15 (7) | 1877 (4863) | 426 / 551 (157) |
+| arxiv_v2, 0 s | 33 | 31 | 1, 1 | 1 | 31/33 | 15 (15) | 999 (3723) | 129 / 159 (77) |
+| arxiv_v2, 3 s | 33 | 31 | 1, 1 | 1 | 31/33 | 15 (15) | 852 (4541) | 98 / 96 (77) |
+| probability, 0 s | 59 | 56 | 2, 1 | 1 | 56/59 | 16 (11) | 1196 (3247) | 617 / 1417 (149) |
+| probability, 3 s | 59 | 57 | 1, 1 | 1 | 57/59 | 16 (11) | 1099 (2323) | 736 / 503 (149) |
+
+- **Censoring.** `cutoff_unmatched` is now rare at both dwells: 1-2 per copy. At RO6's landing it was 11 of 36, 68
+  of 75 and 35 of 68.
+- **Carried valuations.** Almost every one was recovered from the next prefetch and recorded in a later trace's
+  `carried_for`.
+- **Generator versions.** One per copy in two weeks. arxiv_v2 had 22 at RO6's landing; item 5's scope extension
+  removes that churn, and no `objective_changed` remains.
+- **`ŵ`.** 0 bound and 0 unbounded every day. No evaluation window closed within the two weeks, so no randomized
+  contrast formed (as at RO6's landing).
+- **R4, the join's cost.** It grows with the log, and it runs inside the prefetch job about 2.4 times per decision:
+  - per call, 0.4-0.9 s on linear_algebra and up to 1.4 s on probability at the end of the log;
+  - the dwell-0 runs overlapped the full suite, the dwell-3 runs a quieter machine.
+
+  The trace-fed combiner now has real joined rows: 7, 15 and 11, against 0 in the batch's synthetic journey.
+- **Trace terms.** Recomputed for every decision: 318 / 118 / 255 candidate `V_residual` and `Ṽ`, plus the
+  calibration summary as of each trace (65 / 33 / 59). Problems: 0.
+- **Assignments.** RO5's analysis recomputed each logged probability (coins 60 / 26 / 53, checks over 12 days).
+  Problems: 0. Every generated probe was served at most once, and every follow-up workflow settled.
+- **Trace bytes per decision.** 22-24 KB, 13-31 KB and 12-24 KB.
+
+**Protection on the cards.** 168 / 84 / 164 router LLM cards and every Decider state were scanned.
+- No protected or invisible stem, and no attempt cited after its decision. linear_algebra's 15 protected items were
+  never shown.
+- Every reference-solution hit (1431 / 37 / 872) sits in the learner's own answer, either under an `answer` or
+  `answer_excerpt` key or right after an `answer:` label. That is the synthetic learner typing the expected answer.
+- probability's 17 unattempted-stem hits are RO6's known false positive: `pi_method_reusable_access_code` shares its
+  first 60 characters with an attempted sibling.
+
+**Time.** One day with a generated follow-up; main at mvp-0.49 against branch at mvp-0.50.
+
+| Copy | Next after | Numeric per decision ms (main / branch, median) | Next at a boundary ms (main / branch) | Follow-up gate ms (main / branch) | Today ms | Submit ms |
+|---|---|---|---|---|---|---|
+| arxiv_v2 | 0 s | 1248 / 2315 | 2005 / 2103 | 191 / 210 | 163 / 175 | 202 / 264 |
+| arxiv_v2 | 3 s | 1207 / 2301 | 594 / 523 | 208 / 206 | 165 / 177 | 219 / 217 |
+| linear_algebra | 0 s | 743 / 1207 | **2003 / 3260** | **302 / 1120** | 870 / 884 | 230 / 242 |
+| linear_algebra | 3 s | 740 / 1242 | 798 / 776 | **217 / 1126** | 888 / 841 | 246 / 241 |
+| probability | 0 s | 224 / 490 | 1052 / 952 | 189 / 189 | 701 / 695 | 206 / 228 |
+| probability | 3 s | 182 / 619 | 875 / 858 | 189 / 196 | 744 / 731 | 253 / 237 |
+
+- **The numeric policy is 1.6 to 3.4 times slower.** This is in the prefetch job.
+- **Next at a boundary regresses noticeably on linear_algebra with Next right after feedback:** +1.26 s (+63%,
+  2.0 to 3.3 s). With a 3 s dwell, and on arxiv_v2 and probability, it is unchanged.
+- **linear_algebra's follow-up gate is about 0.8 s slower.**
+- **Profiles on arxiv_v2 and linear_algebra** (`SMOKE_PROFILE`, one day):
+  - R9's link inside the practice draws (`_graded_linked`, the quadrature's `logit_and_slope` twice per call) is
+    about half of every evaluation: 4.8 of 9.2 s on arxiv_v2, 4.1 of 9.7 s on linear_algebra.
+  - Item 2's join (`resolve_curves`) is 3.7 of 16.3 s on linear_algebra.
+- **RO2's probability-copy serve latency (R3):** Next at a boundary is 952-1052 ms and Today is 695-744 ms on both
+  codes. No regression.
+
+Not optimized here, as ruled. The smallest finishes:
+- compute `logit_and_slope` once for `η` and once for the belief per batch rather than per call;
+- the join cache keyed by the traces' count and the attempts' greatest rowid, built once per job (recorded under
+  item 2).
+
+**Reports, rebuild, sync.**
+- **`learnloop router objective-report`** was run as of the weeks' end, with RO6's `report_at.py` (the frozen clock
+  is in the real one's future).
+  - `memory_model`: "the rollouts read AD's posterior learning parameters on 65 of 65 decisions (its priors on 0);
+    the combiner fsrs_ad_logistic_v1 is laplace_fit on resolved randomized checks and the traces' sensors joined to
+    resolved cold outcomes, fitted on 15 outcomes". The same on 33 of 33 for arxiv_v2 (15 outcomes) and 59 of 59 for
+    probability (16 outcomes).
+  - `learned_tail`: "w^ 0.0000 (slope +0.0000 sd 1.0000, rank None, P(rank > 0) 0.500, 0 randomized contrasts, 0
+    forced ...); transitions 62 of 65 decisions; censored {'cutoff_unmatched': 2, 'no_later_decision': 1}; change
+    points 0; version ad66c63f1f7e1bdf (mvp-0.50, 65 decisions ...): fit n 62, fqe_fixed_point_with_prior". For
+    arxiv_v2: 31 of 33, fit n 31. For probability: 56 of 59, fit n 56.
+- **`rebuild --shadow`** on each copy: facet 0, schedule 0. Mastery differs only in the known stamp-only
+  `algorithm_version` rows (4 / 14 / 7).
+- **Survival.** Assignments and traces survive `rebuild-derived-state` and a state sync on each copy (byte-equal
+  before and after).
+
+**R5's grep.** `git diff 5565bede25 -- src migrations` adds no reader or writer of the difficulty columns,
+`mastery.irt.difficulty_from_prior` or surprise's `b`. Its added lines that name "difficulty" are imports and
+docstrings of the `adaptive_difficulty` package (R9's and R10's reads). The rollouts' `Topic.difficulty` is FSRS's
+D, which was already there.
+
+**Model calls and processes.**
+- No model receipt came from a real model. Real-model receipts stay at each copy's own pre-existing count (probability
+  42, the others 0), and every new receipt is a fake's.
+- The net watch saw no non-loopback connect and no resolve.
+- The only subprocesses were `git` and `powerprofilesctl`. No Codex process ran.
+
+### For the owner
+
+- **Upgrade.** Each vault goes from mvp-0.49 to mvp-0.50 with `learnloop upgrade --vault ~/learnloop-vaults/<name>`
+  (the default target). Then restart the phone host and rebuild the desktop app.
+  - Nothing recorded changes; this is a projection activation.
+  - The vaults still at mvp-0.43 go through RO5's and RO6's steps first: `learnloop upgrade --to mvp-0.45`, then
+    `learnloop rebuild-derived-state`, `--to mvp-0.46`, `--to mvp-0.47`, `rebuild-derived-state` again, then the
+    default upgrade.
+  - Opening a vault applies TE2-log's migration 247.
+- **Switches.** Each one is a kill switch under `[router_objective]` in the vault's `learnloop.toml` and defaults to
+  true; setting it to `false` serves that part as mvp-0.49 did:
+  - `combiner_trace_outcomes`
+  - `merged_sessions`
+  - `consistent_review_draw`
+  - `monotone_combiner`
+  - `ad_predictive_link`
+  - `carried_in_prefetch`
+  - `scope_extension`
+
+  `enabled = false` turns the whole objective off. Under R8 every switch but `carried_in_prefetch` is a change point
+  for the learned tail's fit.
+- **Paid routes.** None added. No model request, no paid call.
+
+### Open items
+
+- **Speed.** R9's quadrature and item 2's join, as measured above. linear_algebra's Next at a boundary is +1.26 s
+  with Next right after feedback, and its follow-up gate is +0.8 s.
+- **R7's AD-level findings.** AD's learning increment is unbounded, the belief's variance does not drift, and
+  coupled-facet transfer is not simulated.
+- **Intermittent tests.** `test_ro5_landing`'s r8 test (an unpinned seed below the tag) and
+  `test_rofu_carried`'s early-publication test (a 3 s serve wait against a 2.2 s first publication).
+- **R3's queue, unchanged:**
+  - item 6's floor contrasts;
+  - κ0's availability covariate and the goal-date read in `V`;
+  - the RO6 and RO5 caches;
+  - FG1d's `get_feedback` pin and one-fold probe;
+  - RO1 R3's admission anchor;
+  - the upgrade's mastery restamping.
