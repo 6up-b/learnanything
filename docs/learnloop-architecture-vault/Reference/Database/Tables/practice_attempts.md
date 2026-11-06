@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6cad8141ecef068e53fce83d54802d5a726e0b95"
-source_commit_timestamp: "2026-11-06T08:54:29-05:00"
+source_commit: "0394abccde203a1e4bd7d479ffe28c7035d61f2f"
+source_commit_timestamp: "2026-11-06T14:55:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -207,6 +207,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/help_assists.py`
 - `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/db/stores/intent_reads.py`
+- `src/learnloop/db/stores/lessons.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/practice_index.py`
@@ -268,6 +269,7 @@ Indexes and uniqueness:
 - `src/learnloop/router_objective/combiner_data.py`
 - `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/router_objective/goal_read.py`
+- `src/learnloop/router_objective/offer_report.py`
 - `src/learnloop/router_objective/picks.py`
 - `src/learnloop/router_objective/price.py`
 - `src/learnloop/router_objective/scores.py`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/view.py"
 source_paths:
   - "src/learnloop/daily_plan/view.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit: "e4131322b0676d232c53ccd2d25fb8ded32f6ea6"
+source_commit_timestamp: "2026-11-06T13:48:58-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,21 +50,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py) |
-| Source lines | 331 |
+| Source lines | 340 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Source commit | `e4131322b0676d232c53ccd2d25fb8ded32f6ea6` |
+| Commit timestamp | `2026-11-06T13:48:58-05:00` |
 
 ## Public API
 
 - `project_blocks(record: PlanRecord, context: PoolContext | None, policy: PlanPolicy, *, max_blocks: int=MAX_PROJECTED_BLOCKS) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 40) — The blocks after the chosen ones, if nothing changes: a projection only.
-- `minute_choices(presets: list[int], remembered: int) -> list[int]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 199)
-- `plan_view(env: PlanEnv, record: PlanRecord, *, context: PoolContext | None, next_step: dict[str, Any] | None, reentry_panel: dict[str, Any] | None=None, streak: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 203)
-- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 318)
-- `now_payload(moment: datetime) -> str` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 327)
+- `minute_choices(presets: list[int], remembered: int) -> list[int]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 208)
+- `plan_view(env: PlanEnv, record: PlanRecord, *, context: PoolContext | None, next_step: dict[str, Any] | None, reentry_panel: dict[str, Any] | None=None, streak: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 212)
+- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 327)
+- `now_payload(moment: datetime) -> str` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 336)
 
 ### Module constants
 
@@ -86,9 +86,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_item_row(env: PlanEnv, item: PlannedItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 67)
 - `_why_details(block: PlannedBlock) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 92)
 - `_block_row(env: PlanEnv, record: PlanRecord, block: PlannedBlock, current_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 108)
-- `_actual_minutes(records: list[PlanRecord]) -> float` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 145)
-- `_totals(records: list[PlanRecord]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 161)
-- `_reentry_numbers(record: PlanRecord, panel: dict[str, Any] | None, projected: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 184) — "Today: a short re-entry, about 12 min, 7 items": the chosen blocks plus the projected ones, the same figures the plan view shows (G3).
+- `_lesson_offer_row(block: PlannedBlock) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 148)
+- `_actual_minutes(records: list[PlanRecord]) -> float` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 154)
+- `_totals(records: list[PlanRecord]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 170)
+- `_reentry_numbers(record: PlanRecord, panel: dict[str, Any] | None, projected: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 193) — "Today: a short re-entry, about 12 min, 7 items": the chosen blocks plus the projected ones, the same figures the plan view shows (G3).
 
 ## Who imports or calls it
 
@@ -104,6 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `PlanPolicy`, `PoolContext`, `day_records`, `simulate_blocks`; calls `day_records`, `simulate_blocks`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `offer_card_view`; calls `offer_card_view`
 - [[Reference/Modules/learnloop/daily_plan/records|learnloop.daily_plan.records]] — imports `PlanRecord`, `PlannedBlock`, `PlannedItem`
 - [[Reference/Modules/learnloop/daily_plan/split|learnloop.daily_plan.split]] — imports `display_lane_minutes`, `split_line`; calls `display_lane_minutes`, `split_line`
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `LANES`

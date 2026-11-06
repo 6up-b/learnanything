@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/router_card.py"
 source_paths:
   - "src/learnloop/daily_plan/router_card.py"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "e4131322b0676d232c53ccd2d25fb8ded32f6ea6"
+source_commit_timestamp: "2026-11-06T13:48:58-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py) |
-| Source lines | 830 |
+| Source lines | 831 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
-| Commit timestamp | `2026-11-05T04:03:05-05:00` |
+| Source commit | `e4131322b0676d232c53ccd2d25fb8ded32f6ea6` |
+| Commit timestamp | `2026-11-06T13:48:58-05:00` |
 
 ## Public API
 
@@ -72,18 +72,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_reader_activity(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, Any] | None` (line 293; internal) — The card's copy of ``ReaderActivityV1`` (RW6b part 2), or None (switched off, or nothing on these LOs).
   - `_confidence(connection: Any, attempts: Sequence[Mapping[str, Any]], candidate_los: Sequence[str], recent: list[dict[str, Any]], held: frozenset[str], now_iso: str, unknowns: list[str], config: Any=None) -> tuple[dict[str, list[dict[str, Any]]], str | None, int]` (line 311; internal) — TE0 (spec_teacher_v1 §15.2): the confidence events.
   - `_suggestion_preferences(self, connection: Any, titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 356; internal) — Teacher TE1b: the responses to Today's lesson suggestion card in the card's 7-day window, newest first (at most one card a day: the card's own rhythm).
-  - `_evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str, withheld: Withheld, unknowns: list[str]) -> dict[str, Any]` (line 406; internal) — The typed evidence registry (R2a's hook).
-  - `_candidate(candidate: BlockCandidate, titles: Mapping[str, str]) -> dict[str, Any]` (line 426; internal)
-  - `_attempts(self, connection: Any, los: Sequence[str], now_iso: str) -> list[dict[str, Any]]` (line 442; internal)
-  - `_classes(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, str] | None` (line 459; internal) — The Today headline's class of each LO (review F7), or None when it cannot be read (then no topic is demonstrated or assumed).
-  - `_learning_objects(self, los: Sequence[str], candidate_los: Sequence[str], attempts: Sequence[Mapping[str, Any]], held: frozenset[str], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> dict[str, dict[str, Any]]` (line 474; internal)
-  - `_adaptive_difficulty(self, lo: str, unknowns: list[str]) -> dict[str, Any] | None` (line 563; internal)
-  - `_interaction(self, connection: Any, now_iso: str, unknowns: list[str]) -> dict[str, Any]` (line 577; internal)
-  - `_open_problems(self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 610; internal)
-  - `_hypothesis_marks(self, connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 702; internal) — FG1c: the candidates' topics' marks, the latest per cause, newest first.
-  - `_self_reports(self, connection: Any, los: set[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 751; internal)
-  - `_withheld_items(self, unknowns: list[str]) -> Withheld` (line 783; internal) — The items whose question and answers the card never shows: the shared predicate (``learner_protection.withheld_items``, the chat frontend's too): exam material by the one exam predicate, live assessment reservations, items a cold check or a repair's cold retry holds, diagnostic…
-  - `_recent_work(self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], past: PastWork, rule: CardText, titles: Mapping[str, str]) -> list[dict[str, Any]]` (line 801; internal)
+  - `_evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str, withheld: Withheld, unknowns: list[str]) -> dict[str, Any]` (line 407; internal) — The typed evidence registry (R2a's hook).
+  - `_candidate(candidate: BlockCandidate, titles: Mapping[str, str]) -> dict[str, Any]` (line 427; internal)
+  - `_attempts(self, connection: Any, los: Sequence[str], now_iso: str) -> list[dict[str, Any]]` (line 443; internal)
+  - `_classes(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, str] | None` (line 460; internal) — The Today headline's class of each LO (review F7), or None when it cannot be read (then no topic is demonstrated or assumed).
+  - `_learning_objects(self, los: Sequence[str], candidate_los: Sequence[str], attempts: Sequence[Mapping[str, Any]], held: frozenset[str], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> dict[str, dict[str, Any]]` (line 475; internal)
+  - `_adaptive_difficulty(self, lo: str, unknowns: list[str]) -> dict[str, Any] | None` (line 564; internal)
+  - `_interaction(self, connection: Any, now_iso: str, unknowns: list[str]) -> dict[str, Any]` (line 578; internal)
+  - `_open_problems(self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 611; internal)
+  - `_hypothesis_marks(self, connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 703; internal) — FG1c: the candidates' topics' marks, the latest per cause, newest first.
+  - `_self_reports(self, connection: Any, los: set[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 752; internal)
+  - `_withheld_items(self, unknowns: list[str]) -> Withheld` (line 784; internal) — The items whose question and answers the card never shows: the shared predicate (``learner_protection.withheld_items``, the chat frontend's too): exam material by the one exam predicate, live assessment reservations, items a cold check or a repair's cold retry holds, diagnostic…
+  - `_recent_work(self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], past: PastWork, rule: CardText, titles: Mapping[str, str]) -> list[dict[str, Any]]` (line 802; internal)
 
 ### Module constants
 
@@ -126,13 +126,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `module`; calls `enabled`, `event_text`, `readings`, `taps_before`, `taps_limit`
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `module`; calls `classify_learning_objects`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `suggestions_active`; calls `suggestions_active`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `suggestions_enabled`; calls `suggestions_enabled`
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; calls `for_card`, `reader_activity_enabled`, `reader_activity_for_card`
 - [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `module`; calls `summaries_for`
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `BlockCandidate`, `PlanState`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `open_learner_state_hypotheses`; calls `open_learner_state_hypotheses`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `marks_for_learning_objects`, `present`
-- [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `decisions`, `releases`, `responses`, `tables_present`
+- [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `all_decisions`, `releases`, `responses`, `tables_present`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `read_snapshot`; calls `read_snapshot`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `hypothesis_marks_on`; calls `hypothesis_marks_on`
 - [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `module`; calls `latest_marks`

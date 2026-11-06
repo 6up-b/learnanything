@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/history_resolve.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/history_resolve.py"
-source_commit: "96ba40f55c3587f2e716522918d4ae4d06b172ea"
-source_commit_timestamp: "2026-11-05T05:31:58-05:00"
+source_commit: "42a0fe5251b3a373c8911156c287aa3a3977815a"
+source_commit_timestamp: "2026-11-06T13:49:20-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/history_resolve.py](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py) |
-| Source lines | 284 |
+| Source lines | 294 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `96ba40f55c3587f2e716522918d4ae4d06b172ea` |
-| Commit timestamp | `2026-11-05T05:31:58-05:00` |
+| Source commit | `42a0fe5251b3a373c8911156c287aa3a3977815a` |
+| Commit timestamp | `2026-11-06T13:49:20-05:00` |
 
 ## Public API
 
@@ -92,8 +92,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class _Uncapped` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 112) — The material view as the reading collectors see it, with nothing on record: each source event is listed whether or not a sweep recorded (or a cap refused) its receipt.
 - `_opportunities(connection: Any, vault: Any, repository: Any, view: Any, *, now: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 132) — Every learning opportunity on any LO up to ``now`` (``id``, ``learning_object_id``, ``at``): the uncapped source events and AD's receipts, one per source row and LO.
 - `_outcome_state(row: Mapping[str, Any], category: int) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 155) — The outcome's help state beside its binary label (spec §6.2: A4's states stay distinct).
-- `_resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, groups: Sequence[Mapping[str, Any]], *, now: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 189)
-- `_log_loss(p: float | None, y: float | None) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 277)
+- `_resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, groups: Sequence[Mapping[str, Any]], *, now: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 194)
+- `_log_loss(p: float | None, y: float | None) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/history_resolve.py), line 287)
 
 ## Who imports or calls it
 

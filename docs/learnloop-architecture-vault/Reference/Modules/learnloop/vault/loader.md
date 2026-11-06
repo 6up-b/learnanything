@@ -192,6 +192,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `add_subject`, `init_vault`, `load_vault`; statically calls `add_subject`, `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `load_vault`; statically calls `load_vault`
@@ -273,7 +274,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 131 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 132 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -3266,6 +3267,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_ad_off`
+  - `test_the_upgrade_chains_from_an_older_link`
+  - `test_the_upgrade_publishes_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
+  - `test_the_gate_reads_lessons_on_the_clock_only_at_the_tag_with_the_switch`
+- [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
+  - `test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_point`
+- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+- [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
+  - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
+  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_suggestions_or_the_objective_off`
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`

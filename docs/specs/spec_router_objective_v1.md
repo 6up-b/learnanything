@@ -544,7 +544,14 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   outcomes); the chosen repair is then simulated on the true path. Its information is reported as the gain over the better fixed branch. A mid-block alternative (§8.3) is an
   ordered **sequence** of its two blocks, each step its own interface, duration and observation, and the same step
   draws the same noise in either order (F5). The lesson interface exists but no lesson is a plan-block candidate;
-  offer-type actions are valued by branches (tested by hand) and none is in a plan block's support yet.
+  offer-type actions are valued by branches (tested by hand) and none is in a plan block's support yet. *Teacher TE3b
+  (`mvp-0.53`, `spec_teacher_v1.md` §15.1a as built, `docs/reviews/teacher-te3b.md`): at its tag with
+  `router.lesson_suggestions.in_objective` on, one lesson offer (`lesson_offer:<LO>`, TE1b's best candidate) joins a
+  `plan_block` decision's support after staged's top-k and before stop, valued by the offer branches above (`p` a Beta
+  moment-matched to TE1b's acceptance posterior; the accepted branch the `LESSON` action with its retention check
+  committed through `Action.commitments`); the support's tail block means exclude it; the session's minutes count
+  lessons' active minutes (`price.lesson_spans`), §8.7's population holds LOs with a pending lesson check, and RO6's
+  features gain `lesson`. Off, or below the tag, this paragraph's support exactly.*
 - **Draws** (§8.1): 8, doubling while the LLM policy is out, up to `rollout_theta_draws_max` (64, `keep`): "more until
   the deadline" read as more while the other policy is still being waited for, never holding a serve. A refinement
   the deadline cuts short returns the latest complete batch (F7). Every complete uncorrected answer is published to
@@ -954,4 +961,7 @@ differs from §10:
 
 `spec_action_router_v1.md` §7.3 (the two-policy mix, stop eligibility; §15.2 unchanged), `plan_router_r2_v1.md`, `spec_daily_loop_v1.md` (minutes as a soft limit and lane shares no longer excluding, RO4), `daily_loop_frictionless_defaults.md` if its plan wording changes, overview §9.2 and its finite-plan wording, `spec_adaptive_difficulty_v1.md` §8 (the new forecaster and kind), `spec_followup_generate_serve_v1.md` §7 (shared exposure table), `docs/algorithm-change-playbook.md` (RO1's recorded effect on `due_at`). RO6 touches only `spec_action_router_v1.md`
 §7.3 (`π_Q`'s value is `Ṽ` at the tag; amended); the daily loop's frame, the playbook's chain rules and the other
-specs are unchanged by it.
+specs are unchanged by it. Teacher TE3b (`spec_teacher_v1.md` §15.1a, `mvp-0.53`) changes the support of a
+`plan_block` decision (a lesson offer beside staged's top-k), the objective's clock (lesson minutes) and §8.7's
+population (LOs with a pending lesson check), as recorded in §8.11; the lesson row of §8.1's table is the offer's
+accepted branch.

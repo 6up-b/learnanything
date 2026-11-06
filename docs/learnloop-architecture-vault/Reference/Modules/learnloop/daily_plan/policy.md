@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/policy.py"
 source_paths:
   - "src/learnloop/daily_plan/policy.py"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "e4131322b0676d232c53ccd2d25fb8ded32f6ea6"
+source_commit_timestamp: "2026-11-06T13:48:58-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/policy.py](../../../../../../src/learnloop/daily_plan/policy.py) |
-| Source lines | 147 |
+| Source lines | 174 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `838d8ee1fcee48de3b5b41f59e451f042ec9a690` |
-| Commit timestamp | `2026-11-05T04:03:05-05:00` |
+| Source commit | `e4131322b0676d232c53ccd2d25fb8ded32f6ea6` |
+| Commit timestamp | `2026-11-06T13:48:58-05:00` |
 
 ## Public API
 
@@ -78,7 +78,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_lesson_offer_builder(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 148) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise.
 
 ## Who imports or calls it
 
@@ -86,6 +86,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `router_active`; statically calls `router_active`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `objective_active`; statically calls `objective_active`
 - [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `mixture_active`; statically calls `mixture_active`
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `router_active`; statically calls `router_active`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `mixture_active`, `objective_active`, `policy_for`, `router_active`; statically calls `mixture_active`, `objective_active`, `policy_for`, `router_active`
@@ -100,12 +101,14 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ROUTER_MIXTURE_VERSIONS`, `ROUTER_STAGED_FRAME_VERSIONS`
 - [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `LaneQuotaChooser`; calls `LaneQuotaChooser`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `DEFAULT_POLICY`, `PlanPolicy`, `plan_active`; calls `PlanPolicy`, `plan_active`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `build`, `sweep_ignored`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ObjectiveChooser`, `ObjectiveRestraintGate`; calls `ObjectiveChooser`, `ObjectiveRestraintGate`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `CardGatherer`; calls `CardGatherer`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `RestraintGate`, `RouterChooser`; calls `RestraintGate`, `RouterChooser`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `default_runtime`; calls `default_runtime`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `SOURCE_NAME`, `StagedChooser`, `StagedFrame`, `StagedFrameFactory`; calls `StagedChooser`, `StagedFrame`, `StagedFrameFactory`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `objective_on`; calls `objective_on`
+- [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `tables_present`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `lesson_offers_on`, `objective_on`; calls `lesson_offers_on`, `objective_on`
 
 ### Platform and third-party dependencies
 
@@ -119,7 +122,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -168,6 +171,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_matured_decision_from_an_earlier_day_is_shown_to_the_models`
 - [tests/test_router_why_copy.py](../../../../../../tests/test_router_why_copy.py) — direct import
   - `test_every_why_the_staged_chooser_writes_on_a_plan_is_plain`
+- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+  - `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`
 
 ## Modification guidance
 

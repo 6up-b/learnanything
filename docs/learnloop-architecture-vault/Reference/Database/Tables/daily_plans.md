@@ -3,8 +3,8 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6cad8141ecef068e53fce83d54802d5a726e0b95"
-source_commit_timestamp: "2026-11-06T08:54:29-05:00"
+source_commit: "0394abccde203a1e4bd7d479ffe28c7035d61f2f"
+source_commit_timestamp: "2026-11-06T14:55:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lanes.py"
+  - "src/learnloop/daily_plan/lesson_offer.py"
   - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/daily_plan/objective_inputs.py"
-  - "src/learnloop/daily_plan/records.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/lesson_offer.py`
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/figures/prefetch.py`

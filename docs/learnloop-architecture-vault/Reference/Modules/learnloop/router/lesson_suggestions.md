@@ -175,6 +175,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `Context`, `days_between`, `declines_by_learning_object`, `design_vector`, `observations`, `replay`, `score`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `module`; statically calls `Candidate`, `Context`, `canonical_hash`, `days_between`, `declines_by_learning_object`, `draw`, `lesson_ref`, `mixture_target`, `observations`, `replay`, `score`, `seed_for`, `tiebreak_target`
 
 ## Dependencies
@@ -196,7 +197,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -208,6 +209,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_router_report_prints_the_split_from_the_ledgers_read_only`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction`
+- [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
+- [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
+- [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
+- [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
+  - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`
+- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+- [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import
+  - `test_the_acceptance_posterior_is_moment_matched_to_a_beta`
 - [tests/test_teacher_te1b_landing_r2.py](../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import
   - `test_not_now_on_a_pending_card_releases_the_reservation`
 - [tests/test_teacher_te1b_rereview_fixes.py](../../../../../../tests/test_teacher_te1b_rereview_fixes.py) — direct import

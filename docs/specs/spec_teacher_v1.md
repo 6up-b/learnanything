@@ -1136,6 +1136,50 @@ This section is the amendment text. The router spec itself is not edited here. *
 
 **What the census says.** No suggestion was ever drawn or answered, no traced `plan_block` decision exists in the copies, and no goal is active, so `new_goal` produces no candidate; `cold_failing` would produce 2 (linear_algebra). At the TE1b seeded rate, about one offer a day once the owner plans daily.
 
+*As built (TE3b, `docs/reviews/teacher-te3b.md`; branch `router/te3b-lesson-offers` on main `8b0738499d`):* router
+successor `mvp-0.53` after TE3a's `mvp-0.52` (ONE constant, `LESSON_OFFERS_ALGORITHM_VERSION`; upgrade
+`learnloop.lesson_offers_upgrade`, a projection activation), switch `router.lesson_suggestions.in_objective` (default
+true; gate `router_objective_switches.lesson_offers_on`: the tag, the objective serving, TE1b's suggestions with the
+router, its log and lessons, the switch). No migration. Where it differs from the text above, or reads it:
+- **The candidate** (`daily_plan.lesson_offer`, `PlanPolicy.lesson_offer`, `engine._boundary`): one `BlockCandidate`
+  (`subtype = lesson_offer`, id `lesson_offer:<LO>`, no items, no reading, its card and sensors in its annotations)
+  joins the support after staged's top `router.k` and before stop; staged's rule, staged's order and the rules'
+  fallback never see it. No offer beside forced items (a follow-up, a request, a randomized check: so never inside a
+  cold check, a probe or a randomized-check block), while an accepted lesson waits to open, once the day's shown cards
+  and drawn offers reach the ceiling (the bind is logged on the decision, `lesson_offers.ceiling.bound`), or with no
+  candidate. TE1b's own exclusions stand (an LO with an open lesson, or taught since its last attempt: a typed-goal LO
+  with a pending lesson check is one of these). The offer's context is read at hour resolution so a prefetch and its
+  serve share one boundary key.
+- **The value** (`value.Action.accept`, `.commitments`): `p` per draw is a Beta moment-matched to the acceptance
+  model's posterior predictive mean and sd (TE1b's banks and recovery grid integrated by AD's quadrature), not a
+  draw of the banks' Gaussians themselves. The accepted branch is the `LESSON` action at the learned lesson-check mass
+  (the posterior mean, `learner.lesson_weight`), TE3a's curve as `objective_inputs` reads it; its duration log-normal,
+  the log median's normal posterior from the card's 15 minutes (labelled, `lesson_offer.DURATION_*`) and the closed
+  lessons' active minutes, the within-lesson spread a labelled prior (not itself learned); its one retention check on
+  the target committed at `teacher.delayed.fallback_retention_days` (the lesson's own date is set from retrievability
+  at its close, after the decision; the transfer check's LO is not known before the lesson, so it is not simulated), a
+  graded attempt at the first day boundary past it, charged no minutes. The lesson's in-lesson checks and probes are
+  not simulated as observations of their own (the curve is the lesson's effect). Declined is RO4's tail-next block as
+  built.
+- **The LLM policy** sees the offer as one more option of its `router_llm_choice_v3` request
+  (`requests.lesson_offer_description`: the target, the reason, the minutes, `P(accept)`); its LO's history joins the
+  card's shared budget. No new request.
+- **Responses**: a drawn offer is a plan block (`PlannedBlock.is_lesson_offer`, step `lesson_offer`) answered through
+  TE1b's `lesson.suggestion_respond` on the `plan_block` decision (no new RPC); the answer ends the block. A serve
+  after the card was shown with no answer is `ignored` (the learner moved on) and the next boundary decides; each
+  boundary also records `ignored` on an unanswered offer whose plan closed or day passed.
+- **RO6**: `learned_tail.FEATURES_VERSION_LESSON` (the fourteen plus `lesson`), chosen by the config
+  (`tail_data.features_version`), part of the generator payload.
+- **The forecast binding** `te3b-lesson-offer-forecast-binding-v1` anchors at the accepted lesson's close
+  (`history_resolve.resolve_curves` admits `anchor_at`).
+- **The clock**: `price.lesson_spans` (one span per lesson, its active seconds the union of its foreground intervals)
+  in `activity_spans` for every reader of the objective's clock (serving, RO5's realized cost, RO6's rewards, the
+  return model), behind the same gate.
+- **The population**: `db.stores.lessons.pending_delayed_checks` (a receipt's committed check no attempt answered after
+  the lesson closed) in `objective_inputs.population` and `build`'s population.
+- **Not built**: the router's ITT outcome (`router.outcomes`) for an offer decision (it reads as a block with no
+  presentation; the evaluation is RO §8.7's); see the review file for the smallest way to finish each item above.
+
 ### 15.2 Confidence on the learner card (owner, 2026-10-24; TE0)
 
 - **What goes on the card.** The card (`router/card.py:88`; `CARD_VERSION` moves from `learner_state_card_v1` to `_v2`) renders confidence as events, never as raw scalars.
@@ -1608,6 +1652,20 @@ lesson row keeps entry `learning_object` (its CHECK has no `typed_goal`) with th
 open lessons (`lesson.open_lessons`; "Continue", "Close it" = `lesson.turn close`, no teacher call) and "Learn
 something new". Not built: the teacher's own `create_goal_lo` action mid-lesson and the library lookup before a new
 topic (the review file gives the smallest way to finish each).
+
+*As built (TE3b, `docs/reviews/teacher-te3b.md`; branch `router/te3b-lesson-offers` on main `8b0738499d`):* a router
+successor, `LESSON_OFFERS_ALGORITHM_VERSION` = `mvp-0.53` after TE3a's `mvp-0.52` (one constant, renumbered at landing
+if another successor lands first), upgrade `learnloop.lesson_offers_upgrade`, switch
+`router.lesson_suggestions.in_objective` (default true; off, or below the tag, TE1b's daily card and RO4's support
+exactly). No migration. Lesson offers are candidates of the router objective at a reversible `plan_block` boundary
+(`daily_plan.lesson_offer`), valued by RO4's offer branches with TE1b's acceptance model as a sensor and TE3a's curve,
+one more option on the LLM policy's existing request, drawn from the logged mix (G3), traced
+(`candidates[offer].offer`), shown as a plan block and answered on its own decision (one response; `ignored` when the
+learner moves on); lesson minutes count on the objective's clock; LOs with a pending lesson check join its population;
+RO6's features gain `lesson` (a change point); an accepted offer's forecast binds after its lesson; TE1b's Today-open
+card is drawn only where the objective does not serve, and the desktop shows the offer as a block of Today's plan
+(`LessonOfferBlock`). §15.1a's as-built note lists where the build reads the text. Paid calls: none (the LLM policy's
+request gains one option).
 
 ---
 

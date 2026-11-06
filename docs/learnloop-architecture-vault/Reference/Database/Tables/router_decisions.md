@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6cad8141ecef068e53fce83d54802d5a726e0b95"
-source_commit_timestamp: "2026-11-06T08:54:29-05:00"
+source_commit: "0394abccde203a1e4bd7d479ffe28c7035d61f2f"
+source_commit_timestamp: "2026-11-06T14:55:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -144,6 +144,7 @@ None found by exact static reference scan.
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/router/plan_log.py`
 - `src/learnloop/router_objective/calibration_report.py`
+- `src/learnloop/router_objective/offer_report.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`

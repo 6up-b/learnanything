@@ -18,7 +18,7 @@ source_paths:
   - "src/learnloop/router/suggestion_report.py"
   - "src/learnloop/router/why.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T11:55:22-05:00"
+source_commit_timestamp: "2026-11-06T13:48:58-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -60,7 +60,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router/card|learnloop.router.card]] | [[Reference/Modules/learnloop/router/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
 | [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] | [[Reference/Modules/learnloop/router/first_delayed_success#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
-| [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
+| [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 2 | 13 |
 | [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 9 | 9 |
 | [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] | [[Reference/Modules/learnloop/router/outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 20 |
 | [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] | [[Reference/Modules/learnloop/router/plan_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
@@ -80,7 +80,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 16 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 17 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 4 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
@@ -107,7 +107,7 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_data_capture["learnloop.data_capture"]
-    n_learnloop_daily_plan -->|16| center
+    n_learnloop_daily_plan -->|17| center
     center -->|11| n_learnloop
     center -->|7| n_learnloop_db_stores
     n_learnloop_router_objective -->|4| center

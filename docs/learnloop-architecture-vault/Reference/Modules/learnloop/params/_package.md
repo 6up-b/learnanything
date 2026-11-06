@@ -10,7 +10,7 @@ source_paths:
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/params/sensitivity_certificates.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T08:54:29-05:00"
+source_commit_timestamp: "2026-11-06T13:48:58-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.params"
@@ -49,7 +49,7 @@ For system intent, use [[Learning System]], [[Configuration]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/params/__init__|learnloop.params]] | [[Reference/Modules/learnloop/params/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] | [[Reference/Modules/learnloop/params/fitted_params#^module-purpose|purpose]] | `ACTIVE` | 24 | 8 |
-| [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] | [[Reference/Modules/learnloop/params/parameter_registry#^module-purpose|purpose]] | `ACTIVE` | 45 | 43 |
+| [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] | [[Reference/Modules/learnloop/params/parameter_registry#^module-purpose|purpose]] | `ACTIVE` | 46 | 44 |
 | [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] | [[Reference/Modules/learnloop/params/sensitivity_certificates#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 
 ## Cross-package dependencies
@@ -66,7 +66,7 @@ For system intent, use [[Learning System]], [[Configuration]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 39 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 40 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 4 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 4 static module edges
@@ -100,7 +100,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_goals["learnloop.goals"]
     n_learnloop_config["learnloop.config"]
-    n_learnloop -->|39| center
+    n_learnloop -->|40| center
     center -->|2| n_learnloop
     n_learnloop_scheduling -->|7| center
     center -->|1| n_learnloop_scheduling
