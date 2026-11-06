@@ -3331,6 +3331,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_typed_goals_need_the_switch`
   - `test_yes_to_a_leftover_creates_the_topic_with_teacher_goal_v1_and_one_goal_lo_episode`
 - [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f5_a_metered_typed_goal_resolver_is_sent_nothing`
 - [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
   - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
   - `test_lesson_goal_and_open_lessons_through_the_handlers`

@@ -159,6 +159,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_teacher_te2_probes.py](../../../../../../../tests/test_teacher_te2_probes.py) — direct import
   - `test_a_reserved_question_match_gives_no_probe`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f3_a_fault_after_the_attempt_rolls_everything_back_and_the_answer_can_be_sent_again`
 - [tests/test_teacher_te2log_activity.py](../../../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_a_bad_interval_is_refused_alone`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../../tests/test_teacher_te2log_episodes.py) — direct import

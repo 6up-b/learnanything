@@ -178,6 +178,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger`
 - [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
   - `test_an_answer_after_teaching_on_its_topic_is_not_independent`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f2_an_answer_after_teaching_on_its_topic_is_instructional_and_no_cold_outcome`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1_a_production_after_the_cold_delay_is_independent_again`
   - `test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it_primed`

@@ -191,6 +191,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `SpendBudget`, `SpendCaps`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `SpendLimitExceeded`
+- [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `is_subscription_transport`; statically calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
@@ -227,7 +228,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `SpendLimitExceeded`; statically calls `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendCaps`
 - [[Reference/Modules/learnloop/source_retrieval/compare_scope|learnloop.source_retrieval.compare_scope]] — imports `SpendLimitExceeded`
-- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `is_subscription_transport`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `is_subscription_transport`, `spend_envelopes`
 - [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] — imports `SpendLimitExceeded`; statically calls `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendCaps`, `SpendEstimate`
 - [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]] — imports `SpendBudget`, `SpendCaps`; statically calls `SpendBudget`, `SpendCaps`
@@ -270,7 +271,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 116 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 117 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
