@@ -124,6 +124,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failed_receipt_never_breaks_its_diagnosis`
 - [tests/test_forecast_receipts_landing.py](../../../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_a_failed_forecast_receipt_keeps_the_diagnosis_and_its_provenance_record`
+- [tests/test_teacher_te2log_node_held.py](../../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
+  - `test_a_refused_forecast_rolls_back_alone_and_the_plan_stands`
+  - `test_one_refused_node_forecast_leaves_its_siblings`
 
 ## Modification guidance
 

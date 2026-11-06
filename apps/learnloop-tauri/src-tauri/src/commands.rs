@@ -1457,6 +1457,8 @@ sidecar_passthrough!(notes_set_gaps, "notes.set_gaps");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");
+// Teacher TE2-log: the lesson screen's activity intervals (logging only; desktop only).
+sidecar_passthrough!(lesson_activity, "lesson.activity");
 // Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
 sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
 sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");

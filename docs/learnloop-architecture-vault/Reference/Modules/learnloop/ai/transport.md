@@ -408,6 +408,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_t8_alias_and_the_v2_llm_arm_are_one_arm_paid_for_once`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
   - `test_review_spend_reserves_the_transport_retry_at_its_doubled_allowance`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_switch_off_keeps_te1s_lesson_byte_identical`
+  - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
 - [tests/test_ux_phase1_review_fixes.py](../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
   - `test_f2_rereview_a_transport_retry_is_refused_when_the_failed_attempt_used_the_room`
   - `test_f2_rereview_every_physical_attempt_is_admitted_retries_and_repairs_included`

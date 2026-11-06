@@ -3,13 +3,13 @@ title: "lesson_turns"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
-source_commit_timestamp: "2026-11-05T22:18:58-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_turns"
   - "table lesson_turns"
-schema_head: 246
+schema_head: 247
 table_name: "lesson_turns"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -46,7 +46,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/234_teacher_lessons.sql`.
-- **Schema touched by:** `234_teacher_lessons.sql`.
+- **Schema touched by:** `234_teacher_lessons.sql`, `247_lesson_episodes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`
+- `tests/test_teacher_te2log_episodes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

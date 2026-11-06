@@ -676,7 +676,8 @@ def _round(value: float | None, digits: int = 4) -> float | None:
 
 #: The binary event each kind's ``p`` forecasts, as an emission.
 _BINARY_EVENT = {FR.DIAGNOSIS_NEXT_OBSERVATION: "pass", FR.REPAIR_COLD_OUTCOME: "cold_success",
-                 FR.LESSON_CHECK_CORRECT: "success", FR.LESSON_STEP_RETAINED: "success"}
+                 FR.LESSON_CHECK_CORRECT: "success", FR.LESSON_STEP_RETAINED: "success",
+                 FR.LESSON_NODE_HELD: "success"}
 
 
 def _score(kind: str, rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]:
@@ -791,7 +792,8 @@ def _resolve_all(
             resolution = resolve_repair(ledgers, receipt)
         elif receipt["kind"] == FR.LESSON_CHECK_CORRECT:
             resolution = resolve_lesson_check(ledgers, receipt)
-        elif receipt["kind"] == FR.LESSON_STEP_RETAINED:
+        elif receipt["kind"] in (FR.LESSON_STEP_RETAINED, FR.LESSON_NODE_HELD):
+            # TE2-log's lesson_node_held resolves on the same first qualifying cold outcome (§11.3).
             resolution = resolve_lesson_step(ledgers, receipt)
         else:
             resolution = _resolution(CENSORED, "kind_without_resolver")

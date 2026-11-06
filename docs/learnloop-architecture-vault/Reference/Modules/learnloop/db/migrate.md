@@ -403,6 +403,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te1b_migration.py](../../../../../../tests/test_teacher_te1b_migration.py) — direct import
   - `test_236_is_te1bs_migration_and_its_table_is_classified`
   - `test_236_keeps_every_router_decision_row`
+- [tests/test_teacher_te2log_migration.py](../../../../../../tests/test_teacher_te2log_migration.py) — direct import
+  - `test_247_adds_exactly_its_objects`
+  - `test_247_is_the_head_and_its_tables_receipts_denied_to_ad`
+  - `test_247_on_the_durability_lane`
+  - `test_the_head_fixture_holds_247_in_rollback_mode_with_empty_tables`
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import
   - `test_overconfidence_probe_origin_survives_target_selection`
   - `test_overconfidence_probe_records_origin`

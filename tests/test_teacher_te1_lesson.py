@@ -142,7 +142,9 @@ def test_a_plan_whose_anchors_do_not_resolve_is_refused_back_to_the_teacher(tmp_
     paths, repository, fake, view = _open(tmp_path, [bad, plan_turn])
     turns = _rows(repository, "SELECT action, validation FROM lesson_turns WHERE actor = 'teacher' ORDER BY seq")
     assert turns[0] == ("teacher_turn", "invalid") and ("teacher_turn", "ok") in turns
-    assert "S999" in str(fake.contexts[1]["transcript"])
+    # Named by its location, never by the model's text (TE2-log landing, ruling R1 (b)).
+    assert "requests[0].plan[0].anchors[0]" in str(fake.contexts[1]["transcript"])
+    assert "S999" not in str(fake.contexts[1]["transcript"])
     assert _rows(repository, "SELECT COUNT(*) FROM lesson_plans") == [(1,)]
 
 

@@ -192,7 +192,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `AIInterrupted`, `AIInvalidOutput`; statically calls `AIInterrupted`, `AIInvalidOutput`
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `AIInvalidOutput`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `AIInvalidOutput`; statically calls `AIInvalidOutput`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `AIInvalidOutput`, `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `CodexUnavailable`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `AIInterrupted`
@@ -455,6 +455,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f10_deferred_read_results_are_kept_until_a_turn_consumes_them`
   - `test_f11_an_opening_failure_carries_the_saved_lesson_and_resume_runs_it`
   - `test_f12_three_provider_invalid_outputs_close_the_lesson_as_a_contract_failure`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_a_schema_refusal_names_fields_by_location_never_by_their_input`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_cancellation_is_never_a_fallback`
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`

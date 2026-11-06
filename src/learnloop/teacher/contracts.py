@@ -168,11 +168,70 @@ class TeacherTurnVisualsV1(TeacherTurnV1):
     visual: TeacherVisualV1 | None = None
 
 
+# --- Teacher TE2-log: the episode log (teacher.episode_log) ----------------------------------------
+
+#: A detour's repair (spec §11.7, §18.4 ``keep``: a logging vocabulary, not a parameter).
+DETOUR_REPAIRS: tuple[str, ...] = ("repair_in_place", "insert_foundation", "reteach")
+#: The actions with ``teacher.episode_log`` on: TE1's plus ``note_detour`` (logging only, §9).
+EPISODE_ACTIONS: tuple[str, ...] = (*ACTIONS, "note_detour")
+_EpisodeAction = Literal[
+    "read_source", "find_sources", "find_practice", "read_history", "read_note", "write_plan", "forecast", "close",
+    "note_detour",
+]
+
+
+class PlanNodeEpisodesV1(PlanNodeV1):
+    #: The teacher's forecast that the learner would answer a cold question on the node right now (§9, §11.3).
+    p_held: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class ActionRequestEpisodesV1(ActionRequestV1):
+    """TE1's request plus ``note_detour`` (§11.7): its node is ``node``, its belief in the hypothesis ``p``."""
+
+    action: _EpisodeAction
+    plan: list[PlanNodeEpisodesV1] = Field(default_factory=list, max_length=12)
+    #: note_detour: the hypothesis in words (kept in the turn's payload; the episode row keeps its count
+    #: and hash) and the repair.
+    hypothesis: str | None = Field(default=None, max_length=2000)
+    repair: Literal["repair_in_place", "insert_foundation", "reteach"] | None = None
+
+
+class TeacherTurnEpisodesV1(TeacherTurnV1):
+    """One model turn with ``teacher.episode_log`` on: TE1's turn plus ``note_detour`` and ``p_held``."""
+
+    requests: list[ActionRequestEpisodesV1] = Field(default_factory=list, max_length=8)
+
+
+class PlanNodeVisualsEpisodesV1(PlanNodeVisualsV1):
+    p_held: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class ActionRequestVisualsEpisodesV1(ActionRequestVisualsV1):
+    action: _EpisodeAction
+    plan: list[PlanNodeVisualsEpisodesV1] = Field(default_factory=list, max_length=12)
+    hypothesis: str | None = Field(default=None, max_length=2000)
+    repair: Literal["repair_in_place", "insert_foundation", "reteach"] | None = None
+
+
+class TeacherTurnVisualsEpisodesV1(TeacherTurnVisualsV1):
+    """Both switches on: the visuals turn plus ``note_detour`` and ``p_held`` (the widest stored shape)."""
+
+    requests: list[ActionRequestVisualsEpisodesV1] = Field(default_factory=list, max_length=8)
+
+
 __all__ = [
     "ACTIONS",
+    "ActionRequestEpisodesV1",
+    "ActionRequestVisualsEpisodesV1",
     "BRIEF_VERSION",
     "CLOSE_REASONS",
+    "DETOUR_REPAIRS",
+    "EPISODE_ACTIONS",
     "FORECAST_KINDS",
+    "PlanNodeEpisodesV1",
+    "PlanNodeVisualsEpisodesV1",
+    "TeacherTurnEpisodesV1",
+    "TeacherTurnVisualsEpisodesV1",
     "PROMPT_VERSION",
     "READ_ACTIONS",
     "RECEIPT_VERSION",

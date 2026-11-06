@@ -116,6 +116,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_switch_off_keeps_te1s_lesson_byte_identical`
+  - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
 
 ## Modification guidance
 

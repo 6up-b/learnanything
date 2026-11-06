@@ -1979,6 +1979,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "learned mass (off: the type's configured 0.5) / the forecast pool on top of it (parametric: the "
         "learned mass alone) / curriculum C4's deliverable and notes in the brief. Operational only: the "
         "learned quantities move with the data, never with these."),
+    # Teacher TE2-log (spec_teacher_v1 §11.6, §11.9, §20): item 5's logging. A boolean
+    # (classified so every new key has a rule); it decides no lesson, only whether the
+    # episode rows, the activity intervals and the node forecasts are written.
+    _ConfigRule(_exact(
+        "teacher.episode_log",
+    ), "structural", "operational",
+        "kill switch for TE2-log's additive receipts (lesson_episodes, lesson_activity_intervals, the "
+        "lesson_node_held forecast and the receipt's episodes and minutes) and the turn fields that feed them "
+        "(note_detour, p_held); off, nothing is written and lessons are TE1's exactly. Nothing serving, "
+        "scheduling, certification or replay reads what it writes."),
     # Reader RW5d P4b (spec_reader_show_me_figures_v1 §6.5, §10.4): the teacher's
     # manipulatives. A boolean (classified so every new key has a rule): content and
     # display only, no weight, margin or threshold; off, the teacher's prompt and turn

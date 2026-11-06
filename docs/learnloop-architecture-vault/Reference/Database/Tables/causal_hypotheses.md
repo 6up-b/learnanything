@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
-source_commit_timestamp: "2026-11-05T22:18:58-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 246
+schema_head: 247
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -145,6 +145,7 @@ Database triggers:
 - `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/substrate/recurrence_groups.py`
+- `src/learnloop/teacher/episodes.py`
 
 ### Direct SQL writers
 

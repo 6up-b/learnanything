@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/guards.py"
 source_paths:
   - "src/learnloop/teacher/guards.py"
-source_commit: "b27393627421b08fcbc773e113271c3a55a594f7"
-source_commit_timestamp: "2026-11-01T22:15:41-05:00"
+source_commit: "c301f12a6fb3c4eee8ec28f70ccc8e9e185849ce"
+source_commit_timestamp: "2026-11-06T01:16:17-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,25 +50,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py) |
-| Source lines | 142 |
+| Source lines | 170 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b27393627421b08fcbc773e113271c3a55a594f7` |
-| Commit timestamp | `2026-11-01T22:15:41-05:00` |
+| Source commit | `c301f12a6fb3c4eee8ec28f70ccc8e9e185849ce` |
+| Commit timestamp | `2026-11-06T01:16:17-05:00` |
 
 ## Public API
 
 - `class GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 34)
   - `as_dict(self) -> dict[str, Any]` (line 39; public)
-- `lesson_keys(vault: Any, repository: Any, learning_object_ids: Iterable[str], exempt_items: Iterable[str]) -> tuple[list[Any], bool]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 47) — ``(keys, unreadable)``: every recorded answer key on these LOs except the exempt items'.
-- `key_guard(message: str, keys: Sequence[Any], unreadable: bool) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 69)
-- `solution_overlap(text: str, solution: str) -> float` ([source](../../../../../../src/learnloop/teacher/guards.py), line 80) — How much of a committed solution ``text`` exposes (0..1; the tutor's span measure).
-- `open_check_guard(message: str, open_check: Mapping[str, Any] | None) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 90)
-- `citation_guard(message: str, book: SourceBook) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 101)
-- `check_all(message: str, *, keys: Sequence[Any], unreadable: bool, book: SourceBook, open_check: Mapping[str, Any] | None, help_reply: bool) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 116) — The three guards in order (the open check's is skipped for a reply to the learner's own question).
-- `cited_aliases(message: str) -> list[str]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 128)
+- `key_sets(vault: Any, repository: Any, learning_object_ids: Iterable[str], exempt_items: Iterable[str]) -> tuple[list[Any], list[Any], bool]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 53) — ``(lesson keys, vault keys, unreadable)`` from one read of the KeyBook: every recorded answer key on these LOs except the exempt items' (the displayed text's guard), and every answer key the vault records on any item, on any LO (the identifier guard's, :func:`identifier_guard`).
+- `lesson_keys(vault: Any, repository: Any, learning_object_ids: Iterable[str], exempt_items: Iterable[str]) -> tuple[list[Any], bool]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 71) — ``(keys, unreadable)``: every recorded answer key on these LOs except the exempt items'.
+- `identifier_guard(text: str, vault_keys: Sequence[Any], unreadable: bool) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 79) — A model-supplied field a log row or a receipt copies (a plan node's id or ``lo_id``, a note's node and hypothesis, a forecast's node and its LO) against every answer key the vault records (TE2-log landing, ruling R1): an exam-reserved or held-out item's on any LO, a topic the le…
+- `key_guard(message: str, keys: Sequence[Any], unreadable: bool) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 95)
+- `solution_overlap(text: str, solution: str) -> float` ([source](../../../../../../src/learnloop/teacher/guards.py), line 106) — How much of a committed solution ``text`` exposes (0..1; the tutor's span measure).
+- `open_check_guard(message: str, open_check: Mapping[str, Any] | None) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 116)
+- `citation_guard(message: str, book: SourceBook) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 127)
+- `check_all(message: str, *, keys: Sequence[Any], unreadable: bool, book: SourceBook, open_check: Mapping[str, Any] | None, help_reply: bool) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 142) — The three guards in order (the open check's is skipped for a reply to the learner's own question).
+- `cited_aliases(message: str) -> list[str]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 154)
 
 ### Module constants
 
@@ -84,7 +86,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `check_all`
 - `citation_guard`
 - `cited_aliases`
+- `identifier_guard`
 - `key_guard`
+- `key_sets`
 - `lesson_keys`
 - `open_check_guard`
 - `solution_overlap`
@@ -92,13 +96,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_normalize(text: str) -> str` ([source](../../../../../../src/learnloop/teacher/guards.py), line 43)
+- `_identity(value: Any) -> str` ([source](../../../../../../src/learnloop/teacher/guards.py), line 47)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `check_all`, `cited_aliases`, `key_guard`, `lesson_keys`, `open_check_guard`, `solution_overlap`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `check_all`, `cited_aliases`, `identifier_guard`, `key_guard`, `key_sets`, `lesson_keys`, `open_check_guard`, `solution_overlap`
 
 ## Dependencies
 

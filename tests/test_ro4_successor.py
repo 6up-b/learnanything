@@ -76,7 +76,8 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
 
     for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS, *FOLLOWUP_KEYS):
         section.pop(key)
-    digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
+    digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "5c2ab89bfcb757cbc3038bd6c776bb968ff9688addd7becd4778e489ac461cb4"
 
 

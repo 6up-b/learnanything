@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/contracts.py"
 source_paths:
   - "src/learnloop/teacher/contracts.py"
-source_commit: "463f9a3041ab918891db5aad0ebbb4b7f36e641c"
-source_commit_timestamp: "2026-11-02T05:17:47-05:00"
+source_commit: "84ec7ab399c5a93cb0ad162f1da366a5f53ed28a"
+source_commit_timestamp: "2026-11-05T23:11:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py) |
-| Source lines | 193 |
+| Source lines | 252 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `463f9a3041ab918891db5aad0ebbb4b7f36e641c` |
-| Commit timestamp | `2026-11-02T05:17:47-05:00` |
+| Source commit | `84ec7ab399c5a93cb0ad162f1da366a5f53ed28a` |
+| Commit timestamp | `2026-11-05T23:11:09-05:00` |
 
 ## Public API
 
@@ -71,6 +71,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class PlanNodeVisualsV1(PlanNodeV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 156)
 - `class ActionRequestVisualsV1(ActionRequestV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 160)
 - `class TeacherTurnVisualsV1(TeacherTurnV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 164) — One model turn with ``teacher.visuals`` on: TE1's turn plus the optional ``visual``.
+- `class PlanNodeEpisodesV1(PlanNodeV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 183)
+- `class ActionRequestEpisodesV1(ActionRequestV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 188) — TE1's request plus ``note_detour`` (§11.7): its node is ``node``, its belief in the hypothesis ``p``.
+- `class TeacherTurnEpisodesV1(TeacherTurnV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 199) — One model turn with ``teacher.episode_log`` on: TE1's turn plus ``note_detour`` and ``p_held``.
+- `class PlanNodeVisualsEpisodesV1(PlanNodeVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 205)
+- `class ActionRequestVisualsEpisodesV1(ActionRequestVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 209)
+- `class TeacherTurnVisualsEpisodesV1(TeacherTurnVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 216) — Both switches on: the visuals turn plus ``note_detour`` and ``p_held`` (the widest stored shape).
 
 ### Module constants
 
@@ -84,15 +90,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `TEACHER_CLOSE_REASONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 54)
 - `FORECAST_KINDS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 55)
 - `VISUAL_ANCHORS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 136)
+- `DETOUR_REPAIRS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 174)
+- `EPISODE_ACTIONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 176)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `ACTIONS`
+- `ActionRequestEpisodesV1`
+- `ActionRequestVisualsEpisodesV1`
 - `BRIEF_VERSION`
 - `CLOSE_REASONS`
+- `DETOUR_REPAIRS`
+- `EPISODE_ACTIONS`
 - `FORECAST_KINDS`
+- `PlanNodeEpisodesV1`
+- `PlanNodeVisualsEpisodesV1`
+- `TeacherTurnEpisodesV1`
+- `TeacherTurnVisualsEpisodesV1`
 - `PROMPT_VERSION`
 - `READ_ACTIONS`
 - `RECEIPT_VERSION`
@@ -124,8 +140,9 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `ActionRequestV1`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `BRIEF_VERSION`, `READ_ACTIONS`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `CheckV1`
+- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `ActionRequestV1`, `CheckV1`, `READ_ACTIONS`, `RECEIPT_VERSION`, `TURN_VERSION`, `TeacherTurnV1`
-- [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `PROMPT_VERSION`, `PlannedVisualV1`, `TeacherTurnV1`, `TeacherTurnVisualsV1`
+- [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `PROMPT_VERSION`, `PlannedVisualV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 
 ## Dependencies
 
@@ -145,7 +162,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -154,6 +171,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_a_schema_refusal_names_fields_by_location_never_by_their_input`
+  - `test_switch_off_keeps_te1s_lesson_byte_identical`
+  - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
+- [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
+  - `test_switch_off_has_no_p_held_and_writes_no_forecast`
 
 ## Modification guidance
 

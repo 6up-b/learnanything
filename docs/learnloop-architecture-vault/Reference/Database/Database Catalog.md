@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
-source_commit_timestamp: "2026-11-05T22:18:58-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 246
-table_count: 393
+schema_head: 247
+table_count: 395
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_246/state.sqlite"
+  - "fixtures/migration_head_247/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-246"
+  - "learnloop/database/schema-head-247"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 393 user tables at migration head 246. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 395 user tables at migration head 247. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,7 +40,7 @@ This is the exhaustive map of the 393 user tables at migration head 246. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 165 |
 | [[Table Roles#Derived|`derived`]] | 26 |
-| [[Table Roles#Receipt|`receipt`]] | 93 |
+| [[Table Roles#Receipt|`receipt`]] | 95 |
 | [[Table Roles#Workflow|`workflow`]] | 99 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 393 user tables at migration head 246. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 380 |
+| `active` | 382 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -482,7 +482,9 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/item_skeletons|item_skeletons]] — `workflow` · `active` · Gives item skeleton a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `model_id`, `subject_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/judgment_ledger|judgment_ledger]] — `raw_ledger` · `active` · Gives judgment ledger a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `supersedes_id`, `left_id`, `right_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/judgment_work_claims|judgment_work_claims]] — `workflow` · `active` · Gives judgment work claim a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `judgment_id`, `prompt_version`, `input_hash`, making the operational relationship explicit.
+- [[Reference/Database/Tables/lesson_activity_intervals|lesson_activity_intervals]] — `receipt` · `active` · Gives lesson activity interval a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `lesson_id`, `receipt_version`, `screen_session`, making the operational relationship explicit.
 - [[Reference/Database/Tables/lesson_checks|lesson_checks]] — `receipt` · `active` · Gives lesson check a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `lesson_id`, `node_id`, `learning_object_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/lesson_episodes|lesson_episodes]] — `receipt` · `active` · Gives lesson episode a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `lesson_id`, `node_id`, `learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/lesson_plans|lesson_plans]] — `raw_ledger` · `active` · Gives lesson plan a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `lesson_id`, `version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/lesson_receipts|lesson_receipts]] — `receipt` · `active` · Freezes the inputs and outcome of each lesson decision so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `lesson_id`, `receipt_version`, `close_reason`, making the operational relationship explicit.
 - [[Reference/Database/Tables/lesson_turn_payloads|lesson_turn_payloads]] — `workflow` · `active` · Gives lesson turn payload a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `turn_id`, `lesson_id`, making the operational relationship explicit.

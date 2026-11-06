@@ -76,13 +76,18 @@ ITEM_UNASSISTED_SUCCESS = "item_unassisted_success"
 #: outcome that also resolves the learned lesson-check weight).
 LESSON_CHECK_CORRECT = "lesson_check_correct"
 LESSON_STEP_RETAINED = "lesson_step_retained"
+#: Teacher TE2-log (spec_teacher_v1 §11.3, §18.2): a plan node's ``p_held``, the teacher's forecast that the
+#: learner would answer a cold question on the node's LO right now (written with the plan; bound to the first
+#: qualifying cold outcome on the LO, as ``lesson_step_retained``, and read against RO5's randomized checks
+#: apart by ``learnloop teacher report``).
+LESSON_NODE_HELD = "lesson_node_held"
 #: Router objective RO2 (spec_router_objective_v1 §6.2): ``llm_history_v1``'s forecast of unassisted
 #: success on an unseen item of the presentation's LO, L days after its block (L in 1, 7, 30), had the
 #: learner no exposure to the LO in between. One receipt per lag, each carrying the whole curve;
 #: resolved by ``adaptive_difficulty.history_resolve`` (two bindings, scored at the realized lag).
 LO_COLD_SUCCESS = "lo_cold_success"
 FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME, ITEM_UNASSISTED_SUCCESS,
-                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED, LO_COLD_SUCCESS)
+                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED, LO_COLD_SUCCESS, LESSON_NODE_HELD)
 
 SCOPES = ("next_observation", "followup_task", "presentation", "item", "lesson_check", "lesson_node")
 
@@ -294,6 +299,7 @@ __all__ = [
     "LESSON_CHECK_ATTEMPT",
     "LESSON_CHECK_CORRECT",
     "LESSON_COLD_OUTCOME",
+    "LESSON_NODE_HELD",
     "LESSON_STEP_RETAINED",
     "LO_COLD_AFTER_BLOCK",
     "LO_COLD_SUCCESS",

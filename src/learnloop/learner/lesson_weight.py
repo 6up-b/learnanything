@@ -1020,6 +1020,38 @@ def mass_mismatches(state: WeightState) -> list[dict[str, Any]]:
     return out
 
 
+def _pool_moments(log_w: np.ndarray) -> tuple[float, float]:
+    grid = _pool_grid()
+    weights = normalized_log_weights(log_w)
+    mean = float((weights * grid).sum())
+    return mean, math.sqrt(max(float((weights * grid * grid).sum()) - mean * mean, 0.0))
+
+
+def pool_trajectory(trace: Iterable[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """The pool weight's trajectory per forecaster (teacher TE2-log, spec_teacher_v1 §11.10): λ̂ and its posterior
+    sd from the seeded prior (``at`` None), then after each ``pool_update`` of the trace (what
+    ``lesson_weight_trace`` holds), re-applied in order exactly as :func:`_resolve_forecast` applied it. Read-only."""
+
+    prior = _pool_prior_log_w()
+    logs: dict[str, np.ndarray] = {}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for entry in trace:
+        if entry.get("kind") != "pool_update":
+            continue
+        detail = entry.get("detail") or {}
+        family = str(detail["family"])
+        if family not in logs:
+            logs[family] = prior.copy()
+            mean, sd = _pool_moments(prior)
+            out[family] = [{"at": None, "updates": 0, "lambda": round(mean, 6), "sd": round(sd, 6)}]
+        p = _pool_grid() * float(detail["p_b"]) + (1.0 - _pool_grid()) * float(detail["p_a"])
+        logs[family] = logs[family] + float(detail["share"]) * _soft_log_lik(p, float(detail["y"]))
+        mean, sd = _pool_moments(logs[family])
+        out[family].append({"at": entry.get("at"), "updates": len(out[family]), "lambda": round(mean, 6),
+                            "sd": round(sd, 6)})
+    return out
+
+
 __all__ = [
     "BETA_C_PRIOR_SD",
     "BETA_P_PRIOR_SD",
@@ -1043,6 +1075,7 @@ __all__ = [
     "confidence_term",
     "lesson_check_mass",
     "pool_implied_mass",
+    "pool_trajectory",
     "posterior_after",
     "predicted_success",
     "prediction_term",

@@ -10592,6 +10592,19 @@ export interface LessonViewDto {
   shownNow?: unknown[];
   notices?: string[];
   vaultChanged?: boolean;
+  /** Teacher TE2-log: set while the episode log is on; the screen then reports its activity intervals. */
+  activityLog?: boolean;
+}
+
+/** Teacher TE2-log (spec_teacher_v1 §11.6): one interval of the lesson screen, on the client's clock. */
+export interface LessonActivityIntervalDto {
+  /** One mount of the lesson screen; `seq` counts its intervals from 1 (a gap is a missing interval). */
+  screenSession: string;
+  seq: number;
+  startedAt: string;
+  endedAt: string;
+  /** In the foreground with input (active), or open but not. */
+  foreground: boolean;
 }
 
 

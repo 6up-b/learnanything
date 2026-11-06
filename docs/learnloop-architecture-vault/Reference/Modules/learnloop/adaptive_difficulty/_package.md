@@ -51,7 +51,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/successor.py"
   - "src/learnloop/adaptive_difficulty/switches.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit_timestamp: "2026-11-05T23:00:02-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -115,7 +115,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] | [[Reference/Modules/learnloop/adaptive_difficulty/predict#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] | [[Reference/Modules/learnloop/adaptive_difficulty/priors#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/projection|learnloop.adaptive_difficulty.projection]] | [[Reference/Modules/learnloop/adaptive_difficulty/projection#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/protected_tables|learnloop.adaptive_difficulty.protected_tables]] | [[Reference/Modules/learnloop/adaptive_difficulty/protected_tables#^module-purpose|purpose]] | `ACTIVE` | 2 | 20 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/protected_tables|learnloop.adaptive_difficulty.protected_tables]] | [[Reference/Modules/learnloop/adaptive_difficulty/protected_tables#^module-purpose|purpose]] | `ACTIVE` | 2 | 21 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]] | [[Reference/Modules/learnloop/adaptive_difficulty/protection#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] | [[Reference/Modules/learnloop/adaptive_difficulty/readiness#^module-purpose|purpose]] | `ACTIVE` | 10 | 8 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] | [[Reference/Modules/learnloop/adaptive_difficulty/reading#^module-purpose|purpose]] | `ACTIVE` | 7 | 15 |

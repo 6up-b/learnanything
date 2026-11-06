@@ -477,6 +477,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/tui/minutes_memory|learnloop.tui.minutes_memory]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -502,6 +503,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/placement|learnloop_sidecar.handlers.placement]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
@@ -2084,6 +2086,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tap_recalibration_learns_from_every_tapped_graded_answer`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
   - `test_the_candidate_reasons`
+- [tests/test_teacher_te2log_activity.py](../../../../../tests/test_teacher_te2log_activity.py) — direct import
+  - `test_an_episodes_minutes_come_from_the_screens_intervals`
+- [tests/test_teacher_te2log_episodes.py](../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+- [tests/test_teacher_te2log_node_held.py](../../../../../tests/test_teacher_te2log_node_held.py) — direct import
+  - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
+  - `test_the_forecast_report_resolves_it_on_the_first_cold_outcome`
+- [tests/test_teacher_te2log_receipt.py](../../../../../tests/test_teacher_te2log_receipt.py) — direct import
+- [tests/test_teacher_te2log_report.py](../../../../../tests/test_teacher_te2log_report.py) — direct import
+  - `test_the_pool_weights_trajectory_per_forecaster`
 - [tests/test_today_headline.py](../../../../../tests/test_today_headline.py) — direct import
   - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
 - [tests/test_today_surfaces.py](../../../../../tests/test_today_surfaces.py) — direct import

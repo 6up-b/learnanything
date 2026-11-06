@@ -3,13 +3,13 @@ title: "router_objective_traces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
-source_commit_timestamp: "2026-11-05T22:18:58-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_objective_traces"
   - "table router_objective_traces"
-schema_head: 246
+schema_head: 247
 table_name: "router_objective_traces"
 table_role: "receipt"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/db/stores/router_objective.py"
   - "src/learnloop/router_objective/calibration_report.py"
-  - "src/learnloop/router_objective/combiner_data.py"
   - "src/learnloop/router_objective/forecast_resolve.py"
   - "src/learnloop/router_objective/goal_read.py"
+  - "src/learnloop/router_objective/objective_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -49,7 +49,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/246_router_objective_traces.sql`.
-- **Schema touched by:** `246_router_objective_traces.sql`.
+- **Schema touched by:** `246_router_objective_traces.sql`, `247_lesson_episodes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -113,7 +113,6 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/objective_chooser.py`
 - `src/learnloop/db/stores/router_objective.py`
 - `src/learnloop/router_objective/calibration_report.py`
-- `src/learnloop/router_objective/combiner_data.py`
 - `src/learnloop/router_objective/forecast_resolve.py`
 - `src/learnloop/router_objective/goal_read.py`
 - `src/learnloop/router_objective/objective_report.py`
@@ -121,6 +120,7 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/stop_coin.py`
 - `src/learnloop/router_objective/tail_data.py`
 - `src/learnloop/router_objective/tail_report.py`
+- `src/learnloop/teacher/episodes.py`
 
 ### Direct SQL writers
 
@@ -140,7 +140,6 @@ None found by exact static reference scan.
 - `tests/test_ro5_checks.py`
 - `tests/test_ro5_codex_review.py`
 - `tests/test_ro5_landing.py`
-- `tests/test_rofu_learning.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

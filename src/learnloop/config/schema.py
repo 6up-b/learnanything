@@ -4538,6 +4538,16 @@ class TeacherConfig(BaseModel):
     teacher's prompt and turn schema are TE1's byte for byte and no lesson figure
     is built or shown. Content and display only: a figure never grades and is
     never evidence (no successor).
+
+    Teacher TE2-log (§11.6, §11.9, §20) adds ``episode_log``: item 5's logging,
+    additive at every algorithm version (no successor, as RO0's ``receipts``).
+    On, the teacher's turn may carry ``note_detour`` and plan nodes ``p_held``
+    (with the doctrine's versioned episode paragraph, a new §12.2 forecaster
+    family), and the lesson writes ``lesson_episodes``, ``lesson_activity_intervals``
+    (through ``lesson.activity``), ``lesson_node_held`` forecasts and the receipt's
+    ``episodes`` and ``minutes``. Nothing serving, scheduling, certification or
+    replay reads any of it; a refused row rolls back alone with a warning. Off,
+    nothing of it is written and lessons are TE1's byte for byte.
     """
 
     confidence_events_enabled: bool = True
@@ -4551,6 +4561,8 @@ class TeacherConfig(BaseModel):
     max_lesson_cost_usd: float | None = None
     # Reader RW5d P4b: the teacher's manipulatives (off: TE1's prompt and turn schema exactly).
     visuals: bool = True
+    # TE2-log: the episode log, intervals and node forecasts (off: nothing written, TE1's lessons exactly).
+    episode_log: bool = True
 
 
 class EligibilityConfig(BaseModel):

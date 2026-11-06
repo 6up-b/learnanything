@@ -3,8 +3,8 @@ title: "Config - ask"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
-source_commit_timestamp: "2026-11-05T22:18:58-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ask"
@@ -48,8 +48,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `ask.panel_enabled` | `true` | boolean | modeled default or validator seed | Turns panel behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4604`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/tutor/tutor_qa.py:169` |
-| `ask.cold_help_converts` | `true` | boolean | modeled default or validator seed | Turns cold help converts behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4605`; `src/learnloop/ai/plan_fallback.py:138` |
+| `ask.panel_enabled` | `true` | boolean | modeled default or validator seed | Turns panel behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4600`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/tutor/tutor_qa.py:169` |
+| `ask.cold_help_converts` | `true` | boolean | modeled default or validator seed | Turns cold help converts behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4601`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
-source_commit_timestamp: "2026-11-05T22:18:58-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 246
+schema_head: 247
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -57,7 +57,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/025_misconception_registry.sql`.
-- **Schema touched by:** `025_misconception_registry.sql`, `047_compositional_misconceptions.sql`, `056_misconception_transitions.sql`, `115_causal_attribution_p0.sql`, `116_measurement_contract_corrections.sql`.
+- **Schema touched by:** `025_misconception_registry.sql`, `047_compositional_misconceptions.sql`, `056_misconception_transitions.sql`, `115_causal_attribution_p0.sql`, `116_measurement_contract_corrections.sql`, `247_lesson_episodes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -124,6 +124,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner_context.py`
 - `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/teacher/brief.py`
+- `src/learnloop/teacher/episodes.py`
 
 ### Direct SQL writers
 

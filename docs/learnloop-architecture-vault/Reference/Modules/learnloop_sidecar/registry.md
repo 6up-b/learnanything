@@ -360,6 +360,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_duplicate_method_registration_fails_loudly`
   - `test_unexpected_handler_failure_marks_the_commit_outcome_unknown`
 - [tests/test_stuck_prompt.py](../../../../../tests/test_stuck_prompt.py) — direct import
+- [tests/test_teacher_te2log_activity.py](../../../../../tests/test_teacher_te2log_activity.py) — direct import
+  - `test_lesson_activity_is_a_desktop_only_rpc_that_records_intervals`
 - [tests/test_ux_phase1_add_source.py](../../../../../tests/test_ux_phase1_add_source.py) — direct import
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
 - [tests/test_ux_phase1_review_fixes.py](../../../../../tests/test_ux_phase1_review_fixes.py) — direct import

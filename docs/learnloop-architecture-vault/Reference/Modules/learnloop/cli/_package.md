@@ -158,7 +158,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] | [[Reference/Modules/learnloop/cli/sources#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]] | [[Reference/Modules/learnloop/cli/success_head#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/surfaces|learnloop.cli.surfaces]] | [[Reference/Modules/learnloop/cli/surfaces#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/cli/teacher|learnloop.cli.teacher]] | [[Reference/Modules/learnloop/cli/teacher#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/cli/teacher|learnloop.cli.teacher]] | [[Reference/Modules/learnloop/cli/teacher#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 
 ## Cross-package dependencies
 

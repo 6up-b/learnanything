@@ -401,6 +401,21 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id driver origin origin_ref entry learning_object_ids_json doctrine_version brief_version route model "
         "algorithm_version opened_at closed_at close_reason",
         "goal_text goal_json"),
+    # Teacher TE2-log (migration 247): ids, numbers, enums and hashes; the JSON id lists are content
+    # (when in doubt, content).
+    "lesson_activity_intervals": (
+        "id lesson_id screen_session seq started_at ended_at seconds foreground occurred_at received_at "
+        "receipt_version",
+        ""),
+    "lesson_episodes": (
+        "id lesson_id kind opened_by node_id learning_object_id opened_at hypothesis_count hypothesis_hash "
+        "hypothesis_payload_id repair_class teacher_p teacher_forecast_receipt_id predicted_success predicted_low "
+        "predicted_high predicted_source mastery_mean mastery_variance open_misconceptions open_hypotheses origin "
+        "origin_decision_id objective_trace_id generation_job_id generated_item_id gap_job_id created_lo_id "
+        "closed_at close_reason active_seconds elapsed_seconds unreported_seconds missing_intervals minutes_source "
+        "outcome_attempt_id outcome_correctness recheck_attempt_id gap_result lo_undo_state episode_version "
+        "created_at",
+        "open_ids_json experiment_assignment_ids_json"),
     "learner_text_gap_reversals": (
         "id gap_id reversal actor created_at",
         "detail_json"),

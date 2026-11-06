@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/config/template.py"
 source_paths:
   - "src/learnloop/config/template.py"
-source_commit: "235b7218fc0cb9b038c6b03968ace75f2cbaab7c"
-source_commit_timestamp: "2026-11-05T22:11:48-05:00"
+source_commit: "84ec7ab399c5a93cb0ad162f1da366a5f53ed28a"
+source_commit_timestamp: "2026-11-05T23:11:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `235b7218fc0cb9b038c6b03968ace75f2cbaab7c` |
-| Commit timestamp | `2026-11-05T22:11:48-05:00` |
+| Source commit | `84ec7ab399c5a93cb0ad162f1da366a5f53ed28a` |
+| Commit timestamp | `2026-11-05T23:11:09-05:00` |
 
 ## Public API
 
@@ -209,8 +209,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_successor.py](../../../../../../tests/test_ro5_successor.py) — direct import
   - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
 - [tests/test_ro6_successor.py](../../../../../../tests/test_ro6_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
-- [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
   - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor`

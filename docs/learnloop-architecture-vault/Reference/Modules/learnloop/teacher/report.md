@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/report.py"
 source_paths:
   - "src/learnloop/teacher/report.py"
-source_commit: "cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c"
-source_commit_timestamp: "2026-11-01T19:02:30-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,27 +50,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/report.py](../../../../../../src/learnloop/teacher/report.py) |
-| Source lines | 84 |
+| Source lines | 314 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c` |
-| Commit timestamp | `2026-11-01T19:02:30-05:00` |
+| Source commit | `49f359311a7daeac5245231bd6ef6e4c14cb2bfd` |
+| Commit timestamp | `2026-11-05T23:30:15-05:00` |
 
 ## Public API
 
-- `report(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/report.py), line 33)
+- `report(vault: Any, repository: Any, *, today: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/report.py), line 44)
+- `lesson_report(vault: Any, repository: Any, *, today: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/report.py), line 294) — TE2-log's report lines (spec §11.10), read-only: lessons (opened, closed by reason, active and elapsed minutes apart with the intervals missing, delayed checks committed, due, answered and their results), episodes (by kind; probes generated, refused, retired and answered; detour…
+
+### Module constants
+
+- `COVERAGE_FIELDS` ([src/learnloop/teacher/report.py](../../../../../../src/learnloop/teacher/report.py), line 108)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `COVERAGE_FIELDS`
+- `lesson_report`
 - `report`
 
 ## Internal implementation anchors
 
-- `_posterior_sd(state: LW.WeightState, index: int) -> float` ([source](../../../../../../src/learnloop/teacher/report.py), line 25)
+- `_posterior_sd(state: LW.WeightState, index: int) -> float` ([source](../../../../../../src/learnloop/teacher/report.py), line 36)
+- `_scores(pairs: list[tuple[float, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/report.py), line 124)
+- `_score_words(scores: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/report.py), line 134)
+- `_has(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/teacher/report.py), line 141)
+- `_lessons_part(vault: Any, repository: Any, connection: Any, today: str) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 146)
+- `_episodes_part(episodes: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 203)
+- `_coverage_part(episodes: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 229)
+- `_forecasts_part(vault: Any, connection: Any, today: str) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 241) — ``lesson_probe_correct`` against the probes' grades; ``lesson_node_held`` against natural outcomes (the first qualifying cold outcome: self-selected) and, apart, against RO5's randomized checks (each with its ``r``).
 
 ## Who imports or calls it
 
@@ -83,11 +97,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `module`; calls `replay_state`
+- [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `episode_tables_present`, `episodes`, `receipt`
+- [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `resolved_receipts`; calls `resolved_receipts`
+- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `module`; calls `pool_trajectory`, `replay_state`
+- [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; calls `resolve`
+- [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `LESSON_NODE_HELD`
+- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; calls `lesson_minutes`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `math`, `typing`
+- Standard library: `__future__`, `collections`, `datetime`, `math`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -105,6 +124,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_teacher_te1_weight.py](../../../../../../tests/test_teacher_te1_weight.py) — direct import
   - `test_the_report_lines`
+- [tests/test_teacher_te2log_report.py](../../../../../../tests/test_teacher_te2log_report.py) — direct import
+  - `test_randomized_checks_are_scored_apart_with_their_r`
+  - `test_the_pool_weights_trajectory_per_forecaster`
+  - `test_the_report_on_a_synthetic_lesson`
 
 ## Modification guidance
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/lessons.py"
 source_paths:
   - "src/learnloop/db/stores/lessons.py"
-source_commit: "6975ac1949e79b05a13f0cf392d617aa1d91fc25"
-source_commit_timestamp: "2026-11-02T03:56:28-05:00"
+source_commit: "84ec7ab399c5a93cb0ad162f1da366a5f53ed28a"
+source_commit_timestamp: "2026-11-05T23:11:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py) |
-| Source lines | 188 |
+| Source lines | 277 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `6975ac1949e79b05a13f0cf392d617aa1d91fc25` |
-| Commit timestamp | `2026-11-02T03:56:28-05:00` |
+| Source commit | `84ec7ab399c5a93cb0ad162f1da366a5f53ed28a` |
+| Commit timestamp | `2026-11-05T23:11:09-05:00` |
 
 ## Public API
 
@@ -75,14 +75,33 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `checks(connection: sqlite3.Connection, lesson_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 152)
 - `insert_receipt(connection: sqlite3.Connection, *, lesson_id: str, version: str, close_reason: str, receipt: Mapping[str, Any], created_at: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 162)
 - `receipt(connection: sqlite3.Connection, lesson_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 169)
+- `episode_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 192)
+- `insert_episode(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 198) — One episode at its opening; False when its opening action already has one (a recovered action).
+- `close_episode(connection: sqlite3.Connection, episode_id: str, fields: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 212) — Set an open episode's closing fields once; False when it was already closed.
+- `episodes(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 224)
+- `insert_interval(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 236) — One activity interval; False when its (lesson, screen session, seq) is already recorded (a resend).
+- `intervals(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 248)
+
+### Module constants
+
+- `EPISODE_OPEN_COLUMNS` ([src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py), line 177)
+- `EPISODE_CLOSE_COLUMNS` ([src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py), line 186)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `EPISODE_CLOSE_COLUMNS`
+- `EPISODE_OPEN_COLUMNS`
 - `append_turn`
 - `checks`
+- `close_episode`
 - `close_lesson`
+- `episode_tables_present`
+- `episodes`
+- `insert_episode`
+- `insert_interval`
+- `intervals`
 - `insert_check`
 - `insert_lesson`
 - `insert_plan`
@@ -107,7 +126,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `module`; statically calls `receipt`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `checks`, `lessons_on`, `receipt`, `turns`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `insert_check`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `append_turn`, `checks`, `close_lesson`, `insert_lesson`, `insert_plan`, `insert_receipt`, `lesson`, `plans`, `turns`
+- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; statically calls `close_episode`, `episode_tables_present`, `episodes`, `insert_episode`, `insert_interval`, `intervals`, `lesson`
+- [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `module`; statically calls `episode_tables_present`, `episodes`, `receipt`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `append_turn`, `checks`, `close_lesson`, `episode_tables_present`, `insert_lesson`, `insert_plan`, `insert_receipt`, `lesson`, `plans`, `turns`
 
 ## Dependencies
 
@@ -127,26 +148,18 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]], [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — imports consumer [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]]
-- [tests/test_data_capture_a6_delayed_pick.py](../../../../../../../tests/test_data_capture_a6_delayed_pick.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
-- [tests/test_followup_single_use.py](../../../../../../../tests/test_followup_single_use.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
-- [tests/test_followups_batch5_recap_dependencies.py](../../../../../../../tests/test_followups_batch5_recap_dependencies.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
-- [tests/test_followups_batch5_recap_protection.py](../../../../../../../tests/test_followups_batch5_recap_protection.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
-- [tests/test_teacher_te1b_landing_r2.py](../../../../../../../tests/test_teacher_te1b_landing_r2.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
-- [tests/test_teacher_te1b_suggestions.py](../../../../../../../tests/test_teacher_te1b_suggestions.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
-- [tests/teacher_fakes.py](../../../../../../../tests/teacher_fakes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_figures_prefetch.py](../../../../../../../tests/test_figures_prefetch.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_figures_prefetch_review_fixes.py](../../../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch5_lesson.py](../../../../../../../tests/test_followups_batch5_lesson.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch6_review_fixes.py](../../../../../../../tests/test_followups_batch6_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
+- [tests/test_teacher_te2log_activity.py](../../../../../../../tests/test_teacher_te2log_activity.py) — direct import
+  - `test_a_bad_interval_is_refused_alone`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_a_refused_episode_row_rolls_back_alone_and_never_blocks_the_turn`
+  - `test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off`
+- [tests/test_teacher_te2log_receipt.py](../../../../../../../tests/test_teacher_te2log_receipt.py) — direct import
 
 ## Modification guidance
 

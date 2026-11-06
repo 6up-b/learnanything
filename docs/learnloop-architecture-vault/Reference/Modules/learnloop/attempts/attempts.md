@@ -764,6 +764,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
   - `test_the_candidate_reasons`
   - `test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not`
+- [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
+  - `test_the_forecast_report_resolves_it_on_the_first_cold_outcome`
+- [tests/test_teacher_te2log_report.py](../../../../../../tests/test_teacher_te2log_report.py) — direct import
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — direct import
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import

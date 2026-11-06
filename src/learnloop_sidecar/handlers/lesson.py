@@ -31,6 +31,13 @@ Teacher TE1b (spec_teacher_v1 §15.1, §19; ``learnloop.daily_plan.lesson_sugges
   On a pending card (a Start whose lesson never opened) "Not now" is
   ``released``: the reservation is let go, the Start staying recorded.
 
+Teacher TE2-log (spec_teacher_v1 §11.6): ``lesson.activity`` appends the lesson
+screen's activity intervals (start and end on the client's clock, foreground with
+input or not, the client's ``occurred_at`` and the sidecar's ``received_at``) to
+``lesson_activity_intervals``; a resent interval writes nothing. No model call; with
+``teacher.episode_log`` off it writes nothing. The view carries ``activity_log: true``
+only while the switch is on, so the screen sends nothing otherwise.
+
 Reader RW5d P4b: a teacher turn's ``visual`` is built inside ``lesson.turn`` by the
 figure service (``learnloop.figures.service.build_figure``, origin ``teacher``,
 the author route and live configuration the Reader's builds use), grammar and
@@ -41,6 +48,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Literal
+
+from pydantic import Field
 
 from learnloop.teacher import service as S
 from learnloop_sidecar.context import SidecarContext
@@ -54,8 +63,11 @@ from learnloop_sidecar.handlers.ai_providers import (
 )
 from learnloop_sidecar.registry import method
 
-#: Every RPC this module registers (pinned desktop-only).
+#: Every TE1/TE1b RPC this module registers (pinned desktop-only in tests/test_mobile_allowlist.py).
 LESSON_RPCS: tuple[str, ...] = ("lesson.turn", "lesson.view", "lesson.suggestion", "lesson.suggestion_respond")
+#: Teacher TE2-log's RPC (desktop only; pinned in tests/test_teacher_te2log_activity.py; the blanket denial of
+#: tests/test_mobile_allowlist.py covers it).
+LESSON_ACTIVITY_RPCS: tuple[str, ...] = ("lesson.activity",)
 
 
 class LessonSelection(ParamsModel):
@@ -84,6 +96,23 @@ class LessonTurnInput(ParamsModel):
 
 class LessonViewInput(ParamsModel):
     lesson_id: str
+
+
+class LessonActivityInterval(ParamsModel):
+    """One interval of the lesson screen (TE2-log, spec §11.6): on the client's clock, foreground with input or not."""
+
+    screen_session: str = Field(min_length=1, max_length=80)
+    seq: int = Field(ge=1)
+    started_at: str
+    ended_at: str
+    foreground: bool
+
+
+class LessonActivityInput(ParamsModel):
+    lesson_id: str
+    intervals: list[LessonActivityInterval] = Field(default_factory=list, max_length=500)
+    #: When the client sent the batch (RO0 row 5's occurred_at; received_at is the sidecar's).
+    occurred_at: str | None = None
 
 
 @dataclass
@@ -224,6 +253,24 @@ def lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]:
         return versioned(S.view_lesson(vault, repository, params.lesson_id))
     except S.LessonError as exc:
         raise _error(exc) from exc
+
+
+@method("lesson.activity", LessonActivityInput)
+def lesson_activity(ctx: SidecarContext, params: LessonActivityInput) -> dict[str, Any]:
+    """Teacher TE2-log (spec §11.6): append the lesson screen's activity intervals (no model call, never evidence,
+    never a decision). ``teacher.episode_log`` off: nothing is written (``enabled: false``)."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.teacher import episodes as E
+
+    vault, repository = ctx.require_vault()
+    try:
+        return versioned(E.record_intervals(
+            vault, repository, lesson_id=params.lesson_id,
+            intervals=[interval.model_dump() for interval in params.intervals], occurred_at=params.occurred_at,
+            received_at=utc_now_iso()))
+    except E.ActivityRefused as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
 
 
 @method("lesson.suggestion", LessonSuggestionInput)

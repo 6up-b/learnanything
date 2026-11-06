@@ -396,6 +396,14 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("lesson_weight_state", TableRole.DERIVED),
     ("lesson_weight_trace", TableRole.DERIVED),
     ("confidence_calibration_state", TableRole.DERIVED),
+    # Teacher TE2-log (migration 247; spec_teacher_v1 §11.6, §11.9, §18.1): item 5's
+    # logging, behind teacher.episode_log at every version. One row per probe,
+    # detour, gap or goal LO (inserted at its opening, its closing fields set
+    # once), and the lesson screen's activity intervals (append-only). Ids and
+    # numbers only; nothing serving, scheduling, certification or replay reads
+    # them, so neither is DERIVED and neither has a replayer.
+    ("lesson_episodes", TableRole.RECEIPT),
+    ("lesson_activity_intervals", TableRole.RECEIPT),
     # Deliverable curriculum C2 (migration 229): snapshots of the learner's
     # notes taken only when linked, and the link decisions (the model's
     # proposals, the learner's links and hides). Learner-voice records, never
