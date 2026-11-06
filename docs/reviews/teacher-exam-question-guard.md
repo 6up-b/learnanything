@@ -205,3 +205,117 @@ The full suite runs once, in the landing gate.
   showing it, as on FG1's path. The teacher is re-prompted to paraphrase.
 - **Already-recorded rows are not rewritten.** Grader feedback that a pre-fix lesson stored and turns it accepted
   stay as recorded. A lesson whose protection state changed already ends before its next teacher call (ruling R1).
+
+## Landing onto main
+
+Main was `23182034c6` (TE2 landed, mvp-0.51, migration head 248) for the whole landing, so no merge was needed. TE3a
+and the router speed stage had not landed. The branch adds **no migration, no successor, no config key and no model
+request**; the algorithm version stays mvp-0.51.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "F1 has reopened twice on one class (short reserved stems), so it goes structural instead of another punctuation rule: a reserved stem shorter than the matcher's span counts as quoted when the shown text contains the stem's whole normalized token sequence contiguously AND the stem carries at least one token that is distinctive in this vault, by the vault's own text: a numeric token under the matcher's existing numeric rule, or a token that appears in no other item's prompt, answer or source passage of the vault (document frequency 1 over the vault's items and passages, computed from the same protection-aware sources the matcher reads). Punctuation and position no longer matter. A short stem made only of common tokens ('Define a basis.') stays unprotected, as the owner's proportionate bar and the builder's recorded judgment say. Codex's two reproductions are tests (failing on the pre-fix source), with every common-phrase negative the record lists kept. No further Codex round on this class; I read the diff before landing."
+- R2: "A distinctive number alone (without the rest of the stem) is not withheld, and a short stem of only common words is not withheld: accepted as the builder recorded, and reported to the owner as a known limit."
+- R3: "Grader feedback quoting a reserved stem is not shown and not sent to the teacher; the grade stands: accepted."
+
+### Commits
+
+| Step | Commit | What |
+|---|---|---|
+| R1 | `b18685c89e` | `practice_leakage.reserved_questions` keeps each reserved stem's item-rare words; `distinctive_words` drops those a readable passage shows; `guards.quotes_reserved` counts a short stem finding with a distinctive number or a distinctive word; `_posed` and `CLAUSE_MARKS` removed. Tests, spec §9.3 As built, both review files (details in `teacher-examguard-codex-review.md`, "Final verify ... and landing ruling R1") |
+| References | `430c6b232d` | `module_generate` / `module_validate` (1244 module notes; PASS), `validate_vault.py` (2235 notes, passed). Only module notes moved; no DB, configuration or desktop reference changed |
+| Record | (this commit) | This section |
+
+**R1, reproduce-first.** The tests went in first: on `59d7e9ff17`'s source **6 failed, 27 passed**; after the fix
+**33 passed**. The two reproductions are tests as a unit check, as a teacher message and as `check.question`. Every
+common-phrase negative the record lists stays accepted. On the test vault, "define" is in another item and "basis"
+in a readable passage, so "Define a basis." is made of common words with no fixture change.
+
+**False-refusal check.**
+
+- **Teacher test fixtures.** A pytest plugin logged every `quotes_reserved` call in the targeted run. Outside
+  `test_teacher_exam_question_guard.py` there were **2680 screens and 0 refusals**.
+- **The lesson scripts on the census-shaped copies** (below). The base lesson made 34 screens per copy, with 0
+  refusals on each of the three copies. In the quoting lessons, every turn other than the quoting one was accepted.
+
+### Gate
+
+On `430c6b232d` (this commit adds only this section):
+
+| Lane | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| Full pytest (`-n 8 --dist worksteal`, 10G scope, under the full-suite lock) | **26948 passed, 91 skipped, 47 xfailed**, 0 failed (57 min 11 s) |
+| Durability lane (`-m durability`) | **404 passed, 1 skipped** |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | **83 passed, 4 skipped, 2 failed**: the 2 known failures, `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]` (as expected) |
+| Targeted (step 1; `-n 6`, 5G scope): every `test_teacher_*`, `test_practice_leakage`, `test_followup_reserved_only`, `test_followup_single_use`, `test_followups_batch5_*`, `test_reader_rw5d_p4b_teacher_visuals`, the display-label audit, `test_cli_help_snapshot`, `test_architecture`, `test_codex_lockdown_round3` (process-launch allowlist), `test_measurement_state_labels` | 608 passed (then the guard file 33 passed) |
+| `module_generate` / `module_validate` / `validate_vault.py` | 1244 module notes, PASS; 2235 notes, passed |
+
+No frontend file changed, so vitest, the frontend builds and cargo were not run. No single unexpected failure needed a
+rerun.
+
+### Smoke
+
+Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (arxiv_v2, linear_algebra, probability) were made
+under the worktree's gitignored `fixtures-local/landing-examguard-smoke/` and deleted afterwards. Every AI route was
+pointed at `127.0.0.1:9`. The teacher and its inline grader were the tests' in-process `TeacherFake`. Lessons ran
+through the real sidecar handlers (`lesson.turn`, `lesson.view`), with ids seeded and the clock frozen, from bash
+scripts adapted from TE2's landing smoke. A socket and subprocess watch was installed in every process.
+
+**Upgrade.** On main code each copy went mvp-0.43 -> mvp-0.45, rebuild, mvp-0.46, mvp-0.47, rebuild, then main's
+default **mvp-0.51** (migration head 248) on all three. Each lesson copy was then opened once with the code that drove
+it; the branch has no migration, so the branch opening applied nothing.
+
+| Check | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Reserved questions (`withheld_items`, exam or reserved) | 0 | 15 (none shorter than the matcher's span) | 0 |
+| Base lesson (no reserved text), main vs branch: prompts (6), schema (`TeacherTurnTE2VisualsEpisodesV1`, 5160 bytes, `8c6b508788bc`), transcript, every view, every written row | identical | identical | identical |
+| Base lesson's teacher turns on the branch | 5 accepted, 0 withheld | 5 accepted, 0 withheld | 5 accepted, 0 withheld |
+| Branch guard screens in the base lesson | 34, 0 refused | 34, 0 refused | 34, 0 refused |
+
+**The original case (linear_algebra).** A teacher message quoting `pi_axiom_commutative_recall_02`'s whole prompt
+("Here is one from your course to try: ..."):
+
+- **On the branch:** withheld, `reserved_question`, location `message`. The re-prompted turn and the close were
+  accepted. The stem was in no view, not in the transcript, and not in any prompt sent after the turn (0 of the
+  lesson's prompts). No `lesson_receipts` row and no table other than `lesson_turn_payloads` held it. That table
+  holds the refused turn's raw payload, as TE1 records any withheld turn; nothing reads it.
+- **On main, for contrast:** accepted. The stem was in 3 views, the transcript and the next teacher prompt.
+
+**R1's case (linear_algebra).** The copy has no reserved stem shorter than the matcher's span, so a further copy
+gained two synthetic exam-reserved items in the same goal's pool as `pi_axiom_commutative_recall_02`:
+
+- "Decrypt QEBNRFZH using Caesar cipher.": 4 item-rare words, 4 distinctive;
+- "Define a basis.": 0 item-rare words, because the real vault's other items use "define" and "basis".
+
+| Lesson (branch) | Turn | Result |
+|---|---|---|
+| message "Please Decrypt QEBNRFZH using Caesar cipher. Then explain your steps." | quoting | **withheld** `reserved_question` at `message`; stem in 0 views, not in the transcript, 0 prompts; only the raw payload row |
+| the same text as `check.question` | quoting | **withheld** `reserved_question` at `check`; the same |
+| message "Next: Define a basis." | common-word short stem, posed | accepted and shown (ruling R2's known limit; under the earlier posed rule it was withheld) |
+| message "Later we will carefully Define a basis. Then we use it." | common-word short stem, inside a sentence | accepted and shown (R2) |
+
+**Across every smoke lesson:**
+
+- 0 new `model_call_receipts` in every lesson (the copies' existing count unchanged: 0 on arxiv_v2 and
+  linear_algebra, 56 on probability), so no real model call was made;
+- the watch logged no socket connect at all, so no non-loopback socket and no DNS lookup;
+- the only subprocess was `powerprofilesctl get`, so no Codex process.
+
+### Known limits (ruling R2), for the owner
+
+- **A distinctive number on its own** from a reserved question (without the rest of its stem) is not withheld from
+  teaching text. The keys guard still covers answers.
+- **A short reserved stem of only common words** is not withheld, posed or not. A stem is short when it has fewer
+  than 6 normalized words. Its words are common when another item or a readable passage of the vault uses each of
+  them, for example "Define a basis." on linear_algebra. The smoke showed this on a synthetic item.
+- **Follows from R1 (record item "A book exercise that is also exam-reserved").** A short reserved stem whose every
+  word a readable passage shows is now a phrase too. A stem of 6 or more words is still withheld whole, as before.
+- **Unchanged from the Codex review's "Not fixed":** a question split across two turns, and a figure screened apart
+  from its turn's message.
+
+### What the owner must do
+
+Nothing beyond rebuilding the desktop app. There is no migration, upgrade or config change, and no rebuild of
+derived state.
