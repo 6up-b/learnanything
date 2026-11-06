@@ -53,9 +53,14 @@ SPLIT_ITEM = "pi_exam_split"
 SPLIT_STEM = "For polynomial x³−7x+2, identify every real root."
 SPLIT_SETUP, SPLIT_QUESTION = "For polynomial x³−7x+2,", "identify every real root."
 #: Codex re-review F1: an exam-reserved question shorter than the matcher's span, words only (no distinctive number).
-#: Posed (its own sentence or clause, or asked), it is the question; inside a teaching sentence it is a phrase.
+#: Landing ruling R1: it carries words no other item or readable passage of the vault shows ("qebnrfzh"), so wherever
+#: a text holds its whole word sequence, it is the question.
 CIPHER_ITEM = "pi_exam_cipher"
 CIPHER_STEM = "Decrypt QEBNRFZH using Caesar cipher."
+#: The final verify's reproductions (F1 reopened a second time): the stem inside a longer sentence, no punctuation
+#: around it.
+CIPHER_IN_SENTENCES = ("Please decrypt QEBNRFZH using Caesar cipher.",
+                       "Decrypt QEBNRFZH using Caesar cipher and explain your steps.")
 
 
 def _rows(repository, sql, params=()):
@@ -176,8 +181,8 @@ def test_the_matcher_reads_both_items_as_withheld_questions(tmp_path):
     assert not G.quotes_reserved("on their own line", reserved)
     assert reserved_findings("Here the trace is 16.0.", reserved.questions)  # the matcher's numeric finding
     assert not G.quotes_reserved("Here the trace is 16.0.", reserved)
-    # The short stem: the matcher finds it whole, but inside a teaching sentence a phrase shorter than its span is not
-    # a question shown (posed on its own, it is: re-review F1).
+    # The short stem: the matcher finds it whole, but a phrase shorter than its span made only of words this vault's
+    # other items and passages use is not a question shown (landing ruling R1).
     assert reserved_findings("Later we define a basis carefully.", reserved.questions)
     assert not G.quotes_reserved("Later we define a basis carefully.", reserved)
     verdict = G.reserved_guard(EXAM_STEM, reserved)
@@ -408,23 +413,78 @@ def test_the_graders_feedback_quoting_a_short_reserved_question_is_not_shown(tmp
     assert stem not in lesson.everything_shown()
 
 
-def test_a_whole_short_reserved_question_posed_on_its_own_counts_without_a_number(tmp_path):
-    """Codex re-review F1: a whole stem shorter than the matcher's span, words only, counts when the text poses it (it
-    stands as its own sentence or clause, or the text asks it). Inside a teaching sentence it is a phrase, not a
-    question shown: the common-phrase negatives stay accepted."""
+def test_a_short_reserved_question_with_a_word_distinctive_in_the_vault_counts_wherever_it_stands(tmp_path):
+    """Landing ruling R1 (F1 reopened a second time): a whole stem shorter than the matcher's span counts when the text
+    holds its whole word sequence and the stem carries a word distinctive in this vault (no other item's prompt, answer
+    or readable passage shows it; "qebnrfzh"). Punctuation and position don't matter, so the final verify's two
+    reproductions (the stem inside a longer sentence) count. A short stem made only of common words ("Define a
+    basis.": "define" is in another item, "basis" in a readable passage) is a phrase wherever it stands: every
+    common-phrase negative stays accepted."""
 
     paths, repository = build_guard_vault(tmp_path / "vault")
     reserved = G.reserved_book(load_vault(paths.root), repository)
-    for posed in (CIPHER_STEM, f"Here is one to try: {CIPHER_STEM}", "Try “Decrypt QEBNRFZH using Caesar cipher”.",
-                  "Can you decrypt QEBNRFZH using Caesar cipher?", "First, decrypt QEBNRFZH using Caesar cipher. Then "
-                  "check it.", "Decrypt QEBNRFZH using Caesar cipher", SHORT_STEM, "Next: define a basis."):
-        assert G.quotes_reserved(posed, reserved), posed
-        assert G.reserved_guard(posed, reserved).reason == "reserved_question"
-        assert G.shown_feedback(f"Right. {posed}", reserved) is None
+    for quoted in (*CIPHER_IN_SENTENCES, "You could decrypt QEBNRFZH using Caesar cipher now.", CIPHER_STEM,
+                   f"Here is one to try: {CIPHER_STEM}", "Try “Decrypt QEBNRFZH using Caesar cipher”.",
+                   "Can you decrypt QEBNRFZH using Caesar cipher?",
+                   "First, decrypt QEBNRFZH using Caesar cipher. Then check it.", "Decrypt QEBNRFZH using Caesar cipher"):
+        assert G.quotes_reserved(quoted, reserved), quoted
+        assert G.reserved_guard(quoted, reserved).reason == "reserved_question"
+        assert G.shown_feedback(f"Right. {quoted}", reserved) is None
     for ordinary in ("Later we define a basis carefully.", "Now we define a basis.", "To define a basis, list vectors.",
-                     "We decrypt messages using a Caesar cipher.", ORDINARY):
+                     SHORT_STEM, "Next: define a basis.", "We decrypt messages using a Caesar cipher.",
+                     "Here 9871 is only a number.", "Factor 9872 into primes.", "We factor whole numbers into primes.",
+                     ORDINARY):
         assert not G.quotes_reserved(ordinary, reserved), ordinary
         assert G.shown_feedback(ordinary, reserved) == ordinary
+
+
+@pytest.mark.parametrize("field", ["message", "check"])
+@pytest.mark.parametrize("text", CIPHER_IN_SENTENCES)
+def test_a_teacher_turn_holding_a_short_distinctive_reserved_question_inside_a_sentence_is_withheld(tmp_path, field,
+                                                                                                    text):
+    """The final verify's reproductions as teacher turns (the message, and ``check.question`` as the reviewer's harness
+    posed them): withheld ``reserved_question``, shown nowhere."""
+
+    first = (lambda context: {**plan_turn(context), "message": text}) if field == "message" else _quoting(field, text)
+    lesson = _Lesson(tmp_path, [first, plan_turn])
+    turns = lesson.teacher_turns()
+    assert [validation for validation, _ in turns] == ["withheld", "ok"]
+    assert turns[0][1]["reason"] == "reserved_question" and turns[0][1]["detail"].startswith(f"{field}: ")
+    lesson.act("stop", turns=[close_turn()])
+    assert "qebnrfzh" not in lesson.everything_shown().lower()
+    assert G.shown_feedback(text, G.reserved_book(lesson.vault(), lesson.repository)) is None
+
+
+def test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages(tmp_path):
+    """Ruling R1's document frequency: a word counts as distinctive when no other item and no passage the learner can
+    read shows it. A held-out passage is protected text, so it doesn't make a word common; another item does, and so
+    does a readable passage."""
+
+    from learnloop.content.authoring.practice_leakage import distinctive_words
+
+    paths, repository = build_guard_vault(tmp_path / "vault")
+    stems = {"pi_exam_readable": "Is a triangular matrix invertible?",  # both rare words: a readable passage shows
+             "pi_exam_heldout": "The HELDOUTSENTINEL eigenvalues."}  # its rare word: only the held-out passage
+    for item_id, stem in stems.items():
+        write_yaml(paths.practice_item_path("linear-algebra", item_id), _item(item_id, "lo_eigen", stem, "egret vole"))
+    (goal_id,) = _rows(repository, "SELECT goal_id FROM exam_pool_items LIMIT 1")[0]
+    repository.insert_exam_pool_items([{"id": f"epi_{item_id}", "goal_id": goal_id, "practice_item_id": item_id,
+                                        "reserved_at": "2026-10-30T00:00:00Z"} for item_id in stems])
+    reserved = G.reserved_book(load_vault(paths.root), repository)
+    readable = "is a triangular matrix invertible"
+    assert reserved.questions.item_rare_words[readable] == {"triangular", "invertible"}  # no other item shows them
+    assert distinctive_words(readable, reserved.questions) == []  # a readable passage does
+    assert distinctive_words("the heldoutsentinel eigenvalues", reserved.questions) == ["heldoutsentinel"]
+    assert G.quotes_reserved("We study the HELDOUTSENTINEL eigenvalues today.", reserved)
+    for ordinary in ("So is a triangular matrix invertible? Look at its diagonal.",
+                     "Is a triangular matrix invertible?"):
+        assert not G.quotes_reserved(ordinary, reserved), ordinary
+    assert G.quotes_reserved(CIPHER_IN_SENTENCES[0], reserved)
+    # Another item showing every one of the stem's words makes it a phrase of this vault.
+    write_yaml(paths.practice_item_path("linear-algebra", "pi_ordinary_cipher"),
+               _item("pi_ordinary_cipher", "lo_det", "Using a Caesar cipher, decrypt QEBNRFZH by hand.", "heron lemur"))
+    reserved = G.reserved_book(load_vault(paths.root), repository)
+    assert not G.quotes_reserved(CIPHER_IN_SENTENCES[0], reserved)
 
 
 def test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number(tmp_path):

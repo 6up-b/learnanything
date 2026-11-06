@@ -234,3 +234,99 @@ scripts, npm, vitest, cargo and the defaults snapshot.
 
 The spec's §9.3 As built ("What counts as a hit") and `teacher-exam-question-guard.md`'s owner-judgment note are
 updated to match.
+
+## Final verify (codex-job `20261106-092641-vjmivZ`, of `59d7e9ff17`) and landing ruling R1
+
+The final verify confirmed F2 fixed and reopened F1 a second time, on the same class (short reserved stems). A short
+non-numeric reserved stem inside a longer sentence passed, because the posed-stem rule (`_posed`) needed punctuation
+around the match:
+
+- "Please decrypt QEBNRFZH using Caesar cipher.";
+- "Decrypt QEBNRFZH using Caesar cipher and explain your steps.".
+
+The reviewer's harness accepted both as `check.question`, and `shown_feedback` kept both. No other defect was
+established.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened twice) | High | A short non-numeric reserved stem inside a longer sentence passes | fixed structurally by landing ruling R1 | (this commit) | `test_a_short_reserved_question_with_a_word_distinctive_in_the_vault_counts_wherever_it_stands`, `test_a_teacher_turn_holding_a_short_distinctive_reserved_question_inside_a_sentence_is_withheld[message, check] x 2 reproductions`, `test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages` |
+| F2 | Medium | Splitting a reserved question between message and check | confirmed fixed (second time) | `356f531bdc` | no change |
+
+**The ruling (orchestrator, verbatim in `teacher-exam-question-guard.md`, "Landing onto main").** F1 goes structural
+instead of another punctuation rule. A reserved stem shorter than the matcher's span counts as quoted when the shown
+text holds the stem's whole normalized word sequence contiguously and the stem carries at least one word that is
+distinctive in this vault, by the vault's own text: a numeric token under the matcher's existing numeric rule, or a
+word that appears in no other item's prompt, answer or source passage. Punctuation and position no longer matter. No
+further Codex round on this class.
+
+### Reproduced
+
+The tests went in first, against `59d7e9ff17`'s source: **6 failed, 27 passed**.
+
+- the unit test: "Please decrypt QEBNRFZH using Caesar cipher." passed `quotes_reserved`;
+- each reproduction as a teacher message and as `check.question` (4 cases): accepted and shown;
+- the document-frequency test: a short stem whose rare word only the held-out passage shows ("We study the
+  HELDOUTSENTINEL eigenvalues today.") passed (and `distinctive_words` did not exist).
+
+The common-phrase negatives were in the same tests from the start.
+
+### Fix
+
+**`practice_leakage.reserved_questions`** now keeps, per reserved stem, the stem's words that no other item shows
+(`ReservedQuestions.item_rare_words`). It counts one document per item, over the same surfaces the matcher already
+reads for every item: prompt as presented, expected answer and rubric (`_payload_surfaces`). A word with document
+frequency 1 over the items is in its own item only.
+
+**`practice_leakage.distinctive_words(stem, reserved)`** keeps the item-rare words that no readable passage shows.
+It asks the matcher's own protection-aware source check (`source_shows`: `phrase_shown_outside` over the block
+index, outside the exam's covered spans). So a held-out or exam passage, which is protected text, does not make a word
+common. It runs only for a stem a text matched, one index query per rare word, cached per word.
+
+**`guards.quotes_reserved`**: a short stem finding counts when it carries a distinctive number (unchanged) or when
+`distinctive_words` is non-empty. A stem finding already means the text holds the stem's whole normalized word
+sequence contiguously (the matcher's own test). `_posed` and `CLAUSE_MARKS` are removed, so punctuation and position
+no longer matter.
+
+No new parameter: the rules are the matcher's span length, its numeric rule, and document frequency 1. Nothing else
+reads `item_rare_words`. FG1's probe screen and TE2's typed goals call `reserved_findings` unchanged, so their
+behaviour is unchanged.
+
+### What it decides, on the test vault
+
+| Text | Before (posed rule) | Now |
+|---|---|---|
+| "Please decrypt QEBNRFZH using Caesar cipher." | accepted | **withheld** ("qebnrfzh", "decrypt", "caesar", "cipher" are in no other item or readable passage) |
+| "Decrypt QEBNRFZH using Caesar cipher and explain your steps." | accepted | **withheld** |
+| "You could decrypt QEBNRFZH using Caesar cipher now." | accepted (the earlier record's "Left" case) | **withheld** |
+| "Decrypt QEBNRFZH using Caesar cipher." and the other posed forms | withheld | withheld |
+| "Define a basis." on its own, "Next: define a basis." | withheld (posed) | **accepted**: "define" is in another item and "basis" in a readable passage, so the stem is made of common words (ruling R1; a known limit, ruling R2) |
+| "Later we define a basis carefully.", "Now we define a basis.", "To define a basis, list vectors." | accepted | accepted |
+| "We decrypt messages using a Caesar cipher.", "Here 9871 is only a number.", "Factor 9872 into primes.", "We factor whole numbers into primes.", `ORDINARY` | accepted | accepted |
+| "Factor 9871 into primes.", also inside a sentence, also with an ordinary item showing 9871 | withheld | withheld (the numeric rule, unchanged) |
+| "Is a triangular matrix invertible?" (a reserved stem whose rare words a readable passage shows), posed or inside a sentence | withheld (posed) | accepted |
+| "We study the HELDOUTSENTINEL eigenvalues today." (rare word only in the held-out passage) | accepted | **withheld** |
+| the cipher reproduction, after an ordinary item shows every one of its words | - | accepted (no longer distinctive) |
+
+The earlier record's correction: the re-review section said "define" appears in no ordinary item or source text of the
+test vault. It does: "define" is in another item, and "basis" is in a readable passage (`ext_book` s13). So the vault's
+own text keeps every common-phrase negative accepted without any fixture change.
+
+### False-refusal check
+
+A pytest plugin (`-p`, outside the worktree) logged every `quotes_reserved` call in the targeted run below. Outside
+`test_teacher_exam_question_guard.py`, the teacher fixtures' turns, feedback and figures were screened **2680 times,
+with 0 refusals** (0 unreadable). The landing smoke runs the same check over the lesson scripts on the census-shaped
+backup copies (`teacher-exam-question-guard.md`, "Landing onto main").
+
+### Gate (this step; targeted)
+
+| Command | Result |
+|---|---|
+| `pytest -n 6 tests/test_teacher_exam_question_guard.py`, new tests in place, on `59d7e9ff17`'s source | **6 failed, 27 passed** (the reproduction above) |
+| the same file after the fix | **33 passed** |
+| `pytest -n 6`: every `tests/test_teacher_*.py`, `test_practice_leakage`, `test_followup_reserved_only`, `test_followup_single_use`, `test_followups_batch5_*`, `test_reader_rw5d_p4b_teacher_visuals`, the display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_cli_help_snapshot`, `test_architecture`, the process-launch allowlist (`test_codex_lockdown_round3`) | **608 passed** (before the two `check.question` cases were added to the guard file; that file then passed 33) |
+| `lint-imports --no-cache` (isolated env) | 43 kept, 0 broken |
+
+Every pytest ran in the 5G memory-capped scope at `-n 6` with TMPDIR outside the worktree. Every other Python command
+ran under `env -i` with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No model request (0 paid calls). No
+migration, successor or config key. No reader or writer of the old item difficulty scalar.

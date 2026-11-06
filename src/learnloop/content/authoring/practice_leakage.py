@@ -19,7 +19,8 @@ context never grows with source count (knowledge-model §12.9).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections import Counter
+from collections.abc import Callable, Mapping
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -238,6 +239,9 @@ class ReservedQuestions:
     stems: frozenset[str]
     #: Whether source text outside held-out spans already shows this phrase (R10).
     source_shows: Callable[[str], bool] = field(default=lambda _phrase: False, compare=False, repr=False)
+    #: Each reserved stem's words that no other item's prompt, answer or rubric shows (document frequency 1 over the
+    #: vault's items); :func:`distinctive_words` also asks the readable passages.
+    item_rare_words: Mapping[str, frozenset[str]] = field(default_factory=dict, compare=False, repr=False)
 
 
 def reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any) -> ReservedQuestions:
@@ -250,23 +254,44 @@ def reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any
     texts: list[str] = []
     shown: list[str] = []
     stems: set[str] = set()
+    # One document per item (its stem when reserved, its words): the vault's own text decides which words are rare.
+    documents: list[tuple[str | None, frozenset[str]]] = []
     for item in vault.practice_items.values():
         payload = item.model_dump(mode="json")
+        surfaces = _payload_surfaces(payload)
         if withheld.reason(str(item.id)) in {WITHHELD_EXAM, WITHHELD_RESERVED}:
-            texts.append(_payload_surfaces(payload))
-            stems.add(" ".join(_normalize_tokens(str(payload.get("prompt") or ""))))
+            texts.append(surfaces)
+            stem = " ".join(_normalize_tokens(str(payload.get("prompt") or "")))
+            stems.add(stem)
+            documents.append((stem, frozenset(_normalize_tokens(surfaces))))
         else:
-            shown.append(_payload_surfaces(payload))
+            shown.append(surfaces)
+            documents.append((None, frozenset(_normalize_tokens(surfaces))))
     texts.extend(span.text for span in held_out_spans(vault, repository))
     # Structural, so no threshold: what an ordinary item already shows the learner can't leak, and
     # on a real vault that is mostly formulas and the subject's own phrases. A whole stem still counts.
     held, ordinary = inventory_for_texts(texts), inventory_for_texts(shown)
+    frequency = Counter(word for _stem, words in documents for word in words)
+    rare: dict[str, set[str]] = {}
+    for stem, _words in documents:
+        if stem:
+            rare.setdefault(stem, set()).update(word for word in stem.split() if frequency[word] == 1)
     return ReservedQuestions(
         inventory=HeldOutInventory(shingles=held.shingles - ordinary.shingles, numerics=held.numerics - ordinary.numerics,
                                    shingle_n=held.shingle_n, span_count=held.span_count),
         stems=frozenset(stems - {""}),
         source_shows=_source_shows(repository, withheld),
+        item_rare_words={stem: frozenset(words) for stem, words in rare.items() if words},
     )
+
+
+def distinctive_words(stem: str, reserved: ReservedQuestions) -> list[str]:
+    """A reserved stem's words distinctive in this vault, by its own text (the teacher exam-question guard's landing
+    ruling R1): no other item's prompt, answer or rubric shows them, and no passage the learner can read does
+    (``source_shows``: source text outside held-out and exam spans; a held-out passage is protected text, so it
+    doesn't make a word common). Asked only of a stem a text matched, one index query per rare word."""
+
+    return [word for word in sorted(reserved.item_rare_words.get(stem, ())) if not reserved.source_shows(word)]
 
 
 def _source_shows(repository: Repository, withheld: Any) -> Callable[[str], bool]:

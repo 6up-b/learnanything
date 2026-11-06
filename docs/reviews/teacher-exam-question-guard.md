@@ -193,9 +193,10 @@ The full suite runs once, in the landing gate.
   - Lone distinctive numbers from a reserved question are not withheld from teaching text. The keys guard still
     covers answers.
   - A reserved question whose whole stem is shorter than the matcher's 6-word span is not withheld when a lesson
-    repeats it. (Narrowed by the Codex review's F1 and re-review F1, `teacher-examguard-codex-review.md`: such a
-    stem is withheld when it carries a distinctive number, or when the text poses it as its own sentence or clause
-    or asks it; only a word-only stem inside a teaching sentence still passes.)
+    repeats it. (Narrowed by the Codex review's F1, re-review F1 and landing ruling R1,
+    `teacher-examguard-codex-review.md`: such a stem is withheld wherever the text holds it when it carries a
+    distinctive number, or a word no other item and no readable passage of the vault shows; only a short stem made
+    of the vault's common words still passes, a known limit by ruling R2.)
 
   To protect either, drop the corresponding condition in `guards.quotes_reserved`, a one-line change. The cost is
   a false refusal whenever a lesson uses that number or phrase.
