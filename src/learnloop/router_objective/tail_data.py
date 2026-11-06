@@ -45,7 +45,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
 import json
@@ -76,7 +76,7 @@ _SAME_CUTOFF_SECONDS = 1.0
 
 #: Parsed traces kept by (id, content hash): a trace never changes, so it is parsed once a process (an upper bound
 #: on what is kept, a resource guard only).
-_CACHE: dict[tuple[str, str], "Logged"] = {}
+_CACHE: dict[tuple[str, str, bool], "Logged"] = {}
 _CACHE_LIMIT = 50_000
 
 
@@ -107,8 +107,13 @@ def generator_payload(*, algorithm_version: str, objective: Any, tail: Any, term
 OBJECTIVE_DEFINITION_VERSION = "ro6_objective_definition_v2"
 
 
+#: The follow-up batch, item 5 (RO6's landing open item 2, on its ruling R11): the retention scope by its density.
+OBJECTIVE_DEFINITION_EXTENSION_VERSION = "ro6_objective_definition_v3_scope_extension"
+
+
 def objective_definition(goals: Mapping[str, Any] | None, horizon_days: Any,
-                         population: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                         population: Mapping[str, Any] | None = None, *,
+                         scope_extension: bool = False) -> dict[str, Any]:
     """RO6's landing rulings R2 and R11: what defines the objective a decision valued, as its trace froze it: the
     horizon; per active goal (``inputs_sources.goals``), its id, its date (``due_at``), its weights (the dated weight
     and the undated density) and its use weights (per LO), and its scope's LOs; and §8.7's population with each
@@ -116,7 +121,17 @@ def objective_definition(goals: Mapping[str, Any] | None, horizon_days: Any,
     retention scope and the densities outside goals; the trace's ``evaluation.uses.topics``, the serve's
     ``sources["population"]``, densities above zero). What moves with time alone (days to the date) or names where a
     weight came from (its source, its contract version) is not part of it. Rounded as the trace rounds, so the serve's
-    hash and the trace's are one."""
+    hash and the trace's are one.
+
+    ``scope_extension`` (the follow-up batch's item 5, at its tag with ``[router_objective] scope_extension``): §3.3's
+    undated uses run "from enrollment on", so a topic entering the retention scope is a change of **state** (its
+    enrollment, which the transition itself caused: the learner practised it), not of the objective, when it enters
+    at the density every retention topic already has. The population is then read as the goals' topics with their
+    densities (which the goals define) and the retention topics (those in no goal's scope) by their **densities
+    alone**, the set of values: a new retention topic at the scope's density leaves the hash as it was, while a
+    density that changes (Codex's 0.1 -> 0.9, a config default moved), a goal, a weight, a date or the horizon
+    changes it. The earlier decision's value never depended on the topic (it never valued it, or valued it at that
+    density as a candidate), so its backup is unchanged (``tests/test_rofu_scope.py``)."""
 
     out: dict[str, Any] = {}
     for goal_id, goal in sorted((goals or {}).items(), key=lambda item: str(item[0])):
@@ -128,26 +143,45 @@ def objective_definition(goals: Mapping[str, Any] | None, horizon_days: Any,
                              "los": sorted(str(lo) for lo in goal.get("los") or ())}
     densities = {str(lo): float(c) for lo, c in sorted((population or {}).items(), key=lambda item: str(item[0]))
                  if c is not None and float(c) > 0}
+    if scope_extension:
+        in_goals = {lo for goal in out.values() for lo in goal["los"]}
+        retention = sorted({_round(c) for lo, c in densities.items() if lo not in in_goals})
+        return _round({"version": OBJECTIVE_DEFINITION_EXTENSION_VERSION,
+                       "horizon_days": float(horizon_days) if horizon_days is not None else None, "goals": out,
+                       "goal_topics": {lo: c for lo, c in densities.items() if lo in in_goals},
+                       "retention_densities": retention})
     return _round({"version": OBJECTIVE_DEFINITION_VERSION,
                    "horizon_days": float(horizon_days) if horizon_days is not None else None, "goals": out,
                    "population": densities})
 
 
 def objective_hash(goals: Mapping[str, Any] | None, horizon_days: Any,
-                   population: Mapping[str, Any] | None = None) -> str:
+                   population: Mapping[str, Any] | None = None, *, scope_extension: bool = False) -> str:
     """The hash of :func:`objective_definition`."""
 
-    return generator_key(objective_definition(goals, horizon_days, population))
+    return generator_key(objective_definition(goals, horizon_days, population, scope_extension=scope_extension))
 
 
-def trace_objective_hash(trace: Mapping[str, Any]) -> str:
+def scope_extension_on(config: Any) -> bool:
+    """The follow-up batch's item 5: the objective's definition reads the retention scope by its density (its tag and
+    ``[router_objective] scope_extension``); off, or below the tag, RO6's definition exactly."""
+
+    if config is None:
+        return False
+    from learnloop.router_objective_switches import followup_on
+
+    return followup_on(config, "scope_extension")
+
+
+def trace_objective_hash(trace: Mapping[str, Any], *, scope_extension: bool = False) -> str:
     """The objective a logged decision valued, from its trace: its frozen goals, horizon and population densities
     (``evaluation.uses.topics``)."""
 
     topics = ((trace.get("evaluation") or {}).get("uses") or {}).get("topics") or ()
     population = {str(use["lo"]): use.get("c") for use in topics if isinstance(use, Mapping) and use.get("lo")}
     return objective_hash((trace.get("inputs_sources") or {}).get("goals") or {},
-                          (trace.get("versions") or {}).get("horizon_days"), population)
+                          (trace.get("versions") or {}).get("horizon_days"), population,
+                          scope_extension=scope_extension)
 
 
 def served_features_version(trace: Mapping[str, Any]) -> str:
@@ -167,8 +201,9 @@ def generator_key(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
-def generator(trace: Mapping[str, Any], algorithm_version: str) -> str:
-    """A logged decision's generator version (module docstring)."""
+def generator(trace: Mapping[str, Any], algorithm_version: str, *, scope_extension: bool = False) -> str:
+    """A logged decision's generator version (module docstring). ``scope_extension``: the objective's definition
+    read with the follow-up batch's item 5 (:func:`objective_definition`)."""
 
     versions = trace.get("versions") or {}
     mixing = trace.get("mixing") or {}
@@ -176,7 +211,8 @@ def generator(trace: Mapping[str, Any], algorithm_version: str) -> str:
         algorithm_version=algorithm_version, objective=versions.get("objective"), tail=versions.get("tail"),
         terminal=versions.get("terminal"), horizon_days=versions.get("horizon_days"),
         llm_schema=versions.get("llm_schema"), seeds=mixing.get("seeds"), epsilon=mixing.get("epsilon"),
-        features=served_features_version(trace), objective_definition=trace_objective_hash(trace)))
+        features=served_features_version(trace),
+        objective_definition=trace_objective_hash(trace, scope_extension=scope_extension)))
 
 
 # -- one logged decision ----------------------------------------------------------------------------------
@@ -224,6 +260,12 @@ class Logged:
     #: landing ruling R7: each candidate's ``Q̄`` less the share of the topics no check could measure as of the draw
     #: (``q − terms.unmeasured_reward``, on the same rollouts); None unless every candidate of the support has it
     q_measurable: Mapping[str, float] | None = None
+    #: the follow-up batch's item 4: carried valuations of earlier decisions this trace records (decision id, its
+    #: ``previous`` record with ``q`` and ``features``), and this decision's own ``previous.q_status``
+    carried_for: tuple[tuple[str, Mapping[str, Any]], ...] = ()
+    previous_q_status: str | None = None
+    #: where ``q_at_previous`` came from: its own trace, or a later trace's record (``later_prefetch``)
+    carried_source: str = "own_trace"
 
 
 def _topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]:
@@ -385,21 +427,16 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
     # The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the
     # evaluation run at it and the features taken at its span, both for every candidate of the support, at this
     # build's features version; anything less leaves the transition into this decision cutoff_unmatched.
-    carried_q = (previous or {}).get("q") if isinstance((previous or {}).get("q"), Mapping) else {}
-    carried_phi = (previous or {}).get("features") if isinstance((previous or {}).get("features"), Mapping) else {}
-    q_at_previous = ({ref: float(carried_q[ref]) for ref in support}
-                     if previous and current and support and all(carried_q.get(ref) is not None for ref in support)
-                     else None)
-    phi_at_previous = ({ref: tuple(float(v) for v in carried_phi[ref]) for ref in support}
-                       if q_at_previous is not None and all(isinstance(carried_phi.get(ref), Sequence)
-                                                            and len(carried_phi[ref]) == width for ref in support)
-                       else None)
-    if phi_at_previous is None:
-        q_at_previous = None
+    q_at_previous, phi_at_previous = _carried_values(previous, support, current)
+    extension = scope_extension_on(config)
+    carried_for = tuple((str(entry["decision_id"]), dict(entry["previous"]))
+                        for entry in (trace.get("carried_for") or ()) if isinstance(entry, Mapping)
+                        and entry.get("decision_id") and isinstance(entry.get("previous"), Mapping))
     return Logged(
         decision_id=str(row["decision_id"]), trace_id=str(row["id"]), created_at=str(row["created_at"]),
         local_date=str(row["local_date"]), window_closes_at=row.get("window_closes_at"),
-        algorithm_version=str(row["algorithm_version"]), generator=generator(trace, str(row["algorithm_version"])),
+        algorithm_version=str(row["algorithm_version"]),
+        generator=generator(trace, str(row["algorithm_version"]), scope_extension=extension),
         support=support, served=served, served_dist=served_dist,
         mu={str(k): float(v) for k, v in (mixing.get("mu") or {}).items()}, q_tail=q_tail, phi=phi,
         features_source=source,
@@ -415,8 +452,61 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         previous_id=str(previous["decision_id"]) if previous and previous.get("decision_id") else None,
         previous_cutoff_days=(float(previous["cutoff_days"]) if previous and previous.get("cutoff_days") is not None
                               else None),
-        q_at_previous=q_at_previous, phi_at_previous=phi_at_previous, objective=trace_objective_hash(trace),
-        q_measurable=q_measurable)
+        q_at_previous=q_at_previous, phi_at_previous=phi_at_previous,
+        objective=trace_objective_hash(trace, scope_extension=extension),
+        q_measurable=q_measurable, carried_for=carried_for,
+        previous_q_status=str(previous.get("q_status")) if previous and previous.get("q_status") else None)
+
+
+def _carried_values(previous: Mapping[str, Any] | None, support: Sequence[str], current: bool) -> tuple[
+        dict[str, float] | None, dict[str, tuple[float, ...]] | None]:
+    """The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the
+    evaluation run at it and the features taken at its span, both for every candidate of the support, at this
+    build's features version; anything less leaves the transition into this decision cutoff_unmatched."""
+
+    width = len(LT.NAMES)
+    carried_q = (previous or {}).get("q") if isinstance((previous or {}).get("q"), Mapping) else {}
+    carried_phi = (previous or {}).get("features") if isinstance((previous or {}).get("features"), Mapping) else {}
+    q_at_previous = ({ref: float(carried_q[ref]) for ref in support}
+                     if previous and current and support and all(carried_q.get(ref) is not None for ref in support)
+                     else None)
+    phi_at_previous = ({ref: tuple(float(v) for v in carried_phi[ref]) for ref in support}
+                       if q_at_previous is not None and all(isinstance(carried_phi.get(ref), Sequence)
+                                                            and len(carried_phi[ref]) == width for ref in support)
+                       else None)
+    if phi_at_previous is None:
+        q_at_previous = None
+    return q_at_previous, phi_at_previous
+
+
+#: ``previous.q_status`` values whose carried value a later trace may hold (the follow-up batch's item 4): served
+#: before the carried value existed, or decided with no prefetch job (RO6's rulings R12 and R3).
+_LATE_STATUSES = frozenset({"not_valued_before_the_serve", "not_valued_on_the_serving_path"})
+
+
+def _with_late_carried(rows: list["Logged"]) -> list["Logged"]:
+    """The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation existed
+    (or decided on the no-model branch) has that valuation run in a later boundary's prefetch, off the serving path,
+    and recorded in a later decision's trace (``carried_for``: an immutable, separate record keyed by the decision,
+    read as of the carrying trace's own time, since ``rows`` are the traces known at the reading moment). The earliest
+    carrier stands; a record naming another earlier decision than the decision's own is ignored."""
+
+    carried: dict[str, Mapping[str, Any]] = {}
+    for row in rows:
+        for decision_id, previous in row.carried_for:
+            carried.setdefault(decision_id, previous)
+    if not carried:
+        return rows
+    out = []
+    for row in rows:
+        found = carried.get(row.decision_id)
+        if (found is not None and row.q_at_previous is None and row.previous_q_status in _LATE_STATUSES
+                and row.previous_id and str(found.get("decision_id")) == row.previous_id):
+            q, phi = _carried_values(found, row.support, row.features_source == "frozen")
+            if q is not None:
+                row = replace(row, q_at_previous=q, phi_at_previous=phi, carried_source="later_prefetch")
+        out.append(row)
+    return out
 
 
 def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
@@ -437,7 +527,8 @@ def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
         known = known_at(row, config)
         if known is None or known > at:
             continue
-        key = (str(row["id"]), str(row["content_hash"]))
+        # The objective's reading (the follow-up batch's item 5) is part of what the parse computed.
+        key = (str(row["id"]), str(row["content_hash"]), scope_extension_on(config))
         found = _CACHE.get(key)
         if found is None:
             body = connection.execute("SELECT trace_json FROM router_objective_traces WHERE id = ?",
@@ -450,7 +541,7 @@ def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
                     _CACHE.clear()
                 _CACHE[key] = found
         out.append(found)
-    return out
+    return _with_late_carried(out)
 
 
 # -- the trajectories -------------------------------------------------------------------------------------
