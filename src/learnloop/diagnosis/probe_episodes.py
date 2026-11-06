@@ -2111,6 +2111,7 @@ def record_episode_evidence(
     tutor_contaminated: bool = False,
     ai_client: object | None = None,
     grade_held_for_review: bool = False,
+    grader_identity: tuple[str, str] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Post-persist accounting for one attempt on an in-episode LO.
@@ -2129,6 +2130,9 @@ def record_episode_evidence(
     evaluated in flight (held-grade-evidence F11): a held answer consumes its
     presentation but records an observation that moves no posterior and
     qualifies nothing, and it is no incidental evidence either.
+
+    ``grader_identity`` is the submission's (prompt, output schema) calibration identity, which the presentation's
+    grade dual-write stamps (TE2 landing ruling R1; None is the joint grader's, as before).
     """
 
     held_now = (attempt_id,) if grade_held_for_review else ()
@@ -2153,6 +2157,7 @@ def record_episode_evidence(
             grading_source=grading_source,
             tutor_contaminated=tutor_contaminated,
             grade_held_for_review=grade_held_for_review,
+            grader_identity=grader_identity,
             clock=clock,
         )
 
@@ -2429,6 +2434,88 @@ def dual_write_presentationless_probe_grade(
     )
 
 
+def dual_write_regraded_probe_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    grading_source: str,
+    grader_identity: tuple[str, str] | None,
+    fired_error_types: Iterable[str],
+    held: bool,
+    clock: Clock | None = None,
+) -> bool:
+    """A regrade's probe grade, published under the replacement grade's own identity (TE2 landing ruling R1).
+
+    A probe answer's raw grade event and interpretation are written once, by the submission's probe path
+    (:func:`dual_write_presentationless_probe_grade` for a lesson probe, :func:`_record_presentation_observation` for
+    FG1's presentation path), and replay never re-mints them (an ordinary practice answer's are re-minted by
+    ``attempts._dual_write_grade_channel`` on every application). So a regrade that only replays would leave the
+    attempt's active interpretation on the original grader's identity and calibration (Codex's final verify, F7
+    reopened). The regrade's publication calls this before its replay: the same dual-write the submission made,
+    with the replacement grade's (prompt, schema) identity, appended and activated; replay reads it back.
+
+    Written only where the submission wrote one: a lesson probe (no presentation; ``observed_outcome`` "graded" as
+    on its first write), or a presentation whose observation recorded an outcome and whose new grade is not held
+    for review (the first write's own condition). FG1d's incidental presentationless answer wrote none and gets
+    none. The presentation's outcome is reclassified from the new grade: its score and the regrade's attributed
+    error types (``fired_error_types``; the replay re-mints the error events after this). The probe observation's
+    posterior is the submission's and is not changed here. Returns whether a grade was written.
+    """
+
+    persisted = repository.fetch_practice_attempt(attempt_id) or {}
+    if persisted.get("attempt_type") != "diagnostic_probe":
+        return False
+    practice_item_id = str(persisted["practice_item_id"])
+    presentation_id = persisted.get("probe_presentation_id")
+    if presentation_id is None:
+        from learnloop.causal_activity_policy import LESSON_PROBE_EVIDENCE_ORIGIN
+
+        if persisted.get("evidence_origin") != LESSON_PROBE_EVIDENCE_ORIGIN:
+            return False
+        dual_write_presentationless_probe_grade(
+            vault,
+            repository,
+            practice_item_id=practice_item_id,
+            attempt_id=attempt_id,
+            grading_source=grading_source,
+            grader_identity=grader_identity,
+            clock=clock,
+        )
+        return True
+    if held:
+        return False
+    observation = repository.probe_observation_for_attempt(attempt_id)
+    channel = observation.grader_channel if observation is not None else None
+    if not channel or channel.get("observed_outcome") is None:
+        return False
+    presentation = repository.probe_presentation(str(presentation_id))
+    snapshot = presentation.instrument_card_snapshot if presentation is not None else None
+    if snapshot is None:
+        return False
+    instrument = CompiledInstrument.from_snapshot(snapshot)
+    empty_stuck = bool(persisted.get("declared_stuck")) and not str(persisted.get("learner_answer_md") or "").strip()
+    outcome = classify_outcome(
+        instrument,
+        rubric_score=persisted.get("rubric_score"),
+        max_points=_item_max_points(vault, practice_item_id),
+        attempt_type="dont_know" if persisted.get("declared_dont_know") or empty_stuck else "diagnostic_probe",
+        fired_error_types=[str(error_type) for error_type in fired_error_types if error_type],
+    )
+    _dual_write_probe_grade(
+        vault,
+        repository,
+        instrument=instrument,
+        practice_item_id=practice_item_id,
+        attempt_id=attempt_id,
+        grading_source=grading_source,
+        observed_outcome=outcome,
+        grader_identity=grader_identity,
+        clock=clock,
+    )
+    return True
+
+
 def _record_presentation_observation(
     vault: LoadedVault,
     repository: Repository,
@@ -2443,6 +2530,7 @@ def _record_presentation_observation(
     grading_source: str,
     tutor_contaminated: bool,
     grade_held_for_review: bool = False,
+    grader_identity: tuple[str, str] | None = None,
     clock: Clock | None,
 ) -> None:
     if repository.probe_observation_for_attempt(attempt_id) is not None:
@@ -2665,6 +2753,9 @@ def _record_presentation_observation(
         attempt_id=attempt_id,
         grading_source=grading_source,
         observed_outcome=outcome,
+        # TE2 landing ruling R1 (the re-review's open question): the submission's own calibration identity, so a
+        # blind grade in a split vault is never stamped and calibrated as the joint grader's.
+        grader_identity=grader_identity,
         clock=clock,
     )
     if contamination_class == "instructional_diagnostic":

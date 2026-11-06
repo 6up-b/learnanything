@@ -3490,6 +3490,8 @@ def _apply_attempt_in_transaction(
             grading_source=probe_grading_source,
             # held-grade-evidence F11: a held probe answer moves no posterior.
             grade_held_for_review=application.grade_held,
+            # TE2 landing ruling R1: the presentation's grade dual-write stamps the submission's identity.
+            grader_identity=attempt.grader_identity,
             clock=clock,
         )
         if block_end is not None:
