@@ -1459,6 +1459,9 @@ sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");
 // Teacher TE2-log: the lesson screen's activity intervals (logging only; desktop only).
 sidecar_passthrough!(lesson_activity, "lesson.activity");
+// Teacher TE2: a typed goal's resolution and Today's open lessons (no lesson written; desktop only).
+sidecar_passthrough!(lesson_goal, "lesson.goal");
+sidecar_passthrough!(lesson_open_lessons, "lesson.open_lessons");
 // Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
 sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
 sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");

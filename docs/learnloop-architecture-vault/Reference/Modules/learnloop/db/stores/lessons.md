@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/lessons.py"
 source_paths:
   - "src/learnloop/db/stores/lessons.py"
-source_commit: "84ec7ab399c5a93cb0ad162f1da366a5f53ed28a"
-source_commit_timestamp: "2026-11-05T23:11:09-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py) |
-| Source lines | 277 |
+| Source lines | 280 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `84ec7ab399c5a93cb0ad162f1da366a5f53ed28a` |
-| Commit timestamp | `2026-11-05T23:11:09-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
+| Commit timestamp | `2026-11-06T11:32:04-05:00` |
 
 ## Public API
 
@@ -75,12 +75,12 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `checks(connection: sqlite3.Connection, lesson_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 152)
 - `insert_receipt(connection: sqlite3.Connection, *, lesson_id: str, version: str, close_reason: str, receipt: Mapping[str, Any], created_at: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 162)
 - `receipt(connection: sqlite3.Connection, lesson_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 169)
-- `episode_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 192)
-- `insert_episode(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 198) — One episode at its opening; False when its opening action already has one (a recovered action).
-- `close_episode(connection: sqlite3.Connection, episode_id: str, fields: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 212) — Set an open episode's closing fields once; False when it was already closed.
-- `episodes(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 224)
-- `insert_interval(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 236) — One activity interval; False when its (lesson, screen session, seq) is already recorded (a resend).
-- `intervals(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 248)
+- `episode_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 195)
+- `insert_episode(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 201) — One episode at its opening; False when its opening action already has one (a recovered action).
+- `close_episode(connection: sqlite3.Connection, episode_id: str, fields: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 215) — Set an open episode's closing fields once; False when it was already closed.
+- `episodes(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 227)
+- `insert_interval(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 239) — One activity interval; False when its (lesson, screen session, seq) is already recorded (a resend).
+- `intervals(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 251)
 
 ### Module constants
 
@@ -123,12 +123,15 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `module`; statically calls `lesson`, `turns`
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `module`; statically calls `receipt`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `checks`, `lessons_on`, `receipt`, `turns`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `insert_check`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; statically calls `close_episode`, `episode_tables_present`, `episodes`, `insert_episode`, `insert_interval`, `intervals`, `lesson`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; statically calls `append_turn`, `lesson`, `turns`
 - [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `module`; statically calls `episode_tables_present`, `episodes`, `receipt`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `append_turn`, `checks`, `close_lesson`, `episode_tables_present`, `insert_lesson`, `insert_plan`, `insert_receipt`, `lesson`, `plans`, `turns`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `append_turn`, `checks`, `close_lesson`, `episode_tables_present`, `episodes`, `insert_lesson`, `insert_plan`, `insert_receipt`, `lesson`, `plans`, `turns`
+- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `module`; statically calls `lessons_on`, `plans`
 
 ## Dependencies
 
@@ -148,12 +151,16 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]], [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_teacher_te2_probes.py](../../../../../../../tests/test_teacher_te2_probes.py) — direct import
+  - `test_a_reserved_question_match_gives_no_probe`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f3_a_fault_after_the_attempt_rolls_everything_back_and_the_answer_can_be_sent_again`
 - [tests/test_teacher_te2log_activity.py](../../../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_a_bad_interval_is_refused_alone`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../../tests/test_teacher_te2log_episodes.py) — direct import

@@ -212,13 +212,21 @@ def _episodes_part(episodes: list[dict[str, Any]]) -> tuple[dict[str, Any], list
                   "refused": sum(1 for row in probes if row["close_reason"] == "refused"),
                   "retired": sum(1 for row in probes if row["close_reason"] == "retired"),
                   "answered": sum(1 for row in probes if row["outcome_attempt_id"])}
+    # Teacher TE2 (migration 248): refusals by their reason, and how many were served.
+    reasons = Counter(str(row.get("refusal_reason") or "unknown") for row in probes if row["close_reason"] == "refused")
+    probe_part["refused_by_reason"] = dict(reasons)
+    probe_part["served"] = sum(1 for row in probes if row["outcome_attempt_id"] or (
+        row["generated_item_id"] and row["close_reason"] in ("answered", "lesson_closed")))
     part = {"by_kind": {kind: kinds.get(kind, 0) for kind in E.KINDS}, "probes": probe_part,
             "detours_by_repair": dict(detours), "unlogged_detours": detours.get(E.UNLOGGED, 0),
             "gaps": dict(gaps)}
+    refused_words = (f" ({', '.join(f'{reason} {count}' for reason, count in sorted(reasons.items()))})"
+                     if reasons else "")
+    served_words = f", {probe_part['served']} served" if probes else ""
     lines = [
         "episodes: " + ", ".join(f"{kind} {kinds.get(kind, 0)}" for kind in E.KINDS),
-        f"probes: {probe_part['generated']} generated, {probe_part['refused']} refused, {probe_part['retired']} "
-        f"retired unused, {probe_part['answered']} answered",
+        f"probes: {probe_part['generated']} generated, {probe_part['refused']} refused{refused_words}, "
+        f"{probe_part['retired']} retired unused{served_words}, {probe_part['answered']} answered",
         "detours by repair: " + (", ".join(f"{k} {v}" for k, v in sorted(detours.items())) or "none")
         + f" ({part['unlogged_detours']} unlogged)",
         "gaps: " + (", ".join(f"{k} {v}" for k, v in sorted(gaps.items())) or "none"),

@@ -4498,6 +4498,13 @@ class TeacherDelayedConfig(BaseModel):
     max_wait_days: float = Field(default=14.0, gt=0.0)
 
 
+class TeacherPlacementConfig(BaseModel):
+    """Teacher TE2 (rev 5 §11.3, §18.4): ``max_probes`` (8, ``keep``), the generated probes one lesson may ask
+    for: a burden guardrail; the teacher decides when to stop, this only bounds it."""
+
+    max_probes: int = Field(default=8, ge=0, le=8)
+
+
 class TeacherConfig(BaseModel):
     """Teacher (spec_teacher_v1). TE0 (§15.2): the learner's confidence tap
     and the grader's hedge read, rendered as events with the outcome
@@ -4553,6 +4560,15 @@ class TeacherConfig(BaseModel):
     ``episodes`` and ``minutes``. Nothing serving, scheduling, certification or
     replay reads any of it; a refused row rolls back alone with a warning. Off,
     nothing of it is written and lessons are TE1's byte for byte.
+
+    Teacher TE2 (rev 5 §11.3, §11.5, §11.7, §11.8, §18.3; ``TEACHER_PROBES_VERSIONS``) adds ``probes``, the kill
+    switch of its successor: at that tag or later, with lessons on, a lesson's teacher may ask for a generated
+    single-use probe (``serve_probe``, FG1's generation path with a lesson origin) and file a gap from the
+    learner's words (``propose_gap``, the text-gap pipeline with ``source_kind = 'lesson'``); a lesson may open on
+    a typed goal (C0b's resolver; a new topic through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``);
+    the brief is ``lesson_brief_v2`` (no vault probe headers; where the last lesson left off); and Today offers
+    *Continue your lesson*. Off, or below the tag, every lesson is TE1's (and TE2-log's) byte for byte.
+    ``placement.max_probes`` (8, ``keep``): the probes one lesson may ask for.
     """
 
     confidence_events_enabled: bool = True
@@ -4568,6 +4584,9 @@ class TeacherConfig(BaseModel):
     visuals: bool = True
     # TE2-log: the episode log, intervals and node forecasts (off: nothing written, TE1's lessons exactly).
     episode_log: bool = True
+    # TE2: the successor's kill switch (off, or below the tag: TE1's and TE2-log's lessons exactly).
+    probes: bool = True
+    placement: TeacherPlacementConfig = Field(default_factory=TeacherPlacementConfig)
 
 
 class EligibilityConfig(BaseModel):

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/forecast_receipts.py"
 source_paths:
   - "src/learnloop/scheduling/forecast_receipts.py"
-source_commit: "54da4d9c68a7e7cb49271ea97deeb431f758037b"
-source_commit_timestamp: "2026-11-05T23:22:13-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling"
@@ -49,23 +49,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py) |
-| Source lines | 318 |
+| Source lines | 327 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `54da4d9c68a7e7cb49271ea97deeb431f758037b` |
-| Commit timestamp | `2026-11-05T23:22:13-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
+| Commit timestamp | `2026-11-06T11:32:04-05:00` |
 
 ## Public API
 
-- `class ForecastReceipt` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 118) — One forecast, ready to append (the store fills its id).
-- `valid_for_serve(receipt: Mapping[str, Any], served_at: str | None) -> bool` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 138) — AD1's validity rule (spec_adaptive_difficulty_v1 §8.1): a forecast is valid for a presentation iff the inputs it read are no later than the serve (``inputs_as_of <= served_at``), whenever it arrived.
-- `receipts_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 151) — The ``diagnosis.forecast_receipts`` kill switch (on without a vault config).
-- `inputs_digest(inputs: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 158)
-- `categorical_body(likelihood: Mapping[str, Mapping[str, float]], prior: Mapping[str, float], *, alphabet: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 163) — The Part B body of a categorical forecast over ``alphabet``.
-- `clamped_as_of(value: str | None, created_at: str) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 197) — ``inputs_as_of`` in the receipt's own format, never after the receipt.
-- `record_receipts(repository: Repository | None, receipts: Sequence[ForecastReceipt], *, vault: Any=None, clock: Clock | None=None, created_at: str | None=None) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 221) — Append ``receipts`` in the caller's transaction; never raises.
+- `class ForecastReceipt` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 125) — One forecast, ready to append (the store fills its id).
+- `valid_for_serve(receipt: Mapping[str, Any], served_at: str | None) -> bool` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 145) — AD1's validity rule (spec_adaptive_difficulty_v1 §8.1): a forecast is valid for a presentation iff the inputs it read are no later than the serve (``inputs_as_of <= served_at``), whenever it arrived.
+- `receipts_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 158) — The ``diagnosis.forecast_receipts`` kill switch (on without a vault config).
+- `inputs_digest(inputs: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 165)
+- `categorical_body(likelihood: Mapping[str, Mapping[str, float]], prior: Mapping[str, float], *, alphabet: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 170) — The Part B body of a categorical forecast over ``alphabet``.
+- `clamped_as_of(value: str | None, created_at: str) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 204) — ``inputs_as_of`` in the receipt's own format, never after the receipt.
+- `record_receipts(repository: Repository | None, receipts: Sequence[ForecastReceipt], *, vault: Any=None, clock: Clock | None=None, created_at: str | None=None) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 228) — Append ``receipts`` in the caller's transaction; never raises.
 
 ### Module constants
 
@@ -78,17 +78,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `LESSON_STEP_RETAINED` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 78)
 - `LESSON_NODE_HELD` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 83)
 - `LO_COLD_SUCCESS` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 88)
-- `FORECAST_KINDS` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 89)
-- `SCOPES` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 92)
-- `PRESENTED_ATTEMPT_ON_FACET` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 95)
-- `FOLLOWUP_TASK` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 96)
-- `FIRST_PRESENTATION` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 99)
-- `LESSON_CHECK_ATTEMPT` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 102)
-- `LESSON_COLD_OUTCOME` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 103)
-- `LO_COLD_AFTER_BLOCK` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 106)
-- `NO_BINDING` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 107)
-- `BINDING_KINDS` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 108)
-- `DECISION_KINDS` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 114)
+- `LESSON_PROBE_CORRECT` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 92)
+- `FORECAST_KINDS` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 93)
+- `SCOPES` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 96)
+- `PRESENTED_ATTEMPT_ON_FACET` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 99)
+- `FOLLOWUP_TASK` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 100)
+- `FIRST_PRESENTATION` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 103)
+- `LESSON_CHECK_ATTEMPT` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 106)
+- `LESSON_COLD_OUTCOME` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 107)
+- `LO_COLD_AFTER_BLOCK` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 110)
+- `LESSON_PROBE_ATTEMPT` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 112)
+- `NO_BINDING` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 113)
+- `BINDING_KINDS` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 114)
+- `DECISION_KINDS` ([src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 121)
 
 ### Explicit exports
 
@@ -106,6 +108,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `LESSON_CHECK_CORRECT`
 - `LESSON_COLD_OUTCOME`
 - `LESSON_NODE_HELD`
+- `LESSON_PROBE_ATTEMPT`
+- `LESSON_PROBE_CORRECT`
 - `LESSON_STEP_RETAINED`
 - `LO_COLD_AFTER_BLOCK`
 - `LO_COLD_SUCCESS`
@@ -124,7 +128,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_validated(receipt: ForecastReceipt) -> None` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 207)
+- `_validated(receipt: ForecastReceipt) -> None` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 214)
 
 ## Who imports or calls it
 
@@ -141,6 +145,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `module`; statically calls `ForecastReceipt`, `categorical_body`, `receipts_enabled`, `record_receipts`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `module`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `ForecastReceipt`, `LESSON_COLD_OUTCOME`, `LESSON_NODE_HELD`; statically calls `ForecastReceipt`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `ForecastReceipt`, `LESSON_PROBE_ATTEMPT`, `LESSON_PROBE_CORRECT`, `record_receipts`; statically calls `ForecastReceipt`, `record_receipts`
 - [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `LESSON_NODE_HELD`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `ForecastReceipt`, `LESSON_CHECK_ATTEMPT`, `LESSON_COLD_OUTCOME`, `record_receipts`; statically calls `ForecastReceipt`, `record_receipts`
 
@@ -163,7 +168,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

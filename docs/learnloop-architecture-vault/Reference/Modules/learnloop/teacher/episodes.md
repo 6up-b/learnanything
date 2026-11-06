@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/episodes.py"
 source_paths:
   - "src/learnloop/teacher/episodes.py"
-source_commit: "c1bfacd6622a998fac040f390a11c4132f80bd82"
-source_commit_timestamp: "2026-11-06T01:49:29-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py) |
-| Source lines | 564 |
+| Source lines | 584 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `c1bfacd6622a998fac040f390a11c4132f80bd82` |
-| Commit timestamp | `2026-11-06T01:49:29-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
+| Commit timestamp | `2026-11-06T11:32:04-05:00` |
 
 ## Public API
 
@@ -72,19 +72,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `origin_ids(repository: Any, lesson: Mapping[str, Any], opened_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 158) — The lesson's origin (``learner_pick``, or ``router`` with the accepted offer's decision id), that decision's ``router_objective_traces`` id when there is one, and every RO5 assignment (stop coin, randomized checks, open picks) in force for the lesson's day: made on the opening's…
 - `open_episode(repository: Any, *, lesson: Mapping[str, Any], brief: Mapping[str, Any], kind: str, opened_by: str, opened_at: str, node_id: str | None, learning_object_id: str | None, hypotheses: Sequence[str]=(), hypothesis_payload_id: str | None=None, repair_class: str | None=None, teacher_p: float | None=None, teacher_forecast_receipt_id: str | None=None, refs: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 208) — Insert one episode at its opening (``kind`` in :data:`KINDS`); its id, or None (refused, or its opening action already has one).
 - `close_episodes(repository: Any, lesson_id: str, *, closed_at: str, reason: str, node_id: str | None=None, kind: str | None=None, outcome: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 240) — Close every open episode of the lesson (on ``node_id`` and of ``kind`` when given) once, with its minutes from opening to ``closed_at`` and the outcome refs; the ids closed.
-- `minutes(spans: Iterable[Mapping[str, Any]], opened_at: str, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 280) — Over ``[opened_at, closed_at]``: ``elapsed_seconds`` (the wall clock), ``active_seconds`` (the foreground intervals inside it), ``unreported_seconds`` (elapsed time no interval, foreground or not, covers: missing, never filled in), ``missing_intervals`` (seqs absent between a sc…
-- `lesson_minutes(repository: Any, lesson: Mapping[str, Any], *, closed_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 330) — The lesson's minutes (§8.3 ``minutes``): from ``opened_at`` to its close (or ``closed_at``).
-- `class ActivityRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 352)
-  - `__init__(self, code: str, message: str) -> None` (line 353; internal)
-- `record_intervals(vault: Any, repository: Any, *, lesson_id: str, intervals: Sequence[Mapping[str, Any]], occurred_at: str | None, received_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 365) — Append the screen's intervals (one row per (lesson, screen session, seq); a resend writes nothing), each in its own savepoint.
-- `node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, learning_objects: Collection[str], version: int, family: str, prompt: str, doctrine: str, now: str) -> list[Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 407) — One ``lesson_node_held`` forecast per plan node with ``p_held`` on a vault LO (the node's ``lo_id``, or a node named by its LO; an ``lo_id`` that is no vault LO writes none): bound to the first qualifying cold outcome on the LO, as ``lesson_step_retained`` is.
-- `turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 442) — The outlines a turn's ``write_plan`` requests write, in request order.
-- `logged_fields(turn_obj: Any) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 449) — ``(location, text)`` of every field a turn's model wrote that a log row, a receipt or a note's payload may copy: a note's ``hypothesis`` and ``node`` (episode turns only), each plan node's ``id`` and ``lo_id`` (every turn: they reach the lesson receipt's ``nodes``).
-- `node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 470) — A note's node names a node of the lesson's latest plan, of a plan its own turn writes (before or after the note), or a brief LO.
-- `outline_lo(outline: Sequence[Mapping[str, Any]], node_id: str, learning_objects: Collection[str]) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 481) — The node's LO in ``outline``: its ``lo_id`` when that is a vault LO, else the node's id when that is one; None otherwise (never a guess such as the goal's LO).
-- `node_lo(learning_objects: Collection[str], state: Any, turn_obj: Any, node_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 494) — A note's node's LO: from the newest plan holding the node (a plan its own turn writes first), else the node as an LO; :func:`outline_lo`'s rule.
-- `inserted_nodes(previous: Sequence[Mapping[str, Any]] | None, outline: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 505) — Nodes a revised plan inserts before a node the previous plan had (a foundation stepped back to), in order; none for a first plan or for nodes only appended after them.
-- `receipt_episodes(repository: Any, lesson_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 522) — §8.3 ``episodes``: the lesson's episode ids by kind.
+- `close_one(repository: Any, lesson_id: str, opened_by: str, *, closed_at: str, reason: str, outcome: Mapping[str, Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 270) — Close the one open episode its action opened (teacher TE2: a probe, a gap, an added topic), once, with its minutes and outcome refs (its own savepoint).
+- `minutes(spans: Iterable[Mapping[str, Any]], opened_at: str, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 300) — Over ``[opened_at, closed_at]``: ``elapsed_seconds`` (the wall clock), ``active_seconds`` (the foreground intervals inside it), ``unreported_seconds`` (elapsed time no interval, foreground or not, covers: missing, never filled in), ``missing_intervals`` (seqs absent between a sc…
+- `lesson_minutes(repository: Any, lesson: Mapping[str, Any], *, closed_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 350) — The lesson's minutes (§8.3 ``minutes``): from ``opened_at`` to its close (or ``closed_at``).
+- `class ActivityRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 372)
+  - `__init__(self, code: str, message: str) -> None` (line 373; internal)
+- `record_intervals(vault: Any, repository: Any, *, lesson_id: str, intervals: Sequence[Mapping[str, Any]], occurred_at: str | None, received_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 385) — Append the screen's intervals (one row per (lesson, screen session, seq); a resend writes nothing), each in its own savepoint.
+- `node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, learning_objects: Collection[str], version: int, family: str, prompt: str, doctrine: str, now: str) -> list[Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 427) — One ``lesson_node_held`` forecast per plan node with ``p_held`` on a vault LO (the node's ``lo_id``, or a node named by its LO; an ``lo_id`` that is no vault LO writes none): bound to the first qualifying cold outcome on the LO, as ``lesson_step_retained`` is.
+- `turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 462) — The outlines a turn's ``write_plan`` requests write, in request order.
+- `logged_fields(turn_obj: Any) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 469) — ``(location, text)`` of every field a turn's model wrote that a log row, a receipt or a note's payload may copy: a note's ``hypothesis`` and ``node`` (episode turns only), each plan node's ``id`` and ``lo_id`` (every turn: they reach the lesson receipt's ``nodes``).
+- `node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 490) — A note's node names a node of the lesson's latest plan, of a plan its own turn writes (before or after the note), or a brief LO.
+- `outline_lo(outline: Sequence[Mapping[str, Any]], node_id: str, learning_objects: Collection[str]) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 501) — The node's LO in ``outline``: its ``lo_id`` when that is a vault LO, else the node's id when that is one; None otherwise (never a guess such as the goal's LO).
+- `node_lo(learning_objects: Collection[str], state: Any, turn_obj: Any, node_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 514) — A note's node's LO: from the newest plan holding the node (a plan its own turn writes first), else the node as an LO; :func:`outline_lo`'s rule.
+- `inserted_nodes(previous: Sequence[Mapping[str, Any]] | None, outline: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 525) — Nodes a revised plan inserts before a node the previous plan had (a foundation stepped back to), in order; none for a first plan or for nodes only appended after them.
+- `receipt_episodes(repository: Any, lesson_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 542) — §8.3 ``episodes``: the lesson's episode ids by kind.
 
 ### Module constants
 
@@ -137,18 +138,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_local_day_start(at: datetime) -> datetime` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 153)
 - `_guarded(repository: Any, what: str, write: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 193) — One row's write in its own savepoint of the caller's transaction: refused, it rolls back alone with a warning and the caller goes on (the turn is never blocked).
-- `_overlap(start: datetime, end: datetime, lo: datetime, hi: datetime) -> tuple[datetime, datetime] | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 275)
-- `_union_seconds(spans: Sequence[tuple[datetime, datetime]]) -> float` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 309)
-- `_missing(rows: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 323)
-- `_stamp(value: Any, name: str) -> datetime` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 358)
+- `_overlap(start: datetime, end: datetime, lo: datetime, hi: datetime) -> tuple[datetime, datetime] | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 295)
+- `_union_seconds(spans: Sequence[tuple[datetime, datetime]]) -> float` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 329)
+- `_missing(rows: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 343)
+- `_stamp(value: Any, name: str) -> datetime` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 378)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; statically calls `close_one`, `node_known`, `node_lo`, `on`, `open_episode`
 - [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `module`; statically calls `lesson_minutes`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `close_episodes`, `doctrine_family`, `has_table`, `inserted_nodes`, `instructions`, `lesson_minutes`, `logged_fields`, `node_held_receipts`, `node_known`, `node_lo`, `on`, `open_episode`, `outline_lo`, `prompt_version`, `receipt_episodes`, `turn_model`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `close_episodes`, `close_one`, `doctrine_family`, `has_table`, `inserted_nodes`, `instructions`, `lesson_minutes`, `logged_fields`, `node_held_receipts`, `node_known`, `node_lo`, `on`, `open_episode`, `outline_lo`, `prompt_version`, `receipt_episodes`, `turn_model`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `record_intervals`
 
 ## Dependencies
@@ -174,7 +176,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]], [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]], [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]].
+Static participation evidence comes from [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]], [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]], [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]], [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

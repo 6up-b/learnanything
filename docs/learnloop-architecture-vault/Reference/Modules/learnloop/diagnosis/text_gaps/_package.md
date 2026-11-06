@@ -18,7 +18,7 @@ source_paths:
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/diagnosis/text_gaps/tier1.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T10:05:25-05:00"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.text_gaps"
@@ -59,13 +59,13 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/actions#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates|learnloop.diagnosis.text_gaps.candidates]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/contract#^module-purpose|purpose]] | `ACTIVE` | 10 | 12 |
-| [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs#^module-purpose|purpose]] | `ACTIVE` | 13 | 25 |
+| [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs#^module-purpose|purpose]] | `ACTIVE` | 14 | 26 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/judges#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/kinds|learnloop.diagnosis.text_gaps.kinds]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/kinds#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline#^module-purpose|purpose]] | `ACTIVE` | 2 | 17 |
+| [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline#^module-purpose|purpose]] | `ACTIVE` | 2 | 18 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/report|learnloop.diagnosis.text_gaps.report]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
-| [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/sources#^module-purpose|purpose]] | `ACTIVE` | 4 | 24 |
+| [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/sources#^module-purpose|purpose]] | `ACTIVE` | 4 | 25 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/tier1|learnloop.diagnosis.text_gaps.tier1]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/tier1#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 
 ## Cross-package dependencies
@@ -76,7 +76,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 11 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 12 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 5 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
@@ -104,6 +104,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 1 static module edge
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -128,7 +129,7 @@ flowchart LR
     center -->|16| n_learnloop_db
     n_learnloop -->|1| center
     center -->|12| n_learnloop
-    center -->|11| n_learnloop_db_stores
+    center -->|12| n_learnloop_db_stores
     n_learnloop_diagnosis_split -->|2| center
     center -->|5| n_learnloop_diagnosis_split
     center -->|7| n_learnloop_matching

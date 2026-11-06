@@ -103,6 +103,16 @@ def enqueue(repository: Repository, *, source_kind: str, source_id: str, clock: 
                                  now=utc_now_iso(clock))
 
 
+def enqueue_lesson_gap(vault: LoadedVault, repository: Repository, source_id: str, *,
+                       clock: Clock | None = None) -> str | None:
+    """Teacher TE2 (spec_teacher_v1 §11.7): a teacher's ``propose_gap`` (its ``lesson_turns`` entry) queued with
+    ``source_kind = 'lesson'`` (switch on only); idempotent per entry."""
+
+    if not pipeline_enabled(vault):
+        return None
+    return enqueue(repository, source_kind="lesson", source_id=source_id, clock=clock)
+
+
 def enqueue_tutor_question(vault: LoadedVault, repository: Repository, event_id: str, *,
                            clock: Clock | None = None) -> str | None:
     """After the tutor answered: queue the question (switch on only)."""
@@ -685,7 +695,7 @@ def _retry_or_fail(
 #: logged with an empty text).
 _CONTEXT_JUDGE = {"tutor_question": "tutor", "diagnosis": "diagnoser", "stuck_answer": "gap_reader",
                   "reader_formative": "gap_reader", "workbench_text": "gap_reader", "hint_feedback": "gap_reader",
-                  "learner_note": "gap_reader"}
+                  "learner_note": "gap_reader", "lesson": "tutor"}
 
 
 def _skip(

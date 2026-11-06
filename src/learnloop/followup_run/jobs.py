@@ -90,13 +90,21 @@ def process_next_job(
     outcome = JobOutcome(job_id=str(job["id"]), kind=str(job["kind"]), state="done",
                          workflow_id=job.get("workflow_id"))
     try:
-        if not generate_and_serve_on(vault.config):
+        # Teacher TE2: a lesson's probe is the teacher's (teacher.probes at its successor), not FG1's switch.
+        from learnloop.followup_run import lesson_probe
+
+        lesson_job = job["kind"] == "lesson"
+        if not (lesson_probe.enabled(vault) if lesson_job else generate_and_serve_on(vault.config)):
+            if lesson_job:
+                lesson_probe.refuse(vault, repository, job, "switch_off", clock=clock)
             _finish(repository, job, "skipped", "switch_off", clock)
             outcome.state, outcome.error = "skipped", "switch_off"
             return outcome
         if job["kind"] != "workflow" and int(job.get("attempt_count") or 0) > MAX_GENERATION_ATTEMPTS:
             # F20: no learner waits on an entry or a need, so its job just ends. A workflow's ends in
             # ``_run_probe_lane``, where other ways out cost nothing and it has feedback to release.
+            if lesson_job:
+                lesson_probe.refuse(vault, repository, job, "generation_failed", clock=clock)
             _finish(repository, job, "failed", ATTEMPTS_EXHAUSTED, clock)
             outcome.state, outcome.error = "failed", ATTEMPTS_EXHAUSTED
             return outcome
@@ -133,6 +141,11 @@ def _retry_or_fail(vault: Any, repository: Repository, job: Mapping[str, Any], o
     outcome.state = "failed"
     if job.get("workflow_id"):
         fail_workflow(vault, repository, str(job["workflow_id"]), reason=error, clock=clock)
+    if job.get("kind") == "lesson":
+        # Teacher TE2: its two runs failed; the lesson is told "couldn't prepare that question".
+        from learnloop.followup_run import lesson_probe
+
+        lesson_probe.refuse(vault, repository, job, lesson_probe.failure_reason(error), clock=clock)
     return outcome
 
 
@@ -202,6 +215,11 @@ def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients:
                           attempt=int(job.get("attempt_count") or 0))
         elif kind == "entry_episode":
             _run_entry(vault, repository, str(job["probe_episode_id"]), clients=clients, clock=clock)
+        elif kind == "lesson":
+            # Teacher TE2 (spec_teacher_v1 §11.3): a lesson's probe, through FG1's authoring and admission.
+            from learnloop.followup_run import lesson_probe
+
+            lesson_probe.run(vault, repository, job, clients=clients, clock=clock)
         elif job.get("need_id"):
             _run_need(vault, repository, str(job["need_id"]), clients=clients, clock=clock)
         else:

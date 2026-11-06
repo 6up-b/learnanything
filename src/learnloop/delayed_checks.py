@@ -64,9 +64,11 @@ def candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude:
                excluded_lineage: set[str] | frozenset[str] = frozenset()) -> list[Any]:
     """The candidate rule (§13 step 1) for one LO, in id order."""
 
+    from learnloop.followup_serve.identity import generated_probe_ids
     from learnloop.vault.lifecycle import practice_item_serving_block
 
-    excluded = set(exclude)
+    # FG1 §4.2 (teacher TE2): a generated single-use probe, a lesson's included, is never a delayed check.
+    excluded = set(exclude) | set(generated_probe_ids(repository))
     out = []
     for item in sorted(vault.practice_items.values(), key=lambda value: value.id):
         if item.learning_object_id != learning_object_id or item.id in excluded:

@@ -180,6 +180,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
+- [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
+  - `test_rebuild_equivalence_on_a_lesson_with_a_probe`
 
 ## Modification guidance
 

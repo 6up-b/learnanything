@@ -10502,13 +10502,19 @@ export interface WorkbenchRequestHelpInput {
 
 /** lesson.turn's input: open a lesson ("Teach me this") or take one step in it. */
 export interface LessonTurnInput {
-  /** `resume`: run the teacher's turn an outage interrupted (nothing new from the learner). */
-  action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop" | "resume";
+  /** `resume`: run the teacher's turn an outage interrupted (nothing new from the learner). Teacher TE2:
+   *  `answer_probe` (the open question), `teach_anyway` (one still being prepared), `close` (Today's "Close it"). */
+  action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop" | "resume" | "answer_probe"
+    | "teach_anyway" | "close";
   lessonId?: string;
-  entry?: "learning_object" | "reader_selection" | "new_topic";
+  /** Teacher TE2: `typed_goal` opens on what the learner typed (`goalText`), with the leftovers they said yes to. */
+  entry?: "learning_object" | "reader_selection" | "new_topic" | "typed_goal";
   learningObjectIds?: string[];
   selection?: { extractionId: string; spanIds: string[] };
   goalText?: string;
+  addTopics?: string[];
+  subjectId?: string;
+  probeRef?: string;
   text?: string;
   answer?: string;
   checkRef?: string;
@@ -10567,6 +10573,8 @@ export type LessonFeedEntryDto =
   | { kind: "learner"; text: string; checkRef?: string | null }
   | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
       answerLabel?: string | null }
+  /** Teacher TE2: a quick question's grade. */
+  | { kind: "probe_result"; probeRef: string; result: string; graderFeedback?: string | null }
   | { kind: "notice"; text: string }
   /** Reader RW5d P4b: the step's figure (the teacher's visual), inline; `figure` only while it may be shown. */
   | { kind: "figure"; node?: string | null; goal?: string | null; status: LessonFigureStatus; figure: FigureViewDto | null }
@@ -10594,6 +10602,39 @@ export interface LessonViewDto {
   vaultChanged?: boolean;
   /** Teacher TE2-log: set while the episode log is on; the screen then reports its activity intervals. */
   activityLog?: boolean;
+  /** Teacher TE2: set on a TE2 lesson. */
+  te2?: boolean;
+  /** Teacher TE2: the quick question, being prepared (with "Teach it anyway") or open (answer it on your own). */
+  probe?: LessonProbeDto | null;
+}
+
+/** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
+export interface LessonProbeDto {
+  probeRef: string;
+  status: "preparing" | "open";
+  label: string;
+  question?: string;
+  teachAnyway: boolean;
+}
+
+/** Teacher TE2 (§11.5): what a typed goal needs, and what nothing in the learner's books covers yet. */
+export interface LessonGoalDto {
+  status: "ready" | "fresh" | "unavailable" | "no_inputs";
+  goalKey: string;
+  message?: string | null;
+  topics: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  unmatched: Array<{ phrase: string; proposedTitle: string; proposedStatement: string }>;
+  subjectId: string | null;
+  subjects: Array<{ subjectId: string; title: string }>;
+}
+
+/** Teacher TE2 (§11.8): an open lesson for Today's "Continue your lesson on X". */
+export interface OpenLessonDto {
+  lessonId: string;
+  title: string;
+  goal: string | null;
+  openedAt: string | null;
+  learningObjectIds: string[];
 }
 
 /** Teacher TE2-log (spec_teacher_v1 §11.6): one interval of the lesson screen, on the client's clock. */

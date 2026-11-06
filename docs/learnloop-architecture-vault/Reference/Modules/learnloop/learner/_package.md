@@ -33,7 +33,7 @@ source_paths:
   - "src/learnloop/learner/session_learning_diff.py"
   - "src/learnloop/learner/surfaced_beliefs.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.learner"
@@ -87,7 +87,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/learner/inference_precheck|learnloop.learner.inference_precheck]] | [[Reference/Modules/learnloop/learner/inference_precheck#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] | [[Reference/Modules/learnloop/learner/learner_profile#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] | [[Reference/Modules/learnloop/learner/learner_review_feed#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
-| [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] | [[Reference/Modules/learnloop/learner/lesson_weight#^module-purpose|purpose]] | `ACTIVE` | 9 | 5 |
+| [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] | [[Reference/Modules/learnloop/learner/lesson_weight#^module-purpose|purpose]] | `ACTIVE` | 9 | 7 |
 | [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] | [[Reference/Modules/learnloop/learner/mastery#^module-purpose|purpose]] | `ACTIVE` | 42 | 17 |
 | [[Reference/Modules/learnloop/learner/mastery_step_attribution|learnloop.learner.mastery_step_attribution]] | [[Reference/Modules/learnloop/learner/mastery_step_attribution#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/learner/measurement_state|learnloop.learner.measurement_state]] | [[Reference/Modules/learnloop/learner/measurement_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -102,7 +102,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 28 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 25 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 21 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
@@ -168,7 +168,7 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop -->|4| center
-    center -->|27| n_learnloop
+    center -->|28| n_learnloop
     n_learnloop_sidecar_handlers -->|31| center
     n_learnloop_diagnosis -->|20| center
     center -->|5| n_learnloop_diagnosis

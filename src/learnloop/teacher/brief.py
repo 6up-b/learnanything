@@ -769,7 +769,8 @@ def _resolution_phrases(resolution: Any) -> dict[str, str]:
 def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str],
                 goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None,
                 constraints: Mapping[str, Any],
-                notes_provider: Any = None, notes_check: NotesCheck | None = None) -> tuple[dict[str, Any], SourceBook]:
+                notes_provider: Any = None, notes_check: NotesCheck | None = None,
+                te2: bool = False) -> tuple[dict[str, Any], SourceBook]:
     """``(LessonBriefV1, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
     linked notes per LO; it is injected by the service (``teacher.notes``), so the brief, and the check
     minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2).
@@ -808,8 +809,16 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
             "retrievability": _retrievability(repository, vault, lo),
             "last_cold": last_cold,
             "misconceptions": _misconceptions(repository, lo),
-            "probes": _probe_headers(vault, repository, lo, withheld, attempted, prediction),
         }
+        if te2:
+            # Teacher TE2 (§8.1 rev 5): probes are generated (§11.3), so no vault item is listed; the node says only
+            # whether a delayed check could be committed on it.
+            from learnloop.teacher.te2 import delayed_check_words
+
+            node["delayed_check"] = delayed_check_words(vault, repository, lo, withheld=withheld,
+                                                        attempted=attempted)
+        else:
+            node["probes"] = _probe_headers(vault, repository, lo, withheld, attempted, prediction)
         if notes.get(lo):
             node["your_notes"] = notes[lo]
         nodes.append(node)
@@ -844,6 +853,14 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
         "constraints": {"driver": driver, **dict(constraints)},
         "doctrine": doctrine_identity(),
     }
+    if te2:
+        from learnloop.teacher import te2 as T2
+
+        brief["version"] = T2.BRIEF_VERSION_V2
+        left_off = T2.where_you_left_off(vault, repository, learning_object_ids, exclude=lesson_id,
+                                         notes_check=notes_check)
+        if left_off is not None:
+            brief["where_you_left_off"] = left_off
     return brief, book
 
 

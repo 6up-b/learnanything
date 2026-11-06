@@ -609,6 +609,36 @@ def resolve_lesson_check(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[
     return _resolution(RESOLVED, "realized", emission=_lesson_emission(graded[0]), **common)
 
 
+def resolve_lesson_probe(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """``lesson_probe_correct`` (teacher TE2): resolved on the probe's own attempt (the id minted with the request,
+    in the receipt's inputs) under its current grade; a probe never served (refused, retired unused, or its lesson
+    closed first) is censored; a held grade waits; an unanswered one in an open lesson is pending."""
+
+    connection = ledgers.connection
+    inputs = receipt.get("inputs") or {}
+    attempt_id, lesson_id = inputs.get("attempt_id"), inputs.get("lesson_id")
+    if not attempt_id or not lesson_id:
+        return _resolution(CENSORED, "no_probe_binding")
+    common = {"attempt_id": str(attempt_id), "binding": FR.LESSON_PROBE_ATTEMPT}
+    graded = connection.execute("SELECT correctness FROM practice_attempts WHERE id = ?", (str(attempt_id),)).fetchone()
+    if graded is None:
+        episode = connection.execute(
+            "SELECT closed_at, close_reason FROM lesson_episodes WHERE teacher_forecast_receipt_id = ? LIMIT 1",
+            (str(receipt.get("receipt_key")),)).fetchone() if _has(connection, "lesson_episodes") else None
+        if episode is not None and episode[0] is not None:
+            return _resolution(CENSORED, f"probe_{episode[1]}", **common)
+        closed = connection.execute("SELECT closed_at FROM lessons WHERE id = ?", (str(lesson_id),)).fetchone() \
+            if _has(connection, "lessons") else None
+        if closed is not None and closed[0] is not None:
+            return _resolution(CENSORED, "probe_never_answered", **common)
+        return _resolution(PENDING, "awaiting_probe_answer", **common)
+    if ledgers.held(str(attempt_id)):
+        return _resolution(HELD, GRADE_HELD_FOR_REVIEW, **common)
+    if graded[0] is None:
+        return _resolution(PENDING, "ungraded", **common)
+    return _resolution(RESOLVED, "realized", emission=_lesson_emission(graded[0]), **common)
+
+
 def resolve_lesson_step(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]:
     """``lesson_step_retained``: resolved on the first qualifying cold outcome on the node's LO after
     the forecast (``learner.lesson_weight.qualifying_outcomes``: the outcome the pool weight learns
@@ -677,7 +707,7 @@ def _round(value: float | None, digits: int = 4) -> float | None:
 #: The binary event each kind's ``p`` forecasts, as an emission.
 _BINARY_EVENT = {FR.DIAGNOSIS_NEXT_OBSERVATION: "pass", FR.REPAIR_COLD_OUTCOME: "cold_success",
                  FR.LESSON_CHECK_CORRECT: "success", FR.LESSON_STEP_RETAINED: "success",
-                 FR.LESSON_NODE_HELD: "success"}
+                 FR.LESSON_NODE_HELD: "success", FR.LESSON_PROBE_CORRECT: "success"}
 
 
 def _score(kind: str, rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]:
@@ -792,6 +822,8 @@ def _resolve_all(
             resolution = resolve_repair(ledgers, receipt)
         elif receipt["kind"] == FR.LESSON_CHECK_CORRECT:
             resolution = resolve_lesson_check(ledgers, receipt)
+        elif receipt["kind"] == FR.LESSON_PROBE_CORRECT:
+            resolution = resolve_lesson_probe(ledgers, receipt)
         elif receipt["kind"] in (FR.LESSON_STEP_RETAINED, FR.LESSON_NODE_HELD):
             # TE2-log's lesson_node_held resolves on the same first qualifying cold outcome (§11.3).
             resolution = resolve_lesson_step(ledgers, receipt)

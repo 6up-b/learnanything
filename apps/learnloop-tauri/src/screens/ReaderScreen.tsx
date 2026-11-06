@@ -300,8 +300,12 @@ export function ReaderScreen({
   workbench,
   onSkimmingChange,
   askRequest,
+  initialLibrarySearch = "",
 }: {
   onError: (message: string) => void;
+  /** TE2 landing ruling R2: the across-source search's words when the Reader mounts (a lesson's "Look in my
+   *  library" on a typed goal's leftover); empty, the box starts empty as before. */
+  initialLibrarySearch?: string;
   /** UX Phase 2: the palette's "Ask the tutor about this" with a book open.
    *  Each new value opens the rail on Ask and focuses its box; the value the
    *  Reader mounts with opens nothing. */
@@ -418,7 +422,7 @@ export function ReaderScreen({
   // can keep reading while it authors.
   const [exerciseImport, setExerciseImport] = useState<ExerciseImportState | null>(null);
   // Across-source search on the library screen ("where did I read that?").
-  const [librarySearch, setLibrarySearch] = useState("");
+  const [librarySearch, setLibrarySearch] = useState(initialLibrarySearch);
   // Enter asks for a deep search (meaning + rewritten question); typing resets it.
   const [searchDeep, setSearchDeep] = useState(false);
   const [searchResults, setSearchResults] = useState<ReaderSourceSearchDto | null>(null);

@@ -267,6 +267,26 @@ def close_episodes(repository: Any, lesson_id: str, *, closed_at: str, reason: s
     return _guarded(repository, f"closing the episodes of {lesson_id}", write) or []
 
 
+def close_one(repository: Any, lesson_id: str, opened_by: str, *, closed_at: str, reason: str,
+              outcome: Mapping[str, Any] | None = None) -> bool:
+    """Close the one open episode its action opened (teacher TE2: a probe, a gap, an added topic), once, with its
+    minutes and outcome refs (its own savepoint)."""
+
+    def write(connection: Any) -> bool:
+        row = next((row for row in store.episodes(connection, lesson_id) if str(row["opened_by"]) == opened_by
+                    and row["closed_at"] is None), None)
+        if row is None:
+            return False
+        counted = minutes(store.intervals(connection, lesson_id), str(row["opened_at"]), closed_at)
+        fields = {"closed_at": closed_at, "close_reason": reason, "active_seconds": counted["active_seconds"],
+                  "elapsed_seconds": counted["elapsed_seconds"], "unreported_seconds": counted["unreported_seconds"],
+                  "missing_intervals": counted["missing_intervals"], "minutes_source": counted["source"],
+                  **{key: value for key, value in dict(outcome or {}).items() if key in store.EPISODE_CLOSE_COLUMNS}}
+        return store.close_episode(connection, str(row["id"]), fields)
+
+    return bool(_guarded(repository, f"closing the episode of {opened_by}", write))
+
+
 # =============================================================================
 # Minutes: active and elapsed, never blended (§11.6)
 # =============================================================================

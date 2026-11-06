@@ -294,6 +294,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_prompt_carries_the_rules_and_names_them_only_at_the_successor`
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import
   - `test_a_stuck_answers_pfc_unverified_criteria_are_unassessed`
+- [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
 
 ## Modification guidance
 

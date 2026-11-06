@@ -1112,10 +1112,58 @@ def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: st
                              sources=prepared.bound_sources)
 
 
+# -- lessons (teacher TE2) -------------------------------------------------------------------
+
+
+def lesson_gap_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None:
+    """A teacher's ``propose_gap`` (spec_teacher_v1 §11.7): the learner's own words it names (their reply, an answer
+    and its "your thinking" note), read in context by the teacher as the tutor reads a question (its reading names
+    the gap), about the node's LO. None when the entry or the learner's turn is gone."""
+
+    from learnloop.db.stores import lessons as lesson_store
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not _table(connection, "lesson_turns"):
+            return None
+        row = connection.execute("SELECT lesson_id FROM lesson_turns WHERE id = ? AND action = 'propose_gap'",
+                                 (source_id,)).fetchone()
+        if row is None:
+            return None
+        turns = lesson_store.turns(connection, str(row[0]))
+        lesson = lesson_store.lesson(connection, str(row[0])) or {}
+    entry = next((turn for turn in turns if str(turn["id"]) == source_id), None)
+    data = (entry or {}).get("payload") or {}
+    learner = next((turn for turn in turns if str(turn["id"]) == str(data.get("learner_turn_id"))), None)
+    if entry is None or learner is None:
+        return None
+    said = learner.get("payload") or {}
+    text = "\n\n".join(str(part) for part in (said.get("text"), said.get("answer"), said.get("thinking")) if part)
+    if not text.strip():
+        return None
+    lo = str(data.get("learning_object_id") or "")
+    anchors = (lo,) if lo in vault.learning_objects else ()
+    subject = vault.learning_objects[lo].subjects[0] if anchors and vault.learning_objects[lo].subjects else None
+    words = str(data.get("gap") or "")
+    kind = str(data.get("gap_kind") or "none")
+    reading = GapReading.from_gap(
+        {"kind": kind, "prerequisite_name": words if kind == "prerequisite" else None,
+         "prerequisite_line": words if kind == "prerequisite" else None,
+         "belief_statement": words if kind == "misconception" else None},
+        judge="llm", judge_model=str(lesson.get("model") or "unknown"), prompt_version=str(data.get("prompt") or ""))
+    context: dict[str, Any] = {"surface": "lesson"}
+    if anchors:
+        context["learning_objects"] = [vault.learning_objects[lo].title]
+    return LearnerText(source_kind="lesson", source_id=source_id, text=text, context_judge="tutor",
+                       created_at=str(learner.get("created_at") or entry.get("created_at") or ""), subject_id=subject,
+                       anchor_learning_object_ids=anchors, reading=reading, context=context)
+
+
 def learner_text(
     vault: LoadedVault, repository: Repository, source_kind: str, source_id: str,
     *, stuck_source: StuckTextSource | None = None,
 ) -> LearnerText | None:
+    if source_kind == "lesson":
+        return lesson_gap_text(vault, repository, source_id)
     if source_kind == "tutor_question":
         return tutor_question_text(vault, repository, source_id)
     if source_kind == "diagnosis":
@@ -1157,6 +1205,7 @@ __all__ = [
     "learner_note_ids",
     "learner_note_refusal",
     "learner_note_text",
+    "lesson_gap_text",
     "learner_notes_enabled",
     "learner_text",
     "missed_formative_ids",

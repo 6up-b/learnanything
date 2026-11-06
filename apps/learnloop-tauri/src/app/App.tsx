@@ -169,6 +169,9 @@ export function App() {
   // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
   // so a Reader already showing another book remounts on the new one.
   const [readerOpenSeq, setReaderOpenSeq] = useState(0);
+  // TE2 landing ruling R2: the words a lesson's "Look in my library" opens the Reader's library search on. Read
+  // once, by the Reader that mounts for it (its readerOpenSeq), so a later remount starts with an empty box.
+  const [readerLibrarySearch, setReaderLibrarySearch] = useState<{ phrase: string; seq: number } | null>(null);
   // UX Phase 3: Today's "resume ▸" on an unfinished problem, for the Reader.
   const [readerResume, setReaderResume] = useState<ReaderWorkbenchResume | null>(null);
   // Each request from the palette to open the Reader's Ask (Codex review F5).
@@ -1344,6 +1347,17 @@ export function App() {
     gotoTab("library");
   }
 
+  // TE2 landing ruling R2 (spec_teacher_v1 rev 5 §11.5): a typed goal's leftover, "Look in my library": the lesson
+  // setup closes and the Reader opens on its library search (no book open) with the leftover's words.
+  function lookInLibrary(phrase: string) {
+    const seq = readerOpenSeq + 1;
+    setLessonEntry(null);
+    setReaderSource(null);
+    setReaderLibrarySearch({ phrase, seq });
+    setReaderOpenSeq(seq);
+    setTab("reader");
+  }
+
   // "View in Library" from the feedback source panel: open that vault file.
   function openLibraryFile(path: string) {
     setLibraryFilePath(path);
@@ -2307,11 +2321,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />;
     }
     if (tab === "maintain") {
       return renderMaintain();
@@ -2400,6 +2414,7 @@ export function App() {
             entry={lessonEntry}
             onClose={() => setLessonEntry(null)}
             onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
+            onLookInLibrary={lookInLibrary}
             onError={onError}
           />
         </Suspense>

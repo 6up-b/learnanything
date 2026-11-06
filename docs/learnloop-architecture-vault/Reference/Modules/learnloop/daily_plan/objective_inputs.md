@@ -186,6 +186,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_regrade_or_hold_inside_one_decisions_scope_is_read`
   - `test_one_decisions_builds_read_the_fit_once_and_the_next_decision_afresh`
   - `test_the_prefetch_job_reads_the_fit_again_only_after_a_commit`
+- [tests/test_rospeed_watcher.py](../../../../../../tests/test_rospeed_watcher.py) — direct import
+  - `test_a_rollback_header_database_is_watched_without_blocking_a_writer`
+  - `test_a_writer_closing_before_the_watcher_leaves_only_its_own_frames`
+  - `test_a_writer_commits_while_the_watcher_is_open_and_the_watcher_never_writes`
 
 ## Modification guidance
 

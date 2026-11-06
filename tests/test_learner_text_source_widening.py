@@ -199,6 +199,7 @@ def test_the_migration_names_both_kinds_in_one_rebuild():
     # H2b's 212 (hint_feedback only): the G-H17 deviation recorded in the
     # hints spec's §15 since H0 (tests/test_hint_feedback_widening.py), and
     # curriculum C5's 231 (learner_note only,
-    # tests/test_learner_note_source_kind_migration.py).
-    later = [m for m in discover_migrations() if m.version > 208 and m.version not in (212, 231)]
+    # tests/test_learner_note_source_kind_migration.py), and teacher TE2's 248 (lesson and C1b's external_chat,
+    # tests/test_teacher_te2_migration.py).
+    later = [m for m in discover_migrations() if m.version > 208 and m.version not in (212, 231, 248)]
     assert not any("learner_text_gaps__" in m.path.read_text() for m in later)

@@ -3,13 +3,13 @@ title: "learner_notes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e66f62e6f15ef1402f451cf6b22ed472ba5b1aba"
-source_commit_timestamp: "2026-11-06T09:45:38-05:00"
+source_commit: "271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_notes"
   - "table learner_notes"
-schema_head: 247
+schema_head: 248
 table_name: "learner_notes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -48,7 +48,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/229_learner_notes.sql`.
-- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`, `233_learner_notes_vault_origin.sql`.
+- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`, `233_learner_notes_vault_origin.sql`, `248_teacher_te2_sources.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

@@ -146,6 +146,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_grader_channel_prior_knobs.py](../../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
 - [tests/test_probe_robust_cutover.py](../../../../../../tests/test_probe_robust_cutover.py) — direct import
   - `test_decision_snapshot_byte_stable_after_model_activation_with_receipt`
+- [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
+  - `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`
+  - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity`
 
 ## Modification guidance
 

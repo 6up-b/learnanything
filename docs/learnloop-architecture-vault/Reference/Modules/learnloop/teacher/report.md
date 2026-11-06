@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/report.py"
 source_paths:
   - "src/learnloop/teacher/report.py"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -50,18 +50,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/report.py](../../../../../../src/learnloop/teacher/report.py) |
-| Source lines | 314 |
+| Source lines | 322 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `49f359311a7daeac5245231bd6ef6e4c14cb2bfd` |
-| Commit timestamp | `2026-11-05T23:30:15-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
+| Commit timestamp | `2026-11-06T11:32:04-05:00` |
 
 ## Public API
 
 - `report(vault: Any, repository: Any, *, today: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/report.py), line 44)
-- `lesson_report(vault: Any, repository: Any, *, today: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/report.py), line 294) — TE2-log's report lines (spec §11.10), read-only: lessons (opened, closed by reason, active and elapsed minutes apart with the intervals missing, delayed checks committed, due, answered and their results), episodes (by kind; probes generated, refused, retired and answered; detour…
+- `lesson_report(vault: Any, repository: Any, *, today: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/report.py), line 302) — TE2-log's report lines (spec §11.10), read-only: lessons (opened, closed by reason, active and elapsed minutes apart with the intervals missing, delayed checks committed, due, answered and their results), episodes (by kind; probes generated, refused, retired and answered; detour…
 
 ### Module constants
 
@@ -83,8 +83,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_has(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/teacher/report.py), line 141)
 - `_lessons_part(vault: Any, repository: Any, connection: Any, today: str) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 146)
 - `_episodes_part(episodes: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 203)
-- `_coverage_part(episodes: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 229)
-- `_forecasts_part(vault: Any, connection: Any, today: str) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 241) — ``lesson_probe_correct`` against the probes' grades; ``lesson_node_held`` against natural outcomes (the first qualifying cold outcome: self-selected) and, apart, against RO5's randomized checks (each with its ``r``).
+- `_coverage_part(episodes: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 237)
+- `_forecasts_part(vault: Any, connection: Any, today: str) -> tuple[dict[str, Any], list[str]]` ([source](../../../../../../src/learnloop/teacher/report.py), line 249) — ``lesson_probe_correct`` against the probes' grades; ``lesson_node_held`` against natural outcomes (the first qualifying cold outcome: self-selected) and, apart, against RO5's randomized checks (each with its ``r``).
 
 ## Who imports or calls it
 
@@ -124,6 +124,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_teacher_te1_weight.py](../../../../../../tests/test_teacher_te1_weight.py) — direct import
   - `test_the_report_lines`
+- [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
+  - `test_the_report_counts_probes_by_refusal_reason`
 - [tests/test_teacher_te2log_report.py](../../../../../../tests/test_teacher_te2log_report.py) — direct import
   - `test_randomized_checks_are_scored_apart_with_their_r`
   - `test_the_pool_weights_trajectory_per_forecaster`

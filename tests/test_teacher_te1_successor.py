@@ -44,10 +44,10 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
     # Follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-11:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", LATEST_ALGORITHM_VERSION) == (
-        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50")
+    assert SUCCESSOR_CHAIN[-12:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", LATEST_ALGORITHM_VERSION) == (
+        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51")
     assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50"})
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51"})
 
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
@@ -68,8 +68,9 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
         dumped = config.model_dump(mode="json", exclude_none=False)
         # Reader RW5d P4b's teacher.visuals moved them too (content and display, no successor), and
         # teacher TE2-log's teacher.episode_log (additive receipts, no successor).
+        # Teacher TE2's teacher.probes and teacher.placement (mvp-0.51) too.
         for key in ("enabled", "weight", "brief", "context", "delayed", "metered_price_per_million",
-                    "max_lesson_cost_usd", "visuals", "episode_log"):
+                    "max_lesson_cost_usd", "visuals", "episode_log", "probes", "placement"):
             dumped["teacher"].pop(key)
         dumped["ai"]["routing"].pop("teacher")
         # Follow-ups Nov 2's [hints] fold_follows_attach landed after TE1 (main's values predate it too).
@@ -217,7 +218,7 @@ def test_the_cli_installs_this_links_completion():
 
     # Teacher TE1b's mvp-0.43 is the chain's latest: the CLI installs its completion, which hands an
     # earlier journal to follow-ups Nov 2's, which hands this link's journal to this link's completion.
-    assert "learnloop.router_followups_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.help_fold_attach_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_suggestions_upgrade)
     assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(

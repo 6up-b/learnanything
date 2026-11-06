@@ -453,6 +453,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly`
   - `test_without_vectors_the_embedding_arms_abstain_and_say_so`
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
+- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
+  - `test_a_probe_is_generated_once_served_cold_and_never_again`
 - [tests/test_today_headline.py](../../../../../../tests/test_today_headline.py) — direct import
   - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import

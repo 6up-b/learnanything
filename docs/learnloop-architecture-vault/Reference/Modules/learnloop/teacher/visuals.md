@@ -133,7 +133,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `figure_request`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `active`, `build`, `contract_problem`, `displayed`, `figure_row`, `figure_text`, `instructions`, `lesson_view`, `not_built_for_protection`, `on`, `prompt_version`, `resolve`, `stored_turn`, `summary`, `turn_model`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `active`, `build`, `contract_problem`, `displayed`, `figure_row`, `figure_text`, `instructions`, `lesson_view`, `not_built_for_protection`, `on`, `prompt_version`, `resolve`, `summary`, `turn_model`
 
 ## Dependencies
 
@@ -184,6 +184,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
   - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
   - `test_the_figure_never_reaches_the_grader_and_is_never_a_help_row`
+- [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_a_figure_quoting_a_reserved_stem_is_not_shown`
 
 ## Modification guidance
 

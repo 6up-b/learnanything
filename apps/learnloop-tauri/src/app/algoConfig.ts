@@ -64,6 +64,9 @@ export interface AlgoDisplayConfig {
    *  only while Today may suggest a lesson, so false until it says so, and off
    *  Today never asks for the suggestion card. */
   lessonSuggestions: boolean;
+  /** Teacher TE2 (`teacher.probes` at its successor, with lessons on): the sidecar sends `teacher.te2` only
+   *  then; off, Today offers no "Continue your lesson" and no "What do you want to learn?". */
+  lessonGoals: boolean;
 }
 
 export interface AskPanelConfig {
@@ -115,7 +118,8 @@ const DEFAULTS: AlgoDisplayConfig = {
   workbenchHelp: null,
   ask: null,
   lessons: false,
-  lessonSuggestions: false
+  lessonSuggestions: false,
+  lessonGoals: false
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -133,7 +137,7 @@ export function setAlgoConfig(config: unknown): void {
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
     ask?: { panelEnabled?: unknown; helpStyle?: unknown; coldHelpConverts?: unknown; figures?: unknown };
-    teacher?: { lessons?: unknown; suggestions?: unknown };
+    teacher?: { lessons?: unknown; suggestions?: unknown; te2?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
@@ -171,7 +175,8 @@ export function setAlgoConfig(config: unknown): void {
         }
       : null,
     lessons: root.teacher?.lessons === true,
-    lessonSuggestions: root.teacher?.lessons === true && root.teacher?.suggestions === true
+    lessonSuggestions: root.teacher?.lessons === true && root.teacher?.suggestions === true,
+    lessonGoals: root.teacher?.lessons === true && root.teacher?.te2 === true
   };
   // A new snapshot names the shell again; the App mirrors what it draws next.
   renderedShell = null;

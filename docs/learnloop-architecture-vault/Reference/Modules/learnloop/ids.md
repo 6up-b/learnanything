@@ -225,6 +225,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `new_ulid`; statically calls `new_ulid`
@@ -269,7 +270,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 161 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 162 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -366,6 +367,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
   - `test_the_follow_up_rechecks_independence_before_serving_a_need_import`
+- [tests/test_teacher_te2_landing_r1.py](../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
+  - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
 - [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
   - `test_the_report_scores_a_project_probe_through_r1s_plan_block`
 - [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import

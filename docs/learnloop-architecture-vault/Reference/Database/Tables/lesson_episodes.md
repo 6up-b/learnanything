@@ -3,13 +3,13 @@ title: "lesson_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e66f62e6f15ef1402f451cf6b22ed472ba5b1aba"
-source_commit_timestamp: "2026-11-06T09:45:38-05:00"
+source_commit: "271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_episodes"
   - "table lesson_episodes"
-schema_head: 247
+schema_head: 248
 table_name: "lesson_episodes"
 table_role: "receipt"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/stores/lessons.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/teacher/episodes.py"
-  - "src/learnloop/teacher/service.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/247_lesson_episodes.sql`.
-- **Schema touched by:** `247_lesson_episodes.sql`.
+- **Schema touched by:** `247_lesson_episodes.sql`, `248_teacher_te2_sources.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -102,6 +102,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `lo_undo_state` | `TEXT` | no | — | — | Stored value |
 | `episode_version` | `TEXT` | yes | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `refusal_reason` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -130,6 +131,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/lessons.py`
+- `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/teacher/service.py`
 
 ### Direct SQL writers
@@ -145,6 +147,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_teacher_te2_lessons.py`
+- `tests/test_teacher_te2_migration.py`
+- `tests/test_teacher_te2_probes.py`
 - `tests/test_teacher_te2log_activity.py`
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/test_teacher_te2log_migration.py`
@@ -230,7 +235,9 @@ CREATE TABLE lesson_episodes (
   gap_result TEXT,
   lo_undo_state TEXT,
   episode_version TEXT NOT NULL,
-  created_at TEXT NOT NULL,
+  created_at TEXT NOT NULL, refusal_reason TEXT CHECK (refusal_reason IS NULL OR refusal_reason IN (
+  'reserved_match', 'protection_unavailable', 'not_admitted', 'generation_failed', 'route_unavailable',
+  'lesson_closed', 'switch_off')),
   -- A detour always has its repair; a gap may have its kind; a probe and a goal LO have none.
   CHECK (CASE kind
     WHEN 'detour' THEN repair_class IS NOT NULL

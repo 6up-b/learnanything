@@ -3,13 +3,13 @@ title: "raw_grade_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e66f62e6f15ef1402f451cf6b22ed472ba5b1aba"
-source_commit_timestamp: "2026-11-06T09:45:38-05:00"
+source_commit: "271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
+source_commit_timestamp: "2026-11-06T11:32:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite raw_grade_events"
   - "table raw_grade_events"
-schema_head: 247
+schema_head: 248
 table_name: "raw_grade_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -147,6 +147,8 @@ Indexes and uniqueness:
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_teach_back.py`
+- `tests/test_teacher_te2_landing_r1.py`
+- `tests/test_teacher_te2_review_fixes.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_projection_cutover.py`
