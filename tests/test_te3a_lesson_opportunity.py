@@ -235,11 +235,17 @@ def test_a_lesson_naming_a_withheld_reading_is_absent_and_an_unavailable_predica
 
 
 def _exposure(*, shown: tuple[str, ...] = (), revealed: tuple[str, ...] = (),
-              readings: list[dict[str, Any]] | None = None, passages: tuple[str, ...] = ()) -> dict[str, Any]:
+              readings: list[dict[str, Any]] | None = None, passages: tuple[str, ...] = (),
+              identities: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """A receipt's exposure; ``identities`` defaults to each exposed item's frozen identity with no sources (the fake
+    items cite none), as the teacher's close records them since the re-review."""
+
     out: dict[str, Any] = {"reveals": [{"item_id": item, "kind": "tutor_answer", "amount": 1.0} for item in revealed],
                            "passages": list(passages), "shown_items": list(shown)}
     if readings is not None:
         out["readings"] = readings
+    out["identities"] = identities if identities is not None else [
+        {"practice_item_id": item, "keys": [], "whole": []} for item in sorted({*shown, *revealed})]
     return out
 
 
@@ -280,6 +286,44 @@ def test_codex_f1_a_lesson_whose_shown_items_or_passages_are_withheld_now_is_abs
                   if e.kind == "lesson") == ["les_open/n1"]
 
 
+def test_codex_rereview_f1_a_lesson_is_judged_by_the_revision_it_showed_not_the_items_current_one(tmp_path,
+                                                                                                    monkeypatch):
+    """Codex re-review F1: a lesson showed an item's revision made from ``ext_old`` block b1; the item has since a
+    public replacement (its current revision cites nothing protected) and b1 became protected. The receipt's frozen
+    identity of the shown revision (``exposure.identities``, the AD serve's ``source_identity`` shape) is judged
+    against today's protection, so the lesson is withheld though the item's current id is not; a receipt naming an
+    exposed item without its identity cannot be judged (withheld, fail closed). The replay re-resolves it too."""
+
+    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.content.sources import exam_material
+
+    paths = _vault(tmp_path)
+    landed = [{"id": "n1", "status": "landed"}]
+    old_revision = {"practice_item_id": ITEMS[0], "keys": [["ext_old", "b1"]], "whole": []}
+    _lesson(paths, "les_old_revision", landed, exposure=_exposure(shown=(ITEMS[0],), identities=[old_revision]))
+    _lesson(paths, "les_old_reveal", landed, exposure=_exposure(
+        revealed=(ITEMS[0],), identities=[{**old_revision, "keys": [], "whole": ["ext_old_whole"]}]))
+    _lesson(paths, "les_unidentified", landed, exposure=_exposure(shown=(ITEMS[1],), identities=[]))
+    _lesson(paths, "les_open", landed, exposure=_exposure(shown=(ITEMS[2],), revealed=(ITEMS[0],)))
+    held: dict[str, Any] = {"material": exam_material.Material()}
+    monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: held["material"])
+    _sweep(paths)
+    assert [row["source_id"] for row in _opportunities(paths)] == ["les_old_reveal/n1", "les_old_revision/n1",
+                                                                   "les_open/n1"]
+    held["material"] = exam_material.Material(extractions=frozenset({"ext_old_whole"}),
+                                              spans=frozenset({("ext_old", "b1")}))
+    vault = load_vault(paths.root)
+    now = protection(vault, Repository(paths.sqlite_path))
+    assert ITEMS[0] not in now.ids  # the item's current revision is public: its id alone reads as visible
+    assert now.covers_identity(old_revision)
+    # The protection epoch moved, so the rows stamped before are stale; the sweep at the new epoch re-resolves each
+    # receipt by its rule, and the replay reads only what that sweep recorded.
+    _sweep(paths)
+    source = {row["id"]: row["source_id"] for row in _opportunities(paths)}
+    assert sorted(source[e.opportunity_id] for e in _snapshot(paths).events.opportunities
+                  if e.kind == "lesson") == ["les_open/n1"]
+
+
 def test_codex_f1_the_teachers_close_records_each_delivered_passages_reading(tmp_path):
     """Codex review F1: ``exposure.readings`` names each delivered passage's extraction and block (ids, no text), one
     per alias in ``exposure.passages``."""
@@ -304,6 +348,13 @@ def test_codex_f1_the_teachers_close_records_each_delivered_passages_reading(tmp
     assert [entry["alias"] for entry in exposure["readings"]] == exposure["passages"]
     assert all(entry["extraction_id"] and entry["span_id"] and set(entry) == {"alias", "extraction_id", "span_id"}
                for entry in exposure["readings"])
+    # Codex re-review F1: each exposed item's frozen revision identity, as AD's serve records one.
+    from learnloop.adaptive_difficulty.outside import source_identity
+
+    vault = load_vault(paths.root)
+    exposed = sorted({entry["item_id"] for entry in exposure["reveals"]} | set(exposure["shown_items"]))
+    assert exposed, "the fake lesson reveals its LO's items"
+    assert exposure["identities"] == [source_identity(vault.practice_items[item]) for item in exposed]
 
 
 def test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables(tmp_path):

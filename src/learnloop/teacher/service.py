@@ -1838,7 +1838,10 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
                      "passages": sorted(state.book.passages), "shown_items": list(shown_items),
                      # Teacher TE3a (Codex review F1): each delivered passage's reading, ids only, so AD's guard can
                      # judge the lesson against later protection (Option B, §14.3) without reading its payloads.
-                     "readings": _passage_readings(state.book)},
+                     "readings": _passage_readings(state.book),
+                     # Codex re-review F1: each exposed item's revision as of the close, by its frozen identity, so
+                     # a revision protected after a public replacement still withholds the lesson in AD's guard.
+                     "identities": _exposed_identities(vault, [r[0] for r in reveal_rows] + list(shown_items))},
         "gaps": [],
         "created_los": [],
         "delayed_checks": list(delayed_checks),
@@ -1864,6 +1867,26 @@ def _passage_readings(book: SourceBook) -> list[dict[str, Any]]:
 
     return [{"alias": alias, "extraction_id": passage.get("extraction_id"), "span_id": passage.get("span_id")}
             for alias, passage in sorted(book.passages.items()) if isinstance(passage, Mapping)]
+
+
+def _exposed_identities(vault: Any, item_ids: Sequence[Any]) -> list[dict[str, Any]]:
+    """``exposure.identities`` (Codex re-review F1): per exposed item still in the vault, in id order, its revision's
+    protection identity, ``{practice_item_id, keys, whole}`` (the block keys and whole extractions its canonical
+    exercise and provenance refs cite; ids, no text), the shape of AD's ``outside.source_identity``. An exposed item
+    no longer in the vault gets none, so AD cannot judge the receipt and withholds it (fail closed)."""
+
+    from learnloop.content.sources.exam_material import item_source_keys
+
+    out: list[dict[str, Any]] = []
+    for item_id in sorted({str(value) for value in item_ids if value}):
+        item = (getattr(vault, "practice_items", {}) or {}).get(item_id)
+        if item is None:
+            continue
+        keys, whole = item_source_keys(item)
+        out.append({"practice_item_id": item_id,
+                    "keys": sorted([str(extraction), str(span)] for extraction, span in keys),
+                    "whole": sorted(str(extraction) for extraction in whole)})
+    return out
 
 
 def _receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *,

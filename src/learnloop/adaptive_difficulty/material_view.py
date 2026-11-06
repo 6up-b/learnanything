@@ -188,15 +188,21 @@ _LESSON_RECORDS: dict[str, str] = {"lessons": "goal_json", "lesson_plans": "outl
                                    "lesson_receipts": "receipt_json"}
 
 
-def _lesson_exposure(record: Any) -> tuple[set[str], bool] | None:
+def _lesson_exposure(record: Any) -> tuple[set[str], bool, list[Mapping[str, Any]]] | None:
     """Teacher TE3a (Codex review F1): a lesson receipt's ``exposure`` as ``(the vault items it showed or revealed,
-    whether a delivered passage's reading is unrecorded)``; None for a record with no exposure (a goal, an outline).
+    whether the receipt cannot be judged, the frozen identities of the revisions it exposed)``; None for a record
+    with no exposure (a goal, an outline).
 
-    The items are ``exposure.reveals[].item_id`` and ``exposure.shown_items`` (ids; the receipt names no item
-    revision). The passages are aliases (``exposure.passages``); their readings are ``exposure.readings``
-    (``{extraction_id, span_id}`` per passage, written by the teacher's close since TE3a), which the reference rule
-    reads like any other named reading. A receipt with passages and no ``readings`` (closed before TE3a) cannot be
-    judged. A malformed exposure raises (the caller fails closed)."""
+    The items are ``exposure.reveals[].item_id`` and ``exposure.shown_items``. Their revisions are
+    ``exposure.identities`` (Codex re-review F1): one
+    :func:`~learnloop.adaptive_difficulty.outside.source_identity` per exposed item (its id and the block keys and
+    whole extractions its revision cited when the lesson closed), which
+    :meth:`~learnloop.adaptive_difficulty.protection.Protection.covers_identity` revalidates, so a revision
+    protected after a public replacement still withholds the lesson. The passages are aliases
+    (``exposure.passages``); their readings are ``exposure.readings`` (``{extraction_id, span_id}`` per passage),
+    which the reference rule reads like any other named reading. A receipt with passages and no ``readings``, or an
+    exposed item without its identity (closed before TE3a), cannot be judged. A malformed exposure raises (the
+    caller fails closed)."""
 
     if not isinstance(record, Mapping) or "exposure" not in record:
         return None
@@ -205,8 +211,15 @@ def _lesson_exposure(record: Any) -> tuple[set[str], bool] | None:
         raise ValueError("a lesson receipt's exposure is not a mapping")
     items = {str(entry["item_id"]) for entry in exposure.get("reveals") or [] if entry.get("item_id")}
     items |= {str(item) for item in exposure.get("shown_items") or [] if item}
-    unresolved = bool(exposure.get("passages")) and not isinstance(exposure.get("readings"), list)
-    return items, unresolved
+    identities = exposure.get("identities")
+    if identities is not None and not (isinstance(identities, list)
+                                       and all(isinstance(entry, Mapping) for entry in identities)):
+        raise ValueError("a lesson receipt's identities are not a list of mappings")
+    identities = list(identities or [])
+    identified = {str(entry.get("practice_item_id")) for entry in identities}
+    unresolved = (bool(exposure.get("passages")) and not isinstance(exposure.get("readings"), list)) or bool(
+        items - identified)
+    return items, unresolved, identities
 
 
 #: A figure prediction's learner-text source id (``diagnosis.text_gaps.sources``' grammar, restated:
@@ -535,11 +548,14 @@ class MaterialView:
         except Exception:  # noqa: BLE001 - fail closed
             return True
         if exposure is not None:
-            items, unresolved = exposure
+            items, unresolved, identities = exposure
             # Codex review F1: what the lesson showed, judged by today's protection (an item protected since the
             # close withholds the lesson, as it withholds its own attempts); passages recorded by alias only (a
-            # receipt written before the receipt named their readings) cannot be judged: withheld.
-            if unresolved or any(self.withheld(item) for item in items):
+            # receipt written before the receipt named their readings) cannot be judged: withheld. Codex re-review
+            # F1: the revision it showed too, by its frozen identity (a public replacement since leaves the id
+            # visible while the shown revision's own sources are held out); an exposed item without one: withheld.
+            if unresolved or not self.available or any(self.withheld(item) for item in items) or any(
+                    self.protection.covers_identity(identity) for identity in identities):
                 return True
         return any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
             self.reading_withheld(extraction) for extraction in whole)
