@@ -92,3 +92,63 @@ Teacher run: the 28 files `git grep -l "learnloop.teacher\|teacher_fakes\|from l
 `test_followups_nov2_figure_provenance` and `test_reader_rw5d_p4b_teacher_visuals`.
 
 New tests: `tests/test_teacher_te2log_episodes.py` 13 -> 17, `tests/test_teacher_te2log_node_held.py` 4 -> 5.
+
+## Scoped verify and the landing's rulings R1, R2
+
+Scoped verify: gpt-6.1-sol, job `20261106-005255-g8i1fq`, of `f0d379b2bb` on F1, F2 and the switch-off identity.
+F2 and the switch-off identity CONFIRMED-FIXED, no new finding; **F1 REOPENED on two paths**. The orchestrator's
+rulings R1 (both paths, fixed structurally; no further Codex round on this class) and R2 (TE1's forecast action) are
+recorded verbatim in `docs/reviews/teacher-te2-log.md` under "Landing onto main".
+
+| Ruling | Path | Commit | Tests (each failed on the pre-fix source) |
+|---|---|---|---|
+| R1 (a) | A plan node whose id is the reserved key of an LO the brief never named (`lo_id` that LO, `p_held` 0.6) was accepted and copied into `lesson_episodes.node_id` and the `lesson_node_held` receipt's key and inputs: the guard read only `state.los`'s keys | `c301f12a6f` | `test_a_plan_node_carrying_another_los_reserved_key_is_withheld_by_location`, `test_a_plan_lo_id_carrying_a_reserved_key_is_withheld_by_location` |
+| R1 (b) | A contract refusal echoed the model's text before any guard ran (`plan node <reserved>: these anchors don't resolve: S999`); a schema refusal echoed pydantic's `input_value` | `c301f12a6f` | `test_a_contract_refusal_names_the_field_by_location_never_by_its_text`, `test_a_schema_refusal_names_fields_by_location_never_by_their_input` |
+| R2 | TE1's `forecast` copied `request.node`, and the node's plan `lo_id`, into its receipt unchecked (switch off: an unknown node and a reserved node id / `lo_id` were all written) | `1c4bb43506` | `test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off` (and `test_te1s_forecast_on_a_known_node_is_unchanged_with_the_switch_off`, a pin that passes before and after) |
+
+What changed:
+
+- **The identifier guard** (`guards.identifier_guard`, keys from `guards.key_sets`, one KeyBook read for both sets):
+  every model-supplied field a log row, a receipt or a note's payload copies is checked against **every answer key
+  the vault records, on any LO, with no exemption** (an exam-reserved or held-out item's included, an LO the brief
+  never named and one a plan adds in the same turn included), after the existing output guards. The fields
+  (`service._logged`, `episodes.logged_fields`): with `teacher.episode_log` on, a note's hypothesis and node, each
+  plan node's id and `lo_id`; on every turn (R2), each forecast's node and the LO its receipt will hold
+  (`service._forecast_lo`, mirroring `_forecast`). A hit withholds the turn; an unreadable KeyBook withholds it
+  (fail closed).
+- **Refusals by location.** Every contract refusal (`service._contract_problem`, `visuals.contract_problem`) names the
+  field by its location (`requests[0].plan[1].anchors[0]`, `check.anchors[2]`, `requests[0].node`,
+  `visual.planned_node`), never by its text; a guard refusal names the field the same way
+  (`requests[0].plan[0].id: …`); a schema refusal (`service._schema_detail`) gives each failing field's location and
+  pydantic's message (`requests[0].node: String should have at most 80 characters`), never its input, an undeclared
+  key reading `?` and a failure naming no field one fixed line.
+- **R2's node resolution.** A forecast whose node its receipt copies (every forecast but a check forecast with a
+  check open or posed in the turn, whose receipt names the code-made check ref) must name a node of the latest
+  plan, of a plan the turn writes, or a brief LO (`episodes.node_known`, the note's rule); otherwise it is refused
+  by location. `LessonState.node_lo` gains an optional `outline` (default unchanged).
+
+Changed pins: TE1's `test_a_plan_whose_anchors_do_not_resolve_is_refused_back_to_the_teacher` and the visuals'
+`test_a_visual_the_lesson_cannot_build_is_refused_back_to_the_teacher` pinned the echoed anchor text and now pin the
+location (R1 (b) applies to TE1's refusals too, so a refused turn's detail line reads differently with the switch
+off; nothing else of a TE1 lesson changes). `test_a_plan_lo_id_that_is_no_vault_lo_never_reaches_a_row` now uses an
+unprotected unknown LO id, since a reserved one is withheld.
+
+What a refused turn keeps: as TE1 does for every withheld or invalid turn, the refused turn's own `lesson_turns`
+payload still records the model's raw turn (write-only: neither the transcript, the view nor any report reads a
+refused turn's `turn`); no episode row, interval, receipt, stored plan, transcript line or screen holds the text.
+
+### Gate (this step)
+
+Every pytest inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`; every
+other Python or CLI under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No model call.
+
+| Command | Result |
+|---|---|
+| Reproduction, before the fixes: the 5 new R1/R2 tests | 5 failed (the R2 pin passed) |
+| pytest, the 28 teacher files and `test_forecast_receipts`, `test_forecast_receipts_landing`, after R1 | 2 failed (the two pins above), then 423 passed |
+| the same after R2 | 5 failed first (4 TE1 and visuals tests forecasting on a posed check's node with no plan, so a check forecast with a check open or posed no longer resolves its node, its receipt never copying it; and the new R2 test, which hit the three-refusals-in-a-row limit and now splits its refusals over two actions), then 425 passed |
+| pytest `-n 6`: every `test_teacher_*`, `test_forecast_receipts*`, every test naming `lesson_weight`, the teacher files, the display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_cli_help_snapshot`, `test_architecture`, `test_table_roles`, `test_registry_audit`, `test_tracked_fixture_databases`, `test_coordinated_migrations`, `test_migrations`, `test_codex_lockdown_round3`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot` (52 files) | 786 passed |
+| pytest `--durable-sqlite` on the touched test files | 62 passed |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+
+New tests: `tests/test_teacher_te2log_episodes.py` 17 -> 23.
