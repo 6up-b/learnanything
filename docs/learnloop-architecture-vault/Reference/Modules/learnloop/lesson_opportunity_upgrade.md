@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/lesson_opportunity_upgrade.py"
 source_paths:
   - "src/learnloop/lesson_opportunity_upgrade.py"
-source_commit: "c884cbfd9cbf01413bffd6bd84b61dd1295f9e8f"
-source_commit_timestamp: "2026-11-06T04:20:02-05:00"
+source_commit: "6cad8141ecef068e53fce83d54802d5a726e0b95"
+source_commit_timestamp: "2026-11-06T08:54:29-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c884cbfd9cbf01413bffd6bd84b61dd1295f9e8f` |
-| Commit timestamp | `2026-11-06T04:20:02-05:00` |
+| Source commit | `6cad8141ecef068e53fce83d54802d5a726e0b95` |
+| Commit timestamp | `2026-11-06T08:54:29-05:00` |
 
 ## Public API
 
@@ -99,14 +99,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] — imports `module`; calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LESSON_OPPORTUNITY_ALGORITHM_VERSION`, `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LESSON_OPPORTUNITY_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `TEACHER_PROBES_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `write_activation_journal`; calls `write_activation_journal`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `UpgradeResult`; calls `UpgradeResult`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `module`; calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `publish_algorithm_version`; calls `publish_algorithm_version`
-- [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_router_learned_tail`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `activate_p0_projection`; calls `activate_p0_projection`
+- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_teacher_probes`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `open_vault_repository`; calls `open_vault_repository`
@@ -131,7 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_te3a_successor.py](../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
-  - `test_the_successor_is_one_constant_after_ro6_and_the_latest`
+  - `test_the_successor_is_one_constant_after_te2_and_the_latest`
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`

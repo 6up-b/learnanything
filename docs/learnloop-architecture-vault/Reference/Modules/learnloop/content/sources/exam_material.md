@@ -288,7 +288,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `module`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; statically calls `exam_material`, `source_marks`
 - [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `exam_material`; statically calls `exam_material`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `item_source_keys`; statically calls `item_source_keys`
+- [[Reference/Modules/learnloop/teacher/exposure|learnloop.teacher.exposure]] — imports `item_source_keys`; statically calls `item_source_keys`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `held_out_among`, `held_out_material`, `held_out_refusal`; statically calls `held_out_among`, `held_out_material`, `held_out_refusal`
 - [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `exam_material`, `item_exam_status`; statically calls `exam_material`, `item_exam_status`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `exam_reserved`; statically calls `exam_reserved`
@@ -466,6 +466,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_secondary_attach.py](../../../../../../../tests/test_secondary_attach.py) — direct import
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_codex_rereview_f1_a_lesson_is_judged_by_the_revision_it_showed_not_the_items_current_one`
+  - `test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed`
+  - `test_landing_r1_an_item_replaced_before_the_close_is_judged_by_the_revision_the_lesson_revealed`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
   - `test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window`
 

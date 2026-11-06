@@ -135,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_held_out_sentinel_never_reaches_ad_inputs`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_codex_rereview_f1_a_lesson_is_judged_by_the_revision_it_showed_not_the_items_current_one`
+  - `test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed`
+  - `test_landing_r1_an_item_replaced_before_the_close_is_judged_by_the_revision_the_lesson_revealed`
 
 ## Modification guidance
 

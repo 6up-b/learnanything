@@ -3,13 +3,13 @@ title: "ad_reading_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
-source_commit_timestamp: "2026-11-06T06:50:30-05:00"
+source_commit: "6cad8141ecef068e53fce83d54802d5a726e0b95"
+source_commit_timestamp: "2026-11-06T08:54:29-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_reading_opportunities"
   - "table ad_reading_opportunities"
-schema_head: 248
+schema_head: 249
 table_name: "ad_reading_opportunities"
 table_role: "receipt"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/213_adaptive_difficulty_receipts.sql`.
-- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `240_data_capture.sql`.
+- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `240_data_capture.sql`, `249_ad_lesson_opportunities.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -159,7 +159,7 @@ CREATE TABLE "ad_reading_opportunities" (
   id TEXT PRIMARY KEY,
   opportunity_key TEXT NOT NULL,
   kind TEXT NOT NULL
-    CHECK (kind IN ('reading', 'reader_tutor_exchange', 'worked_example', 'in_passage_question')),
+    CHECK (kind IN ('reading', 'reader_tutor_exchange', 'worked_example', 'in_passage_question', 'lesson')),
   subkind TEXT NOT NULL,
   source_table TEXT NOT NULL,
   source_id TEXT NOT NULL,

@@ -284,7 +284,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_public_role_helpers_partition_registry`
   - `test_synthetic_unclassified_table_fails_registry_check`
 - [tests/test_te3a_migration.py](../../../../../../tests/test_te3a_migration.py) — direct import
-  - `test_248_is_the_head_and_the_table_stays_a_receipt_ad_reads_by_its_rules`
+  - `test_249_is_the_head_and_the_table_stays_a_receipt_ad_reads_by_its_rules`
 - [tests/test_teacher_te1_migration.py](../../../../../../tests/test_teacher_te1_migration.py) — direct import
   - `test_234_is_te1s_migration_and_every_table_is_classified`
 - [tests/test_teacher_te1b_migration.py](../../../../../../tests/test_teacher_te1b_migration.py) — direct import

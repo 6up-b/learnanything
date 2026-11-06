@@ -3,13 +3,13 @@ title: "lesson_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
-source_commit_timestamp: "2026-11-06T06:50:30-05:00"
+source_commit: "6cad8141ecef068e53fce83d54802d5a726e0b95"
+source_commit_timestamp: "2026-11-06T08:54:29-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_plans"
   - "table lesson_plans"
-schema_head: 248
+schema_head: 249
 table_name: "lesson_plans"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/234_teacher_lessons.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/lessons.py"
   - "src/learnloop/teacher/service.py"
@@ -101,6 +102,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
+- `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`
