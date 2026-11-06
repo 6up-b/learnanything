@@ -16,7 +16,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, applied_versions, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_247" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_248" / "state.sqlite"
 #: What 239 adds (its table, its autoindexes, its indexes).
 M2A_ADDED_OBJECTS = frozenset({
     "mobile_jobs", "sqlite_autoindex_mobile_jobs_1", "sqlite_autoindex_mobile_jobs_2",
@@ -36,7 +36,7 @@ def test_239_is_named_and_the_table_is_classified():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 247
+    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 248
     with closing(sqlite3.connect(HEAD)) as connection:
         assert M2A_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("SELECT COUNT(*) FROM mobile_jobs").fetchone()[0] == 0

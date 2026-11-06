@@ -34,7 +34,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, set_algorithm_version
 from tests.test_exam_seeding import EXAM_DATE, _exam_vault, _outcomes
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_247" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_248" / "state.sqlite"
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 IMPORTED_AT = datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
@@ -51,10 +51,10 @@ def _columns(connection, table: str) -> set[str]:
 
 def test_244_is_the_head_and_the_head_fixture_holds_its_empty_columns():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[244] == "244_availability_time.sql" and max(names) == 247
+    assert names[244] == "244_availability_time.sql" and max(names) == 248
     assert TABLE_ROLES["practice_attempts"] is TableRole.RAW_LEDGER
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 247
+    assert max(applied_versions(HEAD)) == 248
     with closing(sqlite3.connect(HEAD)) as connection:
         for table, columns in NEW_COLUMNS.items():
             assert columns <= _columns(connection, table)
