@@ -350,7 +350,8 @@ def _pending_lesson_check_los(connection: Any, vault: Any, now_iso: str) -> list
     from learnloop.db.stores import lessons as lesson_store
 
     return list(dict.fromkeys(entry["learning_object_id"]
-                              for entry in lesson_store.pending_delayed_checks(connection, at=now_iso)))
+                              for entry in lesson_store.pending_delayed_checks(connection, at=now_iso,
+                                                                               config=vault.config)))
 
 
 def check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclude: Any = ()) -> dict[str, list[str]]:

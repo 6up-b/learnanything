@@ -121,10 +121,8 @@ def beta_from_moments(mean: float, sd: float) -> tuple[float, float]:
 
 
 def _union_seconds(rows: Sequence[tuple[str, str]]) -> float:
-    from learnloop.router_objective.price import _parse
-
     total, reach = 0.0, None
-    for began, ended in sorted((_parse(a), _parse(b)) for a, b in rows):
+    for began, ended in sorted((parse_utc(a), parse_utc(b)) for a, b in rows):
         if reach is None or began > reach:
             total += (ended - began).total_seconds()
             reach = ended
