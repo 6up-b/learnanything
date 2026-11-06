@@ -4046,7 +4046,9 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
             return record, []
     cap = record.split.get("items_cap")
     current = record.current_block()
-    if current is None or current.is_reading:
+    # TE3b (Codex review F1): a lesson offer's block holds no items: a follow-up arriving while it waits is forced into
+    # the next block, and the offer is taken back for it (``advance_with_context``).
+    if current is None or current.is_reading or current.is_lesson_offer:
         fitted: list[PoolItem] = []
         refused_now: list[tuple[PoolItem, Any]] = []
         free = record.minutes_left()
@@ -4171,7 +4173,8 @@ def _place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tu
             lane="repair", reason="a new question from your last answer", est_minutes=float(estimate.minutes),
             never_attempted=True, followup=True,
         )
-        boundary = current is None or current.is_reading
+        # TE3b (Codex review F1): a lesson offer's block is a boundary too (it never holds a probe).
+        boundary = current is None or current.is_reading or current.is_lesson_offer
         if row["state"] == followup_workflow.WAITING and not boundary:
             if not any(item_id in block.deferred_followups() for block in record.blocks):
                 with env.repository.atomic(), env.repository.connection() as connection:
@@ -4578,8 +4581,20 @@ def advance_with_context(
         # Teacher TE3b (spec §15.1a): the offer card is the block. Serving it shows the card (``block_started``); a
         # serve after it was shown with no answer is the learner moving on: ``ignored`` on its decision (one response
         # a decision), the block ended, and the next boundary decides.
+        from learnloop.daily_plan import lesson_offer as LO
+
+        withdrawal = None
+        if not LO.offers_on(env.vault):
+            withdrawal = LO.WITHDRAWN_OFF  # Codex review F2: off, the predecessor's boundary decides instead
+        elif forced:
+            withdrawal = LO.WITHDRAWN_FORCED  # Codex review F1: a probe or follow-up became ready while it waited
+        if withdrawal is not None:
+            # Taken back unanswered (an answered offer's block has already ended): the next boundary decides, with
+            # the forced items first.
+            with env.repository.atomic(), env.repository.connection() as connection:
+                LO.withdraw(connection, block, at=env.now_iso(), why=withdrawal)
+            return advance_with_context(env, serve=serve)
         if serve and not boundary:
-            from learnloop.daily_plan import lesson_offer as LO
             from learnloop.db.stores import router_suggestions as suggestions
 
             with env.repository.atomic(), env.repository.connection() as connection:

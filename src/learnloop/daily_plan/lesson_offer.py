@@ -134,7 +134,10 @@ def _union_seconds(rows: Sequence[tuple[str, str]]) -> float:
 
 def lesson_active_minutes(connection: Any, *, at: str) -> list[float]:
     """Each lesson closed by ``at`` with foreground intervals: its active minutes (TE2-log §11.6: the union of its
-    foreground intervals inside its opening and close; a lesson with none has active unknown and is left out)."""
+    foreground intervals inside its opening and close; a lesson with none has active unknown and is left out).
+
+    Only what was known at ``at`` (Codex review F4): an interval the app received after ``at`` (its ``received_at``)
+    is not read, though it happened before, so a decision's sensor never depends on a later receipt."""
 
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'lesson_activity_intervals'"
                           ).fetchone() is None:
@@ -146,7 +149,7 @@ def lesson_active_minutes(connection: Any, *, at: str) -> list[float]:
     for lesson_id, opened, closed in lessons:
         rows = [(max(str(a), str(opened)), min(str(b), str(closed))) for a, b in connection.execute(
             "SELECT started_at, ended_at FROM lesson_activity_intervals WHERE lesson_id = ? AND foreground = 1 "
-            "AND ended_at > ? AND started_at < ?", (lesson_id, opened, closed))]
+            "AND ended_at > ? AND started_at < ? AND received_at <= ?", (lesson_id, opened, closed, at))]
         rows = [(a, b) for a, b in rows if b > a]
         if rows:
             seconds = _union_seconds(rows)
@@ -311,8 +314,16 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
                  | {"candidate_id": candidate.candidate_id})
 
 
-#: The offer block's ``block_ended`` outcomes: the learner's response, or ``ignored`` (moved on without one).
-ENDED_OUTCOMES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored")
+#: An unanswered offer the plan took back (:func:`withdraw`): its block's outcome and its decision's release detail.
+WITHDRAWN = "withdrawn"
+#: Why an offer is withdrawn: forced items arrived after it was drawn (a generated probe made ready by FG1, a
+#: follow-up), or lesson offers no longer serve (the switch off, the objective off, below the tag).
+WITHDRAWN_FORCED = "forced_items"
+WITHDRAWN_OFF = "offers_off"
+
+#: The offer block's ``block_ended`` outcomes: the learner's response, ``ignored`` (moved on without one), or
+#: ``withdrawn`` (taken back by the plan before an answer).
+ENDED_OUTCOMES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored", WITHDRAWN)
 
 
 def _block_state(connection: Any, block_id: str | None) -> tuple[bool, str | None]:
@@ -329,7 +340,7 @@ def _block_state(connection: Any, block_id: str | None) -> tuple[bool, str | Non
     return ended, (str(plan[0]) if plan is not None else None)
 
 
-def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str) -> None:
+def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, reason: str | None = None) -> None:
     """End the offer's block with the learner's response (once; a block already ended is left as it is)."""
 
     from learnloop.db.stores import daily_plans as plan_store
@@ -341,8 +352,40 @@ def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str) -
     if ended:
         return
     plan_store.append_block_event(connection, event_id=new_ulid(), block_id=block_id, kind="block_ended",
-                                  detail={"outcome": outcome, "minutes_counted": 0.0, "lesson_offer": True},
+                                  detail={"outcome": outcome, "minutes_counted": 0.0, "lesson_offer": True,
+                                          **({"reason": reason} if reason else {})},
                                   created_at=at)
+
+
+def withdrawn(connection: Any, decision_id: str) -> dict[str, Any] | None:
+    """The row that took a drawn offer back before an answer (:func:`withdraw`), if one did."""
+
+    row = store.release_for(connection, decision_id)
+    if row is None or row["response"] != "expired":
+        return None
+    detail = json.loads(row.get("detail_json") or "{}")
+    return row if detail.get(WITHDRAWN) else None
+
+
+def withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool:
+    """Take back a drawn offer nobody answered (Codex review F1, F2): forced items arrived after it was drawn (a probe
+    FG1 made ready while the offer waited, a follow-up), or offers no longer serve (switch off: the predecessor's
+    boundary decides next). Its block ends ``withdrawn`` and its decision gets an ``expired`` row naming why: the
+    plan's act, never the learner's answer, so the acceptance model and the decline recovery never read it, the
+    forecast stays censored, and a late Start on the card is refused. Returns whether a row was written."""
+
+    decision = store.offer_decision(connection, str(block.decision_ref)) if getattr(block, "decision_ref", None) else None
+    written = False
+    if decision is not None and store.response_for(connection, str(decision["id"])) is None:
+        primary = ((decision.get("detail") or {}).get("card") or {}).get("candidates") or [{}]
+        written = store.insert_response(
+            connection, decision_id=str(decision["id"]), response="expired",
+            candidate_ref=str(primary[0].get("ref") or ""),
+            learning_object_ids=list(primary[0].get("learning_object_ids") or []), responded_at=at,
+            detail={WITHDRAWN: why, "plan_offer": True, "block_id": getattr(block, "id", None),
+                    "shown_on": decision.get("day")})
+    end_block(connection, getattr(block, "id", None), WITHDRAWN, at=at, reason=why)
+    return written
 
 
 def record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why: str) -> bool:
@@ -368,6 +411,8 @@ def sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int:
     for decision in store.offer_decisions(connection):
         if store.response_for(connection, str(decision["id"])) is not None:
             continue
+        if withdrawn(connection, str(decision["id"])) is not None:
+            continue  # taken back by the plan (F1, F2): never the learner's ``ignored``
         ended, status = _block_state(connection, (decision.get("detail") or {}).get("block_id"))
         if ended or status != "open" or str(decision.get("day") or "") < today:
             written += int(record_ignored(connection, decision, at=now_iso, why="next_boundary_step"))
@@ -398,7 +443,7 @@ def action_inputs(candidate: BlockCandidate) -> dict[str, Any]:
 
 __all__ = [
     "CONTEXT_RESOLUTION_DAYS", "DURATION_LOG_SD", "DURATION_MEDIAN_PRIOR_SD", "DURATION_PRIOR_MEDIAN",
-    "DURATION_VERSION", "OFFER_VERSION", "Offer", "accept_moments", "action_inputs", "beta_from_moments", "build",
-    "card", "check_mass", "duration_model", "is_offer", "lesson_active_minutes", "offer_ref", "offers_on",
-    "pending_start", "shown_today",
+    "DURATION_VERSION", "OFFER_VERSION", "Offer", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_OFF", "accept_moments",
+    "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
+    "lesson_active_minutes", "offer_ref", "offers_on", "pending_start", "shown_today", "withdraw", "withdrawn",
 ]

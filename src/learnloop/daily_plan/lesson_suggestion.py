@@ -224,9 +224,14 @@ def _shown(decision: Mapping[str, Any]) -> bool:
     return bool((decision.get("detail") or {}).get("shown"))
 
 
-def _model(connection: Any) -> tuple[LS.AcceptanceState, list[dict[str, Any]], list[dict[str, Any]]]:
-    # TE3b: the day's drawn offers are shown suggestions too (none ever drawn: TE1b's ledger exactly).
-    decisions = store.all_decisions(connection)
+def _model(connection: Any, *, with_offers: bool) -> tuple[LS.AcceptanceState, list[dict[str, Any]],
+                                                           list[dict[str, Any]]]:
+    """The daily draw's acceptance model, its decisions and responses. TE3b: with lesson offers on (``with_offers``:
+    ``router_objective_switches.lesson_offers_on``) the drawn offers are shown suggestions too, one model for both;
+    off, or below the tag, TE1b's own decisions exactly (Codex review F3), whatever offers the vault drew while the
+    switch was on (a Start on one that never opened is still honoured: :func:`_recovered` reads them)."""
+
+    decisions = store.all_decisions(connection) if with_offers else store.decisions(connection)
     responses = store.responses(connection)
     details = {str(d["id"]): d["detail"] for d in decisions}
     return LS.replay(LS.observations(details, responses)), decisions, responses
@@ -259,6 +264,10 @@ def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, t
     written = 0
     for decision in decisions:
         if not _shown(decision) or decision["day"] >= today or store.response_for(connection, decision["id"]):
+            continue
+        if store.release_for(connection, decision["id"]) is not None:
+            # TE3b: an offer the plan took back unanswered (``lesson_offer.withdraw``) is not ignored by the learner.
+            # A daily card has a release only after its Start, so TE1b's sweep is unchanged.
             continue
         primary = ((decision["detail"].get("card") or {}).get("candidates") or [{}])[0]
         written += int(store.insert_response(
@@ -448,9 +457,12 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
         ad_fields=lambda los: decision_state_fields(vault, repository, list(los)))
     with repository.atomic():
         connection = repository.connection()
-        state, decisions, responses = _model(connection)
+        from learnloop.router_objective_switches import lesson_offers_on
+
+        state, decisions, responses = _model(connection, with_offers=lesson_offers_on(vault.config))
+        # A Start that never opened, a card's or an offer's, whatever the switch (TE1b ruling R2; as ``_recovered``).
         raced = (store.decision_for_day(connection, today) is not None
-                 or _pending_from_earlier_day(connection, decisions, today=today) is not None)
+                 or _pending_from_earlier_day(connection, store.all_decisions(connection), today=today) is not None)
         if not raced:
             context = _context(env, decisions)
             details = {str(d["id"]): d["detail"] for d in decisions}
@@ -556,6 +568,14 @@ def respond(vault: Any, repository: Any, *, decision_id: str, response: str, can
             decision = store.offer_decision(connection, decision_id)
         if decision is None or not _shown(decision):
             raise SuggestionError("not_found", "That suggestion isn't on your Today card.")
+        if (decision["detail"] or {}).get("plan_offer") and response != "released" \
+                and store.response_for(connection, decision_id) is None:
+            # TE3b (Codex review F1, F2): an unanswered offer the plan took back (a question came first, or offers
+            # were switched off) takes no answer; with offers off, none is answered before the plan takes it back.
+            from learnloop.daily_plan import lesson_offer as LO
+
+            if LO.withdrawn(connection, decision_id) is not None or not LO.offers_on(vault):
+                raise SuggestionError("not_found", "That suggestion is no longer in your plan.")
         if response == "released":
             return _release(connection, decision, session_id=session_id, now_iso=now_iso)
         entries = (decision["detail"].get("card") or {}).get("candidates") or []

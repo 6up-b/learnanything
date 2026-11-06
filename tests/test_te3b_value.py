@@ -115,8 +115,11 @@ def _lesson_db(tmp_path):
     connection = sqlite3.connect(str(tmp_path / "lessons.sqlite"))
     connection.executescript(
         "CREATE TABLE lessons (id TEXT PRIMARY KEY, opened_at TEXT, closed_at TEXT);"
-        "CREATE TABLE lesson_activity_intervals (id TEXT, lesson_id TEXT, screen_session TEXT, seq INTEGER, "
-        "started_at TEXT, ended_at TEXT, seconds REAL, foreground INTEGER);"
+        # Migration 247's columns (the receipt's occurred_at, received_at and version included: Codex review F4).
+        "CREATE TABLE lesson_activity_intervals (id TEXT PRIMARY KEY, lesson_id TEXT NOT NULL, "
+        "screen_session TEXT NOT NULL, seq INTEGER NOT NULL, started_at TEXT NOT NULL, ended_at TEXT NOT NULL, "
+        "seconds REAL NOT NULL, foreground INTEGER NOT NULL, occurred_at TEXT NOT NULL, received_at TEXT NOT NULL, "
+        "receipt_version TEXT NOT NULL);"
         "CREATE TABLE practice_attempts (id TEXT, created_at TEXT, latency_seconds REAL);"
         "CREATE TABLE interaction_events (kind TEXT, occurred_at TEXT, created_at TEXT, payload_json TEXT);")
     return connection
@@ -130,17 +133,21 @@ T0 = datetime(2026, 11, 6, 9, 0, tzinfo=UTC)
 
 
 def _lesson(connection, lesson_id: str, start: datetime, active_minutes: list[tuple[float, float]], *,
-            closed: bool = True) -> None:
-    """A lesson with foreground intervals ``(offset, length)`` in minutes from ``start``."""
+            closed: bool = True, received: datetime | None = None) -> None:
+    """A lesson with foreground intervals ``(offset, length)`` in minutes from ``start``, each received when it ended
+    (or at ``received``: a late upload)."""
 
     end = start + timedelta(minutes=max(o + n for o, n in active_minutes) + 1)
     connection.execute("INSERT INTO lessons VALUES (?, ?, ?)", (lesson_id, _stamp(start),
                                                                 _stamp(end) if closed else None))
     for seq, (offset, length) in enumerate(active_minutes, start=1):
         began = start + timedelta(minutes=offset)
-        connection.execute("INSERT INTO lesson_activity_intervals VALUES (?, ?, 's', ?, ?, ?, ?, 1)",
-                           (f"{lesson_id}:{seq}", lesson_id, seq, _stamp(began),
-                            _stamp(began + timedelta(minutes=length)), length * 60.0))
+        ended = began + timedelta(minutes=length)
+        connection.execute(
+            "INSERT INTO lesson_activity_intervals (id, lesson_id, screen_session, seq, started_at, ended_at, seconds, "
+            "foreground, occurred_at, received_at, receipt_version) VALUES (?, ?, 's', ?, ?, ?, ?, 1, ?, ?, 'v1')",
+            (f"{lesson_id}:{seq}", lesson_id, seq, _stamp(began), _stamp(ended), length * 60.0, _stamp(ended),
+             _stamp(received if received is not None else ended)))
 
 
 def test_the_lessons_duration_starts_at_the_seed_and_learns_from_active_minutes(tmp_path):
@@ -157,5 +164,18 @@ def test_the_lessons_duration_starts_at_the_seed_and_learns_from_active_minutes(
     precision = 1 / LO.DURATION_MEDIAN_PRIOR_SD ** 2 + 2 / LO.DURATION_LOG_SD ** 2
     mean = (math.log(15.0) / LO.DURATION_MEDIAN_PRIOR_SD ** 2 + 2 * math.log(40.0) / LO.DURATION_LOG_SD ** 2) / precision
     assert fitted["median_minutes"] == pytest.approx(math.exp(mean), rel=1e-6)
+
+
+def test_the_duration_sensor_reads_only_intervals_received_by_its_decision(tmp_path):
+    """Codex review F4: a lesson closed before the decision whose intervals the app received after it is not read at
+    the decision (the seed stands); once they are received, a later decision reads them."""
+
+    connection = _lesson_db(tmp_path)
+    _lesson(connection, "les_late", T0 - timedelta(days=1), [(0, 30)], received=T0 + timedelta(days=1))
+    at_decision = LO.duration_model(connection, at=_stamp(T0))
+    assert LO.lesson_active_minutes(connection, at=_stamp(T0)) == []
+    assert at_decision["source"] == "seed" and at_decision["median_minutes"] == pytest.approx(15.0)
+    later = LO.duration_model(connection, at=_stamp(T0 + timedelta(days=2)))
+    assert later["source"] == "fitted, n=1" and later["median_minutes"] > 15.0
 
 

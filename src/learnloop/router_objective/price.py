@@ -52,22 +52,29 @@ def _parse(stamp: str) -> datetime:
 LOOKBACK_DAYS = 2
 
 
-def lesson_spans(connection: Any, *, since: str, until: str) -> list[tuple[datetime, datetime, float]]:
+def lesson_spans(connection: Any, *, since: str, until: str,
+                 received_by: str | None = None) -> list[tuple[datetime, datetime, float]]:
     """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): one span per lesson from TE2-log's
     ``lesson_activity_intervals`` whose intervals finished in ``[since, until]``: from its first interval's start to
     its last interval's end, with the union of its foreground intervals as its active seconds (TE2-log's own "active
     is the union of foreground intervals", §11.6; never elapsed time). So a lesson's active minutes count on the
     objective's clock and its idle gaps, inside its one span, never end a session by themselves. None before
-    migration 247."""
+    migration 247.
+
+    ``received_by`` (a decision's own time, Codex review F4): only the intervals the app had received by then, so the
+    serving clock never reads a receipt that arrived later. None (an outcome window read after the fact, RO5's
+    realized cost and RO6's rewards): every interval that happened in the window."""
 
     present = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'lesson_activity_intervals'").fetchone()
     if present is None:
         return []
     by_lesson: dict[str, list[tuple[datetime, datetime, bool]]] = {}
+    received = "" if received_by is None else " AND received_at <= ?"
     for lesson_id, started, ended, foreground in connection.execute(
             "SELECT lesson_id, started_at, ended_at, foreground FROM lesson_activity_intervals "
-            "WHERE ended_at >= ? AND ended_at <= ? ORDER BY lesson_id, started_at, ended_at", (since, until)):
+            f"WHERE ended_at >= ? AND ended_at <= ?{received} ORDER BY lesson_id, started_at, ended_at",
+            (since, until) if received_by is None else (since, until, received_by)):
         by_lesson.setdefault(str(lesson_id), []).append((_parse(started), _parse(ended), bool(foreground)))
     spans: list[tuple[datetime, datetime, float]] = []
     for lesson_id in sorted(by_lesson):
@@ -85,14 +92,14 @@ def lesson_spans(connection: Any, *, since: str, until: str) -> list[tuple[datet
     return spans
 
 
-def activity_spans(connection: Any, *, since: str, until: str,
-                   lessons: bool = False) -> list[tuple[datetime, datetime, float]]:
+def activity_spans(connection: Any, *, since: str, until: str, lessons: bool = False,
+                   received_by: str | None = None) -> list[tuple[datetime, datetime, float]]:
     """The objective's activity clock: ``(began, finished, active seconds)`` for each attempt (at its completion,
     with its latency) and each Reader visit (over its interval, its active seconds), finished in ``[since,
     until]``. The serving clock (:func:`session_active_minutes`) and RO5's realized cost
     (``router_objective.scores``) read this one list. ``lessons`` (teacher TE3b, at its tag with its switch on:
-    ``router_objective_switches.lesson_offers_on``): each lesson's span too (:func:`lesson_spans`); off, the
-    predecessor's list exactly."""
+    ``router_objective_switches.lesson_offers_on``): each lesson's span too (:func:`lesson_spans`, its intervals
+    received by ``received_by`` when that is given); off, the predecessor's list exactly."""
 
     end = _parse(until)
     spans: list[tuple[datetime, datetime, float]] = []
@@ -115,7 +122,7 @@ def activity_spans(connection: Any, *, since: str, until: str,
         spent = float(active) + (float(idle) if isinstance(idle, (int, float)) and idle > 0 else 0.0)
         spans.append((closed - timedelta(seconds=spent), closed, float(active)))
     if lessons:
-        spans.extend(lesson_spans(connection, since=since, until=until))
+        spans.extend(lesson_spans(connection, since=since, until=until, received_by=received_by))
     return spans
 
 
@@ -152,7 +159,8 @@ def session_active_minutes(connection: Any, *, now: str, gap_minutes: float,
 
     end = _parse(now)
     since = (end - timedelta(days=LOOKBACK_DAYS)).strftime(_STAMP)
-    spans = activity_spans(connection, since=since, until=now, lessons=lessons)
+    # A decision's clock: a lesson's intervals as received by ``now`` (Codex review F4).
+    spans = activity_spans(connection, since=since, until=now, lessons=lessons, received_by=now if lessons else None)
     gap = timedelta(minutes=float(gap_minutes))
     sessions = session_components(spans, gap_minutes=gap_minutes)
     current: set[int] = set()

@@ -1167,7 +1167,14 @@ router, its log and lessons, the switch). No migration. Where it differs from th
 - **Responses**: a drawn offer is a plan block (`PlannedBlock.is_lesson_offer`, step `lesson_offer`) answered through
   TE1b's `lesson.suggestion_respond` on the `plan_block` decision (no new RPC); the answer ends the block. A serve
   after the card was shown with no answer is `ignored` (the learner moved on) and the next boundary decides; each
-  boundary also records `ignored` on an unanswered offer whose plan closed or day passed.
+  boundary also records `ignored` on an unanswered offer whose plan closed or day passed. An offer block holds no
+  items. An unanswered offer is *withdrawn* (`lesson_offer.withdraw`: its block ends `withdrawn`, and its decision
+  gets an `expired` row naming why) when forced items arrive while it waits (a probe FG1 makes ready, a follow-up:
+  they are served next) or when offers stop serving (the switch off: the predecessor's boundary decides). A
+  withdrawal is not the learner's answer: the acceptance model never reads it, and a later answer to that card is
+  refused (Codex review F1, F2, `docs/reviews/router-te3b-codex-review.md`). With the switch off, TE1b's daily draw
+  reads only its own decisions (F3). The duration sensor and the serving clock read only the lesson intervals
+  received by the decision's time (F4).
 - **RO6**: `learned_tail.FEATURES_VERSION_LESSON` (the fourteen plus `lesson`), chosen by the config
   (`tail_data.features_version`), part of the generator payload.
 - **The forecast binding** `te3b-lesson-offer-forecast-binding-v1` anchors at the accepted lesson's close
