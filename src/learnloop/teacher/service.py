@@ -1066,9 +1066,12 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
         E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
                          kind="detour", outcome={"recheck_attempt_id": attempt_id, "outcome_correctness": correctness})
     _update_weight_state(vault, repository)
+    # The inline grader's feedback is shown (and read by the teacher) only when it quotes no question kept for an
+    # exam or held out (teacher exam-question guard); the grade stands either way.
+    feedback = G.shown_feedback(grade.feedback_md, G.reserved_book(vault, repository))
     result = {"check_ref": open_check["check_ref"], "correctness": correctness,
               "result": "right" if correctness >= 1.0 else ("wrong" if correctness <= 0.0 else "partly right"),
-              "grader_feedback": grade.feedback_md, "hedge": hedge, "mass_applied": mass["mass_applied"],
+              "grader_feedback": feedback, "hedge": hedge, "mass_applied": mass["mass_applied"],
               "attempt_id": attempt_id, "unanchored": not bool(open_check["check"].get("anchors"))}
     _append(repository, state, actor="code", action="check_result", refs={"attempt": attempt_id, "item": item.id},
             payload=result, clock=clock)
@@ -1292,6 +1295,18 @@ def _logged(state: LessonState, turn_obj: TeacherTurnV1) -> list[tuple[str, str]
     return [(location, text) for location, text in out if text]
 
 
+def _check_solution_fields(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
+    """The posed check's committed solution and rubric facts, by location (they become its vault item:
+    ``checks.mint_check_item``)."""
+
+    if turn_obj.check is None:
+        return []
+    out = [("check.committed_solution", str(turn_obj.check.committed_solution or ""))]
+    out.extend((f"check.rubric[{index}].fact", str(criterion.fact or ""))
+               for index, criterion in enumerate(turn_obj.check.rubric))
+    return [(location, text) for location, text in out if text]
+
+
 def _outline_at(state: LessonState, turn_obj: TeacherTurnV1, index: int) -> list[dict[str, Any]]:
     """The plan in force when request ``index`` runs: the last ``write_plan`` before it in the turn, else the latest
     stored plan (``_execute`` stores each plan before the next request runs)."""
@@ -1427,6 +1442,8 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         # TE2: a probe answered or retired is never served again, so the teacher may discuss its question.
         exempt.extend(probe.item_id for probe in PR.probes(state.turns) if probe.item_id and not probe.unanswered)
     keys, vault_keys, unreadable = G.key_sets(vault, repository, state.los, exempt)
+    # The questions kept for an exam or held out (teacher exam-question guard): every guarded field below.
+    reserved = G.reserved_book(vault, repository)
     displayed = _displayed(turn_obj)
     # The open check's solution guard also covers the check this turn poses: every displayed field but
     # the posed check's own (its options carry the right one by design) must not give the solution away.
@@ -1436,7 +1453,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if open_check is None and posing is not None and name != "check":
             open_check = posing
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
-                              open_check=open_check, help_reply=help_reply)
+                              open_check=open_check, help_reply=help_reply, reserved=reserved)
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
@@ -1448,9 +1465,19 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     # by location.
     for name, text in _logged(state, turn_obj):
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
-                              open_check=state.open_check and state.open_check.get("check"), help_reply=False)
-        if verdict.ok:
-            verdict = G.identifier_guard(text, vault_keys, unreadable)
+                              open_check=state.open_check and state.open_check.get("check"), help_reply=False,
+                              reserved=reserved, vault_keys=vault_keys)
+        if not verdict.ok:
+            _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
+                    payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
+                             "turn": turn_obj.model_dump()}, clock=clock)
+            return None
+    # The posed check's solution and rubric are shown by no field, but they become its vault item: the grader's
+    # feedback after the answer reads them (and "LearnLoop's answer" quotes the solution), and an ordinary item's
+    # words stop counting as reserved. They pass the reserved-question guard only (the solution answers its own
+    # check by design).
+    for name, text in _check_solution_fields(turn_obj):
+        verdict = G.reserved_guard(text, reserved)
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
@@ -1838,6 +1865,14 @@ def _plan_episodes(vault: Any, repository: Any, state: LessonState, turn_obj: Te
                        repair_class=E.UNLOGGED)
 
 
+#: Why a built figure isn't shown, by the reserved-question guard's codes (the teacher reads it; an answer key's or the
+#: open check's reads "the figure gave an answer away").
+_FIGURE_WITHHELD = {
+    "reserved_question": "the figure quoted a question kept for an exam, so it isn't shown",
+    "protection_unreadable": "the questions kept for an exam couldn't be read, so the figure isn't shown",
+}
+
+
 def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, builder: V.Builder,
             outcome: _Outcome, clock: Clock | None, turn_entry: Mapping[str, Any]) -> None:
     """Reader RW5d P4b: build the turn's visual and record it. A shown figure's words pass the lesson's
@@ -1864,10 +1899,14 @@ def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTu
         text = V.figure_text(row)
         keys, unreadable = G.lesson_keys(vault, repository, state.los, list(state.minted.values()))
         open_check = (state.open_check or {}).get("check")
-        for verdict in (G.key_guard(text, keys, unreadable), G.open_check_guard(text, open_check)):
+        # The figure's words: an answer key, a question kept for an exam or held out (teacher exam-question
+        # guard), the open check's solution.
+        for verdict in (G.key_guard(text, keys, unreadable), G.reserved_guard(text, G.reserved_book(vault, repository)),
+                        G.open_check_guard(text, open_check)):
             if not verdict.ok:
                 record = {**record, "status": V.WITHHELD, "code": verdict.reason,
-                          "reason": "the figure gave an answer away, so it isn't shown"}
+                          "reason": _FIGURE_WITHHELD.get(str(verdict.reason),
+                                                         "the figure gave an answer away, so it isn't shown")}
                 text = ""
                 break
         else:

@@ -384,6 +384,7 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
     from learnloop.followup_serve import identity
     from learnloop.teacher import checks as CK
     from learnloop.teacher import episodes as E
+    from learnloop.teacher import guards as G
     from learnloop.vault.loader import load_vault
 
     lesson_id = str(lesson["id"])
@@ -401,6 +402,7 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         grade, run_id = CK.grade_answer(loaded, repository, grading_client, item=item, attempt_id=probe.attempt_id,
                                         answer=answer, clock=clock)
     max_points = max(int(getattr(loaded.rubric_for_item(item), "max_points", 1) or 1), 1)
+    reserved = G.reserved_book(loaded, repository)  # read before the write lock
     with repository.atomic():
         connection = repository.connection()
         current = _current(connection, lesson_id, probe.ref)
@@ -430,6 +432,9 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         else:
             correctness = max(0.0, min(1.0, float(stored.get("correctness") or 0.0)))
             feedback = _stored_feedback(repository, probe.attempt_id)
+        # The grader's feedback as the lesson shows it and the teacher reads it: none when it quotes a question kept
+        # for an exam or held out (teacher exam-question guard); the grade and the attempt are unchanged.
+        feedback = G.shown_feedback(feedback, reserved)
         identity.retire(repository, item.id, reason="lesson_probe_answered", clock=clock)
         result = {"probe_ref": probe.ref, "node": probe.node, "attempt_id": probe.attempt_id, "item_id": item.id,
                   "correctness": correctness,

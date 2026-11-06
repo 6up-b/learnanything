@@ -11,6 +11,13 @@ choices, a prediction, a check, plan statements and a close's recap: ``service._
    decides whether the check is withdrawn (§12, :func:`solution_overlap`).
 3. **Citations**: every ``[S3]`` must name a passage delivered to the teacher, and
    a quote placed just before a citation must be in that passage.
+4. **Reserved questions** (teacher exam-question guard, found at TE2's landing smoke): the
+   keys guard covers answers, not the questions themselves. Every guarded field is also
+   compared with the questions LearnLoop keeps for an exam or holds out
+   (:func:`reserved_book`: the one authority ``learner_protection.withheld_items`` read through
+   ``practice_leakage.reserved_questions``, the matcher FG1's probes and TE2's typed goals use)
+   by that matcher's span rule (:func:`reserved_guard`). An unreadable protection state withholds
+   every field (fail closed).
 
 On a hit the message is withheld and the model re-prompted with the reason (a
 correctable error); it never reaches the learner.
@@ -103,6 +110,78 @@ def key_guard(message: str, keys: Sequence[Any], unreadable: bool) -> GuardVerdi
     return GuardVerdict(True)
 
 
+#: The matcher's span findings (``practice_leakage.reserved_findings``): a reserved question's contiguous wording
+#: (its shingle order, less what ordinary items and readable source text already show) or a whole reserved stem.
+#: Its lone-number findings are not a question shown: a lesson's arithmetic ("0.5", "1/2") would trip them. A span
+#: shorter than the matcher's own shingle order (a whole short stem such as "Define a basis.", or a short text that
+#: is a whole short held-out block) is a short common phrase in teaching text, so a finding counts only at that order
+#: (:func:`quotes_reserved`; no new threshold: the matcher's own span length).
+RESERVED_SPAN_KINDS: frozenset[str] = frozenset({"wording", "stem"})
+
+
+@dataclass(frozen=True)
+class ReservedBook:
+    """The questions still reserved for an exam or held out, read once per turn (``questions``:
+    ``practice_leakage.ReservedQuestions``). ``unreadable``: the protection state could not be read."""
+
+    questions: Any = None
+    unreadable: bool = False
+
+
+def reserved_book(vault: Any, repository: Any) -> ReservedBook:
+    """The reserved and held-out questions as the rest of LearnLoop reads them: ``withheld_items`` (exam pools,
+    held-out units and the items made from them, live assessment reservations), then ``reserved_questions`` (their
+    stems, keys and rubrics, and every held-out span). Unavailable or failing: unreadable (fail closed)."""
+
+    from learnloop.content.authoring.practice_leakage import reserved_questions
+    from learnloop.learner_protection import withheld_items
+
+    try:
+        withheld = withheld_items(vault, repository)
+        if not withheld.available:
+            return ReservedBook(unreadable=True)
+        return ReservedBook(questions=reserved_questions(vault, repository, withheld))
+    except Exception:  # noqa: BLE001 - an unreadable predicate fails closed
+        return ReservedBook(unreadable=True)
+
+
+def quotes_reserved(text: str, reserved: ReservedBook) -> bool:
+    """Whether ``text`` reproduces a reserved or held-out question by the matcher's span rule. Unreadable: True."""
+
+    from learnloop.content.authoring.practice_leakage import reserved_findings
+
+    if reserved.unreadable:
+        return True
+    if not text or reserved.questions is None:
+        return False
+    order = int(reserved.questions.inventory.shingle_n)
+    return any(finding["kind"] in RESERVED_SPAN_KINDS and len(str(finding["value"]).split()) >= order
+               for finding in reserved_findings(str(text), reserved.questions))
+
+
+def reserved_guard(text: str, reserved: ReservedBook) -> GuardVerdict:
+    """A field that would show a question kept for an exam or held out. The detail names no words (it enters the
+    transcript the teacher reads next, so it never carries the question)."""
+
+    if reserved.unreadable:
+        return GuardVerdict(False, "protection_unreadable",
+                            "the questions kept for an exam could not be read, so nothing is shown")
+    if text and quotes_reserved(text, reserved):
+        return GuardVerdict(False, "reserved_question",
+                            "this reproduces a question LearnLoop keeps for an exam or holds out; teach the idea in "
+                            "your own words and never quote or restate that question")
+    return GuardVerdict(True)
+
+
+def shown_feedback(feedback: str | None, reserved: ReservedBook) -> str | None:
+    """A grader's feedback as the lesson shows it: None when it reproduces a reserved or held-out question, or when
+    those could not be read (the result itself stands)."""
+
+    if not feedback:
+        return feedback
+    return None if quotes_reserved(feedback, reserved) else feedback
+
+
 def solution_overlap(text: str, solution: str) -> float:
     """How much of a committed solution ``text`` exposes (0..1; the tutor's span measure)."""
 
@@ -140,12 +219,20 @@ def citation_guard(message: str, book: SourceBook) -> GuardVerdict:
 
 
 def check_all(message: str, *, keys: Sequence[Any], unreadable: bool, book: SourceBook,
-              open_check: Mapping[str, Any] | None, help_reply: bool) -> GuardVerdict:
-    """The three guards in order (the open check's is skipped for a reply to the learner's own question)."""
+              open_check: Mapping[str, Any] | None, help_reply: bool, reserved: ReservedBook,
+              vault_keys: Sequence[Any] | None = None) -> GuardVerdict:
+    """The guards in order, the first refusal named: keys; for a logged field (``vault_keys`` given) the identifier
+    guard; reserved questions; the open check's (skipped for a reply to the learner's own question); citations."""
 
-    for verdict in (key_guard(message, keys, unreadable),
-                    GuardVerdict(True) if help_reply else open_check_guard(message, open_check),
-                    citation_guard(message, book)):
+    checks = (
+        lambda: key_guard(message, keys, unreadable),
+        lambda: GuardVerdict(True) if vault_keys is None else identifier_guard(message, vault_keys, unreadable),
+        lambda: reserved_guard(message, reserved),
+        lambda: GuardVerdict(True) if help_reply else open_check_guard(message, open_check),
+        lambda: citation_guard(message, book),
+    )
+    for check in checks:
+        verdict = check()
         if not verdict.ok:
             return verdict
     return GuardVerdict(True)
@@ -158,6 +245,8 @@ def cited_aliases(message: str) -> list[str]:
 __all__ = [
     "CITATION",
     "GuardVerdict",
+    "RESERVED_SPAN_KINDS",
+    "ReservedBook",
     "check_all",
     "citation_guard",
     "cited_aliases",
@@ -166,5 +255,9 @@ __all__ = [
     "key_sets",
     "lesson_keys",
     "open_check_guard",
+    "quotes_reserved",
+    "reserved_book",
+    "reserved_guard",
+    "shown_feedback",
     "solution_overlap",
 ]
