@@ -3,13 +3,13 @@ title: "policy_experiment_assignments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "524335ad355ef012173deac6b903afeade533986"
-source_commit_timestamp: "2026-11-05T18:01:39-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite policy_experiment_assignments"
   - "table policy_experiment_assignments"
-schema_head: 246
+schema_head: 247
 table_name: "policy_experiment_assignments"
 table_role: "receipt"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/098_controller_randomization_and_outcomes.sql`.
-- **Schema touched by:** `098_controller_randomization_and_outcomes.sql`.
+- **Schema touched by:** `098_controller_randomization_and_outcomes.sql`, `247_lesson_episodes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

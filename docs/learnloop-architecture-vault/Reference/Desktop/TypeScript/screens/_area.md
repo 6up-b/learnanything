@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "c2c40773f3e02619cc3a42916453f0cc2edf54f1"
+source_commit_timestamp: "2026-11-05T23:17:29-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -53,7 +53,7 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/KnowledgeStrataView|KnowledgeStrataView.tsx]] | `ACTIVE` | Implements the `KnowledgeStrataView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeTerrainView|KnowledgeTerrainView.tsx]] | `ACTIVE` | Implements the `KnowledgeTerrainView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeWellView|KnowledgeWellView.tsx]] | `ACTIVE` | Implements the `KnowledgeWellView` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/LessonScreen|LessonScreen.tsx]] | `ACTIVE` | Implements the `LessonScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 4 |
+| [[Reference/Desktop/TypeScript/screens/LessonScreen|LessonScreen.tsx]] | `ACTIVE` | Implements the `LessonScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 4 |
 | [[Reference/Desktop/TypeScript/screens/LibraryPlace|LibraryPlace.tsx]] | `ACTIVE` | Implements the `LibraryPlace` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/screens/LibraryScreen|LibraryScreen.tsx]] | `ACTIVE` | Implements the `LibraryScreen` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 2 |
 | [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|MaintenanceScreen.tsx]] | `ACTIVE` | Implements the `MaintenanceScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
@@ -69,6 +69,7 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/TodayScreen|TodayScreen.tsx]] | `ACTIVE` | Implements the `TodayScreen` routed desktop screen and coordinates its learner-facing workflow state. | 27 | 1 |
 | [[Reference/Desktop/TypeScript/screens/UnderTheHoodScreen|UnderTheHoodScreen.tsx]] | `ACTIVE` | Implements the `UnderTheHoodScreen` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/knowledgeNeighbors|knowledgeNeighbors.ts]] | `ACTIVE` | Provides `neighborCaption` within the desktop's TypeScript/screens ownership area. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/screens/lessonActivity|lessonActivity.ts]] | `ACTIVE` | Provides `LessonActivityBatch`, `LessonActivityTracker`, `createLessonActivity` within the desktop's TypeScript/screens ownership area. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/scrollZoom|scrollZoom.ts]] | `ACTIVE` | Provides `SCROLL_ZOOM`, `ScrollZoomOptions`, `ScrollZoom`, `useScrollZoom` within the desktop's TypeScript/screens ownership area. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/screens/wire3d|wire3d.ts]] | `ACTIVE` | Provides `Cam`, `Viewport`, `Projected`, `project` and related exports within the desktop's TypeScript/screens ownership area. | 0 | 3 |
 

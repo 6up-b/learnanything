@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "524335ad355ef012173deac6b903afeade533986"
-source_commit_timestamp: "2026-11-05T18:01:39-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 246
+schema_head: 247
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -279,6 +279,7 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/teacher/actions.py`
 - `src/learnloop/teacher/brief.py`
+- `src/learnloop/teacher/report.py`
 - `src/learnloop/teacher/service.py`
 - `src/learnloop/workbench/compare_methods.py`
 - `src/learnloop/workbench/help_outcomes.py`

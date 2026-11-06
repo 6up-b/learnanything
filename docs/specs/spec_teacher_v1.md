@@ -1498,6 +1498,31 @@ the Start stays recorded, its LOs count as declined for the decline recovery, no
 R3: one card a day, `ceiling_per_day` a logged guard, `ignored` at the next day's first step, the lesson row's
 `origin = 'router'` with `origin_ref` the decision id.
 
+*As built (TE2-log, `docs/reviews/teacher-te2-log.md`; branch `teacher/te2-log` on main `c2e810f940`):* no
+successor; everything behind `teacher.episode_log` (default true at every version, classified structural/operational;
+every defaults snapshot recomputed). Migration 247 (renumbered at landing if another branch claims it; head
+`migration_head_247`): `lesson_episodes` and `lesson_activity_intervals`, both RECEIPT (no replayer) and DENIED to AD.
+An episode row is inserted at its opening and its closing fields (closed_at, why, the minutes, the outcome refs) are
+set **once** by a close-once trigger, as `lessons.closed_at` is: the spec's "append-only" read as "never rewritten",
+since §11.9's row holds both the opening's prior belief and the closing's minutes and outcome. One row per opening
+action (`opened_by` unique), ids, numbers, enums and hashes only. `learnloop.teacher.episodes`: on, the turn is
+`TeacherTurnEpisodesV1` (`TeacherTurnVisualsEpisodesV1` with visuals) with `note_detour` and `p_held`, the doctrine
+gains `teacher/doctrine/episodes/v1.md` (prompt version `+episodes-v1`) and its forecasts are the family
+`teacher_doctrine_v1+teacher_episodes_v1:<model>`, so λ starts from Beta(1, 4) for it. A detour is a `note_detour`
+(its words in a `note_detour` turn payload, after the output guards) or `unlogged` (a revised plan that inserts a node
+before ones it had, with no note in the turn); it closes at the re-check on its node or with the lesson. The prior
+belief is the brief's own prediction for the node's LO (no new item-parameter read), the LO's mastery mean and
+variance, and the open misconceptions and causal hypotheses (counts; ids apart); the experiment ids are the RO5
+assignments made on the opening's local day up to the opening (a lesson has no session id). `lesson.activity`
+(desktop only, its own `LESSON_ACTIVITY_RPCS`) appends the screen's intervals; the screen counts active time while
+visible, focused and with input at gaps shorter than the Reader's `VISIT_IDLE_MS` (reused). Minutes: active is the
+union of foreground intervals, elapsed `closed − opened`, unreported the elapsed time no interval covers, missing the
+absent seqs; never blended, active null with no interval. `p_held` is a `lesson_node_held` receipt per node on a known
+LO, bound as `lesson_step_retained` and resolved by the forecast report. The receipt gains `episodes`, `minutes` and
+`node_held_forecasts` (absent off). `learnloop teacher report` gains §11.10's lines, the pool's trajectory recomputed
+from the replayer's trace. Not built here (TE2's): probe, gap and goal-LO writers, the `lesson_probe_correct` kind
+(the report already reads it), a probe refusal's reason (an enum column in TE2's migration). Paid calls: none.
+
 ---
 
 ## 21. Measurement

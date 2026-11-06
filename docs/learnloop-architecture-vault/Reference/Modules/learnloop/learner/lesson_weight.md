@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/lesson_weight.py"
 source_paths:
   - "src/learnloop/learner/lesson_weight.py"
-source_commit: "b27393627421b08fcbc773e113271c3a55a594f7"
-source_commit_timestamp: "2026-11-01T22:15:41-05:00"
+source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
+source_commit_timestamp: "2026-11-05T23:30:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py) |
-| Source lines | 1058 |
+| Source lines | 1091 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b27393627421b08fcbc773e113271c3a55a594f7` |
-| Commit timestamp | `2026-11-01T22:15:41-05:00` |
+| Source commit | `49f359311a7daeac5245231bd6ef6e4c14cb2bfd` |
+| Commit timestamp | `2026-11-05T23:30:15-05:00` |
 
 ## Public API
 
@@ -91,6 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `tables_through(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 977) — The instant the DERIVED tables describe: the latest answered lesson check (the live path writes them right after each check, so the replayer bounds its replay at the same instant and the two agree row for row whatever happened since; review claim on rebuild equivalence).
 - `rebuild_lesson_weight_state(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 989) — The replayer (``substrate.rebuild_orchestrator``): clear the three DERIVED tables and recompute them through the latest answered lesson check (:func:`tables_through`), exactly as the live path wrote them then.
 - `mass_mismatches(state: WeightState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1007) — Checks whose recorded mass a replay would not reproduce (the equivalence guard): the mass applied under its rule must equal the learned mass recomputed as of the check.
+- `pool_trajectory(trace: Iterable[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1030) — The pool weight's trajectory per forecaster (teacher TE2-log, spec_teacher_v1 §11.10): λ̂ and its posterior sd from the seeded prior (``at`` None), then after each ``pool_update`` of the trace (what ``lesson_weight_trace`` holds), re-applied in order exactly as :func:`_resolve_f…
 
 ### Module constants
 
@@ -145,6 +146,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `confidence_term`
 - `lesson_check_mass`
 - `pool_implied_mass`
+- `pool_trajectory`
 - `posterior_after`
 - `predicted_success`
 - `prediction_term`
@@ -180,6 +182,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_outcome_item_params(vault: Any, mastery_config: Any, outcome: Mapping[str, Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 782)
 - `_mass_detail(state: WeightState, check: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 875) — The check's recorded mass beside what the posterior as of the check gives (the equivalence guard: :func:`mass_mismatches`), with the recalibrated confidence term recomputed too.
 - `_state_rows(state: WeightState) -> tuple[list[tuple[Any, ...]], list[tuple[Any, ...]], list[tuple[Any, ...]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 912)
+- `_pool_moments(log_w: np.ndarray) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1023)
 
 ## Who imports or calls it
 
@@ -193,7 +196,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_lesson_weight_state`; statically calls `rebuild_lesson_weight_state`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `predicted_success`, `read_hedges`; statically calls `predicted_success`, `read_hedges`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `CheckSensitivity`, `confidence_term`, `pool_implied_mass`, `posterior_after`, `predicted_success`, `prediction_term`, `replay_state`
-- [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `module`; statically calls `replay_state`
+- [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `module`; statically calls `pool_trajectory`, `replay_state`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `predicted_success`, `read_hedges`, `replay_state`, `tables_through`, `write_state`; statically calls `predicted_success`, `replay_state`, `tables_through`, `write_state`
 
 ## Dependencies
@@ -246,6 +249,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pool_mixes_in_the_teachers_forecast_and_learns_from_the_outcome`
   - `test_the_tap_map_and_the_hedge_read_are_the_existing_ones`
   - `test_the_tap_recalibration_learns_from_every_tapped_graded_answer`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
 
 ## Modification guidance
 

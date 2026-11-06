@@ -105,6 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; statically calls `by_unit`, `insert`, `present`, `rows`
 - [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `module`; statically calls `by_unit`, `insert`, `rows`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; statically calls `rows`
+- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `EXPERIMENTS`, `TABLE`
 
 ## Dependencies
 
@@ -125,7 +126,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]], [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]], [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]], [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]], [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -141,6 +142,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_picks.py](../../../../../../tests/test_ro5_picks.py) — direct import
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_serving_records_each_coin_with_its_exact_probability_and_availability`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_the_rows_origin_ids_name_the_days_ro5_assignments`
 
 ## Modification guidance
 

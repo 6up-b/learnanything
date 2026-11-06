@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/evsi_calibration/simulate.py"
   - "src/learnloop/evsi_calibration/world.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T22:10:57-05:00"
+source_commit_timestamp: "2026-11-05T23:22:13-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.evsi_calibration"
@@ -68,7 +68,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/evsi_calibration/families|learnloop.evsi_calibration.families]] | [[Reference/Modules/learnloop/evsi_calibration/families#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/evsi_calibration/family_data|learnloop.evsi_calibration.family_data]] | [[Reference/Modules/learnloop/evsi_calibration/family_data#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/evsi_calibration/family_fit|learnloop.evsi_calibration.family_fit]] | [[Reference/Modules/learnloop/evsi_calibration/family_fit#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] | [[Reference/Modules/learnloop/evsi_calibration/forecast_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
+| [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] | [[Reference/Modules/learnloop/evsi_calibration/forecast_report#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] | [[Reference/Modules/learnloop/evsi_calibration/live_report#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/evsi_calibration/metrics|learnloop.evsi_calibration.metrics]] | [[Reference/Modules/learnloop/evsi_calibration/metrics#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/evsi_calibration/multifamily|learnloop.evsi_calibration.multifamily]] | [[Reference/Modules/learnloop/evsi_calibration/multifamily#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -95,6 +95,7 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 
 ### Dependency neighborhood
 

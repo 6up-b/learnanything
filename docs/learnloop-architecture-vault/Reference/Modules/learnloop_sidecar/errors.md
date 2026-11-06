@@ -591,6 +591,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_lesson_turn_refuses_with_the_switch_off`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
   - `test_start_opens_a_lesson_whose_origin_is_the_decision`
+- [tests/test_teacher_te2log_activity.py](../../../../../tests/test_teacher_te2log_activity.py) — direct import
+  - `test_lesson_activity_is_a_desktop_only_rpc_that_records_intervals`
 - [tests/test_ux_phase1_add_source.py](../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_add_source_rejects_a_bad_page_range_plainly`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import

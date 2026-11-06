@@ -3322,6 +3322,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_from_teacher_te1_and_its_refusals`
   - `test_todays_plan_is_byte_identical_with_a_suggestion_drawn`
   - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
+- [tests/test_teacher_te2log_activity.py](../../../../../../tests/test_teacher_te2log_activity.py) — direct import
+  - `test_an_episodes_minutes_come_from_the_screens_intervals`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
+- [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
+  - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
+  - `test_the_forecast_report_resolves_it_on_the_first_cold_outcome`
+- [tests/test_teacher_te2log_receipt.py](../../../../../../tests/test_teacher_te2log_receipt.py) — direct import
+- [tests/test_teacher_te2log_report.py](../../../../../../tests/test_teacher_te2log_report.py) — direct import
+  - `test_randomized_checks_are_scored_apart_with_their_r`
+  - `test_the_pool_weights_trajectory_per_forecaster`
+  - `test_the_report_on_a_synthetic_lesson`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_a_review_resume_refuses_a_changed_decider_profile`

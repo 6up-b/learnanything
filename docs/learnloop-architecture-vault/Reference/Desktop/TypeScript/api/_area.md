@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/api"
-source_commit: "ec988ae03e20db860136ef7dc97571476f44e364"
-source_commit_timestamp: "2026-11-05T06:05:03-05:00"
+source_commit: "c2c40773f3e02619cc3a42916453f0cc2edf54f1"
+source_commit_timestamp: "2026-11-05T23:17:29-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -38,7 +38,7 @@ No nested ownership area.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/api/capture|capture.ts]] | `ACTIVE` | Provides `CaptureDto`, `InboxSummary`, `CaptureMediaDto` within the desktop's TypeScript/api ownership area. | 0 | 3 |
 | [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 6 | 125 |
-| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 0 | 213 |
+| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 0 | 214 |
 | [[Reference/Desktop/TypeScript/api/queryCache|queryCache.ts]] | `ACTIVE` | Provides `QueryKey`, `QueryTag`, `QueryState`, `FetchOptions` and related exports within the desktop's TypeScript/api ownership area. | 2 | 13 |
 | [[Reference/Desktop/TypeScript/api/queryTags|queryTags.ts]] | `ACTIVE` | Provides `TAG`, `KnownTag`, `READER_PREFIX`, `readerTag` within the desktop's TypeScript/api ownership area. | 0 | 22 |
 | [[Reference/Desktop/TypeScript/api/useCachedQuery|useCachedQuery.ts]] | `ACTIVE` | Provides `CachedQuery`, `CachedQueryOptions`, `useCachedQuery`, `useReportQueryError` within the desktop's TypeScript/api ownership area. | 3 | 17 |

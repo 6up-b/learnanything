@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
-source_commit: "7d4e37644a68cd4e5e52c05eb0fd518ce5bfb42e"
-source_commit_timestamp: "2026-11-02T09:24:19-05:00"
+source_commit: "c2c40773f3e02619cc3a42916453f0cc2edf54f1"
+source_commit_timestamp: "2026-11-05T23:17:29-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/LessonScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.tsx) |
-| Source lines | 431 |
+| Source lines | 466 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `7d4e37644a68cd4e5e52c05eb0fd518ce5bfb42e` |
-| Commit timestamp | `2026-11-02T09:24:19-05:00` |
+| Source commit | `c2c40773f3e02619cc3a42916453f0cc2edf54f1` |
+| Commit timestamp | `2026-11-05T23:17:29-05:00` |
 
 ## Activation and status evidence
 
@@ -60,46 +60,53 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type LessonEntry = |` — type, line 36
-- `export function LessonScreen(` — function, line 60
-- `export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze(` — const, line 308
-- `export const LESSON_FIGURE_CONTRACT: FiguresContract = Object.freeze(` — const, line 315
+- `export type LessonEntry = |` — type, line 42
+- `export function LessonScreen(` — function, line 66
+- `export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze(` — const, line 343
+- `export const LESSON_FIGURE_CONTRACT: FiguresContract = Object.freeze(` — const, line 350
 
 ## Internal implementation anchors
 
-- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 43
-- `const CLOSE_WORDS: Record<string, string> =` — const, line 44
-- `function dueWords(due: string): string` — function, line 53
-- `const day = new Date(`$` — const, line 54
-- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 56
-- `const run = useCallback(async (input: LessonTurnInput)` — const, line 84
-- `const next = await api.lessonTurn(input)` — const, line 89
-- `const err = getCommandError(error)` — const, line 93
-- `const code = err?.code ?? ""` — const, line 94
-- `const message = err?.message ?? String(error)` — const, line 95
-- `const existing = ((err?.details ??` — const, line 96
-- `const details = (err?.details ??` — const, line 104
-- `const saved = details.lesson_id ?? details.lessonId` — const, line 105
-- `const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId` — const, line 109
-- `let cancelled = false` — let, line 128
-- `const lessonId = view?.lessonId` — const, line 143
-- `const openCheck = view?.openCheck ?? null` — const, line 144
-- `const send = useCallback(async ()` — const, line 152
-- `const text = reply.trim()` — const, line 154
-- `const submitCheck = useCallback(async ()` — const, line 159
-- `const submitPrediction = useCallback(async ()` — const, line 165
-- `const value = predictionAnswer.trim()` — const, line 167
-- `const stop = useCallback(async ()` — const, line 172
-- `const startFresh = useCallback(async ()` — const, line 178
-- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 179
-- `const feed = useMemo(()` — const, line 184
-- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 185
-- `function useLessonFigureCtl(figure: FigureViewDto): FiguresCtl` — function, line 318
-- `function LessonFigure(` — function, line 343
-- `const shown = useMemo(()` — const, line 345
-- `const ctl = useLessonFigureCtl(shown)` — const, line 346
-- `function FeedEntry(` — function, line 350
-- `const open = item.checkRef === openCheckRef` — const, line 369
+- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 49
+- `const CLOSE_WORDS: Record<string, string> =` — const, line 50
+- `function dueWords(due: string): string` — function, line 59
+- `const day = new Date(`$` — const, line 60
+- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 62
+- `const activity = useRef<LessonActivityTracker | null>(null)` — const, line 90
+- `const run = useCallback(async (input: LessonTurnInput)` — const, line 92
+- `const next = await api.lessonTurn(input)` — const, line 99
+- `const err = getCommandError(error)` — const, line 103
+- `const code = err?.code ?? ""` — const, line 104
+- `const message = err?.message ?? String(error)` — const, line 105
+- `const existing = ((err?.details ??` — const, line 106
+- `const details = (err?.details ??` — const, line 114
+- `const saved = details.lesson_id ?? details.lessonId` — const, line 115
+- `const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId` — const, line 119
+- `let cancelled = false` — let, line 138
+- `const lessonId = view?.lessonId` — const, line 153
+- `const openCheck = view?.openCheck ?? null` — const, line 154
+- `const activityLog = Boolean(view?.activityLog)` — const, line 155
+- `const inForeground = ()` — const, line 158
+- `const tracker = createLessonActivity(` — const, line 159
+- `const onInput = ()` — const, line 164
+- `const onForeground = ()` — const, line 165
+- `const inputs = ["keydown", "pointerdown", "wheel", "scroll"] as const` — const, line 166
+- `const send = useCallback(async ()` — const, line 187
+- `const text = reply.trim()` — const, line 189
+- `const submitCheck = useCallback(async ()` — const, line 194
+- `const submitPrediction = useCallback(async ()` — const, line 200
+- `const value = predictionAnswer.trim()` — const, line 202
+- `const stop = useCallback(async ()` — const, line 207
+- `const startFresh = useCallback(async ()` — const, line 213
+- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 214
+- `const feed = useMemo(()` — const, line 219
+- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 220
+- `function useLessonFigureCtl(figure: FigureViewDto): FiguresCtl` — function, line 353
+- `function LessonFigure(` — function, line 378
+- `const shown = useMemo(()` — const, line 380
+- `const ctl = useLessonFigureCtl(shown)` — const, line 381
+- `function FeedEntry(` — function, line 385
+- `const open = item.checkRef === openCheckRef` — const, line 404
 
 ## Who imports or calls it
 
@@ -120,6 +127,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `getCommandError`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/screens/lessonActivity|src/screens/lessonActivity.ts]] — import-or-re-export; imports `LessonActivityTracker`, `createLessonActivity`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export; imports `FigureInline`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|src/screens/reader/figures/useFigures.ts]] — import-or-re-export; imports `FiguresContract`, `FiguresCtl`, `figurePlacementKey`
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/visuals.py"
 source_paths:
   - "src/learnloop/teacher/visuals.py"
-source_commit: "d8453bfe211858b1d94d1edc8b1a5cbb29e0294e"
-source_commit_timestamp: "2026-11-02T09:55:55-05:00"
+source_commit: "84ec7ab399c5a93cb0ad162f1da366a5f53ed28a"
+source_commit_timestamp: "2026-11-05T23:11:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py) |
-| Source lines | 368 |
+| Source lines | 371 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `d8453bfe211858b1d94d1edc8b1a5cbb29e0294e` |
-| Commit timestamp | `2026-11-02T09:55:55-05:00` |
+| Source commit | `84ec7ab399c5a93cb0ad162f1da366a5f53ed28a` |
+| Commit timestamp | `2026-11-05T23:11:09-05:00` |
 
 ## Public API
 
@@ -66,17 +66,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `instructions(doctrine: str, visuals: bool) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 83)
 - `prompt_version(visuals: bool) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 87)
 - `turn_model(visuals: bool) -> type[TeacherTurnV1]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 91) — The strict output schema of a turn: TE1's off, with the ``visual`` on.
-- `stored_turn(data: Mapping[str, Any] | None) -> TeacherTurnV1` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 97) — A stored accepted turn, read back (TE1's shape and the visuals shape both validate).
-- `resolve(state: Any, turn_obj: TeacherTurnV1) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 123) — The turn's visual as code builds it: ``{goal, anchors, node, planned}``, or None (none asked).
-- `contract_problem(state: Any, turn_obj: TeacherTurnV1) -> str | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 151) — A visual or planned visual the lesson cannot build, as a correctable refusal (None: fine).
-- `displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 178) — The visual goals a turn may show the learner (the figure's line quotes its goal): the turn's own and every planned one, so each passes the lesson's guards before it is stored.
-- `figure_request(state: Any, resolved: Mapping[str, Any], *, caller: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 195) — The ``FigureRequestV1`` code completes from the teacher's words (module docstring).
-- `not_built_for_protection(resolved: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 233) — The record of a visual not built because the lesson's protection state changed since its brief (Codex review F1): its saved goal may carry words of a passage that is now exam or held-out material, which the figure service's check of the visual's own anchors cannot see, so nothin…
-- `build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder, *, caller: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 242) — Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend refusal of the lesson's envelope propagates, so the lesson closes with ``budget``).
-- `figure_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 276)
-- `figure_text(row: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 286) — The figure's words and displayed values as the lesson shows it (P3's reveal text over the stored spec or program **without its predictions**: a lesson suppresses them, :func:`lesson_view`), so a hidden prediction's prompt is neither exposure nor a reason to withhold the figure (…
-- `summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 305) — What the teacher is told a shown figure is: its tier, what it demonstrates and what the learner can move (names, labels, ranges and defaults), read from the stored spec or program.
-- `lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 320) — A lesson figure as the lesson shows it NOW, or None (gone, held out since, switched off): the figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a lesson host is grammar and sketch only).
+- `stored_turn(data: Mapping[str, Any] | None) -> TeacherTurnV1` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 97) — A stored accepted turn, read back (TE1's shape, the visuals shape and TE2-log's episode fields all validate: the widest stored shape).
+- `resolve(state: Any, turn_obj: TeacherTurnV1) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 126) — The turn's visual as code builds it: ``{goal, anchors, node, planned}``, or None (none asked).
+- `contract_problem(state: Any, turn_obj: TeacherTurnV1) -> str | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 154) — A visual or planned visual the lesson cannot build, as a correctable refusal (None: fine).
+- `displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 181) — The visual goals a turn may show the learner (the figure's line quotes its goal): the turn's own and every planned one, so each passes the lesson's guards before it is stored.
+- `figure_request(state: Any, resolved: Mapping[str, Any], *, caller: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 198) — The ``FigureRequestV1`` code completes from the teacher's words (module docstring).
+- `not_built_for_protection(resolved: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 236) — The record of a visual not built because the lesson's protection state changed since its brief (Codex review F1): its saved goal may carry words of a passage that is now exam or held-out material, which the figure service's check of the visual's own anchors cannot see, so nothin…
+- `build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder, *, caller: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 245) — Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend refusal of the lesson's envelope propagates, so the lesson closes with ``budget``).
+- `figure_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 279)
+- `figure_text(row: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 289) — The figure's words and displayed values as the lesson shows it (P3's reveal text over the stored spec or program **without its predictions**: a lesson suppresses them, :func:`lesson_view`), so a hidden prediction's prompt is neither exposure nor a reason to withhold the figure (…
+- `summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 308) — What the teacher is told a shown figure is: its tier, what it demonstrates and what the learner can move (names, labels, ranges and defaults), read from the stored spec or program.
+- `lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 323) — A lesson figure as the lesson shows it NOW, or None (gone, held out since, switched off): the figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a lesson host is grammar and sketch only).
 
 ### Module constants
 
@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `WITHHELD` ([src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py), line 52)
 - `UNAVAILABLE` ([src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py), line 53)
 - `STATUSES` ([src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py), line 54)
-- `_UNAVAILABLE` ([src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py), line 213)
+- `_UNAVAILABLE` ([src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py), line 216)
 
 ### Explicit exports
 
@@ -122,10 +122,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_plan_visual(state: Any, turn_obj: TeacherTurnV1, node_id: str) -> Any | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 106) — The planned visual of ``node_id``: this turn's own ``write_plan`` first, else the stored plan.
-- `_anchor_problem(state: Any, anchors: Sequence[str], where: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 142)
-- `_budget_refused(state: Any, exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 216) — The LESSON's spend envelope refused a request of the build (§17): the lesson closes ``budget``.
-- `_base(resolved: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 228)
+- `_plan_visual(state: Any, turn_obj: TeacherTurnV1, node_id: str) -> Any | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 109) — The planned visual of ``node_id``: this turn's own ``write_plan`` first, else the stored plan.
+- `_anchor_problem(state: Any, anchors: Sequence[str], where: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 145)
+- `_budget_refused(state: Any, exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 219) — The LESSON's spend envelope refused a request of the build (§17): the lesson closes ``budget``.
+- `_base(resolved: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 231)
 
 ## Who imports or calls it
 
@@ -144,7 +144,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `figure`, `has_tables`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `reveal_text`; calls `reveal_text`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `FigureRequest`, `module`; calls `FigureRequest`, `enabled`, `figure_view`, `figure_withheld`, `rich_row`, `show_me_enabled`, `teacher_visuals_switch`
-- [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `PROMPT_VERSION`, `PlannedVisualV1`, `TeacherTurnV1`, `TeacherTurnVisualsV1`
+- [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `PROMPT_VERSION`, `PlannedVisualV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 
 ### Platform and third-party dependencies
 
