@@ -374,6 +374,7 @@ import type {
   AdjudicationRecordInput,
   AdjudicationRecordResultDto,
   AdjudicationScoreboardDto,
+  LessonActivityIntervalDto,
   LessonTurnInput,
   LessonViewDto,
   LessonSuggestionDto,
@@ -1742,6 +1743,9 @@ export const api = {
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),
   lessonView: (input: { lessonId: string }) => call<LessonViewDto>("lesson_view", { input }),
+  // Teacher TE2-log: the lesson screen's activity intervals (logging only; no model call).
+  lessonActivity: (input: { lessonId: string; intervals: LessonActivityIntervalDto[]; occurredAt?: string }) =>
+    call<{ recorded: number; enabled: boolean }>("lesson_activity", { input }),
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),

@@ -1,13 +1,13 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it, onTestFinished, vi } from "vitest";
 import type { FigureViewDto, LessonViewDto } from "../api/dto";
 import { LESSON_FIGURE_COPY, LessonScreen } from "./LessonScreen";
 import corpus from "./reader/figures/figureGoldenCorpus.json";
 import { FIGURE_COPY } from "./reader/figures/FigureInline";
 
 const { api } = vi.hoisted(() => ({
-  api: { lessonTurn: vi.fn(), lessonView: vi.fn(), readerLogActivity: vi.fn(), readerFigurePredict: vi.fn(),
-         readerFigureRevise: vi.fn(), figureRequest: vi.fn() }
+  api: { lessonTurn: vi.fn(), lessonView: vi.fn(), lessonActivity: vi.fn(), readerLogActivity: vi.fn(),
+         readerFigurePredict: vi.fn(), readerFigureRevise: vi.fn(), figureRequest: vi.fn() }
 }));
 vi.mock("../api/client", () => ({ api }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <span>{value}</span> }));
@@ -75,6 +75,35 @@ it("keeps a check collapsed until opened, shows the tap only after a draft, and 
   await act(async () => { fireEvent.click(screen.getByText("Submit answer")); });
   expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "answer_check", lessonId: "les1", checkRef: "c1",
                                                     answer: "det(A - tI) = 0", tap: 4, thinking: "char poly" });
+});
+
+it("TE2-log: with the activity log on, the screen reports its intervals before a step and when it closes", async () => {
+  api.lessonActivity.mockResolvedValue({ recorded: 1, enabled: true });
+  let clock = Date.parse("2026-11-05T15:00:00.000Z");
+  const now = vi.spyOn(Date, "now").mockImplementation(() => (clock += 1_000));
+  onTestFinished(() => now.mockRestore());
+  await open(lesson({ activityLog: true }));
+  fireEvent.change(screen.getByLabelText("Reply to the teacher"), { target: { value: "Go on." } });
+  api.lessonTurn.mockResolvedValueOnce(lesson({ activityLog: true }));
+  await act(async () => { fireEvent.click(screen.getByText("Send")); });
+  expect(api.lessonActivity).toHaveBeenCalled();
+  const first = api.lessonActivity.mock.calls[0][0];
+  expect(first.lessonId).toBe("les1");
+  expect(first.intervals[0]).toMatchObject({ seq: 1, foreground: expect.any(Boolean) });
+  expect(Object.keys(first.intervals[0]).sort()).toEqual(["endedAt", "foreground", "screenSession", "seq", "startedAt"]);
+  // The learner's words are never sent with the intervals.
+  expect(JSON.stringify(api.lessonActivity.mock.calls)).not.toContain("Go on.");
+  const before = api.lessonActivity.mock.calls.length;
+  await act(async () => { cleanup(); });
+  expect(api.lessonActivity.mock.calls.length).toBeGreaterThanOrEqual(before);
+});
+
+it("TE2-log: without the activity log the screen sends no intervals", async () => {
+  await open(lesson());
+  fireEvent.change(screen.getByLabelText("Reply to the teacher"), { target: { value: "Go on." } });
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => { fireEvent.click(screen.getByText("Send")); });
+  expect(api.lessonActivity).not.toHaveBeenCalled();
 });
 
 it("the close card promises only the checks that were set, and a plan outage keeps the lesson", async () => {

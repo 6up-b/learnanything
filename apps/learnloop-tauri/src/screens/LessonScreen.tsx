@@ -23,9 +23,15 @@
 // predictions contract off, and the server sends none. No "not right?", no
 // region and no rich version in a lesson; a figure that couldn't be built or
 // isn't shown says so in one quiet line.
+//
+// Teacher TE2-log (spec_teacher_v1 §11.6): while the view says `activityLog`, the
+// screen reports its own activity intervals (foreground with input, or not) to
+// lesson.activity, before every lesson step, when the window hides and when the
+// screen closes (lessonActivity.ts). Times only; logging never blocks a step.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
+import { createLessonActivity, type LessonActivityTracker } from "./lessonActivity";
 import type { FigureViewDto, LessonFeedEntryDto, LessonFigureStatus, LessonTurnInput, LessonViewDto } from "../api/dto";
 import { getCommandError } from "../errors";
 import { COLOR, FONT_MONO, Faint } from "../components/term";
@@ -80,11 +86,15 @@ export function LessonScreen({
   const [predictionAnswer, setPredictionAnswer] = useState("");
   /** What "Try again" sends after an outage (null: nothing to retry). */
   const [retry, setRetry] = useState<LessonTurnInput | null>(null);
+  /** TE2-log: the screen's activity intervals (null while the view doesn't ask for them). */
+  const activity = useRef<LessonActivityTracker | null>(null);
 
   const run = useCallback(async (input: LessonTurnInput) => {
     setBusy(true);
     setUnavailable(null);
     setRetry(null);
+    // TE2-log: the intervals so far reach the sidecar before the step (a close's receipt counts them).
+    activity.current?.flush();
     try {
       const next = await api.lessonTurn(input);
       setView(next);
@@ -142,6 +152,31 @@ export function LessonScreen({
 
   const lessonId = view?.lessonId;
   const openCheck = view?.openCheck ?? null;
+  const activityLog = Boolean(view?.activityLog);
+  useEffect(() => {
+    if (!lessonId || !activityLog) return;
+    const inForeground = () => document.visibilityState === "visible" && document.hasFocus();
+    const tracker = createLessonActivity({
+      lessonId, foreground: inForeground(),
+      send: (batch) => api.lessonActivity(batch),
+    });
+    activity.current = tracker;
+    const onInput = () => tracker.input();
+    const onForeground = () => tracker.foreground(inForeground());
+    const inputs = ["keydown", "pointerdown", "wheel", "scroll"] as const;
+    for (const name of inputs) window.addEventListener(name, onInput, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", onForeground);
+    window.addEventListener("focus", onForeground);
+    window.addEventListener("blur", onForeground);
+    return () => {
+      for (const name of inputs) window.removeEventListener(name, onInput, { capture: true });
+      document.removeEventListener("visibilitychange", onForeground);
+      window.removeEventListener("focus", onForeground);
+      window.removeEventListener("blur", onForeground);
+      tracker.stop();
+      activity.current = null;
+    };
+  }, [lessonId, activityLog]);
   useEffect(() => {
     setAnswer("");
     setThinking("");

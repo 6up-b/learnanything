@@ -1805,6 +1805,10 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
         out["shown_now"] = outcome.shown
         out["notices"] = outcome.notices
         out["vault_changed"] = outcome.vault_changed
+    if E.on(vault):
+        # TE2-log: the screen reports its activity intervals (lesson.activity) only while this is set (after the
+        # close its last interval still arrives; the minutes clip every interval to the lesson's own span).
+        out["activity_log"] = True
     return out
 
 
