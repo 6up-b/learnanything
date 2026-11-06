@@ -16,8 +16,9 @@ Reader CA2's ``learnloop.one_ask_upgrade`` (mvp-0.35), the kept replaced claims'
 ``learnloop.followup_serve_upgrade`` (mvp-0.45), router objective RO1's
 ``learnloop.interval_factor_upgrade`` (mvp-0.46), RO4's
 ``learnloop.router_objective_upgrade`` (mvp-0.47), RO5's
-``learnloop.router_calibration_upgrade`` (mvp-0.48) and RO6's
-``learnloop.router_learned_tail_upgrade`` (mvp-0.49), at the same path (the journal names its target; the installed completion is the
+``learnloop.router_calibration_upgrade`` (mvp-0.48), RO6's
+``learnloop.router_learned_tail_upgrade`` (mvp-0.49) and teacher TE3a's
+``learnloop.lesson_opportunity_upgrade`` (mvp-0.50 on its branch), at the same path (the journal names its target; the installed completion is the
 chain's latest upgrade's, which hands an earlier link's journal to that link).
 A process
 that dies after it publishes the successor's config and before it commits the

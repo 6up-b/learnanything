@@ -127,9 +127,9 @@ def test_the_successor_is_one_constant_after_rw2d():
 
     # LP-min (a)'s claim fixes (mvp-0.33) and rebuild equivalence (mvp-0.34) and Reader CA2 (mvp-0.35) and the kept replaced claims (mvp-0.36) and mobile PR-4 (mvp-0.37, the latest) landed after it and keep it.
     assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.49"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.50"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
-    assert READING_PATH_PLAN_VERSIONS == frozenset({TAG, "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", LATEST_ALGORITHM_VERSION})
+    assert READING_PATH_PLAN_VERSIONS == frozenset({TAG, "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 

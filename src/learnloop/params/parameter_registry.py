@@ -2536,6 +2536,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "which historical attempts enter AD's replay: those without a saved item revision read against "
         "today's item text (current_content, the default) or left out (exclude); membership of AD's serving "
         "state only, never evidence, mastery, FSRS or certification (A2); field.legacy_fallback unchanged."),
+    # Teacher TE3a (mvp-0.50 on its branch; spec_teacher_v1 rev 5 §14.2): the AD lesson opportunity's kill
+    # switch. Its curve's prior (adaptive_difficulty.priors.LESSON_PRIORS, ad_lesson_priors_v1) is derived, not
+    # chosen: centred and spread on RO4's placeholder (AD's gamma prior times the teacher's seeded lesson-check mass
+    # 0.5, basis legacy), shaped by AD's existing rule for a new kind's prior; the filter learns it.
+    _ConfigRule(_exact("adaptive_difficulty.lesson_opportunities"), "structural", "operational",
+        "kill switch for TE3a's AD successor: a closed lesson's landed or taught node raises AD's predicted level "
+        "by its subkind's learned dose curve and the objective's lesson interface reads it; off, the predecessor "
+        "exactly and RO4's placeholder (prediction only, never evidence: A2, A12)."),
     # Adaptive difficulty AD2+AD3 (D21, outside the successor): the Reader's
     # randomized dose offers' floor per variant and daily friction budget. They
     # decide what the Reader may offer (an extra worked example or question),

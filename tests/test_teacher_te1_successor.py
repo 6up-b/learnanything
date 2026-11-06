@@ -44,10 +44,11 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
     # Follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-10:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", LATEST_ALGORITHM_VERSION) == (
-        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49")
+    assert SUCCESSOR_CHAIN[-11:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", LATEST_ALGORITHM_VERSION) == (
+        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49",
+        "mvp-0.50")
     assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49"})
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50"})
 
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
@@ -91,6 +92,7 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
         # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
         dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
         assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
+        assert dumped["adaptive_difficulty"].pop("lesson_opportunities") is True  # teacher TE3a (mvp-0.50), inert below it
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
@@ -217,7 +219,7 @@ def test_the_cli_installs_this_links_completion():
 
     # Teacher TE1b's mvp-0.43 is the chain's latest: the CLI installs its completion, which hands an
     # earlier journal to follow-ups Nov 2's, which hands this link's journal to this link's completion.
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.help_fold_attach_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_suggestions_upgrade)
     assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(

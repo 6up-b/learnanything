@@ -77,6 +77,7 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
     assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
     assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
+    assert dumped["adaptive_difficulty"].pop("lesson_opportunities") is True  # teacher TE3a's switch, inert below mvp-0.50
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "08840dbd600321a4a8d52fafb969bfacb6ace0e53d3166f5bdb12f81be6b34f3"
 
@@ -148,8 +149,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
 
     # The chain's latest completion hands an earlier link's journal on.
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
     assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
 

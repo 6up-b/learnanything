@@ -1892,7 +1892,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # history_card_token_budget key (modelled defaults, left out of the decision-only template): receipts only,
     # read by nothing serving at any version (no successor, as AD1); every snapshot moves only because the
     # effective config gains them, and all of them were recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "b382176adbe5b6f0821a96b9df4bd5927b5f386daa120460c6f2366f47275840",
+    "mvp-0.9": "6076776927422bb85c5433382fc300602a28c5582a4447ff47679c3486977930",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1988,7 +1988,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.10": "33f8bdbda1793bccef5a03ea3c308719788a0d2072c47206f322063ec23d9d2f",
+    "mvp-0.10": "b21acca816b6515a811fb928ece02a39da54f608cfbe53599e22eb3b1c2d1f05",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -2092,7 +2092,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.11": "59093078d5acd589236dc10fbd54caf17f0507995ab04ef173714fabff07bdaf",
+    "mvp-0.11": "349a74f68e3bc1d7f140e2c1807825d600c9a11ae775ac5a2ddf72da0cd305d1",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -2190,7 +2190,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.12": "6795c9480c2785affaec5eafa8ce2725fe40aa0843f1a408ce7ab0b7ddd0341a",
+    "mvp-0.12": "b283ac4fc324d8d55b8987a815a60877ebf7d13d5ccad032919d33138907f4e2",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -2283,7 +2283,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.13": "4e49bfde959a20b197a63ab7bcce2750d4dc5fd7c34f0b4c65b08314804b1276",
+    "mvp-0.13": "8ded6020ce9303cffb83891259ef30cf786defe73b7874a14cda10e69c9dd305",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2375,7 +2375,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.14": "0af671c0627e85b8e701008eb3bd4d922e1d190e4526d48058c2dad699218bf9",
+    "mvp-0.14": "5a2b138395fb5f34afc1385001c8046e3065f88d9f4685ce43581b4ea1eff242",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2465,7 +2465,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.15": "c8abfff1ffb822ab5f859baddd58922936720491c9da86d4a27a142ce9f2f381",
+    "mvp-0.15": "35affbde0dc6b4cbf1ea039c35d672e395558fb8694bdbe70228b02018323aa8",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2562,7 +2562,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.16": "b88630b5ce838c202cf731aacff1bdabfc05cc53543edf533a0d1e4fd2feb6ec",
+    "mvp-0.16": "0ed40bd1b895ec860ac9e468d1382c36e22beb6504f0cc1500487c6278f73762",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2655,7 +2655,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.17": "9d193626602ebde874a10a46f5884398402c45a1eeeba60aee4f28472223e415",
+    "mvp-0.17": "ddde19a9945f62dc888c990ef6520adf8169f58a12382f35c4c8d7ab797859a4",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2741,7 +2741,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.18": "27c96c2b3074ebe207963d522dc0ed3990b605007ddea125668e859ef887d523",
+    "mvp-0.18": "df3c04d8ed14530c0b391b59c470e395813d7dd6729b04c879f47858daff60f9",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2827,7 +2827,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.19": "887a1534a624fee961b9f15bc76146320d4f26e2a4e567e8e8544f1ea3d7ca0f",
+    "mvp-0.19": "51630c8a078414beae0a8ea1a7a2375b58abf2eab1f7f41fb216e2ea1cfc42fe",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2909,7 +2909,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.20": "c07a198f4b9799743f78af3a69407f75a6696675b96efed7a3cd77aa0004c707",
+    "mvp-0.20": "f5bcb638d7bfa8c754fa05f277758d3c901142a2e28f7d18a67680eeadff8ac5",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -3000,7 +3000,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.21": "b92756ad90e8652f53dd2e47807b111d59a9e3b5d666432ab23968a0dbc9b88d",
+    "mvp-0.21": "d780628539cf747e7122c54691a1fa2c303c5ef3387d9d43e949889406777a06",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -3083,7 +3083,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.22": "a68c98c2bb37755d99545beaa08f2b076c96680f445a5d7598c24e0bea9f2881",
+    "mvp-0.22": "b3262e1edbc90e5a1b94612916d2560add7dec3259a267d2d1cfc46dfc962cf9",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -3161,7 +3161,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.23": "5fb68d006ec428aabb008030746c3d92bbe798d468c3afb84ac109604a4cc069",
+    "mvp-0.23": "a00e3e9e9d5c839e0df4c46b0512d3d4e2d2a890a4bcb1a604ae5956797707dd",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -3236,7 +3236,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.24": "cd615a2fe73264ab686d418af1baf22cdc666f2d4fadbc6b32f81278ce0b822c",
+    "mvp-0.24": "4b1f48982fe7dc350f2f576e6f9f9b53b2cf96715570a7ba0a96ab839f5aeb0a",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -3309,7 +3309,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.25": "492b13b58c61095969770dc115c503e5ff70decc3c8df333df55a66a5089a072",
+    "mvp-0.25": "37d302063d4f500ae52899a9001dcbb7daa7a939455cc654ea93d17274215531",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -3381,7 +3381,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.26": "65491f9847ff0a530e4f95f2b865968133f94ee60376f52194d6ddcb60778108",
+    "mvp-0.26": "cf4a4a124574ba1abf5a7d76ac56bfd5092eeecacf028650aef0d118001864b8",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -3453,7 +3453,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.27": "b6046345b88acc7b33ddf020e38f4f27a9c68bd19bc100dd425b84a412e2bcdf",
+    "mvp-0.27": "981fbbb67fb62d9df5daa812185d06b5432697cc05d9a65ee71fafcfcbea2e75",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -3514,7 +3514,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.29": "ced9e2aba74af53b6d5057e6018d7b8dcb354155053e38dafcfc487dc4e7b2dc",
+    "mvp-0.29": "56a71f60956a13cd9716aa5a1e8a308369e28089e15e200d2679868e6ca67d28",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -3569,7 +3569,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.30": "8b62a975c1ff8bb020b97c25931e850e8f1c3b3703d9cccf6c25779af21413ea",
+    "mvp-0.30": "95e08f9092f7ee802a82180aed6648c7973585be28bfa57406b894287c8cfe5d",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -3618,7 +3618,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.31": "8b5ade875ef5a814eb3daa53187a81db111dc39d80f0cbb1389e95b79d6d2969",
+    "mvp-0.31": "4ae906f29728eb41e7b0a74799851c55633d7ec71c1ba2f1f60b41b5eaaec580",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -3664,7 +3664,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.32": "7b2094499d6958e97d3fc8646de9eba56dd9368fb40687b42552424effd4e500",
+    "mvp-0.32": "7150140daf375f1022e920b0951c62e0d865a860d9373a9cbc10478a564d031a",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -3708,7 +3708,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.33": "3c500b84baac93d7aae1debdd970504fc4172d31816c2a70842f246e3d7610e0",
+    "mvp-0.33": "76a20500436c732e94fec819699c13828ada47e7f77c6ba50c98e7587c179e1c",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3751,7 +3751,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.34": "3f825649a2fe8ebd0d8ad8e485bfd952aa92a4d6662114c7fa8d69ab88d051c1",
+    "mvp-0.34": "25e00bc344440e806dbad63ecb68013ef26c6f5ccb59b622ce17be13b411e349",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3793,7 +3793,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.35": "aa421aa446a844a398240348a8338e6a7174a4946a7c9abdc7974492a0e04a5e",
+    "mvp-0.35": "e5735e3f69681188253a8cab39a5cced1ddcca488f7176b0b8691d41ecd98633",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3830,7 +3830,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.36": "41a66f632170b36e1942e86bce1f10f1015d3612094d31072811f9f385d4f45a",
+    "mvp-0.36": "8a720a9de54566c75af33088b5bdf9e8cf7bd105fa42d32f6c6f63da2f283227",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3870,7 +3870,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.37": "9c24ab755b6d8bb40060517443378e607f7c31d7edf827f6970cadcdf106239b",
+    "mvp-0.37": "1364a57cf85d48621e925c34ad951bcd4a13d68819a77a999eacd0ddffdad2d5",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3907,7 +3907,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.38": "aa279251ba9716eabd05ee4b57244250d894fca58052f28cfd73baaf1e12b074",
+    "mvp-0.38": "bcb4b8e31c2b785964a456f62c9e526bae0e29ee377a736a4c78bfe2f6de0ecc",
     # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
     # spec_reader_workbench_v1 §9.3; docs/reviews/reader-rw6b-p1-followups.md
     # and its Codex review F4): mvp-0.38 plus an ended reader session's checks
@@ -3942,7 +3942,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.39": "75baaf2a4744413e1f3c58717580757f5cb80b73bfd2a949d7cd5bbf669355b1",
+    "mvp-0.39": "125b193b2fc16900e96469e8f895f9a9a1cc518cb3407d02f766ff736412a815",
     # mvp-0.40 (curriculum C1, the plan follows the deliverable;
     # spec_deliverable_curriculum_v1 §7.6, §8.1;
     # docs/reviews/curriculum-c1-plan-follows-path.md; built as mvp-0.39 and
@@ -3971,7 +3971,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.40": "540087d7c612e4d8b59364a5e6909bc3d6ce1f6685d6a55f744e9625ec1b2233",
+    "mvp-0.40": "cea3d2957e6a7dc2a1a5287d56a2e5f5852a8cf1cb48455f0dcedf219d9c6392",
     # mvp-0.41 (teacher TE1, the first good lesson, with curriculum C4 folded in; spec_teacher_v1 §18.3,
     # §20; docs/reviews/teacher-te1-first-lesson.md): mvp-0.40 plus lessons the learner starts (an LO's or
     # a Reader selection's "Teach me this"): the teacher route teaches from a brief built from the ledger;
@@ -3988,7 +3988,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # landed.
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.41": "09128cfd938fa456368514b2a417112d163ed2901846c0e001d76317d0b5233c",
+    "mvp-0.41": "6c3885437d9fcb825a77cb1a0bc6d7d2b1c7fb4fb4168259c044a2f394d655f9",
     # mvp-0.42 (the keyed help fold counts exactly the help rows that attach;
     # follow-ups Nov 2 (b) and its Codex review F1; docs/reviews/followups-nov2.md;
     # built as mvp-0.41 while teacher TE1 + C4 was landing as mvp-0.41 too,
@@ -4006,7 +4006,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # until teacher TE1b's successor landed.
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.42": "0aeae3cb363333b9e7c796049b717f0ed8f20a12a6bbcfbdb00117c9e002546c",
+    "mvp-0.42": "704af3bf669445134bf77737832a965e64d9ae5c09f74860543db22c9b1ed129",
     # mvp-0.43 (teacher TE1b, the router suggests lessons and the learner opts in; spec_teacher_v1 §15.1,
     # §18.3, §20; docs/reviews/teacher-te1b-router-suggestions.md): mvp-0.42 plus Today's suggestion card:
     # at most one instruct(lesson) draw a day with an exact logged propensity (a lesson_suggestion router
@@ -4021,7 +4021,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # decision 2026-10-12).
     # Reader RW5d P5's [figures] prefetch keys and ai.routing.figure_prefetch_judge move it too (see mvp-0.9; background prebuilds, on by default, no successor).
     # Mobile PR-6's [practice] device_eligibility_enabled moves it too (see mvp-0.9; read only for a phone request, no successor).
-    "mvp-0.43": "a9dc26757aaeede3056f113ba75ca89f1c003ccde12783011982fd9f8ffd33fc",
+    "mvp-0.43": "4db62b36b02bc5ca17b5a907e4334a31c9999c1c2de111c70e58a959a37beae5",
     # mvp-0.44 (data capture, the long-horizon objective's dataset; docs/reviews/data-capture-a1-a6.md):
     # mvp-0.43 plus measurement slots for reading, wait and stop arms (the objective frozen before the draw, a
     # "Check once" charged to the maintain lane), the existing fallback distribution and epsilon floor on the
@@ -4032,7 +4032,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # tag). Existing vaults reach it by `learnloop upgrade` (default target) from mvp-0.43, or from mvp-0.9
     # onwards through the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
     # decision 2026-10-12).
-    "mvp-0.44": "8469bde6a82c5d26ec7311ab0cbc29751d4e83ab29c03ee4de1f2a775194255d",
+    "mvp-0.44": "550d5a362bd472ba967218b1bb9b80a18a60da41099f669cbc0fb7bcf26cb81f",
     # mvp-0.45 (FG1, follow-up generate and serve; docs/specs/spec_followup_generate_serve_v1.md): mvp-0.44
     # plus one durable workflow per miss, the router's itemless decision, generated single-use probes and the
     # held feedback. Kill switch [followup] generate_and_serve (default true). The decision-only template stores
@@ -4040,7 +4040,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # effective true, new vaults included. [followup] and [ui] show_router_decisions are in every snapshot,
     # inert below the tag (recomputed for all of them, as above). FG1c added [followup] hypothesis_marks (default
     # true, no successor: receipts and an attributed opinion at every version, spec §7), recomputed for all of them too.
-    "mvp-0.45": "637cf1b0d48c9d1f05633699248e4162703f5d28ade84c8db34e90d1983ab8b5",
+    "mvp-0.45": "2bfc0f2c9120a67244a2bb1500339eed9968d46bb409e11f6110c0c8e2e0dbe2",
     # mvp-0.46 (router objective RO1; docs/specs/spec_router_objective_v1.md §5): mvp-0.45 plus the FSRS
     # interval without the surprise factor, decision-time attempt reads by availability time, and a learner's
     # pick not counted as validated evidence. Kill switches [scheduler.surprise] remove_interval_factor,
@@ -4050,7 +4050,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the tag; all of them recomputed, as above). Existing vaults reach it by `learnloop upgrade` (default
     # target) from mvp-0.45, or from mvp-0.9 onwards through the chain; the upgrade rebuilds the whole vault, so
     # due dates move then. New vaults start here (the template's LATEST_ALGORITHM_VERSION).
-    "mvp-0.46": "bb559281add92dc1db1bd5a95e17a9d1c5a341151ec873603a018d6b6880a751",
+    "mvp-0.46": "c19f01fc388153d6532a2ea6345f7dde506a9fb4a250427b61776b09e67f603b",
     # mvp-0.47 (router objective RO4; docs/specs/spec_router_objective_v1.md §8): mvp-0.46 plus the objective,
     # live: the plan's minutes a soft limit (stop at every reversible boundary as an overridable offer, no
     # minutes filter, lane shares no longer excluding), each block drawn from the learned mix of the LLM's
@@ -4063,7 +4063,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # tag (all of them recomputed, as above). Existing vaults reach it by `learnloop upgrade` (default target)
     # from mvp-0.46, or from mvp-0.9 onwards through the chain. Router objective RO5's [router_objective]
     # keys (below) move it too (modelled defaults, inert below mvp-0.48; all of them recomputed, as above).
-    "mvp-0.47": "9e1090c8e571e75f00f95ce12f4c5e37def89f362d7a9f4f675888581552a43d",
+    "mvp-0.47": "6817443374d8350c8641a45b73ed97d3a07d4c10f2a924bafaefe6758449b2be",
     # mvp-0.48 (router objective RO5; docs/specs/spec_router_objective_v1.md §9): mvp-0.47 plus return and
     # calibration: the stop coin (0.05 each way at a reversible boundary, an exact logged assignment) training
     # the return model and handing kappa0 from its daily seed to a posterior, one randomized cold check a day
@@ -4076,7 +4076,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # reach it by `learnloop upgrade` (default target) from mvp-0.47, or from mvp-0.9 onwards through the
     # chain. Router objective RO6's [router_objective] keys (below) move it too (modelled defaults, inert below
     # mvp-0.49; all of them recomputed, as above).
-    "mvp-0.48": "0b78f84939324de1df489cc1ae60cdc42aa639fae3e946614983345b281130e7",
+    "mvp-0.48": "1a79e8ee4fe3fdd60b07d1c443c8dad8ad31f0c6f76a708b7b30f61ce23e0f29",
     # mvp-0.49 (router objective RO6; docs/specs/spec_router_objective_v1.md §10): mvp-0.48 plus a learned tail:
     # fitted Q evaluation of a frozen logger version (belief features from RO0's decision-time snapshots, days to
     # go, pending reports; the objective's own reward R, never S) entering the numeric policy's value as a residual,
@@ -4084,8 +4084,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # move. Its keys ([router_objective] learned_tail, residual_prior_sd, residual_weight_prior_sd) are modelled
     # defaults, in every snapshot and inert below the tag (all of them recomputed). learned_tail = false serves
     # mvp-0.48 exactly. Existing vaults reach it by `learnloop upgrade` (default target) from mvp-0.48, or from
-    # mvp-0.9 onwards through the chain. New vaults start here.
-    "mvp-0.49": "cb3a4f907f667d77deb1b53eb92c2e7b57f836443f7058de2a5a6e2b431e2e48",
+    # mvp-0.9 onwards through the chain. Teacher TE3a's [adaptive_difficulty] key (below) moves it too (a modelled
+    # default, inert below mvp-0.50; all of them recomputed, as above).
+    "mvp-0.49": "4620b2f50554dd285fa1a90664a41687c516a8ced18f78e6e761fdd36be086fb",
+    # mvp-0.50 (teacher TE3a, an adaptive difficulty successor; docs/specs/spec_teacher_v1.md rev 5 §14.2):
+    # mvp-0.49 plus AD's lesson opportunity: a closed lesson's node with an LO, landed or taught, raises the
+    # subject view's predicted level by its subkind's learned dose curve (ad_lesson_priors_v1, centred on RO4's
+    # lesson placeholder), and the router objective's lesson interface reads that curve. Its key
+    # ([adaptive_difficulty] lesson_opportunities, default true) is a modelled default, in every snapshot and inert
+    # below the tag (all of them recomputed). lesson_opportunities = false serves mvp-0.49 exactly. Existing vaults
+    # reach it by `learnloop upgrade` (default target) from mvp-0.49, or from mvp-0.9 onwards through the chain.
+    # New vaults start here. Renumbered at landing (expected mvp-0.52) with the one constant.
+    "mvp-0.50": "d335456a08b062a59efcc2b9ff2395dc24b46892d8f9a501545ea88b05e01a4a",
 }
 
 

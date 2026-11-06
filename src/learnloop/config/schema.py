@@ -4670,6 +4670,11 @@ class AdaptiveDifficultyConfig(BaseModel):
       (§5.11). Off: no reading transitions.
     * ``reading_self_check``: the self-check verdict term (D22). Off: removed.
 
+    At teacher TE3a's successor (``LESSON_OPPORTUNITY_ALGORITHM_VERSION``; spec_teacher_v1 rev 5 §14.2):
+    ``lesson_opportunities``: a closed lesson's node with an LO, landed or taught, raises the subject view's
+    predicted level by its subkind's learned dose curve (prediction only), and the router objective's lesson
+    interface reads that curve. Off, or below the tag: AD as its predecessor exactly, and RO4's lesson placeholder.
+
     ``history_fallback`` (owner decision 2026-10-19): how AD's replay reads a
     historical attempt whose exact item revision was not saved.
     ``"current_content"`` (the default) reads it against today's item text;
@@ -4702,6 +4707,7 @@ class AdaptiveDifficultyConfig(BaseModel):
     learned_coupling: bool = False
     reading_opportunities: bool = True
     reading_self_check: bool = True
+    lesson_opportunities: bool = True
     reading_dose_offers: bool = True
     dose_floor: float = Field(default=0.10, gt=0.0, le=1.0 / 3.0)
     dose_daily_offers: int = Field(default=3, ge=0)

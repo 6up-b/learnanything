@@ -45,8 +45,8 @@ RO4_KEYS = {
 def test_the_successor_is_one_constant_after_ro1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.46"
     # Router objective RO5 (mvp-0.48) and RO6 (mvp-0.49) landed after it and keep it.
-    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.49"
-    assert ROUTER_OBJECTIVE_VERSIONS == frozenset({TAG, "mvp-0.48", "mvp-0.49"})
+    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.50"
+    assert ROUTER_OBJECTIVE_VERSIONS == frozenset({TAG, "mvp-0.48", "mvp-0.49", "mvp-0.50"})
 
 
 def test_the_seeds_are_the_specs_and_validated():
@@ -76,6 +76,7 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS):
         section.pop(key)
     assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
+    assert dumped["adaptive_difficulty"].pop("lesson_opportunities") is True  # teacher TE3a's switch, inert below mvp-0.50
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "5c2ab89bfcb757cbc3038bd6c776bb968ff9688addd7becd4778e489ac461cb4"
 
@@ -112,8 +113,8 @@ def test_the_openers_install_this_links_completion():
     # link's journal to this link's completion.
     from learnloop import router_calibration_upgrade
 
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.router_objective_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_calibration_upgrade)
 

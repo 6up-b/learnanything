@@ -77,8 +77,8 @@ def test_the_openers_install_this_links_completion():
 
     # The openers install the chain's latest link (router objective RO6's mvp-0.49 since its landing), which hands an
     # earlier link's journal down the chain, this one's included (as tests/test_ro6_successor.py pins).
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.router_learned_tail_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_kill_switch_reads_off_a_vault_at_the_tag(tmp_path):
