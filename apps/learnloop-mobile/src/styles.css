@@ -22,6 +22,8 @@ body {
 .tabs button { flex: 1; border: 0; background: none; color: var(--dim); padding: 13px 0; font: inherit; }
 .tabs button[aria-current="page"] { color: var(--accent); }
 h1 { font-size: 21px; margin: 0 0 10px; font-weight: 600; }
+h2 { font-size: 17px; margin: 14px 0 6px; font-weight: 600; }
+.banner h2 { margin-top: 0; }
 p { margin: 8px 0; }
 .dim { color: var(--dim); font-size: 15px; }
 .bad { color: var(--bad); }

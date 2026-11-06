@@ -374,7 +374,7 @@ The allowlist is a frozen mapping in `learnloop_mobile/allowlist.py`. Each entry
 | Milestone | Methods |
 |---|---|
 | M1 | none (the capture endpoints are not RPC) |
-| M2 | `start_session`, `adopt_session` (new, PR-4), `get_session`, `end_session`, `update_session_checkpoint`, `clear_session_checkpoint`, `get_today_queue`, `open_queue_item`, `get_practice_item`, `get_probe_contract`, `save_practice_draft`, `submit_attempt`†, `submit_dont_know`†, `skip_practice_item`, `acknowledge_practice_submission`, `get_feedback`, `get_attempt`, `get_grading_clarification`, `answer_grading_clarification`†, and `diagnosis_status` once Slice 1 lands |
+| M2 | `start_session`, `adopt_session` (new, PR-4), `get_session`, `end_session`, `update_session_checkpoint`, `clear_session_checkpoint`, `get_today_queue`, `open_queue_item`, `get_practice_item`, `get_probe_contract`, `save_practice_draft`, `submit_attempt`†, `submit_dont_know`†, `skip_practice_item`, `acknowledge_practice_submission`, `get_feedback`, `get_attempt`, `get_grading_clarification`, `answer_grading_clarification`†, and `diagnosis_status` once Slice 1 lands. *Added at the owner's report, 2026-11-03: `submit_eliciting_response`, so the feedback screen can ask the diagnosis's follow-up questions; a recorded answer, never a grade, and not retried automatically.* |
 | M3 | `ask_tutor_question`†, `get_tutor_transcript`, `rate_tutor_answer`, `save_tutor_answer_note`‡, `promote_tutor_question`‡, `list_question_queue`, `resolve_question_event` |
 
 † Long: accepted as a durable job (§6.3).
