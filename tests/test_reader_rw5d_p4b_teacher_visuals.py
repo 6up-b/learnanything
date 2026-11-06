@@ -259,7 +259,9 @@ def test_a_visual_the_lesson_cannot_build_is_refused_back_to_the_teacher(tmp_pat
     details = [json.loads(row[0]).get("detail") for row in _rows(
         repository, "SELECT p.payload_json FROM lesson_turns t JOIN lesson_turn_payloads p ON p.turn_id = t.id "
                     "WHERE t.action = 'teacher_turn' ORDER BY t.seq")]
-    assert "S99" in details[0] and "no planned visual" in details[1] and "not both" in details[2]
+    # By location, never by the model's text (TE2-log landing, ruling R1 (b)).
+    assert details[0].startswith("visual.anchors[0]: ") and "S99" not in details[0]
+    assert details[1].startswith("visual.planned_node: ") and "n9" not in details[1] and "not both" in details[2]
     assert author.calls == 0 and _rows(repository, "SELECT COUNT(*) FROM figure_requests") == [(0,)]
 
 

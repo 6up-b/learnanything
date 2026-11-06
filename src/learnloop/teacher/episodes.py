@@ -20,8 +20,9 @@ Behind ``teacher.episode_log`` (default on at every algorithm version; no succes
 Ids and numbers only in every row: a hypothesis's words stay in the turn's payload (``lesson_turn_payloads``),
 after the output guards ran on them (``service._call_teacher``); the row keeps their count, a hash and the payload's
 turn id. The model's ids a row copies are resolved first (Codex review F1): a note's node must name a plan node or a
-brief LO, a node id passes the same guards as a hypothesis (:func:`logged_ids`), and an LO is a vault LO or none
-(:func:`outline_lo`). Every row, each placement forecast included, is written in its own savepoint of the action's
+brief LO; a node id, an ``lo_id`` and the note's node pass the same guards as a hypothesis and the identifier guard
+against every key the vault records (:func:`logged_fields`, landing ruling R1), refused by location, never by text;
+and an LO is a vault LO or none (:func:`outline_lo`). Every row, each placement forecast included, is written in its own savepoint of the action's
 transaction: a refused row rolls back alone with a warning and never blocks a turn. Nothing serving, scheduling, certification or replay reads any of it.
 
 Off: nothing here runs, the prompt, the turn schema, the forecaster family and the receipt are TE1's exactly.
@@ -445,15 +446,24 @@ def turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]:
             if request.action == "write_plan"]
 
 
-def logged_ids(turn_obj: Any) -> list[tuple[str, str]]:
-    """The ids an episode turn's model wrote that a row may copy (a note's ``node``, the plan nodes' ``id``): they
-    pass the output guards before the turn is accepted, as a hypothesis does. An ``lo_id`` is never copied unless it
-    is a vault LO (:func:`outline_lo`), so it needs no guard."""
+def logged_fields(turn_obj: Any) -> list[tuple[str, str]]:
+    """``(location, text)`` of every field an episode turn's model wrote that a log row, a receipt or a note's payload
+    may copy: a note's ``hypothesis`` and ``node``, each plan node's ``id`` and ``lo_id``. Each passes the output
+    guards and the vault-wide identifier guard before the turn is accepted (Codex review F1; landing ruling R1), and
+    a refusal names it by its location (``requests[i].plan[j].id``), never by its text. An ``lo_id`` is still copied
+    only when it is a vault LO (:func:`outline_lo`)."""
 
-    out = [("note_detour node", str(request.node)) for request in getattr(turn_obj, "requests", None) or []
-           if request.action == "note_detour" and request.node]
-    out.extend(("plan node id", str(node.get("id"))) for outline in turn_plans(turn_obj) for node in outline)
-    return [(name, text) for name, text in out if text]
+    out: list[tuple[str, str]] = []
+    for index, request in enumerate(getattr(turn_obj, "requests", None) or []):
+        at = f"requests[{index}]"
+        if request.action == "note_detour":
+            out.append((f"{at}.hypothesis", str(getattr(request, "hypothesis", None) or "")))
+            out.append((f"{at}.node", str(request.node or "")))
+        elif request.action == "write_plan":
+            for position, node in enumerate(request.plan):
+                out.append((f"{at}.plan[{position}].id", str(node.id or "")))
+                out.append((f"{at}.plan[{position}].lo_id", str(getattr(node, "lo_id", None) or "")))
+    return [(location, text) for location, text in out if text]
 
 
 def node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool:
@@ -533,7 +543,7 @@ __all__ = [
     "inserted_nodes",
     "instructions",
     "lesson_minutes",
-    "logged_ids",
+    "logged_fields",
     "minutes",
     "node_held_receipts",
     "node_known",

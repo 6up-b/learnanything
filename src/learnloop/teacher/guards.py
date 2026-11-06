@@ -44,9 +44,17 @@ def _normalize(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s]", " ", str(text).lower()).split())
 
 
-def lesson_keys(vault: Any, repository: Any, learning_object_ids: Iterable[str],
-                exempt_items: Iterable[str]) -> tuple[list[Any], bool]:
-    """``(keys, unreadable)``: every recorded answer key on these LOs except the exempt items'."""
+def _identity(value: Any) -> str:
+    import json
+
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def key_sets(vault: Any, repository: Any, learning_object_ids: Iterable[str],
+             exempt_items: Iterable[str]) -> tuple[list[Any], list[Any], bool]:
+    """``(lesson keys, vault keys, unreadable)`` from one read of the KeyBook: every recorded answer key on these LOs
+    except the exempt items' (the displayed text's guard), and every answer key the vault records on any item, on
+    any LO (the identifier guard's, :func:`identifier_guard`)."""
 
     from learnloop.learner_context import key_book
 
@@ -54,16 +62,34 @@ def lesson_keys(vault: Any, repository: Any, learning_object_ids: Iterable[str],
     with repository.connection() as connection:
         book = key_book(connection, vault, unknowns)
     exempt = {str(item) for item in exempt_items}
-    exempt_keys = [key for item in exempt for key in book.item(item)]
+    exempt_ids = {_identity(key) for item in exempt for key in book.item(item)}
+    keys = [key for key in book.los(list(learning_object_ids)) if _identity(key) not in exempt_ids]
+    every = list({_identity(key): key for item_keys in book.by_item.values() for key in item_keys}.values())
+    return keys, every, book.unreadable
 
-    def identity(value: Any) -> str:
-        import json
 
-        return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+def lesson_keys(vault: Any, repository: Any, learning_object_ids: Iterable[str],
+                exempt_items: Iterable[str]) -> tuple[list[Any], bool]:
+    """``(keys, unreadable)``: every recorded answer key on these LOs except the exempt items'."""
 
-    exempt_ids = {identity(key) for key in exempt_keys}
-    keys = [key for key in book.los(list(learning_object_ids)) if identity(key) not in exempt_ids]
-    return keys, book.unreadable
+    keys, _every, unreadable = key_sets(vault, repository, learning_object_ids, exempt_items)
+    return keys, unreadable
+
+
+def identifier_guard(text: str, vault_keys: Sequence[Any], unreadable: bool) -> GuardVerdict:
+    """A model-supplied field a log row or a receipt copies (a plan node's id or ``lo_id``, a note's node and
+    hypothesis, a forecast's node and its LO) against every answer key the vault records (TE2-log landing, ruling
+    R1): an exam-reserved or held-out item's on any LO, a topic the lesson's brief never named and one a plan adds
+    in the same turn included, with no exemption. An unreadable KeyBook refuses (fail closed)."""
+
+    from learnloop.learner_context import leaks_key
+
+    if unreadable:
+        return GuardVerdict(False, "keys_unreadable", "past answer keys could not be read, so nothing is recorded")
+    if text and leaks_key(text, vault_keys):
+        return GuardVerdict(False, "answer_key", "this reproduces the answer to one of LearnLoop's questions; use a "
+                                                 "plain id such as n1, and never an answer")
+    return GuardVerdict(True)
 
 
 def key_guard(message: str, keys: Sequence[Any], unreadable: bool) -> GuardVerdict:
@@ -135,7 +161,9 @@ __all__ = [
     "check_all",
     "citation_guard",
     "cited_aliases",
+    "identifier_guard",
     "key_guard",
+    "key_sets",
     "lesson_keys",
     "open_check_guard",
     "solution_overlap",

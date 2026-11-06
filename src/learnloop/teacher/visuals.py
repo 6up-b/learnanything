@@ -143,24 +143,28 @@ def resolve(state: Any, turn_obj: TeacherTurnV1) -> dict[str, Any] | None:
 
 
 def _anchor_problem(state: Any, anchors: Sequence[str], where: str) -> str | None:
+    """By location (TE2-log landing, ruling R1 (b)): the anchors' indices, never their text."""
+
     if not anchors:
         return f"{where} needs one to three anchors: passage aliases you were given (S3)"
-    unknown = [alias for alias in anchors if not state.book.available(alias)]
+    unknown = [index for index, alias in enumerate(anchors) if not state.book.available(alias)]
     if unknown:
-        return f"{where}'s anchors were never delivered to you as passages: {', '.join(unknown)}"
+        named = ", ".join(f"{where}.anchors[{index}]" for index in unknown)
+        return f"{named}: never delivered to you as passages"
     return None
 
 
 def contract_problem(state: Any, turn_obj: TeacherTurnV1) -> str | None:
-    """A visual or planned visual the lesson cannot build, as a correctable refusal (None: fine)."""
+    """A visual or planned visual the lesson cannot build, as a correctable refusal (None: fine), naming the field
+    by its location (request and node index), never by the model's text."""
 
-    for request in turn_obj.requests:
+    for index, request in enumerate(turn_obj.requests):
         if request.action != "write_plan":
             continue
-        for node in request.plan:
+        for position, node in enumerate(request.plan):
             planned = getattr(node, "visual", None)
             if planned is not None:
-                problem = _anchor_problem(state, planned.anchors, f"plan node {node.id}'s visual")
+                problem = _anchor_problem(state, planned.anchors, f"requests[{index}].plan[{position}].visual")
                 if problem:
                     return problem
     visual = getattr(turn_obj, "visual", None)
@@ -171,11 +175,11 @@ def contract_problem(state: Any, turn_obj: TeacherTurnV1) -> str | None:
             return "a visual names planned_node alone (the node's planned visual), or a goal with anchors, not both"
         resolved = resolve(state, turn_obj) or {}
         if not resolved.get("goal"):
-            return f"plan node {visual.planned_node} has no planned visual"
-        return _anchor_problem(state, resolved["anchors"], f"plan node {visual.planned_node}'s visual")
+            return "visual.planned_node: names no plan node with a planned visual"
+        return _anchor_problem(state, resolved["anchors"], "visual.planned_node's visual")
     if not visual.goal.strip():
         return "a visual needs a goal: which quantity the learner moves, which stay fixed, what to watch"
-    return _anchor_problem(state, visual.anchors, "the visual")
+    return _anchor_problem(state, visual.anchors, "visual")
 
 
 def displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:

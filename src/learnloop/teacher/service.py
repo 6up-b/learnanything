@@ -1084,14 +1084,70 @@ def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
 
 
 def _logged(turn_obj: TeacherTurnV1, *, episodes: bool) -> list[tuple[str, str]]:
-    """TE2-log: the texts a turn asks to log, never shown, by field: a ``note_detour``'s hypothesis, and the ids an
-    episode row may copy (Codex review F1: the note's node, the plan's node ids); none in TE1's turn."""
+    """TE2-log: the model's fields a log row, a receipt or a note's payload copies, never shown, by location: a
+    ``note_detour``'s hypothesis and node, the plan nodes' ids and ``lo_id`` (Codex review F1; landing ruling R1);
+    none in TE1's turn."""
 
-    if not episodes:
-        return []
-    out = [("note_detour", str(request.hypothesis)) for request in turn_obj.requests
-           if request.action == "note_detour" and getattr(request, "hypothesis", None)]
-    return [*out, *E.logged_ids(turn_obj)]
+    return E.logged_fields(turn_obj) if episodes else []
+
+
+def _field_names(model: type[Any]) -> frozenset[str]:
+    """Every field name of a turn schema and the models it nests (a schema refusal's location names these only)."""
+
+    from typing import get_args
+
+    from pydantic import BaseModel
+
+    names: set[str] = set()
+    stack: list[type[Any]] = [model]
+    seen: set[type[Any]] = set()
+    while stack:
+        current = stack.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        for name, info in current.model_fields.items():
+            names.add(name)
+            pending: list[Any] = [info.annotation]
+            while pending:
+                annotation = pending.pop()
+                if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+                    stack.append(annotation)
+                pending.extend(get_args(annotation))
+    return frozenset(names)
+
+
+def _schema_detail(exc: BaseException, model: type[Any]) -> str:
+    """A schema refusal as the teacher reads it (TE2-log landing, ruling R1 (b)): each failing field by its
+    location (``requests[0].node``) and pydantic's message, never its input, so no untrusted text (an over-long
+    node id carrying protected words) enters the transcript before the guards. A key the schema does not declare
+    reads as ``?``; a failure that names no field reads as one fixed line."""
+
+    from learnloop.ai.errors import AIOutputTruncated
+
+    error: BaseException | None = exc
+    for _ in range(8):
+        if error is None or isinstance(error, ValidationError):
+            break
+        error = error.__cause__ or error.__context__
+    if not isinstance(error, ValidationError):
+        if isinstance(exc, AIOutputTruncated):
+            return "your turn ran past its output budget; send a shorter turn"
+        return "your turn did not match the turn's schema; send one turn object exactly as the schema describes"
+    names = _field_names(model)
+
+    def where(loc: Sequence[Any]) -> str:
+        out = ""
+        for part in loc:
+            if isinstance(part, int):
+                out += f"[{part}]"
+            else:
+                out += ("." if out else "") + (str(part) if str(part) in names else "?")
+        return out or "the turn"
+
+    lines = [f"{where(problem.get('loc') or ())}: {problem.get('msg')}"
+             for problem in error.errors(include_url=False, include_input=False, include_context=False)]
+    return "; ".join(lines)[:2000]
 
 
 def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
@@ -1114,7 +1170,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         # a correctable contract refusal, counted toward the consecutive-failure rule.
         _record_usage(client, outcome)
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
-                payload={"reason": "schema", "detail": str(exc)[:2000]}, clock=clock)
+                payload={"reason": "schema", "detail": _schema_detail(exc, model)}, clock=clock)
         return None
     _record_usage(client, outcome)
     try:
@@ -1122,7 +1178,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
             raw.model_dump() if isinstance(raw, TeacherTurnV1) else raw)
     except ValidationError as exc:
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
-                payload={"reason": "schema", "detail": str(exc)[:2000]}, clock=clock)
+                payload={"reason": "schema", "detail": _schema_detail(exc, model)}, clock=clock)
         return None
     problem = _contract_problem(state, turn_obj)
     if problem is not None:
@@ -1130,7 +1186,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                 payload={"reason": "contract", "detail": problem, "turn": turn_obj.model_dump()}, clock=clock)
         return None
     exempt = list(state.minted.values())
-    keys, unreadable = G.lesson_keys(vault, repository, state.los, exempt)
+    keys, vault_keys, unreadable = G.key_sets(vault, repository, state.los, exempt)
     displayed = _displayed(turn_obj)
     # The open check's solution guard also covers the check this turn poses: every displayed field but
     # the posed check's own (its options carry the right one by design) must not give the solution away.
@@ -1146,11 +1202,14 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": turn_obj.model_dump()}, clock=clock)
             return None
-    # TE2-log: a detour's hypothesis is logged, never shown, but it passes the same guards before it is stored
-    # (spec §11.9: exam or held-out material is never in a hypothesis); a hit withholds the turn.
+    # TE2-log: a detour's hypothesis and the ids a row copies are logged, never shown, but they pass the same guards
+    # before they are stored (spec §11.9: exam or held-out material is never in a hypothesis), and the identifier
+    # guard against every key the vault records (landing ruling R1); a hit withholds the turn, named by location.
     for name, text in _logged(turn_obj, episodes=episodes):
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
                               open_check=state.open_check and state.open_check.get("check"), help_reply=False)
+        if verdict.ok:
+            verdict = G.identifier_guard(text, vault_keys, unreadable)
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
@@ -1178,7 +1237,17 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     return turn_obj, entry
 
 
+def located(field: str, indices: Sequence[int]) -> str:
+    """``check.anchors[0], check.anchors[2]``: a refusal's fields by location (landing ruling R1 (b))."""
+
+    return ", ".join(f"{field}[{index}]" for index in indices)
+
+
 def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None:
+    """A correctable contract problem, or None. Every refusal names the offending field by its location (request,
+    node and anchor index), never by its text (TE2-log landing, ruling R1 (b)): the detail enters the transcript the
+    teacher reads next, before any guard has run on the model's ids."""
+
     if turn_obj.check is not None and state.open_check is not None:
         return "a check is already open: wait for its answer before posing another"
     if turn_obj.check is not None and turn_obj.prediction is not None:
@@ -1187,26 +1256,28 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
         check = turn_obj.check
         if check.form == "choices" and len(check.choices) < 2:
             return "a choices check needs at least two options"
-        unknown = [alias for alias in check.anchors if not state.book.available(alias)]
+        unknown = [index for index, alias in enumerate(check.anchors) if not state.book.available(alias)]
         if unknown:
-            return f"the check's anchors were never delivered to you: {', '.join(unknown)}"
-    for request in turn_obj.requests:
+            return f"{located('check.anchors', unknown)}: never delivered to you; anchor only to the aliases you were given"
+    for index, request in enumerate(turn_obj.requests):
+        at = f"requests[{index}]"
         if request.action == "write_plan":
-            for node in request.plan:
-                unknown = [alias for alias in node.anchors
+            for position, node in enumerate(request.plan):
+                unknown = [k for k, alias in enumerate(node.anchors)
                            if not state.book.available(alias) and alias not in state.book.sections]
                 if unknown:
-                    return f"plan node {node.id}: these anchors don't resolve: {', '.join(unknown)}"
+                    return (f"{located(f'{at}.plan[{position}].anchors', unknown)}: these anchors don't resolve to a "
+                            "passage or a section you were given")
         if request.action == "forecast" and (request.forecast_kind is None or request.p is None or not request.node):
-            return "a forecast needs forecast_kind, node and p"
+            return f"{at}: a forecast needs forecast_kind, node and p"
         if request.action == "close" and request.close_reason is None:
-            return "close needs a close_reason"
+            return f"{at}: close needs a close_reason"
         if request.action == "note_detour" and (not request.node or not getattr(request, "hypothesis", None)
                                                 or getattr(request, "repair", None) is None or request.p is None):
-            return "note_detour needs node, hypothesis, repair and p"
+            return f"{at}: note_detour needs node, hypothesis, repair and p"
         if request.action == "note_detour" and not E.node_known(state, turn_obj, str(request.node)):
             # Codex review F1: the node is resolved before a row holds it (never echoed back here).
-            return "note_detour's node is not a node of your plan: name one of the plan's node ids"
+            return f"{at}.node: not a node of your plan; name one of the plan's node ids"
     visual_problem = V.contract_problem(state, turn_obj)
     if visual_problem is not None:
         return visual_problem

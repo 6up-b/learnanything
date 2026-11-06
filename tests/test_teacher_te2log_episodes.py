@@ -72,12 +72,14 @@ def foundation_plan(context, *, note=False):
 class _Lesson:
     """One scripted lesson on a synthetic vault, every step at a frozen minute."""
 
-    def __init__(self, tmp_path, turns, *, config=None, minute=0):
+    def __init__(self, tmp_path, turns, *, config=None, minute=0, prepare=None):
         from tests.ux_phase1_support import set_config
 
         self.paths, self.repository = build_teacher_vault(tmp_path / "vault")
         if config:
             set_config(self.paths.root, config)
+        if prepare is not None:
+            prepare(self.paths, self.repository)
         self.fake = TeacherFake(turns)
         self.minute = minute
         self.view = S.open_lesson(load_vault(self.paths.root), self.repository, entry="learning_object",
@@ -404,20 +406,156 @@ def test_reserved_text_in_a_plan_node_id_never_reaches_a_row(tmp_path):
 
 
 def test_a_plan_lo_id_that_is_no_vault_lo_never_reaches_a_row(tmp_path):
-    from tests.teacher_fakes import RESERVED_SENTINEL
-
-    def reserved_lo(context):
+    # An lo_id carrying reserved text is withheld by the identifier guard (landing ruling R1, tested below); one that
+    # is merely no vault LO is accepted and copied nowhere.
+    def unknown_lo(context):
         turn = foundation_plan(context)
-        turn["requests"][0]["plan"][0]["lo_id"] = RESERVED_SENTINEL
+        turn["requests"][0]["plan"][0]["lo_id"] = "lo_not_in_the_vault"
         turn["requests"][0]["plan"][0]["p_held"] = 0.6
         return turn
 
     lesson = _Lesson(tmp_path, [plan_turn])
-    lesson.act("reply", {"text": "I'm lost on determinants."}, turns=[reserved_lo])
+    lesson.act("reply", {"text": "I'm lost on determinants."}, turns=[unknown_lo])
     # The foundation is still an unlogged detour, on no LO (never the goal's by default).
     (row,) = _episodes(lesson.repository)
     assert row["node_id"] == "n0" and row["learning_object_id"] is None
+    assert not [v for _t, _c, v in _log_texts(lesson.repository) if "lo_not_in_the_vault" in v]
     _no_reserved_text(lesson.repository)
+
+
+# --- landing ruling R1: the identifier guard across the vault; refusals by location --------------------------
+
+#: The answer key of a reserved item on a vault LO the lesson's brief does not name (Codex's verify, path 1).
+OTHER_SENTINEL = "OTHERSENTINEL the reserved orthogonal answer is ninety-one"
+
+
+def _reserve_on_another_lo(paths, repository):
+    """``lo_else`` on its own concept (so no brief of ``lo_eigen`` names it), with an exam-reserved item whose key is
+    :data:`OTHER_SENTINEL`."""
+
+    from learnloop.vault.writer import upsert_concept
+    from learnloop.vault.yaml_io import write_yaml
+    from tests.practice_index_fakes import _learning_object
+    from tests.teacher_fakes import NOW, _item
+
+    upsert_concept(paths.root, "orthogonality_c", {
+        "title": "Orthogonality", "type": "concept", "aliases": [], "description": "Orthogonal vectors.",
+        "tags": [], "created_at": NOW, "updated_at": NOW})
+    lo = _learning_object("lo_else", "Orthogonality")
+    lo["concept"] = "orthogonality_c"
+    write_yaml(paths.learning_object_path("linear-algebra", "lo_else"), lo)
+    write_yaml(paths.practice_item_path("linear-algebra", "pi_else_reserved"),
+               _item("pi_else_reserved", "lo_else", "Which of these vectors are orthogonal?", OTHER_SENTINEL))
+    with repository.connection() as connection:
+        (goal,) = connection.execute("SELECT goal_id FROM exam_pool_items WHERE id = 'epi_te1'").fetchone()
+    repository.insert_exam_pool_items([{"id": "epi_else", "goal_id": goal, "practice_item_id": "pi_else_reserved",
+                                        "reserved_at": "2026-10-30T00:00:00Z"}])
+
+
+def _no_text(repository, *words):
+    """No TE2-log row, receipt or stored plan holds any of ``words``."""
+
+    texts = list(_log_texts(repository))
+    with repository.connection() as connection:
+        texts.extend(("lesson_plans", "outline_json", row[0]) for row in connection.execute(
+            "SELECT outline_json FROM lesson_plans").fetchall())
+    leaked = [(t, c, v) for t, c, v in texts if any(word in v for word in words)]
+    assert not leaked, leaked
+
+
+def _refusals(lesson):
+    """The refused turns as the teacher reads them (the transcript's ``refused`` entries)."""
+
+    return [entry for entry in S.transcript(S.load_state(lesson.repository, lesson.lesson_id)) if "refused" in entry]
+
+
+def test_a_plan_node_carrying_another_los_reserved_key_is_withheld_by_location(tmp_path):
+    """Ruling R1 (a), Codex's verify path 1: the brief names only ``lo_eigen`` (and its prerequisite); a revised plan
+    inserts a node whose id is the reserved key of ``lo_else``, with ``lo_id`` ``lo_else`` and ``p_held``. The guard
+    checks every key the vault records, so the turn is withheld and no row, receipt, prompt or screen holds the key."""
+
+    def other_lo_node(context):
+        turn = plan_turn(context)
+        turn["requests"][0]["plan"].insert(0, {"id": OTHER_SENTINEL, "statement": "First, a neighbouring idea.",
+                                               "lo_id": "lo_else", "anchors": [], "premises": [], "p_held": 0.6})
+        return turn
+
+    lesson = _Lesson(tmp_path, [plan_turn], prepare=_reserve_on_another_lo)
+    assert "lo_else" not in S.load_state(lesson.repository, lesson.lesson_id).los
+    lesson.act("reply", {"text": "Go on."}, turns=[other_lo_node, {"message": "Fine."}])
+    (refusal,) = _refusals(lesson)
+    assert refusal["refused"] == "answer_key" and refusal["detail"].startswith("requests[0].plan[0].id: ")
+    assert _episodes(lesson.repository) == []
+    _no_text(lesson.repository, "OTHERSENTINEL", "ninety-one")
+    assert "OTHERSENTINEL" not in lesson.fake.all_prompts() and "OTHERSENTINEL" not in str(lesson.view)
+
+
+def test_a_plan_lo_id_carrying_a_reserved_key_is_withheld_by_location(tmp_path):
+    """Ruling R1 (a): a plan node's ``lo_id`` passes the same guard (it reaches a row only as a vault LO, but the
+    guard does not rely on that)."""
+
+    def reserved_lo(context):
+        turn = plan_turn(context)
+        turn["requests"][0]["plan"][1]["lo_id"] = OTHER_SENTINEL
+        return turn
+
+    lesson = _Lesson(tmp_path, [plan_turn], prepare=_reserve_on_another_lo)
+    lesson.act("reply", {"text": "Go on."}, turns=[reserved_lo, {"message": "Fine."}])
+    (refusal,) = _refusals(lesson)
+    assert refusal["refused"] == "answer_key" and refusal["detail"].startswith("requests[0].plan[1].lo_id: ")
+    _no_text(lesson.repository, "OTHERSENTINEL", "ninety-one")
+    assert "OTHERSENTINEL" not in lesson.fake.all_prompts()
+
+
+def test_a_contract_refusal_names_the_field_by_location_never_by_its_text(tmp_path):
+    """Ruling R1 (b), Codex's verify path 2: a plan node whose id is reserved text and whose anchor does not resolve
+    is refused at the contract check, before the guard; the refusal names the node by its index, so neither the
+    id nor the anchor enters the transcript the teacher reads next."""
+
+    from tests.teacher_fakes import RESERVED_SENTINEL
+
+    def reserved_id_bad_anchor(context):
+        turn = plan_turn(context)
+        turn["requests"][0]["plan"][0]["id"] = RESERVED_SENTINEL
+        turn["requests"][0]["plan"][0]["anchors"] = ["S999"]
+        return turn
+
+    lesson = _Lesson(tmp_path, [plan_turn])
+    lesson.act("reply", {"text": "Go on."}, turns=[reserved_id_bad_anchor, {"message": "Fine."}])
+    (refusal,) = _refusals(lesson)
+    assert refusal["refused"] == "contract"
+    assert refusal["detail"].startswith("requests[0].plan[0].anchors[0]: ") and "S999" not in refusal["detail"]
+    assert "RESERVEDSENTINEL" not in lesson.fake.all_prompts() and "RESERVEDSENTINEL" not in str(lesson.view)
+    _no_text(lesson.repository, "RESERVEDSENTINEL", "forty-two")
+
+
+def test_a_schema_refusal_names_fields_by_location_never_by_their_input(tmp_path):
+    """Ruling R1 (b): a turn the schema refuses (a node id over its length, carrying reserved text) is refused back
+    with the failing fields' locations and messages only, never their input."""
+
+    from pydantic import ValidationError
+
+    from learnloop.ai.errors import AIInvalidOutput
+    from learnloop.ai.schemas import describe_wire_validation_error
+    from tests.teacher_fakes import RESERVED_SENTINEL
+
+    def invalid(context):
+        # As a provider reports it: AIInvalidOutput with pydantic's description, chained from the ValidationError.
+        try:
+            TeacherTurnEpisodesV1.model_validate({"message": "Hm.", "requests": [
+                {"action": "note_detour", "node": f"{RESERVED_SENTINEL} {RESERVED_SENTINEL}", "hypothesis": "h",
+                 "repair": "reteach", "p": 0.5}]})
+        except ValidationError as exc:
+            raise AIInvalidOutput("Codex returned invalid TeacherTurnEpisodesV1 JSON: "
+                                  f"{describe_wire_validation_error(TeacherTurnEpisodesV1, exc)}") from exc
+        raise AssertionError("the turn was meant to fail its schema")
+
+    lesson = _Lesson(tmp_path, [plan_turn])
+    lesson.act("reply", {"text": "Go on."}, turns=[invalid, {"message": "Fine."}])
+    (refusal,) = _refusals(lesson)
+    assert refusal["refused"] == "schema" and refusal["detail"].startswith("requests[0].node: ")
+    assert "RESERVEDSENTINEL" not in refusal["detail"]
+    assert "RESERVEDSENTINEL" not in lesson.fake.all_prompts() and "RESERVEDSENTINEL" not in str(lesson.view)
 
 
 def test_teacher_episode_log_is_classified_and_on_by_default():
