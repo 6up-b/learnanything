@@ -3,8 +3,10 @@ incremental, with the fit unchanged.
 
 * **Once per decision**: inside ``objective_inputs.decision_reads`` (the prefetch job wraps itself in it), every
   build of the decision reads the combiner's fit once (the card's build for the LLM policy's reference row, then the
-  numeric policy's; about 2.4 joins a decision before). Nothing outlives the scope, so the next decision reads afresh:
-  a regrade, a hold, a late-received outcome or late activity enters it.
+  numeric policy's; about 2.4 joins a decision before) while no write has been committed since that read (Codex
+  review F2: the database's ``PRAGMA data_version``, through a watcher the scope holds), so a regrade or a hold
+  committed between the card's build and the numeric policy's reaches the numeric policy. Nothing outlives the scope,
+  so the next decision reads afresh: a regrade, a hold, a late-received outcome or late activity enters it.
 * **Incremental on the trace side**: each plan-block trace's untouched topics and sensors are parsed once per trace
   content (``combiner_data._untouched``, keyed by a digest of the drawn option and the whole JSON text), and each
   decision's first served presentation is one read, not one query per trace. The outcome side is read at every call.
@@ -481,16 +483,17 @@ def test_one_decisions_builds_read_the_fit_once_and_the_next_decision_afresh(tmp
     assert after.as_dict() != inside[0].as_dict()
 
 
-def test_the_prefetch_job_reads_the_fit_once_per_decision(tmp_path, monkeypatch):
-    """The journey's prefetch jobs (the card's build, then the numeric policy's): one combiner read per job."""
+def test_the_prefetch_job_reads_the_fit_again_only_after_a_commit(tmp_path, monkeypatch):
+    """The journey's prefetch jobs (the card's build, then the numeric policy's): a decision's fit is read again only
+    when a write was committed to the database since its last read (Codex review F2), never twice on one version."""
 
     from learnloop.daily_plan import objective_chooser as OC
 
-    reads: list[str] = []
+    reads: list[tuple[str, Any]] = []
     real = OI._combiner_read
 
     def counted(repository, now_iso, vault=None):
-        reads.append(now_iso)
+        reads.append((now_iso, OI._DECISION_READS.get().version(repository)))
         return real(repository, now_iso, vault)
 
     monkeypatch.setattr(OI, "_combiner_read", counted)
@@ -503,5 +506,104 @@ def test_the_prefetch_job_reads_the_fit_once_per_decision(tmp_path, monkeypatch)
 
     monkeypatch.setattr(OC.OI, "build", counted_build)
     _journey(tmp_path)
-    assert builds and len(set(builds)) == len(reads), (builds, reads)
-    assert len(builds) > len(reads)
+    assert builds and len(reads) <= len(builds), (builds, reads)
+    assert {now for now, _version in reads} == set(builds)
+    for now in set(builds):
+        versions = [version for at, version in reads if at == now]
+        assert len(set(versions)) == len(versions), versions  # each re-read follows a commit
+    print("ROSPEED_JOB_READS", json.dumps({"builds": len(builds), "reads": len(reads)}))
+
+
+# -- Codex review F2: a write committed inside one decision's scope is read --------------------------------------
+
+
+def _answered_journey(tmp_path):
+    """A journey with two cold outcomes answered (a success, then a failure) and the clock a day on, so a decision
+    made now joins them and a regrade or a hold of either moves the fit."""
+
+    env = _journey(tmp_path)
+    cold = _cold_items(env)
+    assert len(cold) >= 2, cold
+    start = env.clock.now()
+    answered = [_answer(env, item, correct=index == 0, at=start + timedelta(hours=2 + index))
+                for index, (_decision, _lo, item) in enumerate(cold[:2])]
+    env.clock.advance(24 * 60)
+    return env, start, answered
+
+
+def _change(env, start, answered, change: str) -> None:
+    if change == "regrade":  # the success re-graded a failure
+        _regrade(env, answered[0], start + timedelta(hours=6), correct=False)
+    else:  # the success regraded into a hold for review (a held blind record)
+        from tests.test_held_grade_evidence import _hold_by_regrade
+
+        _hold_by_regrade(env.vault, env.repository, answered[0], start + timedelta(hours=7))
+
+
+@pytest.mark.parametrize("change", ["regrade", "hold"])
+def test_a_regrade_or_hold_inside_one_decisions_scope_is_read(tmp_path, change):
+    """Inside :func:`OI.decision_reads`, a write committed after the first read is read by the next one: the held
+    fit is the fresh read's, never the earlier one (``checks.Closure``: grades and holds as they stand now)."""
+
+    env, start, answered = _answered_journey(tmp_path)
+    now = env.clock.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    with OI.decision_reads():
+        first = OI._combiner(env.repository, now, env.vault)
+        assert OI._combiner(env.repository, now, env.vault) is first  # nothing committed: one read
+        _change(env, start, answered, change)
+        second = OI._combiner(env.repository, now, env.vault)
+        assert OI._combiner(env.repository, now, env.vault) is second
+    fresh = OI._combiner_read(env.repository, now, env.vault)
+    assert second.as_dict() == fresh.as_dict()
+    assert second.as_dict() != first.as_dict()
+
+
+@pytest.mark.parametrize("change", ["regrade", "hold"])
+def test_a_regrade_or_hold_between_the_jobs_card_and_numeric_builds_reaches_the_numeric_policy(
+        tmp_path, monkeypatch, change):
+    """Codex review F2's window: the prefetch job builds the LLM policy's card, then the numeric policy's inputs, in
+    one :func:`OI.decision_reads` scope. A regrade or a hold committed between the two reaches the numeric policy's
+    fit (a fresh read's), as it did when every build read afresh."""
+
+    from learnloop.daily_plan import objective_card as OCARD
+
+    from tests.daily_plan_fakes import record_attempt
+    from tests.router_mixture_helpers import advance
+
+    env, start, answered = _answered_journey(tmp_path)
+    # each build's fit, beside a fresh read at the same moment (the job's own trace, written after, adds a group)
+    fits: list[tuple[str, dict, dict]] = []
+    real = OI._combiner
+
+    def recorded(repository, now_iso, vault=None):
+        combiner = real(repository, now_iso, vault)
+        fits.append((now_iso, combiner.as_dict(), OI._combiner_read(repository, now_iso, vault).as_dict()))
+        return combiner
+
+    monkeypatch.setattr(OI, "_combiner", recorded)
+    armed = {"on": True}
+    real_card = OCARD.decision_card
+
+    def card(*args, **kwargs):
+        if armed["on"]:
+            armed["on"] = False
+            _change(env, start, answered, change)
+        return real_card(*args, **kwargs)
+
+    monkeypatch.setattr(OCARD, "decision_card", card)
+    for _ in range(12):  # served on through the block to the next boundary's prefetch job
+        fits.clear()
+        _record, step = advance(env, serve=True)
+        if not armed["on"] or step is None or step["kind"] != "item":
+            break
+        env.clock.advance(2)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                       session_id=env.session_id)
+    assert not armed["on"], "the job built no card"
+    now = fits[0][0]
+    mine = [(held, fresh) for at, held, fresh in fits if at == now]
+    assert len(mine) >= 2, fits  # the card's build, then the numeric policy's
+    assert mine[0][0] == mine[0][1]
+    assert mine[1][1]["n"] != mine[0][1]["n"]  # the write moved the fit
+    for held, fresh in mine[1:]:
+        assert held == fresh
