@@ -108,6 +108,13 @@ MINUTES_PER_DAY = 1440.0
 REVIEW_DRAW_VERSION = "review_draw_memory_model_v1"
 #: The follow-up batch's landing ruling R9 (:class:`AdLink`, :attr:`Inputs.ad_link`).
 AD_LINK_VERSION = "ad_predictive_link_v1"
+#: Router speed, item 1 (``held_ad_link``; the caller passes ``[router_objective] held_ad_link`` at the follow-up
+#: batch's tag): R9's link evaluated once per array, its values held per role and recomputed only where the state's
+#: bits changed (:meth:`_Model._linked_logit`, :meth:`_Model._link_cells`). Off (the default here, and the landing's
+#: code), every read computes its own quadratures. Like ``merged_sessions``: a fixed number of draws gives the same
+#: values bit for bit, but a deadline-bound evaluation completes more draws when each is faster, which can change
+#: ``Q̄`` and the choice (Codex review F1 on router speed), so it changes serving, has its switch, and the switch is
+#: in RO6's generator payload and the prefetch key (``router_objective_switches.FOLLOWUP_GENERATOR_SWITCHES``).
 
 
 @dataclass(frozen=True)
@@ -547,11 +554,14 @@ class _Model:
 
     def __init__(self, inputs: Inputs, draws: int, seed: str, cutoff: float | None = None,
                  unmeasured: Collection[str] | None = None, merged_sessions: bool = False,
-                 consistent_review_draw: bool = False) -> None:
+                 consistent_review_draw: bool = False, held_ad_link: bool = False) -> None:
         self.inputs = inputs
         self.seed = seed
         #: the follow-up batch's item 3 (module constant's note above): the tail's sessions merged when they can be
         self.merged = bool(merged_sessions)
+        #: router speed, item 1 (the module's ``held_ad_link`` note): R9's link values held per role; off, every read
+        #: computes its own quadratures (the follow-up batch's landing code)
+        self.held = bool(held_ad_link)
         #: the follow-up batch's landing ruling R1 (:data:`REVIEW_DRAW_VERSION`'s note): a practised topic's outcome
         #: drawn from the memory model's own ``P(perform)``
         self.consistent = bool(consistent_review_draw)
@@ -669,7 +679,7 @@ class _Model:
         if self.link is not None:
             # R9: the combiner's η input is AD's predictive on the logit scale, logit F(η) (``logit p̄`` at the start),
             # R11: its own stable logit, not FSRS's clipped one
-            eta = self._linked_logit(eta, "bel" if belief else "eta")
+            eta = self._linked_logit(eta, "bel" if belief else "eta") if self.held else self.link.logit_p(eta)
         return perform(self.theta.coef, eta, r, state.practiced)
 
     def _link_compute(self, x: np.ndarray, slope: bool) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
@@ -775,14 +785,21 @@ class _Model:
 
         Router speed, item 1: ``cells`` (the ``(rows, cols)`` of the state the elements are, or None) lets the
         quadrature be read from the values :meth:`performance` already computed on the same bits (:meth:`_link_cells`);
-        it was four quadratures a call, each element's ``F``, ``F'`` and logit the bits those gave."""
+        it was four quadratures a call, each element's ``F``, ``F'`` and logit the bits those gave. With
+        ``held_ad_link`` off, those four quadratures (the landing's code)."""
 
         assert self.link is not None
-        eta, bel = np.asarray(eta, dtype=np.float64), np.asarray(bel, dtype=np.float64)
-        f_true, _df, e = self._link_cells(eta, "eta", cells, False)
-        f_bel, df_bel, _eb = self._link_cells(bel, "bel", cells, True)
-        assert df_bel is not None
-        eb, deb = self.link.logit_and_slope_from(bel, f_bel, df_bel)
+        if self.held:
+            eta, bel = np.asarray(eta, dtype=np.float64), np.asarray(bel, dtype=np.float64)
+            f_true, _df, e = self._link_cells(eta, "eta", cells, False)
+            f_bel, df_bel, _eb = self._link_cells(bel, "bel", cells, True)
+            assert df_bel is not None
+            eb, deb = self.link.logit_and_slope_from(bel, f_bel, df_bel)
+        else:
+            f_true, f_bel = self.link.p(eta), self.link.p(bel)
+            eb, deb = self.link.logit_and_slope(bel)
+            if self.consistent:
+                e, _de = self.link.logit_and_slope(eta)
         if self.consistent:
             a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
             lr = logit(self.fsrs.retrievability(stability, elapsed))
@@ -818,6 +835,17 @@ class _Model:
         """A probe's observation: the belief's update, nothing direct. Returns the result per draw (``observed``:
         the result given, for valuing the branches on one result). With R9's link, AD's own ``F``."""
 
+        if self.link is not None and not self.held:
+            # ``held_ad_link`` off: the landing's code, a quadrature per read
+            _eb, deb = self.link.logit_and_slope(state.bel[:, lo])
+            good = (u < self.link.p(state.eta[:, lo]) if observed is None
+                    else np.asarray(observed, dtype=bool))
+            p_bel = self.link.p(state.bel[:, lo])
+            var = 1.0 / (1.0 / state.bel_var[:, lo] + deb * deb * p_bel * (1 - p_bel))
+            bel = state.bel[:, lo] + var * deb * (good.astype(np.float64) - p_bel)
+            state.bel[:, lo] = np.where(mask, bel, state.bel[:, lo])
+            state.bel_var[:, lo] = np.where(mask, var, state.bel_var[:, lo])
+            return good
         if self.link is not None:
             # Router speed, item 1: the quadratures read from what performance() computed on the same bits where it
             # can (each element's bits as before).
@@ -1246,7 +1274,8 @@ class _Model:
                                  gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
                 effect=None, stop_accept=(1.0, 1.0))
             self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried,
-                                  merged_sessions=self.merged, consistent_review_draw=self.consistent)
+                                  merged_sessions=self.merged, consistent_review_draw=self.consistent,
+                                  held_ad_link=self.held)
         return self._belief
 
     def _probe_choice(self, probe: Action, repair: Action, result: bool | None) -> dict[str, Any]:
@@ -1387,7 +1416,8 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
              clock: Callable[[], float] = time.monotonic,
              on_complete: Callable[[Evaluation], None] | None = None,
              cutoff: float | None = None, unmeasured: Collection[str] | None = None,
-             merged_sessions: bool = False, consistent_review_draw: bool = False) -> Evaluation:
+             merged_sessions: bool = False, consistent_review_draw: bool = False,
+             held_ad_link: bool = False) -> Evaluation:
     """``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more
     while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s). An evaluation
     that could not finish its first batch by the deadline is ``complete = False``; a refinement the deadline cuts
@@ -1400,12 +1430,15 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
     ``q`` itself is unchanged. ``merged_sessions`` (the follow-up batch's item 3; False: mvp-0.49's per-block loop):
     the tail's sessions merged where they can be, faster, so a deadline admits more refinement batches.
     ``consistent_review_draw`` (the batch's landing ruling R1; False: mvp-0.49's draw): a practised topic's practice
-    outcome drawn from the memory model's own ``P(perform)`` (:data:`REVIEW_DRAW_VERSION`)."""
+    outcome drawn from the memory model's own ``P(perform)`` (:data:`REVIEW_DRAW_VERSION`). ``held_ad_link`` (router
+    speed, item 1; False: the landing's quadratures): R9's link values held per role, the same values per draw, faster,
+    so a deadline admits more refinement batches."""
 
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
-    options = {"merged_sessions": merged_sessions, "consistent_review_draw": consistent_review_draw}
+    options = {"merged_sessions": merged_sessions, "consistent_review_draw": consistent_review_draw,
+               "held_ad_link": held_ad_link}
     model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options)
     latest: Evaluation | None = None
     while True:
@@ -1466,12 +1499,14 @@ def numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str,
 
 
 def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str,
-              merged_sessions: bool = False, consistent_review_draw: bool = False) -> dict[str, Any]:
+              merged_sessions: bool = False, consistent_review_draw: bool = False,
+              held_ad_link: bool = False) -> dict[str, Any]:
     """§8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the
     tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated
     use's at its date."""
 
-    model = _Model(inputs, draws, seed, merged_sessions=merged_sessions, consistent_review_draw=consistent_review_draw)
+    model = _Model(inputs, draws, seed, merged_sessions=merged_sessions, consistent_review_draw=consistent_review_draw,
+                   held_ad_link=held_ad_link)
     ledger = _Ledger.zeros(model.k)
     state = model.initial()
     recorder: dict[str, Any] = {"days": int(window_days)}
@@ -1486,13 +1521,14 @@ def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str,
 
 
 def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str,
-         merged_sessions: bool = False, consistent_review_draw: bool = False) -> dict[float, float]:
+         merged_sessions: bool = False, consistent_review_draw: bool = False,
+         held_ad_link: bool = False) -> dict[float, float]:
     """``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from
     the start under the tail, then the tail; for the price's daily seed and the frontier."""
 
     out: dict[float, float] = {}
     model = _Model(replace(inputs, session_minutes=0.0), draws, seed, merged_sessions=merged_sessions,
-                   consistent_review_draw=consistent_review_draw)
+                   consistent_review_draw=consistent_review_draw, held_ad_link=held_ad_link)
     for length in session_lengths:
         ledger = _Ledger.zeros(model.k)
         state = model.initial()

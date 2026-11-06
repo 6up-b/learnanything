@@ -197,9 +197,11 @@ CASES = {
     # the link's log-space tail (F underflows below η of about -700) on every topic
     "the_link_in_log_space": dict(n=8, eta_shift=-760.0),
 }
-OPTIONS = {"every_switch_on": dict(merged_sessions=True, consistent_review_draw=True),
-           "per_block_loop_ad_draw": dict(merged_sessions=False, consistent_review_draw=False),
-           "merged_ad_draw": dict(merged_sessions=True, consistent_review_draw=False)}
+#: The batch's rollout options, each with the held link on (``held_ad_link``, its kill switch; Codex review F1): the
+#: landing code put back ignores it, so each test compares the held link with the landing's quadratures.
+OPTIONS = {"every_switch_on": dict(merged_sessions=True, consistent_review_draw=True, held_ad_link=True),
+           "per_block_loop_ad_draw": dict(merged_sessions=False, consistent_review_draw=False, held_ad_link=True),
+           "merged_ad_draw": dict(merged_sessions=True, consistent_review_draw=False, held_ad_link=True)}
 
 
 def _rows(evaluation: V.Evaluation) -> list[tuple]:
@@ -266,7 +268,7 @@ def test_the_held_values_follow_the_state_bit_for_bit():
     """The model's held ``logit F`` is recomputed wherever the state's bits changed, in place or by a new array,
     on any state (a copy, another candidate's), and a cell read by a graded attempt is the full call's."""
 
-    model = V._Model(_inputs(12), 32, "held", consistent_review_draw=True)
+    model = V._Model(_inputs(12), 32, "held", consistent_review_draw=True, held_ad_link=True)
     state = model.initial()
     first = model.performance(state, 1.0)
     assert first.tobytes() == _old_performance(model, state, 1.0).tobytes()
@@ -312,3 +314,115 @@ def test_the_linear_algebra_shaped_evaluation_is_faster(monkeypatch):
         landing = timed()
     print(f"ROSPEED_AD_LINK linear_algebra_shaped 64 draws: landing {landing * 1000:.0f} ms, now {fast * 1000:.0f} ms")
     assert fast < landing * 1.05 or math.isclose(fast, landing, rel_tol=0.1)
+
+
+# -- Codex review F1: serving refines until a deadline, so the held link has its switch --------------------------
+
+
+class _Charged:
+    """A deterministic clock charged one unit per sigmoid element, wherever one is evaluated (the rollouts' link
+    quadratures, the combiner, the landing code's copies), so a deadline admits exactly the work it admits."""
+
+    def __init__(self) -> None:
+        self.spent = 0
+
+    def __call__(self) -> float:
+        return float(self.spent)
+
+    def install(self, patch) -> None:
+        import sys
+
+        real = M.sigmoid
+
+        def charged(x):
+            self.spent += int(np.size(x))
+            return real(x)
+
+        for module in (V, M, sys.modules[__name__]):
+            patch.setattr(module, "sigmoid", charged)
+
+
+#: Codex's case: the arxiv_v2-shaped decision (22 topics), seed "speed", merged sessions and the consistent draw.
+_DEADLINE_CASE = dict(n=22)
+_DEADLINE_OPTIONS = dict(merged_sessions=True, consistent_review_draw=True)
+
+
+def _deadline_bound(monkeypatch, *, landing: bool, held: bool, deadline: float | None, max_draws: int = 64):
+    with monkeypatch.context() as patch:
+        clock = _Charged()
+        clock.install(patch)
+        if landing:
+            _landing_code(patch)
+        n = _DEADLINE_CASE["n"]
+        evaluation = V.evaluate(_inputs(n), _actions(n), draws=8, seed="speed", max_draws=max_draws,
+                                keep_going=lambda: True, deadline=deadline, clock=clock,
+                                held_ad_link=held, **_DEADLINE_OPTIONS)
+        return evaluation, clock.spent
+
+
+def _choice(evaluation: V.Evaluation) -> str:
+    return V.numeric_choice(evaluation, [row.ref for row in evaluation.valued])[0]
+
+
+def test_the_switch_off_is_the_landing_code_under_a_deadline(monkeypatch):
+    """With ``held_ad_link`` off, a deadline-bound evaluation does the landing code's work (every sigmoid element)
+    and so completes the same draws, with the same ``Q`` per draw and the same choice; on, it completes more draws
+    by the same deadline (which is why it is a serving change with its switch, in the generator payload)."""
+
+    first_batch, cost = _deadline_bound(monkeypatch, landing=True, held=False, deadline=None, max_draws=8)
+    assert first_batch.draws == 8 and cost > 0
+    deadline = 2.5 * cost  # the landing code's first batch fits; its 16-draw refinement does not
+    landing, landing_cost = _deadline_bound(monkeypatch, landing=True, held=False, deadline=deadline)
+    off, off_cost = _deadline_bound(monkeypatch, landing=False, held=False, deadline=deadline)
+    on, _on_cost = _deadline_bound(monkeypatch, landing=False, held=True, deadline=deadline)
+    assert off_cost == landing_cost  # the same work, element for element
+    assert (off.draws, off.complete) == (landing.draws, landing.complete) == (8, True)
+    assert _rows(off) == _rows(landing)
+    assert _choice(off) == _choice(landing)
+    # on: the same values per draw, but a deadline admits more of them
+    assert on.draws > off.draws
+    print("ROSPEED_F1", {"landing": (landing.draws, _choice(landing)), "off": (off.draws, _choice(off)),
+                         "on": (on.draws, _choice(on))})
+
+
+def test_the_switch_off_costs_the_landing_codes_work_on_every_shape(monkeypatch):
+    """Off, every case and option evaluates exactly the landing code's sigmoid elements (so its time per draw) and
+    gives its values bit for bit."""
+
+    for case in ("arxiv_v2_shaped", "linear_algebra_shaped", "a_dated_use_inside_the_horizon", "the_link_in_log_space"):
+        for option in OPTIONS.values():
+            off_options = {**option, "held_ad_link": False}
+            spent = []
+            rows = []
+            for landing in (False, True):
+                with monkeypatch.context() as patch:
+                    clock = _Charged()
+                    clock.install(patch)
+                    if landing:
+                        _landing_code(patch)
+                    rows.append(_rows(_evaluate(CASES[case], off_options, 8)))
+                    spent.append(clock.spent)
+            assert spent[0] == spent[1], (case, option)
+            assert rows[0] == rows[1], (case, option)
+
+
+def test_the_switch_reaches_every_rollout_from_the_config(tmp_path):
+    """``[router_objective] held_ad_link``: on at the batch's tag by default, off when switched off or below the
+    tag; every rollout of a decision takes it from one place (``_rollout_options``)."""
+
+    from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.router_objective_switches import FOLLOWUP_GENERATOR_SWITCHES, FOLLOWUP_SWITCHES
+    from learnloop.vault.loader import load_vault
+
+    from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
+
+    assert "held_ad_link" in FOLLOWUP_GENERATOR_SWITCHES and "held_ad_link" in FOLLOWUP_SWITCHES
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
+    assert OC._rollout_options(load_vault(paths.root).config)["held_ad_link"] is True
+    set_algorithm_version(paths, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+    assert OC._rollout_options(load_vault(paths.root).config)["held_ad_link"] is False
+    set_algorithm_version(paths, ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
+    append_config_toml(paths.root, "[router_objective]\nheld_ad_link = false\n")
+    assert OC._rollout_options(load_vault(paths.root).config)["held_ad_link"] is False

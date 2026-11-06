@@ -165,6 +165,19 @@ def _consistent_draw(config: Any) -> bool:
     return followup_on(config, "consistent_review_draw")
 
 
+def _held_link(config: Any) -> bool:
+    """Router speed, item 1 (Codex review F1): R9's link values held per role in the rollouts
+    (``value.Inputs.ad_link``'s ``held_ad_link``) only at the follow-up batch's tag with ``[router_objective]
+    held_ad_link``; off, the batch's landing code (the same values per draw, at the landing's time per draw, so a
+    deadline-bound evaluation completes the draws it completed then)."""
+
+    if config is None:
+        return False
+    from learnloop.router_objective_switches import followup_on
+
+    return followup_on(config, "held_ad_link")
+
+
 def _serving_switches(config: Any) -> dict[str, Any]:
     """The trace's ``versions.serving_switches`` (landing ruling R8), or nothing below the batch's tag."""
 
@@ -178,7 +191,8 @@ def _rollout_options(config: Any) -> dict[str, bool]:
     """The rollouts' serving options, for every rollout of one decision (its evaluation and refinement, the
     correction, the carried valuation, the baselines and the day's gain curve) or for none: one place."""
 
-    return {"merged_sessions": _merged(config), "consistent_review_draw": _consistent_draw(config)}
+    return {"merged_sessions": _merged(config), "consistent_review_draw": _consistent_draw(config),
+            "held_ad_link": _held_link(config)}
 
 
 def _frontier(inputs: V.Inputs, *, draws: int, seed: str, **rollout: bool

@@ -619,7 +619,9 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   `consistent_review_draw`, `monotone_combiner`, `ad_predictive_link`, `scope_extension`) are part of RO6's generator
   version (`versions.serving_switches`), so flipping one is a change point. Landing ruling R12: every switch of the
   batch is part of the prefetch boundary key, and each numeric answer's trace records the switches it was computed
-  under.
+  under. Router speed (docs/reviews/router-speed-nov6.md, its Codex review F1) adds `held_ad_link` to those
+  switches at the same tag: R9's link evaluated once per array and its values held, the same values per draw, but
+  more draws within the serving deadline, so it changes the logger's values; off, the batch's landing code.
 
 ## 9. RO5: return and calibration
 
