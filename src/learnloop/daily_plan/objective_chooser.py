@@ -155,6 +155,15 @@ def _consistent_draw(config: Any) -> bool:
     return followup_on(config, "consistent_review_draw")
 
 
+def _serving_switches(config: Any) -> dict[str, Any]:
+    """The trace's ``versions.serving_switches`` (landing ruling R8), or nothing below the batch's tag."""
+
+    from learnloop.router_objective_switches import followup_generator_switches
+
+    switches = followup_generator_switches(config) if config is not None else None
+    return {"serving_switches": switches} if switches is not None else {}
+
+
 def _rollout_options(config: Any) -> dict[str, bool]:
     """The rollouts' serving options, for every rollout of one decision (its evaluation and refinement, the
     correction, the carried valuation, the baselines and the day's gain curve) or for none: one place."""
@@ -345,16 +354,18 @@ class NumericPolicy:
 def generator_now(config: Any, objective: str | None = None) -> str:
     """RO6: the generator version a decision made now is logged under (``tail_data.generator`` over its trace).
     ``objective``: the hash of the objective the decision values (``tail_data.objective_hash`` over its goals and
-    horizon; landing ruling R2)."""
+    horizon; landing ruling R2). At the follow-up batch's tag its serving switches are part of it (its landing
+    ruling R8), as the trace records them (``versions.serving_switches``)."""
 
     from learnloop.router_objective import tail_data as TD
+    from learnloop.router_objective_switches import followup_generator_switches
 
     seeds = W.Seeds.from_config(config)
     return TD.generator_key(TD.generator_payload(
         algorithm_version=str(config.algorithms.algorithm_version), objective=V.OBJECTIVE_VERSION,
         tail=V.TAIL_VERSION, terminal=V.TERMINAL_VERSION, horizon_days=float(config.router_objective.horizon_days),
         llm_schema=rq.LLM_POLICY_SCHEMA, seeds=_seed_record(seeds), epsilon=float(config.router.epsilon_min),
-        objective_definition=objective))
+        objective_definition=objective, switches=followup_generator_switches(config)))
 
 
 def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],
@@ -988,7 +999,10 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                                for goal_id, goal in ((numeric.sources if numeric is not None else {}).get("goals") or {}).items()},
                      # The follow-up batch's landing ruling R1: the rollouts' review draw, named only when it serves
                      # (below the tag, or off, the trace keeps mvp-0.49's bytes).
-                     **({"review_draw": V.REVIEW_DRAW_VERSION} if _consistent_draw(config) else {})},
+                     **({"review_draw": V.REVIEW_DRAW_VERSION} if _consistent_draw(config) else {}),
+                     # Landing ruling R8: the batch's serving switches as they served, part of the generator
+                     # payload (``tail_data.generator``); only at the batch's tag.
+                     **_serving_switches(config)},
     }
 
 

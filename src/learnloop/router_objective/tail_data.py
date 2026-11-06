@@ -92,16 +92,23 @@ def _round(value: Any) -> Any:
 
 def generator_payload(*, algorithm_version: str, objective: Any, tail: Any, terminal: Any, horizon_days: Any,
                       llm_schema: Any, seeds: Mapping[str, Any] | None, epsilon: Any,
-                      features: str | None = None, objective_definition: str | None = None) -> dict[str, Any]:
+                      features: str | None = None, objective_definition: str | None = None,
+                      switches: Mapping[str, bool] | None = None) -> dict[str, Any]:
     """``features``: the features version the logger served with (None: this build's, :data:`LT.FEATURES_VERSION`).
     ``objective_definition``: the hash of the objective the decision valued (:func:`objective_hash`; RO6's landing
-    ruling R2), so a change of objective is a change point."""
+    ruling R2), so a change of objective is a change point. ``switches`` (the follow-up batch's landing ruling R8;
+    ``router_objective_switches.followup_generator_switches``): the batch's serving switches that change the
+    logger's values, each as it served, so flipping one is a change point; None (below the batch's tag) leaves the
+    payload as RO6's."""
 
-    return _round({"algorithm": str(algorithm_version), "objective": objective, "tail": tail, "terminal": terminal,
-                   "horizon_days": float(horizon_days) if horizon_days is not None else None,
-                   "llm_schema": llm_schema, "seeds": dict(seeds or {}),
-                   "epsilon": float(epsilon) if epsilon is not None else None,
-                   "features": features or LT.FEATURES_VERSION, "objective_definition": objective_definition})
+    payload = {"algorithm": str(algorithm_version), "objective": objective, "tail": tail, "terminal": terminal,
+               "horizon_days": float(horizon_days) if horizon_days is not None else None,
+               "llm_schema": llm_schema, "seeds": dict(seeds or {}),
+               "epsilon": float(epsilon) if epsilon is not None else None,
+               "features": features or LT.FEATURES_VERSION, "objective_definition": objective_definition}
+    if switches is not None:
+        payload["switches"] = {str(key): bool(value) for key, value in sorted(switches.items())}
+    return _round(payload)
 
 
 OBJECTIVE_DEFINITION_VERSION = "ro6_objective_definition_v2"
@@ -212,7 +219,8 @@ def generator(trace: Mapping[str, Any], algorithm_version: str, *, scope_extensi
         terminal=versions.get("terminal"), horizon_days=versions.get("horizon_days"),
         llm_schema=versions.get("llm_schema"), seeds=mixing.get("seeds"), epsilon=mixing.get("epsilon"),
         features=served_features_version(trace),
-        objective_definition=trace_objective_hash(trace, scope_extension=scope_extension)))
+        objective_definition=trace_objective_hash(trace, scope_extension=scope_extension),
+        switches=versions.get("serving_switches")))
 
 
 # -- one logged decision ----------------------------------------------------------------------------------

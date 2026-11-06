@@ -275,6 +275,22 @@ def monotone_combiner_on(config: Any) -> bool:
     return followups_tag(config) and objective_on(config)
 
 
+#: The follow-up batch's landing ruling R8: its switches that change a logged decision's value or mixture, so each
+#: is part of RO6's generator payload and flipping one is a change point, never a change of ``Q`` under the same
+#: generator version. ``carried_in_prefetch`` is not here: it changes which transitions are valued, not the logger.
+FOLLOWUP_GENERATOR_SWITCHES: tuple[str, ...] = (
+    "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "scope_extension")
+
+
+def followup_generator_switches(config: Any) -> dict[str, bool] | None:
+    """R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None
+    below it, so a predecessor's generator payload (and its trace) keeps its bytes."""
+
+    if not followups_tag(config):
+        return None
+    return {key: followup_on(config, key) for key in FOLLOWUP_GENERATOR_SWITCHES}
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -297,6 +313,8 @@ __all__ = [
     "calibration_tag",
     "check_mode",
     "fitted_models_on",
+    "FOLLOWUP_GENERATOR_SWITCHES",
+    "followup_generator_switches",
     "followup_on",
     "monotone_combiner_on",
     "followups_tag",
