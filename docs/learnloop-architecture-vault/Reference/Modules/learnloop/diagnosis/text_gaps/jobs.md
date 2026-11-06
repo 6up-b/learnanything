@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/text_gaps/jobs.py"
 source_paths:
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
-source_commit: "47f2ffc037e55db12ce419711e1d4920cae4fad7"
-source_commit_timestamp: "2026-11-02T04:33:30-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.text_gaps"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py) |
-| Source lines | 810 |
+| Source lines | 820 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `47f2ffc037e55db12ce419711e1d4920cae4fad7` |
-| Commit timestamp | `2026-11-02T04:33:30-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
+| Commit timestamp | `2026-11-06T03:32:49-05:00` |
 
 ## Public API
 
@@ -64,25 +64,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_dict(self) -> dict[str, Any]` (line 91; public)
 - `pipeline_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 96)
 - `enqueue(repository: Repository, *, source_kind: str, source_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 100)
-- `enqueue_tutor_question(vault: LoadedVault, repository: Repository, event_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 106) — After the tutor answered: queue the question (switch on only).
-- `enqueue_after_diagnosis(vault: LoadedVault, repository: Repository, *, attempt_id: str, diagnosis: Mapping[str, Any], clock: Clock | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 115) — After a live diagnosis is applied: queue it.
-- `enqueue_stuck_answer(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None, stuck_source: StuckTextSource | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 139) — When an attempt is recorded: queue it if it is a non-empty stuck answer.
-- `enqueue_reader_formative(vault: LoadedVault, repository: Repository, *, question_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 158) — RW1b: a missed next-step, why-step or assumption answer (``reader_formative``).
-- `enqueue_figure_prediction(vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 177) — Reader RW5a: a missed figure prediction (its answer and "what changed?" text) as a ``reader_formative`` text, on RW1b's rule: only with ``learner_text_gaps.enabled`` and ``reader_formative.enabled`` on, only a missed one with an answer; a matched prediction queues nothing.
-- `enqueue_figure_explanation(vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 191) — RW5a: a missed figure prediction's "what changed?", once written.
-- `enqueue_hint_feedback(vault: LoadedVault, repository: Repository, *, assist_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 222) — Adaptive hints H2b: text written back to a hint on the practice screen (``hint_feedback``): a "doesn't connect" reply's text or an answer to a discriminating question, queued when its ``help_assists`` row is written, so a gap named mid-attempt can join the next hint's rivals (sp…
-- `enqueue_workbench_text(vault: LoadedVault, repository: Repository, *, source_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 242) — Reader workbench RW2b (spec §5.2 "in-session updates", §5.6): text the learner wrote while working in steps (``workbench_text``), queued when it is written or sent: a reply or a discriminating answer when its row is written, a stuck step's newest version when Help, Check, Leave…
-- `workbench_text_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 260)
-- `hint_feedback_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 266) — Whether ``hint_feedback`` texts are queued: the pipeline and adaptive hints both on.
-- `reconcile_hint_feedback(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 272) — Queue every ``hint_feedback`` text whose job was never written (H2b review F4): the reply or discriminating answer committed, and the process ended, or the enqueue failed, before its job did.
-- `enqueue_learner_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 291) — Curriculum C5: queue every linked note's current snapshot that has no reading yet (and queue again one whose job was skipped while it was not linked or switched off, now that it is linked again).
-- `retract_unlinked_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 309) — Follow-ups Nov 2 (C5 ruling R2): every gap read from a linked note's snapshot (``source_kind = 'learner_note'``) whose snapshot is not linked now (C2's one rule, :func:`learner_note_ids`, C2b's link model over the vault's own notes: the learner hid the link, the proposal was sup…
-- `sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, stuck_source: StuckTextSource | None=None, include_history: bool=False, dry_run: bool=False, kinds: tuple[str, ...]=BACKLOG_KINDS + NOTE_BACKLOG_KINDS) -> dict[str, int]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 347) — Queue unread learner texts (``learnloop gaps run --backlog``).
-- `calls_today(repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 482) — The pipeline's logical model calls since today's UTC midnight (receipts).
-- `process_next_gap_job(root: Path, repository: Repository, *, owner: str, clients: PipelineClients | None=None, budget_factory: Callable[[LoadedVault], TextBudget] | None=None, clock: Clock | None=None, source: tuple[str, str] | None=None, stuck_source: StuckTextSource | None=None, cancelled: Callable[[], bool] | None=None) -> GapJobOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 490) — Lease and run the next runnable gap job (or ``source``'s); None when none is.
-- `run_pending(root: Path, repository: Repository, *, owner: str, max_jobs: int=50, **kwargs: Any) -> list[GapJobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 735)
-- `pending_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 751)
-- `plan(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 756) — A no-call plan of the queue: what would be read and the call ceiling.
+- `enqueue_lesson_gap(vault: LoadedVault, repository: Repository, source_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 106) — Teacher TE2 (spec_teacher_v1 §11.7): a teacher's ``propose_gap`` (its ``lesson_turns`` entry) queued with ``source_kind = 'lesson'`` (switch on only); idempotent per entry.
+- `enqueue_tutor_question(vault: LoadedVault, repository: Repository, event_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 116) — After the tutor answered: queue the question (switch on only).
+- `enqueue_after_diagnosis(vault: LoadedVault, repository: Repository, *, attempt_id: str, diagnosis: Mapping[str, Any], clock: Clock | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 125) — After a live diagnosis is applied: queue it.
+- `enqueue_stuck_answer(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None, stuck_source: StuckTextSource | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 149) — When an attempt is recorded: queue it if it is a non-empty stuck answer.
+- `enqueue_reader_formative(vault: LoadedVault, repository: Repository, *, question_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 168) — RW1b: a missed next-step, why-step or assumption answer (``reader_formative``).
+- `enqueue_figure_prediction(vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 187) — Reader RW5a: a missed figure prediction (its answer and "what changed?" text) as a ``reader_formative`` text, on RW1b's rule: only with ``learner_text_gaps.enabled`` and ``reader_formative.enabled`` on, only a missed one with an answer; a matched prediction queues nothing.
+- `enqueue_figure_explanation(vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 201) — RW5a: a missed figure prediction's "what changed?", once written.
+- `enqueue_hint_feedback(vault: LoadedVault, repository: Repository, *, assist_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 232) — Adaptive hints H2b: text written back to a hint on the practice screen (``hint_feedback``): a "doesn't connect" reply's text or an answer to a discriminating question, queued when its ``help_assists`` row is written, so a gap named mid-attempt can join the next hint's rivals (sp…
+- `enqueue_workbench_text(vault: LoadedVault, repository: Repository, *, source_id: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 252) — Reader workbench RW2b (spec §5.2 "in-session updates", §5.6): text the learner wrote while working in steps (``workbench_text``), queued when it is written or sent: a reply or a discriminating answer when its row is written, a stuck step's newest version when Help, Check, Leave…
+- `workbench_text_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 270)
+- `hint_feedback_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 276) — Whether ``hint_feedback`` texts are queued: the pipeline and adaptive hints both on.
+- `reconcile_hint_feedback(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 282) — Queue every ``hint_feedback`` text whose job was never written (H2b review F4): the reply or discriminating answer committed, and the process ended, or the enqueue failed, before its job did.
+- `enqueue_learner_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 301) — Curriculum C5: queue every linked note's current snapshot that has no reading yet (and queue again one whose job was skipped while it was not linked or switched off, now that it is linked again).
+- `retract_unlinked_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 319) — Follow-ups Nov 2 (C5 ruling R2): every gap read from a linked note's snapshot (``source_kind = 'learner_note'``) whose snapshot is not linked now (C2's one rule, :func:`learner_note_ids`, C2b's link model over the vault's own notes: the learner hid the link, the proposal was sup…
+- `sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, stuck_source: StuckTextSource | None=None, include_history: bool=False, dry_run: bool=False, kinds: tuple[str, ...]=BACKLOG_KINDS + NOTE_BACKLOG_KINDS) -> dict[str, int]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 357) — Queue unread learner texts (``learnloop gaps run --backlog``).
+- `calls_today(repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 492) — The pipeline's logical model calls since today's UTC midnight (receipts).
+- `process_next_gap_job(root: Path, repository: Repository, *, owner: str, clients: PipelineClients | None=None, budget_factory: Callable[[LoadedVault], TextBudget] | None=None, clock: Clock | None=None, source: tuple[str, str] | None=None, stuck_source: StuckTextSource | None=None, cancelled: Callable[[], bool] | None=None) -> GapJobOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 500) — Lease and run the next runnable gap job (or ``source``'s); None when none is.
+- `run_pending(root: Path, repository: Repository, *, owner: str, max_jobs: int=50, **kwargs: Any) -> list[GapJobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 745)
+- `pending_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 761)
+- `plan(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 766) — A no-call plan of the queue: what would be read and the call ceiling.
 
 ### Module constants
 
@@ -90,10 +91,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `LEASE_SECONDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 73)
 - `MAX_ATTEMPTS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 74)
 - `BACKOFF_SECONDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 75)
-- `BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 283)
-- `NOTE_BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 288)
-- `UNLINKED` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 306)
-- `_CONTEXT_JUDGE` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 686)
+- `BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 293)
+- `NOTE_BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 298)
+- `UNLINKED` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 316)
+- `_CONTEXT_JUDGE` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 696)
 
 ### Explicit exports
 
@@ -124,13 +125,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_requeue(repository: Repository, job_id: str, *, clock: Clock | None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 429)
-- `_reading_checkpointed(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 434) — Whether a job already holds a reading (its markers are checkpointed with it, fix round 4): a retry reuses that reading, so a later explanation is its own text.
-- `_unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[str, str], Mapping[str, Any]], gap_rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 442) — The ``<prediction id>:explained`` sources the backlog owes (fix round 2, F5): a "what changed?" saved after its prediction's reading started or finished, while nothing queued it (gap reading was off then).
-- `_later(seconds: float, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 473)
-- `_next_day(clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 477)
-- `_retry_or_fail(repository: Repository, job: Mapping[str, Any], text: Any, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, error: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 654) — Back off and retry; after the last attempt log the text as ``failed``, naming whatever its earlier attempts already wrote (F3).
-- `_skip(repository: Repository, job: Mapping[str, Any], text: LearnerText | None, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, reason: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 691) — The job reads nothing more: the pipeline is switched off, or the text is gone.
+- `_requeue(repository: Repository, job_id: str, *, clock: Clock | None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 439)
+- `_reading_checkpointed(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 444) — Whether a job already holds a reading (its markers are checkpointed with it, fix round 4): a retry reuses that reading, so a later explanation is its own text.
+- `_unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[str, str], Mapping[str, Any]], gap_rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 452) — The ``<prediction id>:explained`` sources the backlog owes (fix round 2, F5): a "what changed?" saved after its prediction's reading started or finished, while nothing queued it (gap reading was off then).
+- `_later(seconds: float, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 483)
+- `_next_day(clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 487)
+- `_retry_or_fail(repository: Repository, job: Mapping[str, Any], text: Any, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, error: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 664) — Back off and retry; after the last attempt log the text as ``failed``, naming whatever its earlier attempts already wrote (F3).
+- `_skip(repository: Repository, job: Mapping[str, Any], text: LearnerText | None, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, reason: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 701) — The job reads nothing more: the pipeline is switched off, or the text is gone.
 
 ## Who imports or calls it
 
@@ -143,6 +144,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `enqueue_figure_explanation`, `enqueue_figure_prediction`; statically calls `enqueue_figure_explanation`, `enqueue_figure_prediction`
 - [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] — imports `enqueue_reader_formative`; statically calls `enqueue_reader_formative`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `pending_jobs`, `pipeline_enabled`; statically calls `pending_jobs`, `pipeline_enabled`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `enqueue_lesson_gap`, `pipeline_enabled`; statically calls `enqueue_lesson_gap`, `pipeline_enabled`
 - [[Reference/Modules/learnloop/workbench/ladder|learnloop.workbench.ladder]] — imports `enqueue_workbench_text`; statically calls `enqueue_workbench_text`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`; statically calls `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `enqueue_hint_feedback`; statically calls `enqueue_hint_feedback`
@@ -182,7 +184,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -278,6 +280,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_plan_says_when_background_work_can_still_name_a_target`
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
   - `test_a_stopped_worker_leases_no_gap_job`
+- [tests/test_teacher_te2_lessons.py](../../../../../../../tests/test_teacher_te2_lessons.py) — direct import
+  - `test_a_gap_from_the_learners_words_goes_to_the_text_gap_pipeline_with_source_lesson`
 - [tests/test_workbench_text_gaps.py](../../../../../../../tests/test_workbench_text_gaps.py) — direct import
   - `test_reading_it_writes_only_gap_rows`
   - `test_the_kind_is_readable_and_non_serving_and_the_switches_hold`

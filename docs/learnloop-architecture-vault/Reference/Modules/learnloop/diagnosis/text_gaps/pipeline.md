@@ -219,6 +219,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shutting_down_the_gaps_slot_inside_a_request_sends_no_further_request`
 - [tests/test_t6_followup_composition.py](../../../../../../../tests/test_t6_followup_composition.py) — direct import
   - `test_the_seed_unit_is_admitted_at_the_policy_budget`
+- [tests/test_teacher_te2_lessons.py](../../../../../../../tests/test_teacher_te2_lessons.py) — direct import
+  - `test_a_gap_from_the_learners_words_goes_to_the_text_gap_pipeline_with_source_lesson`
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_predecessor_second_opinion_is_never_reused_as_the_tier1_verdict`
   - `test_a_tied_gap_pair_goes_to_the_llm`

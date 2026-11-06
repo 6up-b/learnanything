@@ -3,13 +3,13 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 247
+schema_head: 248
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/figures/prefetch.py`
 - `src/learnloop/teacher/report.py`
+- `src/learnloop/teacher/service.py`
 
 ### Direct SQL writers
 
@@ -132,11 +133,12 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_successor.py`
 - `tests/test_teacher_te1b_review_fixes.py`
 - `tests/test_teacher_te1b_suggestions.py`
+- `tests/test_teacher_te2_lessons.py`
+- `tests/test_teacher_te2_migration.py`
+- `tests/test_teacher_te2_probes.py`
+- `tests/test_teacher_te2_sidecar.py`
+- `tests/test_teacher_te2_successor.py`
 - `tests/test_teacher_te2log_activity.py`
-- `tests/test_teacher_te2log_episodes.py`
-- `tests/test_teacher_te2log_migration.py`
-- `tests/test_teacher_te2log_receipt.py`
-- `tests/test_teacher_te2log_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

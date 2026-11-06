@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/source_retrieval/deliverables.py"
 source_paths:
   - "src/learnloop/source_retrieval/deliverables.py"
-source_commit: "aa15858705dc3f77e8fbf91a7e625e4e8c79d95e"
-source_commit_timestamp: "2026-11-01T23:58:10-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.source_retrieval"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py) |
-| Source lines | 1542 |
+| Source lines | 1626 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `aa15858705dc3f77e8fbf91a7e625e4e8c79d95e` |
-| Commit timestamp | `2026-11-01T23:58:10-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
+| Commit timestamp | `2026-11-06T03:32:49-05:00` |
 
 ## Public API
 
@@ -110,6 +110,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `scope_view(vault: Any, repository: Repository, goal_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1435) — What the learner sees of the scope (§5.3): one line per topic with the phrase it answers, the phrases not in the library yet with their state, and the receipt on demand.
 - `deliverable_goals(vault: Any, repository: Repository) -> list[Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1479) — Active learner goals with a resolution (the deliverables), highest ``(priority, id)`` first.
 - `learning_objects_of(entries: Iterable[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1491)
+- `typed_goal_key(text: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1504)
+- `resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client: Any | None=None, clock: Clock | None=None) -> ScopeResult` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1508) — C0b's resolver on a lesson's typed goal alone (§11.5): one call returns the needed LOs, each with the phrase it answers, and the phrases it could not match with a proposed title and statement; ids are validated.
+- `create_lesson_topic(vault: Any, repository: Repository, *, lesson_id: str, phrase: str, title: str, statement: str, subject_id: str, anchors: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1555) — A typed lesson goal's phrase the learner said *yes* to: ``create_goal_lo`` with ``mechanism = teacher_goal_v1`` (``origin = codex_proposal``, the anchors in ``source_refs``, none: unsourced), the lesson's id as its goal id; undoable; the daily cap shared with text-gap creations,…
+- `typed_goal_subject(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1573) — The subject a typed goal's new topic joins (:func:`_subject_for`'s rule).
 
 ### Module constants
 
@@ -142,6 +146,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_PAST_PAPERS_GROUPED` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 786)
 - `_ALSO_ABOUT` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 794)
 - `SUPERSEDED_MESSAGE` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1125)
+- `TYPED_GOAL_PREFIX` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1501)
 
 ### Explicit exports
 
@@ -226,6 +231,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `ChatRoute`, `DeliverableError`, `_is_plan_type`, `daily_envelope`, `deliverable_goals`, `depth_of`, `goal_of`, `kind_of`, `latest_resolution`, `needed_learning_objects`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `ChatRoute`, `daily_envelope`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `enabled`, `latest_resolution`
+- [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `module`; statically calls `create_lesson_topic`, `resolve_typed_goal`, `typed_goal_key`, `typed_goal_subject`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `add_input`, `admission_problem`, `also_about`, `create_deliverable`, `decide_unmatched`, `deliverable_goals`, `depth_of`, `enabled`, `recover_publications`, `resolve`, `scope_view`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `module`; statically calls `enabled`
 
@@ -270,7 +276,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]], [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]], [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -360,6 +366,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context`
 - [tests/test_notes_vault_search.py](../../../../../../tests/test_notes_vault_search.py) — direct import
   - `test_c2b_r3_f4_several_named_subjects_send_the_grouped_form_for_those`
+- [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
+  - `test_lesson_goal_and_open_lessons_through_the_handlers`
 
 ## Modification guidance
 

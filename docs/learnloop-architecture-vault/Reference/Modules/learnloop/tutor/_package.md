@@ -55,7 +55,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/tutor/__init__|learnloop.tutor]] | [[Reference/Modules/learnloop/tutor/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] | [[Reference/Modules/learnloop/tutor/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 9 | 54 |
+| [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] | [[Reference/Modules/learnloop/tutor/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 9 | 55 |
 | [[Reference/Modules/learnloop/tutor/context_delivery|learnloop.tutor.context_delivery]] | [[Reference/Modules/learnloop/tutor/context_delivery#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] | [[Reference/Modules/learnloop/tutor/durable_promotion#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] | [[Reference/Modules/learnloop/tutor/promotions#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |

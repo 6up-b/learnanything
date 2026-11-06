@@ -3,13 +3,13 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 247
+schema_head: 248
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`, `248_teacher_te2_sources.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `src/learnloop/hints/discriminating.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/reader/reader_observations.py`
+- `src/learnloop/teacher/service.py`
 
 ### Direct SQL writers
 
@@ -174,11 +175,14 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE "learner_text_gaps" (
   id TEXT PRIMARY KEY,
   source_kind TEXT NOT NULL CHECK (source_kind IN (
-    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note'
+    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note',
+    'lesson', 'external_chat'
   )),
   -- question_events.id | practice_attempts.id | attempt_diagnoses.id |
   -- reader_authored_questions.id (reader_formative) | RW2b's row (workbench_text) |
-  -- help_assists.id (hint_feedback) | learner_notes.id (learner_note: a linked note's snapshot)
+  -- help_assists.id (hint_feedback) | learner_notes.id (learner_note: a linked note's snapshot) |
+  -- lesson_turns.id (lesson: the teacher's propose_gap entry, naming the learner's turn) |
+  -- C1b's row (external_chat)
   source_id TEXT NOT NULL,
   attempt_id TEXT,
   practice_item_id TEXT,

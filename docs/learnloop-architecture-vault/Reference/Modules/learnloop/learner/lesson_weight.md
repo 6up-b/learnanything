@@ -249,6 +249,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pool_mixes_in_the_teachers_forecast_and_learns_from_the_outcome`
   - `test_the_tap_map_and_the_hedge_read_are_the_existing_ones`
   - `test_the_tap_recalibration_learns_from_every_tapped_graded_answer`
+- [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
+  - `test_rebuild_equivalence_on_a_lesson_with_a_probe`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
 

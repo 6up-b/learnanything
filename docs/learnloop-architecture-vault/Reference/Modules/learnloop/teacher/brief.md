@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/brief.py"
 source_paths:
   - "src/learnloop/teacher/brief.py"
-source_commit: "b45e4414cdb7963772b12ecd3c8825b73e93266a"
-source_commit_timestamp: "2026-11-03T21:51:14-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py) |
-| Source lines | 866 |
+| Source lines | 883 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `b45e4414cdb7963772b12ecd3c8825b73e93266a` |
-| Commit timestamp | `2026-11-03T21:51:14-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
+| Commit timestamp | `2026-11-06T03:32:49-05:00` |
 
 ## Public API
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `admitted_recap(vault: Any, repository: Any, lesson_id: str, recap: Any, *, current: Any=_UNREAD, notes_check: NotesCheck | None=None, memo: dict[str, bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 604) — ``{"recap": ...}`` when :func:`recap_admissible`, else the recap left out and said so.
 - `c4_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 717)
 - `deliverable_for(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 721) — The nearest active deliverable whose resolution names one of the lesson's LOs, with its sentence, the resolution's phrase per LO and the path's primaries and alternates (C4, §8.2).
-- `build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str], goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None, constraints: Mapping[str, Any], notes_provider: Any=None, notes_check: NotesCheck | None=None) -> tuple[dict[str, Any], SourceBook]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 769) — ``(LessonBriefV1, the delivered passages)``.
+- `build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str], goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None, constraints: Mapping[str, Any], notes_provider: Any=None, notes_check: NotesCheck | None=None, te2: bool=False) -> tuple[dict[str, Any], SourceBook]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 769) — ``(LessonBriefV1, the delivered passages)``.
 
 ### Module constants
 
@@ -143,6 +143,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `SourceBook`
 - [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `STEM_CHARS`, `c4_active`; statically calls `c4_active`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `LessonRefused`, `SourceBook`, `build_brief`, `lo_prediction`, `protection_state`, `resolve_goal`, `revoke_unteachable`; statically calls `build_brief`, `lo_prediction`, `protection_state`, `resolve_goal`, `revoke_unteachable`
+- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `recap_admissible`; statically calls `recap_admissible`
 
 ## Dependencies
 
@@ -163,6 +164,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `CoverageError`, `Library`, `read_protection`; calls `Library`, `read_protection`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `BRIEF_VERSION`, `READ_ACTIONS`
 - [[Reference/Modules/learnloop/teacher/doctrines|learnloop.teacher.doctrines]] — imports `doctrine_identity`; calls `doctrine_identity`
+- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `delayed_check_words`, `module`; calls `delayed_check_words`, `where_you_left_off`
 - [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] — imports `practice_item_serving_block`; calls `practice_item_serving_block`
 
 ### Platform and third-party dependencies
@@ -177,7 +179,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]], [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]], [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]], [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]], [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -287,6 +287,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_234_is_te1s_migration_and_every_table_is_classified`
 - [tests/test_teacher_te1b_migration.py](../../../../../../tests/test_teacher_te1b_migration.py) — direct import
   - `test_236_is_te1bs_migration_and_its_table_is_classified`
+- [tests/test_teacher_te2_migration.py](../../../../../../tests/test_teacher_te2_migration.py) — direct import
+  - `test_248_is_the_head_and_adds_no_table`
 - [tests/test_teacher_te2log_migration.py](../../../../../../tests/test_teacher_te2log_migration.py) — direct import
   - `test_247_is_the_head_and_its_tables_receipts_denied_to_ad`
 

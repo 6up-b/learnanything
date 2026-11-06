@@ -109,6 +109,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `production_admissibility`; statically calls `production_admissibility`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `record_reveal`; statically calls `record_reveal`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `record_reveal`; statically calls `record_reveal`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `production_admissibility`; statically calls `production_admissibility`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `record_reveal_strict`; statically calls `record_reveal_strict`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `record_answer_display_reveal`; statically calls `record_answer_display_reveal`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `record_reveal`, `reveal_episode_id`; statically calls `record_reveal`, `reveal_episode_id`
@@ -143,7 +144,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -175,6 +176,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_worked_answer_shown_in_the_attempts_own_second_still_primes_the_retry`
   - `test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger`
+- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
+  - `test_an_answer_after_teaching_on_its_topic_is_not_independent`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1_a_production_after_the_cold_delay_is_independent_again`
   - `test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it_primed`

@@ -3,13 +3,13 @@ title: "lesson_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_receipts"
   - "table lesson_receipts"
-schema_head: 247
+schema_head: 248
 table_name: "lesson_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -105,6 +105,8 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te1_successor.py`
 - `tests/test_teacher_te1b_suggestions.py`
+- `tests/test_teacher_te2_lessons.py`
+- `tests/test_teacher_te2_probes.py`
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/test_teacher_te2log_receipt.py`
 

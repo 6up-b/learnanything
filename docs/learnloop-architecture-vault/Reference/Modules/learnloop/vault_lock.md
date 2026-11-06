@@ -122,6 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `DEFAULT_TIMEOUT_S`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
@@ -145,7 +146,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] and 35 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] and 36 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

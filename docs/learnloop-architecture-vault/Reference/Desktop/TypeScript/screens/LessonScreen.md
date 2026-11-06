@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
 source_commit: "c2c40773f3e02619cc3a42916453f0cc2edf54f1"
 source_commit_timestamp: "2026-11-05T23:17:29-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/LessonScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.tsx) |
-| Source lines | 466 |
+| Source lines | 636 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `c2c40773f3e02619cc3a42916453f0cc2edf54f1` |
 | Commit timestamp | `2026-11-05T23:17:29-05:00` |
 
@@ -60,53 +60,65 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type LessonEntry = |` — type, line 42
-- `export function LessonScreen(` — function, line 66
-- `export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze(` — const, line 343
-- `export const LESSON_FIGURE_CONTRACT: FiguresContract = Object.freeze(` — const, line 350
+- `export type LessonEntry = |` — type, line 52
+- `export const PROBE_POLL_MS = DIAGNOSIS_POLL_MS` — const, line 62
+- `export function LessonScreen(` — function, line 81
+- `export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze(` — const, line 506
+- `export const LESSON_FIGURE_CONTRACT: FiguresContract = Object.freeze(` — const, line 513
 
 ## Internal implementation anchors
 
-- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 49
-- `const CLOSE_WORDS: Record<string, string> =` — const, line 50
-- `function dueWords(due: string): string` — function, line 59
-- `const day = new Date(`$` — const, line 60
-- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 62
-- `const activity = useRef<LessonActivityTracker | null>(null)` — const, line 90
-- `const run = useCallback(async (input: LessonTurnInput)` — const, line 92
-- `const next = await api.lessonTurn(input)` — const, line 99
-- `const err = getCommandError(error)` — const, line 103
-- `const code = err?.code ?? ""` — const, line 104
-- `const message = err?.message ?? String(error)` — const, line 105
-- `const existing = ((err?.details ??` — const, line 106
-- `const details = (err?.details ??` — const, line 114
-- `const saved = details.lesson_id ?? details.lessonId` — const, line 115
-- `const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId` — const, line 119
-- `let cancelled = false` — let, line 138
-- `const lessonId = view?.lessonId` — const, line 153
-- `const openCheck = view?.openCheck ?? null` — const, line 154
-- `const activityLog = Boolean(view?.activityLog)` — const, line 155
-- `const inForeground = ()` — const, line 158
-- `const tracker = createLessonActivity(` — const, line 159
-- `const onInput = ()` — const, line 164
-- `const onForeground = ()` — const, line 165
-- `const inputs = ["keydown", "pointerdown", "wheel", "scroll"] as const` — const, line 166
-- `const send = useCallback(async ()` — const, line 187
-- `const text = reply.trim()` — const, line 189
-- `const submitCheck = useCallback(async ()` — const, line 194
-- `const submitPrediction = useCallback(async ()` — const, line 200
-- `const value = predictionAnswer.trim()` — const, line 202
-- `const stop = useCallback(async ()` — const, line 207
-- `const startFresh = useCallback(async ()` — const, line 213
-- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 214
-- `const feed = useMemo(()` — const, line 219
-- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 220
-- `function useLessonFigureCtl(figure: FigureViewDto): FiguresCtl` — function, line 353
-- `function LessonFigure(` — function, line 378
-- `const shown = useMemo(()` — const, line 380
-- `const ctl = useLessonFigureCtl(shown)` — const, line 381
-- `function FeedEntry(` — function, line 385
-- `const open = item.checkRef === openCheckRef` — const, line 404
+- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 64
+- `const CLOSE_WORDS: Record<string, string> =` — const, line 65
+- `function dueWords(due: string): string` — function, line 74
+- `const day = new Date(`$` — const, line 75
+- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 77
+- `const activity = useRef<LessonActivityTracker | null>(null)` — const, line 105
+- `const run = useCallback(async (input: LessonTurnInput)` — const, line 114
+- `const next = await api.lessonTurn(input)` — const, line 121
+- `const err = getCommandError(error)` — const, line 125
+- `const code = err?.code ?? ""` — const, line 126
+- `const message = err?.message ?? String(error)` — const, line 127
+- `const existing = ((err?.details ??` — const, line 128
+- `const details = (err?.details ??` — const, line 136
+- `const saved = details.lesson_id ?? details.lessonId` — const, line 137
+- `const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId` — const, line 141
+- `let cancelled = false` — let, line 160
+- `const lessonId = view?.lessonId` — const, line 177
+- `const openCheck = view?.openCheck ?? null` — const, line 178
+- `const activityLog = Boolean(view?.activityLog)` — const, line 179
+- `const inForeground = ()` — const, line 182
+- `const tracker = createLessonActivity(` — const, line 183
+- `const onInput = ()` — const, line 188
+- `const onForeground = ()` — const, line 189
+- `const inputs = ["keydown", "pointerdown", "wheel", "scroll"] as const` — const, line 190
+- `const probe = view?.probe ?? null` — const, line 210
+- `const probeOpen = Boolean(probe && probe.status === "open")` — const, line 211
+- `const timer = window.setTimeout(()` — const, line 219
+- `const findGoal = useCallback(async ()` — const, line 225
+- `const text = goalText.trim()` — const, line 226
+- `const found = await api.lessonGoal(` — const, line 230
+- `const startTyped = useCallback(async ()` — const, line 241
+- `const text = goalText.trim()` — const, line 242
+- `const accepted = Object.entries(addTopics).filter(([, yes])` — const, line 244
+- `const submitProbe = useCallback(async ()` — const, line 249
+- `const teachAnyway = useCallback(async ()` — const, line 255
+- `const send = useCallback(async ()` — const, line 260
+- `const text = reply.trim()` — const, line 262
+- `const submitCheck = useCallback(async ()` — const, line 267
+- `const submitPrediction = useCallback(async ()` — const, line 273
+- `const value = predictionAnswer.trim()` — const, line 275
+- `const stop = useCallback(async ()` — const, line 280
+- `const startFresh = useCallback(async ()` — const, line 286
+- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 287
+- `const feed = useMemo(()` — const, line 292
+- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 293
+- `function useLessonFigureCtl(figure: FigureViewDto): FiguresCtl` — function, line 516
+- `function LessonFigure(` — function, line 541
+- `const shown = useMemo(()` — const, line 543
+- `const ctl = useLessonFigureCtl(shown)` — const, line 544
+- `function FeedEntry(` — function, line 548
+- `const open = item.checkRef === openCheckRef` — const, line 567
 
 ## Who imports or calls it
 
@@ -115,6 +127,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — dynamic import: `LessonEntry`; references `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `LessonEntry`; references `LessonEntry`
+- [[Reference/Desktop/TypeScript/screens/today/ContinueLessonCard|src/screens/today/ContinueLessonCard.tsx]] — import-or-re-export: `LessonEntry`; references `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/today/LessonSuggestionCard|src/screens/today/LessonSuggestionCard.tsx]] — import-or-re-export: `LessonEntry`; references `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `LessonEntry`; references `LessonEntry`
 
@@ -123,7 +136,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FigureViewDto`, `LessonFeedEntryDto`, `LessonFigureStatus`, `LessonTurnInput`, `LessonViewDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FigureViewDto`, `LessonFeedEntryDto`, `LessonFigureStatus`, `LessonGoalDto`, `LessonTurnInput`, `LessonViewDto`
+- [[Reference/Desktop/TypeScript/components/DiagnosisCard|src/components/DiagnosisCard.tsx]] — import-or-re-export; imports `DIAGNOSIS_POLL_MS`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `getCommandError`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
@@ -145,6 +159,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/LessonScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/LessonScreen.te2.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.te2.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

@@ -1523,6 +1523,33 @@ LO, bound as `lesson_step_retained` and resolved by the forecast report. The rec
 from the replayer's trace. Not built here (TE2's): probe, gap and goal-LO writers, the `lesson_probe_correct` kind
 (the report already reads it), a probe refusal's reason (an enum column in TE2's migration). Paid calls: none.
 
+*As built (TE2, `docs/reviews/teacher-te2.md`; branch `teacher/te2` on main `5565bede25`):* successor `mvp-0.50` after
+RO6's `mvp-0.49` (ONE constant, `TEACHER_PROBES_ALGORITHM_VERSION`; expected `mvp-0.51` at landing after the router
+follow-up batch), upgrade `learnloop.teacher_probes_upgrade`, kill switch `teacher.probes` with `teacher.enabled`, and
+`teacher.placement.max_probes` (8, `keep`). Migration 248 (head `migration_head_248`): the four CHECK rebuilds and
+`lesson_episodes.refusal_reason` (the close-once trigger recreated so a probe's item id is set once with its close).
+A lesson opened under TE2 has `lesson_brief_v2` (no probe headers; each node's `delayed_check` line; `where_you_left_off`
+from the newest earlier lesson's latest plan, while that lesson's recap is admissible) and its turns are the
+`TeacherTurnTE2*` schemas (`serve_probe`, `propose_gap`) with the paragraph `teacher/doctrine/te2/v1.md` (prompt
+`+te2-v1`, forecaster family `+teacher_te2_v1`). `serve_probe` writes its ledger entry, the `lesson_probe_correct`
+receipt bound to an attempt id minted with the request (so before any serve), FG1's job (kind `lesson`, key
+`lesson:<lesson>:<node>`) and a `probe` episode, in one transaction; the worker (`followup_run.lesson_probe`) reads the
+reserved questions first (a reading that matches gives no probe, `reserved_match`), authors through FG1's operation
+with the readings as rivals (one reading: the rival of full credit), runs FG1's output checks and `persist_item`
+(`source = 'lesson'`, parked, reserved: every door refuses it), and records `probe_ready` with an admission receipt or
+`probe_refused` with its reason. `lesson.view` burns it at first serve (surface `lesson`) and shows the question only;
+while it is open no teacher call and no reply is made; its answer is a blind-graded `diagnostic_probe` attempt
+(`entry_surface lesson`, no post-attempt pipeline), its independence the reveal ledger's topic-wide check, then the item
+is retired. "Teach it anyway" and the close retire it unused. `propose_gap` files the learner's turn (`ref t<seq>` in a
+TE2 transcript) with `source_kind = 'lesson'` (the teacher's words as the context model's reading, `context_judge
+tutor`). A typed goal (`lesson.goal`, then `lesson.turn open entry typed_goal`) runs C0b's resolver on the text alone
+(`deliverables.resolve_typed_goal`, keyed `lesson_goal:<hash>`, never in goals.yaml) and creates each leftover the
+learner said yes to with `create_goal_lo` (`teacher_goal_v1`, the lesson as goal id), one `goal_lo` episode each; the
+lesson row keeps entry `learning_object` (its CHECK has no `typed_goal`) with the goal's `typed` block. Today lists
+open lessons (`lesson.open_lessons`; "Continue", "Close it" = `lesson.turn close`, no teacher call) and "Learn
+something new". Not built: the teacher's own `create_goal_lo` action mid-lesson and the library lookup before a new
+topic (the review file gives the smallest way to finish each).
+
 ---
 
 ## 21. Measurement

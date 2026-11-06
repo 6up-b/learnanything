@@ -3,13 +3,13 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
   - "table attempt_surprise"
-schema_head: 247
+schema_head: 248
 table_name: "attempt_surprise"
 table_role: "derived"
 functionality_status: "active"

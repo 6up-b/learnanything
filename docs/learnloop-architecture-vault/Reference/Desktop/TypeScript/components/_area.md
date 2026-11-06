@@ -58,7 +58,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/CommandPalette|CommandPalette.tsx]] | `ACTIVE` | Provides the reusable `CommandPalette` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/ConceptAnimationSection|ConceptAnimationSection.tsx]] | `ACTIVE` | Provides the reusable `ConceptAnimationSection` interaction surface used by one or more desktop workflows. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/components/ConnectAI|ConnectAI.tsx]] | `ACTIVE` | Provides the reusable `ConnectAI` interaction surface used by one or more desktop workflows. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/components/DiagnosisCard|DiagnosisCard.tsx]] | `ACTIVE` | Provides the reusable `DiagnosisCard` interaction surface used by one or more desktop workflows. | 6 | 2 |
+| [[Reference/Desktop/TypeScript/components/DiagnosisCard|DiagnosisCard.tsx]] | `ACTIVE` | Provides the reusable `DiagnosisCard` interaction surface used by one or more desktop workflows. | 6 | 3 |
 | [[Reference/Desktop/TypeScript/components/DialogueProbe|DialogueProbe.tsx]] | `ACTIVE` | Provides the reusable `DialogueProbe` interaction surface used by one or more desktop workflows. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/components/DockedAsk|DockedAsk.tsx]] | `ACTIVE` | Provides the reusable `DockedAsk` interaction surface used by one or more desktop workflows. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/components/ExemplarConfirmDialog|ExemplarConfirmDialog.tsx]] | `ACTIVE` | Provides the reusable `ExemplarConfirmDialog` interaction surface used by one or more desktop workflows. | 5 | 2 |
@@ -116,7 +116,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/pdfPages|pdfPages.ts]] | `ACTIVE` | Provides shared `pdfPages` state or utility behavior for desktop components. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/components/quickAddConsent|quickAddConsent.ts]] | `ACTIVE` | Provides shared `quickAddConsent` state or utility behavior for desktop components. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/components/sourceTail|sourceTail.ts]] | `ACTIVE` | Provides shared `sourceTail` state or utility behavior for desktop components. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 165 |
+| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 166 |
 | [[Reference/Desktop/TypeScript/components/ui|ui.tsx]] | `ACTIVE` | Provides the reusable `ui` interaction surface used by one or more desktop workflows. | 3 | 23 |
 | [[Reference/Desktop/TypeScript/components/useSourceFileDrop|useSourceFileDrop.ts]] | `ACTIVE` | Provides shared `useSourceFileDrop` state or utility behavior for desktop components. | 0 | 5 |
 

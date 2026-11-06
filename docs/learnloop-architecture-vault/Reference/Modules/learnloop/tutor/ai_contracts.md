@@ -275,6 +275,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
   - `test_the_tutor_reads_the_events_in_practice_contexts`
   - `test_with_no_confidence_data_the_tutor_context_renders_and_hashes_as_before`
+- [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
+  - `test_a_gap_from_the_learners_words_goes_to_the_text_gap_pipeline_with_source_lesson`
 - [tests/test_tutor_citations.py](../../../../../../tests/test_tutor_citations.py) — direct import
   - `test_citations_validated_against_provided_spans`
   - `test_no_links_degrades_to_no_citations`

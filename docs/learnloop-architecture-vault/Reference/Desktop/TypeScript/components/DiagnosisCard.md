@@ -94,6 +94,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `DiagnosisCard`, `useDiagnosisCard`; references `DiagnosisCard`, `useDiagnosisCard`
+- [[Reference/Desktop/TypeScript/screens/LessonScreen|src/screens/LessonScreen.tsx]] — import-or-re-export: `DIAGNOSIS_POLL_MS`; references `DIAGNOSIS_POLL_MS`
 - [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `DiagnosisCardState`; references `DiagnosisCardState`
 
 ## Dependencies
