@@ -252,3 +252,63 @@ tests:
 
 Changed test file: `tests/test_teacher_te2_review_fixes.py`, which gains one test (13 tests, 15 cases). Calls per
 probe and rows per kind are unchanged from the table above.
+
+## Final verify and the landing's rulings R1-R3
+
+The final verify (gpt-6.1-sol, codex-job `20261106-055937-v8K8dy`) read `1831c669f9..teacher/te2`. It confirmed F1
+and F2 fixed and reopened F7 on regrades. By the orchestrator's ruling there was no further Codex round. The rulings
+are quoted verbatim in `docs/reviews/teacher-te2.md` ("Landing onto main"). Every test uses fakes only.
+
+| Id | Verdict | Commit | Test |
+|---|---|---|---|
+| F1 | confirmed fixed | `a6fd6615fe` | unchanged |
+| F2 | confirmed fixed | `a6fd6615fe` | unchanged |
+| F7 (regrades) | fixed at regrade publication (R1) | `5564387090`, `af3a975871` | `tests/test_teacher_te2_landing_r1.py` (4) |
+
+**F7 on regrades. Reproduced.** A probe answer's raw grade event and interpretation are written once, by its
+submission's probe path. Replay never re-mints them: `_dual_write_grade_channel` skips `diagnostic_probe`, and
+`_record_lesson_probe` skips a replay. So a regrade's replay left the active interpretation on the original grader's
+identity and calibration, and later rebuilds kept it. Codex's two reproductions are the first two tests. Both failed on
+the pre-fix source:
+
+- `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`: the probe is
+  answered with `diagnosis.split_enabled = false` (the joint grader), split is switched on, and the probe is regraded
+  blind. The active interpretation was still `grading_prompt_v1` where the regrade's
+  `grading_prompt_v2_1_blind_reference_policy+own-route-v2` was expected.
+- `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`: split is on throughout. The
+  probe's first grade is the mvp-2.0 blind identity, and its regrade uses the practice door's reference-policy prompt.
+  The active interpretation was still `grading_prompt_v2_blind`.
+
+**Fix.** `regrade._publish_regrade`, before its replay, calls `attempts.publish_regraded_probe_grade`. That is the
+attempts package's door to `probe_episodes.dual_write_regraded_probe_grade`, over the edge `attempts.attempts`
+already has, so the frozen-cycles contract is unchanged. It appends and activates the same dual-write the submission
+made, with the replacement grade's (prompt, schema) identity: the new blind record's calibration identity, or else
+the joint door's `vault_grading_calibration_identity`. The grader identity hash and the calibration model follow from
+that identity. Replay reads the new pair back and mints no duplicate: each test counts exactly 2 grade events after
+the regrade and after `rebuild_all_derived_state`, and the canonical cells are equal before and after the rebuild.
+
+A grade is written only where the submission wrote one:
+
+- a lesson probe (observed `graded`, as on its first write);
+- an FG1 presentation whose observation recorded an outcome and whose new grade is not held. Its outcome is
+  reclassified from the new score and the regrade's attributed error types. The probe observation's posterior is the
+  submission's and is not changed.
+
+FG1d's incidental, presentationless answer wrote none and gets none.
+
+**FG1's presentation path.** `record_episode_evidence` now takes the submission's `grader_identity` and passes it
+through `_record_presentation_observation` to `_dual_write_probe_grade`. This was the re-review's open question.
+`test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements` failed on the pre-fix
+source (`grading_prompt_v1` stamped on a blind submission). It now checks the first write and the regrade.
+
+**The ordinary, non-probe regrade.** It does not have this defect.
+`test_an_ordinary_practice_regrade_already_carries_the_newer_calibration` passes on the pre-fix source: the replay
+re-applies the attempt, and `_dual_write_grade_channel` re-mints its grade event under the identity the new blind
+record names. That re-mint happens on every replay of an ordinary AI-graded attempt, so each rebuild appends one more
+raw grade event and interpretation for it. On the test vault, 2 events after the regrade became 3 after one rebuild.
+This predates TE2 and lives outside the regrade's publication. It is recorded for the follow-up batch. The smallest
+fix: in `_dual_write_grade_channel`, skip a replay (`attempt.replace_existing`) when the attempt's active
+interpretation already comes from a raw grade event with the same identity, class and score.
+
+**R2 and R3** are in `docs/reviews/teacher-te2.md`: the library lookup at `73b4784e41`, and the content-hash stamp
+at `1a7e274d14`.
