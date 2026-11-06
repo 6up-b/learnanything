@@ -19,7 +19,9 @@ Every number's source is in ``sources``; nothing here writes.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
 from datetime import datetime, timedelta
 import json
@@ -214,11 +216,46 @@ def _combiner_prior(vault: Any, **fields: Any) -> M.Combiner:
     return M.Combiner(**fields)
 
 
+#: Router speed, item 2: one decision's reads that do not depend on its candidates, made once and shared by every
+#: build of the decision (:func:`decision_reads`); None outside one.
+_DECISION_READS: ContextVar[dict[tuple[Any, ...], Any] | None] = ContextVar("learnloop_objective_decision_reads",
+                                                                            default=None)
+
+
+@contextmanager
+def decision_reads() -> Iterator[None]:
+    """Router speed, item 2: inside, every :func:`build` of one decision (the prefetch job's card build for the LLM
+    policy's reference row, then the numeric policy's) reads the combiner's fit once, as of the decision's ``now``,
+    on the same vault and database: the follow-up batch's trace join ran once per build, about 2.4 times a decision.
+    The fit is the decision's as of its first read, as ``now`` is, so the card's reference row and the numeric policy's
+    ``Q`` value one fit (they could read two before, a write landing between). Nothing outlives the scope: the next
+    decision reads afresh, so a regrade, a hold, a late outcome or late activity enters the next decision."""
+
+    token = _DECISION_READS.set({})
+    try:
+        yield
+    finally:
+        _DECISION_READS.reset(token)
+
+
 def _combiner(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
     """RO5 §9 item 7: the memory model's Bayesian logistic combination fitted on resolved randomized checks (each
     check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior. The
     checks stand as of the decision (landing ruling R1: ``checks.Closure`` at ``now_iso``). With ``vault`` at the
-    follow-up batch's tag and ``combiner_trace_outcomes``, the traces' outcomes too (:func:`_combiner_with_traces`)."""
+    follow-up batch's tag and ``combiner_trace_outcomes``, the traces' outcomes too (:func:`_combiner_with_traces`).
+    Inside :func:`decision_reads`, read once per (database, ``now_iso``, vault) and shared."""
+
+    held = _DECISION_READS.get()
+    if held is None:
+        return _combiner_read(repository, now_iso, vault)
+    key = ("combiner", str(getattr(repository, "sqlite_path", id(repository))), str(now_iso), id(vault))
+    if key not in held:
+        held[key] = (vault, _combiner_read(repository, now_iso, vault))
+    return held[key][1]
+
+
+def _combiner_read(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
+    """:func:`_combiner`'s read."""
 
     from learnloop.router_objective import checks as C
 

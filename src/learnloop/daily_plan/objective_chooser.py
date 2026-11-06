@@ -609,7 +609,8 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
     material = entry.material
     repository = Repository.attach(sqlite_path)
     config = vault.config
-    with runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
+    # Router speed, item 2: the card's build and the numeric policy's read the combiner's fit once (OI.decision_reads).
+    with runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER, owner_id=entry.key), OI.decision_reads():
         threads: list[threading.Thread] = []
 
         def run(name: str, request: Any, parse: Any) -> None:
