@@ -227,3 +227,47 @@ def test_f3_with_the_switch_off_the_daily_draw_never_learns_from_offer_responses
     with env.repository.connection() as connection:
         assert SG._model(connection, with_offers=True)[0].updates == 1  # on: one model for offers and cards
         assert SG._model(connection, with_offers=False)[0].updates == 0
+
+
+def _offer_then_switch_off_draw(tmp_path, response: str) -> dict[str, Any]:
+    """An offer answered ``response`` (``declined``, or a Start whose lesson never opened then "Not now" on its pending
+    card: ``released``), the switch turned off, then a later day's TE1b draw; returns its decision row."""
+
+    env = _env(tmp_path)
+    _record, step = _prefetched_offer(env)
+    decision_id = step["offer"]["decision_id"]
+    offered = list(step["offer"]["suggestion"]["learning_object_ids"])
+    if response == "declined":
+        SG.respond(env.vault, env.repository, decision_id=decision_id, response="declined", clock=env.clock)
+    else:
+        SG.respond(env.vault, env.repository, decision_id=decision_id, response="accepted", clock=env.clock)
+        SG.respond(env.vault, env.repository, decision_id=decision_id, response="released", clock=env.clock)
+    with env.repository.connection() as connection:
+        # The offer's "Not now" is on the ledger: the switch-on draw (every decision) reads it, TE1b's own do not.
+        ledger = [*suggestions.responses(connection), *suggestions.releases(connection)]
+        every = {str(d["id"]): d["detail"] for d in suggestions.all_decisions(connection)}
+        daily_only = {str(d["id"]): d["detail"] for d in suggestions.decisions(connection)}
+        assert set(offered) <= set(LS.declines_by_learning_object(every, ledger))
+        assert LS.declines_by_learning_object(daily_only, ledger) == {}
+    env.vault.config.router.lesson_suggestions.in_objective = False
+    env.clock.advance(60 * 24 * 2)
+    SG.today_suggestion(env.vault, env.repository, clock=env.clock)
+    daily = rows(env, kind="lesson_suggestion")
+    assert len(daily) == 1
+    assert any(set(offered) & set(entry["learning_object_ids"]) for entry in daily[0]["candidates_json"]), \
+        "the offered LO is a candidate of the switch-off draw"
+    return daily[0]
+
+
+@pytest.mark.parametrize("response", ["declined", "released"])
+def test_f3_reopened_switch_off_decline_recovery_never_reads_an_offer_response(tmp_path, response):
+    """Codex re-review F3: the switch-off draw's decline ages are TE1b's own (no TE1b decline here: none), so each
+    logged acceptance is the priors' without a decline term, as the predecessor logs it."""
+
+    daily = _offer_then_switch_off_draw(tmp_path, response)
+    prior = LS.AcceptanceState()
+    context = LS.Context.from_dict(daily["detail_json"]["context"])
+    for entry in daily["candidates_json"]:
+        assert entry["days_since_decline"] is None, entry
+        undeclined = LS.Candidate.from_dict({**entry, "days_since_decline": None})
+        assert entry["p_accept"] == pytest.approx(prior.p_accept(context, undeclined), rel=1e-5)
