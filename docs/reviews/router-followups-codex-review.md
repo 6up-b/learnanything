@@ -140,7 +140,8 @@ What the probe also shows. These are diagnostics, not pinned, and not built: eac
 - **The combiner's coefficient draws carry most of what is left.** With the combiner at its prior mean (variance 0,
   64 draws), the marginal is +0.00012, +0.00002, +0.00005, −0.00003, +0.00010 before the fix. After the fix it is
   **positive in all five cases** (+0.00015, +0.00029, +0.00028, +0.00001, +0.00027), and `G` rises with `η`. The
-  prior `N(0.5, 0.5²)` on `aA − aR` (each coefficient's variance 0.25) puts about 24% of draws at a negative slope in
+  prior on `aA − aR` is `N(0.5, 0.5)`, variance 0.5 and sd 0.71, because each coefficient's variance of 0.25 adds
+  (an earlier version of this line said `N(0.5, 0.5²)`). It puts about 24% of draws at a negative slope in
   `η`. `η` grows by `γ` (0.2) on every practice opportunity without a ceiling, and in the probe reaches about 41 on
   the logit scale by `C + H` (180 days, about 9 practices a day over 8 topics). In those draws `P(perform)` falls
   toward 0 as practice accumulates. With the consistent draw, those draws now lapse in FSRS as well. That is why `G`
@@ -149,8 +150,10 @@ What the probe also shows. These are diagnostics, not pinned, and not built: eac
   parameterised as positive by construction (a log-normal on `aA − aR`), or `γ`'s effect could saturate (an upper
   bound on `η`'s logit, or `γ` shrinking with `p̄`). Each of these changes every valuation.
 
-Tests (`tests/test_rofu_review_draw.py`; all 18 fail on the pre-fix source, run with pytest's `pythonpath` pointed at
-its `git archive`):
+Tests (`tests/test_rofu_review_draw.py`). On a full `git archive` of the pre-fix tree (`2db795f6d7`), 16 of the 18
+fail. The two that pass are the switch-off and below-the-tag serving cases, which are identities. An earlier version
+of this record said "all 18 fail". That run pointed pytest at an archive of `src/` alone, so the serving tests also
+failed for want of `migrations/`.
 
 - the probe with the switch off equals the pre-fix source exactly;
 - the probe after the fix pins its numbers and the seed;
@@ -165,7 +168,7 @@ its `git archive`):
 | Step | Command / selection | Result |
 |---|---|---|
 | Merge | `git merge c2e810f940` (docs only) | no conflict, `2db795f6d7` |
-| Reproduce-first | the record's probe on the pre-fix source; the new test file on its `git archive` | negative marginal in all 5 cases; 18 failed |
+| Reproduce-first | the record's probe on the pre-fix source; the new test file on its `git archive` | negative marginal in all 5 cases; 16 failed, 2 passed (the identities) |
 | Targeted | 187 files, `-n 6`: the 155 of this review's list, with every `test_rofu_*`, `test_ro6_*`, `test_ro5_*`, `test_ro4_*`, `test_ro0_*`, `test_ro1_availability*`, `test_ro2_ad_raw_document_reads`, `test_followup_*`, the display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_cli_help_snapshot`, `test_data_capture_successor`, `test_registry_audit`, `test_architecture`, and every file naming the defaults snapshots, `LATEST_ALGORITHM_VERSION`, mvp-0.49, mvp-0.50 or the batch's version | 3541 passed, 16 skipped, 6 xfailed |
 | Durability | `--durable-sqlite`: `test_rofu_review_draw`, `test_rofu_successor`, `test_rofu_speed`, `test_rofu_learning`, `test_registry_audit` | 71 passed |
 | Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
@@ -209,3 +212,94 @@ Differences between the rollouts and AD, recorded and not built (each changes ev
 - the rollouts' belief variance does not drift by `DRIFT_PER_DAY`;
 - the rollouts' predictive is `σ(η)`, not AD's `F(η)` with its guess and lapse;
 - coupled facets' transfer is not simulated.
+
+## Landing ruling R6: the combiner, monotone in ability by construction (`58b727566e`)
+
+`logit P = a0 + aA·η + aR·(logit R − η)·[practised]`: `η`'s slope is `aA` for an unpractised topic and `aA − aR` for
+a practised one.
+
+**What changed.** At mvp-0.50 the combiner takes `memory.FORM_MONOTONE`. This applies at the tag with the objective
+serving (`router_objective_switches.monotone_combiner_on`) and has **no switch**, because the ruling says "behind the
+tag only".
+
+- **Parameters.** They are `(a0, log aA, log b)` with `b = aA − aR`, under a diagonal Gaussian. Both slopes are
+  therefore log-normal and positive in every draw, and `aR = aA − b` is derived (either sign).
+- **Both slopes, not one.** The ruling names `aA − aR`, but "P(perform) cannot fall as eta rises" also needs `aA > 0`
+  for unpractised topics, so both are positive. My choice.
+- **Prior.** It is moment-matched to the linear prior's own marginals: `aA` has mean 1 and variance 0.25; `aA − aR`
+  has mean 0.5 and **variance 0.5** (sd 0.71). The ruling quotes "N(0.5, 0.5^2)", from my earlier misstatement; the
+  current prior's actual spread is variance 0.5. I matched the actual one; matching variance 0.25 instead is a
+  one-constant change (`memory._B`). `aR` is no longer independent of `aA`: its implied variance is 0.75, not 0.25.
+- **Fit.** `fit_combiner` fits in the same form when handed the monotone prior. It runs damped Newton on `θ`, with
+  Fisher scoring where the observed Hessian is not negative definite, and takes the Laplace variance from the
+  observed Hessian at the mode. `objective_inputs._combiner_prior` hands the monotone prior to RO5's checks fit,
+  item 2's trace-fed fit, and the prior with `fitted_models` off.
+- **Draws and the belief world.** `Combiner.coefficients(z)` draws the natural `(a0, aA, aR)`; its linear branch is
+  the old expression, so it is bitwise mvp-0.49's below the tag. `Combiner.at_mean()` gives the belief world's point,
+  where a log-normal slope's mean is `exp(μ + σ²/2)`.
+- **Trace.** At the tag, the trace's `memory_model` adds `form` and `coefficients_at_mean`.
+
+**Consequence for step 4.** At the tag with every switch off, the combiner is still monotone. So "every switch off
+equals main at mvp-0.49" will not hold for the combiner. A kill switch would restore the identity; I can add one
+(a new key, every defaults snapshot recomputed) if you want it.
+
+**R1's probe, marginal gain at `m̄` per minute** (with R1's review draw throughout):
+
+| `η`, `S` | 64 draws, linear (before) | 64 draws, monotone (after) | 512 draws, linear | 512 draws, monotone |
+|---|---:|---:|---:|---:|
+| −0.5, 40 | −0.000388 | +0.000611 | +0.000146 | +0.000493 |
+| 0.5, 40 | −0.000907 | +0.000709 | −0.000261 | +0.000628 |
+| 1.5, 40 | +0.000434 | +0.000468 | +0.000073 | +0.000523 |
+| 0.5, 2 | −0.000443 | +0.000510 | −0.000221 | +0.000554 |
+| 1.5, 2 | +0.000390 | +0.000478 | −0.000186 | +0.000520 |
+
+**What the probe shows after R6.**
+
+- With the monotone combiner, κ0's seed is the day's seed in every case at both draw counts: 0.00047 to 0.00071 per
+  minute.
+- `G` rises with `η` again (64 draws: 15.554, 15.677, 15.766 at `S` 40), and is higher than the linear combiner's by
+  2.6 to 2.9.
+- The 64-draw and 512-draw marginals now agree to within about 1.2e-4.
+
+For reference, the mvp-0.49 draw with the linear combiner gives: 64 draws −0.000219, −0.000467, −0.001776, −0.000342,
+−0.002159; 512 draws +0.000060, −0.000194, −0.000667, −0.000164, −0.000764.
+
+**Tests** (`tests/test_rofu_monotone.py`):
+
+- the linear prior has about 24% negative practised slopes, and the monotone prior none, with the moments matched;
+- the linear form is bitwise mvp-0.49's;
+- no draw of a fitted posterior has a negative slope, including on adversarial rows where the linear fit finds one;
+- the fit recovers known slopes, and its gradient vanishes at the mode;
+- `P(perform)` is non-decreasing in `η` on every rollout draw;
+- the probe is pinned at 64 and 512 draws, linear and monotone, with no sign asserted;
+- the trace names the form at the tag only.
+
+On a full `git archive` of the pre-fix tree (`b5d3d738ad`), 9 of the 12 fail. The 3 that pass are the two pins of the
+linear form and the below-tag serving case. `58b727566e`'s message says 10 of 12; that run used an archive of `src/`
+alone.
+
+## Landing ruling R8: the batch's serving switches in RO6's generator payload (`0767b917bd`)
+
+`router_objective_switches.FOLLOWUP_GENERATOR_SWITCHES` = `combiner_trace_outcomes`, `merged_sessions`,
+`consistent_review_draw`, `scope_extension`.
+
+- **Recorded and read the same way.** At the batch's tag, the trace records them as they served
+  (`versions.serving_switches`). `tail_data.generator` reads them from the trace, and `objective_chooser.generator_now`
+  from the config (`followup_generator_switches`), so the serve's generator and the trace's are one.
+- **Below the tag.** No key is added, so RO6's payload keeps its bytes.
+- **`carried_in_prefetch`** stays out. Strictly, it does reach serving: it changes which transitions feed the learned
+  tail's fit, and so `ŵ` and the residual. But it does so as more data does, not as a change of the logger's
+  definition.
+- **R6's monotone combiner** needs no entry: it is the tag itself, which is already in the payload as the algorithm
+  version.
+- **No other switch of the batch** changes a decision's `V` or `μ`.
+
+Tests (`tests/test_rofu_generator_switches.py`):
+
+- at the defaults, one generator across decisions, equal to the one each decision was served under (`residual.generator`);
+- each of the four flips is a new generator version;
+- `carried_in_prefetch` off leaves the generator unchanged;
+- below the tag there is no key, and the payload is RO6's.
+
+On a full `git archive` of the pre-fix tree (`f7a21cf602`, with the switch list inlined), 5 fail and the 2 identities
+pass.

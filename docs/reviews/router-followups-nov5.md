@@ -21,6 +21,10 @@ a copy (every measurement below is on a synthetic vault, in a test or a scratch 
   | `carried_in_prefetch` | 4: the carried valuation deferred to the next prefetch, recorded in a later trace | RO6's R12/R3 (censored) |
   | `scope_extension` | 5: a growing retention scope is not an objective change | RO6's R11 (a change point) |
 
+  Landing ruling R6's monotone combiner has no switch: it applies at the tag alone. Under landing ruling R8 every
+  switch above except `carried_in_prefetch` is part of RO6's generator version, so flipping one is a change point
+  for the learned tail's fit.
+
 - **Paid routes: the batch adds no model request.** No call per day.
 - **Learner minutes: none.** No arm is added.
 - **Latency**: see the table under item 3 (the numeric policy is faster) and item 2 (the combiner's join adds a read
@@ -308,3 +312,20 @@ Added: `tests/test_rofu_successor.py`, `test_rofu_learning.py`, `test_rofu_speed
    are recorded with the smallest way to finish each; which go next.
 4. Item 2's join found no row on the synthetic journey (no AD-graded answers there); its first real numbers come
    from `objective-report`'s `memory_model` after the owner upgrades.
+
+## Landing onto main
+
+In progress. The gate, the smoke and the owner's commands follow at step 5. What was built for each ruling is in
+`docs/reviews/router-followups-codex-review.md`, under "Landing ruling R1", "R6", "R7" and "R8".
+
+### Orchestrator rulings (verbatim)
+
+- R1: "Item 7's finding is a model defect and is fixed in this batch: a practised topic's review outcome in the rollouts is drawn from the memory model's own P(perform) at that moment (the combiner over AD's predictive and FSRS's R, as §8.4 defines it), so a review FSRS calls a lapse is one the model expects. Behind its own switch [router_objective] consistent_review_draw (default true, classified as a structural kill switch), at the mvp-0.50 tag only; below the tag and with the switch off the rollouts are mvp-0.49's draw for draw. Reproduce first: the synthetic probe from the record (8 practised topics, m-bar 30, blocks of 10 minutes and 3 items, 64 draws, eta from -0.5 to 1.5, S 2 or 40) shows the negative marginal gain at m-bar on the pre-fix source; after the fix, report the marginal gain per case and whether kappa0's seed gets a positive value to keep. No sign is asserted as a law; the test pins the probe's numbers and the switch-off identity."
+- R2: "Item 4's carried-valuation record as a section of a later trace (carried_for, append-only, keyed by the decision's trace id, read as of its own received time) instead of its own RECEIPT table is accepted. Pending carried work held in process memory is lost on restart, and that transition stays censored as in mvp-0.49: accepted and recorded."
+- R3: "Not built here and queued for the next follow-up batch, each as recorded with its smallest finish: item 6 (floor draws as contrasts), kappa0's availability covariate and the goal-date read inside V, the RO6 transition-reward and RO5 closed-score caches with data fingerprints, FG1d's get_feedback pin and one-fold probe, RO1 R3's admission anchor (its own playbook entry), the upgrade restamping mastery rows, RO2's probability-copy latency (measured on the smoke's copies here)."
+- R4: "Item 2's join cost (about 50 ms per decision at 57 traces, growing with the log, twice per model-branch prefetch) is measured on the copies at the smoke against the log's length, before any cache."
+- R5: "Owner, Nov 5: the old item difficulty scalar is to be retired in the refactor. This batch adds no new reader or writer of it; the landing checks this with a grep of the diff against main for the difficulty columns, mastery.irt.difficulty_from_prior and surprise's b, and records the result."
+- On R1's decisions: "Your decisions 1 and 2 are accepted (the belief observes under the same combiner likelihood; unpractised topics and probes stay on sigma(eta))."
+- R6: "The memory model's combiner is monotone in ability by construction: P(perform) cannot fall as eta rises. The slope on eta (aA - aR in memory.perform's form) gets a positive-support labelled prior (log-normal, moment-matched to the current N(0.5, 0.5^2) mean and spread), so no coefficient draw has a negative slope; the combiner's fit (fit_combiner, including RO-followups item 2's trace-fed fit) uses the same parametrization. This is structural, not a tuned constant: higher ability never lowers predicted performance. Behind the mvp-0.50 tag only; below it mvp-0.49's draws are unchanged. Test: no draw of the prior or a fitted posterior has a negative slope; the probe's per-case marginals before and after at 64 and 512 draws are pinned (no sign asserted)."
+- R7: "The rollouts apply practice's learning increment exactly as AD's own learning model does. Check AD's model (adaptive_difficulty: how gamma moves eta per practice and whether it saturates) against value._Model: if the rollouts' growth differs from AD's form (for example, AD saturates or is bounded and the rollouts are linear without a ceiling), align the rollouts to AD's form at the tag, reproduce-first. If AD's own form is unbounded too, do NOT invent a ceiling here: record it in the review file as an AD-level finding, with the probe's eta trajectory (it reached about 41 on the logit scale over 180 days), for the owner and the next AD stage."
+- R8: "Every serving switch that changes the logger's values is part of RO6's generator payload, so flipping it is a change point and never changes Q under the same generator version: merged_sessions, consistent_review_draw, combiner_trace_outcomes and scope_extension (and any other switch of this batch that changes a decision's V or mu). carried_in_prefetch changes only which transitions are valued, not the logger, so it stays out; say if you find another that belongs. A test flips each and sees a new generator version; with every switch at its default the payload at mvp-0.50 is stable across decisions."
