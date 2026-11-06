@@ -285,7 +285,41 @@ The same call's existing `difficulty=None` is unchanged: `persist_item` already 
 
 ### Gate
 
-GATE_TABLE
+The gate ran at `554e01cefb`: the merged tree with R1-R3 and the references. The record commits after it are docs
+only. Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G`. The full suite ran in 10G/2G under `flock /tmp/learnloop-fullsuite.lock`. Every other Python or CLI
+ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No model call or paid call was made.
+
+| Command | Result |
+|---|---|
+| Step 1: targeted pytest, 199 files, `-n 6` (listed below) | 3254 passed, 18 skipped, 6 xfailed, 1 failed (see below) |
+| Step 1: `--durable-sqlite` on the touched TE2 and successor files | 68 passed |
+| Step 2: `test_measurement_state_labels`, `test_codex_lockdown_round3`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot` | 40 passed |
+| Step 1: vitest on the touched files (LessonScreen.te2, LessonScreen, ReaderScreen.followsLearner, App.lessonSuggestion) | 63 passed |
+| Step 3: `db_generate_reference` + `db_validate_reference` | errors [] (after the two prose leaf counts 1178 -> 1180) |
+| Step 3: `desktop_generate` / `desktop_validate` | passed (321 TS/TSX, ACTIVE 327) |
+| Step 3: `module_generate` / `module_validate` | PASS (1244 modules) |
+| Step 3: `validate_vault.py` | passed (2235 notes) |
+| Step 3: config fingerprints | none moved |
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| Full pytest (`-n 8 --dist worksteal`) | **26916 passed, 90 skipped, 47 xfailed** (1:00:11). No failure, so neither known flake was seen (`test_ro5_landing`'s r8, `test_rofu_carried`'s early publication) |
+| Durability lane (`-m durability`) | 404 passed, 1 skipped |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 4 skipped, and the 2 known failures (`test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`), as at the follow-up batch's landing |
+| Desktop: typecheck, whole vitest (`--maxWorkers=4`), `frontend:build`, `cargo check` | ok, 2772 passed, ok, ok |
+| Mobile: typecheck, build | ok, ok |
+
+**Step 1's files:** every `test_teacher_*` and `test_followup*` file; the probe-episode, characterization-probe,
+grade-resolution, blind-grading, placement-split, regrade-contract, rebuild-equivalence and rebuild-orchestrator files;
+the text-gap, deliverable, forecast, delayed-check, remint, serving-exclusion and state-sync files; the successor and
+pin files; and the contract set.
+
+**Step 1's one failure:** `test_regrade_contract_upgrade::test_an_upgrade_interrupted_after_publication_is_resumed`,
+a subprocess crash-and-resume test. It failed 33 minutes into the run, while the smoke was loading the machine.
+
+- Rerun alone 3 times: passed each time.
+- Its whole file: 17 passed.
+- It did not recur in the full suite.
 
 ### Smoke
 
