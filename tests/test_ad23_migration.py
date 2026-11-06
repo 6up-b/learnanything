@@ -197,18 +197,18 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     database = tmp_path / "state.sqlite"
     through = tmp_path / "without_214"
     through.mkdir()
-    # Teacher TE3a's 248 rebuilds 214's epoch-keyed reading receipt (its kind CHECK), so it needs 214 first: such a
-    # vault reached 247 at most without 214, and the runner applies 214 and then 248, in order.
+    # Teacher TE3a's 249 rebuilds 214's epoch-keyed reading receipt (its kind CHECK), so it needs 214 first: such a
+    # vault reached 248 at most without 214, and the runner applies 214 and then 249, in order.
     for migration in discover_migrations():
-        if migration.version != 214 and migration.version < 248:
+        if migration.version != 214 and migration.version < 249:
             (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     apply_migrations(database, migrations_dir=through)
     # Since curriculum C0a's 222 the head is 222: such a vault holds 215-222 without 214.
-    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 249
+    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 248
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [214, 248]
+    assert [migration.version for migration in applied] == [214, 249]
     after = _schema(database)
     assert set(after) - set(before) == AD23_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} == EPOCH_STAMPED

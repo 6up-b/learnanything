@@ -200,7 +200,7 @@ def test_the_head_fixture_is_at_head_with_empty_ad1_tables(tmp_path):
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         # Reader RW7a's 217 is the head now (tests/test_reader_rw7a_migration.py).
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 248
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 249
         assert all(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0 for table in NEW_TABLES)
     database = tmp_path / "head.sqlite"
     backup_database(HEAD, database)

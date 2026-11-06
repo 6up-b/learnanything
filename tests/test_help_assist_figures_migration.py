@@ -24,6 +24,7 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_ro1_availability import RO1_ALTERED_TABLES
+from tests.test_te3a_migration import TE3A_ALTERED_TABLES
 from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES
 from tests.test_learner_notes_vault_origin_migration import C2B_ALTERED_TABLES
 
@@ -105,7 +106,7 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
     after = _schema(database)
     assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
     assert {name for name in before if before[name] != after.get(name)} == set(P3_ALTERED_TABLES) | set(
-        C2B_ALTERED_TABLES) | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES) | UNLINKED_ALTERED_TABLES | (
+        C2B_ALTERED_TABLES) | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES) | UNLINKED_ALTERED_TABLES | (
         TE2_ALTERED_TABLES & set(before))
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]

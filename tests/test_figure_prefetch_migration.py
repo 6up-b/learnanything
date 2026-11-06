@@ -49,7 +49,7 @@ def test_237_is_p5s_migration_and_every_table_is_classified():
 def test_the_head_fixture_is_at_237_in_rollback_mode_with_empty_tables():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 248
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 249
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert P5_ADDED_OBJECTS <= names
         for table in P5_TABLES:

@@ -89,6 +89,6 @@ def test_the_head_fixture_holds_exactly_226s_objects_in_rollback_mode():
         assert PR4_ADDED_OBJECTS <= names
         columns = [row[1] for row in connection.execute("PRAGMA table_info(sessions)")]
         assert columns[-2:] == ["owner_device_id", "owner_generation"]
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 248
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 249
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute("SELECT COUNT(*) FROM session_handoffs").fetchone()[0] == 0

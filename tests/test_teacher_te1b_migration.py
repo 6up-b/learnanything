@@ -71,7 +71,7 @@ def _upgrade(tmp_path: Path) -> Path:
 def test_the_head_fixture_is_at_236_in_rollback_mode_with_no_response():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 248
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 249
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert TE1B_ADDED_OBJECTS <= names
         assert connection.execute("SELECT COUNT(*) FROM router_suggestion_responses").fetchone()[0] == 0
