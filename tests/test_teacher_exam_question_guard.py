@@ -52,6 +52,10 @@ NUMBER_KEY = "badger wren: two factors"
 SPLIT_ITEM = "pi_exam_split"
 SPLIT_STEM = "For polynomial x³−7x+2, identify every real root."
 SPLIT_SETUP, SPLIT_QUESTION = "For polynomial x³−7x+2,", "identify every real root."
+#: Codex re-review F1: an exam-reserved question shorter than the matcher's span, words only (no distinctive number).
+#: Posed (its own sentence or clause, or asked), it is the question; inside a teaching sentence it is a phrase.
+CIPHER_ITEM = "pi_exam_cipher"
+CIPHER_STEM = "Decrypt QEBNRFZH using Caesar cipher."
 
 
 def _rows(repository, sql, params=()):
@@ -72,8 +76,12 @@ def build_guard_vault(root, *, version=None):
                _item(NUMBER_ITEM, "lo_eigen", NUMBER_STEM, NUMBER_KEY))
     write_yaml(paths.practice_item_path("linear-algebra", SPLIT_ITEM),
                _item(SPLIT_ITEM, "lo_eigen", SPLIT_STEM, "marten plover: three"))
+    write_yaml(paths.practice_item_path("linear-algebra", CIPHER_ITEM),
+               _item(CIPHER_ITEM, "lo_eigen", CIPHER_STEM, "stoat lark: a plain word"))
     (goal_id,) = _rows(repository, "SELECT goal_id FROM exam_pool_items LIMIT 1")[0]
     repository.insert_exam_pool_items([
+        {"id": "epi_cipher", "goal_id": goal_id, "practice_item_id": CIPHER_ITEM,
+         "reserved_at": "2026-10-30T00:00:00Z"},
         {"id": "epi_stem", "goal_id": goal_id, "practice_item_id": EXAM_ITEM, "reserved_at": "2026-10-30T00:00:00Z"},
         {"id": "epi_short", "goal_id": goal_id, "practice_item_id": SHORT_ITEM, "reserved_at": "2026-10-30T00:00:00Z"},
         {"id": "epi_number", "goal_id": goal_id, "practice_item_id": NUMBER_ITEM,
@@ -168,7 +176,8 @@ def test_the_matcher_reads_both_items_as_withheld_questions(tmp_path):
     assert not G.quotes_reserved("on their own line", reserved)
     assert reserved_findings("Here the trace is 16.0.", reserved.questions)  # the matcher's numeric finding
     assert not G.quotes_reserved("Here the trace is 16.0.", reserved)
-    # The short stem: the matcher finds it whole, but a phrase shorter than its span is not a question shown.
+    # The short stem: the matcher finds it whole, but inside a teaching sentence a phrase shorter than its span is not
+    # a question shown (posed on its own, it is: re-review F1).
     assert reserved_findings("Later we define a basis carefully.", reserved.questions)
     assert not G.quotes_reserved("Later we define a basis carefully.", reserved)
     verdict = G.reserved_guard(EXAM_STEM, reserved)
@@ -375,18 +384,20 @@ def test_a_whole_short_reserved_question_with_a_distinctive_number_counts(tmp_pa
         assert G.shown_feedback(ordinary, reserved) == ordinary
 
 
-def test_a_teacher_check_posing_a_short_reserved_question_is_withheld(tmp_path):
-    lesson = _Lesson(tmp_path, [_quoting("check", NUMBER_STEM), plan_turn])
+@pytest.mark.parametrize("stem", [NUMBER_STEM, CIPHER_STEM])
+def test_a_teacher_check_posing_a_short_reserved_question_is_withheld(tmp_path, stem):
+    lesson = _Lesson(tmp_path, [_quoting("check", stem), plan_turn])
     turns = lesson.teacher_turns()
     assert [validation for validation, _ in turns] == ["withheld", "ok"]
     assert turns[0][1]["reason"] == "reserved_question" and turns[0][1]["detail"].startswith("check: ")
     lesson.act("stop", turns=[close_turn()])
     shown = lesson.everything_shown()
-    assert NUMBER_STEM not in shown and "factor 9871" not in shown.lower()
+    assert stem not in shown and "factor 9871" not in shown.lower() and "qebnrfzh" not in shown.lower()
 
 
-def test_the_graders_feedback_quoting_a_short_reserved_question_is_not_shown(tmp_path):
-    feedback = f"Right. Compare: {NUMBER_STEM}"
+@pytest.mark.parametrize("stem", [NUMBER_STEM, CIPHER_STEM])
+def test_the_graders_feedback_quoting_a_short_reserved_question_is_not_shown(tmp_path, stem):
+    feedback = f"Right. Compare: {stem}"
     lesson = _Lesson(tmp_path, [plan_turn], fake=FeedbackGrader(feedback))
     lesson.act("reply", {"text": "Go."}, turns=[check_turn()])
     lesson.act("answer_check", {"answer": "det(A - tI) = 0", "tap": 4}, turns=[close_turn()])
@@ -394,7 +405,45 @@ def test_the_graders_feedback_quoting_a_short_reserved_question_is_not_shown(tmp
         lesson.repository, "SELECT p.payload_json FROM lesson_turns t JOIN lesson_turn_payloads p "
                            "ON p.turn_id = t.id WHERE t.action = 'check_result'")]
     assert result["result"] == "right" and result["grader_feedback"] is None
-    assert NUMBER_STEM not in lesson.everything_shown()
+    assert stem not in lesson.everything_shown()
+
+
+def test_a_whole_short_reserved_question_posed_on_its_own_counts_without_a_number(tmp_path):
+    """Codex re-review F1: a whole stem shorter than the matcher's span, words only, counts when the text poses it (it
+    stands as its own sentence or clause, or the text asks it). Inside a teaching sentence it is a phrase, not a
+    question shown: the common-phrase negatives stay accepted."""
+
+    paths, repository = build_guard_vault(tmp_path / "vault")
+    reserved = G.reserved_book(load_vault(paths.root), repository)
+    for posed in (CIPHER_STEM, f"Here is one to try: {CIPHER_STEM}", "Try “Decrypt QEBNRFZH using Caesar cipher”.",
+                  "Can you decrypt QEBNRFZH using Caesar cipher?", "First, decrypt QEBNRFZH using Caesar cipher. Then "
+                  "check it.", "Decrypt QEBNRFZH using Caesar cipher", SHORT_STEM, "Next: define a basis."):
+        assert G.quotes_reserved(posed, reserved), posed
+        assert G.reserved_guard(posed, reserved).reason == "reserved_question"
+        assert G.shown_feedback(f"Right. {posed}", reserved) is None
+    for ordinary in ("Later we define a basis carefully.", "Now we define a basis.", "To define a basis, list vectors.",
+                     "We decrypt messages using a Caesar cipher.", ORDINARY):
+        assert not G.quotes_reserved(ordinary, reserved), ordinary
+        assert G.shown_feedback(ordinary, reserved) == ordinary
+
+
+def test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number(tmp_path):
+    """Codex re-review F1: an ordinary item showing 9871 removes the matcher's numeric finding (what an ordinary item
+    shows can't leak alone), but the whole reserved stem still carries that number: it counts, posed or inside a
+    sentence."""
+
+    from learnloop.content.authoring.practice_leakage import reserved_findings
+
+    paths, repository = build_guard_vault(tmp_path / "vault")
+    write_yaml(paths.practice_item_path("linear-algebra", "pi_ordinary_9871"),
+               _item("pi_ordinary_9871", "lo_det", "Is 9871 divisible by seven?", "heron lemur: no"))
+    reserved = G.reserved_book(load_vault(paths.root), repository)
+    assert not [f for f in reserved_findings(NUMBER_STEM, reserved.questions) if f["kind"] == "numeric"]
+    assert G.quotes_reserved(NUMBER_STEM, reserved)
+    assert G.quotes_reserved("Then factor 9871 into primes by trial division.", reserved)
+    assert G.shown_feedback(f"Right. Compare: {NUMBER_STEM}", reserved) is None
+    for ordinary in ("Here 9871 is only a number.", "Factor 9872 into primes.", "We factor whole numbers into primes."):
+        assert not G.quotes_reserved(ordinary, reserved), ordinary
 
 
 def _split(message, question):

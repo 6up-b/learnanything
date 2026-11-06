@@ -135,3 +135,102 @@ Not run, because nothing they cover changed:
 - no config key: the defaults snapshot.
 
 The full suite runs once, in the landing gate.
+
+## Re-review (codex-job `20261106-091057-Yehmn5`, of `356f531bdc`)
+
+The re-review confirmed F2 fixed and reopened F1. It established no new defect introduced by the fix commit. The fix
+below supersedes the F1 "Judgment, recorded for the owner" above: a short word-only stem is now withheld when it is
+posed. No migration, successor, config key, new parameter or model request (0 paid calls). No reader or writer of the
+old item difficulty scalar. The diff stays in `teacher/guards.py` (`quotes_reserved` and a new `_posed`); no call
+site changed.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened) | High | Distinctive short stems still pass unless the text carries a numeric finding: a word-only stem ("Decrypt QEBNRFZH using Caesar cipher.") and a numbered stem whose number an ordinary item also shows | fixed | (this commit) | `test_a_whole_short_reserved_question_posed_on_its_own_counts_without_a_number`, `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`, `test_a_teacher_check_posing_a_short_reserved_question_is_withheld[Decrypt QEBNRFZH using Caesar cipher.]`, `test_the_graders_feedback_quoting_a_short_reserved_question_is_not_shown[Decrypt QEBNRFZH using Caesar cipher.]` |
+| F2 | Medium | Splitting a reserved question between message and check | confirmed fixed by the re-review | `356f531bdc` | no change |
+
+### F1 reopened: reproduced
+
+The vault gains an exam-pool item "Decrypt QEBNRFZH using Caesar cipher." (key "stoat lark: a plain word"). One
+test adds an ordinary item "Is 9871 divisible by seven?". Before the fix, four tests failed (**4 failed, 24 passed**):
+
+- `quotes_reserved` passed the cipher stem, alone and after "Here is one to try:";
+- a teacher check posing it was accepted;
+- grader feedback "Right. Compare: Decrypt QEBNRFZH using Caesar cipher." was kept;
+- with the ordinary 9871 item, the matcher's subtraction dropped its numeric finding, so "Factor 9871 into primes."
+  passed again. The test asserts that the numeric finding is gone, so it pins the reviewer's mechanism.
+
+### Fix (`guards.quotes_reserved`, `guards._posed`)
+
+A span shorter than the matcher's shingle order still counts only when it is the question, and not a phrase inside a
+teaching sentence. That now holds in two ways.
+
+1. **It carries a distinctive number**, by the matcher's own numeric rule (`inventory_for_texts([text]).numerics`,
+   that is `_numeric_literals`), read from the shown text itself rather than from the subtracted findings. An
+   ordinary item showing 9871 makes a lone "9871" harmless. It does not make the whole question "Factor 9871 into
+   primes." ordinary. This rule counts the stem anywhere, including inside a sentence ("Then factor 9871 into
+   primes by trial division.").
+2. **A whole stem the text poses** (new, independent of numbers). This holds when the stem stands as its own
+   sentence or clause: before and after it there is a clause mark or the text's edge. A clause mark
+   (`CLAUSE_MARKS`) is one of `. , ; : ! ?`, a line break, a quotation mark or a bracket. The stem also counts when
+   a question mark follows it ("Can you decrypt QEBNRFZH using Caesar cipher?"). The words are the matcher's own
+   (`[a-z0-9]+` on the lowered text, which is `_normalize_tokens` with positions). The F2 join puts a line break
+   between fields, so each displayed field's edges are clause edges there too.
+
+No new threshold. The rules use the matcher's span length, its numeric rule and punctuation. `CLAUSE_MARKS` is a
+structural character set, not a numeric parameter, so it needs no entry in `parameter_registry`.
+
+**The common-phrase negatives stay accepted.** These are pinned:
+
+- `ORDINARY` (with "Later we define a basis carefully.") as a whole lesson turn;
+- "Now we define a basis.";
+- "To define a basis, list vectors.";
+- "We decrypt messages using a Caesar cipher.";
+- "Here 9871 is only a number.";
+- "Factor 9872 into primes.";
+- "We factor whole numbers into primes.".
+
+**Now withheld:**
+
+- "Define a basis." on its own;
+- "Next: define a basis.";
+- a plan statement or check question that is exactly a reserved short stem.
+
+That is the exam question posed. A teacher check posing it would also give the learner the reserved question
+before its exam. The cost is a re-prompt when the teacher writes a plan step word for word as a reserved short stem.
+
+### Left (smallest way to finish, if wanted)
+
+**A word-only short stem inside a longer sentence** that neither opens a clause nor ends in a question mark is
+still a phrase. An example is "You could decrypt QEBNRFZH using Caesar cipher now." Telling it apart from "Later
+we define a basis carefully." needs a notion of a distinctive word ("qebnrfzh" against "define"). The vault offers
+no structural notion of that. On this test vault "define" appears in no ordinary item or source text either, so a
+"word no ordinary text shows" rule would refuse the common-phrase negative.
+
+To finish, in `_posed`, count a stem whose words include one that `reserved.questions.source_shows` and no ordinary
+item shows. That needs the ordinary items' vocabulary, which is the `shown` list in
+`practice_leakage.reserved_questions`, kept on `ReservedQuestions`. The cost is false refusals on young vaults whose
+ordinary vocabulary is thin.
+
+### Gate (this step; targeted, per the owner's rule of 2026-10-17)
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| `pytest -n 6 tests/test_teacher_exam_question_guard.py`, new tests in place, before the fix | **4 failed, 24 passed** (the reproduction above) |
+| the same file after the fix | **28 passed** |
+| `lint-imports --no-cache` (isolated env) | 43 kept, 0 broken |
+| `pytest -n 6` behaviour set (the list above, unchanged) | **671 passed** (667 before, plus the 4 new cases) |
+| `pytest -n 6` contract set (the list above, unchanged: frozen cycles in `test_architecture`, the CLI help snapshot, the display-label audit, the process-launch allowlist) | **959 passed, 6 skipped** |
+| `module_generate.py`, `module_validate.py` (isolated env) | 1244 module notes; PASS |
+
+The isolation and memory rules were the same as the first round:
+
+- every pytest ran in the 5G memory-capped scope at `-n 6`, with TMPDIR outside the worktree;
+- every other Python command ran under `env -i` with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR.
+
+The following were not run, for the same reasons as the first round: the durability lane, the DB reference
+scripts, npm, vitest, cargo and the defaults snapshot.
+
+The spec's §9.3 As built ("What counts as a hit") and `teacher-exam-question-guard.md`'s owner-judgment note are
+updated to match.

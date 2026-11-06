@@ -640,7 +640,11 @@ On a hit, the message is withheld and the model re-prompted. In chat, LearnLoop 
   - a posed check's committed solution and rubric facts (they become its vault item, which the grader reads);
   - a built figure's words.
 - **What it compares against.** The questions `learner_protection.withheld_items` keeps for an exam or holds out (exam pools, held-out units and the items made from them, live assessment reservations), read through `practice_leakage.reserved_questions`. That is the matcher FG1's probes and TE2's typed goals use.
-- **What counts as a hit.** The matcher's span findings at its own shingle order: a reserved question's contiguous wording, or a whole stem. Lone numbers do not count. A span shorter than that order counts only when it carries a distinctive number the matcher reports for the same text: "Factor 9871 into primes." counts, "Define a basis." does not, because a short common phrase must not trip the guard (Codex review F1, `docs/reviews/teacher-examguard-codex-review.md`).
+- **What counts as a hit.** The matcher's span findings at its own shingle order: a reserved question's contiguous wording, or a whole stem. Lone numbers do not count. A span shorter than that order counts when it is the question, not a phrase inside a teaching sentence (Codex review F1 and re-review F1, `docs/reviews/teacher-examguard-codex-review.md`):
+  - it carries a distinctive number by the matcher's numeric rule, read from the text itself, so an ordinary item showing the number doesn't drop it ("Factor 9871 into primes.", also "Then factor 9871 into primes by trial division.");
+  - or, a whole stem, the text poses it: it stands as its own sentence or clause (punctuation, a line break, a quotation mark, a bracket or the text's edge on both sides), or a question mark follows it ("Decrypt QEBNRFZH using Caesar cipher.", "Next: define a basis.", "Can you decrypt QEBNRFZH using Caesar cipher?").
+
+  Inside a sentence a short word-only stem is still a phrase: "Later we define a basis carefully." and "Now we define a basis." are not withheld.
 - **The turn as a whole.** Besides each field, the displayed fields joined in order are screened as one text, so a question split between the message and the check is withheld (location `turn`; Codex review F2).
 - **On a hit,** the turn is withheld by location, like a key hit (`reserved_question`). The detail names no words.
 - **Unreadable protection** withholds every guarded field (`protection_unreadable`; fail closed).

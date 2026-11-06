@@ -114,10 +114,21 @@ def key_guard(message: str, keys: Sequence[Any], unreadable: bool) -> GuardVerdi
 #: (its shingle order, less what ordinary items and readable source text already show) or a whole reserved stem.
 #: Its lone-number findings are not a question shown: a lesson's arithmetic ("0.5", "1/2") would trip them. A span
 #: shorter than the matcher's own shingle order (a whole short stem such as "Define a basis.", or a short text that
-#: is a whole short held-out block) is a short common phrase in teaching text, so it counts only when it carries a
-#: distinctive number the matcher reports for this same text (Codex review F1: "Factor 9871 into primes."). No new
-#: threshold: the matcher's own span length and its own distinctive-number rule (:func:`quotes_reserved`).
+#: is a whole short held-out block) can be a common phrase inside a teaching sentence ("Later we define a basis
+#: carefully."), so it counts when it is the question (:func:`quotes_reserved`):
+#:
+#: * it carries a distinctive number by the matcher's own numeric rule, read from this text (Codex review F1:
+#:   "Factor 9871 into primes."; an ordinary item showing 9871 doesn't make the whole question ordinary: re-review);
+#: * or, a whole stem, the text poses it (Codex re-review F1: "Decrypt QEBNRFZH using Caesar cipher."): it stands
+#:   as its own sentence or clause (:data:`CLAUSE_MARKS` or the text's edge on both sides), or the text asks it
+#:   (a question mark right after it).
+#:
+#: No new threshold: the matcher's span length and numeric rule, and punctuation.
 RESERVED_SPAN_KINDS: frozenset[str] = frozenset({"wording", "stem"})
+#: Where a shown sentence or clause starts or ends: structural punctuation, a line break, a quotation mark or a
+#: bracket (an apostrophe is a word's, so it isn't one).
+CLAUSE_MARKS: frozenset[str] = frozenset(".,;:!?\n\"“”«»()[]{}")
+_TOKEN = re.compile(r"[a-z0-9]+")  # the matcher's words (``practice_leakage._normalize_tokens``), with positions
 
 
 @dataclass(frozen=True)
@@ -149,25 +160,47 @@ def reserved_book(vault: Any, repository: Any) -> ReservedBook:
 def quotes_reserved(text: str, reserved: ReservedBook) -> bool:
     """Whether ``text`` reproduces a reserved or held-out question by the matcher's span rule. Unreadable: True."""
 
-    from learnloop.content.authoring.practice_leakage import reserved_findings
+    from learnloop.content.authoring.practice_leakage import inventory_for_texts, reserved_findings
 
     if reserved.unreadable:
         return True
     if not text or reserved.questions is None:
         return False
     order = int(reserved.questions.inventory.shingle_n)
-    findings = reserved_findings(str(text), reserved.questions)
-    # A reserved distinctive number this text shows, as the matcher's normalized words ("16.0" -> "16 0").
-    numbers = [f" {_normalize(finding['value'])} " for finding in findings if finding["kind"] == "numeric"]
+    spans = [finding for finding in reserved_findings(str(text), reserved.questions)
+             if finding["kind"] in RESERVED_SPAN_KINDS]
+    if any(len(str(finding["value"]).split()) >= order for finding in spans):
+        return True  # at the matcher's span
+    if not spans:
+        return False
+    # The distinctive numbers this text shows, by the matcher's numeric rule, as its normalized words ("16.0" ->
+    # "16 0"); read from the text itself, so an ordinary item showing the number doesn't drop it (re-review F1).
+    numbers = [f" {_normalize(number)} " for number in inventory_for_texts([str(text)]).numerics]
+    return any(any(number.strip() and number in f" {finding['value']} " for number in numbers)
+               or (finding["kind"] == "stem" and _posed(str(text), str(finding["value"])))
+               for finding in spans)
 
-    def counts(finding: Mapping[str, str]) -> bool:
-        if finding["kind"] not in RESERVED_SPAN_KINDS:
-            return False
-        span = str(finding["value"])
-        # At the matcher's span, or a whole short question that carries one of those numbers (F1).
-        return len(span.split()) >= order or any(number in f" {span} " for number in numbers if number.strip())
 
-    return any(counts(finding) for finding in findings)
+def _posed(text: str, stem: str) -> bool:
+    """Whether ``text`` poses this whole stem (its normalized words): somewhere it stands as its own sentence or clause
+    (a :data:`CLAUSE_MARKS` character or the text's edge before and after it), or a question mark follows it. Inside
+    a sentence ("Later we define a basis carefully.") it is a phrase, not the question."""
+
+    lowered = text.lower()
+    runs = [(match.start(), match.end(), match.group()) for match in _TOKEN.finditer(lowered)]
+    words, target = [run[2] for run in runs], stem.split()
+    size = len(target)
+    for start in range(len(words) - size + 1):
+        if not size or words[start:start + size] != target:
+            continue
+        end = start + size
+        before = lowered[runs[start - 1][1] if start else 0:runs[start][0]]
+        after = lowered[runs[end - 1][1]:runs[end][0] if end < len(runs) else len(lowered)]
+        opens = start == 0 or any(char in CLAUSE_MARKS for char in before)
+        closes = end == len(runs) or any(char in CLAUSE_MARKS for char in after)
+        if (opens and closes) or "?" in after:
+            return True
+    return False
 
 
 def reserved_guard(text: str, reserved: ReservedBook) -> GuardVerdict:
@@ -255,6 +288,7 @@ def cited_aliases(message: str) -> list[str]:
 
 __all__ = [
     "CITATION",
+    "CLAUSE_MARKS",
     "GuardVerdict",
     "RESERVED_SPAN_KINDS",
     "ReservedBook",

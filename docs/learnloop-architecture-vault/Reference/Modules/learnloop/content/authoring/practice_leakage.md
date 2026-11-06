@@ -114,7 +114,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 - [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
-- [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `reserved_findings`, `reserved_questions`; statically calls `reserved_findings`, `reserved_questions`
+- [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `inventory_for_texts`, `reserved_findings`, `reserved_questions`; statically calls `inventory_for_texts`, `reserved_findings`, `reserved_questions`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `reserved_findings`, `reserved_questions`; statically calls `reserved_findings`, `reserved_questions`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 
@@ -167,6 +167,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_held_out_inventory_flags_planted_phrase_and_passes_fresh_text`
   - `test_screen_practice_payload_catches_expected_answer_leak`
 - [tests/test_teacher_exam_question_guard.py](../../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`
   - `test_the_matcher_reads_both_items_as_withheld_questions`
   - `test_unreadable_protection_fails_closed`
 

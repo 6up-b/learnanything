@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/guards.py"
 source_paths:
   - "src/learnloop/teacher/guards.py"
-source_commit: "workspace/uncommitted @ HEAD 5d3be261c84625eca2a17054c85ea17e66565055"
-source_commit_timestamp: "2026-11-06T08:55:28-05:00"
+source_commit: "workspace/uncommitted @ HEAD 356f531bdc2bfce7214becc24b5fb40e602fbd63"
+source_commit_timestamp: "2026-11-06T09:10:30-05:00"
 source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py) |
-| Source lines | 274 |
+| Source lines | 308 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 5d3be261c84625eca2a17054c85ea17e66565055` |
-| Commit timestamp | `2026-11-06T08:55:28-05:00` |
+| Source commit | `workspace/uncommitted @ HEAD 356f531bdc2bfce7214becc24b5fb40e602fbd63` |
+| Commit timestamp | `2026-11-06T09:10:30-05:00` |
 
 ## Public API
 
@@ -66,28 +66,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `lesson_keys(vault: Any, repository: Any, learning_object_ids: Iterable[str], exempt_items: Iterable[str]) -> tuple[list[Any], bool]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 78) — ``(keys, unreadable)``: every recorded answer key on these LOs except the exempt items'.
 - `identifier_guard(text: str, vault_keys: Sequence[Any], unreadable: bool) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 86) — A model-supplied field a log row or a receipt copies (a plan node's id or ``lo_id``, a note's node and hypothesis, a forecast's node and its LO) against every answer key the vault records (TE2-log landing, ruling R1): an exam-reserved or held-out item's on any LO, a topic the le…
 - `key_guard(message: str, keys: Sequence[Any], unreadable: bool) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 102)
-- `class ReservedBook` ([source](../../../../../../src/learnloop/teacher/guards.py), line 124) — The questions still reserved for an exam or held out, read once per turn (``questions``: ``practice_leakage.ReservedQuestions``).
-- `reserved_book(vault: Any, repository: Any) -> ReservedBook` ([source](../../../../../../src/learnloop/teacher/guards.py), line 132) — The reserved and held-out questions as the rest of LearnLoop reads them: ``withheld_items`` (exam pools, held-out units and the items made from them, live assessment reservations), then ``reserved_questions`` (their stems, keys and rubrics, and every held-out span).
-- `quotes_reserved(text: str, reserved: ReservedBook) -> bool` ([source](../../../../../../src/learnloop/teacher/guards.py), line 149) — Whether ``text`` reproduces a reserved or held-out question by the matcher's span rule.
-- `reserved_guard(text: str, reserved: ReservedBook) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 173) — A field that would show a question kept for an exam or held out.
-- `shown_feedback(feedback: str | None, reserved: ReservedBook) -> str | None` ([source](../../../../../../src/learnloop/teacher/guards.py), line 187) — A grader's feedback as the lesson shows it: None when it reproduces a reserved or held-out question, or when those could not be read (the result itself stands).
-- `solution_overlap(text: str, solution: str) -> float` ([source](../../../../../../src/learnloop/teacher/guards.py), line 196) — How much of a committed solution ``text`` exposes (0..1; the tutor's span measure).
-- `open_check_guard(message: str, open_check: Mapping[str, Any] | None) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 206)
-- `citation_guard(message: str, book: SourceBook) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 217)
-- `check_all(message: str, *, keys: Sequence[Any], unreadable: bool, book: SourceBook, open_check: Mapping[str, Any] | None, help_reply: bool, reserved: ReservedBook, vault_keys: Sequence[Any] | None=None) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 232) — The guards in order, the first refusal named: keys; for a logged field (``vault_keys`` given) the identifier guard; reserved questions; the open check's (skipped for a reply to the learner's own question); citations.
-- `cited_aliases(message: str) -> list[str]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 252)
+- `class ReservedBook` ([source](../../../../../../src/learnloop/teacher/guards.py), line 135) — The questions still reserved for an exam or held out, read once per turn (``questions``: ``practice_leakage.ReservedQuestions``).
+- `reserved_book(vault: Any, repository: Any) -> ReservedBook` ([source](../../../../../../src/learnloop/teacher/guards.py), line 143) — The reserved and held-out questions as the rest of LearnLoop reads them: ``withheld_items`` (exam pools, held-out units and the items made from them, live assessment reservations), then ``reserved_questions`` (their stems, keys and rubrics, and every held-out span).
+- `quotes_reserved(text: str, reserved: ReservedBook) -> bool` ([source](../../../../../../src/learnloop/teacher/guards.py), line 160) — Whether ``text`` reproduces a reserved or held-out question by the matcher's span rule.
+- `reserved_guard(text: str, reserved: ReservedBook) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 206) — A field that would show a question kept for an exam or held out.
+- `shown_feedback(feedback: str | None, reserved: ReservedBook) -> str | None` ([source](../../../../../../src/learnloop/teacher/guards.py), line 220) — A grader's feedback as the lesson shows it: None when it reproduces a reserved or held-out question, or when those could not be read (the result itself stands).
+- `solution_overlap(text: str, solution: str) -> float` ([source](../../../../../../src/learnloop/teacher/guards.py), line 229) — How much of a committed solution ``text`` exposes (0..1; the tutor's span measure).
+- `open_check_guard(message: str, open_check: Mapping[str, Any] | None) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 239)
+- `citation_guard(message: str, book: SourceBook) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 250)
+- `check_all(message: str, *, keys: Sequence[Any], unreadable: bool, book: SourceBook, open_check: Mapping[str, Any] | None, help_reply: bool, reserved: ReservedBook, vault_keys: Sequence[Any] | None=None) -> GuardVerdict` ([source](../../../../../../src/learnloop/teacher/guards.py), line 265) — The guards in order, the first refusal named: keys; for a logged field (``vault_keys`` given) the identifier guard; reserved questions; the open check's (skipped for a reply to the learner's own question); citations.
+- `cited_aliases(message: str) -> list[str]` ([source](../../../../../../src/learnloop/teacher/guards.py), line 285)
 
 ### Module constants
 
 - `CITATION` ([src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py), line 35)
 - `QUOTE_CITATION` ([src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py), line 37)
-- `RESERVED_SPAN_KINDS` ([src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py), line 120)
+- `RESERVED_SPAN_KINDS` ([src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py), line 127)
+- `CLAUSE_MARKS` ([src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py), line 130)
+- `_TOKEN` ([src/learnloop/teacher/guards.py](../../../../../../src/learnloop/teacher/guards.py), line 131)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `CITATION`
+- `CLAUSE_MARKS`
 - `GuardVerdict`
 - `RESERVED_SPAN_KINDS`
 - `ReservedBook`
@@ -109,6 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_normalize(text: str) -> str` ([source](../../../../../../src/learnloop/teacher/guards.py), line 50)
 - `_identity(value: Any) -> str` ([source](../../../../../../src/learnloop/teacher/guards.py), line 54)
+- `_posed(text: str, stem: str) -> bool` ([source](../../../../../../src/learnloop/teacher/guards.py), line 184) — Whether ``text`` poses this whole stem (its normalized words): somewhere it stands as its own sentence or clause (a :data:`CLAUSE_MARKS` character or the text's edge before and after it), or a question mark follows it.
 
 ## Who imports or calls it
 
@@ -122,7 +126,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `reserved_findings`, `reserved_questions`; calls `reserved_findings`, `reserved_questions`
+- [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `inventory_for_texts`, `reserved_findings`, `reserved_questions`; calls `inventory_for_texts`, `reserved_findings`, `reserved_questions`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `key_book`, `leaks_key`; calls `key_book`, `leaks_key`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `SourceBook`
@@ -149,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_lesson_with_no_reserved_text_is_byte_identical_with_the_guard_off`
   - `test_a_reserved_question_split_between_message_and_check_is_withheld`
+  - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`
+  - `test_a_whole_short_reserved_question_posed_on_its_own_counts_without_a_number`
   - `test_a_whole_short_reserved_question_with_a_distinctive_number_counts`
   - `test_reserved_book_is_unreadable_when_withheld_items_is`
   - `test_the_matcher_reads_both_items_as_withheld_questions`
