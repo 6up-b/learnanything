@@ -191,8 +191,231 @@ Accepted by the orchestrator after step 1: the no-model branch contributes no ca
 for the follow-up batch (a prefetch job for that branch); R4's closure behaviour matches RO5's (a window closed before
 an import never reads it; received time is read with `available_at_reads` off too).
 
-### Steps 0 and 1 (in progress; the gate, the smoke and the owner's commands follow at step 6)
+### Steps 0 and 1: the merge and the rulings' fixes
 
-- Step 0: the merge `3de3827e58`; R4's intent-to-treat test `8219a93ea7`.
-- Step 1: R1 `7c766e544a`, R2 `46f81f96a6`, R3 `30f82d0b7e` (record: `docs/reviews/router-ro6-codex-review.md`,
-  "Final verify"); then R7 `bc4b183f06`, R8 `4532f84710`, R9 `dadaf942bd` (same file, "Rulings R7-R9").
+- **Step 0.** The merge `3de3827e58` and R4's intent-to-treat test `8219a93ea7`. Main `51fb2f745f` was merged. No
+  migration on either side, so head 246 and main's sanitized `migration_head_246` carry over byte for byte. The
+  conflicts were:
+  - `scores.py`: RO5's closure, with RO6's return reader through one shared as-of reader;
+  - the openers' pin;
+  - the availability-reads pin;
+  - the generated reference.
+
+  RO2's raw-read walk now also starts from `learned_tail`, `tail_data`, `tail_serve`, `tail_report` and the
+  upgrade.
+- **Step 1.** Each ruling was reproduced first, in its own commit. Records are in
+  `docs/reviews/router-ro6-codex-review.md`: "Final verify", "Rulings R7-R9" and "Scoped verify … R10-R14".
+
+  | Ruling | Commit |
+  |---|---|
+  | R1 | `7c766e544a` |
+  | R2 | `46f81f96a6` |
+  | R3 | `30f82d0b7e` |
+  | R7 | `bc4b183f06` |
+  | R8 | `4532f84710` |
+  | R9 | `dadaf942bd` |
+  | R10 | `b171ee7fc1` |
+  | R11 | `38b18de5c5` |
+  | R12 | `65671d1491` |
+  | R13 | `a8f3a88c1e` |
+  | R14 | `4b25081159` |
+
+### Step 2: early checks
+
+`test_measurement_state_labels`, `test_cli_help_snapshot`, `test_codex_lockdown_round3` (the process-launch allowlist),
+`test_ro1_availability_reads` (RO6's readers named: `tail_data.logged`, `tail_data._receipt`,
+`scores.exam_result_known`) and every `test_ro[0-9]*`: 54 files, `-n 6`, 608 passed. `lint-imports --no-cache`: 43
+kept, 0 broken.
+
+### Step 3: references (`fe9fae274e`)
+
+- `db_generate_reference` (head 246, 393 table notes) and `db_validate_reference` (errors []).
+- `desktop_generate` and `desktop_validate` (319/319 TS/TSX, 6/6 Rust).
+- `module_generate` (1236 module notes, 67 package maps, 1390 test files) and `module_validate` (PASS).
+- `validate_vault.py` (2223 notes: passed).
+- No configuration field moved at the landing, so the defaults snapshots and config fingerprints needed no change
+  (`tests/test_config_refactor.py` passes in the full suite).
+
+### Step 4: the gate (at `fe9fae274e`)
+
+| Lane | Result |
+|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0`: ok |
+| Import contracts | 43 kept, 0 broken |
+| Full suite (`-n 8`, 10G scope, under the shared lock) | 26655 passed, 91 skipped, 47 xfailed, 0 failed in 54.6 min. The known flakes (RO4's why-surface test, now pinned by R14; RO0's ULID titles) did not show |
+| Durability lane (`-m durability`) | 402 passed, 1 skipped |
+| Owner lane (fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-ro6/`, since deleted) | 83 passed, 4 skipped, and the 2 known failures: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]` |
+| Desktop | typecheck ok; whole vitest at `--maxWorkers=4`: 2756 passed; `frontend:build` ok |
+| Rust | `cargo check`: ok |
+| Mobile | typecheck ok, build ok (no phone file changed) |
+
+### Step 5: the smoke
+
+**Setup.**
+- Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (arxiv_v2, linear_algebra, probability)
+  under `fixtures-local/landing-ro6-smoke/`, since deleted.
+- Every AI route pointed at 127.0.0.1:9. The router LLM and the Decider were in-process fakes; grading and diagnosis
+  were the tests' `BlindRivalClient`; probe authoring was `AuthorFake`.
+- Main `51fb2f745f` and branch code were each `git archive`d with `migrations/`.
+- Upgrades. On main code: mvp-0.45, rebuild, mvp-0.46, mvp-0.47, rebuild, then the default to mvp-0.48. On branch
+  code: the default upgrade, mvp-0.48 to mvp-0.49, with head 246 throughout.
+- The driver goes through the real sidecar handlers and threads, with Next right after feedback unless a dwell is
+  given.
+
+**Identity.** The seed was pinned to the decision id on both sides; ids and wall times are set aside, and the traces
+are compared too. All nine pairs were IDENTICAL: Today, plan, every step, every written row (traces included), every
+router LLM and Decider request, and the generated follow-up's gate.
+
+| Copy | Below the tag (main vs branch at mvp-0.48, with a generated follow-up's gate) | At the tag, `learned_tail = false`, vs main at mvp-0.48 | Both with `[router_objective] enabled = false` |
+|---|---|---|---|
+| arxiv_v2 | identical (5 LLM, 5 Decider requests, 1 gate, 5 traces) | identical (6, 6, 1 gate, 5 traces) | identical (7, 7, 1 gate) |
+| linear_algebra | identical (5, 5, 1 gate, 5 traces) | identical (5, 5, 1 gate, 5 traces) | identical |
+| probability | identical (1 gate, 5 traces) | identical (1 gate, 5 traces) | identical |
+
+For the `learned_tail = false` pair the boundary key's version string was dropped on both sides, as RO5's landing
+did, because it seeds the rollouts' noise. Below the tag no drop was needed.
+
+**Two simulated weeks per copy at the tag, the learned tail on.**
+- The setup: RO5's arms on; a seeded ~70% learner answering the copy's real items; offered stops kept going or
+  accepted at random; days 3 and 10 sessionless; Next right after feedback.
+- The traced plan-block decisions were 36 (arxiv_v2), 75 (linear_algebra) and 68 (probability).
+- Per day, as of each day's end:
+
+| Copy | Transitions at the end (of decisions) | Censored at the end | Generator versions | Contrasts | `ŵ` (bound / unbounded) | Residual share of `Ṽ` | Argmax moved |
+|---|---|---|---|---|---|---|---|
+| arxiv_v2 | 3 of 36 | `cutoff_unmatched` 11, `objective_changed` 21, `no_later_decision` 1 | 22 | 0 every day | 0 / 0 every day | 0 (125 valuations) | 0 |
+| linear_algebra | 5 of 75 | `cutoff_unmatched` 68, `objective_changed` 1, `no_later_decision` 1 | 2 | 0 every day | 0 / 0 every day | 0 (369) | 0 |
+| probability | 17 of 68 | `cutoff_unmatched` 35, `objective_changed` 15, `no_later_decision` 1 | 16 | 0 every day | 0 / 0 every day | 0 (303) | 0 |
+
+- **No evaluation window closed within the two weeks** (windows are 14 days), so no randomized contrast formed on the
+  copies. The excluded, missing-by-kind and still-bounded counts are therefore 0 there. They are measured on the
+  synthetic three weeks ("Scoped verify … R10-R14", per day).
+- **`cutoff_unmatched` dominates** with Next right after feedback (R12). The serve takes the answer, and the
+  carried valuation (median 638 / 371 / 139 ms) is still running, so `not_valued_before_the_serve`:
+  - arxiv_v2: 29 of 35;
+  - linear_algebra: 69 of 74;
+  - probability: 50 of 67.
+
+  With a 3 s dwell (the frozen-logger run below, probability, two weeks), 68 of 72 were valued in time.
+- **`objective_changed` follows the population** (R11). The retention scope grows as the learner practises new
+  topics (arxiv_v2's population went from 2 to 30 topics in two weeks), and each growth is a new objective and
+  generator version.
+- **The carried valuation never ran before publication.** It ran in all 37, 89 and 77 cases with the numeric policy's
+  completion event already set.
+- **Trace terms recomputed for every RO6 decision.** `V_residual` was recomputed from the frozen fit and features,
+  and `Ṽ = V_tail + ŵ·V_residual`: 125 / 369 / 303 candidate values. `ŵ` and the calibration summary's hash were
+  recomputed from the ledger as of each trace's `contrasts.at`: 36 / 75 / 68. Problems: 0.
+- **Refit cost against the log.**
+
+  | Copy | Fit median in the first third (log length) | Fit median in the last third (log length) | Residual step median (max) |
+  |---|---|---|---|
+  | arxiv_v2 | 13 ms (12 decisions) | 20.5 ms (36) | 21 ms (34) |
+  | linear_algebra | 7 ms (25) | 22 ms (75) | 17 ms (74) |
+  | probability | 9 ms (22) | 22 ms (68) | 20 ms (33) |
+
+  This grows with the log, as R5 accepted.
+- **Trace bytes per decision.** 12.0-32.2 KB, 15.3-23.1 KB and 11.2-28.1 KB. The growth tracks the population's
+  size (`inputs_sources`, `evaluation.uses`, `residual.measurable`), which is bounded by the vault's topics. The
+  calibration summary is fixed-size (R9).
+
+**Frozen-logger invariance** (probability, 3 s dwell). Week 1, then a new logger (`llm_weight_prior` 0.7), then week
+2. All 7 week-1 versions with transitions (fits of n 1 to 7) are identical after week 2. The week 1 run in the
+dwell-0 smoke (linear_algebra) had no transition to fit and was replaced by this one.
+
+**Assignments** (RO5's analysis).
+- Every coin's logged probability recomputes: 26 / 65 / 63. Check days: 12 each. Slots: 1 / 4 / 7.
+- No protected, held-out, exam-reserved or generated item was drawn.
+- Generated probes were served at most once, and a later open was refused: 6/6, 51/51, 35/35.
+- One problem was flagged on linear_algebra, a driver artifact: an `insert_now` miss on the 40th step of a day (the
+  driver's step cap). `followup_next` answered `open` with the probe, and the day ended before the driver opened it.
+- probability had 2 draws superseded by a forced block after the draw, used intent-to-treat (R4).
+
+**Protection on the cards.** 94 / 212 / 178 router LLM cards and every Decider state were scanned.
+- No protected or invisible stems, and no attempt cited after its decision.
+- Every reference-solution hit sits in the learner's own answer field (the synthetic learner types the expected
+  answer), with one exception on linear_algebra. That hit is an attempted multiple-choice stem whose option A is its
+  reference answer (`pi_linear_combinations_basis_recognize_03`), the false positive RO2's, RO4's and RO5's landings
+  also saw.
+- probability's 20 unattempted-stem hits are one false positive. `pi_method_reusable_access_code` shares its first
+  60 characters with `pi_method_nonreusable_access_code`, whose attempt the card cites.
+
+**Time** (main at mvp-0.48 against branch at mvp-0.49, one day with a generated follow-up).
+
+| Copy | Next after | Main: Next at a boundary ms (n) | Branch | Today ms (main / branch) | Submit ms | Follow-up gate ms | Numeric per decision ms (main / branch) |
+|---|---|---|---|---|---|---|---|
+| arxiv_v2 | 0 s | 1617 (10) | 1940 (10) | 162 / 159 | 196 / 197 | 192 / 191 | 1216 / 1237 |
+| arxiv_v2 | 3 s | 596 | 589 | 164 / 161 | 196 / 198 | 191 / 254 | 1144 / 1165 |
+| linear_algebra | 0 s | 1508 (5) | 1812 (7) | 754 / 752 | 208 / 205 | 194 / 259 | 803 / 691 |
+| linear_algebra | 3 s | 621 | 664 | 756 / 752 | 210 / 203 | 194 / 198 | 747 / 683 |
+| probability | 0 s | 762 (5) | 901 (7) | 616 / 615 | 200 / 197 | 175 / 174 | 206 / 195 |
+| probability | 3 s | 680 | 740 | 615 / 620 | 221 / 209 | 175 / 174 | 176 / 154 |
+
+With Next right after feedback, a boundary's Next is 140-320 ms slower on the branch. The deferred carried valuation
+runs in the prefetch thread right after the answer is released and competes for the interpreter with the serve that
+follows. After 3 s of reading the difference is within noise (−7 to +60 ms). No deadline was missed.
+
+**Reports after the weeks.** `learnloop router objective-report` (`--json` and words) exits 0 on every copy.
+- Read at the weeks' end (`report_at.py`, the clock frozen at 11-18 23:00Z), its `learned_tail` section on
+  probability:
+  - "learned tail (ro6_learned_tail_report_v1): the logger's value plus one small improvement step: a stop coin
+    followed by the logger tests Q^pi_b(a) - Q^pi_b(a'); more data does not lift this";
+  - "- no improvement guarantee is claimed: a 2-delta per-decision bound needs a uniform Q error bound and an
+    expected-value update whose feasible set contains the baseline; …";
+  - "- w^ is calibrated on the measurable part of the return only …";
+  - "- transitions 17 of 68 decisions; censored {'cutoff_unmatched': 35, 'objective_changed': 15,
+    'no_later_decision': 1}; change points 15".
+- It also lists 16 versions with their fits and change points, and `ŵ`'s history (0 every day, 0 contrasts).
+- `learnloop data-capture report --json` exits 0.
+
+**Shadow, survival, isolation.**
+- `rebuild --shadow`: facet 0, schedule 0, mastery 4 / 15 / 2, every one stamp-only (`algorithm_version` alone);
+  the live database unchanged.
+- Every assignment and trace row is identical after `rebuild-derived-state` and a state sync.
+- New `model_call_receipts` came from the fakes only. probability's 42 gpt-5.6-sol and 14 Decider receipts are the
+  backup's own, from Oct 25-26.
+- The socket watch logged no connect at all and no non-loopback address. The only subprocesses were
+  `powerprofilesctl get` (48) and `git -C` (22, the code stamp). There was no Codex process.
+
+**R6.** `git diff 51fb2f745f...HEAD -- src migrations` adds no line naming the difficulty columns,
+`mastery.irt.difficulty_from_prior` or surprise's `b`: no added line matches "difficulty" or "surprise" at all.
+
+### What the owner runs after the fast-forward
+
+For each vault (`~/learnloop-vaults/<name>`), from where RO5's record leaves them (mvp-0.48):
+
+```bash
+learnloop upgrade --vault ~/learnloop-vaults/<name>                 # mvp-0.48 -> mvp-0.49 (the default target; no migration)
+learnloop rebuild-derived-state --vault ~/learnloop-vaults/<name>   # optional: clears the stamp-only shadow rows
+```
+
+A vault still below mvp-0.48 takes RO5's and RO4's commands first. Then rebuild the desktop app and restart the phone
+host. After a few weeks (no stop-coin window closes before 14 days):
+
+```bash
+learnloop router objective-report --vault ~/learnloop-vaults/<name>   # the learned_tail section: w^, the fits, change points
+```
+
+**To turn the learned tail off**, add this to the vault's `learnloop.toml`. Today then serves mvp-0.48 exactly (the
+smoke's identity above):
+
+```toml
+[router_objective]
+learned_tail = false
+```
+
+`enabled = false` turns the whole objective off, as before.
+
+### Open items
+
+1. **R12 in real use.** With Next pressed right after feedback, most backups are censored `cutoff_unmatched`, because
+   the serve takes the answer before the carried valuation finishes; with a 3 s dwell most are valued. The same
+   deferred valuation adds 140-320 ms to a boundary's Next at dwell 0 (interpreter contention). Follow-up: run the
+   carried valuation in the next boundary's prefetch, or keep its result for the next decision's transition.
+2. **R11 and a growing retention scope.** Every new practised topic is a new objective, so a new generator version
+   with no transitions of its own. On arxiv_v2 that meant 22 versions in two weeks. Serving then uses the latest
+   earlier version's fit, which "version k+1 uses the result" allows.
+3. As accepted: the no-model branch gives no carried transitions (R3; a prefetch job for it in the follow-up batch);
+   the refit grows with the log (R5; a cache for closed transitions' rewards, with the mix's floor draws as extra
+   contrasts, in the follow-up batch).
+4. **No stop-coin window closes before 14 days**, so `ŵ` cannot move in a vault's first two weeks at mvp-0.49. Only the
+   synthetic three weeks exercised the bound.
