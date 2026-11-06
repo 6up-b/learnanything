@@ -177,3 +177,78 @@ New test file: `tests/test_teacher_te2_review_fixes.py` (12 tests, 14 cases). F6
 13-failure reproduction run. With the fix temporarily reverted it failed (`LessonError: Unknown lesson action
 'close'`). With the fix back, the whole file passed: 14 passed. Changed: `tests/test_teacher_te2_probes.py` (the author
 fake declares the subscription plan).
+
+## Re-review
+
+The re-review (gpt-6.1-sol, codex-job `20261106-054620-utKkR3`) read `dc9daca78e..teacher/te2` at `1831c669f9`. It
+confirmed F1 and F2 fixed and reopened the stage on one new finding, F7. Every test uses fakes only. No model call,
+paid request or live vault was used.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Lesson probes get zero reliable canonical evidence | confirmed fixed | `a6fd6615fe` | unchanged |
+| F2 | High | Topic exposure is labelled but does not contaminate the recorded attempt | confirmed fixed | `a6fd6615fe` | unchanged |
+| F7 | Medium | Blind lesson-probe grades use the joint grader's calibration | fixed | `6e0b13cf61` | `test_teacher_te2_review_fixes.py::test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity` |
+
+**F7. Reproduced.** The test seeds two `grader_identity`-scope calibration models: one for the blind grader
+(`grading_prompt_v2_blind` / `blind_grading_proposal_v1`) and one for the joint grader (`grading_prompt_v1` /
+`grading_proposal_v1`). It then answers an admitted probe in a split vault (`split_grading_active` is true at the TE2
+tag). Before the fix, the attempt's `raw_grade_events` row stamped `grading_prompt_v1`, because
+`_record_lesson_probe` dropped `ApplyAttemptInput.grader_identity`. The probe path's dual-write then resolved the
+joint grader's identity hash and models.
+
+**Fix.** `_record_lesson_probe` now passes `attempt.grader_identity` through
+`dual_write_presentationless_probe_grade` and `_dual_write_probe_grade` into `record_grade_dual_write`, as
+`grading_prompt_version` and `grader_output_schema_version`. Both new parameters default to None, which is the joint
+grader's identity, so every other caller stamps what it did before. The test asserts three things:
+
+- the persisted prompt, schema and `grader_identity_hash` are the blind grader's;
+- the interpretation's `reference_prior_ids_json` contains the blind model and not the joint one;
+- the canonical cells are equal before and after `rebuild_all_derived_state`. Replay reads the blind identity back
+  from the raw grade event (`replay_grader_identity`).
+
+**Left open (outside this stage).** FG1's presentation path (`_record_presentation_observation`) also calls
+`_dual_write_probe_grade` with no identity, so in a split vault its probe grades are stamped with the joint
+identity too. That predates TE2 and was not changed here. The smallest way to finish it is to pass the submission's
+`grader_identity` at that one call site, with a matching FG1 test.
+
+### Gate (re-review step)
+
+Run in the worktree at `6e0b13cf61`. Every pytest command ran inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`. Ad-hoc tools ran under `env -i`, with
+empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install --offline pypdfium2==5.14.0` | ok |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| pytest `-k f7` on `test_teacher_te2_review_fixes.py`, before the fix | 1 failed (`'grading_prompt_v1' != 'grading_prompt_v2_blind'`) |
+| pytest `test_teacher_te2_review_fixes.py`, after the fix | 15 passed |
+| pytest `-n 6`, the targeted set (42 files, listed below) | 875 passed, 1 skipped, 4 xfailed |
+| `module_validate.py` | PASS (the catalog records no signatures, so it was not regenerated) |
+
+This step changed no migration, schema, DB/connection code, frontend or `src-tauri`. So there was no durability
+lane, npm, vitest, cargo or DB reference run.
+
+**Test files:** `test_teacher_te2_lessons`, `test_teacher_te2_migration`, `test_teacher_te2_probes`,
+`test_teacher_te2_review_fixes`, `test_teacher_te2_sidecar`, `test_teacher_te2_successor`,
+`test_teacher_te2log_activity`, `test_teacher_te2log_episodes`, `test_teacher_te2log_migration`,
+`test_teacher_te2log_node_held`, `test_teacher_te2log_receipt`, `test_teacher_te2log_report`,
+`test_teacher_te1_lesson`, `test_teacher_te1_review_fixes`, `test_probe_episodes`,
+`test_characterization_probe_family_em`, `test_characterization_probe_regrade`,
+`test_characterization_probe_replay`, `test_characterization_probe_submission`, `test_grade_resolution_pipeline`,
+`test_blind_grading_contract`, `test_placement_split_grades`, `test_regrade_contract_replay`,
+`test_rebuild_equivalence`, `test_rebuild_equivalence_review`, `test_rebuild_orchestrator`,
+`test_followup_fg1d_panel_read`, `test_followup_fg1d_probe_shadow`, `test_followup_codex_review`, and the contract
+tests:
+
+- frozen cycles: `test_architecture`;
+- `test_cli_help_snapshot`;
+- the display-label audit: `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`,
+  `test_rw5c_labels`;
+- the process-launch allowlist: `test_ai_tool_isolation`, `test_e0_isolation`, `test_codex_tool_lockdown`,
+  `test_codex_lockdown_round3`;
+- `test_table_roles`, `test_registry_audit`, `test_module_catalog_inventory`.
+
+Changed test file: `tests/test_teacher_te2_review_fixes.py`, which gains one test (13 tests, 15 cases). Calls per
+probe and rows per kind are unchanged from the table above.
