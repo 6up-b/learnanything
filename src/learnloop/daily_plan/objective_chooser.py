@@ -143,12 +143,31 @@ def _merged(config: Any) -> bool:
     return followup_on(config, "merged_sessions")
 
 
-def _frontier(inputs: V.Inputs, *, draws: int, seed: str, merged_sessions: bool = False
+def _consistent_draw(config: Any) -> bool:
+    """The follow-up batch's landing ruling R1: the rollouts draw a practised topic's practice outcome from the memory
+    model's own ``P(perform)`` (``value.REVIEW_DRAW_VERSION``) only at the batch's tag with ``[router_objective]
+    consistent_review_draw``; below the tag, or off, mvp-0.49's draw from AD's predictive, draw for draw."""
+
+    if config is None:
+        return False
+    from learnloop.router_objective_switches import followup_on
+
+    return followup_on(config, "consistent_review_draw")
+
+
+def _rollout_options(config: Any) -> dict[str, bool]:
+    """The rollouts' serving options, for every rollout of one decision (its evaluation and refinement, the
+    correction, the carried valuation, the baselines and the day's gain curve) or for none: one place."""
+
+    return {"merged_sessions": _merged(config), "consistent_review_draw": _consistent_draw(config)}
+
+
+def _frontier(inputs: V.Inputs, *, draws: int, seed: str, **rollout: bool
               ) -> tuple[dict[float, float], dict[str, Any]]:
     mbar = float(inputs.price.remembered)
     d = float(inputs.tail_block_minutes)
     points = sorted({0.0, mbar, mbar + d, 2 * mbar})
-    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", merged_sessions=merged_sessions)
+    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", **rollout)
     return curve, {"points": [{"minutes": m, "gain": curve[m]} for m in points],
                    "display": "; ".join(f"{m:.0f} minutes: predicted gain {curve[m]:+.3f}" for m in points if m > 0)
                    + " (predictions)"}
@@ -178,7 +197,7 @@ def _posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_da
         frontier: dict[str, Any] = {"carried_from": today[0]} if today is not None else {"status": "no_topics"}
         gain: dict[str, float] = {}
     else:
-        curve, frontier = _frontier(inputs, draws=draws, seed=seed, merged_sessions=_merged(config))
+        curve, frontier = _frontier(inputs, draws=draws, seed=seed, **_rollout_options(config))
         gain = {str(k): v for k, v in curve.items()}
     return P.Seeded(kappa0=float(posterior["kappa0"]), how=SC.POSTERIOR, regime=SC.POSTERIOR_REGIME, gain=gain,
                     local_date=local_date, posterior=posterior), frontier
@@ -216,7 +235,7 @@ def day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int,
     mbar = float(inputs.price.remembered)
     d = float(inputs.tail_block_minutes)
     points = sorted({0.0, mbar, mbar + d, 2 * mbar})
-    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", merged_sessions=_merged(config))
+    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", **_rollout_options(config))
     kappa0, how = P.seed_from_gain(curve, remembered=mbar, block_minutes=d, last_positive=last_positive)
     frontier = {"points": [{"minutes": m, "gain": curve[m]} for m in points],
                 "display": "; ".join(f"{m:.0f} minutes: predicted gain {curve[m]:+.3f}" for m in points if m > 0)
@@ -411,8 +430,9 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         inputs = replace(inputs, price=replace(inputs.price, kappa0=priced.kappa0, regime=priced.regime))
         draws, ceiling = int(section.rollout_theta_draws), int(section.rollout_theta_draws_max)
         cached: dict[str, Any] = {}
-        # The follow-up batch's item 3 (Codex review F2): every rollout of this decision, or none, merged.
-        merged = _merged(config)
+        # The follow-up batch's item 3 (Codex review F2) and landing ruling R1: every rollout of this decision, or
+        # none, merged; every one, or none, with the memory model's own review draw.
+        rollout = _rollout_options(config)
 
         def answered(evaluation: V.Evaluation, used: V.Inputs, acts: Sequence[V.Action], corrected: bool) -> NumericPolicy:
             if residual_record is not None and residual_record.get("status") == "applied":
@@ -426,7 +446,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             if "baselines" not in cached:
                 # The pre-action belief under the tail: no action and no correction enters it.
                 cached["baselines"] = V.baselines(used, int(section.evaluation_window_days),
-                                                  draws=min(evaluation.draws, 8), seed=seed, merged_sessions=merged)
+                                                  draws=min(evaluation.draws, 8), seed=seed, **rollout)
             return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=used,
                                  actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
                                  baselines=cached["baselines"], corrected=corrected,
@@ -445,7 +465,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 # batch's item 4); else this job's.
                 at_previous = V.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
                                          deadline=at_deadline if deadline is None else deadline,
-                                         clock=clock, cutoff=at_cutoff, merged_sessions=merged)
+                                         clock=clock, cutoff=at_cutoff, **rollout)
                 return TS.with_carried_values(record, at_previous)
 
             return compute
@@ -470,7 +490,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         # (``unmeasured`` only at RO6's tag with the learned tail on; None leaves the evaluation as mvp-0.48's)
         measured = {"unmeasured": unmeasured} if unmeasured is not None else {}
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
-                                deadline=deadline, clock=clock, on_complete=on_complete, merged_sessions=merged,
+                                deadline=deadline, clock=clock, on_complete=on_complete, **rollout,
                                 **measured)
         corrected = False
         if evaluation.complete and forecasts is not None and bool(section.sensors_in_value):
@@ -485,7 +505,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                     with_llm = replace(inputs, effect=effect, reference_forecast=float(reference))
                     acts = [replace(action, forecast=by_ref.get(action.ref)) for action in actions]
                     again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
-                                       merged_sessions=merged, **measured)
+                                       **rollout, **measured)
                     if again.complete:
                         evaluation, inputs, actions, corrected = again, with_llm, acts, True
         if not evaluation.complete:
@@ -515,7 +535,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
                 # target, so the first batch's draws: its noise averages out in the fit, and no refinement is paid).
                 at_previous = V.evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
-                                         cutoff=carried, merged_sessions=merged)
+                                         cutoff=carried, **rollout)
                 residual_record = tail_serve.with_carried_values(residual_record, at_previous)
         final = answered(evaluation, inputs, actions, corrected)
         return replace(final, carried=own_carry) if own_carry is not None else final
@@ -965,7 +985,10 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                      "learning": inputs.learning.source if inputs is not None else None,
                      "card": card_version, "llm_schema": rq.LLM_POLICY_SCHEMA,
                      "goals": {goal_id: {"source": goal.get("source"), "contract": goal.get("contract_version_id")}
-                               for goal_id, goal in ((numeric.sources if numeric is not None else {}).get("goals") or {}).items()}},
+                               for goal_id, goal in ((numeric.sources if numeric is not None else {}).get("goals") or {}).items()},
+                     # The follow-up batch's landing ruling R1: the rollouts' review draw, named only when it serves
+                     # (below the tag, or off, the trace keeps mvp-0.49's bytes).
+                     **({"review_draw": V.REVIEW_DRAW_VERSION} if _consistent_draw(config) else {})},
     }
 
 

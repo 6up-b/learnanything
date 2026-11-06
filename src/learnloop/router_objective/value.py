@@ -70,7 +70,7 @@ from typing import Any
 
 import numpy as np
 
-from learnloop.router_objective.memory import Combiner, Fsrs, perform, sigmoid
+from learnloop.router_objective.memory import Combiner, Fsrs, logit, perform, sigmoid
 
 OBJECTIVE_VERSION = "router_objective_v1"
 TAIL_VERSION = "flat_load_adaptive_v1"
@@ -99,6 +99,13 @@ MINUTES_PER_DAY = 1440.0
 #: below the tag), the per-block loop. The same cells, in the same order, each at its own block's end, so a fixed
 #: number of draws gives the same values; but an evaluation refined until a deadline completes more draws when each
 #: is faster, which can change ``Q̄`` and the tie rule (Codex review F2), so it changes serving and has its switch.
+#: The follow-up batch's landing ruling R1 (``consistent_review_draw``; the caller passes ``[router_objective]
+#: consistent_review_draw`` at the batch's tag): a practised topic's practice outcome is drawn from the memory model's
+#: own ``P(perform)`` at that moment (the combiner over the draw's ``η`` and FSRS's ``R`` at the elapsed lag, §8.4),
+#: and the belief observes it under the same likelihood, so a review FSRS calls a lapse is one the model expects. Off
+#: (the default, below the tag), mvp-0.49's draw from AD's predictive alone, draw for draw. An unpractised topic's
+#: first attempt and a probe's observation read AD's predictive either way (the combiner has no ``R`` for them).
+REVIEW_DRAW_VERSION = "review_draw_memory_model_v1"
 
 
 @dataclass(frozen=True)
@@ -402,11 +409,15 @@ class _Model:
     """One decision's rollouts: the frozen inputs, the draws, and the streams."""
 
     def __init__(self, inputs: Inputs, draws: int, seed: str, cutoff: float | None = None,
-                 unmeasured: Collection[str] | None = None, merged_sessions: bool = False) -> None:
+                 unmeasured: Collection[str] | None = None, merged_sessions: bool = False,
+                 consistent_review_draw: bool = False) -> None:
         self.inputs = inputs
         self.seed = seed
         #: the follow-up batch's item 3 (module constant's note above): the tail's sessions merged when they can be
         self.merged = bool(merged_sessions)
+        #: the follow-up batch's landing ruling R1 (:data:`REVIEW_DRAW_VERSION`'s note): a practised topic's outcome
+        #: drawn from the memory model's own ``P(perform)``
+        self.consistent = bool(consistent_review_draw)
         #: RO6's landing ruling R7: topics whose undated uses no randomized check could measure as of the decision;
         #: their share of the undated reward is kept apart on the same paths (``_Ledger.unmeasured``). None: not kept.
         self.unmeasured = frozenset(unmeasured) if unmeasured is not None else None
@@ -511,17 +522,41 @@ class _Model:
         return self.kappa0 * ((start + minutes) ** 2 - start ** 2) / (2.0 * self.mbar)
 
     # effects ---------------------------------------------------------------------------------------
+    def _graded(self, eta: np.ndarray, bel: np.ndarray, bel_var: np.ndarray, stability: np.ndarray,
+                practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray
+                ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """A graded attempt, elementwise (``coef``: each element's combiner draw, shaped ``(M, 3)``): its result,
+        then the belief's one-step Laplace update on it (mean, variance; before the learning increment).
+
+        mvp-0.49 (``consistent`` off): the result is drawn from AD's predictive ``σ(η)`` and the belief predicts it
+        with ``σ(bel)``. Landing ruling R1 (on): a practised topic's result is drawn from the memory model's own
+        ``P(perform)`` at this moment, ``σ(a0 + aA·η + aR·(logit R − η))`` with ``R`` FSRS's at the elapsed lag
+        (:func:`memory.perform`'s formula), and the belief observes it under the same likelihood (its prediction at
+        ``bel``, its slope in ``η`` ``aA − aR``), so the belief does not read a memory effect as ability."""
+
+        if not self.consistent:
+            good = u < sigmoid(eta)
+            p_bel = sigmoid(bel)
+            var = 1.0 / (1.0 / bel_var + p_bel * (1 - p_bel))
+            return good, bel + var * (good.astype(np.float64) - p_bel), var
+        a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
+        lr = logit(self.fsrs.retrievability(stability, elapsed))
+        p_true = np.where(practiced, sigmoid(a0 + a_eta * eta + a_r * (lr - eta)), sigmoid(eta))
+        p_bel = np.where(practiced, sigmoid(a0 + a_eta * bel + a_r * (lr - bel)), sigmoid(bel))
+        slope = np.where(practiced, a_eta - a_r, 1.0)
+        good = u < p_true
+        var = 1.0 / (1.0 / bel_var + slope * slope * p_bel * (1 - p_bel))
+        return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
+
     def _practice(self, state: _State, lo: int, at: np.ndarray, u: np.ndarray, mask: np.ndarray, mass: float) -> None:
         """One practice opportunity on topic ``lo`` for the draws in ``mask``: a graded attempt."""
 
-        p_true = sigmoid(state.eta[:, lo])
-        good = u < p_true
-        d, s = self.fsrs.review(state.d[:, lo], state.s[:, lo], state.practiced[:, lo], at - state.last[:, lo], good)
-        gm = float(self.inputs.learning.gamma[0])
+        elapsed = at - state.last[:, lo]
         # The belief observes the graded attempt (a one-step Laplace update), then learns as the model predicts.
-        p_bel = sigmoid(state.bel[:, lo])
-        var = 1.0 / (1.0 / state.bel_var[:, lo] + p_bel * (1 - p_bel))
-        bel = state.bel[:, lo] + var * (good.astype(np.float64) - p_bel)
+        good, bel, var = self._graded(state.eta[:, lo], state.bel[:, lo], state.bel_var[:, lo], state.s[:, lo],
+                                      state.practiced[:, lo], elapsed, self.theta.coef, u)
+        d, s = self.fsrs.review(state.d[:, lo], state.s[:, lo], state.practiced[:, lo], elapsed, good)
+        gm = float(self.inputs.learning.gamma[0])
         state.d[:, lo] = np.where(mask, d, state.d[:, lo])
         state.s[:, lo] = np.where(mask, s, state.s[:, lo])
         state.practiced[:, lo] = np.where(mask, True, state.practiced[:, lo])
@@ -603,11 +638,10 @@ class _Model:
         times = np.asarray(at, dtype=np.float64)
         when = times[active] if times.ndim == 2 else np.broadcast_to(times, (self.k,))[r]
         eta = state.eta[r, c]
-        good = u[active] < sigmoid(eta)
-        d, s = self.fsrs.review(state.d[r, c], state.s[r, c], state.practiced[r, c], when - state.last[r, c], good)
-        p_bel = sigmoid(state.bel[r, c])
-        var = 1.0 / (1.0 / state.bel_var[r, c] + p_bel * (1 - p_bel))
-        bel = state.bel[r, c] + var * (good.astype(np.float64) - p_bel)
+        elapsed = when - state.last[r, c]
+        good, bel, var = self._graded(eta, state.bel[r, c], state.bel_var[r, c], state.s[r, c], state.practiced[r, c],
+                                      elapsed, self.theta.coef[r], u[active])
+        d, s = self.fsrs.review(state.d[r, c], state.s[r, c], state.practiced[r, c], elapsed, good)
         gm = float(self.inputs.learning.gamma[0])
         state.d[r, c] = d
         state.s[r, c] = s
@@ -950,7 +984,7 @@ class _Model:
                                  gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
                 effect=None, stop_accept=(1.0, 1.0))
             self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried,
-                                  merged_sessions=self.merged)
+                                  merged_sessions=self.merged, consistent_review_draw=self.consistent)
         return self._belief
 
     def _probe_choice(self, probe: Action, repair: Action, result: bool | None) -> dict[str, Any]:
@@ -1091,7 +1125,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
              clock: Callable[[], float] = time.monotonic,
              on_complete: Callable[[Evaluation], None] | None = None,
              cutoff: float | None = None, unmeasured: Collection[str] | None = None,
-             merged_sessions: bool = False) -> Evaluation:
+             merged_sessions: bool = False, consistent_review_draw: bool = False) -> Evaluation:
     """``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more
     while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s). An evaluation
     that could not finish its first batch by the deadline is ``complete = False``; a refinement the deadline cuts
@@ -1102,12 +1136,15 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
     (RO6's landing ruling R7; None: not kept): topics whose share of each ``Q`` is kept apart on the same paths
     (``terms.unmeasured_reward``), so the measurable part ``q − unmeasured_reward`` decomposes by term exactly;
     ``q`` itself is unchanged. ``merged_sessions`` (the follow-up batch's item 3; False: mvp-0.49's per-block loop):
-    the tail's sessions merged where they can be, faster, so a deadline admits more refinement batches."""
+    the tail's sessions merged where they can be, faster, so a deadline admits more refinement batches.
+    ``consistent_review_draw`` (the batch's landing ruling R1; False: mvp-0.49's draw): a practised topic's practice
+    outcome drawn from the memory model's own ``P(perform)`` (:data:`REVIEW_DRAW_VERSION`)."""
 
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
-    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, merged_sessions=merged_sessions)
+    options = {"merged_sessions": merged_sessions, "consistent_review_draw": consistent_review_draw}
+    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options)
     latest: Evaluation | None = None
     while True:
         rows: list[Valued] = []
@@ -1131,7 +1168,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
         if not more or total >= limit or (deadline is not None and clock() > deadline):
             break
         total = min(total * 2, limit)
-        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, merged_sessions=merged_sessions)
+        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options)
     if latest is not None:
         return replace(latest, elapsed_ms=int(round((clock() - started) * 1000)))
     return Evaluation(valued=(), draws=model.k, cutoff=model.cutoff, seed=seed,
@@ -1167,12 +1204,12 @@ def numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str,
 
 
 def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str,
-              merged_sessions: bool = False) -> dict[str, Any]:
+              merged_sessions: bool = False, consistent_review_draw: bool = False) -> dict[str, Any]:
     """§8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the
     tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated
     use's at its date."""
 
-    model = _Model(inputs, draws, seed, merged_sessions=merged_sessions)
+    model = _Model(inputs, draws, seed, merged_sessions=merged_sessions, consistent_review_draw=consistent_review_draw)
     ledger = _Ledger.zeros(model.k)
     state = model.initial()
     recorder: dict[str, Any] = {"days": int(window_days)}
@@ -1187,12 +1224,13 @@ def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str,
 
 
 def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str,
-         merged_sessions: bool = False) -> dict[float, float]:
+         merged_sessions: bool = False, consistent_review_draw: bool = False) -> dict[float, float]:
     """``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from
     the start under the tail, then the tail; for the price's daily seed and the frontier."""
 
     out: dict[float, float] = {}
-    model = _Model(replace(inputs, session_minutes=0.0), draws, seed, merged_sessions=merged_sessions)
+    model = _Model(replace(inputs, session_minutes=0.0), draws, seed, merged_sessions=merged_sessions,
+                   consistent_review_draw=consistent_review_draw)
     for length in session_lengths:
         ledger = _Ledger.zeros(model.k)
         state = model.initial()
@@ -1209,7 +1247,8 @@ def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: 
 
 __all__ = [
     "Action", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
-    "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW", "SEQUENCE", "STOP",
+    "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW",
+    "REVIEW_DRAW_VERSION", "SEQUENCE", "STOP",
     "TAIL_VERSION", "TEACH_BACK", "TERMINAL_VERSION", "Topic", "Valued", "cutoff_for", "evaluate", "gain",
     "numeric_choice", "paired_standard_error",
 ]

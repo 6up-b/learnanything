@@ -4190,8 +4190,8 @@ class RouterObjectiveConfig(BaseModel):
     labelled priors (``residual_prior_sd`` on the fitted Q evaluation's coefficients, ``residual_weight_prior_sd``
     on its calibration slope ``ŵ``, which starts at zero).
 
-    The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``carried_in_prefetch``,
-    ``scope_extension``, each part's own switch (off, or below the tag, mvp-0.49 exactly).
+    The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
+    ``carried_in_prefetch``, ``scope_extension``, each part's own switch (off, or below the tag, mvp-0.49 exactly).
     """
 
     receipts: bool = True
@@ -4287,6 +4287,10 @@ class RouterObjectiveConfig(BaseModel):
     #: Item 3 (Codex review F2): the rollouts' tail sessions merged into one vectorized step where no topic repeats
     #: and no dated use is crossed; the same values per draw, but faster, so a deadline admits more draws.
     merged_sessions: bool = True
+    #: Landing ruling R1: a practised topic's practice outcome in the rollouts is drawn from the memory model's own
+    #: ``P(perform)`` at that moment (the combiner over AD's predictive and FSRS's R, §8.4), and the belief observes
+    #: it under the same likelihood, so a review FSRS calls a lapse is one the model expects; off, AD's predictive.
+    consistent_review_draw: bool = True
     #: RO6 R12/R3: a decision served before its carried valuation existed is valued again in the next
     #: boundary's prefetch (the no-model branch too), recorded beside its trace, so its backup is not censored.
     carried_in_prefetch: bool = True

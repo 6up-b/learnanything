@@ -37,6 +37,7 @@ OLD = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 FOLLOWUP_KEYS: dict[str, object] = {
     "combiner_trace_outcomes": True,
     "merged_sessions": True,
+    "consistent_review_draw": True,
     "carried_in_prefetch": True,
     "scope_extension": True,
 }

@@ -1950,6 +1950,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the follow-up batch's successor mvp-0.50 (item 3, Codex review F2): the rollouts' tail "
         "sessions merged into one vectorized step (the same values per draw; more draws within a deadline); off, "
         "mvp-0.49's per-block loop."),
+    _ConfigRule(_exact("router_objective.consistent_review_draw"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R1): a practised topic's practice "
+        "outcome in the rollouts drawn from the memory model's own P(perform) (the combiner over AD's predictive and "
+        "FSRS's R), the belief observing it under the same likelihood; off, mvp-0.49's draw from AD's predictive."),
     _ConfigRule(_exact("router_objective.carried_in_prefetch"), "structural", "operational",
         "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R12, R3): a decision served before its "
         "carried valuation existed is valued in the next boundary's prefetch; off, mvp-0.49 (censored)."),
