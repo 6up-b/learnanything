@@ -292,6 +292,21 @@ def followup_generator_switches(config: Any) -> dict[str, bool] | None:
     return {key: followup_on(config, key) for key in FOLLOWUP_GENERATOR_SWITCHES}
 
 
+#: The follow-up batch's landing ruling R12: every switch of the batch, as part of the prefetch boundary key, so a
+#: flip between a prefetch and its serve starts a new job (``carried_in_prefetch`` too: it changes what the job does
+#: with its carried valuation, though not the logger's values).
+FOLLOWUP_SWITCHES: tuple[str, ...] = (*FOLLOWUP_GENERATOR_SWITCHES, "carried_in_prefetch")
+
+
+def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
+    """R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key
+    keeps its predecessor's bytes)."""
+
+    if not followups_tag(config):
+        return None
+    return {key: followup_on(config, key) for key in FOLLOWUP_SWITCHES}
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -315,7 +330,9 @@ __all__ = [
     "check_mode",
     "fitted_models_on",
     "FOLLOWUP_GENERATOR_SWITCHES",
+    "FOLLOWUP_SWITCHES",
     "followup_generator_switches",
+    "followup_switch_snapshot",
     "followup_on",
     "monotone_combiner_on",
     "followups_tag",

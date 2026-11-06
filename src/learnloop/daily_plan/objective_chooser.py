@@ -113,13 +113,23 @@ _FAILURES = frozenset({TIMEOUT, FAILED, INVALID, NOT_READY, "spend", "unreachabl
 
 
 def objective_settings(config: Any) -> dict[str, Any]:
+    """The settings a prefetch boundary key names. At the follow-up batch's tag also its switches as they serve
+    (landing ruling R12, ``followup_switch_snapshot``), so a flip between a prefetch and its serve starts a new job;
+    below the tag the key keeps its predecessor's bytes."""
+
+    from learnloop.router_objective_switches import followup_switch_snapshot
+
     section = config.router_objective
-    return {key: getattr(section, key) for key in (
+    out = {key: getattr(section, key) for key in (
         "enabled", "sensors_in_value", "rollout_theta_draws", "rollout_theta_draws_max", "horizon_days",
         "undated_use_density", "dated_use_weight", "session_gap_minutes", "session_guard_minutes",
         "evaluation_window_days", "llm_weight_prior", "llm_min_share", "numeric_min_share", "delta_prior_sd",
         "effect_slope_prior_mean", "effect_slope_prior_variance", "stop_accept_prior_a", "stop_accept_prior_b",
         "llm_card_token_budget", "receipts")}
+    snapshot = followup_switch_snapshot(config)
+    if snapshot is not None:
+        out["followup_switches"] = snapshot
+    return out
 
 
 def _local_date(now_iso: str) -> str:
@@ -349,6 +359,9 @@ class NumericPolicy:
     #: used (``compute(deadline=...)``), when its residual is pending; whichever answer serves (an early publication
     #: or the final one) hands its own to the next boundary's prefetch. Never serialized.
     carried: Callable[..., dict[str, Any]] | None = field(default=None, repr=False, compare=False)
+    #: Landing ruling R12: the follow-up batch's generator switches this answer was computed under (frozen at the
+    #: job's start), which the trace records, never the serving config's; None below the batch's tag.
+    switches: Mapping[str, bool] | None = None
 
 
 def generator_now(config: Any, objective: str | None = None) -> str:
@@ -444,6 +457,11 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         # The follow-up batch's item 3 (Codex review F2) and landing ruling R1: every rollout of this decision, or
         # none, merged; every one, or none, with the memory model's own review draw.
         rollout = _rollout_options(config)
+        # Landing ruling R12: the generator switches this job computes under, frozen with its answers (the trace
+        # records these, not the serving config's; the residual's generator above was read from the same config).
+        from learnloop.router_objective_switches import followup_generator_switches
+
+        frozen_switches = followup_generator_switches(config)
 
         def answered(evaluation: V.Evaluation, used: V.Inputs, acts: Sequence[V.Action], corrected: bool) -> NumericPolicy:
             if residual_record is not None and residual_record.get("status") == "applied":
@@ -461,7 +479,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=used,
                                  actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
                                  baselines=cached["baselines"], corrected=corrected,
-                                 latency_ms=int(round((clock() - started) * 1000)), residual=residual_record)
+                                 latency_ms=int(round((clock() - started) * 1000)), residual=residual_record,
+                                 switches=frozen_switches)
 
         def carried_compute(record: Mapping[str, Any], at_inputs: V.Inputs, at_actions: Sequence[V.Action],
                             at_cutoff: float) -> Callable[..., dict[str, Any]]:
@@ -522,7 +541,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         if not evaluation.complete:
             return NumericPolicy(status=TIMEOUT, inputs=inputs, actions=tuple(actions), sources=sources, price=priced,
                                  frontier=frontier, latency_ms=int(round((clock() - started) * 1000)),
-                                 error="no answer within the budget")
+                                 error="no answer within the budget", switches=frozen_switches)
         own_carry: Callable[..., dict[str, Any]] | None = None
         if residual_record is not None:
             from learnloop.router_objective import tail_serve
@@ -859,6 +878,10 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
     order = sorted(rows, key=lambda ref: -rows[ref].q)
     top = rows[order[0]] if order else None
     inputs = numeric.inputs if numeric is not None else None
+    # Landing ruling R12: the generator switches the numeric answer was computed under (frozen with it); with no
+    # numeric answer, the serving config's (R8's ``followup_generator_switches``; None below the batch's tag).
+    served_switches = (numeric.switches if numeric is not None and numeric.switches is not None
+                       else _serving_switches(config).get("serving_switches"))
     topic_by_lo = {topic.lo: topic for topic in (inputs.topics if inputs is not None else ())}
     actions = {action.ref: action for action in (numeric.actions if numeric is not None else ())}
     llm_parsed = getattr(llm, "parsed", None) if llm is not None and llm.status == ANSWERED else None
@@ -999,13 +1022,14 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                                for goal_id, goal in ((numeric.sources if numeric is not None else {}).get("goals") or {}).items()},
                      # The follow-up batch's landing ruling R1: the rollouts' review draw, named only when it serves
                      # (below the tag, or off, the trace keeps mvp-0.49's bytes).
-                     **({"review_draw": V.REVIEW_DRAW_VERSION} if _consistent_draw(config) else {}),
+                     **({"review_draw": V.REVIEW_DRAW_VERSION}
+                        if served_switches is not None and served_switches.get("consistent_review_draw") else {}),
                      # Landing ruling R9: AD's own predictive in the rollouts, named only when it serves.
                      **({"ad_link": V.AD_LINK_VERSION}
                         if inputs is not None and inputs.ad_link is not None else {}),
                      # Landing ruling R8: the batch's serving switches as they served, part of the generator
-                     # payload (``tail_data.generator``); only at the batch's tag.
-                     **_serving_switches(config)},
+                     # payload (``tail_data.generator``); only at the batch's tag. R12: the numeric answer's own.
+                     **({"serving_switches": dict(served_switches)} if served_switches is not None else {})},
     }
 
 
