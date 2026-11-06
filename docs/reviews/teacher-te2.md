@@ -234,3 +234,196 @@ New test files: `tests/test_teacher_te2_migration.py` (6), `tests/test_teacher_t
   owner's uncommitted edits); they can join `TEACHER_TE1_RPCS` there once those land.
 - Owner steps after the fast-forward: `learnloop upgrade` each vault (migration 248 applies on open; the upgrade
   publishes the tag), rebuild the desktop app. To switch TE2 off: `[teacher] probes = false`.
+
+## Landing onto main
+
+Main was `516db1d862`: the router follow-up batch had landed as mvp-0.50, with no migration. The merge
+(`0c2952c5a4`) renumbered TE2's successor to **mvp-0.51 <- mvp-0.50**. Migration 248 stays 248, because main's head
+is 247. The router speed stage and TE3a had not landed.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "F7 is fixed at regrade publication: a regrade of a probe grade (a lesson probe's, and FG1's presentation path's, which shares _dual_write_probe_grade) appends and activates a raw grade event and an interpretation carrying the replacement grade's actual identity (prompt, schema, grader identity hash and calibration model), and ordinary replay creates no duplicate. FG1's presentation path also passes the submission's grader_identity on its first write (the re-review's open question). Then check whether an ordinary, non-probe regrade has the same defect (the active interpretation keeping the original grader's calibration): if it does and the fix is in the same publication function, fix it there with a test; if it lives elsewhere, record it with its smallest fix for the follow-up batch. Codex's two regrade reproductions (split toggled on between answer and regrade; an ordinary blind regrade with a newer prompt) are tests, failing on the pre-fix source. No further Codex round; I read the diff before landing."
+- R2: "§11.5's library lookup is built: a leftover topic's card offers 'Look in my library' first, opening the Library search with the phrase, before 'Create it'. The teacher's own create_goal_lo mid-lesson (record item 4) and lessons.entry 'typed_goal' (item 3) go to the follow-up batch as recorded."
+- R3: "FG1's persist_item stamps the generated item's content_hash, so rebuild equivalence on a lesson fixture with a probe is exact (record item 7); the test's pin moves from 'one stamp differs' to no difference. If this changes any existing FG1 test's expectation, say which."
+- R4: "Accepted as recorded: the one-reading probe through FG1's §4.1 contract with the reading as the rival of full credit; FG1's manipulation audit not applicable with no source question; a probe answer does not refresh the lesson-weight tables; a probe after any overlapping teaching on its topic is recorded not independent (the doctrine says probe before teaching)."
+- R5: "Paid calls are as recorded (plan route only, nothing metered: per probe 1 author call, at most 2; per typed goal 1 resolver call, none on a repeat; per gap the judge; about 2-4 author and 2 grading calls a day at one lesson a day with two probes). The owner accepted that cost in rev 5's decision 2. The landing smoke makes no real call."
+- R6: "Owner, Nov 5: the old item difficulty scalar is to be retired in the refactor. TE2 adds no new reader or writer of it; the landing checks this with a grep of the diff against main for the difficulty columns, mastery.irt.difficulty_from_prior and surprise's b, and records the result."
+
+### Commits
+
+| Step | Commit | What |
+|---|---|---|
+| Merge, renumber | `0c2952c5a4` | Main merged. `TEACHER_PROBES_ALGORITHM_VERSION = mvp-0.51` follows `ROUTER_FOLLOWUPS_ALGORITHM_VERSION` in the chain. The upgrade's `PREDECESSOR` and completion are the follow-up batch's. The openers install TE2's completion. `--to` names both. Every defaults snapshot was recomputed. The TE2 successor test freezes main's mvp-0.50 snapshot. The follow-up batch's test drops TE2's keys. Pins were moved by exact-pattern scripts. The CLI help snapshot was regenerated |
+| R1 | `5564387090`, `af3a975871` | A regrade publishes the probe grade under the replacement's identity. FG1's presentation path stamps the submission's identity. The second commit routes the call through `attempts.attempts`, so the frozen-cycles contract is unchanged (details in `docs/reviews/teacher-te2-codex-review.md`, "Final verify") |
+| R2 | `73b4784e41` | "Look in my library", then "Create it" (was "Yes"), then "No". The lookup closes the lesson setup and opens the Reader's library search on the leftover's words |
+| R3 | `1a7e274d14` | `persist_item` stamps `content_hash` |
+| Review record | `8443ae6be6` | The Codex review file's final-verify section |
+| References | `554e01cefb` | Regenerated on the merged tree |
+
+**R1.** The two Codex reproductions and FG1's presentation path failed on the pre-fix source (3 failed). The ordinary
+check passes on both sources, as it should. The **ordinary, non-probe regrade** does not have the defect, because its
+replay re-mints the grade event under the new blind record's identity. Two follow-ups go to the batch:
+
+- That re-mint happens on **every** replay of an ordinary AI-graded attempt, so each rebuild appends one raw grade
+  event and interpretation per attempt. This predates TE2. Smallest fix: `_dual_write_grade_channel` skips a replay
+  whose active interpretation already comes from an event with the same identity, class and score.
+- A regrade of a **lesson probe** in a split vault appends a blind record. Through the regrade's generic path, that
+  record **queues the attempt's diagnosis**, so a regraded lesson probe gets the post-attempt diagnosis its first
+  answer skipped. At the smoke it produced causal hypotheses on the probe's attempt. This is not a serve and not a
+  door. Smallest fix: `insert_blind_grade_record(queue_diagnosis=False)` when the regraded attempt's
+  `evidence_origin` is `lesson_probe`.
+
+**R2** (desktop only). The phrase reaches the Reader's existing across-source search (`reader.search_sources`). At
+the smoke, the RPC returned hits for the leftover on each copy: arxiv_v2 16, linear_algebra 5, probability 9.
+
+**R3** changed no existing FG1 test's expectation. The FG1, rebuild and TE2 test files: 708 passed, 4 xfailed.
+
+**R6.** `git diff 516db1d862 -- src migrations` adds no line naming `difficulty`, `difficulty_from_prior`,
+`surprise` or the IRT `b`. The grep of added lines is empty. R3's state write passes only `content_hash` in addition.
+The same call's existing `difficulty=None` is unchanged: `persist_item` already wrote it, for a parked item.
+
+### Gate
+
+GATE_TABLE
+
+### Smoke
+
+**Setup.**
+- **Copies.** Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (arxiv_v2, linear_algebra,
+  probability), neutralized (every AI route at 127.0.0.1:9), under `fixtures-local/landing-te2-smoke/` (since
+  deleted).
+- **Upgrades.** On main code (`516db1d862`): mvp-0.45, rebuild, mvp-0.46, mvp-0.47, rebuild, then the default to
+  mvp-0.50 (head 247). On branch code, the copy opened once (migration 248 applied on open; head 248), then the
+  default upgrade to mvp-0.51. Main and branch were each `git archive`d with `migrations/`. Smoke scripts ran under
+  bash, Python under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+- **Fakes.** All in-process: the teacher and its inline blind grader (`TeacherFake`), FG1's probe author
+  (`ProbeAuthor`, a plan client), the text-gap judge, reader and drafter (`GapLLMFake`), the C0b resolver
+  (`DeliverableFake`), R1's fake blind grader (`ReviewFakeClient`), the router's Decider and LLM.
+
+**Below the tag, and at the tag with probes off.** One scripted lesson per copy: open, a check, a miss, a revised
+plan, the close. Main at mvp-0.50 against the branch at mvp-0.50 (below the tag), and against the branch at mvp-0.51
+with `teacher.probes = false`. On every copy the following were identical:
+
+- the teacher prompts (6), the schemas (`TeacherTurnVisualsEpisodesV1`, 4860 bytes, `5cd36e9026ff`), the transcript
+  and every view;
+- the written rows (arxiv_v2 109 rows in 39 tables, linear_algebra 101 in 38, probability 111 in 45), once two
+  known differences are set aside:
+  - migration 248's new `lesson_episodes.refusal_reason` column (NULL);
+  - at the tag, the version string `mvp-0.51` where main writes `mvp-0.50`.
+
+**At the tag, probes on** (each copy, one run of the driver):
+
+| | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Probes | p1 answered right, p2 answered wrong, p3 retired (`teach_anyway`) | the same | the same |
+| Author calls | 2 | 2 | 2 |
+| Forecast before serve | yes, both (receipt 15:01 < served 15:04; 15:06 < 15:09) | yes | yes |
+| Served | once each, surface `lesson` | once | once |
+| Other doors after the answer | `door_refusal` closed; desktop claim and second lesson claim refused; in the routine-serving exclusions; not a delayed-check candidate; remint `generated_probe_single_use` | the same | the same |
+| Grade | blind (`grading_prompt_v2_blind` / `blind_grading_proposal_v1`), one raw grade event, positive canonical mass for p1 (0.70) and 0 for p2 | the same | the same |
+| Activity class | `instructional_diagnostic` (`lesson_probe_exposed`: the plan's text overlapped the item, R4) | `pure_diagnostic` | `instructional_diagnostic` |
+| R1 regrade of p1 | 1 -> 2 grade events. The active interpretation is `grading_prompt_v2_1_blind_reference_policy+own-route-v2` (= the new blind record's), with the regrade's model | the same | the same |
+| Resume | the teacher was down on p2's result; `resume` made 1 teacher call | the same | the same |
+| Gap | a `propose_gap` on the learner's words; the gap job `done` (source `lesson`); one `prerequisite` gap | the same | the same |
+| Typed goal | ready, 6 topics, 1 leftover; the repeat `fresh` (1 resolver call in all); the leftover created (`teacher_goal_v1`), 1 `goal_lo` episode | 1 topic, 1 leftover, created | 3 topics, 1 leftover, created |
+| Today's open lessons, Close it | listed; closed `learner_stop`, 0 teacher calls; then none listed | the same | the same |
+| Protection | 2 withheld items: none of their text and no reserved finding in the author's requests | 20 withheld: none, no finding. A reading quoting the exam-reserved question `pi_axiom_commutative_recall_02` was refused `reserved_match` with nothing sent (0 author calls), from the teacher's turn and from a request written directly | 3 withheld: none, no finding |
+
+arxiv_v2 and probability have no exam-reserved items, so the reserved-match case ran on linear_algebra only.
+
+**Rows per kind** (arxiv_v2; probability is the same; linear_algebra adds its protection lesson's refused probe):
+
+| Table / kind | Rows |
+|---|---|
+| `lesson_episodes` | `probe` answered 2, `probe` retired 1, `gap` resolved 1, `goal_lo` lesson_closed 1 (linear_algebra: plus `probe` refused, `refusal_reason` `reserved_match`) |
+| `forecast_receipts` | `lesson_probe_correct` 3 (linear_algebra 4) |
+| `followup_generation_jobs` | `lesson`: done 2, skipped 1 (linear_algebra done 4) |
+| `generated_probe_items` / burns | `lesson` 2 / served (`lesson`) 2, retired 2 |
+| `practice_attempts` | `diagnostic_probe` (`lesson`, `lesson_probe`) 2 |
+| `learner_text_gap_jobs` / `learner_text_gaps` | `lesson` done 1 / `lesson` prerequisite 1 |
+| `deliverable_scope_resolutions` | 1 |
+
+**`learnloop teacher report`** (exit 0 on each copy; linear_algebra):
+
+```
+lessons: 3 opened, 0 open; closed: goal_reached 1, learner_stop 2
+episodes: probe 4, detour 0, gap 1, goal_lo 1
+probes: 2 generated, 1 refused (reserved_match 1), 1 retired unused, 2 served, 2 answered
+gaps: prerequisite:created_prerequisite 1
+probe forecasts (lesson_probe_correct) against their grades: 2 scored, mean forecast 0.40 against 0.00 right, Brier 0.160, log loss 0.511 nats
+```
+
+The report reads "0.00 right" because the smoke's R1 regrade, with a fake blind grader that only credits the
+expected answer's words, regraded p1 to wrong.
+
+**Today, Next and the follow-up gate.** This used the follow-up batch's driver, with one day, the seed pinned, the
+second item missed (FG1's follow-up written by `AuthorFake`) and the first stop declined. Main at mvp-0.50 was
+compared with:
+
+- **the branch at mvp-0.50** (below the tag): identical on each copy (Today, plan, every step, every router LLM and
+  Decider request, the gate), with one exception. FG1's follow-up probe's raw grade event now names the blind
+  grader's identity (`grading_prompt_v2_1_blind_reference_policy+own-route-v2`) where main named the joint one
+  (`grading_prompt_v1`). That is R1's ruled fix to FG1's presentation path, at every version. Nothing derived from
+  it differed.
+- **the branch at mvp-0.51:** identical in the same way. As in RO5's, RO6's and the batch's own landings, the
+  boundary key's version string, which seeds the rollouts' noise, was set aside on both sides (`SMOKE_PIN_KEY`).
+  So was the trace's generator key, which names the version. Without the key aside, the noise differed and the
+  sessions diverged (arxiv_v2 8 served against 7; linear_algebra 7 against 10). With it aside, the steps, Today, the
+  plan, the 5-6 LLM and Decider requests and the gate were identical on all three copies.
+- **Next on the copies holding the lessons' probes**, after the rebuild and the sync: no lesson probe was served.
+  Each probe still has exactly its one lesson attempt.
+
+**Rebuild and sync.** `rebuild --shadow` on each probes-on copy: schedule 0 and facet 0 changes. The probe items'
+rows included, so R3 holds on the copies too. Mastery changed by the `algorithm_version` stamp alone (mvp-0.47 ->
+mvp-0.51): arxiv_v2 33 rows, linear_algebra 20, probability 17. That is the known upgrade-restamping item. TE2's rows
+were identical after `rebuild-derived-state` and a state sync on each copy:
+
+- lesson episodes, turns and intervals;
+- the probes' items, burns, receipts, jobs, attempts and grade events (no duplicate);
+- the gap's job and gap;
+- the probe items' `practice_item_state` (inactive, never due).
+
+**Calls and safety.**
+- Every new `model_call_receipts` row on every copy came from a fake: `fake_author` (2), `fake_deliverable` (1),
+  `fake_gap_llm` (3-4).
+- The net watch logged no connect at all (so no non-loopback socket), and no Codex process. The only subprocesses
+  were `git -C` (the data-root resolver) and `powerprofilesctl get`.
+
+### What the owner must run
+
+1. After the fast-forward, upgrade each vault from mvp-0.50 (the follow-up batch's steps first, if a vault is not
+   there yet). Opening the vault applies migration 248; the upgrade publishes the tag:
+
+   ```
+   learnloop upgrade --vault ~/learnloop-vaults/linear_algebra
+   learnloop upgrade --vault ~/learnloop-vaults/probability
+   learnloop upgrade --vault ~/learnloop-vaults/arxiv_v2
+   ```
+
+   For a vault still at mvp-0.43, run the steps the follow-up batch's record gives first: `--to mvp-0.45`,
+   `rebuild-derived-state`, `--to mvp-0.46`, `--to mvp-0.47`, `rebuild-derived-state`. Then the default upgrade
+   reaches mvp-0.51 through the chain.
+2. Rebuild the desktop app (R2's button, TE2's lesson screen and Today's card), then restart the phone host if it
+   serves a vault being upgraded.
+3. To switch TE2 off in a vault: `[teacher] probes = false`. Its lessons are then mvp-0.50's (TE1's and TE2-log's)
+   byte for byte; `[teacher] enabled = false` turns lessons off altogether.
+
+**Calls per lesson** (R5, plan route only, nothing metered):
+- per probe: 1 author call, at most 2 with FG1's one retry, and 1 blind-grading call;
+- per typed goal: 1 resolver call, none on a repeat;
+- per gap: the text-gap judge;
+- at one lesson a day with two probes: about 2-4 author calls and 2 grading calls, plus the lesson's own teacher turns.
+
+### Open items (for the follow-up batch)
+
+- R2's record items 3 and 4: `lessons.entry 'typed_goal'` (a CHECK rebuild), and the teacher's own
+  `create_goal_lo` mid-lesson.
+- R1's two follow-ups above: the ordinary replay's re-minted grade event per rebuild, and a regraded lesson probe's
+  queued diagnosis.
+- An FG1 presentation regrade's probe observation keeps the submission's posterior. Only its grade event and
+  interpretation move.
+- The text-gap judge keeps its existing route. Its Decider second opinion is on OpenRouter (metered, by owner
+  decision).
+- `lesson.goal` and `lesson.open_lessons` sit in `LESSON_TE2_RPCS` until the owner's mobile allowlist edits land.
+- From the earlier records: the upgrade's mastery restamping, and the follow-up batch's R3 list.
