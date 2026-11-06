@@ -1375,9 +1375,20 @@ def _plan_episodes(vault: Any, repository: Any, state: LessonState, turn_obj: Te
                    outline: Sequence[Mapping[str, Any]], previous: Sequence[Mapping[str, Any]] | None, *,
                    version: int, entry: Mapping[str, Any], model: str | None,
                    turn_entry: Mapping[str, Any] | None, clock: Clock | None) -> None:
-    """A stored plan's TE2-log rows: an ``unlogged`` detour when it inserts a node before ones the previous plan
-    had and the turn has no ``note_detour`` (so coverage is measurable, §11.7)."""
+    """A stored plan's TE2-log rows: a ``lesson_node_held`` forecast receipt per node with ``p_held`` (§11.3; the
+    receipts' own savepoint), and an ``unlogged`` detour when it inserts a node before ones the previous plan had and
+    the turn has no ``note_detour`` (so coverage is measurable, §11.7)."""
 
+    from learnloop.scheduling.forecast_receipts import record_receipts
+
+    visuals = bool(((turn_entry or {}).get("payload") or {}).get("visuals"))
+    now = utc_now_iso(clock)
+    receipts = E.node_held_receipts(state, outline, version=version,
+                                    family=_family_of(model, visuals=visuals, episodes=True),
+                                    prompt=E.prompt_version(V.prompt_version(visuals), True), doctrine=DOCTRINE_VERSION,
+                                    now=now)
+    if receipts:
+        record_receipts(repository, receipts, vault=vault, clock=clock, created_at=now)
     inserted = E.inserted_nodes(previous, outline)
     if inserted and not any(request.action == "note_detour" for request in turn_obj.requests):
         node = next(n for n in outline if str(n.get("id")) == inserted[0])
