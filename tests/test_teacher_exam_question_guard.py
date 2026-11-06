@@ -42,6 +42,16 @@ ORDINARY = ("A quarter turn of the plane leaves no real vector on its own line, 
             "A matrix's trace is the sum of its eigenvalues, and its determinant is their product. "
             "Later we define a basis carefully.")
 DISTINCTIVE = ("lighthouse keeper", "review sheet")
+#: Codex review F1: an exam-reserved question shorter than the matcher's span but carrying a distinctive number (the
+#: matcher's own numeric rule), with an unrelated key. Shown whole, it is the question.
+NUMBER_ITEM = "pi_exam_short_number"
+NUMBER_STEM = "Factor 9871 into primes."
+NUMBER_KEY = "badger wren: two factors"
+#: Codex review F2: an exam-reserved question a turn can split between its message and its check, each half shorter
+#: than the matcher's span.
+SPLIT_ITEM = "pi_exam_split"
+SPLIT_STEM = "For polynomial x³−7x+2, identify every real root."
+SPLIT_SETUP, SPLIT_QUESTION = "For polynomial x³−7x+2,", "identify every real root."
 
 
 def _rows(repository, sql, params=()):
@@ -58,10 +68,17 @@ def build_guard_vault(root, *, version=None):
     write_yaml(paths.practice_item_path("linear-algebra", EXAM_ITEM), _item(EXAM_ITEM, "lo_eigen", EXAM_STEM, EXAM_KEY))
     write_yaml(paths.practice_item_path("linear-algebra", SHORT_ITEM),
                _item(SHORT_ITEM, "lo_eigen", SHORT_STEM, "otter newt: a spanning independent set"))
+    write_yaml(paths.practice_item_path("linear-algebra", NUMBER_ITEM),
+               _item(NUMBER_ITEM, "lo_eigen", NUMBER_STEM, NUMBER_KEY))
+    write_yaml(paths.practice_item_path("linear-algebra", SPLIT_ITEM),
+               _item(SPLIT_ITEM, "lo_eigen", SPLIT_STEM, "marten plover: three"))
     (goal_id,) = _rows(repository, "SELECT goal_id FROM exam_pool_items LIMIT 1")[0]
     repository.insert_exam_pool_items([
         {"id": "epi_stem", "goal_id": goal_id, "practice_item_id": EXAM_ITEM, "reserved_at": "2026-10-30T00:00:00Z"},
         {"id": "epi_short", "goal_id": goal_id, "practice_item_id": SHORT_ITEM, "reserved_at": "2026-10-30T00:00:00Z"},
+        {"id": "epi_number", "goal_id": goal_id, "practice_item_id": NUMBER_ITEM,
+         "reserved_at": "2026-10-30T00:00:00Z"},
+        {"id": "epi_split", "goal_id": goal_id, "practice_item_id": SPLIT_ITEM, "reserved_at": "2026-10-30T00:00:00Z"},
     ])
     (span,) = _rows(repository, "SELECT span_id FROM source_document_blocks WHERE extraction_id = 'ext_lay' "
                                 "AND text LIKE '%HELDOUTSENTINEL%'")[0]
@@ -340,6 +357,77 @@ def test_a_figure_quoting_a_reserved_stem_is_not_shown(tmp_path, monkeypatch):
                     "WHERE t.action = 'visual'")]
     assert payload["code"] == "reserved_question" and "shown_text" not in payload
     assert "lighthouse" not in json.dumps(view).lower()
+
+
+def test_a_whole_short_reserved_question_with_a_distinctive_number_counts(tmp_path):
+    """Codex review F1: a whole stem shorter than the matcher's span counts when it carries a distinctive number the
+    matcher reports for it; a short common phrase, a lone number and a near miss still don't."""
+
+    paths, repository = build_guard_vault(tmp_path / "vault")
+    reserved = G.reserved_book(load_vault(paths.root), repository)
+    assert G.quotes_reserved(NUMBER_STEM, reserved)
+    assert G.quotes_reserved(f"Here is one to try: {NUMBER_STEM}", reserved)
+    assert G.reserved_guard(NUMBER_STEM, reserved).reason == "reserved_question"
+    assert G.shown_feedback(f"Right. Compare: {NUMBER_STEM}", reserved) is None
+    for ordinary in ("Later we define a basis carefully.", "We factor whole numbers into primes.",
+                     "Here 9871 is only a number.", "Factor 9872 into primes.", ORDINARY):
+        assert not G.quotes_reserved(ordinary, reserved), ordinary
+        assert G.shown_feedback(ordinary, reserved) == ordinary
+
+
+def test_a_teacher_check_posing_a_short_reserved_question_is_withheld(tmp_path):
+    lesson = _Lesson(tmp_path, [_quoting("check", NUMBER_STEM), plan_turn])
+    turns = lesson.teacher_turns()
+    assert [validation for validation, _ in turns] == ["withheld", "ok"]
+    assert turns[0][1]["reason"] == "reserved_question" and turns[0][1]["detail"].startswith("check: ")
+    lesson.act("stop", turns=[close_turn()])
+    shown = lesson.everything_shown()
+    assert NUMBER_STEM not in shown and "factor 9871" not in shown.lower()
+
+
+def test_the_graders_feedback_quoting_a_short_reserved_question_is_not_shown(tmp_path):
+    feedback = f"Right. Compare: {NUMBER_STEM}"
+    lesson = _Lesson(tmp_path, [plan_turn], fake=FeedbackGrader(feedback))
+    lesson.act("reply", {"text": "Go."}, turns=[check_turn()])
+    lesson.act("answer_check", {"answer": "det(A - tI) = 0", "tap": 4}, turns=[close_turn()])
+    (result,) = [json.loads(row[0]) for row in _rows(
+        lesson.repository, "SELECT p.payload_json FROM lesson_turns t JOIN lesson_turn_payloads p "
+                           "ON p.turn_id = t.id WHERE t.action = 'check_result'")]
+    assert result["result"] == "right" and result["grader_feedback"] is None
+    assert NUMBER_STEM not in lesson.everything_shown()
+
+
+def _split(message, question):
+    def turn(context):
+        check = check_turn()
+        return {**plan_turn(context), "message": message,
+                "check": {**check["check"], "question": question},
+                "requests": [*plan_turn(context)["requests"], *check["requests"]]}
+
+    return turn
+
+
+def test_a_reserved_question_split_between_message_and_check_is_withheld(tmp_path):
+    """Codex review F2: each half is shorter than the matcher's span and passes alone; the turn as the learner reads it
+    shows the whole question, so the assembled turn is screened too."""
+
+    paths, repository = build_guard_vault(tmp_path / "vault")
+    reserved = G.reserved_book(load_vault(paths.root), repository)
+    assert not G.quotes_reserved(SPLIT_SETUP, reserved) and not G.quotes_reserved(SPLIT_QUESTION, reserved)
+    assert G.quotes_reserved(f"{SPLIT_SETUP}\n{SPLIT_QUESTION}", reserved)
+
+    lesson = _Lesson(tmp_path / "lesson", [_split(SPLIT_SETUP, SPLIT_QUESTION), plan_turn])
+    turns = lesson.teacher_turns()
+    assert [validation for validation, _ in turns] == ["withheld", "ok"]
+    assert turns[0][1]["reason"] == "reserved_question" and turns[0][1]["detail"].startswith("turn: ")
+    lesson.act("stop", turns=[close_turn()])
+    normalized = " ".join(re.sub(r"[^a-z0-9 ]+", " ", lesson.everything_shown().lower()).split())
+    assert "identify every real root" not in normalized
+
+
+def test_half_a_reserved_question_beside_an_ordinary_check_is_accepted(tmp_path):
+    lesson = _Lesson(tmp_path, [_split(SPLIT_SETUP, "For a 2 by 2 matrix A, what equation gives its eigenvalues?")])
+    assert [validation for validation, _ in lesson.teacher_turns()] == ["ok"]
 
 
 def _script(lesson):

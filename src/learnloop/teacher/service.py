@@ -1459,6 +1459,16 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": turn_obj.model_dump()}, clock=clock)
             return None
+    # The turn as the learner reads it (Codex review F2): a reserved question split across fields (its setup in the
+    # message, its ask in the check), each half shorter than the matcher's span, is screened whole. The per-field
+    # checks above name the field when one carries it.
+    verdict = (G.reserved_guard("\n".join(text for _name, text in displayed), reserved) if displayed
+               else G.GuardVerdict(True))
+    if not verdict.ok:
+        _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
+                payload={"reason": verdict.reason, "detail": f"turn: {verdict.detail}",
+                         "turn": turn_obj.model_dump()}, clock=clock)
+        return None
     # The ids a row or a receipt copies (and, TE2-log, a detour's hypothesis) are never shown, but they pass the same
     # guards before they are stored (spec §11.9: exam or held-out material is never in a hypothesis), and the
     # identifier guard against every key the vault records (landing rulings R1, R2); a hit withholds the turn, named

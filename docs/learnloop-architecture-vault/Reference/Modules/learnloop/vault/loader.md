@@ -3256,6 +3256,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ensure_teach_back_item_mints_transfer_criterion`
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+  - `test_a_reserved_question_split_between_message_and_check_is_withheld`
+  - `test_a_whole_short_reserved_question_with_a_distinctive_number_counts`
   - `test_reserved_book_is_unreadable_when_withheld_items_is`
   - `test_the_matcher_reads_both_items_as_withheld_questions`
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import

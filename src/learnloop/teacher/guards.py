@@ -114,8 +114,9 @@ def key_guard(message: str, keys: Sequence[Any], unreadable: bool) -> GuardVerdi
 #: (its shingle order, less what ordinary items and readable source text already show) or a whole reserved stem.
 #: Its lone-number findings are not a question shown: a lesson's arithmetic ("0.5", "1/2") would trip them. A span
 #: shorter than the matcher's own shingle order (a whole short stem such as "Define a basis.", or a short text that
-#: is a whole short held-out block) is a short common phrase in teaching text, so a finding counts only at that order
-#: (:func:`quotes_reserved`; no new threshold: the matcher's own span length).
+#: is a whole short held-out block) is a short common phrase in teaching text, so it counts only when it carries a
+#: distinctive number the matcher reports for this same text (Codex review F1: "Factor 9871 into primes."). No new
+#: threshold: the matcher's own span length and its own distinctive-number rule (:func:`quotes_reserved`).
 RESERVED_SPAN_KINDS: frozenset[str] = frozenset({"wording", "stem"})
 
 
@@ -155,8 +156,18 @@ def quotes_reserved(text: str, reserved: ReservedBook) -> bool:
     if not text or reserved.questions is None:
         return False
     order = int(reserved.questions.inventory.shingle_n)
-    return any(finding["kind"] in RESERVED_SPAN_KINDS and len(str(finding["value"]).split()) >= order
-               for finding in reserved_findings(str(text), reserved.questions))
+    findings = reserved_findings(str(text), reserved.questions)
+    # A reserved distinctive number this text shows, as the matcher's normalized words ("16.0" -> "16 0").
+    numbers = [f" {_normalize(finding['value'])} " for finding in findings if finding["kind"] == "numeric"]
+
+    def counts(finding: Mapping[str, str]) -> bool:
+        if finding["kind"] not in RESERVED_SPAN_KINDS:
+            return False
+        span = str(finding["value"])
+        # At the matcher's span, or a whole short question that carries one of those numbers (F1).
+        return len(span.split()) >= order or any(number in f" {span} " for number in numbers if number.strip())
+
+    return any(counts(finding) for finding in findings)
 
 
 def reserved_guard(text: str, reserved: ReservedBook) -> GuardVerdict:
