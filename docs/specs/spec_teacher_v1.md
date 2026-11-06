@@ -1,6 +1,7 @@
 # Teacher: LearnHarness-quality lessons on LearnLoop's latent learner state (v1)
 
-**Status:** revision 4, draft for owner review, 2026-10-24. Nothing here is implemented.
+**Status:** revision 5, 2026-11-05: TE2 and TE3 re-specified for owner review (§1.5); nothing of revision 5 is built. TE0, TE1 (with curriculum C4 and Reader RW5d P4b) and TE1b are built and landed as their "As built" notes in §20 say; their history below is kept as written.
+- Revision 5 re-specifies TE2 and TE3 against what landed since revision 4: FG1 generate-and-serve, data capture, and the router objective RO0-RO6 (§1.5). Its census is `docs/reviews/census-error-episodes-2026-11.md`.
 - Revisions 3 and 4 apply the owner's decisions of 2026-10-24 (§1.3, items 1–7) to revision 2 of the same day.
 - Every open question is now decided (§23). Every number is a seeded prior, a structural form or `keep` (§18.4).
 - Code truth was re-audited at main `b7e0444b5` and at two in-flight branches (§5).
@@ -83,6 +84,35 @@ The review's code-truth corrections are applied throughout without further note.
 | 18 | One stage | — | TE-min, including placement, goal LOs and gaps | **Split** into TE1 (the lesson core) and TE2 (probes, goal LOs, gaps, forecasts). The first lesson ships sooner, and TE1 needs no text-gap rebuild |
 | 19 | MCP | Out of scope | A tool contract | **Adopted and specified** (§9, §16). Revised by the owner (2026-10-24): chat cold checks and probes are allowed behind C2, at a learned weight (§16.2) |
 | 20 | Learned parameters | — | Drop LP1–LP3 | **Revised by the owner (2026-10-24) for this case only.** The lesson-check weight and the tap/hedge recalibration it needs are learned (LP-min), because lesson checks have a clean delayed-outcome signal. The review's other LP verdicts stand |
+
+### 1.5 Revision 5 (2026-11): TE2 and TE3 re-specified
+
+**The owner's direction.**
+- Nov 2: "Let's have TE2/TE3 respec after the phone."
+- Nov 2, the long-horizon track's item 5: "TE2/TE3 logging only: hypothesis, repair class, prior belief, minutes, origin decision/experiment ids, active vs elapsed; serve_probe writes forecast + receipt. No valuator interface."
+- Nov 3 (FG1): "Follow up rules should prefer direct generation"; "for probes I think generation is superior"; "generated probes should skip manual review and be single use surfaces that do not become practice items later or are ever served again"; the router may choose no intervention; its decisions are visible for debugging and calibration.
+- Nov 3-4 (RO): "the action router machinery should be an objective function with the LLM as a sensor"; "We should just fully implement the spec without any blockers like that or gates."
+- Nov 5 (the refactor note): objective, policy and router specifics should be one-place edits, with the complexity further down; the old item difficulty scalar is being retired.
+
+**What "no valuator interface" means here.** Revision 4's TE2 and TE3 predate the router objective. Since RO4 there is one valuator: `router_objective/value.py`, whose action interfaces already include a `lesson` (RO §8.1). So TE2 and TE3 build **no valuator of their own**: the teacher never values, ranks or prices a lesson, a probe or a gap. A lesson's value is estimated in one place, by the objective's rollouts, through the lesson interface; TE3 supplies that interface's effect model (§14.2) and puts lesson offers among the objective's candidates (§15.1a). TE2 is the teacher's actions and the logging item 5 names.
+
+**What changed, and why.** Each row says what rev 4 had, what rev 5 does, and why. Where FG1 or RO now does a rev-4 job, rev 5 uses theirs rather than building it twice.
+
+| # | Revision 4 | Revision 5 | Why |
+|---|---|---|---|
+| 1 | Vault-item placement probes, picked by the model from the brief's probe headers and served cold (§11.3) | **Merged into FG1.** A placement probe is a generated, single-use question from FG1's generation path, asked for by the teacher and served cold inside the lesson. The brief stops listing vault probe items | The owner's FG1 rule (generation for probes, single use). The census: 15 of linear_algebra's 21 LOs have no unseen item at all, and 19 of 73 LOs across the three vaults have the two a probe and a delayed check would need; every unseen item a probe takes is one the delayed check and RO5's randomized checks can no longer use |
+| 2 | One calibration probe per placement, `calibration_p` = 1.0 | **Dropped; merged into RO5.** The teacher logs a forecast per plan node; RO5's randomized checks, drawn with exact probabilities, are the unbiased read of how well the teacher places, and a lesson's LOs with a pending delayed check join their population (§11.3, §15.1a) | RO5 already randomizes cold checks with logged probabilities. A second randomizer would burn an unseen item per lesson for one descriptive number |
+| 3 | Teacher-written probes counted as lesson checks, because no admission gate existed for model-written items | **No such category.** A question the teacher writes into its turn is a lesson check, as in TE1; a probe is FG1-generated and machine-admitted, and counts as a `diagnostic_probe` under the existing admissibility rule | FG1 built the machine admission whose absence was rev 4's reason |
+| 4 | Typed goals resolved "through the card and `find_sources`"; a new `create_goal_lo` | **Reused.** Curriculum C0b's scope resolver resolves the typed text; C0b's `goals/goal_lo.py` is `create_goal_lo`, called with `mechanism = teacher_goal_v1` (§11.5) | Built once: C0b built both to rev 4's design for this hand-over |
+| 5 | `propose_gap` and detours | **Kept,** and each detour, probe, gap and goal LO becomes one row of a new episode log with item 5's fields (§11.7, §11.9) | Item 5 |
+| 6 | "Resume" | **The resume screen only.** TE1 built the durable lesson, `lesson.view` and the journalled `resume`; TE2 adds "continue your lesson" and the next lesson's start from the last plan (§11.8) | TE1 as built |
+| 7 | No minutes logged | **Active and elapsed minutes per lesson and per episode,** from the lesson screen's own activity intervals (§11.6); TE3 puts them on the objective's clock | Item 5. The census: a session's elapsed time is not active time (median elapsed length of an ended session 394 min; recorded answer time under 1% of elapsed) |
+| 8 | `serve_probe` writes an attempt | **It also writes a forecast receipt** (`lesson_probe_correct`) before the probe is served (§11.3) | Item 5 |
+| 9 | TE3: AD's `lesson` opportunity kind on AD's own trigger | **Built without a trigger,** and it is the effect model of the objective's lesson interface (§14.2) | The owner's no-gates rule. RO4's lesson interface uses AD's `γ` at the lesson-check mass as a placeholder |
+| 10 | §15.1: an `instruct(lesson)` candidate in the old mixture; TE1b's daily draw uses the old `model_mixture` with the models "not asked" (TE1b ruling R1); first estimates at 200 decisions, a switch at 600 | **Lesson offers are candidates of the objective.** At a reversible block boundary, a lesson offer joins `plan_block`'s support, is valued by RO4's offer branches with the lesson interface, and is drawn by the two-policy mix with exact logged probabilities. TE1b's daily draw serves only where the objective doesn't. No decision-count rule (§15.1a) | One router, one valuator. The LLM policy weighs lesson offers in the request it already makes; nothing waits on a count |
+| 11 | — | **The old item difficulty scalar:** TE2 and TE3 add no reader of it. Generated probes are aimed by their readings, lesson offers by AD's predictive and TE1b's reasons, and nothing new pitches an item by its label | The Nov 5 note. The delayed-check picker's pitch (`teacher/checks.py`, through `item_irt_params`' `b`) is an existing reader, left to the refactor's replacement |
+
+**What the census says** (`docs/reviews/census-error-episodes-2026-11.md`, aggregate, on backup copies at `mvp-0.43`): 76 attempts, 65 graded and 19 graded misses in all three vaults, over 8 active days; **no lesson has run, no suggestion has been drawn, and no goal is active**. On that history FG1's probe lane would have fired on 1 of 10 non-exam misses. So every part of TE2 and TE3 would have fired zero times. Revision 5 is therefore designed to work at any volume, to log what a later census needs, and to wait on nothing.
 
 ---
 
@@ -386,7 +416,8 @@ Spec lines marked "wt:" are the AD23 worktree's copy of the AD spec.
 ```
 ENTRY  desktop (TE1): "Teach me this" on an LO, a Reader selection, or a new-topic offer in Today
        desktop (TE1b): an accepted router suggestion card in Today (§15.1)
-       desktop (TE2): a typed goal
+       desktop (TE3b, rev 5): an accepted lesson offer at a plan block boundary (§15.1)
+       desktop (TE2): a typed goal; "continue your lesson" (§11.8)
        chat (TE4):    MCP tool lesson_open, the host model as teacher
           │
           ▼
@@ -400,8 +431,8 @@ teacher/  (code: a composition layer like instructional/; nothing imports it bac
        read_source, find_sources, find_practice → instructional dispatcher, caller kind `teacher`
        read_history → learning_context + learner_protection
        pose_check   → minted held item, committed solution → answer → attempt → blind grader
-       serve_probe  → existing serve path, cold (TE2)
-       write_plan, forecast, close; propose_gap, create_goal_lo (TE2)
+       serve_probe  → FG1's generation path (lesson origin), one single-use question, served cold (TE2, §11.3)
+       write_plan, forecast, close; propose_gap, create_goal_lo (TE2, §11.5, §11.7)
   5. guard every learner-facing output: KeyBook keys, the open check's solution, citations
   6. close → LessonReceiptV1 → Check once commitments (§13)
           │
@@ -416,8 +447,8 @@ LATER  DL2 serves the checks cold in Today → ordinary attempts → mastery and
   - guards, grading, evidence, reveal accounting;
   - the delayed-check items and dates;
   - caps and receipts.
-- **The router:** suggests lessons, and the learner accepts or declines (TE1b, §15.1). A lesson the learner starts unprompted is a `learner_pick`.
-- **AD:** read by the teacher, and later fed a prediction-only opportunity (§14).
+- **The router:** suggests lessons, and the learner accepts or declines (TE1b, §15.1). A lesson the learner starts unprompted is a `learner_pick`. From TE3b (revision 5) the suggestion is a candidate of the router objective, valued by its rollouts (§15.1); the teacher values nothing.
+- **AD:** read by the teacher, and fed a prediction-only `lesson` opportunity (TE3a, §14.2).
 
 **Layering.**
 - The new package is `teacher/`. An import-linter contract says:
@@ -443,7 +474,7 @@ LATER  DL2 serves the checks cold in Today → ordinary attempts → mastery and
    - The model reads the state.
    - Where the state can't settle a node, it chooses to:
      - confirm it cheaply inside teaching;
-     - serve a vault probe (TE2);
+     - ask for a generated probe (TE2, §11.3; revision 5: FG1's single-use questions, not vault items);
      - or offer "Check what I already know".
 4. **Plan.**
    - An outline map with anchors.
@@ -454,6 +485,7 @@ LATER  DL2 serves the checks cold in Today → ordinary attempts → mastery and
    - When a missing foundation surfaces, the model verifies the step against its reference and finds the first wrong step.
    - It then repairs in place, or inserts a foundation and re-teaches what depended on it.
    - Learner text that names a gap or misconception goes to `propose_gap`.
+   - Each detour is one episode row with item 5's fields (§11.7, §11.9).
 7. **Close.**
    - Close reasons: goal reached, learner stop, budget, plan unavailable, or contract failure.
    - **The recap** says what to retrieve later, not a summary.
@@ -462,7 +494,7 @@ LATER  DL2 serves the checks cold in Today → ordinary attempts → mastery and
 8. **After.**
    - The checks are served in Today.
    - Their results appear in the next brief on these LOs.
-   - A later lesson on the same LOs resumes from the last plan and receipt.
+   - A later lesson on the same LOs resumes from the last plan and receipt (§11.8).
 
 **Compaction.** Past `teacher.context.compact_at`, the transcript is summarized. The summary keeps, in order:
 1. the learner's understanding and how it changed;
@@ -483,7 +515,7 @@ The brief is built deterministically from the ledger and versioned. It is the on
 | Field | Contents |
 |---|---|
 | `goal` | The text, the LO ids, and how they were resolved |
-| `nodes` | Per goal LO and its prerequisite closure in the vault graph (to `teacher.brief.depth`, default 2), plus adopted AD couplings (§14). Each node carries: its statement; its label (untested, assumed or demonstrated, field F4); predicted unassisted success in words with its interval (AD readiness when AD serves, else the active predictor, saying which); retrievability; the last cold result and its date; open misconceptions and hypotheses; eligible vault probe items as **headers only** (id, truncated stem, predicted success) |
+| `nodes` | Per goal LO and its prerequisite closure in the vault graph (to `teacher.brief.depth`, default 2), plus adopted AD couplings (§14). Each node carries: its statement; its label (untested, assumed or demonstrated, field F4); predicted unassisted success in words with its interval (AD readiness when AD serves, else the active predictor, saying which); retrievability; the last cold result and its date; open misconceptions and hypotheses; eligible vault probe items as **headers only** (id, truncated stem, predicted success). *Revision 5 (TE2's brief version):* the probe headers go, since probes are generated (§11.3); a node instead says whether a delayed check can be committed on it ("an unseen question exists" or "none yet"), with no item named |
 | `history` | An index of attempts, hints, tutor exchanges and lessons on these LOs. Each one-line header shows whether the attempt was assisted, primed or cold, with any confidence tap and hedge read. Raw text comes through `read_history` |
 | `last_lessons` | Earlier receipts on these LOs, with **their delayed-check results** ("taught 4 days ago; cold check on X answered wrong, marked 5/5 sure") |
 | `sources` | The goal's sections, whole, from `teaching_scope`, with exam and model-withheld roles removed, and with span ids. If they exceed `teacher.context.sources_tokens`, the section outline instead (§9.2) |
@@ -532,6 +564,8 @@ Validation errors go back to the model as correctable. After three consecutive f
 | `nodes` | Final status (`held`, `uncertain`, `taught`, `landed`), anchors, checks (attempt ids and grades), probes |
 | `exposure` | Items given reveal rows; passages shown |
 | `gaps`, `created_los` | Text-gap job ids; goal LOs (TE2) |
+| `episodes` (TE2, rev 5) | The lesson's `lesson_episodes` ids by kind (probe, detour, gap, goal LO; §11.9) |
+| `minutes` (TE2, rev 5) | Active and elapsed minutes, and their source (§11.6) |
 | `delayed_checks` | Commitment ids, item ids, purpose, due date |
 | `forecasts` | Receipt keys for `lesson_check_correct` and `lesson_step_retained` (TE1) |
 | `weight_inputs` | Per lesson check: the tap, the hedge read, AD's (or the active predictor's) P(success) and subject level just before the check, the learned mass applied, and the forecast key. These are the pairs §12.1–12.2 learn from, logged from the first lesson |
@@ -553,12 +587,13 @@ Every action is defined once, with a strict argument model. The desktop teacher 
 | `find_sources` | query, intent ∈ existing four | Instructional dispatcher, caller `teacher` | `source_tool_calls` |
 | `find_practice` | query, intent, LO ids, `unattempted_only` | Same | `source_tool_calls` |
 | `read_history` | history ids | `learning_context` guards + `withheld_items` | — |
-| `write_plan` | outline: nodes `{id, statement, lo_id?, anchors, premises[]}` | Plan store. One check: anchors resolve in scope | `lesson_plans` version |
+| `write_plan` | outline: nodes `{id, statement, lo_id?, anchors, premises[], p_held?}` (`p_held`, rev 5: the teacher's forecast that the learner would answer a cold question on the node right now) | Plan store. One check: anchors resolve in scope | `lesson_plans` version; a `lesson_node_held` forecast receipt per node with `p_held` (§11.3) |
 | `pose_prediction` | node, prompt, choices? | UI | A `lesson_turns` row (formative) |
 | `pose_check` | §8.2 `check` | Mint a held item and store the solution; on submit, an attempt and the blind grader | Item, attempt, `lesson_checks` |
-| `serve_probe` (TE2) | vault item id | Existing serve path, cold | Attempt, as that path records it |
-| `propose_gap` (TE2) | learner-text ref, kind (`prerequisite`, `misconception`), the gap in words | Text-gap pipeline | Gap job |
-| `create_goal_lo` (TE2) | statement, anchors | §11.5 | LO (undoable) |
+| `serve_probe` (TE2, rev 5) | node, the readings it should separate (one: "held or not"; two or more: rival readings in words), `p` (the teacher's forecast of a right answer) | FG1's generation path with a lesson origin, then the existing cold serve path (§11.3) | Generation job, generated single-use item, forecast receipt, attempt, episode row |
+| `propose_gap` (TE2) | learner-text ref, kind (`prerequisite`, `misconception`), the gap in words | Text-gap pipeline, `source_kind = lesson` | Gap job, episode row |
+| `create_goal_lo` (TE2) | statement, anchors | C0b's `goals/goal_lo.py`, `mechanism = teacher_goal_v1` (§11.5) | LO (undoable), episode row |
+| `note_detour` (TE2, rev 5) | node, the hypothesis in words, the repair (`repair_in_place`, `insert_foundation`, `reteach`), `p` (the teacher's belief in the hypothesis) | Teacher service | Episode row (§11.7). Logging only: it changes no plan, evidence or schedule |
 | `forecast` (TE1) | kind (`lesson_check_correct` when a check opens; `lesson_step_retained` when a node lands), ref, p | `forecast_receipts` | Receipt |
 | `close` | reason, recap | Teacher service | Receipt and commitments (§13) |
 
@@ -652,24 +687,122 @@ On a hit, the message is withheld and the model re-prompted. In chat, LearnLoop 
 - **Untested:** teach, or probe.
 - **The entry point** follows AD's predicted success. LearnHarness's "enter near the top" becomes "enter where the learner is predicted to start failing".
 
-### 11.3 Probes (TE2)
-- **Choice.** The model picks vault items from `find_practice` headers. They are served cold through the existing serve path, which records the attempt (full evidence when eligible).
-- **While a probe is open,** the model is not called and every tool is refused.
-- **Cap:** `teacher.placement.max_probes`, default 8. It is `keep`: a burden guardrail, while the model decides when to stop (§18.4).
-- **One calibration probe.** With probability `teacher.placement.calibration_p` (default 1.0), code adds one uniformly random goal-path node that has an eligible item. It is logged, and is the only unbiased read of how well the model places (A19 in the review).
-- **Teacher-written probe questions** are allowed, and are recorded as lesson checks at the learned lesson-check weight (§12.1), because no admission gate exists for model-written items.
+### 11.3 Probes (TE2, revision 5)
+
+*Revision 4 had the model pick vault items from the brief's probe headers, plus one calibration probe per placement. Revision 5 replaces both (§1.5 rows 1-3): probes are FG1's generated single-use questions, and the calibration read is RO5's.*
+
+**The journey.** The learner opens a lesson on eigenvectors. The brief shows that the prerequisite "a linear map's matrix in a basis" was answered right once, assisted, six weeks ago, so the state can't say whether it is held. In its first turn the teacher asks for a probe on that node and keeps orienting the learner ("before we start, one quick question"). The question is written while they read; when it is ready it opens like any cold question: no sources, no tutor, and the teacher is silent. The learner answers. The blind grade comes back, and the teacher either skips the node ("that's in place") or teaches it first. If the question isn't ready when it's reached, the lesson says *Preparing a question on this…* and offers *Teach it anyway*; taking that retires the question unused.
+
+**What the teacher asks for.** `serve_probe {node, readings, p}`:
+- `readings`: what the answer should tell apart. One reading is "held or not held" on the node. Two or more are rival readings in words ("confuses the matrix with its transpose", "can't change basis at all").
+- `p`: the teacher's forecast that the learner answers right. It is required, and is written as a `lesson_probe_correct` forecast receipt, bound to the probe's attempt, before the question is served (item 5).
+- Cap: `teacher.placement.max_probes` (8, `keep`: a burden guardrail; the model decides when to stop).
+
+**What code does.**
+1. **Generation is FG1's,** called with a lesson origin. One job in `followup_generation_jobs` (kind `lesson`), deduplicated on (lesson, node), runs FG1's authoring operation on the frontier route:
+   - with two or more readings, FG1 §4.1's rival-cause contract (question, key, criterion and manipulation contracts, blind prediction bundles over the readings);
+   - with one, FG1 §4.3's family-pattern contract, aimed at the node.
+   - The readings are not `causal_hypotheses` rows: they live in the lesson's payloads and episode row. A probe in a lesson therefore never resolves a cause factor; its answer is evidence on the LO and an observation for the teacher.
+2. **Admission is FG1's,** unchanged: the structural instance gate, the never-before-seen check, the manipulation audit, blind bundles, and FG1 §8's exam protection (reserved questions and their solutions out of the generator's context; the reserved-match check on the stem, key, rubric and hints). A failure means no question: the episode records why, and the teacher is told "couldn't prepare that question".
+3. **Single use is FG1's,** under §4.2's one identity: `generated_probe_items.source = lesson`, reserved for its lesson, burned at first serve, retired unused at the lesson's close or on *Teach it anyway*, kept for history. Every door in FG1 §4.2's table refuses it, including the teacher's own brief.
+4. **Serving** is the existing cold path inside the lesson: policy `cold_attempt` (§9.1), the model not called and every tool refused until the grade is back (W7).
+5. **Evidence** is as for any generated probe: a `diagnostic_probe` attempt, blind-graded, full evidence from the first serve under the existing admissibility rule. If the lesson has already shown text on the probe's topic (a reveal row on the topic, `attempts/reveal_ledger.py`'s topic-wide check), the answer is recorded as FG1 records an exposed probe answer: not independent. The doctrine therefore says: probe a node before teaching it.
+
+**What it reads:** the brief's state for the node; the readings; FG1's protected-context builder. **What it writes:** the generation job, the generated item and its admission receipt, the burn or retirement, the forecast receipt, the attempt (and through it mastery, FSRS and AD as for any cold diagnostic probe), and one `lesson_episodes` row (§11.9).
+
+**How it enters the router objective.** It doesn't, as a decision: inside a lesson, what to ask is pedagogy and the teacher's (§3). The lesson as a whole is the objective's action (§15.1), and the lesson interface's observations include its probes, so their information value is part of the lesson's value in the rollouts. No `plan_interrupt` or `no_intervention` draw happens inside a lesson.
+
+**Placement accuracy, without a calibration probe.**
+- Every plan node may carry `p_held` (§9 `write_plan`), written as a `lesson_node_held` forecast receipt on the node's LO.
+- **Natural resolution:** the first qualifying cold outcome on the LO (§12.1's rule). Self-selected, and labelled so in the report.
+- **Unbiased resolution:** RO5's randomized checks (RO §9 item 2), which draw a topic uniformly with exact `r_L` from the objective's population. A lesson's LOs with a pending delayed check join that population as retention commitments (§15.1), so a randomized check can land on them, and the report scores `p_held` and `p` against those checks apart from natural outcomes.
+- *What this costs:* a randomized check needs an unseen, unrevealed item, and a lesson's teaching text writes `tutor_answer` rows on the items its text overlaps. On a lesson's LOs the draw often finds none (`r_L = 0`), which raises a generation need through RO5's existing path. The census's pools are small (§1.5), so the unbiased read will be slow. No second randomizer is added (§1.5 row 2; owner decision 3 in §23.1).
+
+**Successor and migration.** TE2's successor (§18.3): a probe is a new served attempt with full evidence. TE2's migration rebuilds the CHECKs of `followup_generation_jobs.kind` and `generated_probe_items.source` to admit `lesson` (FG1's tables, migration 241), and adds `lesson_episodes`.
+
+**What the census says.** No lesson has run, so this would have fired zero times. For scale: FG1's probe lane would have fired on 1 of 10 non-exam misses; and the vault-item probes rev 4 planned would have found no unseen item on 20 of 73 LOs and fewer than the two a probe and a delayed check need on 54 of 73.
 
 ### 11.4 The quick check
-"Check what I already know" on a goal calls `start_quick_check(learning_object_ids = goal LOs)` (assumption source `quick_check`). It is offered at lesson open and is never prompted.
+"Check what I already know" on a goal calls `start_quick_check(learning_object_ids = goal LOs)` (assumption source `quick_check`). It is offered at lesson open and is never prompted. *Revision 5: unchanged.*
 
-### 11.5 Typed goals (TE2)
-- A typed goal resolves to LOs through the card and `find_sources`.
-- **If nothing matches,** a new `create_goal_lo` action creates the LO at open. It reuses the text-gap write, cycle check, undo and daily cap (`actions.py:125, 188, 223, 354`), but not the judge: the learner's request is the decision.
-  - Provenance: `origin = codex_proposal`, `mechanism = teacher_goal_v1`, anchors in `source_refs`.
-  - An explicit goal may exceed the cap by one a day.
-- **If the goal has no source:**
-  - a library lookup is offered first;
-  - then the LO is created, labelled "from LearnLoop's model", and the plan anchors are marked unsourced.
+### 11.5 Typed goals (TE2, revision 5)
+
+*Revision 4 resolved a typed goal "through the card and `find_sources`" with a new `create_goal_lo`. Curriculum C0b has since built both pieces (`docs/reviews/curriculum-c0b-scope-path.md`), to this section's design, for TE2 to take over. Revision 5 reuses them.*
+
+**The journey.** On the lesson screen's start, the learner types "how do I diagonalize a matrix, and when can't I". The lesson opens on the LOs that phrase needs, in a few seconds. A part that matches nothing in their books shows one line: *Not in your books yet: "when diagonalization fails". Add it as a topic?* Yes adds it and teaches it; no teaches the rest. If no book covers it, a library lookup is offered first; if they go on, the new topic is labelled *from LearnLoop's model* and its plan anchors are marked unsourced.
+
+**What code does.**
+- **Resolution** is C0b's resolver (route `deliverable_scope_resolver`, `source_retrieval/deliverables.py`), called on the typed text alone: one call returns the needed LOs, each with the phrase it answers, and the phrases it couldn't match with a proposed statement. Ids are validated. The same text over the same LOs is answered from the stored resolution, with no call.
+- **Creation** is C0b's `goals/goal_lo.py` (`create_goal_lo`): ids from the request, the vault mutation lock, the cycle check, the undo, and the daily cap shared with text-gap creations, plus one a day for an explicit request. TE2 calls it with `mechanism = teacher_goal_v1` (C0b uses `deliverable_scope_v1`), `origin = codex_proposal` and the anchors in `source_refs`. The learner's yes is the decision; there is no judge.
+- **A typed lesson goal is not a learner goal.** Nothing is written to `goals.yaml`. Its LOs are valued by the objective as any topic outside a goal (at the config's undated density, RO §8.5) and join its population once a delayed check is pending on them (§15.1). The close card offers *Add to my goals* (C0b's `create_deliverable`) as an ordinary one-tap action.
+
+**What it reads:** the typed text, the vault's active LOs as C0b's compact records (never items), protection. **What it writes:** C0b's resolution row and ledger verdict, the LO (undoable), the lesson's goal JSON, and one `lesson_episodes` row per created LO (kind `goal_lo`, §11.9). No router decision.
+
+**Successor and migration.** Inside TE2's successor; no migration beyond C0b's tables (228).
+
+**What the census says.** Zero typed goals (no lessons). Outside lessons, unmatched-prerequisite text gaps occurred once in four months (`learner_text_gaps`, probability).
+
+### 11.6 Lesson minutes, active and elapsed (TE2, revision 5)
+
+*New in revision 5 (item 5: "minutes", "active vs elapsed").*
+
+- **What is measured.** The lesson screen reports its own activity intervals through a new desktop RPC, `lesson.activity`: each interval's start and end on the client's clock, `occurred_at` and `received_at` (RO0 row 5), and whether the screen was in the foreground with input. This is the same evidence RO0 uses for a Reader visit's seconds.
+- **Active minutes** are the foreground intervals' sum. **Elapsed minutes** are `closed_at − opened_at`. The two clocks are never blended (RO §3.3).
+- **Where they are stored:** `lesson_activity_intervals` (RECEIPT, append-only), and the totals on the receipt (§8.3 `minutes`) and on each episode (§11.9). An interval that never arrives (the app was closed) is recorded as missing, never filled in.
+- **Who reads them:** the teacher report (§11.10); the objective's lesson interface for its duration distribution, and its session clock (TE3b, §15.1). TE2 itself only records them.
+- **Why.** The census found sessions open for hours or days (median elapsed length of an ended session 394 minutes) and answer time under 1% of that. A lesson's own elapsed time would mislead the same way.
+
+### 11.7 Detours and gaps (TE2)
+
+**The journey.** A lesson check comes back wrong. The teacher reads the answer and the learner's thinking, says plainly what went wrong, and either repairs the step in place, steps back to a missing foundation and re-teaches what depended on it, or re-teaches the step another way. If the learner's words name a gap ("I never understood what a basis really is"), it is filed so that later practice and lessons see it.
+
+**What code does.**
+- **`note_detour {node, hypothesis, repair, p}`** (rev 5). The teacher logs each detour: its hypothesis in words, its repair (`repair_in_place`, `insert_foundation`, `reteach`, a structural list), and its belief `p` that the hypothesis is right. One `lesson_episodes` row (§11.9). The repair itself is teaching, which the doctrine steers (§10 item 10); `note_detour` changes no plan, evidence or schedule. A turn that inserts a foundation into the plan without a `note_detour` is accepted, and the episode row records `unlogged`, so coverage is measurable.
+- **`propose_gap {learner-text ref, kind, the gap in words}`** sends the learner's text to the text-gap pipeline with `source_kind = lesson`: a missing prerequisite is created on first sighting (under the daily cap), a misconception goes to the holding pen and must recur (KM :512-514). The CHECK on `learner_text_gaps.source_kind` and `learner_text_gap_jobs.source_kind` is rebuilt with `lesson` (and C1b's `external_chat`, so C1b needs no rebuild of its own). One episode row per proposal.
+- **No FG1 workflow from a lesson check.** A lesson check is `reconstruction_after_walkthrough`, which never opens the split diagnoser (§12) or an FG1 workflow. A generated discriminating probe after the teacher has just taught the step would be exposed anyway (FG1 §6.0). Causes found in a lesson persist through `propose_gap` and the episode log (owner decision 6 in §23.1).
+
+**How it enters the router objective.** Not at all, directly. A gap or created prerequisite changes the vault and the learner's state, which every later decision reads.
+
+**Successor and migration.** Inside TE2's successor (a new gap source changes what is created and served); the CHECK rebuild above is in TE2's migration.
+
+**What the census says.** Zero lessons, so zero detours. Outside lessons: 2 text gaps in four months, 32 tutor questions (15 in the Reader), and 22 diagnosed error events, 10 of them `local_slip`.
+
+### 11.8 Resume (TE2)
+
+- **Built in TE1:** a lesson is durable (`lesson_turns`), `lesson.view` reopens it with no model call, and `lesson.turn` gains `resume`, which runs whatever call the ledger still owes (`docs/reviews/teacher-te1-first-lesson.md`).
+- **TE2 adds the screen.** An open lesson shows in Today as *Continue your lesson on X* with *Close it* beside it. *Close it* closes the lesson as `learner_stop` and commits its delayed checks, as any close does. Nothing closes a lesson on a timer: no new constant.
+- **A new lesson on the same LOs** starts from the last lesson's latest plan version and receipt: the brief's `last_lessons` already carries the receipt and its delayed-check results; TE2 adds the last plan, labelled "where you left off", for the teacher to take or replace.
+- Display and context only: no successor of its own; it rides TE2's.
+- **The census:** no open lesson exists.
+
+### 11.9 The episode log (TE2, item 5)
+
+One RECEIPT row per probe, detour, gap and created goal LO: `lesson_episodes`, append-only. Its fields are item 5's, and nothing serving, scheduling or certification reads them.
+
+| Field | Contents |
+|---|---|
+| Identity | `id`, `lesson_id`, `kind` (`probe`, `detour`, `gap`, `goal_lo`), `node_id`, `learning_object_id`, `opened_at`, `closed_at` |
+| **Hypothesis** | For a probe, the readings; for a detour, the hypothesis; for a gap, the gap in words. Text in `lesson_turn_payloads` (WORKFLOW, as TE1's turn text); the row keeps the count, a hash and the payload id |
+| **Repair class** | For a detour, its repair (`repair_in_place`, `insert_foundation`, `reteach`, `unlogged`); for a gap, its kind (`prerequisite`, `misconception`); null for a probe |
+| **Prior belief** | At the episode's opening: the teacher's `p` and its forecast receipt id; the brief's predicted success for the node with its interval and its source (AD readiness or the active predictor, named); the LO's mastery mean and variance; open misconceptions and hypotheses on the LO (counts and ids) |
+| **Minutes** | Active and elapsed seconds from opening to closing (§11.6) |
+| **Origin ids** | The lesson's origin (`learner_pick`, or the router decision id of an accepted offer), the decision's `router_objective_traces` id when there is one, the FG1 generation job and item ids for a probe, the gap job id, the created LO id, and every `policy_experiment_assignments` id in force for the lesson's session and day (RO5's stop coin, randomized checks, open picks) |
+| **Outcome refs** | The probe's attempt id and grade, the re-check's attempt id after a detour, the gap's result, the LO's undo state |
+
+- **Switch:** `teacher.episode_log`, default true at every version (as RO0's `receipts`): it writes only its own rows; a refused row rolls back alone with a warning and never blocks a turn.
+- **Protection:** ids and numbers only in the row; exam or held-out material is never in a hypothesis (the output guards run on the teacher's text before it is stored).
+- No successor of its own.
+
+### 11.10 The teacher report (TE2)
+
+`learnloop teacher report` (TE1 built the weight's lines) gains, read-only:
+- **The pool weight's trajectory** per forecaster: λ̂ and its posterior sd over time, from `lesson_weight_trace` (§12.2).
+- **Lessons:** opened, closed by reason, active and elapsed minutes (and how many intervals are missing), and delayed checks committed, due, answered and their results.
+- **Episodes:** by kind; probes generated, refused by reason, served and answered; detours by repair and how many were `unlogged`; gaps by kind and outcome.
+- **Forecasts:** `lesson_probe_correct` against the probes' grades; `lesson_node_held` against natural outcomes and, separately, against RO5's randomized checks, each labelled (self-selected, or randomized with its `r`).
+- **Coverage** of item 5's fields: how many episodes have each field, so a gap in logging is visible.
+
+Nothing in it decides anything.
 
 ---
 
@@ -679,8 +812,7 @@ On a hit, the message is withheld and the model re-prompted. In chat, LearnLoop 
 |---|---|---|---|---|---|
 | **Prediction** | A `lesson_turns` row; formative, tier 2 (W1) | None | — | None; the model reads it | None |
 | **Lesson check** | A minted item (`origin = codex_proposal`, `mechanism = teacher_lesson_v1`, lesson and node ids, span `source_refs`), held from serving outside its lesson; a `lesson_checks` row | `reconstruction_after_walkthrough`, **learned mass** (§12.1; prior centred on 0.5), **not primed** | Yes: never certifies, never answers a Check once, whatever the mass | Blind, against the committed solution and rubric | The attempt itself |
-| **Teacher-written probe** | As a lesson check | As a lesson check | Yes | Blind | — |
-| **Vault-item probe** (TE2) | Serve path | As served (`diagnostic_probe` or `independent_attempt`, 1.0) | No, when cold | Blind | — |
+| **Generated probe** (TE2, rev 5; replaces rev 4's teacher-written and vault-item probes) | FG1's generated single-use item, `generated_probe_items.source = lesson` (§11.3) | `diagnostic_probe`, 1.0, under the existing admissibility rule | No, when cold; not independent if the lesson already showed text on its topic | Blind | — |
 | **Quick check** | Unchanged | Unchanged | — | Blind | — |
 | **Teaching text** | — | — | — | — | `tutor_answer`, basis `lesson:<id>`, for each vault item on the lesson's LOs whose key the text overlaps (amount = overlap, as at `tutor_qa.py:904-915`) |
 | **Cited passages** | — | — | — | — | `source_review` for items whose key a shown passage exposes |
@@ -850,25 +982,42 @@ Revision 3 had a one-time switch after about 100 pairs, at a fixed 0.02-nat marg
 
 **TE1, with no amendment.**
 - AD never reads a lesson check, because its eligibility admits only `independent_attempt`, `open_text`, `diagnostic_probe` and `exam_attempt` (wt:503-512). A lesson check only closes the reading-dose windows of facets its minted item weighs on (wt:524). That is correct: the reading was followed by an answer.
-- AD does read what follows: vault probes and the delayed checks, which are ordinary eligible attempts.
+- AD does read what follows: vault probes and the delayed checks, which are ordinary eligible attempts. *Revision 5:* a lesson's probes are FG1-generated `diagnostic_probe` attempts (§11.3), which AD reads as it reads any generated probe.
 
-**TE3, an AD follow-up that needs the owner's amendment (Q5).** Add `lesson` as a §5.11 learning-opportunity kind:
+**TE3, an AD follow-up that needs the owner's amendment (Q5).** *Revision 4's text, kept for history; revision 5 below replaces its trigger and adds its role in the objective.* Add `lesson` as a §5.11 learning-opportunity kind:
 - prediction-only, with its own learned dose curve and its own switch;
 - subkinds by node outcome: `landed`, `taught`;
 - a graded lesson check takes the kind's increment in place of γ, the same as the unwired in-passage path (wt:525, 712).
 
-It needs:
-- **an owner amendment** to A12 limit 1 and D20;
-- **a migration** rebuilding the `ad_reading_opportunities` CHECK;
-- **an AD successor,** for the version bump in `priors`;
-- **code:** the `salience_firewall` allowlist, `View.reading`'s kind gate, and the report loops;
-- **classification** of the lesson tables in `protected_tables` (`ROLES` and `COLUMNS`, and `READING` where a lesson cites a reading) and in `column_classes`.
+It needs: an owner amendment to A12 limit 1 and D20; a migration rebuilding the `ad_reading_opportunities` CHECK; an AD successor; code in the `salience_firewall` allowlist, `View.reading`'s kind gate and the report loops; classification of the lesson tables in `protected_tables` and `column_classes`. Trigger (rev 4): AD's own (wt:1722).
 
-Trigger: AD's own (wt:1722). Reading keeps its auto-flag clear through two consecutive reports, and the kind is logged with an LO mapping (TE1's receipts do this).
+**TE3a, revision 5 (2026-11): the lesson opportunity, built now, and the objective's lesson effect.**
 
-What it buys:
+*What changed and why.* Revision 4 waited on AD's trigger (reading's auto-flag clear through two consecutive reports). The owner's rule since Nov 4 is no evidence gates, so TE3a is built when its stage runs. And since RO4 the lesson has a second reader: the router objective's lesson interface (`router_objective/value.py`, kind `lesson`) values a lesson as AD's `γ` times the lesson-check mass, a placeholder RO4 named. TE3a's curve replaces that placeholder, so one learned quantity serves AD's serving, AD's report and the objective.
+
+**What it does for the learner.** Nothing they see directly. After a lesson, AD expects the taught topics to be easier for this learner by the amount lessons have actually made them easier, so the next questions land in the 70-80% band rather than too easy or too hard. And when the router weighs "offer a lesson" against "practise", it uses that same learned effect (§15.1).
+
+**What it is.**
+- **One opportunity per lesson node with an LO,** written at the lesson's close from its receipt: subkind `landed` or `taught` by the node's final status; a node closed `held` (skipped as already known) or `uncertain` is no opportunity. The dose is one per node (a count, structural).
+- **Prediction-only,** under AD's firewall: never evidence, mastery or certification (A2); the kind joins the `salience_firewall` allowlist; AD's eligibility still never reads a lesson check as an attempt (§14.1).
+- **Its own dose curve,** of the same form as reading's (`adaptive_difficulty/model.py`'s two-exponential curve), learned by AD's own filter from later eligible cold attempts on the LO. A graded lesson check takes the kind's increment in place of γ, as the in-passage path does.
+- **Its seeded prior** (versioned in `adaptive_difficulty/priors.py`): centred so that one `landed` dose moves the LO's predicted success by what RO4's placeholder assumes today, AD's prior `γ` times the lesson-check mass prior 0.5 (basis `legacy`: today's objective's assumption, so switching TE3a on moves no decision until data arrive). `taught` starts from the same prior as `landed`, and the data separate them (no hand-set ratio). Widths follow AD's existing rule for a new kind's prior. Every number has its `prior_basis` and width in the registry.
+- **Its switch** `adaptive_difficulty.lesson_opportunities` (default true at the tag). Off, or below the tag: AD is its predecessor exactly, and the objective's lesson interface keeps RO4's placeholder.
+
+**Reads and writes.**
+- Reads `lessons`, `lesson_receipts` and `lesson_plans` through AD's guard: they move from DENIED to `READING` in `protected_tables` (`ROLES`, `COLUMNS`), with `column_classes` updated. Option B holds (§14.3): a lesson grounded in a reading with withheld blocks is absent from AD's reading signals, as the reading is.
+- Writes `ad_reading_opportunities` rows of kind `lesson` (the CHECK rebuilt), and AD's derived state through its own rebuild.
+
+**How it enters the router objective.** As the lesson interface's effect: `value.py`'s `LESSON` branch reads the kind's posterior moments through `readiness.decision_state_fields(learning_moments=True)`, as RO5 item 7 already does for `γ` and reading. That is a one-place edit (the Nov 5 note): the objective's arithmetic is unchanged; only the interface's effect source moves. The trace's sensors name the curve's version and moments (§15.1).
+
+**What is logged.** AD's opportunity rows with the lesson id and node; AD's dose-and-burden report gains the `lesson` row: what a lesson does to cold retrieval for this learner, with its interval and auto-flags. No new teacher logging (TE2's episodes and receipts are the inputs).
+
+**Needs:** the owner amendment to A12 limit 1 and D20 (approved in principle, §23 item 5; recorded in the AD spec at landing); a migration rebuilding `ad_reading_opportunities`' kind CHECK; an AD successor (the priors version). **The census:** zero lessons, so the curve stays at its seeded prior until lessons and later cold attempts exist; until then the objective values a lesson exactly as RO4 does today.
+
+What it buys (rev 4, still true):
 - **Serving.** AD knows a just-taught LO is easier, so the next serve lands in band.
 - **Reporting.** AD's dose-and-burden report states what a lesson does to cold retrieval *for this learner*: a learned answer, not a hand constant. This replaces the learned-parameters spec's drift and `w_shift` ideas.
+- **Valuing** (rev 5). The router's lesson offers are valued with the same learned effect.
 
 ### 14.3 A8 compliance
 
@@ -882,7 +1031,7 @@ What it buys:
 
 ## 15. Router amendments (to be recorded in `spec_action_router_v1.md`)
 
-This section is the amendment text. The router spec itself is not edited here.
+This section is the amendment text. The router spec itself is not edited here. *Revision 5:* §15.1 is TE1b's design as built; §15.1a, new, is how lesson offers enter the router objective (`spec_router_objective_v1.md` §8), and it is recorded in that spec's §8.1 lesson row and §13 at TE3b's landing.
 
 ### 15.1 The router suggests lessons; the learner opts in (owner, 2026-10-24)
 
@@ -893,7 +1042,7 @@ This section is the amendment text. The router spec itself is not edited here.
   - LOs whose cold checks keep failing after practice;
   - LOs where AD predicts success well below the band.
 
-  Declining costs nothing, so the candidate is reversible. It joins the `mixture` draw with an exact logged propensity (router §7.3), or `epsilon_tiebreak` in `staged` mode.
+  Declining costs nothing, so the candidate is reversible. It joins the `mixture` draw with an exact logged propensity (router §7.3), or `epsilon_tiebreak` in `staged` mode. *As built (TE1b), one draw a day at Today's open; revision 5 (§15.1a) moves the draw into the router objective wherever the objective serves.*
 - **What the learner sees.** One card in Today: "Learn *X* now? (about 15 min)", with the target in plain words and the reason (router §7.4's honest "why"). The learner can:
   - **start** it;
   - **pick an alternative:** one of up to two other `instruct(lesson)` candidates from the same decision, shown on the card;
@@ -918,13 +1067,57 @@ This section is the amendment text. The router spec itself is not edited here.
   - **`keep`, a guardrail against nagging:**
     - a hard ceiling, `router.lesson_suggestions.ceiling_per_day` = 3. It is never learned, and each bind is logged: a ceiling that binds often means the acceptance model is wrong;
     - suggestions are only a Today card: never a modal or a notification, and never during a cold check.
-- **What the router can learn, and when.**
-  - **Acceptance by context** (time of day, minutes left, re-entry, LO status, the reason given) is fast. Each shown suggestion is one observation, about 30 a month at the seeded rate. A coarse acceptance rate comes within weeks. Context effects of about ±20 points need a few hundred suggestions, so many months.
-  - **Lesson value on `R_cold`** is slow. The suggestion policy is evaluated intention-to-treat (suggested or not, by propensity) on `R_cold`.
-    - A first doubly-robust estimate comes at the router's 200-decision report.
-    - A policy switch waits for the 600-decision rule (router §10.4).
-    - The effect among those who accepted is confounded by self-selection and is never claimed.
+- **What the router can learn, and when.** *Revision 5 replaces the rev-4 text here, which had a first doubly-robust estimate at 200 decisions and a policy switch at the 600-decision rule: the owner's no-gates rule removes both, and §15.1a says how lessons are valued and evaluated now.*
+  - **Acceptance by context** (time of day, minutes left, re-entry, LO status, the reason given) is fast. Each shown suggestion is one observation. A coarse acceptance rate comes within weeks at a suggestion a day; context effects of about ±20 points need a few hundred responses.
+  - **Lesson value** is estimated by the objective's rollouts (§15.1a), and evaluated as any action is, by RO §8.7's common return under the live continuation. The effect among those who accepted is confounded by self-selection and is never claimed.
 - **Successor.** This changes what Today shows, so it is a router successor with the kill switch `router.lesson_suggestions.enabled` (below the tag, or off, no suggestion appears). It may share TE1's tag if they merge together. Phase TE1b.
+
+### 15.1a Revision 5 (TE3b): lesson offers are candidates of the router objective
+
+**What changed and why.** TE1b draws one lesson suggestion a day at Today's open with the pre-objective router's `model_mixture`, the Decider and the router LLM recorded `not_asked` (TE1b ruling R1). Since RO4 the router is an objective with a value estimator, two policies and a learned mix, and its lesson interface exists but "no lesson is a plan-block candidate" (RO §8.11). Revision 5 makes a lesson offer one of the objective's candidates. That gives one router and one valuator for every action, lets the LLM policy weigh lessons inside the request it already makes, and puts lessons on the same trace and the same evaluation as everything else. The teacher values nothing (§1.5).
+
+**The journey.** The learner is working through today's plan. At a block boundary the next block is a card: *Learn eigenvectors now? (about 15 min)*, with the reason in plain words ("your last two cold answers on this missed") and *Start* and *Not now*, plus up to two other topics as alternatives. *Start* opens the lesson; when it closes the plan resumes at the next boundary. *Not now* goes straight on to the block the plan would have served. The card never appears during a cold check, a probe or a randomized check block, and never as a modal or notification. *Why this?* opens the trace's numbers in plain words (frictionless by default, glass box on request).
+
+**The candidate.** `offer(lesson, L)`:
+- **Where:** a reversible block boundary of a `plan_block` decision where the objective serves (`[router_objective] enabled`, the plan on, at or after TE3b's tag). Not in `plan_interrupt`: FG1's arms after a miss are unchanged (deferred, §22).
+- **Which LOs:** TE1b's three reasons produce lesson candidates (`new_goal`, `cold_failing`, `below_band`); a typed-goal LO with a pending lesson check is not re-offered.
+- **How many:** the best lesson candidate by TE1b's staged value (`log P(accept) + log(1 − p)`) joins the support beside staged's top `router.k`: one lesson offer per decision (`keep`, a presentation bound: one card at a time). Its alternatives (up to two, `keep`) are the next candidates and are shown, not valued.
+- **The acceptance model** is TE1b's, unchanged (§15.1; its seeded priors, its response ledger). It moves from TE1b's daily shell into the objective's sensors.
+
+**The value** (RO §8.1's offer-type interface, already built and hand-tested): `Q = p·E[R + V | accepted] + (1 − p)·E[R + V | declined]`, with `p` drawn per θ draw from the acceptance model's posterior.
+- **Accepted branch: the lesson action.** Its interface in `value.py`:
+  - *effect:* TE3a's lesson curve on each target and goal LO, per `landed` dose (before TE3a, or with its switch off: RO4's placeholder, `γ` at the lesson-check mass);
+  - *duration:* active minutes, log-normal, seeded at the card's 15 minutes with a wide log-sd (basis `legacy`: the card's own estimate; learned from TE2's `lesson_activity_intervals`); sampled, never averaged, priced by `κ` on the session's minutes like any block;
+  - *observes:* its checks (at the learned lesson-check mass, §12.1) and its probes (§11.3), updating the belief;
+  - *next state:* the lesson's delayed checks as commitments in `x′` at their dates, so their information enters through `E[V(x′)]`.
+- **Declined branch:** the tail's next non-offer block at the same session minutes, as for an overridden stop (RO §8.1), so a declined offer's value is never defined in terms of itself.
+- **RO6's residual:** the candidate features gain a `lesson` indicator in `learned_tail.py` (a features version bump, so a change point for its fit, in that one place).
+
+**The draw.** The served distribution is RO §8.3's `μ = (1 − k·ε)·[w·π_L + (1 − w)·π_Q] + ε` over the support with the offer in it, logged exactly (G3).
+- `π_L`: the LLM policy sees the offer as one more option in its existing `router_llm_choice_v3` request (its card shows the target, the reason, the minutes and `P(accept)`). No new request and no new model call: TE1b ruling R1's "models not asked about lesson candidates" ends here. Its per-option forecast for the offer enters RO §8.4's effect correction like any option's. In RO4's forecast evaluation (`forecast_resolve.py`) an offer's forecast is bound, under a new binding version, to the target's first qualifying cold outcome after the lesson when accepted, and censored when declined, as a decision that served nothing is.
+- `π_Q`: argmax of `Ṽ`, as for any candidate.
+- The stop coin (RO5) is unchanged.
+- `router.lesson_suggestions.ceiling_per_day` (3, `keep`) still binds across the day's offers; each bind is logged.
+
+**What the learner's response writes.** A `router_suggestion_responses` row on the `plan_block` decision's id: `accepted`, `chose_alternative:<LO>`, `declined`, or `ignored` (the boundary passed with no answer: the next boundary's step). An accepted lesson has `origin = router` and `origin_ref` the decision id. The acceptance model learns from it as TE1b's does.
+
+**What the trace records** (`router_objective_traces`, RO §8.8), for the offer candidate:
+- *sensors:* `P(accept)` with its posterior mean and sd and `suggestion_priors_v1`; the reason; AD's `p̄` for the target; the lesson curve's moments and version (or `placeholder`); the lesson-check mass posterior; the duration distribution and its source (`seed` or `fitted, n`);
+- *terms:* the accepted branch's and the declined branch's `Q̄`, `p`, the `κ` integral of the lesson's minutes, `E[V(x′)]` with the delayed checks, `T_C`, `Q̄ − Q̄(stop)`, and the residual's `V_residual`;
+- *split* (display only): learning, information, return effect;
+- *binding:* decision → response → lesson id → receipt → delayed checks and their outcomes, a read over existing ids (as RO0 row 12's trajectory read).
+
+**Lesson minutes on the objective's clock.** `router_objective/price.py`'s activity spans gain TE2's lesson activity intervals, so a lesson's active minutes count toward the session's minutes and `κ`, and its idle gaps don't end a session by themselves. One place in the code.
+
+**Lesson LOs in the objective's population.** An LO with a pending lesson delayed check is a retention commitment: it joins RO §8.7's population (`daily_plan/objective_inputs.population`) at its undated density. RO5's randomized checks can then land on it and §8.7's common return counts it (owner decision 5, §23.1). This changes the objective's definition hash, so RO6 sees a change point once, at the tag.
+
+**Evaluation.** As any action: RO §8.7's `D̂` on the common return under the live continuation, the offer's acceptance inside the outcome. No count gates anything. The report (`learnloop router objective-report`) gains the lesson-offer rows: offers shown, `μ` and `P(accept)`, responses, the lessons they opened, and the lesson curve's posterior.
+
+**What TE1b's daily draw becomes.** It serves only where the objective doesn't (the plan off, the objective's switch off, or below TE3b's tag): there it is TE1b exactly. Where the objective serves, no Today-open card is drawn and the day's offers are the plan's. A Start that never opened (TE1b ruling R2) is honoured either way.
+
+**Successor and migration.** A router successor (TE3b), with the switch `router.lesson_suggestions.in_objective` (default true at the tag): off, or below the tag, TE1b's daily card and RO4's support exactly. No migration: `router_decisions`, `router_suggestion_responses` and `router_objective_traces` already hold every field (the response's decision id may now name a `plan_block` row: migration 236 ties `router_suggestion_responses.decision_id` to `router_decisions` by key only, with one response per decision, which a drawn offer satisfies).
+
+**What the census says.** No suggestion was ever drawn or answered, no traced `plan_block` decision exists in the copies, and no goal is active, so `new_goal` produces no candidate; `cold_failing` would produce 2 (linear_algebra). At the TE1b seeded rate, about one offer a day once the owner plans daily.
 
 ### 15.2 Confidence on the learner card (owner, 2026-10-24; TE0)
 
@@ -975,7 +1168,7 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
   - LearnLoop grades blind on the server, and then returns the verdict and feedback. The key is allowed after submission (V:395).
 - **What can be served.**
   - **Due Check once commitments** (delayed checks), always on a **fresh unseen item**. The committed in-app item stays unexposed (Q18).
-  - **Vault-item probes** for a chat lesson's placement.
+  - **Vault-item probes** for a chat lesson's placement. *Revision 5:* a chat lesson's placement probes follow §11.3 (FG1-generated, single use, burned when their text is served to the host), not vault items; FG1 keeps MCP read-only until then (FG1 §4.2's MCP door).
 
   This amends C2's eligibility class for these two kinds only. Every exclusion in §16.1 stands.
 - **The integrity class.** C2's: `assistance_observability = host_unobserved` and evidence origin `chat_relay`. The attempt never counts as a cold reading for certification, held-out validation or repair verification, and it **never certifies on its own** until C2's successor says otherwise.
@@ -1057,6 +1250,10 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 | `lesson_weight_state`, `lesson_weight_trace` | DERIVED (rebuild owner: mastery replay) | §12.1's posterior and per-update trace, plus TE4c's chat family |
 | `confidence_calibration_state` | DERIVED (same owner) | LP-min's tap/hedge → probability recalibration |
 | `router_suggestion_responses` | RAW_LEDGER | Decision id, response (`accepted`, `chose_alternative`, `declined`, `ignored`), time, the lesson id when one was accepted (§15.1) |
+| `lesson_episodes` (TE2, rev 5) | RECEIPT, append-only | One row per probe, detour, gap and goal LO with item 5's fields (§11.9) |
+| `lesson_activity_intervals` (TE2, rev 5) | RECEIPT, append-only | The lesson screen's activity intervals: start, end, foreground with input or not, `occurred_at`, `received_at` (§11.6) |
+
+Both new tables are classified in `db/table_roles.py` (neither is DERIVED, so no replayer) and in AD's `protected_tables` and `column_classes` (DENIED, as TE1's lesson tables were; TE3a moves `lessons`, `lesson_receipts` and `lesson_plans` to `READING`, §14.2).
 
 ### 18.2 Existing tables and settings
 
@@ -1067,11 +1264,15 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 - **`commitments`:** existing action.
 - **`forecast_receipts` (TE1):** `FORECAST_KINDS` gains `lesson_check_correct` and `lesson_step_retained`, with their binding kinds.
 - **TE2:**
-  - `learner_text_gaps` gets a CHECK rebuild adding `lesson`, together with C1b's `external_chat`, so C1b needs no rebuild of its own;
-  - goal LOs use `mechanism = teacher_goal_v1`.
+  - `learner_text_gaps` and `learner_text_gap_jobs` get a CHECK rebuild adding `lesson`, together with C1b's `external_chat`, so C1b needs no rebuild of its own;
+  - goal LOs use `mechanism = teacher_goal_v1` through C0b's `goals/goal_lo.py`;
+  - *rev 5:* FG1's `followup_generation_jobs.kind` and `generated_probe_items.source` get a CHECK rebuild adding `lesson`; a lesson probe's job and item name the lesson in their existing JSON or ref columns and in its episode row;
+  - *rev 5:* `forecast_receipts` gains the kinds `lesson_probe_correct` (bound to the probe's attempt) and `lesson_node_held` (bound to the first qualifying cold outcome on the node's LO; read against RO5's randomized checks apart). The table has no CHECK on kind, so this is code only.
+- **TE3a (rev 5):** `ad_reading_opportunities` gets its kind CHECK rebuilt with `lesson`.
 - **Config:**
   - a `teacher.*` section, with switches `teacher.enabled`, `teacher.weight.learned`, `teacher.weight.source`, `teacher.placement.*` and `teacher.delayed.*`;
-  - `router.lesson_suggestions.*` (§15.1).
+  - `router.lesson_suggestions.*` (§15.1);
+  - *rev 5:* `teacher.probes` (TE2's probe switch), `teacher.episode_log` (§11.9), `teacher.placement.max_probes` (`keep`); `teacher.placement.calibration_p` is not added (§1.5 row 2); `adaptive_difficulty.lesson_opportunities` (TE3a); `router.lesson_suggestions.in_objective` (TE3b).
 
 ### 18.3 Successor
 
@@ -1093,8 +1294,8 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 - **TE1b** (router suggestions, §15.1) is a router successor. It may share TE1's tag.
 - **The forecast–parametric pool** (§12.2) ships inside TE1's successor at its seeded prior. λ moving with the data is not a successor (LP §3.2), and every applied value is in `lesson_weight_trace`.
 - **LP-min's four claim fixes** are their own small successor after AD23. The optional liquid-stability family is a successor at activation (`spec_learned_parameters_v1.md` §4.6).
-- **TE2** is decided under the playbook at implementation. If it merges with TE1, it shares TE1's tag.
-- **TE3** is an AD successor.
+- **TE2** is decided under the playbook at implementation. If it merges with TE1, it shares TE1's tag. *Revision 5:* TE2 is one successor, the next free tag after main's `mvp-0.49` (expected `mvp-0.50`; ONE constant, renumbered at landing). It changes what is served (generated probes inside lessons), what evidence exists (their attempts), and what is created (gaps with source `lesson`, goal LOs). Its switches: `teacher.probes` (off: no `serve_probe`; the brief keeps TE1's probe headers) and the existing `teacher.enabled`. Below the tag, or off, TE1's lesson exactly. Its logging (§11.6, §11.9) is additive at every version behind `teacher.episode_log`, as RO0's receipts are.
+- **TE3** is an AD successor. *Revision 5:* two successors. **TE3a** is an AD successor (the lesson kind's priors version; expected `mvp-0.51`), switch `adaptive_difficulty.lesson_opportunities`. **TE3b** is a router successor (lesson offers in the objective, lesson minutes on its clock, lesson LOs in its population; expected `mvp-0.52`), switch `router.lesson_suggestions.in_objective`. Each below its tag, or off, is its predecessor exactly, and each upgrade is a projection activation (nothing recorded changes), as RO4-RO6's are.
 - **TE4c** rides C2's successor, which also needs the chat weight family and the exposure-to-host mark.
 
 ### 18.4 Every number: a seeded prior, a structural form, or `keep` (owner, 2026-10-24)
@@ -1116,6 +1317,10 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 | Delayed-check fallback dates (§13) | 3 days and 7 days | `legacy` (RW6b's fallback; `capture.test_me_later_days`). Used only while the LO has no FSRS state |
 | Router acceptance model (§15.1) | About one a day, and about a 7-day recovery after "Not now" | `legacy` (revision 3's defaults); 1.0 logit per effect, with the recovery rate on a grid |
 | Check pitch (§10 item 7) | 70–80% | AD's owner-decided band. A prior in the doctrine, not a code constant |
+| AD `lesson` dose curve, `landed` and `taught` (TE3a, §14.2; rev 5) | One `landed` dose moves predicted success by AD's prior `γ` times the lesson-check mass prior 0.5; `taught` the same | `legacy` (what RO4's lesson interface assumes today); widths by AD's rule for a new kind's prior |
+| A lesson's active minutes, in the objective's lesson interface (§15.1a; rev 5) | Log-normal at the card's 15 minutes, wide log-sd | `legacy` (the suggestion card's estimate, `CARD_MINUTES`); learned from `lesson_activity_intervals` |
+
+**Declared prices and seeds the objective already owns** (RO §12, unchanged by this spec): the mix's `w` and `ℓ`, the floor, the stop coin, the randomized checks' rate. A lesson offer is subject to them like any candidate.
 
 **Structural, in the functional form:**
 - **Lesson-check and chat masses < 1:** the logistic link (revision 3's Q13).
@@ -1130,7 +1335,9 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 |---|---|
 | `teacher.context.sources_tokens` (24k), `teacher.brief.depth` (2), `teacher.context.compact_at` | Context budgets: cost and latency, not a model of the learner |
 | `teacher.placement.max_probes` (8) | Burden guardrail. The model decides when to stop; this only bounds it |
-| `teacher.placement.calibration_p` (1.0) | A design probability, logged as the propensity |
+| ~~`teacher.placement.calibration_p` (1.0)~~ | *Dropped in revision 5 (§1.5 row 2): RO5's randomized checks are the calibration read* |
+| One lesson offer per `plan_block` decision, with up to two alternatives shown and not valued (§15.1a; rev 5) | Presentation: one card at a time |
+| The detour repair list (`repair_in_place`, `insert_foundation`, `reteach`) (§11.7; rev 5) | A logging vocabulary, not a parameter |
 | Three consecutive contract failures close the lesson | Contract guardrail |
 | `teacher.budget` (per lesson, set from a dry run) | Spend |
 | `max_wait_days` (14, RW6b) | A promised check is never dropped silently |
@@ -1162,7 +1369,11 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 **Entry points:**
 - "Teach me this" on an LO page, on a Reader selection, and on new-topic offers in Today;
 - the router's suggestion card in Today (TE1b, §15.1): "Learn *X* now? (about 15 min)", with Start, up to two alternatives, and "Not now". At most one a day, and never a modal or a notification;
+- *rev 5 (TE3b, §15.1a):* where the objective serves, the same card as a block of the plan, at a block boundary, instead of at Today's open;
+- *rev 5 (TE2):* a "What do you want to learn?" box on the lesson start (§11.5), and *Continue your lesson on X* in Today (§11.8);
 - "Check what I already know first" at open.
+
+**Probes in a lesson** (rev 5, §11.3): a probe opens like a cold question, with no label beyond "a quick question first"; while it is being written, *Preparing a question on this…* and *Teach it anyway*. Typed-goal leftovers: *Not in your books yet: … Add it as a topic?*
 
 **The close card:**
 - a short recap;
@@ -1184,8 +1395,12 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 | **LP-min claim fixes** | The four claim-defect fixes (`spec_learned_parameters_v1.md` §0a) | Right after AD23 lands | Own small successor |
 | **TE1: the first good lesson** | Listed below | After T1 and AD23 land; in parallel with S0 → mobile PR-1..7 | One successor (§18.3) |
 | **TE1b: router suggestions** | `instruct(lesson)` candidates, the Today card, response logging, caps and mutes (§15.1) | With TE1, or right after it | Router successor (may share TE1's tag) |
-| **TE2** | Vault probes and the calibration probe; typed goals and `create_goal_lo`; `propose_gap` and detours; resume; `learnloop teacher report`, including the §12.2 pool weight's trajectory | After TE1 has run real lessons | Per the playbook |
-| **TE3** | AD's `lesson` opportunity kind (§14.2) | AD follow-up, on AD's trigger, with Q5 | AD successor |
+| ~~**TE2** (rev 4)~~ | ~~Vault probes and the calibration probe; typed goals and `create_goal_lo`; `propose_gap` and detours; resume; `learnloop teacher report`, including the §12.2 pool weight's trajectory~~ | ~~After TE1 has run real lessons~~ | *Superseded by revision 5's rows below* |
+| ~~**TE3** (rev 4)~~ | ~~AD's `lesson` opportunity kind (§14.2)~~ | ~~AD follow-up, on AD's trigger, with Q5~~ | *Superseded by revision 5's rows below* |
+| **TE2-log** (rev 5) | Item 5's logging: `lesson_episodes` with `note_detour` (§11.7, §11.9), `lesson_activity_intervals` and `lesson.activity` (§11.6), `p_held` and the `lesson_node_held` forecast (§11.3), the receipt's `episodes` and `minutes`, and `learnloop teacher report`'s new lines including the pool's trajectory (§11.10) | Next in the queue: no dependency | None: additive receipts behind `teacher.episode_log`, as RO0 |
+| **TE2** (rev 5) | `serve_probe` through FG1's generation path, with its forecast and episode (§11.3); the brief's version without vault probe headers; typed goals through C0b's resolver and `create_goal_lo` (§11.5); `propose_gap` with source `lesson` (§11.7); the resume screen (§11.8) | After TE2-log | One teacher successor (§18.3), migration for the CHECK rebuilds and the two tables |
+| **TE3a** (rev 5) | AD's `lesson` opportunity kind, built now (no AD trigger), and the objective's lesson interface reading its curve (§14.2) | After TE2 (it reads TE2's receipts; it can land before TE2 on TE1's receipts alone) | AD successor, migration for the opportunity CHECK |
+| **TE3b** (rev 5) | Lesson offers as candidates of the router objective, their trace and responses, lesson minutes on the objective's clock, lesson LOs in its population; TE1b's daily draw only where the objective doesn't serve (§15.1a) | After TE3a and TE2-log | Router successor, no migration |
 | **TE4a–c** | Chat lessons (§16). TE4c includes chat cold checks and probes (§16.2) | With C1a, C1b and C2 respectively | C2's successor for TE4c |
 | **Liquid stability** (optional) | `S_eff = S_fsrs·exp(wᵀu)`, with the prior width of `w` itself a grid posterior (`spec_learned_parameters_v1.md` §4.6). Its inputs are logged from TE1 | When built: there is no review-count threshold and no keep margin. With few reviews it stays at plain FSRS | Successor when the family is introduced. `w` moving afterwards is data, not a successor |
 
@@ -1292,6 +1507,8 @@ R3: one card a day, `ceiling_per_day` a logged guard, `ignored` at the next day'
 - none between Sep 7 and Oct 19;
 - working vaults at mvp-0.8.
 
+*Revision 5's census* (`docs/reviews/census-error-episodes-2026-11.md`, backup copies at `mvp-0.43`): 65 graded attempts and 19 graded misses in three vaults over 8 active days; no lesson, no suggestion, no active goal; one non-exam miss in ten with the two rival causes FG1's probe lane needs; 20 of 73 LOs with no unseen item.
+
 **Nothing in this spec waits for significance.** Each lesson is useful when it happens, and each delayed check is useful when it is answered: it is a spaced retrieval for the learner, and its result shapes the next lesson. Everything else is a log kept for a future volume.
 
 For each learned quantity, the last column is its time to move off its seeded prior at the owner's rate. For the rest, it is the time to signal.
@@ -1308,13 +1525,15 @@ For each learned quantity, the last column is its time to move off its seeded pr
 | Tap/hedge recalibration (LP-min) | Every tapped graded attempt, not only lesson checks | Faster than the weight, but limited by the same lack of spread in the taps |
 | **Pool weight λ: forecast vs parametric** (§12.2) | From TE1 | It moves only where the two disagree on outcomes. With a forecast better by about 0.1 nats per outcome, λ̂ passes 0.5 in roughly 100 resolved pairs (3–4 months, optimistic). With a smaller gap it stays near its seeded 0.2 for years, which costs little because the two then agree |
 | Chat cold-check and probe weight (§16.2) | After C2 | Needs chat checks followed by in-app cold checks on the same LO. **The slowest:** months to a year after C2, depending on chat use |
-| Router: lesson value on `R_cold` (§15.1) | From TE1b | First DR estimate at 200 decisions; a switch waits for 600 (router §10.4). Acceptance effects are confounded and never claimed |
+| Router: lesson value (§15.1a; rev 5) | From TE3b | Valued by the objective's rollouts from the first offer; evaluated as any action by RO §8.7's common return, which RO §8.7 itself expects to move slowly (years at one learner). Nothing waits on a count (rev 4's 200 and 600-decision rules are removed). Acceptance effects are confounded and never claimed |
+| The lesson's duration in the objective (§15.1a; rev 5) | From TE2-log's intervals | Moves off the 15-minute seed with the first few lessons: each lesson is one direct observation |
+| Probe forecasts `lesson_probe_correct` (§11.3; rev 5) | From TE2 | One scored pair per probe, at once. Descriptive calibration within weeks of regular lessons |
 | Liquid stability `w` and its prior width (LP §4.6) | From its first review, once built | It stays at plain FSRS until reviews show an effect. Reviews are the densest outcome, but the owner has about 70 attempts in total and few eligible review pairs: months after real use resumes |
 | Router acceptance model and decline recovery (§15.1) | From TE1b | The intercept moves within weeks (about 30 suggestions a month). Context effects and the decline-recovery rate need a few hundred responses and several re-acceptances after a "Not now": many months, during which the seeded one-a-day / 7-day behaviour holds |
 | Retrievability target `R*` (§13) | Until RW6b | Seeded at 0.9; replaced by RW6b's valuation, not learned on its own |
 | Chat timing term `β_t` and probe term `κ` (§16.2) | After C2 | Slowest of all, as the chat weight |
-| What a lesson does to cold retrieval (AD dose report, TE3) | After TE3 | Prior-dominated until tens of lesson→check pairs. AD reports its interval and auto-flags |
-| Placement accuracy (the calibration probe) | One per placement | Descriptive only |
+| What a lesson does to cold retrieval (AD dose report, TE3a) | After TE3a | Prior-dominated until tens of lesson→check pairs. AD reports its interval and auto-flags. Until then the objective values a lesson as RO4 does today |
+| ~~Placement accuracy (the calibration probe)~~ Placement accuracy (rev 5, §11.3) | From TE2-log's `p_held` | Against natural outcomes at once (self-selected, labelled). Against RO5's randomized checks only when a day's draw lands on a lesson LO with an eligible item: slow, given the census's pools |
 | Variant comparisons: doctrine A/B, chat vs desktop, lesson vs reading | Not randomized in v1 | About 150 per arm: years. Deferred (§22). Observational comparisons are confounded and are never claimed |
 | "LLM history-reading vs numbers" | Already logged by AD1 (`item_forecast_scores`: `llm_v3:*` vs `ad_threshold@*`, `mastery_ekf`) | Accrues with all attempts; no teacher code needed |
 
@@ -1338,7 +1557,8 @@ The thresholds in these triggers are `keep`. They decide when to spend engineeri
 | A background fact-check research agent | Citation validation rejects >10% of source claims, or the owner asks |
 | Multi-session curricula | Three resumed lessons on one goal |
 | Change-point variance after lessons (sweep §1.2.5) | Subsumed by TE3. Revisit if the field harness shows post-lesson first attempts miscalibrated |
-
+| Lesson offers after a miss (in FG1's `plan_interrupt` arms; rev 5) | The owner asks, or FG1's practice lane keeps routing the same LO to repair without a cold success |
+| A randomized placement arm inside lessons (rev 4's calibration probe, as an RO5-style arm with a declared price; rev 5) | The teacher report shows fewer than one RO5 randomized check a month landing on lesson LOs while lessons run weekly |
 ---
 
 ## 23. Owner decisions (all decided 2026-10-24)
@@ -1346,10 +1566,10 @@ The thresholds in these triggers are `keep`. They decide when to spend engineeri
 The owner, 2026-10-24: "yes to defaults for all other open questions". Every question that revisions 2 and 3 raised is decided below, and **none remains open**. Two need the owner to *act*, not to decide: Q7's dry run and Q12's vault upgrade.
 
 1. **Lesson-check weight.** `reconstruction_after_walkthrough`, never certifying and never counting as a Check once. Its mass is learned from later cold checks only (§12.1), mixed with the teacher's forecast by a learned pool weight (§12.2). This settles TQ1a.
-2. **Questions the teacher writes before teaching a step** count at the learned lesson-check weight. Probes using existing vault questions count fully. This narrows TQ4.
+2. **Questions the teacher writes before teaching a step** count at the learned lesson-check weight. Probes using existing vault questions count fully. This narrows TQ4. *Revision 5 proposes (§23.1 item 2): a question in the teacher's turn is a lesson check; a probe is FG1-generated and machine-admitted, and counts as a `diagnostic_probe`.*
 3. **Who starts lessons.** The router suggests, the learner opts in, and "Teach me X" is available everywhere. Suggestions and responses are logged (§15.1).
 4. **After each lesson,** one cold check per landed topic and one transfer check, both through Check once, on questions the lesson never showed. The dates come from retrievability, with 3 and 7 days only as seeded fallbacks (§13). When RW6b lands, its valuation takes over.
-5. **The AD amendment** adding "lesson" as a learning-opportunity kind is approved in principle. It is built when AD's own trigger fires (§14.2), and recorded in the AD spec then.
+5. **The AD amendment** adding "lesson" as a learning-opportunity kind is approved in principle. It is built when AD's own trigger fires (§14.2), and recorded in the AD spec then. *Revision 5 proposes (§23.1 item 4): built now, without the trigger, under the owner's no-gates rule of Nov 4.*
 6. **Router sensor mode (TQ7)** moves to the router spec, deferred until about 600 logged router decisions.
 7. **Plan outage.** Lessons get the usual "Use OpenRouter instead" offer. No offer is made until `teacher.metered_price_per_million` is set. The per-lesson cap is `keep` (spend), and is set from one measured dry run: **an owner action.**
 8. **Chat lessons.** The chat model is the teacher; LearnLoop supplies state, sources, grading and scheduling. Cold checks and probes may run in chat behind C2, at a learned weight below the in-app one. An item served to a chat host is never an in-app cold check afterwards (§16).
@@ -1367,3 +1587,27 @@ The owner, 2026-10-24: "yes to defaults for all other open questions". Every que
 17. **The tap/hedge recalibration** starts from today's fixed map as a wide `legacy` prior. Eedi's confidence data is used only after a licence and scale check.
 18. **A delayed check answered in chat on a fresh item settles the commitment.** The reserved in-app item is released unused.
 19. **The liquid-stability keep margin** is gone. The prior width of `w` is a grid posterior, with no review-count threshold (`spec_learned_parameters_v1.md` §4.6).
+
+### 23.1 Revision 5: decisions for the owner
+
+Each item gives the recommendation first, then the trade-off. The build proceeds on the recommendations unless the owner changes them.
+
+1. **Lesson offers become candidates of the router objective, as a block of the plan; TE1b's Today-open card remains only where the objective doesn't serve** (§15.1a). *Recommended.* One router and one valuator weigh lessons against everything else, the LLM policy sees them at no extra call, and they share the trace and evaluation. But an offer then appears only at a block boundary of a running plan, not when Today opens. The alternative is a Today-open decision valued by the objective, which costs one more valuation and one more LLM policy call a day.
+2. **Placement probes are FG1-generated single-use questions, not vault items** (§11.3). *Recommended.* This keeps the scarce unseen items for delayed and randomized checks (20 of 73 LOs have none), and it aims each question at what the teacher is unsure of. Each probe costs a plan generation call and FG1's measured wait, and its quality rests on machine admission alone.
+3. **Drop the calibration probe; RO5's randomized checks are the unbiased read of placement** (§11.3). *Recommended.* No second randomizer, and no unseen item burned per lesson. The unbiased read will be slow, because a day's draw must land on a lesson LO that still has an eligible item; §22 names the trigger for adding a declared-price arm.
+4. **Build TE3a's lesson opportunity now, without AD's trigger, with its prior centred on RO4's placeholder** (§14.2). *Recommended*, under the no-gates rule, with Q5's amendment to A12 limit 1 and D20 recorded at landing. AD and the objective then use one learned lesson effect, and switching it on changes no decision until data arrive. It adds a kind that AD's report must watch while it sits on its prior, possibly for months.
+5. **LOs with a pending lesson delayed check join the objective's population as retention commitments** (§15.1a). *Recommended.* Without this, a lesson on an LO the learner hasn't practised is invisible to RO5's checks and to the weight's evaluation. It changes the objective's definition once (one RO6 change point), and it spreads the single daily randomized check over more topics.
+6. **A missed lesson check opens no FG1 workflow; the teacher repairs inside the lesson and logs the detour** (§11.7). *Recommended.* A follow-up probe right after the lesson taught the step would be exposed anyway. The cost is that causes found in lessons reach later decisions only through `propose_gap` and the episode log, never as cause factors.
+
+## 24. Revision 5: build plan
+
+Four stages for the queue orchestrator, in this order. TE3a may run beside TE2 (AD code, independent of the teacher's), since TE1's receipts already carry what it reads. Tags and migration numbers are claimed at landing; the expected ones follow main's `mvp-0.49` and migration 246. Every stage: fakes only (`StructuredClientFake`, `tests/teacher_fakes.TeacherFake`), no model call; ad-hoc scripts under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`; targeted tests while iterating; the full suite, the durability lane and vitest once at landing; every run inside a 5G memory-capped scope with at most `-n 6`; `db_generate_reference.py` and `db_validate_reference.py` rerun where a migration lands; new tables classified in `table_roles.py`.
+
+| Stage | What | Size | Successor | Migration | Paid calls a day | Tests |
+|---|---|---|---|---|---|---|
+| **TE2-log** | §11.6, §11.9, §11.10, the `note_detour` action and `p_held` (§9), the receipt's `episodes` and `minutes`; the doctrine's episode paragraph (versioned; per §12.2 a new forecaster family, so λ starts from its seeded prior for it) | M (about 1-1.5k lines with tests) | None: additive behind `teacher.episode_log` | One (expected 247): `lesson_episodes`, `lesson_activity_intervals`; head fixture rebuilt | 0 (the turn schema grows; no new call) | Rows for each kind it writes; switch off byte-identical lessons; a refused row rolls back alone; ids and numbers only, no protected text; missing intervals recorded as missing; active and elapsed never blended; report lines on a synthetic lesson; coverage counts |
+| **TE2** | §11.3 `serve_probe` through FG1 (lesson origin, forecast receipt, episode row); the brief's version without probe headers; §11.5 typed goals through C0b; §11.7 `propose_gap` with source `lesson`; §11.8 the resume screen; desktop UI | L (about 2-3k lines) | Teacher successor (expected `mvp-0.50`), switches `teacher.probes`, `teacher.enabled` | One (expected 248): CHECK rebuilds of `followup_generation_jobs.kind`, `generated_probe_items.source`, `learner_text_gaps.source_kind`, `learner_text_gap_jobs.source_kind` | Plan route only, nothing metered. One generation per probe (at most FG1's 2 attempts), one resolver call per typed goal, one text-gap judge per gap. Census rate: 0. At a lesson a day with two probes: about 2-4 beyond the lesson's own turns | A lesson probe is generated once, served cold with tools refused, and never again after serve, rebuild, sync, remint or any FG1 §4.2 door; retired at close or on *Teach it anyway*; a reserved-question match gives no probe; an answer after teaching on its topic is not independent; the forecast is written before the serve; protected material never reaches the generator; typed-goal resolution and `create_goal_lo` with `teacher_goal_v1`; a gap with source `lesson`; switch off or below the tag gives TE1's replies byte for byte; rebuild equivalence on a lesson fixture with a probe |
+| **TE3a** | §14.2 AD's `lesson` opportunity: kind, priors version, firewall allowlist, `View.reading` gate, report loops, `protected_tables` and `column_classes` reclassification; `value.py`'s `LESSON` branch reads the curve's moments | M (about 1k lines) | AD successor (expected `mvp-0.51`), switch `adaptive_difficulty.lesson_opportunities` | One (expected 249): the `ad_reading_opportunities` kind CHECK | 0 | The AD guard refuses unclassified reads and fails closed; replay equivalence; switch off is AD's predecessor and RO4's placeholder exactly; at the seeded prior the objective's lesson `Q̄` equals RO4's placeholder within float tolerance; AD never writes evidence or mastery (import-linter); the report's `lesson` row |
+| **TE3b** | §15.1a: lesson offers in `plan_block`'s support with the acceptance model as a sensor, the LLM policy's card row, RO6's `lesson` feature, the trace fields, responses on `plan_block` decisions, the forecast binding, lesson intervals on `price.py`'s activity spans, lesson LOs in `objective_inputs.population`, TE1b's daily draw only where the objective doesn't serve; the offer card as a plan block | L (about 2k lines) | Router successor (expected `mvp-0.52`), switch `router.lesson_suggestions.in_objective` | None | 0 new (the LLM policy's request exists; its card gains one option) | G3 recomputes `μ` with an offer in the support, including each failure path; offer branches against a hand-computed case; the eve-of-exam regression unchanged; one response per decision, `ignored` at the next boundary; the ceiling binds and is logged; no offer during a cold check, a probe or a randomized-check block; κ counts a lesson's active minutes; the population holds LOs with a pending lesson check; RO6's features version is a change point; switch off or below the tag gives TE1b's card and RO4's support exactly; the deadlines hold on a copy |
+
+**Owner actions outside the stages:** upgrade the working vaults to the chain's head (the census copies are at `mvp-0.43`), and run TE1's dry-run lesson for `teacher.max_lesson_cost_usd` (Q7).
