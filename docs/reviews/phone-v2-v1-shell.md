@@ -212,3 +212,119 @@ systemctl --user restart learnloop-mobile
 
 1. Should the Feedback screen get the back chevron in V2? It is item 2 above. The spec says yes; V1 kept M2a's "Next only".
 2. Should the top bar's **+** on covering screens stay after V2, or should the tab bar's + be the only way to Capture? It is item 3. Keeping it costs nothing and keeps mid-question capture.
+
+## Landing onto main
+
+Main was `1c12763372`, the stage's base. It did not move while the landing ran (checked before the smoke and again before this commit), so there was no merge. No migration, no successor, no new dependency.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "Codex's F1-F3 and the reconnect-order fix are accepted on the builder's failing-first tests; no further Codex round for V1 (UI-only, no new capability, no new RPC)."
+- R2: "Open questions: Feedback gets the back chevron in V2, as the spec's 'one swipe or chevron returns' says (V1 keeps M2a's 'Next only'); the top-bar + (Capture) on Question and Feedback stays after V2, so capturing mid-question never serves the question again."
+- R3: "The narrowings recorded by the builder (no reopen from the fragment, placeholders for Read and Progress, the phone's own palette, generated files only under LEARNLOOP_UPDATE_PHONE_CONTRACT=1, App.test.tsx split deferred to V2, the pairing copy change) are accepted for V1; V2-V4 pick them up."
+
+R2 answers §7's two open questions: Feedback gets the chevron in V2, and the top bar's **+** stays.
+
+### Gate
+
+The gate ran at `5a03164763`. Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`; the full suite ran in 10G/2G under `flock /tmp/learnloop-fullsuite.lock`. Every other Python or CLI ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, with one exception (the process note below). No model call or paid call was made.
+
+| Command | Result |
+|---|---|
+| Step 2: `tests/test_mobile_*.py` (15 files), `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_sidecar_measurement` (display-label audit), `test_cli_help_snapshot`, `test_architecture`, `test_codex_lockdown_round3`, `test_public_tip_guards`, `-n 6` | 716 passed |
+| Step 2: `lint-imports --no-cache` | 43 kept, 0 broken |
+| Step 2: phone app: typecheck, whole vitest (`--maxWorkers=4`), `npm run build` | ok; 16 files, 256 passed; built |
+| Step 3: `module_generate` / `module_validate` | PASS (1247 module notes) |
+| Step 3: `desktop_generate` / `desktop_validate` | passed (321 TS/TSX + 6 Rust); nothing moved |
+| Step 3: `validate_vault.py` | passed (2238 notes, all reachable) |
+| References moved | 7 module notes, provenance only (`source_commit`, timestamps, worktree state): `content/_package`, `content/authoring/{_package,practice_leakage}`, `teacher/{_package,guards,probes,service}`. Main's copies had been generated from an uncommitted workspace at the exam-question guard's landing. Regenerated from the committed tree, they read `clean`. Committed with this record |
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Full pytest (`-n 8 --dist worksteal`) | **29873 passed, 90 skipped, 47 xfailed, 0 failed** (1:00:41) |
+| Durability lane (`-m durability`), with the mobile host's two-process tests (`test_mobile_two_process`, `test_mobile_host_coexistence`, `test_mobile_pairing`) | 404 passed, 1 skipped (the owner-lane WAL test) |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 4 skipped, and the 2 known failures (`test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`) |
+| Desktop: typecheck, whole vitest (`--maxWorkers=4`), `frontend:build` | ok; 274 files, 2772 passed; ok |
+| Desktop: `cargo check` | not run: no file under `apps/learnloop-tauri` changed |
+| Phone: typecheck, whole vitest, build (again, in the gate) | ok; 256 passed; built |
+
+**A process note.** One stdlib `python3 -c` ran outside `env -i`. It printed which keys of `tests/cli_help_snapshot.json` name `upgrade`, and it imported nothing from LearnLoop. Every other Python or CLI call ran under the wrapper.
+
+### Smoke
+
+The smoke started from fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (the owner's three vaults at mvp-0.43). In each copy's `learnloop.toml`, every `base_url` was set to `http://127.0.0.1:9`. Each copy was upgraded on main's code (`git archive` of `1c12763372`, with its `migrations/`) to main's latest tag, **mvp-0.52** (migration 249). Each journey then ran on a further fresh copy, one for main's code and one for the branch's.
+
+**The host.** The real ASGI app from `learnloop_mobile.host.create_app`, run in-process through Starlette's `TestClient`, which binds no socket.
+- **Pairing:** the phone was paired by the real exchange (`create_pairing` and `exchange_pairing`, scope `app`) and sent the identity header that Serve adds.
+- **Grader:** the tests' in-process fake (`CountingGrader`).
+- **The clock**, the one other seam: both trees ran with the wall clock frozen at `2026-11-07T00:00:00Z` (`datetime.now`, `utcnow` and `today`, as freezegun freezes them) and with deterministic ULIDs. That way the replies that read the clock (forgetting risk, due times) compare exactly. A first trial without the freeze differed only in those clock-derived floats.
+- **Audit hook:** it refused any non-loopback connect or bind and any Codex process; its self-test refused both.
+
+**The script, as the PWA sends it** (the wrappers' parameters from `contract/*.json`; each `/rpc` after the first carries `LearnLoop-Client-Timing`):
+- `GET /api/v1/meta` (left out of the comparison), `/api/v1/status`;
+- an eliciting answer (`submit_eliciting_response`) on the vault's open causal factor, while it is open;
+- `start_session`: on `linear_algebra` and `probability`, a 409 `session_open_elsewhere`, then "Start here instead" with `replace`;
+- `get_session`, `get_today_queue`, `/api/v1/queue-revision`;
+- `get_practice_item`, `get_probe_contract`, `save_practice_draft`, `submit_attempt`, `/api/v1/submissions/{id}`, `acknowledge_practice_submission`;
+- `get_feedback` (`recordOpen: true`), `get_grading_clarification`;
+- after 8 s, `diagnosis_status` (the card) and `get_feedback` (`recordOpen: false`);
+- a capture through the outbox's request (`POST /api/v1/capture`), the same record again (a retry), and `GET /api/v1/capture/{id}`;
+- a second eliciting answer (on the vault's factor, or on the smoke's own attempt where the vault has none);
+- the next item's `get_practice_item` and `skip_practice_item`, then `end_session`;
+- every registry method outside the allowlist.
+
+| Check | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| Requests and replies, main vs branch (status, content type, body; `Server-Timing` aside) | identical, 24 steps, 200,839 bytes | identical, 24 steps, 296,298 bytes | identical, 22 steps, 145,331 bytes |
+| `Server-Timing` | on every branch `/rpc` reply (18 of 18); never on main's | 18 of 18; never on main's | 16 of 16; never on main's |
+| `GET /api/v1/meta` | branch 200 `{host_version 0.1.0, api_version 1, allowlist_digest 9d84d218..., schema_version 249}`; main 404 | the same | the same |
+| Today | 20 rows | 20 rows | 20 rows |
+| Submit, feedback, card | 200 (within the 15 s window); score 0/4; card `pending`, `cardEnabled` true (the diagnoser's route is 127.0.0.1:9) | the same | the same, 0/7 |
+| Capture | 201 `received`, retry 200 `received`, status 200 | the same | the same |
+| Eliciting answer | 200, `admissibleAsIndependent` true; the second, on the same factor, 200 | the same | no open factor in the vault: `invalid_eliciting_response` on both trees |
+| Methods outside the allowlist | 481 of 481 refused 403 on both trees | the same | the same |
+| New `model_call_receipts` | 2 on each tree, both the fake's (`provider = fake`: `blind_grading`, `blind_grading:fake_turn`); 1 grade | the same | the same |
+| Sockets and processes | no TCP connect or bind at all; one process on both trees, `git rev-parse HEAD` (data capture's version stamp); no Codex start except the self-test's refused one | the same | the same |
+
+**The stale-app path.** The meta digest equals `ALLOWLIST_DIGEST` in `apps/learnloop-mobile/src/api/phoneMethods.ts` and in the built bundle. The UI side, where a host on another digest offers **Reload**, is covered by `Shell.test.tsx` "a host on another allowlist offers one tap to reload", which passed in the gate.
+
+**`learnloop-mobile report`** ran with the branch's CLI on the branch's `linear_algebra` copy after the journey.
+- It shows `round_trips.methods`, with per-method `host_ms`, `round_trip_ms`, `network_ms`, `network_share` and `within_short_read_budget`. For example, `get_feedback` has 2 round trips, p50 353 ms.
+- `end_session` has no round trip, as expected: no `/rpc` followed it to carry the sample (§2 item 6).
+- In-process, "network" is near 0.
+
+The host instances ran in-process and exited with their scripts. Every copy (base, runs, main's archive, the owner lane) was deleted afterwards. The live phone host and its units were not touched.
+
+What this can't show: Serve, a real phone, iOS storage and a real grader. P1 and P2 cover those.
+
+### What the owner does
+
+V1 adds no Python dependency and no migration, so the vaults need nothing.
+
+(a) Rebuild the phone PWA and restart the phone host, on carson:
+
+```bash
+cd ~/Documents/thinking/learnanything
+(cd apps/learnloop-mobile && npm install && npm run build)
+systemctl --user restart learnloop-mobile
+.venv/bin/learnloop-mobile doctor
+```
+
+(b) Run P1 and P2 on the iPhone (§6 above, copied here). This is also the first real-device look at M2a's editor and symbol bar (M2a's A4): nothing in M2a or V1 has been rendered on a phone yet.
+
+- **P1. The new shell, themes, text size, VoiceOver.**
+  1. Close the home-screen app from the app switcher and open it again. The new shell opens, with the tab bar Today · Read · + · Progress.
+     - If the old screen persists after a second reopen, delete the home-screen icon and add it again from Safari (`https://HOST/app/`, Share, Add to Home Screen).
+     - Then pair with `.venv/bin/learnloop-mobile pair --label "iPhone" --scope app` and its manual code. The outbox survives either way.
+  2. Switch iOS Appearance between Light and Dark in Control Centre: the app follows. Open **Aa** (Display), choose Light, then Dark: the choice holds against the system's. Choose "Match the phone" to go back.
+  3. Settings → Accessibility → Display & Text Size → Larger Text, turned on and set to the largest size. Reopen the app: text is large, and no button is clipped. Next, Submit, the tab labels and the symbol bar wrap or scroll; none are cut off. Set it back.
+  4. Turn VoiceOver on. Swipe through the tab bar: it reads "Today, selected", "Read", "Capture", "Progress". Begin a session and open a question whose prompt has math: VoiceOver reads the formula as math, not as KaTeX's characters. Double-tap "Back to Today": the new screen is announced.
+  5. Answer one question end to end, as before. Submit sits above the keyboard with the symbol bar while typing. Feedback, the diagnosis card and its questions behave as they did.
+  6. `.venv/bin/learnloop-mobile report`: `round_trips.methods` lists the methods just used, with `round_trip_ms` counts above zero and a `network_share`.
+- **P2. Offline, then back.**
+  1. `systemctl suspend` on carson. Open the app from the home screen: it opens from the cache and says *Desktop offline. Capture still works.*
+  2. Tap **+**, save a note. It says *Saved.*, and the line counts *1 capture waiting to send.*
+  3. Wake carson. Return to the app, or wait up to a minute: the line clears and the capture is sent. Check with `.venv/bin/learnloop-mobile inbox list`.
+
+### Open items
+
+- V2 takes R2 (Feedback's chevron) and R3's narrowings (reopening a feedback from the fragment, splitting `App.test.tsx`, dropping one of the two grading-unavailable lines).
+- In the smoke's in-process round trips, almost everything falls under the host's total, so the report's `network_share` is near 0 there. Only the iPhone (P1 step 6) gives a real network share.
