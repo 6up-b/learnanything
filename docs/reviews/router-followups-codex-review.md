@@ -380,3 +380,12 @@ combiner) takes 270 ms with `σ` and 431 ms with `F` (median of 5). The 32-node 
 - no link gives mvp-0.49's path;
 - the probe is pinned at 64 and 512 draws;
 - the numeric policy reads the link only at the tag with its switch, and only then does the trace name it.
+
+### Gate after the R6 switch and R9
+
+| Step | Command / selection | Result |
+|---|---|---|
+| Targeted | 192 files, `-n 6` in a 5G scope: the 189 above, `test_rofu_ad_link`, and every file naming `residual_success`, `AdLink` or `ad_link` | 3610 passed, 16 skipped, 6 xfailed |
+| Durability | `--durable-sqlite`: `test_rofu_ad_link`, `test_rofu_monotone`, `test_rofu_generator_switches`, `test_rofu_review_draw`, `test_rofu_successor`, `test_rofu_learning` | 81 passed |
+| Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
+| Not regenerated yet | the architecture reference (config leaves for `consistent_review_draw`, `monotone_combiner`, `ad_predictive_link`; the changed modules' pages) | step 2 |
