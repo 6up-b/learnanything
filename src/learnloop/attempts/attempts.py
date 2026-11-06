@@ -3084,6 +3084,7 @@ def _record_lesson_probe(
         practice_item_id=draft.practice_item_id,
         attempt_id=application.result.attempt_id,
         grading_source=attempt.grading_source,
+        grader_identity=attempt.grader_identity,
         clock=clock,
     )
 

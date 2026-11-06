@@ -66,6 +66,60 @@ def test_f1_a_probe_answer_carries_reliable_canonical_mass_live_and_after_a_rebu
     assert lesson.rows("SELECT COUNT(*) FROM raw_grade_events WHERE attempt_id = ?", (probe.attempt_id,)) == [(1,)]
 
 
+# -- F7 (re-review) -------------------------------------------------------------------------------------------------
+
+
+def _identity_model(repository, *, prompt, schema, tag):
+    """A grader_identity-scope calibration model for the (``ai``, prompt, schema) grader, told apart by ``tag``."""
+
+    from learnloop.attempts import grader_calibration as gc
+    from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG, ensure_builtin_schemas
+
+    ensure_builtin_schemas(repository)
+    version = repository.fetch_outcome_schema_version(slug=COARSE_RESPONSE_SLUG)
+    gih = gc.grader_identity_hash(provider="ai", model_revision=None, prompt_version=prompt,
+                                  output_schema_version=schema)
+    model_id = repository.insert_calibration_model(
+        model={"semver": "0.1.0", "content_hash": f"te2-f7-{tag}", "scope_level": "grader_identity",
+               "grader_provider": "ai", "grading_prompt_version": prompt, "grader_output_schema_version": schema,
+               "grader_identity_hash": gih, "outcome_schema_id": version["schema_id"],
+               "outcome_schema_version": int(version["version"]), "backoff_chain_json": "[]",
+               "status": "heuristic"},
+        alphas={"success": {"success|high": 9.0}, "other": {"other|high": 1.0}},
+    )
+    return gih, model_id
+
+
+def test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity(tmp_path):
+    import json
+
+    from learnloop.attempts import grader_calibration as gc
+    from learnloop.attempts.blind_grading import (
+        BLIND_CALIBRATION_PROMPT_VERSION,
+        BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+        split_grading_active,
+    )
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    lesson, probe = _served(tmp_path)
+    assert split_grading_active(lesson.vault())  # the blind grader grades this vault's probe answers
+    blind_gih, blind_model = _identity_model(lesson.repository, prompt=BLIND_CALIBRATION_PROMPT_VERSION,
+                                             schema=BLIND_GRADER_OUTPUT_SCHEMA_VERSION, tag="blind")
+    joint_gih, joint_model = _identity_model(lesson.repository, prompt=gc.GRADING_PROMPT_VERSION,
+                                             schema=gc.GRADER_OUTPUT_SCHEMA_VERSION, tag="joint")
+    assert blind_gih != joint_gih
+    lesson.act("answer_probe", {"answer": "(1, 0) by three"}, turns=[close_turn()])
+    query = ("SELECT r.grading_prompt_version, r.grader_output_schema_version, r.grader_identity_hash, "
+             "i.reference_prior_ids_json FROM raw_grade_events r JOIN grade_interpretations i "
+             "ON i.raw_grade_event_id = r.id WHERE r.attempt_id = ?")
+    [(prompt, schema, gih, contributing)] = lesson.rows(query, (probe.attempt_id,))
+    assert (prompt, schema, gih) == (BLIND_CALIBRATION_PROMPT_VERSION, BLIND_GRADER_OUTPUT_SCHEMA_VERSION, blind_gih)
+    assert blind_model in json.loads(contributing) and joint_model not in json.loads(contributing)
+    live = _cells(lesson)
+    rebuild_all_derived_state(lesson.vault(), lesson.repository)
+    assert _cells(lesson) == live
+
+
 # -- F2 -------------------------------------------------------------------------------------------------------------
 
 

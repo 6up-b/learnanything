@@ -2326,6 +2326,7 @@ def _dual_write_probe_grade(
     attempt_id: str,
     grading_source: str,
     observed_outcome: str,
+    grader_identity: tuple[str, str] | None = None,
     clock: Clock | None = None,
 ) -> None:
     """P0.2 dual-write for probe submissions (§4.1, §7.2). Fail-safe (§7.3): appends
@@ -2335,7 +2336,11 @@ def _dual_write_probe_grade(
 
     Under mvp-0.8 the versioned probe-outcome -> coarse-class mapping (§3.1) is
     snapshotted into the raw grade event's raw_output and the coarse class is pinned
-    as the interpretation's observed class, so replay reproduces the mapping."""
+    as the interpretation's observed class, so replay reproduces the mapping.
+
+    ``grader_identity`` is the grade's (prompt, output schema) calibration identity
+    (Slice 1 §4.3); None is the joint grader's, so callers that pass none stamp
+    exactly what they did before."""
 
     try:
         item = vault.practice_items.get(practice_item_id)
@@ -2387,6 +2392,8 @@ def _dual_write_probe_grade(
                 "probe_coarse_mapping": mapping_meta or None,
             },
             domain=getattr(item, "learning_object_id", None),
+            grading_prompt_version=grader_identity[0] if grader_identity else None,
+            grader_output_schema_version=grader_identity[1] if grader_identity else None,
             clock=clock,
         )
     except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
@@ -2400,11 +2407,14 @@ def dual_write_presentationless_probe_grade(
     practice_item_id: str,
     attempt_id: str,
     grading_source: str,
+    grader_identity: tuple[str, str] | None = None,
     clock: Clock | None = None,
 ) -> None:
     """The same fail-safe dual-write for a probe answer with no presentation and no instrument (teacher TE2's
     lesson probe, ``attempts.attempts._record_lesson_probe``): a raw grade event and calibrated interpretation on a
-    diagnostic administration, so the canonical projection banks the answer's reliable mass (Codex review F1)."""
+    diagnostic administration, so the canonical projection banks the answer's reliable mass (Codex review F1).
+    ``grader_identity`` is the submission's calibration identity, so a blind grade is calibrated as the blind
+    grader's, never pooled with the joint grader's (Codex re-review F7)."""
 
     _dual_write_probe_grade(
         vault,
@@ -2414,6 +2424,7 @@ def dual_write_presentationless_probe_grade(
         attempt_id=attempt_id,
         grading_source=grading_source,
         observed_outcome="graded",
+        grader_identity=grader_identity,
         clock=clock,
     )
 
