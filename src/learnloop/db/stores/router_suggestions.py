@@ -72,6 +72,53 @@ def decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
         "SELECT * FROM router_decisions WHERE decision_kind = 'lesson_suggestion' ORDER BY created_at, id")]
 
 
+#: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer drawn at a plan block boundary is a ``plan_block``
+#: decision whose chosen ref names it (``daily_plan.types.LESSON_OFFER_PREFIX``); its card is on the row's detail.
+OFFER_REF_PREFIX = "lesson_offer:"
+
+
+def _offer_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]:
+    """A drawn lesson offer in the shape of a shown TE1b decision (its context, its card, its day), so the
+    acceptance model, the decline recovery, the ceiling and a pending Start read both alike."""
+
+    out = dict(row)
+    detail = json.loads(out.get("detail_json") or "{}")
+    offer = detail.get("lesson_offer") or {}
+    out["detail"] = {"shown": True, "plan_offer": True, "context": dict(offer.get("context") or {}),
+                     "card": {"candidates": list((offer.get("card") or {}).get("candidates") or [])},
+                     "block_id": detail.get("block_id"), "plan_id": detail.get("plan_id"),
+                     "version": offer.get("version")}
+    out["candidates"] = json.loads(out.get("candidates_json") or "[]")
+    out["day"] = str(detail.get("local_date") or "")
+    return out
+
+
+def offer_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every drawn lesson offer (a ``plan_block`` decision naming one), oldest first; none below TE3b's tag."""
+
+    return [_offer_decision(row) for row in connection.execute(
+        "SELECT * FROM router_decisions WHERE decision_kind = 'plan_block' AND chosen_ref LIKE ? "
+        "ORDER BY created_at, id", (f"{OFFER_REF_PREFIX}%",))]
+
+
+def offer_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None:
+    row = connection.execute(
+        "SELECT * FROM router_decisions WHERE id = ? AND decision_kind = 'plan_block' AND chosen_ref LIKE ?",
+        (decision_id, f"{OFFER_REF_PREFIX}%")).fetchone()
+    return _offer_decision(row) if row is not None else None
+
+
+def all_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """TE1b's daily decisions and TE3b's drawn offers together, oldest first (identical to :func:`decisions`
+    while no offer was ever drawn)."""
+
+    offers = offer_decisions(connection)
+    daily = decisions(connection)
+    if not offers:
+        return daily
+    return sorted([*daily, *offers], key=lambda d: (str(d["created_at"]), str(d["id"])))
+
+
 def responses(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     """Every learner response (never a release), in response order."""
 
@@ -185,13 +232,17 @@ def attempts_by_learning_object(connection: sqlite3.Connection) -> dict[str, lis
 
 
 __all__ = [
+    "OFFER_REF_PREFIX",
     "RECEIPT_PREFIX",
     "RELEASE_KINDS",
     "RESPONSE_KINDS",
+    "all_decisions",
     "attempts_by_learning_object",
     "decision",
     "decision_for_day",
     "decisions",
+    "offer_decision",
+    "offer_decisions",
     "insert_response",
     "last_lesson_opened_by_learning_object",
     "lesson_exists",

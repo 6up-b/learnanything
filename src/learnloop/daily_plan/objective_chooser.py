@@ -35,6 +35,7 @@ from datetime import timedelta
 import hashlib
 import json
 import logging
+import math
 import threading
 import time
 from typing import Any
@@ -77,7 +78,15 @@ from learnloop.daily_plan.router_runtime import (
     call_llm,
 )
 from learnloop.daily_plan.staged_frame import StagedChooser
-from learnloop.daily_plan.types import CONTINUE_CURRENT, STOP_FOR_TODAY, STOP_OFFER_MINUTES, BlockCandidate, BlockChoice, PlanState
+from learnloop.daily_plan.types import (
+    CONTINUE_CURRENT,
+    LESSON_OFFER_SUBTYPE,
+    STOP_FOR_TODAY,
+    STOP_OFFER_MINUTES,
+    BlockCandidate,
+    BlockChoice,
+    PlanState,
+)
 from learnloop.ids import new_ulid
 from learnloop.router import requests as rq
 from learnloop.router import why as router_why
@@ -827,6 +836,11 @@ def _support_labels(support: Sequence[str], by_id: Mapping[str, BlockCandidate],
     for ref in support:
         if ref == STOP_FOR_TODAY:
             out[ref] = "stop for today"
+        elif ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE:
+            # Teacher TE3b: the offer card, in plain words.
+            candidate = by_id[ref]
+            topic = ", ".join(dict.fromkeys(titles.get(lo, lo) for lo in candidate.learning_object_ids))
+            out[ref] = f"offer a lesson on {topic} (about {max(1, round(candidate.est_minutes))} min)"
         elif ref in by_id:
             candidate = by_id[ref]
             what = candidate.reading.section_title if candidate.reading is not None else ", ".join(
@@ -863,6 +877,69 @@ def _goal_dates(numeric: "NumericPolicy | None") -> dict[str, Any]:
                      **({} if m0 is not None else {"status": "no_forecast_beyond_horizon"})})
     return {"uses": uses, "horizon_days": float(inputs.horizon_days),
             "basis": "the pre-action belief under the tail, at each goal's date (sensor for the goal-date read)"}
+
+
+def _offer_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption:
+    """Teacher TE3b: the lesson offer as one more option of the LLM policy's existing request (and the Decider's
+    advice): its target, its reason, its minutes and ``P(accept)`` (spec §15.1a; no new request)."""
+
+    record = dict((candidate.annotations or {}).get("lesson_offer") or {})
+    topic = ", ".join(dict.fromkeys(titles.get(lo, lo) for lo in candidate.learning_object_ids))
+    p_accept = (record.get("p_accept") or {}).get("mean")
+    return rq.BlockOption(ref=candidate.candidate_id, description=rq.lesson_offer_description(
+        topic=topic, why=candidate.reason, est_minutes=candidate.est_minutes,
+        p_accept=float(p_accept) if p_accept is not None else None))
+
+
+def _offer_trace(candidate: BlockCandidate, valued: Any, action: Any, inputs: Any,
+                 topic_by_lo: Mapping[str, Any], terms: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a, "what the trace records"): for a lesson offer, its sensors
+    (``P(accept)`` with its posterior mean and sd and the priors version, the reason, AD's ``p̄`` for the target, the
+    lesson curve's moments and version or ``placeholder``, the lesson-check mass posterior, the duration and its
+    source), its terms (each branch's ``Q̄``, ``p``, the accepted branch's κ integral of the lesson's minutes, its
+    ``E[V(x′)]`` with the delayed checks and ``T_C``, ``Q̄ − Q̄(stop)``, the residual's ``V_residual``) and the
+    split (display only). The binding (decision → response → lesson → receipt → delayed checks) is a read over
+    existing ids at print time (``learnloop router trace``)."""
+
+    record = dict((candidate.annotations or {}).get("lesson_offer") or {})
+    lo = str(record.get("learning_object_id") or (candidate.learning_object_ids or ("",))[0])
+    topic = topic_by_lo.get(lo)
+    curve = inputs.learning.lesson if inputs is not None else None
+    extra = dict(getattr(valued, "extra", None) or {})
+    branches = dict(extra.get("branches") or {})
+    branch_terms = dict(extra.get("branch_terms") or {})
+    accepted = dict(branch_terms.get("accepted") or {})
+    declined = dict(branch_terms.get("declined") or {})
+    p_bar = (1.0 / (1.0 + math.exp(-float(topic.eta_mean)))) if topic is not None else None
+    return {
+        "version": record.get("version"),
+        "sensors": {
+            "p_accept": {**dict(record.get("p_accept") or {}), "priors_version": record.get("priors_version"),
+                         "updates": (record.get("model") or {}).get("updates")},
+            "reason": record.get("reason"), "context": record.get("context"),
+            "ad_p_bar": p_bar,
+            "lesson_curve": ({"version": curve.version, "mean": list(curve.mean), "cov": [list(r) for r in curve.cov],
+                              "position": dict(curve.positions).get(lo, 0.0)} if curve is not None
+                             else "placeholder"),
+            "check_mass": record.get("mass"), "duration": record.get("duration"), "checks": record.get("checks"),
+            "ceiling": record.get("ceiling"),
+        },
+        "terms": {
+            "q_accepted": branches.get("accepted"), "q_declined": branches.get("declined"),
+            "p": branches.get("p_accept"), "p_sd": branch_terms.get("p_accept_sd"),
+            "kappa_integral_accepted": accepted.get("kappa_integral"),
+            "after_accepted": accepted.get("after"), "terminal_accepted": accepted.get("terminal"),
+            "after_declined": declined.get("after"),
+            "q_minus_stop": (terms or {}).get("q_minus_stop"), "v_residual": (terms or {}).get("v_residual"),
+        },
+        "split": {"learning": None, "information": None, "return_effect": 0.0,
+                  "note": "display only, never added: the accepted branch's learning and its checks' information are "
+                          "inside its E[V(x')]"},
+        "alternatives": [entry.get("ref") for entry in list((record.get("card") or {}).get("candidates") or [])[1:]],
+        "action": {"minutes": getattr(action, "minutes", None), "minutes_log_sd": getattr(action, "minutes_log_sd", None),
+                   "mass": getattr(action, "mass", None), "accept": list(getattr(action, "accept", None) or ()),
+                   "commitments": [list(c) for c in getattr(action, "commitments", ()) or ()]},
+    }
 
 
 def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate],
@@ -930,6 +1007,10 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                                                      "fits a return model"}),
             "branches": dict(valued.extra.get("branches") or {}) if valued is not None else None,
         }
+        if ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE:
+            # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the offer's sensors, its branches' terms and the split.
+            candidates[ref]["offer"] = _offer_trace(by_id[ref], valued, action, inputs, topic_by_lo,
+                                                    candidates[ref].get("terms"))
     filtered = {candidate.candidate_id: ("beyond_top_k" if (candidate.annotations or {}).get("reversible", True)
                                          else "irreversible")
                 for candidate in feasible if candidate.candidate_id not in support}
@@ -1043,6 +1124,12 @@ class ObjectiveChooser(RouterChooser):
         return self.runtime.seed(key, decision_id) if self.runtime.seed is not None else mix.seed_for(key, decision_id)
 
     def choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice:
+        # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer the boundary added is never the staged rule's
+        # pick nor in staged's top-k order: it joins the support beside them (one offer a decision). With none, the
+        # predecessor's decision exactly.
+        offers = [candidate for candidate in feasible if candidate.subtype == LESSON_OFFER_SUBTYPE]
+        if offers:
+            feasible = [candidate for candidate in feasible if candidate.subtype != LESSON_OFFER_SUBTYPE]
         staged = StagedChooser(card_builder=None).choose(state, feasible)
         config = self.vault.config
         settings = router_settings(config)
@@ -1063,6 +1150,12 @@ class ObjectiveChooser(RouterChooser):
                                 ties_only=settings["ties_only"])
         if len(support) <= 1:
             return deterministic("single_option")
+        if offers:
+            # The offer joins the support after the blocks and before stop (ties go to staged's order first).
+            offer = offers[0]
+            by_id[offer.candidate_id] = offer
+            at = support.index(STOP_FOR_TODAY) if STOP_FOR_TODAY in support else len(support)
+            support = [*support[:at], offer.candidate_id, *support[at:]]
         # The staged rule's own pick: its lane-quota choice, or stop once the plan's minutes are used (§8.2: the
         # minutes are a suggestion the failure fallback keeps).
         staged_ref = STOP_FOR_TODAY if state.minutes_left < STOP_OFFER_MINUTES else staged.candidate_id
@@ -1156,7 +1249,9 @@ class ObjectiveChooser(RouterChooser):
         config = self.vault.config
         card = _build_card(self.card_builder, state, feasible)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        options = [_option(by_id[ref], titles) if ref in by_id else rq.BlockOption(ref=ref, description=rq.STOP_OFFER_DESCRIPTION)
+        options = [_offer_option(by_id[ref], titles) if ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE
+                   else _option(by_id[ref], titles) if ref in by_id
+                   else rq.BlockOption(ref=ref, description=rq.STOP_OFFER_DESCRIPTION)
                    for ref in support]
         material = {
             "card": card, "card_hash": card.card_hash, "card_text": card.text, "card_json": card.json,

@@ -281,6 +281,13 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         row_detail["voi_decisions"] = list(detail["voi_decisions"])
     if detail.get("router"):
         row_detail["router"] = dict(detail["router"])
+    if detail.get("lesson_offers"):
+        # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer (its sensors), or why there was
+        # none (a ceiling bind is logged here); absent below its tag.
+        row_detail["lesson_offers"] = dict(detail["lesson_offers"])
+    if detail.get("lesson_offer"):
+        # The drawn offer's card (its context and candidates as scored): the acceptance model replays from it.
+        row_detail["lesson_offer"] = dict(detail["lesson_offer"])
     if mixture:
         # R2b: the draw's own record (support, staged pick, effective weights,
         # epsilon, drawn component, uniforms), each model's status, latency,

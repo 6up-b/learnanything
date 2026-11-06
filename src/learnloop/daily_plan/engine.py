@@ -91,6 +91,7 @@ from learnloop.daily_plan.types import (
     CONTINUE_CURRENT,
     LANE_ACTIONS,
     LANES,
+    LESSON_OFFER_SUBTYPE,
     PICK_DEDUCTION_ORDER,
     REENTRY_LANES,
     STOP_FOR_TODAY,
@@ -669,6 +670,10 @@ class PlanPolicy:
     #: frame at the tag with the objective serving. Never in a projection:
     #: the plan's finite list as first shown stays (:meth:`projection`).
     soft_budget: bool = False
+    #: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): ``(env=, record=, forced=) -> lesson_offer.Offer``, the
+    #: boundary's lesson offer for the objective's support (``daily_plan.lesson_offer.build``). None: no offer, the
+    #: predecessor's boundary exactly. Never in a projection.
+    lesson_offer: Any = None
 
     def projection(self) -> "PlanPolicy":
         """The pair the view projects with: this source, the projection chooser."""
@@ -2606,6 +2611,7 @@ def decide(
     forced_items: int = 0,
     forced_allotment: Mapping[str, float] | None = None,
     forced_spent: Mapping[str, float] | None = None,
+    offer: BlockCandidate | None = None,
 ) -> Decision:
     """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure.
 
@@ -2614,6 +2620,11 @@ def decide(
     minutes and a re-entry plan's item allowance before the choice, and
     follow-ups out of their lane (``forced_spent``, after the minutes other
     lanes release to it, ``forced_allotment``; review F4).
+
+    ``offer`` (teacher TE3b): the boundary's lesson offer, a candidate beside
+    the source's when the source has a feasible one (the objective's chooser
+    adds it to its support; a fallback never picks it). None: the predecessor's
+    boundary exactly.
     """
 
     computed = _feasibility(
@@ -2626,6 +2637,10 @@ def decide(
         forced_spent=forced_spent,
     )
     state, source, candidates, feasible = computed.state, computed.source, computed.candidates, computed.feasible
+    plain_feasible = feasible
+    if offer is not None and feasible:
+        candidates = [*candidates, offer]
+        feasible = [*feasible, offer]
     minutes_left, redistribution = computed.minutes_left, computed.redistribution
     # Router objective RO4 (§8.2): stop is supported at every reversible boundary under the soft frame.
     stop_offered = minutes_left < STOP_OFFER_MINUTES or not feasible or bool(getattr(policy, "soft_budget", False))
@@ -2659,7 +2674,8 @@ def decide(
     fallback_from = None
     if not valid:
         fallback_from = choice.candidate_id
-        choice = LaneQuotaChooser().choose(state, feasible)
+        # TE3b: the rules' fallback never picks a lesson offer (the predecessor's feasible set).
+        choice = LaneQuotaChooser().choose(state, plain_feasible)
     candidate = next((c for c in feasible if c.candidate_id == choice.candidate_id), None)
     return Decision(
         candidate=candidate,
@@ -2854,6 +2870,16 @@ def _boundary(
                                           releases=releases)
     if check_block is not None:
         return check_block
+    # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, a candidate of the objective's support
+    # (none with forced items: never beside a follow-up, a request or a check). No builder: the predecessor exactly.
+    offer = None
+    builder = getattr(env.policy, "lesson_offer", None)
+    if builder is not None:
+        try:
+            offer = builder(env=env, record=record, forced=bool(forced))
+        except Exception:  # noqa: BLE001 - an offer never blocks the plan
+            logging.getLogger(__name__).warning("teacher TE3b: the boundary's lesson offer was not built", exc_info=True)
+            offer = None
     decision = decide(
         record,
         context,
@@ -2862,6 +2888,7 @@ def _boundary(
         forced_items=len(forced),
         forced_allotment=forced_allotment,
         forced_spent=forced_spent,
+        offer=getattr(offer, "candidate", None),
     )
     choice = decision.choice
     frozen = _frozen_objective(env, record, decision)
@@ -2887,6 +2914,14 @@ def _boundary(
             for item in forced
         ],
     }
+    if offer is not None:
+        # Teacher TE3b: the boundary's lesson offer (its candidate id and sensors), or why there was none (a ceiling
+        # bind is logged here, on the decision).
+        detail["lesson_offers"] = dict(offer.record)
+    if decision.candidate is not None and decision.candidate.subtype == LESSON_OFFER_SUBTYPE:
+        # The drawn offer's card: what the block shows and the acceptance model replays from (its context and
+        # candidates as scored at the draw).
+        detail["lesson_offer"] = dict((decision.candidate.annotations or {}).get("lesson_offer") or {})
     if ad_deferrals:
         # Adaptive difficulty (spec §6.1 step 0): the AD deferrals this boundary
         # applied and the ones it cleared, so each decision's pool rebuilds.
@@ -3005,7 +3040,9 @@ def _boundary(
             decision_ref = logged
             detail["decision_ref"] = logged
         arm = objectives.ARM_READING if reading is not None else objectives.ARM_PRACTICE
-        if logged is not None and chosen_by != "learner_pick" and objectives.applies(frozen, arm):
+        # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
+        is_offer = subtype == LESSON_OFFER_SUBTYPE
+        if logged is not None and chosen_by != "learner_pick" and not is_offer and objectives.applies(frozen, arm):
             # Never an item this decision's block serves now, nor another of the plan's.
             objectives.record(env.vault, env.repository, connection, decision_id=logged, decision_kind="plan_block",
                               frozen=frozen, arm=arm, clock=env.clock,
@@ -4442,6 +4479,22 @@ def _reading_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *, boun
     }
 
 
+def _lesson_offer_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *, boundary: bool) -> dict[str, Any]:
+    """Teacher TE3b: the offer card's step (its decision, the suggestion and up to two alternatives, plain words)."""
+
+    from learnloop.daily_plan.lesson_suggestion import offer_card_view
+
+    return {
+        "kind": "lesson_offer",
+        "plan_id": record.id,
+        "block_id": block.id,
+        "block_ordinal": block.ordinal,
+        "offer": offer_card_view(block),
+        "est_minutes": round(float(block.budget_minutes), 4),
+        "boundary": boundary,
+    }
+
+
 def _done_step(record: PlanRecord) -> dict[str, Any]:
     return {"kind": "done", "plan_id": record.id, "status": record.status, "stop_reason": record.row.get("stop_reason")}
 
@@ -4521,6 +4574,28 @@ def advance_with_context(
             return record, _done_step(record), context
         block = next(b for b in record.blocks if b.id == block_id)
     boundary = block.started_at is None
+    if block.is_lesson_offer:
+        # Teacher TE3b (spec §15.1a): the offer card is the block. Serving it shows the card (``block_started``); a
+        # serve after it was shown with no answer is the learner moving on: ``ignored`` on its decision (one response
+        # a decision), the block ended, and the next boundary decides.
+        if serve and not boundary:
+            from learnloop.daily_plan import lesson_offer as LO
+            from learnloop.db.stores import router_suggestions as suggestions
+
+            with env.repository.atomic(), env.repository.connection() as connection:
+                decision = suggestions.offer_decision(connection, str(block.decision_ref or "")) \
+                    if block.decision_ref else None
+                if decision is not None and suggestions.response_for(connection, str(decision["id"])) is None:
+                    LO.record_ignored(connection, decision, at=env.now_iso(), why="moved_on_without_an_answer")
+                else:
+                    LO.end_block(connection, block.id, "ignored", at=env.now_iso())
+            return advance_with_context(env, serve=serve)
+        step = _lesson_offer_step(env, record, block, boundary=boundary)
+        if serve and block.started_at is None:
+            with env.repository.atomic(), env.repository.connection() as connection:
+                _event(connection, block.id, "block_started", {"session_id": env.session_id}, env.now_iso())
+            record = _reload(env, record.id)
+        return record, step, context
     if block.is_reading:
         step = _reading_step(env, record, block, boundary=boundary)
         if serve:

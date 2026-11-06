@@ -157,6 +157,15 @@ def explain(row: Mapping[str, Any]) -> list[str]:
         else:
             lines.append("A correction learned from how earlier choices worked out is calculated but not used yet: "
                          "it counts only once the random breaks show it helps.")
+    for ref, entry in candidates.items():
+        offer = entry.get("offer") if isinstance(entry, Mapping) else None
+        if not isinstance(offer, Mapping):
+            continue
+        # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, in plain words.
+        accept = ((offer.get("sensors") or {}).get("p_accept") or {}).get("mean")
+        lines.append(f"A short lesson ({entry.get('label') or ref}) was one of the options. From how you've answered "
+                     f"lesson suggestions so far, you'd start it about {_pct(accept)} of the time; its value counts "
+                     "both what the lesson would teach and the block you'd do instead if you said not now.")
     if session.get("guard_crossed"):
         lines.append("This session ran long, so stopping was offered among the options; you can keep going.")
     frontier = trace.get("frontier") or {}

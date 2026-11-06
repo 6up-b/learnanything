@@ -29,7 +29,7 @@ from statistics import median, pstdev
 from typing import Any
 
 from learnloop.clock import parse_utc
-from learnloop.daily_plan.types import STOP_FOR_TODAY, BlockCandidate, PlanState
+from learnloop.daily_plan.types import LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY, BlockCandidate, PlanState
 from learnloop.router_objective import memory as M
 from learnloop.router_objective import value as V
 
@@ -453,6 +453,16 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
                spread: float) -> V.Action:
     """§8.1's interface for one candidate block."""
 
+    if candidate.subtype == LESSON_OFFER_SUBTYPE:
+        # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, valued by RO4's offer branches: accepted, the
+        # lesson (TE3a's curve at the learned check mass, its minutes log-normal, its retention check committed);
+        # declined, the tail's next non-offer block. ``p`` per draw from the acceptance model's Beta.
+        from learnloop.daily_plan.lesson_offer import action_inputs
+
+        offer = action_inputs(candidate)
+        return V.Action(ref=candidate.candidate_id, kind=V.LESSON, item_los=(offer["lo"],), minutes=offer["minutes"],
+                        minutes_log_sd=offer["log_sd"], mass=offer["mass"], accept=offer["accept"],
+                        commitments=offer["checks"])
     items = getattr(vault, "practice_items", {})
     modes = [getattr(items.get(item), "practice_mode", None) for item in candidate.item_ids]
     item_los = tuple(str(getattr(items.get(item), "learning_object_id", None) or
@@ -594,7 +604,9 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                                     minutes=sum(step.minutes for step in steps)))
         elif ref in candidates:
             actions.append(action_for(vault, repository, candidates[ref], practiced=practiced_set, spread=spread_used))
-    blocks = [candidates[ref] for ref in support if ref in candidates]
+    # The tail's block is the support's practice and reading blocks (TE3b: never a lesson offer's card).
+    blocks = [candidates[ref] for ref in support if ref in candidates
+              and candidates[ref].subtype != LESSON_OFFER_SUBTYPE]
     block_minutes = (sum(float(block.est_minutes) for block in blocks) / len(blocks)) if blocks else max(remembered, 1.0)
     block_items = max(int(round(sum(max(len(block.item_ids), 1) for block in blocks) / len(blocks))), 1) if blocks else 1
     inputs = V.Inputs(

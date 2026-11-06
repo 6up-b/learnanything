@@ -329,13 +329,19 @@ def router_trace(
             if not store.table_present(connection, store.TRACES):
                 raise ValueError("this database predates the router objective's trace (migration 246)")
             row = store.trace(connection, decision)
+            # Teacher TE3b: a drawn lesson offer's binding (decision -> response -> lesson -> receipt -> delayed
+            # checks), a read over existing ids; None for every other decision.
+            from learnloop.router_objective.offer_report import binding
+
+            offer_binding = binding(connection, str(row["decision_id"])) if row is not None else None
         if row is None:
             raise ValueError(f"no router objective trace for {decision!r} (a decision below mvp-0.47, with "
                              "[router_objective] enabled off, or a deterministic pick has none)")
         if json_output:
             _emit({"decision_id": row["decision_id"], "decision_kind": row["decision_kind"],
                    "created_at": row["created_at"], "trace_version": row["trace_version"],
-                   "content_hash": row["content_hash"], "trace": row["trace"]}, True)
+                   "content_hash": row["content_hash"], "trace": row["trace"],
+                   **({"offer_binding": offer_binding} if offer_binding is not None else {})}, True)
         else:
             typer.echo(f"# decision {row['decision_id']} ({row['decision_kind']}, {row['created_at']})")
             for line in explain(row):
@@ -422,6 +428,14 @@ def router_objective_report(
                 from learnloop.router_objective import tail_report
 
                 report["learned_tail"] = tail_report.build(connection, loaded, now=now)
+            from learnloop.router_objective_switches import lesson_offers_tag
+
+            if lesson_offers_tag(loaded.config) and report.get("status") != "no_traces_table":
+                # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): offers shown, mu and P(accept), the responses, the
+                # lessons they opened and the lesson curve's posterior.
+                from learnloop.router_objective import offer_report
+
+                report["lesson_offers"] = offer_report.build(connection)
         if json_output:
             _emit({"algorithm_version": loaded.config.algorithms.algorithm_version, "router_objective": report}, True)
         else:
@@ -436,6 +450,11 @@ def router_objective_report(
                 from learnloop.router_objective import tail_report
 
                 for line in tail_report.lines(report["learned_tail"]):
+                    typer.echo(line)
+            if "lesson_offers" in report:
+                from learnloop.router_objective import offer_report
+
+                for line in offer_report.lines(report["lesson_offers"]):
                     typer.echo(line)
     except (ValueError, OSError, sqlite3.Error) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)

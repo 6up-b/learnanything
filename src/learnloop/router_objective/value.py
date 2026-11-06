@@ -351,6 +351,10 @@ class Action:
     choosable: bool = True
     #: a :data:`SEQUENCE`'s ordered sub-actions (none of them a sequence, a stop or an offer)
     steps: tuple["Action", ...] = ()
+    #: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the delayed checks a lesson commits, ``(LO, days after the
+    #: action's end)``: each is a graded attempt on its LO at the first session day at or past its date, so its
+    #: information enters through ``E[V(x′)]`` (empty for every other action: the rollouts are unchanged)
+    commitments: tuple[tuple[str, float], ...] = ()
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -431,6 +435,8 @@ class _Streams:
         # Outcomes: one uniform per (day, slot) for the tail, and per slot for the action itself.
         self.outcome_u = gen("noise:outcome").random((draws, days + 1, slots))
         self.action_u = gen("noise:action_outcome").random((draws, 4, 64))
+        # Teacher TE3b: a lesson's committed delayed checks' outcomes (their own stream: no other draw moves).
+        self.commit_u = gen("noise:commitments").random((draws, 8))
 
 
 def _beta_draw(u: np.ndarray, a: float, b: float) -> np.ndarray:
@@ -970,16 +976,23 @@ class _Model:
 
     def run_tail(self, state: _State, ledger: _Ledger, *, today_minutes: np.ndarray | None, after: np.ndarray,
                  dated_done: np.ndarray, today_target: float | None = None,
-                 recorder: dict[str, Any] | None = None) -> None:
+                 recorder: dict[str, Any] | None = None,
+                 commitments: Sequence[tuple[int, np.ndarray]] = ()) -> None:
         """The tail from the action's end ``after`` (per draw): today's session continues to ``m̄`` unless
         ``today_minutes`` is None (the session ended), then a session after each return gap until ``C + H``, a
         fresh gap from the learner's own distribution after every session's end (F4). Nothing before ``after`` is
         counted on any day, and no session starts before it (F3). ``dated_done``: per draw and dated use, whether
-        it was already scored (crossed during the action)."""
+        it was already scored (crossed during the action).
+
+        ``commitments`` (teacher TE3b): ``(topic index, due time per draw)`` of a lesson's delayed checks, each a
+        graded attempt on its topic at the first day boundary at or past its due time, before that day's session
+        (none: the tail as before, draw for draw)."""
 
         k = self.k
         after = np.broadcast_to(np.asarray(after, dtype=np.float64), (k,)).copy()
         done = np.array(dated_done, dtype=bool, copy=True)
+        checks = [(int(lo), np.broadcast_to(np.asarray(due, dtype=np.float64), (k,)), np.zeros(k, dtype=bool))
+                  for lo, due in commitments]
         # Each draw's P(perform) at a dated use's date, on the state it was scored on (the recorder's m⁰).
         scored = np.full((k, len(self.dated)), np.nan)
 
@@ -1030,6 +1043,12 @@ class _Model:
         boundaries = [b for b in boundaries if b <= self.end + 1e-12]
         for day in range(0, self.days + 1):
             day_start = float(day)
+            for slot, (lo, due, taken) in enumerate(checks):
+                # TE3b: a committed delayed check, answered at the first day boundary at or past its date.
+                hit = ~taken & (due <= day_start + 1e-9) if day >= 1 else np.zeros(k, dtype=bool)
+                if hit.any():
+                    self._practice(state, lo, np.full(k, day_start), self.streams.commit_u[:, slot % 8], hit, 1.0)
+                    taken |= hit
             if day >= 1:
                 mask = (next_session <= day_start + 1e-9) & (after <= day_start + 1e-9)
                 if mask.any():
@@ -1149,8 +1168,10 @@ class _Model:
                                              minutes=self._durations(step, step_stream), dated_done=dated_done,
                                              stream=step_stream, correction=correction)
         effect_state = state.copy()
+        # TE3b: a lesson's delayed checks, each at its date after the action's end (none: the tail as before).
+        commitments = [(self.index[lo], at + float(days)) for lo, days in action.commitments if lo in self.index]
         self.run_tail(state, ledger, today_minutes=float(self.inputs.session_minutes) + spent, after=at,
-                      dated_done=dated_done)
+                      dated_done=dated_done, commitments=commitments)
         return ledger, effect_state, spent
 
     def _stop_accepted(self) -> _Ledger:
@@ -1211,6 +1232,11 @@ class _Model:
                 else (self._stop_accepted(), None, None)
             extra["branches"] = {"accepted": float(accepted.q.mean()), "declined": float(declined.q.mean()),
                                  "p_accept": float(p.mean())}
+            if action.kind == LESSON:
+                # TE3b (spec_teacher_v1 rev 5 §15.1a): each branch's own terms for the trace (the accepted branch's
+                # κ integral of the lesson's minutes, E[V(x′)] with its delayed checks, T_C); display, never added.
+                extra["branch_terms"] = {"accepted": _terms(accepted, self), "declined": _terms(declined, self),
+                                         "p_accept_sd": float(p.std())}
             return _Ledger.mix(p, accepted, declined), extra
         if action.kind == PROBE:
             return self._probe(action)

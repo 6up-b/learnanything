@@ -265,6 +265,9 @@ MODULE_INVENTORY: dict[str, str] = {
     # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the acceptance model's and the decline
     # recovery's seeded priors (basis legacy, labelled), the card's presentation bounds.
     "lesson_suggestions": "src/learnloop/router/lesson_suggestions.py",
+    # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the lesson's duration's seeded priors (basis legacy, labelled)
+    # and the offer context's numerical resolution. The offer's value is the objective's; nothing is a margin.
+    "lesson_offer": "src/learnloop/daily_plan/lesson_offer.py",
     # Data capture (docs/reviews/data-capture-a1-a6.md): no decision parameter of its own. The delay is
     # the outcome contract's, the floor the router's, the pitch and dates the teacher's.
     "data_capture_prefilter": "src/learnloop/data_capture/prefilter.py",
@@ -561,6 +564,20 @@ _reg_const("lesson_suggestions:MAX_ALTERNATIVES", "display", kind="structural", 
            rationale="keep: up to two alternatives on the suggestion card (spec §18.4: presentation).")
 _reg_const("lesson_suggestions:_SECONDS_PER_DAY", "numerical", kind="structural", owner="lesson_suggestions",
            rationale="keep: a unit conversion (seconds in a day).")
+_reg_const("lesson_offer:DURATION_PRIOR_MEDIAN", "prior", owner="lesson_offer",
+           rationale="seeded prior, basis legacy: the lesson's active minutes' median starts at the card's own 'about "
+                     "15 min' (spec §15.1a); the closed lessons' active minutes (TE2-log's intervals) move it.")
+_reg_const("lesson_offer:DURATION_LOG_SD", "prior", owner="lesson_offer",
+           rationale="seeded prior width, basis legacy ('a wide log-sd', spec §15.1a): one lesson's active minutes "
+                     "spread about a factor of two either way around the median; the duration is sampled, never "
+                     "averaged, and priced by kappa.")
+_reg_const("lesson_offer:DURATION_MEDIAN_PRIOR_SD", "prior", owner="lesson_offer",
+           rationale="seeded prior width, basis legacy: the log median's uncertainty as wide as one lesson's own "
+                     "spread, so the first few lessons move it (spec §21: each lesson is one direct observation).")
+_reg_const("lesson_offer:CONTEXT_RESOLUTION_DAYS", "numerical", kind="structural", owner="lesson_offer",
+           rationale="keep: numerical resolution (one hour) of the offer's context (the local hour, the days since "
+                     "the last suggestion and since a Not now), so a prefetch and its serve minutes apart share one "
+                     "boundary key; never a margin on the value.")
 
 # Local contextual retrieval P2 module constants (identities, guardrails, budgets, optimizer settings;
 # no quality margin or ranking weight: those are expected-utility decisions and learned fusion weights).
