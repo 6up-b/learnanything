@@ -607,12 +607,15 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   FSRS's `R` at the elapsed lag, as above), and the belief observes it under the same likelihood (slope `aA − aR` in
   `η`), so a review FSRS calls a lapse is one the model expects; an unpractised topic's first attempt and a probe read
   AD's predictive as before. The trace names it (`versions.review_draw`); off, or below the tag, mvp-0.49's draw.
-  Landing ruling R6 (the tag alone, no switch): the combiner is monotone in ability by construction
+  Landing ruling R6 (`[router_objective] monotone_combiner`): the combiner is monotone in ability by construction
   (`memory.FORM_MONOTONE`). `η`'s two slopes, `aA` (unpractised) and `aA − aR` (practised), are log-normal in the prior
-  (moment-matched to the linear one's marginals) and in every fit, and `aR = aA − b` is derived. Landing ruling R8:
-  the batch's serving switches that change the logger's values (`combiner_trace_outcomes`, `merged_sessions`,
-  `consistent_review_draw`, `scope_extension`) are part of RO6's generator version (`versions.serving_switches`), so
-  flipping one is a change point.
+  (moment-matched to the linear one's marginals) and in every fit, and `aR = aA − b` is derived. Landing ruling R9
+  (`[router_objective] ad_predictive_link`): where the rollouts read AD's predicted success, they read AD's own
+  `F(η)` with its lapse term (`value.AdLink`), with `η` on AD's latent (`F⁻¹(p̄)` at the start). This covers an
+  unpractised topic, a probe, and the combiner's `η` input (`logit F(η)`). Landing ruling R8: the batch's serving
+  switches that change the logger's values (`combiner_trace_outcomes`, `merged_sessions`, `consistent_review_draw`,
+  `monotone_combiner`, `ad_predictive_link`, `scope_extension`) are part of RO6's generator version
+  (`versions.serving_switches`), so flipping one is a change point.
 
 ## 9. RO5: return and calibration
 

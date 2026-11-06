@@ -219,17 +219,19 @@ Differences between the rollouts and AD, recorded and not built (each changes ev
 a practised one.
 
 **What changed.** At mvp-0.50 the combiner takes `memory.FORM_MONOTONE`. This applies at the tag with the objective
-serving (`router_objective_switches.monotone_combiner_on`) and has **no switch**, because the ruling says "behind the
-tag only".
+serving (`router_objective_switches.monotone_combiner_on`). It was built in `58b727566e` with **no switch**, because the
+ruling says "behind the tag only". On the orchestrator's answer it now has one: `[router_objective]
+monotone_combiner` (`0ad1ebe661`; structural, default true, in RO6's generator payload per R8). Off, or below the tag,
+the combiner is RO4's linear one.
 
 - **Parameters.** They are `(a0, log aA, log b)` with `b = aA − aR`, under a diagonal Gaussian. Both slopes are
   therefore log-normal and positive in every draw, and `aR = aA − b` is derived (either sign).
 - **Both slopes, not one.** The ruling names `aA − aR`, but "P(perform) cannot fall as eta rises" also needs `aA > 0`
   for unpractised topics, so both are positive. My choice.
 - **Prior.** It is moment-matched to the linear prior's own marginals: `aA` has mean 1 and variance 0.25; `aA − aR`
-  has mean 0.5 and **variance 0.5** (sd 0.71). The ruling quotes "N(0.5, 0.5^2)", from my earlier misstatement; the
-  current prior's actual spread is variance 0.5. I matched the actual one; matching variance 0.25 instead is a
-  one-constant change (`memory._B`). `aR` is no longer independent of `aA`: its implied variance is 0.75, not 0.25.
+  has mean 0.5 and **variance 0.5** (sd 0.71). Correction: the ruling quotes "N(0.5, 0.5^2)", which was my
+  misstatement of the linear prior; its actual spread is variance 0.5. The orchestrator's answer keeps the match to
+  the actual marginals. `aR` is no longer independent of `aA`: its implied variance is 0.75, not 0.25.
 - **Fit.** `fit_combiner` fits in the same form when handed the monotone prior. It runs damped Newton on `θ`, with
   Fisher scoring where the observed Hessian is not negative definite, and takes the Laplace variance from the
   observed Hessian at the mode. `objective_inputs._combiner_prior` hands the monotone prior to RO5's checks fit,
@@ -239,9 +241,9 @@ tag only".
   where a log-normal slope's mean is `exp(μ + σ²/2)`.
 - **Trace.** At the tag, the trace's `memory_model` adds `form` and `coefficients_at_mean`.
 
-**Consequence for step 4.** At the tag with every switch off, the combiner is still monotone. So "every switch off
-equals main at mvp-0.49" will not hold for the combiner. A kill switch would restore the identity; I can add one
-(a new key, every defaults snapshot recomputed) if you want it.
+**Step 4.** With `monotone_combiner` off, the combiner is RO4's linear one, so the every-switch-off identity holds
+for the combiner too. Its reproduce-first: the serving test with the switch off at the tag fails on a full archive
+of `342b991297` (the combiner stays monotone), while the tag-on and below-tag cases pass.
 
 **R1's probe, marginal gain at `m̄` per minute** (with R1's review draw throughout):
 
@@ -290,14 +292,14 @@ alone.
 - **`carried_in_prefetch`** stays out. Strictly, it does reach serving: it changes which transitions feed the learned
   tail's fit, and so `ŵ` and the residual. But it does so as more data does, not as a change of the logger's
   definition.
-- **R6's monotone combiner** needs no entry: it is the tag itself, which is already in the payload as the algorithm
-  version.
+- **R6's monotone combiner** needed no entry while it was the tag alone. Since its switch (`0ad1ebe661`)
+  `monotone_combiner` is in the list, and so is R9's `ad_predictive_link` (`8a19c2698b`), making six switches.
 - **No other switch of the batch** changes a decision's `V` or `μ`.
 
 Tests (`tests/test_rofu_generator_switches.py`):
 
 - at the defaults, one generator across decisions, equal to the one each decision was served under (`residual.generator`);
-- each of the four flips is a new generator version;
+- each switch's flip is a new generator version (parametrized over the list, now six);
 - `carried_in_prefetch` off leaves the generator unchanged;
 - below the tag there is no key, and the payload is RO6's.
 
@@ -312,3 +314,69 @@ pass.
 | Durability | `--durable-sqlite`: `test_rofu_monotone`, `test_rofu_generator_switches`, `test_rofu_review_draw`, `test_rofu_learning`, `test_rofu_scope`, `test_ro6_landing` | 70 passed |
 | Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
 | Not regenerated yet | the architecture reference (config leaves for `consistent_review_draw`, the module pages for `memory`, `value`, `tail_data`, `router_objective_switches`, `objective_chooser`, `objective_inputs`) | step 2 |
+
+## Landing ruling R9: AD's own predicted success in the rollouts (`ad_predictive_link`, `8a19c2698b`)
+
+**AD's predictive.** AD predicts success as `F(η) = g + (1 − g − λ)·E_ε[σ(η − a·τ0·ε)]`
+(`adaptive_difficulty.model.residual_success`) on its latent ability. The lapse `λ` is 0.02, so `F` tops out at
+0.98, and AD's practice adds `γ` to that latent.
+
+**mvp-0.49's rollouts.** They read `σ(η)` on `η = logit p̄` and added `γ` there, so after practice they drew
+successes above what AD itself predicts.
+
+**What changed.** At the tag with `[router_objective] ad_predictive_link`, `value.AdLink` takes AD's lapse, residual
+spread and Gauss-Hermite rule. `objective_inputs._ad_link` hands them in, so `value` stays a leaf. `g` is 0, for a
+valued topic's unseen constructed item.
+
+- The decision's `p̄` enters as `F⁻¹(p̄)`, so `γ`, reading's dose and a lesson all add on AD's latent. The decision's
+  `η` variance is read as the latent's, since AD's posterior is on its latent.
+- An unpractised topic's attempt (under either draw) and a probe's observation draw from `F(η)`.
+- The combiner's `η` input, which was `logit p̄`, is now `logit F(η)`. At the combiner's prior mean an unpractised
+  topic therefore reads `F` alone, and R1's practised draw reads the combiner over `logit F(η)` and `R`.
+- The belief's Laplace step uses the same prediction and its slope in `η`.
+- The trace names it (`versions.ad_link`).
+
+**Its own switch, my judgment.** It is separable from `monotone_combiner`: one is the link to AD's predictive, the
+other the combiner's coefficient sign. Each can be turned off and diagnosed alone, and both are in R8's generator
+list. Belief-variance drift and coupled-facet transfer stay recorded as AD-level findings (R7's section).
+
+**Reproduce-first.** I ran `scratchpad/rofu-landing/repro_r9.py` on a full archive of `0ad1ebe661` and on this tree.
+Each row is an unpractised topic whose `p̄` is AD's `F` at the given latent, after ten practices (`γ` 0.2 each):
+
+| AD latent | AD predicts | Pre-fix rollouts | After the fix |
+|---:|---:|---:|---:|
+| −1 | 0.6828 | 0.7565 | 0.6821 |
+| 0.5 | 0.8767 | 0.9123 | 0.8753 |
+| 2 | 0.9525 | 0.9737 | 0.9525 |
+| 4 | 0.9760 | 0.9936 | 0.9770 |
+| 40 | 0.9800 | 0.9977 | 0.9808 |
+
+`tests/test_rofu_ad_link.py` fails to collect on the pre-fix tree (there is no `AdLink`).
+
+**R1's probe** (R1's draw, R6's combiner), marginal gain at `m̄` per minute, `σ` (before) and `F` (after):
+
+| `η`, `S` | 64 draws, before | 64 draws, after | 512 draws, before | 512 draws, after |
+|---|---:|---:|---:|---:|
+| −0.5, 40 | +0.000611 | +0.000355 | +0.000493 | +0.000382 |
+| 0.5, 40 | +0.000709 | +0.000601 | +0.000628 | +0.000424 |
+| 1.5, 40 | +0.000468 | +0.000344 | +0.000523 | +0.000274 |
+| 0.5, 2 | +0.000510 | +0.000316 | +0.000554 | +0.000437 |
+| 1.5, 2 | +0.000478 | +0.000402 | +0.000520 | +0.000288 |
+
+- κ0's seed is the positive day seed in every case at both draw counts: 0.00027 to 0.00060 per minute.
+- `G` is about 0.6 lower than with `σ`, because `F` stops at 0.98.
+- 64 and 512 draws agree within 1.8e-4.
+- Both sides are pinned: the `σ` side in `test_rofu_monotone`, the `F` side in `test_rofu_ad_link`.
+
+**Cost.** The copy-shaped evaluation (22 topics, 5 candidates including a probe, 8 draws, merged, R1's draw, R6's
+combiner) takes 270 ms with `σ` and 431 ms with `F` (median of 5). The 32-node quadrature runs on every `P(perform)`.
+
+**Tests** (`tests/test_rofu_ad_link.py`):
+
+- the link equals AD's `residual_success` to 1e-15, and its inverse and its slope check out;
+- `p̄` enters as AD's latent and reads back as itself;
+- an unpractised attempt and a probe draw from `F` under either draw;
+- the belief's step is the Laplace step under `F`;
+- no link gives mvp-0.49's path;
+- the probe is pinned at 64 and 512 draws;
+- the numeric policy reads the link only at the tag with its switch, and only then does the trace name it.
