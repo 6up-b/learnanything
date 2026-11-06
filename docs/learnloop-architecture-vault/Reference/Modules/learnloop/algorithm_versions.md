@@ -542,6 +542,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_learning.py](../../../../../tests/test_rofu_learning.py) — direct import
 - [tests/test_rofu_scope.py](../../../../../tests/test_rofu_scope.py) — direct import
   - `test_switched_off_or_below_the_tag_the_growth_is_a_change_point`
+- [tests/test_rofu_speed.py](../../../../../tests/test_rofu_speed.py) — direct import
+  - `test_the_numeric_policy_merges_only_at_the_tag_with_its_switch`
 - [tests/test_rofu_successor.py](../../../../../tests/test_rofu_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro6_and_the_latest`
 - [tests/test_rofu_weeks.py](../../../../../tests/test_rofu_weeks.py) — direct import

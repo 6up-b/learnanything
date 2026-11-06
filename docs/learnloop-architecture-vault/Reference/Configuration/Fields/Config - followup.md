@@ -3,8 +3,8 @@ title: "Config - followup"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8974d418693080c6fd8b7a6ebb36880acfd033ee"
-source_commit_timestamp: "2026-11-05T21:28:18-05:00"
+source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
+source_commit_timestamp: "2026-11-05T22:18:58-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml followup"
@@ -45,8 +45,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `followup.generate_and_serve` | `true` | boolean | modeled default or validator seed | Turns generate and serve behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4323`; `src/learnloop/ai/plan_fallback.py:138` |
-| `followup.hypothesis_marks` | `true` | boolean | modeled default or validator seed | Turns hypothesis marks behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4324`; `src/learnloop/ai/plan_fallback.py:138` |
+| `followup.generate_and_serve` | `true` | boolean | modeled default or validator seed | Turns generate and serve behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4326`; `src/learnloop/ai/plan_fallback.py:138` |
+| `followup.hypothesis_marks` | `true` | boolean | modeled default or validator seed | Turns hypothesis marks behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4327`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

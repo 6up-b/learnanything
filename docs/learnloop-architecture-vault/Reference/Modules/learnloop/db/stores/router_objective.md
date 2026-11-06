@@ -207,6 +207,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_few_weeks_on_a_copy_shaped_synthetic_vault`
   - `test_a_row_received_after_the_moment_never_enters_a_feature`
 - [tests/test_rofu_carried.py](../../../../../../../tests/test_rofu_carried.py) — direct import
+  - `test_an_early_publication_served_keeps_its_carried_valuation`
 - [tests/test_rofu_learning.py](../../../../../../../tests/test_rofu_learning.py) — direct import
 - [tests/test_rofu_weeks.py](../../../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`

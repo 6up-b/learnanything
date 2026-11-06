@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/tail_data.py"
 source_paths:
   - "src/learnloop/router_objective/tail_data.py"
-source_commit: "cc31c0ed4baef52ad1215d87e7f3bbd89a4870c3"
-source_commit_timestamp: "2026-11-05T21:28:18-05:00"
+source_commit: "fb2442fb96f25ca62b7a43c8da855e65ed75cf0c"
+source_commit_timestamp: "2026-11-05T22:05:02-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/tail_data.py](../../../../../../src/learnloop/router_objective/tail_data.py) |
-| Source lines | 887 |
+| Source lines | 900 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cc31c0ed4baef52ad1215d87e7f3bbd89a4870c3` |
-| Commit timestamp | `2026-11-05T21:28:18-05:00` |
+| Source commit | `fb2442fb96f25ca62b7a43c8da855e65ed75cf0c` |
+| Commit timestamp | `2026-11-05T22:05:02-05:00` |
 
 ## Public API
 
@@ -74,16 +74,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `snapshot_mastery(snapshot: Mapping[str, Any], los: Sequence[str]) -> list[tuple[float, float]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 327) — RO0 row 9's mastery numbers of ``los`` (logit mean, logit variance), those it holds.
 - `use_moment(trace: Mapping[str, Any], created: datetime, use: Mapping[str, Any]) -> datetime` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 361) — The moment a frozen dated use falls at (Codex review of RO6, F2): the goal's ``due_at`` as the rollouts parse it (``clock.parse_utc``, the use's own or the goal's frozen in the trace), else the decision's moment plus the use's exact delay.
 - `logged(connection: Any, config: Any, *, at: str) -> list[Logged]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 512) — Every ``plan_block`` trace known at ``at``, oldest first (module docstring).
-- `class Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 577)
-- `transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 584) — Every logged decision's step to the next one, with its reward (module docstring).
-- `class Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 708)
-  - `for_serving(self, generator_now: str) -> tuple[LT.Fit | None, str]` (line 714; public) — The current version's own fit; with none of its transitions yet, the latest earlier version's ("version k+1 uses the result"); else none.
-- `fits(connection: Any, config: Any, *, at: str, rows: Sequence[Logged] | None=None) -> Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 726) — One fit per generator version from its own transitions as of ``at`` (frozen-logger evaluation).
-- `contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> tuple[list[LT.Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 759) — Every stop-coin decision with a frozen residual whose window closed before ``at``: its realized contrast (the coin's, times the window's observed return) and its frozen predicted ones (tail and residual).
-- `improvement_ratio(row: Logged) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 813) — The improvement step's probability of the served action over the logger's: the mix with the numeric policy's argmax taken on ``Q_tail + ρ`` (the frozen residual at full weight), under the same coin.
-- `cross_check(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 833) — The partial-history weights' estimate of the improvement step, beside the fit (report only).
-- `predicted_improvement(rows: Sequence[Logged]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 858) — The fit's own forecast of the same step: ``Σ_a (μ_new − μ)(a)·(Q_tail + ρ)(a)``, the mean over decisions with a frozen residual (a projection, labelled; on the cutoff's horizon, not the window's).
-- `is_finite(value: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 877)
+- `carried_in_prefetch_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 549) — The follow-up batch's item 4: deferred carried valuations are run, recorded and read (its tag and ``[router_objective] carried_in_prefetch``); off, or below the tag, RO6's rulings R12 and R3 exactly.
+- `class Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 590)
+- `transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 597) — Every logged decision's step to the next one, with its reward (module docstring).
+- `class Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 721)
+  - `for_serving(self, generator_now: str) -> tuple[LT.Fit | None, str]` (line 727; public) — The current version's own fit; with none of its transitions yet, the latest earlier version's ("version k+1 uses the result"); else none.
+- `fits(connection: Any, config: Any, *, at: str, rows: Sequence[Logged] | None=None) -> Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 739) — One fit per generator version from its own transitions as of ``at`` (frozen-logger evaluation).
+- `contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> tuple[list[LT.Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 772) — Every stop-coin decision with a frozen residual whose window closed before ``at``: its realized contrast (the coin's, times the window's observed return) and its frozen predicted ones (tail and residual).
+- `improvement_ratio(row: Logged) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 826) — The improvement step's probability of the served action over the logger's: the mix with the numeric policy's argmax taken on ``Q_tail + ρ`` (the frozen residual at full weight), under the same coin.
+- `cross_check(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 846) — The partial-history weights' estimate of the improvement step, beside the fit (report only).
+- `predicted_improvement(rows: Sequence[Logged]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 871) — The fit's own forecast of the same step: ``Σ_a (μ_new − μ)(a)·(Q_tail + ρ)(a)``, the mean over decisions with a frozen residual (a projection, labelled; on the cutoff's horizon, not the window's).
+- `is_finite(value: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 890)
 
 ### Module constants
 
@@ -150,17 +151,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], config: Any, at: str, receipts: bool) -> Logged` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 380)
 - `_carried_values(previous: Mapping[str, Any] | None, support: Sequence[str], current: bool) -> tuple[dict[str, float] | None, dict[str, tuple[float, ...]] | None]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 461) — The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the evaluation run at it and the features taken at its span, both for every candidate of the support, at this build's features version; anything less leaves the transition into this…
 - `_with_late_carried(rows: list['Logged']) -> list['Logged']` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 487) — The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation existed (or decided on the no-model branch) has that valuation run in a later boundary's prefetch, off the serving path, and recorded in a later decision's trace (``carried_fo…
-- `_next_links(connection: Any, logged_ids: set[str]) -> tuple[dict[str, str | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 550) — §4 row 12's links: from each logged decision, the next logged decision along the ledger's next-decision chain (None: censored, no later one), and the return's censoring for the report.
-- `_exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 568) — A dated use's ``Y``: the results imported for the goal's date, known by ``at`` (THE availability predicate; the one reader the contrasts' returns share, ``scores.exam_result_known``), and admitted through RO5's closure at ``at`` on its occurrence and received time (RO6's landing…
-- `_frozen_residual(row: Logged) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 743)
-- `_with_traces(connection: Any, rows: Sequence[Logged]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 750)
+- `_next_links(connection: Any, logged_ids: set[str]) -> tuple[dict[str, str | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 563) — §4 row 12's links: from each logged decision, the next logged decision along the ledger's next-decision chain (None: censored, no later one), and the return's censoring for the report.
+- `_exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 581) — A dated use's ``Y``: the results imported for the goal's date, known by ``at`` (THE availability predicate; the one reader the contrasts' returns share, ``scores.exam_result_known``), and admitted through RO5's closure at ``at`` on its occurrence and received time (RO6's landing…
+- `_frozen_residual(row: Logged) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 756)
+- `_with_traces(connection: Any, rows: Sequence[Logged]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 763)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `generator_key`, `generator_payload`, `objective_hash`, `scope_extension_on`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `carried_in_prefetch_on`, `generator_key`, `generator_payload`, `objective_hash`, `scope_extension_on`
 - [[Reference/Modules/learnloop/router_objective/tail_report|learnloop.router_objective.tail_report]] — imports `module`; statically calls `contrasts`, `cross_check`, `fits`, `logged`, `predicted_improvement`
 - [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; statically calls `_parse`, `contrasts`, `fits`, `logged`, `snapshot_mastery`
 
@@ -229,7 +230,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
   - `test_a_later_traces_record_lifts_the_censoring_as_of_its_own_time`
   - `test_a_record_naming_another_earlier_decision_is_ignored`
+  - `test_an_early_publication_served_keeps_its_carried_valuation`
   - `test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path`
+  - `test_the_switch_turned_off_after_carriers_exist_reads_the_predecessors_transitions`
 - [tests/test_rofu_scope.py](../../../../../../tests/test_rofu_scope.py) — direct import
   - `test_a_topic_entering_the_retention_scope_at_its_density_keeps_the_backup`
   - `test_codex_density_change_stays_censored_at_the_tag`

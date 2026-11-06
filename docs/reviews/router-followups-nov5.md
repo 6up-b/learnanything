@@ -16,6 +16,7 @@ a copy (every measurement below is on a synthetic vault, in a test or a scratch 
   | Switch | Item | Off |
   |---|---|---|
   | `combiner_trace_outcomes` | 2: the combiner also fitted on the traces' joined outcomes | RO5's checks-only fit |
+  | `merged_sessions` | 3: the tail's sessions merged (faster, so a deadline admits more draws; Codex review F2) | the per-block loop |
   | `carried_in_prefetch` | 4: the carried valuation deferred to the next prefetch, recorded in a later trace | RO6's R12/R3 (censored) |
   | `scope_extension` | 5: a growing retention scope is not an objective change | RO6's R11 (a change point) |
 
@@ -111,7 +112,8 @@ and its trace record at the tag with the switch's predecessor record exactly, no
 `memory.review` (177k calls) on arxiv_v2. The calls come from the tail's sessions, one per block per session per
 day of the horizon. A session ranks its topics once and takes its slots cyclically, so when its slots are fewer
 than its topics no topic repeats; and `before_block` scores something only when a dated use falls inside the
-session. In that case (`value.MERGED_SESSIONS`) the session is now one vectorized step over every block's cells,
+session. In that case (`merged_sessions`; at the tag with `[router_objective] merged_sessions` since Codex review F2:
+`docs/reviews/router-followups-codex-review.md`) the session is now one vectorized step over every block's cells,
 each at its own block's end: the same cells, in the same order, through the same elementwise formulas. Otherwise
 the per-block loop runs as before (the reference path). `Fsrs.review`/`retrievability` also drop `np.clip` (the same
 values, `np.minimum(np.maximum(...))`, without its per-call overhead).
@@ -137,9 +139,10 @@ decisions, so this is not yet where the time goes.
 
 ### 4. RO6's R12 and R3: carried valuations in the next prefetch (`carried_in_prefetch`)
 
-- A decision's job no longer runs its own second valuation after the answer: it keeps it beside the answer (before
-  the completion event, so a serve always finds it), and the serve, which comes first, registers it (process memory,
-  per database, at most `CARRY_LIMIT` = 32, `keep`).
+- A decision's job no longer runs its own second valuation after the answer: every answer that can serve carries
+  its own (`NumericPolicy.carried`, frozen to that answer's inputs: the final answer and, since Codex review F3, an
+  early uncorrected publication), and the serve registers the one it took (process memory, per database, at most
+  `CARRY_LIMIT` = 32, `keep`). The reading side asks the same switch (Codex review F1).
 - The **next boundary's prefetch** runs every registered one after its own answer is out, at its own deadline. The
   no-model branch has no prefetch: its decision's valuation runs on a thread of its own started after the serve.
   Neither is the serving thread (tests block every evaluation at a carried cutoff: the chooser's wait returns, and

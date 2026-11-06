@@ -780,7 +780,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro6_landing.py](../../../../../../tests/test_ro6_landing.py) — direct import
   - `test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns`
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
+  - `test_an_early_publication_served_keeps_its_carried_valuation`
   - `test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path`
+  - `test_the_switch_turned_off_after_carriers_exist_reads_the_predecessors_transitions`
   - `test_with_models_the_wait_returns_and_the_next_prefetch_runs_it`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
   - `test_g5_no_reference_reserved_stem_exam_text_or_held_score_reaches_the_card`

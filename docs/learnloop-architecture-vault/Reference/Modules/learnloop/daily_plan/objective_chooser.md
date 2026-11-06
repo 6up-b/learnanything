@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/objective_chooser.py"
 source_paths:
   - "src/learnloop/daily_plan/objective_chooser.py"
-source_commit: "cc31c0ed4baef52ad1215d87e7f3bbd89a4870c3"
-source_commit_timestamp: "2026-11-05T21:28:18-05:00"
+source_commit: "1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3"
+source_commit_timestamp: "2026-11-05T22:18:58-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,41 +50,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py) |
-| Source lines | 1604 |
+| Source lines | 1645 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cc31c0ed4baef52ad1215d87e7f3bbd89a4870c3` |
-| Commit timestamp | `2026-11-05T21:28:18-05:00` |
+| Source commit | `1b7c1f3285b3c2d98dfa22e49ec95b6e7ff3fcb3` |
+| Commit timestamp | `2026-11-05T22:18:58-05:00` |
 
 ## Public API
 
 - `objective_settings(config: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 115)
-- `day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int, seed: str, config: Any=None) -> tuple[P.Seeded, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 173) — κ0 for this decision (§8.6): the day's first decision computes the seed from the gain curve, later ones carry it.
-- `current_weight(repository: Any, config: Any, *, at: str) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 231) — ``w_i`` (§8.7) from the scores whose windows closed before ``at``; with no randomized check, none forms.
-- `class NumericPolicy` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 284) — What π_Q computed for one decision (its status, choice, evaluation and the trace's sections).
-- `generator_now(config: Any, objective: str | None=None) -> str` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 308) — RO6: the generator version a decision made now is logged under (``tail_data.generator`` over its trace).
-- `run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, seed: str, deadline: float | None, keep_going: Any=None, forecasts: Any=None, clock: Any=time.monotonic, publish: Any=None, sequences: Mapping[str, Sequence[BlockCandidate]] | None=None, learned_tail: bool=False, tail_snapshot: Mapping[str, Any] | None=None, carried_valuation: bool=True, defer_carried: Callable[[Callable[[], dict[str, Any]]], None] | None=None) -> NumericPolicy` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 323) — π_Q end to end: the frozen inputs, the day's price, ``Q̄`` with common random numbers (more draws while ``keep_going()``), then, once the LLM policy's forecasts are in (``forecasts()``: None while out), the effect correction; the argmax with the tie rule; the evaluation's baseli…
-- `class ObjectiveChooser(RouterChooser)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 928) — ``router_objective_v1``: the two policies' learned mix over the staged frame's support.
-  - `_seed(self, key: str, decision_id: str) -> str` (line 933; internal)
-  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 936; public)
-  - `_defer_carry(self, numeric: 'NumericPolicy', entry: Any, decision_id: str) -> 'NumericPolicy'` (line 999; internal) — The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation existed hands it to the next boundary's prefetch (the no-model branch, which has none, to a thread of its own started after this decision), off the serving path; a later decis…
-  - `_tail_snapshot(self, now_iso: str) -> Mapping[str, Any] | None` (line 1030; internal) — RO6: the residual's mutable inputs read now, in the decision's own thread at its moment (F4); None below the tag or with the switch off (nothing read, the predecessor's path), or when it cannot be read (the residual is then left out and the trace says so).
-  - `_start_objective(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str], by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...], now_iso: str) -> Prefetch` (line 1047; internal)
-  - `_decide_objective(self, entry: Any, state: PlanState, staged: BlockChoice, staged_ref: str, record: dict[str, Any], support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate], readiness: Mapping[str, str | None], settings: Mapping[str, Any], now_iso: str) -> BlockChoice` (line 1071; internal)
-  - `_session_minutes(self, now_iso: str) -> float | None` (line 1232; internal) — The objective session's active minutes at ``now_iso`` on the serving clock (``price.session_active_minutes``, the price's own construction), or None where they cannot be read (the coin is then not drawn).
-  - `_availability(self, state: PlanState, numeric: 'NumericPolicy | None') -> dict[str, Any]` (line 1245; internal) — RO5 §9 item 1: what the learner had when the coin was drawn, read before its uniform: the session's active minutes, the plan's remembered, budgeted and remaining minutes, and the session's availability receipt (RO0 row 8: the minutes offered and their source).
-- `class ObjectiveRestraintGate(RestraintGate)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1276) — §8.3's mid-block follow-ups: the same two-policy mix over ``{insert_now, continue_current}``.
-  - `decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool=True) -> RestraintOutcome` (line 1282; public)
-  - `_no_room(self, state: PlanState, candidates: list[BlockCandidate]) -> RestraintOutcome` (line 1305; internal) — ``wait_feasible = False``: waiting would drop the follow-up from today's plan, so it joins now, deterministically, and no model is asked (Codex review F8's rule, kept by §8.3).
-  - `_mixed(self, state: PlanState, candidates: list[BlockCandidate], *, key: str, readiness: Mapping[str, Any], ready: tuple[str, ...], topic: str, options: Sequence[Any], extra: Sequence[str], valued: Mapping[str, BlockCandidate] | None=None, support: Sequence[str]=(INSERT_NOW, CONTINUE_CURRENT), sequences: Mapping[str, Sequence[BlockCandidate]] | None=None, start: Any=None, llm_schema: str=rq.LLM_POLICY_RESTRAINT_SCHEMA) -> RestraintOutcome` (line 1314; internal) — The two-policy mix over ``support`` (§8.3; by default ``{insert_now, continue_current}``), drawn and traced.
-  - `_numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str, key: str) -> NumericPolicy` (line 1412; internal) — π_Q on the two orders, each an ordered sequence of the two blocks (the follow-up, then the remaining questions; or the reverse), every step valued with its own kind, duration, observation and effect on one clock; one cutoff, the same draws, each step its own noise in either orde…
-  - `_start_policy(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch` (line 1425; internal) — The two models' prefetch: the Decider's R2c restraint request (advice) and the LLM policy's v3 one.
-- `class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1475) — §8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable (``mix.recompute``).
-  - `decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool, facts: Sequence[str]=()) -> RestraintOutcome` (line 1490; public)
-  - `_start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch` (line 1534; internal) — The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current block's rest, the continuation ``π_Q``'s tail assumes).
-  - `_followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float` (line 1576; internal) — The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on its LO, after it), else the mean of the LO's items', else the current block's mean question.
+- `day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int, seed: str, config: Any=None) -> tuple[P.Seeded, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 187) — κ0 for this decision (§8.6): the day's first decision computes the seed from the gain curve, later ones carry it.
+- `current_weight(repository: Any, config: Any, *, at: str) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 245) — ``w_i`` (§8.7) from the scores whose windows closed before ``at``; with no randomized check, none forms.
+- `class NumericPolicy` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 298) — What π_Q computed for one decision (its status, choice, evaluation and the trace's sections).
+- `generator_now(config: Any, objective: str | None=None) -> str` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 326) — RO6: the generator version a decision made now is logged under (``tail_data.generator`` over its trace).
+- `run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, seed: str, deadline: float | None, keep_going: Any=None, forecasts: Any=None, clock: Any=time.monotonic, publish: Any=None, sequences: Mapping[str, Sequence[BlockCandidate]] | None=None, learned_tail: bool=False, tail_snapshot: Mapping[str, Any] | None=None, carried_valuation: bool=True, defer_carried: Callable[[Callable[[], dict[str, Any]]], None] | None=None) -> NumericPolicy` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 341) — π_Q end to end: the frozen inputs, the day's price, ``Q̄`` with common random numbers (more draws while ``keep_going()``), then, once the LLM policy's forecasts are in (``forecasts()``: None while out), the effect correction; the argmax with the tie rule; the evaluation's baseli…
+- `class ObjectiveChooser(RouterChooser)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 973) — ``router_objective_v1``: the two policies' learned mix over the staged frame's support.
+  - `_seed(self, key: str, decision_id: str) -> str` (line 978; internal)
+  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 981; public)
+  - `_defer_carry(self, numeric: 'NumericPolicy', entry: Any, decision_id: str) -> 'NumericPolicy'` (line 1044; internal) — The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation existed hands it to the next boundary's prefetch (the no-model branch, which has none, to a thread of its own started after this decision), off the serving path; a later decis…
+  - `_tail_snapshot(self, now_iso: str) -> Mapping[str, Any] | None` (line 1071; internal) — RO6: the residual's mutable inputs read now, in the decision's own thread at its moment (F4); None below the tag or with the switch off (nothing read, the predecessor's path), or when it cannot be read (the residual is then left out and the trace says so).
+  - `_start_objective(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str], by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...], now_iso: str) -> Prefetch` (line 1088; internal)
+  - `_decide_objective(self, entry: Any, state: PlanState, staged: BlockChoice, staged_ref: str, record: dict[str, Any], support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate], readiness: Mapping[str, str | None], settings: Mapping[str, Any], now_iso: str) -> BlockChoice` (line 1112; internal)
+  - `_session_minutes(self, now_iso: str) -> float | None` (line 1273; internal) — The objective session's active minutes at ``now_iso`` on the serving clock (``price.session_active_minutes``, the price's own construction), or None where they cannot be read (the coin is then not drawn).
+  - `_availability(self, state: PlanState, numeric: 'NumericPolicy | None') -> dict[str, Any]` (line 1286; internal) — RO5 §9 item 1: what the learner had when the coin was drawn, read before its uniform: the session's active minutes, the plan's remembered, budgeted and remaining minutes, and the session's availability receipt (RO0 row 8: the minutes offered and their source).
+- `class ObjectiveRestraintGate(RestraintGate)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1317) — §8.3's mid-block follow-ups: the same two-policy mix over ``{insert_now, continue_current}``.
+  - `decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool=True) -> RestraintOutcome` (line 1323; public)
+  - `_no_room(self, state: PlanState, candidates: list[BlockCandidate]) -> RestraintOutcome` (line 1346; internal) — ``wait_feasible = False``: waiting would drop the follow-up from today's plan, so it joins now, deterministically, and no model is asked (Codex review F8's rule, kept by §8.3).
+  - `_mixed(self, state: PlanState, candidates: list[BlockCandidate], *, key: str, readiness: Mapping[str, Any], ready: tuple[str, ...], topic: str, options: Sequence[Any], extra: Sequence[str], valued: Mapping[str, BlockCandidate] | None=None, support: Sequence[str]=(INSERT_NOW, CONTINUE_CURRENT), sequences: Mapping[str, Sequence[BlockCandidate]] | None=None, start: Any=None, llm_schema: str=rq.LLM_POLICY_RESTRAINT_SCHEMA) -> RestraintOutcome` (line 1355; internal) — The two-policy mix over ``support`` (§8.3; by default ``{insert_now, continue_current}``), drawn and traced.
+  - `_numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str, key: str) -> NumericPolicy` (line 1453; internal) — π_Q on the two orders, each an ordered sequence of the two blocks (the follow-up, then the remaining questions; or the reverse), every step valued with its own kind, duration, observation and effect on one clock; one cutoff, the same draws, each step its own noise in either orde…
+  - `_start_policy(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch` (line 1466; internal) — The two models' prefetch: the Decider's R2c restraint request (advice) and the LLM policy's v3 one.
+- `class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1516) — §8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable (``mix.recompute``).
+  - `decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool, facts: Sequence[str]=()) -> RestraintOutcome` (line 1531; public)
+  - `_start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch` (line 1575; internal) — The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current block's rest, the continuation ``π_Q``'s tail assumes).
+  - `_followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float` (line 1617; internal) — The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on its LO, after it), else the mean of the LO's items', else the current block's mean question.
 
 ### Module constants
 
@@ -92,7 +92,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `NUMERIC` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 93)
 - `PUBLISHED` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 96)
 - `CARRIED` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 99)
-- `DEFERRED` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 102)
 - `CARRY_LIMIT` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 105)
 - `_CARRY_LOCK` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 106)
 - `_CARRY` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 107)
@@ -100,7 +99,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `KEY_VERSION` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 109)
 - `WHY_VERSION` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 110)
 - `_FAILURES` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 112)
-- `FOLLOWUP_PLACEHOLDER_PREFIX` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1471)
+- `FOLLOWUP_PLACEHOLDER_PREFIX` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1512)
 
 ### Explicit exports
 
@@ -120,23 +119,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_local_date(now_iso: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 125)
-- `_frontier(inputs: V.Inputs, *, draws: int, seed: str) -> tuple[dict[float, float], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 133)
-- `_posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_date: str, draws: int, seed: str) -> tuple[P.Seeded, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 143) — RO5 §9 item 1: once a randomized stop offer has a response, κ0 is the posterior the seed is folded into (:mod:`learnloop.router_objective.stop_coin`) and the daily re-centring ends; the frontier is still drawn once a day, for display.
-- `_randomized_checks_exist(repository: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 213) — Whether any RO5 randomized cold check was ever assigned (none before RO5).
-- `_seed_record(seeds: W.Seeds) -> dict[str, float]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 226)
-- `_reference_description(action: V.Action, titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 485)
-- `_llm_forecasts(entry: Prefetch) -> Any` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 491) — The numeric job's view of the LLM policy's forecasts: None while it is out, else ``(per option, reference)`` (both None when it failed).
-- `_objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any, session_id: str | None, plan_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 506)
-- `_with_carried(numeric: 'NumericPolicy | None', entry: Any) -> 'NumericPolicy | None'` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 623) — Landing ruling R12: the served answer's residual with the carried valuation if the job had it before this serve (``CARRIED``), else marked valued too late (``not_valued_before_the_serve``: the backup into this decision is censored ``cutoff_unmatched``).
-- `_carry_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 644)
-- `_register_carry(sqlite_path: Any, decision_id: str, compute: Callable[[], dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 650) — The follow-up batch's item 4: a decision served before its carried valuation existed leaves the valuation (its own frozen inputs, in ``compute``) to the next boundary's prefetch.
-- `_drain_carry(sqlite_path: Any, *, deadline: float | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 660) — Run every deferred carried valuation of this database not yet run (a prefetch job's, after its own answer released the serve's wait; the no-model branch's thread, after its serve), each by ``deadline`` (the runner's own).
-- `_carried_for(repository: Any, decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 684) — The deferred carried valuations ready to be recorded in this decision's trace (``carried_for``).
-- `_wait_llm(entry: Prefetch, runtime: RouterRuntime) -> Any` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 720)
-- `_support_labels(support: Sequence[str], by_id: Mapping[str, BlockCandidate], titles: Mapping[str, str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 730)
-- `_score_note(config: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 743)
-- `_goal_dates(numeric: 'NumericPolicy | None') -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 752) — RO5 §9 item 3's sensor input: each active dated goal's uses with the memory model's frozen forecast at the goal's date (``m⁰``, from the pre-action belief under the tail, the same number the policy comparison logs) and the goal's absolute ``due_at``, for every dated goal the rol…
-- `_trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], numeric: NumericPolicy | None, llm: ComponentResult | None, decider: ComponentResult | None, staged_ref: str, weight: tuple[float, Mapping[str, Any]], effective: Mapping[str, float], pi: Mapping[str, float], drawn: Any, seed: str, config: Any, now_iso: str, guard: Mapping[str, Any], stop_in_support: bool, card_version: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 773)
+- `_merged(config: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 133) — The follow-up batch's item 3 (Codex review F2): the rollouts' merged tail sessions serve only at the batch's tag with ``[router_objective] merged_sessions``.
+- `_frontier(inputs: V.Inputs, *, draws: int, seed: str, merged_sessions: bool=False) -> tuple[dict[float, float], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 146)
+- `_posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_date: str, draws: int, seed: str) -> tuple[P.Seeded, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 157) — RO5 §9 item 1: once a randomized stop offer has a response, κ0 is the posterior the seed is folded into (:mod:`learnloop.router_objective.stop_coin`) and the daily re-centring ends; the frontier is still drawn once a day, for display.
+- `_randomized_checks_exist(repository: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 227) — Whether any RO5 randomized cold check was ever assigned (none before RO5).
+- `_seed_record(seeds: W.Seeds) -> dict[str, float]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 240)
+- `_reference_description(action: V.Action, titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 531)
+- `_llm_forecasts(entry: Prefetch) -> Any` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 537) — The numeric job's view of the LLM policy's forecasts: None while it is out, else ``(per option, reference)`` (both None when it failed).
+- `_objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any, session_id: str | None, plan_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 552)
+- `_with_carried(numeric: 'NumericPolicy | None', entry: Any) -> 'NumericPolicy | None'` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 667) — Landing ruling R12: the served answer's residual with the carried valuation if the job had it before this serve (``CARRIED``), else marked valued too late (``not_valued_before_the_serve``: the backup into this decision is censored ``cutoff_unmatched``).
+- `_carry_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 688)
+- `_register_carry(sqlite_path: Any, decision_id: str, compute: Callable[[], dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 695) — The follow-up batch's item 4: a decision served before its carried valuation existed leaves the valuation (its own frozen inputs, in ``compute``) to the next boundary's prefetch.
+- `_drain_carry(sqlite_path: Any, *, deadline: float | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 705) — Run every deferred carried valuation of this database not yet run (a prefetch job's, after its own answer released the serve's wait; the no-model branch's thread, after its serve), each by ``deadline`` (the runner's own).
+- `_carried_for(repository: Any, decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 729) — The deferred carried valuations ready to be recorded in this decision's trace (``carried_for``).
+- `_wait_llm(entry: Prefetch, runtime: RouterRuntime) -> Any` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 765)
+- `_support_labels(support: Sequence[str], by_id: Mapping[str, BlockCandidate], titles: Mapping[str, str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 775)
+- `_score_note(config: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 788)
+- `_goal_dates(numeric: 'NumericPolicy | None') -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 797) — RO5 §9 item 3's sensor input: each active dated goal's uses with the memory model's frozen forecast at the goal's date (``m⁰``, from the pre-action belief under the tail, the same number the policy comparison logs) and the goal's absolute ``due_at``, for every dated goal the rol…
+- `_trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], numeric: NumericPolicy | None, llm: ComponentResult | None, decider: ComponentResult | None, staged_ref: str, weight: tuple[float, Mapping[str, Any]], effective: Mapping[str, float], pi: Mapping[str, float], drawn: Any, seed: str, config: Any, now_iso: str, guard: Mapping[str, Any], stop_in_support: bool, card_version: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 818)
 
 ## Who imports or calls it
 
@@ -167,7 +167,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`; calls `Seeded`, `guard_minutes`, `seed_from_gain`, `session_active_minutes`
 - [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; calls `scores`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; calls `eligible`, `flip`, `handed_over`, `pending_assignment`, `served_distribution`
-- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; calls `generator_key`, `generator_payload`, `objective_hash`, `scope_extension_on`
+- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; calls `carried_in_prefetch_on`, `generator_key`, `generator_payload`, `objective_hash`, `scope_extension_on`
 - [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; calls `candidate_terms`, `carried_cutoff`, `is_pending`, `measurable`, `not_before_the_serve`, `not_on_the_serving_path`, `pending_after_the_answer`, `residual`, `shifted`, `snapshot`, `with_carried_values`
 - [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `module`; calls `EffectSlope`, `_Model`, `baselines`, `evaluate`, `gain`, `numeric_choice`, `paired_standard_error`
 - [[Reference/Modules/learnloop/router_objective/weight|learnloop.router_objective.weight]] — imports `module`; calls `Scored`, `posterior`, `unique_assessments`, `weight`
@@ -210,8 +210,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
   - `test_refitting_on_a_later_version_does_not_change_version_ks_evaluation`
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
+  - `test_an_early_publication_served_keeps_its_carried_valuation`
   - `test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path`
   - `test_with_models_the_wait_returns_and_the_next_prefetch_runs_it`
+- [tests/test_rofu_speed.py](../../../../../../tests/test_rofu_speed.py) — direct import
+  - `test_the_numeric_policy_merges_only_at_the_tag_with_its_switch`
 
 ## Modification guidance
 

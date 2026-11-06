@@ -600,7 +600,8 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   the decision through the availability predicate; the trace's `versions.memory_model` names the fit
   (`fit_version`, `n`, rows per source). The rollouts' tail sessions are one vectorized step over every block's cells
   when no topic repeats and no dated use can be crossed (bitwise equal to the per-block loop here; a test holds it to
-  1e-12); arxiv_v2-shaped evaluation 435 to 232 ms.
+  1e-12); arxiv_v2-shaped evaluation 435 to 232 ms. Behind `[router_objective] merged_sessions` at the tag: a faster
+  draw lets a deadline-bound refinement complete more draws, which moves `Q̄` and the tie rule (Codex review F2).
 
 ## 9. RO5: return and calibration
 
@@ -890,7 +891,8 @@ differs from §10:
   now and its history, the residual's share of `Ṽ`, how often it moved the argmax, serving time, the cross-check.
 - **The follow-up batch** (`mvp-0.50`; `docs/reviews/router-followups-nov5.md`). **Carried valuations**
   (`[router_objective] carried_in_prefetch`; landing rulings R12 and R3's open items): a decision's second valuation
-  is no longer run in its own job after the answer; the job keeps it, the serve (which comes first) hands it to the
+  is no longer run in its own job after the answer; each answer that can serve carries its own (the final answer, an
+  early uncorrected publication: Codex review F3), the serve hands the one it took to the
   next boundary's prefetch, which runs it after its own answer is out (the no-model branch, which has no prefetch, to
   a thread of its own started after the serve; never the serving thread), and a later decision's trace records it
   (`carried_for`: the decision's id and its `previous` with `q` and `features`, read as of the carrying trace's own
