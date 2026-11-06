@@ -37,6 +37,17 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Teacher TE2-log (migration 247), `teacher/te2-log`, 2026-11-05
+
+Renamed from `migration_head_246` on TE2-log's branch (base: main at `c2e810f940`).
+`247_lesson_episodes.sql` (two RECEIPT tables, `lesson_episodes` and `lesson_activity_intervals`, empty, with their
+indexes and guards) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked,
+sanitized `migration_head_246/state.sqlite` outside the checkout, under the scratch-copy upgrade allowance, which
+applied `[247]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1),
+`integrity_check` ok and `foreign_key_check` empty; written into place from a backup-API copy in rollback mode,
+with no companion files. No row changes (only `schema_migrations` gains 247). The head holds 229 through 247. If
+another branch lands 247 first, this migration is renumbered and the head rebuilt from main's head the same way.
+
 ## Router objective RO4 (migration 246), `router/ro4-objective`, 2026-11-05
 
 Renamed from `migration_head_245` on RO4's branch (base: RO2's branch at `cf1019a3cf`).

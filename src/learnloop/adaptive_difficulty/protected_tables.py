@@ -147,6 +147,10 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("lesson_weight_state", DENIED),
     ("lesson_weight_trace", DENIED),
     ("lessons", DENIED),
+    # Teacher TE2-log (migration 247): the episode log and the lesson screen's intervals, DENIED as TE1's
+    # lesson tables are (spec_teacher_v1 §18.1; TE3a moves the lesson tables it reads).
+    ("lesson_activity_intervals", DENIED),
+    ("lesson_episodes", DENIED),
     ("learner_text_gap_reversals", DENIED),
     # Router objective RO2 (§6.3, rung H3 "gaps"): the gaps named from the learner's own text; a row
     # names its attempt, its item and what it matched or made.
