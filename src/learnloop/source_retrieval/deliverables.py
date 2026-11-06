@@ -69,7 +69,13 @@ from pydantic import Field
 
 from learnloop.ai.execution import call_labels, content_key, gate_model_requests
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded, spend_envelopes
+from learnloop.ai.spend import (
+    SpendBudget,
+    SpendCaps,
+    SpendLimitExceeded,
+    is_subscription_transport,
+    spend_envelopes,
+)
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources import exam_material as EM
@@ -196,6 +202,11 @@ def _is_plan_type(profile_type: Any) -> bool:
     return str(profile_type or "").strip().lower() == CHATGPT_PLAN_PROFILE_TYPE
 
 
+#: Teacher TE2's typed goal (spec_teacher_v1 rev 5 §24 row TE2: "Plan route only, nothing metered"; Codex review
+#: F5): a metered route or client is sent nothing.
+SUBSCRIPTION_ONLY_REASON = "not_subscription_route"
+
+
 class ChatRoute:
     """One C0b route's pinned plan for one call (RW7a's ``JudgeRoute`` shape).
 
@@ -203,10 +214,15 @@ class ChatRoute:
     closing the C1 round-5 ruling's follow-up (a)): the planned route must be
     the subscription ChatGPT plan (``problem``), and so must the exact client
     that sends (``ask`` checks the client it resolved, or was given, before
-    any request): anything else is ``not_plan_route`` and sends nothing."""
+    any request): anything else is ``not_plan_route`` and sends nothing.
+
+    ``subscription_only`` (teacher TE2's typed goal): the same two checks for
+    any subscription transport (the plan or Codex): a metered route or client
+    is ``not_subscription_route`` and sends nothing."""
 
     def __init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None,
-                 envelope: Any | None, label: str, plan_only: bool = False) -> None:
+                 envelope: Any | None, label: str, plan_only: bool = False,
+                 subscription_only: bool = False) -> None:
         self.vault = vault
         self.repository = repository
         self.task = task
@@ -214,15 +230,22 @@ class ChatRoute:
         self.envelope = envelope
         self.label = label
         self.plan_only = plan_only
+        self.subscription_only = subscription_only
         self.route: PaidRoute = plan_route(vault, task, client)  # type: ignore[arg-type]
         self.client: Any | None = None
         self.calls: PaidCalls | None = None
+
+    def _subscription_only_refusal(self) -> RouteUnavailable:
+        return RouteUnavailable(SUBSCRIPTION_ONLY_REASON, f"{self.label[:1].upper()}{self.label[1:]} is read on your "
+                                                          "ChatGPT plan only, and the plan isn't ready.")
 
     def plan_only_problem(self) -> RouteUnavailable | None:
         """With ``plan_only``, why the planned route may not be asked (None: it may)."""
 
         if self.plan_only and not _is_plan_type(self.route.profile_type):
             return RouteUnavailable(PLAN_ONLY_REASON, f"Only the ChatGPT plan is asked automatically for {self.label}.")
+        if self.subscription_only and not self.subscription:
+            return self._subscription_only_refusal()
         return None
 
     @property
@@ -267,6 +290,8 @@ class ChatRoute:
             # The exact client that would send, not only the planned route: a
             # resolution that lands anywhere but the plan sends nothing.
             raise RouteUnavailable(PLAN_ONLY_REASON, f"Only the ChatGPT plan is asked automatically for {self.label}.")
+        if self.subscription_only and not is_subscription_transport(client=self.client):
+            raise self._subscription_only_refusal()
         budget = SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS), subscription=self.subscription)
         self.calls = PaidCalls(route=self.route, budget=budget,
                                price_per_million=self.vault.config.source_retrieval.llm_price_per_million,
@@ -1527,8 +1552,10 @@ def resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client:
         cached = store.resolver_state(connection, key, state_key) if store.tables_present(connection) else None
     if cached is not None:
         return ScopeResult("fresh", resolution=cached)
+    # §24 row TE2: the plan route only, nothing metered (Codex review F5).
     route = ChatRoute(vault, repository, SCOPE_ROUTE, client=client,
-                      envelope=daily_envelope(vault, repository, clock=clock), label="your lesson's goal")
+                      envelope=daily_envelope(vault, repository, clock=clock), label="your lesson's goal",
+                      subscription_only=True)
     try:
         output = route.ask(prompt, ScopeResolutionV1, owner_id=f"{key}:{state_key[:16]}",
                            prompt_version=SCOPE_PROMPT_VERSION)

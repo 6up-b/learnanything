@@ -780,6 +780,11 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
 #: accepted turn's effect (``refs.turn``: a withdrawn check is one) is part of that turn's action, never a
 #: boundary (TE1 F16, followups batch 5 D: resume after a completed help action made one more call).
 _CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn")
+#: Teacher TE2 (Codex review F4): a probe's result and the learner's "Teach it anyway" wait for the teacher too. A
+#: probe retired otherwise (the lesson's close, an unservable item) owes no call: the lesson goes on at the
+#: learner's next step.
+_TE2_CALLS_TEACHER = (PR.RESULT,)
+_TE2_RETIREMENTS_CALLING_TEACHER = ("teach_anyway",)
 
 
 def _boundary(entry: Mapping[str, Any]) -> bool:
@@ -787,6 +792,10 @@ def _boundary(entry: Mapping[str, Any]) -> bool:
 
     if (entry.get("refs") or {}).get("turn"):
         return False
+    if entry["action"] in _TE2_CALLS_TEACHER:
+        return True
+    if entry["action"] == PR.RETIRED:
+        return (entry.get("payload") or {}).get("reason") in _TE2_RETIREMENTS_CALLING_TEACHER
     return entry["action"] in _CALLS_TEACHER or entry["action"] == "learner_stop"
 
 
@@ -875,7 +884,10 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
     state = load_state(repository, lesson_id)
     if state.closed:
         return view(vault, repository, lesson_id)
-    if action in TE2_LEARNER_ACTIONS and not _te2_now(vault, state):
+    # Today's "Close it" (§11.8) lists every open lesson once TE2 serves, a TE1 lesson left open before the upgrade
+    # too, so it closes any of them (Codex review, §11.8 row); the probe actions are a TE2 lesson's only.
+    te2_ok = T2.on(vault) if action == "close" else _te2_now(vault, state)
+    if action in TE2_LEARNER_ACTIONS and not te2_ok:
         raise LessonError("validation_error", f"Unknown lesson action {action!r}.")
     if (T2.lesson_te2(state) and action in ("reply", "answer_prediction", "answer_check")
             and PR.open_probe(state.turns) is not None):
@@ -2363,6 +2375,10 @@ def _view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, An
     the feed, and the topics the lesson added. Nothing here once TE2 is switched off: an unanswered probe then waits,
     and the lesson's close retires it."""
 
+    if not state.closed and T2.on(vault) and PR.finish_recorded(vault, repository, state.lesson, state.turns,
+                                                                 clock=clock):
+        # Codex review F3: a recorded answer whose result an interrupted write never appended is delivered now.
+        state = load_state(repository, state.lesson_id)
     feed = out["feed"]
     for entry in state.turns:
         data = entry.get("payload") or {}

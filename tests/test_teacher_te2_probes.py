@@ -43,7 +43,8 @@ class ProbeAuthor(StructuredClientFake):
 
     model = "fake-frontier"
     provider_name = "fake_author"
-    provider_type = "fake"
+    # The subscription plan: a lesson probe is never written on a metered client (§24 row TE2, Codex review F5).
+    provider_type = "chatgpt_plan"
 
     def __init__(self, *, prompt: str = "For the map [[3,0],[0,7]], name a vector it only stretches, and by how much.",
                  error: Exception | None = None) -> None:

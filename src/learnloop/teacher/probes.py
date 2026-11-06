@@ -306,6 +306,10 @@ def serve(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequenc
     probe = next((p for p in probes(turns) if p.status in ("served", "ready")), None)
     if probe is None or not probe.item_id:
         return None
+    if probe.status == "served" and repository.fetch_practice_attempt(probe.attempt_id) is not None:
+        # Its answer is recorded (an interrupted earlier write): never retired unused; :func:`finish_recorded`
+        # delivers its result.
+        return None
     loaded = vault if probe.item_id in vault.practice_items else load_vault(vault.root)
     item = loaded.practice_items.get(probe.item_id)
     claim = identity.claim_serve(repository, probe.item_id, surface=LESSON_SURFACE, presentation_id=None,
@@ -346,13 +350,33 @@ def retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequen
         _close_episode(repository, lesson_id, probe, closed_at=now, reason="retired", outcome={})
 
 
-def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe: Probe, *, answer: str,
+def _current(connection: Any, lesson_id: str, ref: str) -> Probe | None:
+    return next((p for p in probes(store.turns(connection, lesson_id)) if p.ref == ref), None)
+
+
+def _stored_feedback(repository: Any, attempt_id: str) -> str | None:
+    """The grader's feedback an already-recorded attempt was shown with (its saved completion), or None."""
+
+    try:
+        saved = repository.attempt_completion(attempt_id) or {}
+    except Exception:  # noqa: BLE001 - the feedback is a courtesy; the result stands without it
+        return None
+    result = saved.get("result") if isinstance(saved, Mapping) else None
+    return (result or {}).get("feedback_md") if isinstance(result, Mapping) else None
+
+
+def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe: Probe, *, answer: str | None,
                   tap: int | None, grading_client: Any, grading_source: str,
                   clock: Clock | None = None) -> dict[str, Any]:
     """The learner's answer to the open probe: blind-graded (the answer only), one ``diagnostic_probe`` attempt at
-    full evidence through the attempts path, its independence from the reveal ledger's topic-wide check, the item
-    retired (never served again), the ``probe_result`` entry and the episode closed ``answered``. Returns the
-    result as the teacher and the screen read it."""
+    full evidence through the attempts path, its independence from the reveal ledger's topic-wide check (carried
+    into the attempt's activity class), the item retired (never served again), the ``probe_result`` entry and the
+    episode closed ``answered``, all in ONE transaction (Codex review F3). Returns the result as the teacher and the
+    screen read it.
+
+    Idempotent: a probe already answered returns its recorded result; an attempt already recorded under the probe's
+    attempt id (an interrupted earlier write) is finished from the stored row, with no second grade and no second
+    insert. ``answer`` None (the view's recovery) never grades: only such a stored attempt is finished."""
 
     from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, apply_attempt
     from learnloop.attempts.grading import vault_grading_calibration_identity
@@ -362,38 +386,80 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
     from learnloop.teacher import episodes as E
     from learnloop.vault.loader import load_vault
 
+    lesson_id = str(lesson["id"])
+    with repository.connection() as connection:
+        current = _current(connection, lesson_id, probe.ref)
+    if current is not None and current.status == "answered":
+        return dict(current.result)
     loaded = vault if probe.item_id in vault.practice_items else load_vault(vault.root)
     item = loaded.practice_items[str(probe.item_id)]
-    grade, run_id = CK.grade_answer(loaded, repository, grading_client, item=item, attempt_id=probe.attempt_id,
-                                    answer=answer, clock=clock)
-    now = utc_now_iso(clock)
-    # The reveal ledger's topic-wide check, as of this answer (FG1 records an exposed probe answer the same way).
-    independence = production_admissibility(repository, practice_item_id=item.id,
-                                             learning_object_id=item.learning_object_id, produced_at=now, clock=clock)
+    grade = run_id = None
+    if repository.fetch_practice_attempt(probe.attempt_id) is None:
+        if answer is None:
+            raise ValueError("no recorded answer to finish")
+        # The model call, outside any write transaction.
+        grade, run_id = CK.grade_answer(loaded, repository, grading_client, item=item, attempt_id=probe.attempt_id,
+                                        answer=answer, clock=clock)
     max_points = max(int(getattr(loaded.rubric_for_item(item), "max_points", 1) or 1), 1)
-    correctness = max(0.0, min(1.0, float(grade.rubric_score) / max_points))
     with repository.atomic():
-        apply_attempt(loaded, repository, ApplyAttemptInput(
-            draft=AttemptDraft(practice_item_id=item.id, learner_answer_md=answer, attempt_type=ATTEMPT_TYPE,
-                               hints_used=0, answer_confidence=tap, entry_surface=ENTRY_SURFACE,
-                               evidence_origin=EVIDENCE_ORIGIN, awaits_completion=False),
-            attempt_id=probe.attempt_id, grade=grade, grading_source=grading_source, grading_agent_run_id=run_id,
-            grader_identity=vault_grading_calibration_identity(loaded),
-        ), clock=clock)
-    identity.retire(repository, item.id, reason="lesson_probe_answered", clock=clock)
-    result = {"probe_ref": probe.ref, "node": probe.node, "attempt_id": probe.attempt_id, "item_id": item.id,
-              "correctness": correctness,
-              "result": "right" if correctness >= 1.0 else ("wrong" if correctness <= 0.0 else "partly right"),
-              "grader_feedback": grade.feedback_md, "independent": bool(independence.admissible),
-              "independence": independence.reason}
-    with repository.atomic():
-        store.append_turn(repository.connection(), lesson_id=str(lesson["id"]), actor="code", action=RESULT,
+        connection = repository.connection()
+        current = _current(connection, lesson_id, probe.ref)
+        if current is not None and current.status == "answered":
+            return dict(current.result)  # a concurrent submit finished it first
+        stored = repository.fetch_practice_attempt(probe.attempt_id)
+        now = utc_now_iso(clock)
+        # The reveal ledger's topic-wide check, as of this answer (FG1 records an exposed probe answer the same
+        # way; a stored attempt as of its own instant), read inside the write lock so no reveal lands between it
+        # and the attempt.
+        produced_at = str(stored["created_at"]) if stored is not None else now
+        independence = production_admissibility(repository, practice_item_id=item.id,
+                                                 learning_object_id=item.learning_object_id,
+                                                 produced_at=produced_at, clock=clock)
+        if stored is None:
+            assert grade is not None
+            correctness = max(0.0, min(1.0, float(grade.rubric_score) / max_points))
+            feedback = grade.feedback_md
+            apply_attempt(loaded, repository, ApplyAttemptInput(
+                draft=AttemptDraft(practice_item_id=item.id, learner_answer_md=str(answer), attempt_type=ATTEMPT_TYPE,
+                                   hints_used=0, answer_confidence=tap, entry_surface=ENTRY_SURFACE,
+                                   evidence_origin=EVIDENCE_ORIGIN, awaits_completion=False),
+                attempt_id=probe.attempt_id, grade=grade, grading_source=grading_source, grading_agent_run_id=run_id,
+                grader_identity=vault_grading_calibration_identity(loaded),
+                diagnostic_exposure=None if independence.admissible else (independence.reason or "exposed"),
+            ), clock=clock)
+        else:
+            correctness = max(0.0, min(1.0, float(stored.get("correctness") or 0.0)))
+            feedback = _stored_feedback(repository, probe.attempt_id)
+        identity.retire(repository, item.id, reason="lesson_probe_answered", clock=clock)
+        result = {"probe_ref": probe.ref, "node": probe.node, "attempt_id": probe.attempt_id, "item_id": item.id,
+                  "correctness": correctness,
+                  "result": "right" if correctness >= 1.0 else ("wrong" if correctness <= 0.0 else "partly right"),
+                  "grader_feedback": feedback, "independent": bool(independence.admissible),
+                  "independence": independence.reason}
+        store.append_turn(repository.connection(), lesson_id=lesson_id, actor="code", action=RESULT,
                           validation="ok", refs={"attempt": probe.attempt_id, "item": item.id}, payload=result,
                           created_at=now)
-    if E.on(vault):
-        _close_episode(repository, str(lesson["id"]), probe, closed_at=now, reason="answered",
-                       outcome={"outcome_attempt_id": probe.attempt_id, "outcome_correctness": correctness})
+        if E.on(vault):
+            _close_episode(repository, lesson_id, probe, closed_at=now, reason="answered",
+                           outcome={"outcome_attempt_id": probe.attempt_id, "outcome_correctness": correctness})
     return result
+
+
+def finish_recorded(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], *,
+                    clock: Clock | None = None) -> bool:
+    """The view's recovery (no model call): a served probe whose attempt is already recorded but whose result is
+    not (an interrupted write before Codex review F3's one transaction) is finished from the stored attempt, so
+    its result reaches the feed and the teacher (``probe_result`` is a teacher-call boundary). Returns whether one
+    was finished."""
+
+    if lesson.get("closed_at") is not None:
+        return False
+    probe = next((p for p in probes(turns) if p.status == "served"), None)
+    if probe is None or not probe.item_id or repository.fetch_practice_attempt(probe.attempt_id) is None:
+        return False
+    record_answer(vault, repository, lesson, probe, answer=None, tap=None, grading_client=None, grading_source="",
+                  clock=clock)
+    return True
 
 
 def transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -425,6 +491,7 @@ def transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None:
 
 __all__ = [
     "ANSWER", "ATTEMPT_TYPE", "NOT_PREPARED", "PREPARING", "Probe", "READY", "REFUSAL_REASONS", "REFUSED", "REQUEST",
-    "RESULT", "RETIRED", "SERVED", "contract_problem", "logged_fields", "open_probe", "pending_request", "probes",
+    "RESULT", "RETIRED", "SERVED", "contract_problem", "finish_recorded", "logged_fields", "open_probe",
+    "pending_request", "probes",
     "record_answer", "record_ready", "record_refused", "request", "retire", "serve", "transcript_entry", "unanswered",
 ]

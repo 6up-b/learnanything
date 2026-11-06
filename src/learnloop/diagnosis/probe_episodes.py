@@ -2393,6 +2393,31 @@ def _dual_write_probe_grade(
         pass
 
 
+def dual_write_presentationless_probe_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    practice_item_id: str,
+    attempt_id: str,
+    grading_source: str,
+    clock: Clock | None = None,
+) -> None:
+    """The same fail-safe dual-write for a probe answer with no presentation and no instrument (teacher TE2's
+    lesson probe, ``attempts.attempts._record_lesson_probe``): a raw grade event and calibrated interpretation on a
+    diagnostic administration, so the canonical projection banks the answer's reliable mass (Codex review F1)."""
+
+    _dual_write_probe_grade(
+        vault,
+        repository,
+        instrument=None,
+        practice_item_id=practice_item_id,
+        attempt_id=attempt_id,
+        grading_source=grading_source,
+        observed_outcome="graded",
+        clock=clock,
+    )
+
+
 def _record_presentation_observation(
     vault: LoadedVault,
     repository: Repository,

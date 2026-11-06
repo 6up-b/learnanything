@@ -524,6 +524,11 @@ class ApplyAttemptInput:
     # only from the successor ``REPLAY_LEDGER_ALGORITHM_VERSION`` on, with
     # ``replay.ledger_bounded`` on (``replay_reads_bounded_ledger``).
     replay_ledger_position: tuple[str, str] | None = None
+    # Teacher TE2 (spec_teacher_v1 rev 5 §11.3): a lesson probe's topic-wide exposure, the reveal ledger's
+    # reason (``production_admissibility``) when the lesson showed text on the probe's topic before the answer;
+    # None when it is independent. Read only by :func:`_record_lesson_probe` (live, presentationless lesson
+    # probes): the attempt's activity class. The class is a RAW_LEDGER row, so replay reads it back.
+    diagnostic_exposure: str | None = None
 
 
 @dataclass(frozen=True)
@@ -3026,6 +3031,63 @@ def _dual_write_grade_channel(
         )
 
 
+def _record_lesson_probe(
+    vault: LoadedVault,
+    repository: Repository,
+    attempt: ApplyAttemptInput,
+    application: "AttemptApplication",
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Teacher TE2 (spec_teacher_v1 rev 5 §11.3): a lesson probe's answer, which has no probe presentation, as
+    evidence from the first serve. Two facts a presentation's answer gets from the probe-episode path, written
+    here before this attempt's canonical projection reads them (Codex review F1, F2):
+
+    - its activity class: a pure diagnostic, or an instructional one when the lesson had shown text on the
+      probe's topic first (``attempt.diagnostic_exposure``); so an exposed answer counts as assisted and is no
+      qualifying cold outcome (``learner.lesson_weight.qualifying_outcomes``);
+    - its calibrated grade interpretation on a diagnostic administration (the probe path's dual-write, without
+      an instrument), without which the projection gives the answer zero reliable mass (P0.3 §4.3).
+
+    Live only: both are RAW_LEDGER rows, so replay reads them back and folds the same. Every other
+    presentationless ``diagnostic_probe`` answer (FG1d's incidental case) is unchanged."""
+
+    from learnloop.causal_activity_policy import (
+        LESSON_PROBE_EVIDENCE_ORIGIN,
+        LESSON_PROBE_EXPOSED_SOURCE,
+        LESSON_PROBE_SOURCE,
+    )
+
+    draft = attempt.draft
+    if (
+        attempt.replace_existing
+        or draft.attempt_type != "diagnostic_probe"
+        or draft.evidence_origin != LESSON_PROBE_EVIDENCE_ORIGIN
+        or application.attempt_record.get("probe_presentation_id") is not None
+    ):
+        return
+    exposed = attempt.diagnostic_exposure is not None
+    repository.record_causal_activity_classification(
+        attempt_id=application.result.attempt_id,
+        contamination_class="instructional_diagnostic" if exposed else "pure_diagnostic",
+        near_clone=False,
+        near_clone_basis="no_source_item",
+        source=LESSON_PROBE_EXPOSED_SOURCE if exposed else LESSON_PROBE_SOURCE,
+        detail={"practice_item_id": draft.practice_item_id, "exposure": attempt.diagnostic_exposure},
+        clock=clock,
+    )
+    from learnloop.diagnosis.probe_episodes import dual_write_presentationless_probe_grade
+
+    dual_write_presentationless_probe_grade(
+        vault,
+        repository,
+        practice_item_id=draft.practice_item_id,
+        attempt_id=application.result.attempt_id,
+        grading_source=attempt.grading_source,
+        clock=clock,
+    )
+
+
 def _signature_matched(attempt: ApplyAttemptInput) -> bool:
     """``raw_grade_events.signature_matched`` for this grade.
 
@@ -3231,6 +3293,8 @@ def _apply_attempt_in_transaction(
         keep_content_state=attempt_keeps_content_state(vault),
     )
     _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
+    # Teacher TE2: a lesson probe's class and interpretation, before the projection below reads them.
+    _record_lesson_probe(vault, repository, attempt, application, clock=clock)
     # Meas §3.A6: append the grader's trace observations. After persistence
     # because the FK needs the attempt row, and before `_project_canonical_belief`
     # below because A1 guard 1 reads them to decide which supporting targets earn

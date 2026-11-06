@@ -8,7 +8,8 @@ physical runs, every call recorded as ``followup_generation``):
    ``protection_unavailable``) and a reading that reproduces one stops the probe before anything is sent
    (``reserved_match``). The author's context is FG1's builder's: only admissible, unreserved questions and a summary
    that quotes none; never the learner's answers, never a reserved question or its solution.
-2. **Authoring** is FG1's one operation (``followup_probe_author``, the frontier route) with the readings as the
+2. **Authoring** is FG1's one operation (``followup_probe_author``, the frontier route; on the subscription plan
+   only: a metered client is sent nothing, §24 row TE2) with the readings as the
    rival readings: two or more are rivals; one is "held or not", the reading the rival of full credit (FG1 §4.3's
    family-pattern contract binds to FG1's probe episodes, which a lesson has none of: the review file records it).
    FG1's output checks run unchanged (the criterion and prediction contracts, the manipulation contract's axes, no
@@ -107,6 +108,7 @@ def run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: 
     """One lesson job: a typed refusal recorded in the lesson, or the admitted question. A transport failure or a
     route not ready raises (the worker's bounded retry); everything else ends here."""
 
+    from learnloop.ai.spend import is_subscription_transport
     from learnloop.content.authoring.practice_leakage import reserved_findings
     from learnloop.followup_run import admission, authoring
     from learnloop.followup_run.jobs import GenerationDeferred, _author_client
@@ -154,6 +156,12 @@ def run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: 
     client = _author_client(vault, clients)
     if client is None:
         raise GenerationDeferred("author_route_not_ready")
+    if not is_subscription_transport(client=client):
+        # §24 row TE2 (Codex review F5): a lesson's probe is written on the subscription plan only, nothing
+        # metered. The exact client that would send is checked (a granted fallback or an OpenRouter routing is
+        # metered): it is sent nothing, and the teacher is told "couldn't prepare that question".
+        refused("route_unavailable")
+        return
     authored = authoring.request_authored_probe(client, context)
     try:
         checked = authoring.check_output(vault, repository, authored, refs=refs, learning_object_id=lo)
