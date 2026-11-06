@@ -186,6 +186,9 @@ EPISODE_OPEN_COLUMNS: tuple[str, ...] = (
 EPISODE_CLOSE_COLUMNS: tuple[str, ...] = (
     "closed_at", "close_reason", "active_seconds", "elapsed_seconds", "unreported_seconds", "missing_intervals",
     "minutes_source", "outcome_attempt_id", "outcome_correctness", "recheck_attempt_id", "gap_result", "lo_undo_state",
+    # Teacher TE2 (migration 248): a probe's refusal reason, and its generated item (unknown at the opening; set
+    # once with the close, from NULL only).
+    "refusal_reason", "generated_item_id",
 )
 
 
