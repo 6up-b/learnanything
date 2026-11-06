@@ -4050,12 +4050,25 @@ class RouterLessonSuggestionsConfig(BaseModel):
     learned; a draw it binds shows no card and is logged with
     ``ceiling_bound``. The card is also drawn at most once a day (spec §19),
     so the default 3 binds only if that rule is ever relaxed.
+
+    ``in_objective`` is the kill switch of teacher TE3b's successor
+    ``LESSON_OFFERS_ALGORITHM_VERSION`` (spec_teacher_v1 rev 5 §15.1a): on (at
+    that tag or later, with ``enabled`` and wherever the router objective
+    serves the plan), a lesson offer is a candidate of the objective at a
+    reversible plan block boundary (one card at a time, its acceptance model a
+    sensor, drawn from the logged mix and answered on that decision), lesson
+    minutes count on the objective's clock, LOs with a pending lesson delayed
+    check join its population, and the Today-open card above is drawn only
+    where the objective does not serve. ``ceiling_per_day`` binds across the
+    day's offers and cards together. Off, or below the tag: TE1b's daily card
+    and the objective's predecessor support exactly.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = True
     ceiling_per_day: int = Field(default=3, ge=0)
+    in_objective: bool = True
 
 
 class RouterConfig(BaseModel):

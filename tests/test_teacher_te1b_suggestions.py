@@ -465,9 +465,9 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
 
 
 def test_the_successor_is_the_latest_link_after_followups_nov2():
-    assert SUCCESSOR_CHAIN[-12:-9] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.52"
-    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52"})
+    assert SUCCESSOR_CHAIN[-13:-10] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.53"
+    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53"})
 
 
 def test_the_upgrade_from_teacher_te1_and_its_refusals(tmp_path):
@@ -495,8 +495,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys():
@@ -518,7 +518,7 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
     for version, main in mains.items():
         config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
         dumped = config.model_dump(mode="json", exclude_none=False)
-        assert dumped["router"].pop("lesson_suggestions") == {"enabled": True, "ceiling_per_day": 3}
+        assert dumped["router"].pop("lesson_suggestions") == {"enabled": True, "ceiling_per_day": 3, "in_objective": True}
         # Teacher TE2-log (no successor): its teacher.episode_log moved them too.
         assert dumped["teacher"].pop("episode_log") is True
         from tests.test_teacher_te2_successor import drop_te2_keys
@@ -527,6 +527,7 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         from tests.test_te3a_successor import drop_te3a_keys
 
         drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
+        # (teacher TE3b's in_objective is in [router.lesson_suggestions], popped whole above)
         # Reader RW5d P5 landed after TE1b: its [figures] prefetch keys and route moved them too.
         # Reader RW5c P1 landed after it too: its kill switch moved them.
         dumped["figures"].pop("checked_labels_enabled")

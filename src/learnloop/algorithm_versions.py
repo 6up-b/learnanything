@@ -838,6 +838,23 @@ TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.51"
 # and TE2 (mvp-0.51) landed.
 LESSON_OPPORTUNITY_ALGORITHM_VERSION = "mvp-0.52"
 
+# mvp-0.53 (teacher TE3b, a router successor; owner decisions 2026-11-05,
+# docs/specs/spec_teacher_v1.md rev 5 §15.1a, §23.1 items 1 and 5, §24), on top
+# of mvp-0.52 (the chain stays linear). Lesson offers are candidates of the
+# router objective: at a reversible plan_block boundary where the objective
+# serves, TE1b's best lesson candidate joins the support (one offer a decision,
+# under the ceiling), valued by RO4's offer branches with TE1b's acceptance
+# model as a sensor and TE3a's lesson curve, shown to the LLM policy as one more
+# option of its existing request, drawn from the logged mix and answered on that
+# decision; lesson minutes count on the objective's clock; LOs with a pending
+# lesson delayed check join its population (an objective-definition change
+# point); RO6's features gain a lesson indicator (a features-version change
+# point); TE1b's Today-open card is drawn only where the objective does not
+# serve. Kill switch ``router.lesson_suggestions.in_objective`` (off, or below
+# the tag: TE1b's daily card and RO4's support exactly, mvp-0.52 byte for
+# byte). No migration. Expected mvp-0.53 at landing (one constant).
+LESSON_OFFERS_ALGORITHM_VERSION = "mvp-0.53"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -889,6 +906,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
+    LESSON_OFFERS_ALGORITHM_VERSION,
 )
 
 
@@ -1136,6 +1154,12 @@ TEACHER_PROBES_VERSIONS: frozenset[str] = successors_from(TEACHER_PROBES_ALGORIT
 # ``adaptive_difficulty.lesson_opportunities``. Every later successor keeps
 # them; gates must use this set, never equality.
 LESSON_OPPORTUNITY_VERSIONS: frozenset[str] = successors_from(LESSON_OPPORTUNITY_ALGORITHM_VERSION)
+
+# Versions whose router objective offers lessons as plan blocks, counts lesson
+# minutes on its clock and holds LOs with a pending lesson check in its
+# population (teacher TE3b), behind ``router.lesson_suggestions.in_objective``.
+# Every later successor keeps them; gates must use this set, never equality.
+LESSON_OFFERS_VERSIONS: frozenset[str] = successors_from(LESSON_OFFERS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

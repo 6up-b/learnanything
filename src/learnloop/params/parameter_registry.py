@@ -2034,6 +2034,12 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("router.lesson_suggestions.ceiling_per_day"), "structural", "constraint",
         "keep: an anti-nagging guardrail on shown suggestions a day (spec §18.4: never learned; a bind is logged "
         "on the decision as ceiling_bound, and a ceiling that binds often means the acceptance model is wrong)."),
+    # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): its successor's kill switch.
+    _ConfigRule(_exact("router.lesson_suggestions.in_objective"), "structural", "operational",
+        "kill switch for teacher TE3b's successor: lesson offers are candidates of the router objective at a "
+        "reversible plan block boundary, lesson minutes count on its clock, LOs with a pending lesson check join its "
+        "population, and TE1b's Today-open card is drawn only where the objective does not serve; off (or below the "
+        "tag) TE1b's daily card and RO4's support exactly (mvp-0.52)."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the
