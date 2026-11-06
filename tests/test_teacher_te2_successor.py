@@ -1,8 +1,9 @@
 """Teacher TE2's successor (spec_teacher_v1 rev 5 §18.3, §24 row TE2): one constant, its defaults, its gate, its upgrade.
 
-The upgrade is the chain's next journalled link: from mvp-0.49 (or mvp-0.9 onwards through the chain), one
+The upgrade is the chain's next journalled link: from mvp-0.50 (or mvp-0.9 onwards through the chain), one
 transaction with the projection's activation under the tag and the config's publication last. Nothing already
-recorded changes. ``teacher.probes = false`` (or below the tag) serves mvp-0.49's lessons. Fakes only; no model call.
+recorded changes. ``teacher.probes = false`` (or below the tag) serves mvp-0.50's lessons. Fakes only; no model call.
+Built as mvp-0.50 on mvp-0.49 and renumbered at landing to mvp-0.51 on the router follow-up batch's mvp-0.50.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import pytest
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
-    ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
+    ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     TEACHER_PROBES_ALGORITHM_VERSION,
     TEACHER_PROBES_VERSIONS,
@@ -31,22 +32,22 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 
 TAG = TEACHER_PROBES_ALGORITHM_VERSION
-OLD = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+OLD = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 #: TE2's keys under [teacher] (modelled defaults, in every snapshot, inert below the tag).
 TE2_KEYS = ("probes", "placement")
 
 
 def drop_te2_keys(dumped: dict) -> dict:
-    """An earlier successor's frozen defaults digest: TE2's keys (in every snapshot, inert below mvp-0.50) dropped."""
+    """An earlier successor's frozen defaults digest: TE2's keys (in every snapshot, inert below mvp-0.51) dropped."""
 
     assert dumped["teacher"].pop("probes") is True
     assert dumped["teacher"].pop("placement") == {"max_probes": 8}
     return dumped
 
 
-def test_the_successor_is_one_constant_after_ro6_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.49"
-    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
+def test_the_successor_is_one_constant_after_the_router_followups_and_the_latest():
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.50"
+    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
     assert TEACHER_PROBES_VERSIONS == frozenset({TAG})
 
 
@@ -62,13 +63,14 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.49's value at this branch's base (5565bede25), frozen here: dropping TE2's keys reproduces it.
+    # mvp-0.50's value on main at the landing (516db1d862, the router follow-up batch's own mvp-0.50 snapshot),
+    # frozen here: dropping TE2's keys reproduces it.
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
     assert dumped["teacher"].pop("probes") is True
     assert dumped["teacher"].pop("placement") == {"max_probes": 8}
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "cb3a4f907f667d77deb1b53eb92c2e7b57f836443f7058de2a5a6e2b431e2e48"
+    assert digest == "780d5afa78fc92eae0911c381a364428f126dabd594125f7d63f423a4638ae59"
 
 
 @pytest.mark.parametrize("path", ["teacher.probes", "teacher.placement.max_probes"])
@@ -98,8 +100,8 @@ def test_the_openers_install_this_links_completion():
 
     assert "learnloop.teacher_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.teacher_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    # It hands an earlier link's journal to RO6's completion, which hands it on in turn.
-    assert "learnloop.router_learned_tail_upgrade import complete_interrupted_activation" in inspect.getsource(
+    # It hands an earlier link's journal to the follow-up batch's completion, which hands it on in turn.
+    assert "learnloop.router_followups_upgrade import complete_interrupted_activation" in inspect.getsource(
         teacher_probes_upgrade)
 
 
@@ -115,9 +117,9 @@ def test_the_upgrade_publishes_the_tag_and_completes_once(tmp_path):
 
 def test_the_upgrade_chains_from_an_older_link(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.47")
+    set_algorithm_version(paths, "mvp-0.48")
     result = upgrade_to_teacher_probes(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.47", TAG)
+    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.48", TAG)
     assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
 
 

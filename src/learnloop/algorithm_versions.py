@@ -797,10 +797,18 @@ ROUTER_CALIBRATION_ALGORITHM_VERSION = "mvp-0.48"
 # switch: off, or below the tag, mvp-0.48 serves exactly.
 ROUTER_LEARNED_TAIL_ALGORITHM_VERSION = "mvp-0.49"
 
-# mvp-0.50 (teacher TE2; spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8,
-# §18.3, §24; docs/reviews/teacher-te2.md), on top of mvp-0.49 (the chain
-# stays linear). Built on main's mvp-0.49 while the router follow-up batch
-# lands as mvp-0.50: ONE constant, renumbered at landing (expected mvp-0.51).
+# mvp-0.50 (the router objective's follow-up batch after RO6; owner decisions
+# 2026-11-03 to 2026-11-05; docs/specs/spec_router_objective_v1.md §8.11,
+# §9.1, §10.1; docs/reviews/router-followups-nov5.md), on top of mvp-0.49 (the
+# chain stays linear): the follow-up batch's serving changes, each behind its
+# own [router_objective] switch (the review file lists them); every one off,
+# or below the tag, mvp-0.49 serves exactly.
+ROUTER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.50"
+
+# mvp-0.51 (teacher TE2; spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8,
+# §18.3, §24; docs/reviews/teacher-te2.md), on top of mvp-0.50 (the chain
+# stays linear). Built on main's mvp-0.49 as mvp-0.50 and renumbered at its
+# landing, after the router follow-up batch landed as mvp-0.50.
 # What it changes: what is served (a lesson's teacher may ask for a generated
 # single-use probe, FG1's generation path with a lesson origin, served cold
 # inside the lesson and never again), what evidence exists (its blind-graded
@@ -813,7 +821,7 @@ ROUTER_LEARNED_TAIL_ALGORITHM_VERSION = "mvp-0.49"
 # ``teacher.probes`` (off, or below the tag: TE1's and TE2-log's lessons byte
 # for byte), with the existing ``teacher.enabled``. Replay re-applies the
 # probe's attempt as an existing type; nothing new is derived.
-TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.50"
+TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.51"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -863,6 +871,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
+    ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
 )
 
@@ -1094,6 +1103,11 @@ ROUTER_CALIBRATION_VERSIONS: frozenset[str] = successors_from(ROUTER_CALIBRATION
 # ``router_objective.learned_tail``. Every later successor keeps them; gates
 # must use this set, never equality.
 ROUTER_LEARNED_TAIL_VERSIONS: frozenset[str] = successors_from(ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+
+# Versions that serve the router objective's follow-up batch (mvp-0.50), each
+# part behind its own ``router_objective`` switch. Every later successor keeps
+# them; gates must use this set, never equality.
+ROUTER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
 
 # Versions whose lessons may ask for generated single-use probes, file gaps from the learner's words, open on a
 # typed goal and offer "Continue your lesson" (teacher TE2), behind ``teacher.probes``. Every later successor keeps

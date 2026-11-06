@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
+source_commit_timestamp: "2026-11-06T03:42:12-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 248
+schema_head: 247
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"

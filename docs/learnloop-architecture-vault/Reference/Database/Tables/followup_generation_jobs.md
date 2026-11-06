@@ -3,13 +3,13 @@ title: "followup_generation_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
+source_commit_timestamp: "2026-11-06T03:42:12-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_generation_jobs"
   - "table followup_generation_jobs"
-schema_head: 248
+schema_head: 247
 table_name: "followup_generation_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/241_followup_generate_serve.sql"
   - "src/learnloop/db/stores/followup_serve.py"
-  - "src/learnloop/followup_run/lesson_probe.py"
   - "src/learnloop/followup_serve/queue.py"
   - "src/learnloop_sidecar/post_attempt_worker.py"
 tags:
@@ -46,7 +45,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/241_followup_generate_serve.sql`.
-- **Schema touched by:** `241_followup_generate_serve.sql`, `248_teacher_te2_sources.sql`.
+- **Schema touched by:** `241_followup_generate_serve.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -110,8 +109,6 @@ None found by exact static reference scan.
 - `tests/test_followup_generate_e2e.py`
 - `tests/test_followup_migration.py`
 - `tests/test_followup_reserved_only.py`
-- `tests/test_teacher_te2_migration.py`
-- `tests/test_teacher_te2_probes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -128,9 +125,9 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE "followup_generation_jobs" (
+CREATE TABLE followup_generation_jobs (
   id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK (kind IN ('workflow', 'entry_episode', 'need', 'lesson')),
+  kind TEXT NOT NULL CHECK (kind IN ('workflow', 'entry_episode', 'need')),
   dedupe_key TEXT NOT NULL UNIQUE,
   workflow_id TEXT REFERENCES followup_workflows(id),
   probe_episode_id TEXT,

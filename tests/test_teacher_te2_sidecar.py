@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, TEACHER_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, TEACHER_PROBES_ALGORITHM_VERSION
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, plan_turn
@@ -59,7 +59,7 @@ def test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key(tm
     from learnloop_sidecar.errors import SidecarError
     from learnloop_sidecar.handlers import lesson as H
 
-    paths, _repository, ctx = _ctx(tmp_path, version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+    paths, _repository, ctx = _ctx(tmp_path, version=ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
     with pytest.raises(SidecarError) as refused:
         H.lesson_goal(ctx, H.LessonGoalInput.model_validate({"text": "eigenvalues"}))
     assert refused.value.code == "teacher_unavailable"

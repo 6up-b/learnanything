@@ -70,7 +70,7 @@ from typing import Any
 
 import numpy as np
 
-from learnloop.router_objective.memory import Combiner, Fsrs, perform, sigmoid
+from learnloop.router_objective.memory import Combiner, Fsrs, logit, perform, sigmoid
 
 OBJECTIVE_VERSION = "router_objective_v1"
 TAIL_VERSION = "flat_load_adaptive_v1"
@@ -93,6 +93,136 @@ KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LES
 #: The reference row's ref: the tail's next action, sent to the LLM policy as a non-choosable row.
 REFERENCE_REF = "tail_next"
 MINUTES_PER_DAY = 1440.0
+#: The follow-up batch (item 3): with ``merged_sessions`` (:func:`evaluate`, :func:`baselines`, :func:`gain`; the
+#: caller passes ``[router_objective] merged_sessions`` at the batch's tag), a tail session with no repeated topic and
+#: no crossable dated use is one vectorized step over its blocks' cells (:meth:`_Model._session`); off (the default,
+#: below the tag), the per-block loop. The same cells, in the same order, each at its own block's end, so a fixed
+#: number of draws gives the same values; but an evaluation refined until a deadline completes more draws when each
+#: is faster, which can change ``Q̄`` and the tie rule (Codex review F2), so it changes serving and has its switch.
+#: The follow-up batch's landing ruling R1 (``consistent_review_draw``; the caller passes ``[router_objective]
+#: consistent_review_draw`` at the batch's tag): a practised topic's practice outcome is drawn from the memory model's
+#: own ``P(perform)`` at that moment (the combiner over the draw's ``η`` and FSRS's ``R`` at the elapsed lag, §8.4),
+#: and the belief observes it under the same likelihood, so a review FSRS calls a lapse is one the model expects. Off
+#: (the default, below the tag), mvp-0.49's draw from AD's predictive alone, draw for draw. An unpractised topic's
+#: first attempt and a probe's observation read AD's predictive either way (the combiner has no ``R`` for them).
+REVIEW_DRAW_VERSION = "review_draw_memory_model_v1"
+#: The follow-up batch's landing ruling R9 (:class:`AdLink`, :attr:`Inputs.ad_link`).
+AD_LINK_VERSION = "ad_predictive_link_v1"
+
+
+@dataclass(frozen=True)
+class AdLink:
+    """Landing ruling R9: AD's own predicted success ``F(η) = g + (1 − g − λ)·E_ε[σ(η − a·τ0·ε)]``
+    (``adaptive_difficulty.model.residual_success``), with ``g = 0`` (a valued topic's unseen constructed item),
+    lapse ``λ``, and ``ε`` integrated by AD's own Gauss-Hermite rule; the caller hands in AD's constants, so this
+    module stays a leaf. With it the rollouts' ``η`` is AD's latent ability (practice's ``γ``, reading's dose and a
+    lesson add where AD adds them), and wherever the rollouts read AD's predictive (an unpractised topic, a probe,
+    the combiner's ``η`` input, which is ``logit p̄``) they read ``F(η)``, not ``σ(η)``.
+
+    Landing ruling R10: the rollouts start from AD's own latent posterior (``Topic.eta_latent``: its mean and
+    variance, read through AD's read-only entry point); where only ``p̄`` and a variance exist, the mean is the inverse
+    of the **variance-integrated** predictive (:meth:`p_integrated`), so the draws' predictive is ``p̄`` again."""
+
+    lapse: float
+    spread: float
+    nodes: tuple[float, ...]
+    weights: tuple[float, ...]
+    version: str = AD_LINK_VERSION
+
+    def __post_init__(self) -> None:
+        # The quadrature's arrays, built once (the rollouts call F per day, topic and draw).
+        object.__setattr__(self, "_shift", self.spread * np.asarray(self.nodes, dtype=np.float64))
+        object.__setattr__(self, "_w", np.asarray(self.weights, dtype=np.float64))
+
+    def p(self, eta: np.ndarray) -> np.ndarray:
+        e = np.asarray(eta, dtype=np.float64)[..., None] - self._shift
+        return (1.0 - self.lapse) * (self._w * sigmoid(e)).sum(-1)
+
+    def slope(self, eta: np.ndarray) -> np.ndarray:
+        """``dF/dη``."""
+
+        s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
+        return (1.0 - self.lapse) * (self._w * s * (1.0 - s)).sum(-1)
+
+    def p_integrated(self, mean: np.ndarray, variance: np.ndarray) -> np.ndarray:
+        """``E[F(η)]`` for ``η ~ N(mean, variance)``: ``F`` with the residual's spread widened to
+        ``√(a²τ0² + variance)``, AD's own ``expected_success`` (R10). ``variance`` 0 is :meth:`p`."""
+
+        mean = np.asarray(mean, dtype=np.float64)
+        scale = np.sqrt(self.spread ** 2 + np.maximum(np.asarray(variance, dtype=np.float64), 0.0)) / self.spread
+        e = mean[..., None] - scale[..., None] * self._shift
+        return (1.0 - self.lapse) * (self._w * sigmoid(e)).sum(-1)
+
+    def inverse(self, p: np.ndarray, variance: np.ndarray | float = 0.0) -> np.ndarray:
+        """The mean whose variance-integrated predictive is ``p`` (``F⁻¹(p)`` at variance 0), by bisection on AD's
+        range (a ``p`` at or past ``1 − λ`` is held just inside it)."""
+
+        top = (1.0 - self.lapse) * (1.0 - 1e-9)
+        target = np.clip(np.asarray(p, dtype=np.float64), 1e-9, top)
+        var = np.broadcast_to(np.asarray(variance, dtype=np.float64), target.shape)
+        low, high = np.full_like(target, -60.0), np.full_like(target, 60.0)
+        for _ in range(200):
+            mid = 0.5 * (low + high)
+            below = self.p_integrated(mid, var) < target
+            low, high = np.where(below, mid, low), np.where(below, high, mid)
+            if float(np.max(high - low, initial=0.0)) < 1e-12:
+                break
+        return 0.5 * (low + high)
+
+    def logit_and_slope(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``, never clipped
+        (landing ruling R11: the combiner's own probability-logit, not FSRS's), the derivative the one of the
+        transformation applied, ``F'/F + F'/(1 − F)``. ``1 − F ≥ λ``, so ``log(1 − F)`` loses nothing computed
+        directly; ``log F`` is direct while ``F`` is a normal float, and in log space (log-sum-exp over the
+        quadrature) where it underflows (``η`` below about −700)."""
+
+        with np.errstate(over="ignore"):  # σ of a far-left node is 0, as the log-space path below takes over
+            s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
+        keep = 1.0 - self.lapse
+        f = keep * (self._w * s).sum(-1)
+        df = keep * (self._w * s * (1.0 - s)).sum(-1)
+        tiny = ~(f > 1e-300)
+        safe = np.where(tiny, 1.0, f)
+        out = np.log(safe) - np.log1p(-safe)
+        slope = df / safe + df / (1.0 - safe)
+        if np.any(tiny):
+            log_out, log_slope = self._logit_and_slope_logspace(np.asarray(eta, dtype=np.float64)[tiny])
+            out = np.array(out, copy=True)
+            slope = np.array(slope, copy=True)
+            out[tiny], slope[tiny] = log_out, log_slope
+        return out, slope
+
+    def logit_p(self, eta: np.ndarray) -> np.ndarray:
+        """``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path)."""
+
+        f = self.p(eta)
+        tiny = ~(f > 1e-300)
+        safe = np.where(tiny, 1.0, f)
+        out = np.log(safe) - np.log1p(-safe)
+        if np.any(tiny):
+            out = np.array(out, copy=True)
+            out[tiny] = self._logit_and_slope_logspace(np.asarray(eta, dtype=np.float64)[tiny])[0]
+        return out
+
+    def _logit_and_slope_logspace(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The same in log space: ``log F``, ``log(1 − F) = log(λ + (1 − λ)·E[σ(−e)])`` and ``log F'``."""
+
+        e = eta[..., None] - self._shift
+        log_s = -np.logaddexp(0.0, -e)
+        log_c = -np.logaddexp(0.0, e)
+        lw = np.log(self._w)
+        log_keep = math.log1p(-self.lapse)
+        log_f = log_keep + _logsumexp(lw + log_s)
+        log_q = np.logaddexp(math.log(self.lapse), log_keep + _logsumexp(lw + log_c))
+        log_df = log_keep + _logsumexp(lw + log_s + log_c)
+        return log_f - log_q, np.exp(log_df - log_f) + np.exp(log_df - log_q)
+
+
+def _logsumexp(x: np.ndarray) -> np.ndarray:
+    """``log Σ exp(x)`` over the last axis, stably."""
+
+    top = np.max(x, axis=-1)
+    return top + np.log(np.exp(x - top[..., None]).sum(-1))
 
 
 @dataclass(frozen=True)
@@ -112,6 +242,9 @@ class Topic:
     undated_density: float = 0.0
     #: AD's reading-dose count on the LO (the dose curve's position).
     reading_count: float = 0.0
+    #: Landing ruling R10: AD's latent posterior of ``η`` at the LO's top point, ``(mean, variance)``, read only with
+    #: R9's link (``Inputs.ad_link``); None: reconstructed from ``eta_mean`` (``logit p̄``) and ``eta_var``.
+    eta_latent: tuple[float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -214,6 +347,8 @@ class Inputs:
     reference_forecast: float | None = None
     #: the trace's sources (where each number came from)
     sources: Mapping[str, Any] = field(default_factory=dict)
+    #: Landing ruling R9: AD's own predictive (:class:`AdLink`). None: mvp-0.49's ``σ(η)`` on ``logit p̄``.
+    ad_link: AdLink | None = None
 
     @property
     def cutoff(self) -> float:
@@ -396,9 +531,15 @@ class _Model:
     """One decision's rollouts: the frozen inputs, the draws, and the streams."""
 
     def __init__(self, inputs: Inputs, draws: int, seed: str, cutoff: float | None = None,
-                 unmeasured: Collection[str] | None = None) -> None:
+                 unmeasured: Collection[str] | None = None, merged_sessions: bool = False,
+                 consistent_review_draw: bool = False) -> None:
         self.inputs = inputs
         self.seed = seed
+        #: the follow-up batch's item 3 (module constant's note above): the tail's sessions merged when they can be
+        self.merged = bool(merged_sessions)
+        #: the follow-up batch's landing ruling R1 (:data:`REVIEW_DRAW_VERSION`'s note): a practised topic's outcome
+        #: drawn from the memory model's own ``P(perform)``
+        self.consistent = bool(consistent_review_draw)
         #: RO6's landing ruling R7: topics whose undated uses no randomized check could measure as of the decision;
         #: their share of the undated reward is kept apart on the same paths (``_Ledger.unmeasured``). None: not kept.
         self.unmeasured = frozenset(unmeasured) if unmeasured is not None else None
@@ -411,6 +552,19 @@ class _Model:
         self.index = {topic.lo: i for i, topic in enumerate(inputs.topics)}
         self.n = len(inputs.topics)
         self.fsrs = Fsrs(tuple(inputs.fsrs_weights))
+        #: Landing ruling R9: AD's own predictive (None: ``σ`` on ``logit p̄``, mvp-0.49's), and each topic's ``η``
+        #: mean on the scale the rollouts move it on (AD's latent ``F⁻¹(p̄)`` with the link; ``logit p̄`` without).
+        self.link = inputs.ad_link
+        self.eta_means: list[float] = [t.eta_mean for t in inputs.topics]
+        self.eta_vars: list[float] = [t.eta_var for t in inputs.topics]
+        if self.link is not None and inputs.topics:
+            # R10: AD's latent posterior where it was read; else the mean whose variance-integrated predictive is
+            # p̄ (never a point inverse with the variance added again).
+            rebuilt = self.link.inverse(sigmoid(np.array(self.eta_means)), np.array(self.eta_vars))
+            self.eta_means = [float(t.eta_latent[0]) if t.eta_latent is not None else float(m)
+                              for t, m in zip(inputs.topics, rebuilt)]
+            self.eta_vars = [float(t.eta_latent[1]) if t.eta_latent is not None else float(t.eta_var)
+                             for t in inputs.topics]
         self.cutoff = inputs.cutoff if self.carried is None else self.carried
         self.end = self.cutoff + float(inputs.horizon_days)
         self.days = int(math.ceil(self.end))
@@ -438,12 +592,11 @@ class _Model:
 
     def _draw_theta(self) -> _Theta:
         inputs, st = self.inputs, self.streams
-        mean = np.array([t.eta_mean for t in inputs.topics], dtype=np.float64)
-        sd = np.sqrt(np.maximum(np.array([t.eta_var for t in inputs.topics], dtype=np.float64), 0.0))
+        mean = np.array(self.eta_means, dtype=np.float64)
+        sd = np.sqrt(np.maximum(np.array(self.eta_vars, dtype=np.float64), 0.0))
         eta = mean[None, :] + sd[None, :] * st.eta_z[:, : self.n]
-        cm = np.array(inputs.combiner.mean, dtype=np.float64)
-        csd = np.sqrt(np.maximum(np.array(inputs.combiner.variance, dtype=np.float64), 0.0))
-        coef = cm[None, :] + csd[None, :] * st.coef_z
+        # The combiner's draws on (a0, aA, aR), in its own form's parameters (landing ruling R6: monotone at the tag)
+        coef = inputs.combiner.coefficients(st.coef_z)
         gm, gv = inputs.learning.gamma
         gamma = gm + math.sqrt(max(gv, 0.0)) * st.gamma_z
         gbar = np.stack([inputs.learning.gbar[i][0] + math.sqrt(max(inputs.learning.gbar[i][1], 0.0)) * st.gbar_z[:, i]
@@ -477,8 +630,8 @@ class _Model:
         topics = inputs.topics
         return _State(
             eta=self.theta.eta.copy(),
-            bel=column([t.eta_mean for t in topics]),
-            bel_var=column([max(t.eta_var, 1e-12) for t in topics]),
+            bel=column(self.eta_means),
+            bel_var=column([max(v, 1e-12) for v in self.eta_vars]),
             d=column([t.difficulty for t in topics]),
             s=column([t.stability for t in topics]),
             practiced=np.broadcast_to(np.array([t.practiced for t in topics], dtype=bool)[None, :], (k, n)).copy(),
@@ -495,6 +648,10 @@ class _Model:
             when = when[:, None]
         r = self.fsrs.retrievability(state.s, when - state.last)
         eta = state.bel if belief else state.eta
+        if self.link is not None:
+            # R9: the combiner's η input is AD's predictive on the logit scale, logit F(η) (``logit p̄`` at the start),
+            # R11: its own stable logit, not FSRS's clipped one
+            eta = self.link.logit_p(eta)
         return perform(self.theta.coef, eta, r, state.practiced)
 
     def cost(self, start: np.ndarray, minutes: np.ndarray) -> np.ndarray:
@@ -503,17 +660,72 @@ class _Model:
         return self.kappa0 * ((start + minutes) ** 2 - start ** 2) / (2.0 * self.mbar)
 
     # effects ---------------------------------------------------------------------------------------
+    def _graded(self, eta: np.ndarray, bel: np.ndarray, bel_var: np.ndarray, stability: np.ndarray,
+                practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray
+                ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """A graded attempt, elementwise (``coef``: each element's combiner draw, shaped ``(M, 3)``): its result,
+        then the belief's one-step Laplace update on it (mean, variance; before the learning increment).
+
+        mvp-0.49 (``consistent`` off): the result is drawn from AD's predictive ``σ(η)`` and the belief predicts it
+        with ``σ(bel)``. Landing ruling R1 (on): a practised topic's result is drawn from the memory model's own
+        ``P(perform)`` at this moment, ``σ(a0 + aA·η + aR·(logit R − η))`` with ``R`` FSRS's at the elapsed lag
+        (:func:`memory.perform`'s formula), and the belief observes it under the same likelihood (its prediction at
+        ``bel``, its slope in ``η`` ``aA − aR``), so the belief does not read a memory effect as ability.
+
+        Landing ruling R9 (``self.link``): AD's predictive is ``F(η)``, so ``η`` enters as ``logit F(η)`` and every
+        slope carries its derivative (:meth:`_graded_linked`)."""
+
+        if self.link is not None:
+            return self._graded_linked(eta, bel, bel_var, stability, practiced, elapsed, coef, u)
+        if not self.consistent:
+            good = u < sigmoid(eta)
+            p_bel = sigmoid(bel)
+            var = 1.0 / (1.0 / bel_var + p_bel * (1 - p_bel))
+            return good, bel + var * (good.astype(np.float64) - p_bel), var
+        a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
+        lr = logit(self.fsrs.retrievability(stability, elapsed))
+        p_true = np.where(practiced, sigmoid(a0 + a_eta * eta + a_r * (lr - eta)), sigmoid(eta))
+        p_bel = np.where(practiced, sigmoid(a0 + a_eta * bel + a_r * (lr - bel)), sigmoid(bel))
+        slope = np.where(practiced, a_eta - a_r, 1.0)
+        good = u < p_true
+        var = 1.0 / (1.0 / bel_var + slope * slope * p_bel * (1 - p_bel))
+        return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
+
+    def _graded_linked(self, eta: np.ndarray, bel: np.ndarray, bel_var: np.ndarray, stability: np.ndarray,
+                       practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray
+                       ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """:meth:`_graded` with AD's own predictive (R9): ``ẽ = logit F(η)`` where ``σ(η)`` stood. Without R1's draw,
+        every result is drawn from ``F(η)``; with it, a practised topic's from the combiner over ``ẽ`` and ``R``.
+        The belief's Laplace step uses the same prediction at ``bel`` and its slope in ``η`` (``dẽ/dη``, times
+        ``aA − aR`` for a practised topic under R1's draw). Landing ruling R11: AD's own probability is drawn from
+        directly (``F(η)``, never ``σ`` of a clipped logit); only the combiner reads ``ẽ``, its stable logit; FSRS's
+        retrievability keeps FSRS's clip."""
+
+        assert self.link is not None
+        f_true, f_bel = self.link.p(eta), self.link.p(bel)
+        eb, deb = self.link.logit_and_slope(bel)
+        if self.consistent:
+            e, _de = self.link.logit_and_slope(eta)
+            a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
+            lr = logit(self.fsrs.retrievability(stability, elapsed))
+            p_true = np.where(practiced, sigmoid(a0 + a_eta * e + a_r * (lr - e)), f_true)
+            p_bel = np.where(practiced, sigmoid(a0 + a_eta * eb + a_r * (lr - eb)), f_bel)
+            slope = np.where(practiced, (a_eta - a_r) * deb, deb)
+        else:
+            p_true, p_bel, slope = f_true, f_bel, deb
+        good = u < p_true
+        var = 1.0 / (1.0 / bel_var + slope * slope * p_bel * (1 - p_bel))
+        return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
+
     def _practice(self, state: _State, lo: int, at: np.ndarray, u: np.ndarray, mask: np.ndarray, mass: float) -> None:
         """One practice opportunity on topic ``lo`` for the draws in ``mask``: a graded attempt."""
 
-        p_true = sigmoid(state.eta[:, lo])
-        good = u < p_true
-        d, s = self.fsrs.review(state.d[:, lo], state.s[:, lo], state.practiced[:, lo], at - state.last[:, lo], good)
-        gm = float(self.inputs.learning.gamma[0])
+        elapsed = at - state.last[:, lo]
         # The belief observes the graded attempt (a one-step Laplace update), then learns as the model predicts.
-        p_bel = sigmoid(state.bel[:, lo])
-        var = 1.0 / (1.0 / state.bel_var[:, lo] + p_bel * (1 - p_bel))
-        bel = state.bel[:, lo] + var * (good.astype(np.float64) - p_bel)
+        good, bel, var = self._graded(state.eta[:, lo], state.bel[:, lo], state.bel_var[:, lo], state.s[:, lo],
+                                      state.practiced[:, lo], elapsed, self.theta.coef, u)
+        d, s = self.fsrs.review(state.d[:, lo], state.s[:, lo], state.practiced[:, lo], elapsed, good)
+        gm = float(self.inputs.learning.gamma[0])
         state.d[:, lo] = np.where(mask, d, state.d[:, lo])
         state.s[:, lo] = np.where(mask, s, state.s[:, lo])
         state.practiced[:, lo] = np.where(mask, True, state.practiced[:, lo])
@@ -525,8 +737,18 @@ class _Model:
     def _observe(self, state: _State, lo: int, u: np.ndarray, mask: np.ndarray,
                  observed: np.ndarray | None = None) -> np.ndarray:
         """A probe's observation: the belief's update, nothing direct. Returns the result per draw (``observed``:
-        the result given, for valuing the branches on one result)."""
+        the result given, for valuing the branches on one result). With R9's link, AD's own ``F``."""
 
+        if self.link is not None:
+            _eb, deb = self.link.logit_and_slope(state.bel[:, lo])
+            good = (u < self.link.p(state.eta[:, lo]) if observed is None
+                    else np.asarray(observed, dtype=bool))
+            p_bel = self.link.p(state.bel[:, lo])
+            var = 1.0 / (1.0 / state.bel_var[:, lo] + deb * deb * p_bel * (1 - p_bel))
+            bel = state.bel[:, lo] + var * deb * (good.astype(np.float64) - p_bel)
+            state.bel[:, lo] = np.where(mask, bel, state.bel[:, lo])
+            state.bel_var[:, lo] = np.where(mask, var, state.bel_var[:, lo])
+            return good
         good = u < sigmoid(state.eta[:, lo]) if observed is None else np.asarray(observed, dtype=bool)
         p_bel = sigmoid(state.bel[:, lo])
         var = 1.0 / (1.0 / state.bel_var[:, lo] + p_bel * (1 - p_bel))
@@ -584,20 +806,21 @@ class _Model:
 
     def _practice_batch(self, state: _State, cols: np.ndarray, at: np.ndarray, u: np.ndarray,
                         active: np.ndarray) -> None:
-        """Practice opportunities at ``(draw, cols[draw, j])`` where ``active``, at each draw's own time ``at``:
-        each row's topics are distinct, so the updates are one vectorized step (:meth:`_practice`'s, elementwise)."""
+        """Practice opportunities at ``(draw, cols[draw, j])`` where ``active``, at each draw's own time ``at`` (one
+        per draw, or one per cell, shaped as ``cols``): each row's topics are distinct, so the updates are one
+        vectorized step (:meth:`_practice`'s, elementwise)."""
 
         rows = np.broadcast_to(np.arange(self.k)[:, None], cols.shape)
         r, c = rows[active], cols[active]
         if r.size == 0:
             return
-        when = np.broadcast_to(np.asarray(at, dtype=np.float64), (self.k,))[r]
+        times = np.asarray(at, dtype=np.float64)
+        when = times[active] if times.ndim == 2 else np.broadcast_to(times, (self.k,))[r]
         eta = state.eta[r, c]
-        good = u[active] < sigmoid(eta)
-        d, s = self.fsrs.review(state.d[r, c], state.s[r, c], state.practiced[r, c], when - state.last[r, c], good)
-        p_bel = sigmoid(state.bel[r, c])
-        var = 1.0 / (1.0 / state.bel_var[r, c] + p_bel * (1 - p_bel))
-        bel = state.bel[r, c] + var * (good.astype(np.float64) - p_bel)
+        elapsed = when - state.last[r, c]
+        good, bel, var = self._graded(eta, state.bel[r, c], state.bel_var[r, c], state.s[r, c], state.practiced[r, c],
+                                      elapsed, self.theta.coef[r], u[active])
+        d, s = self.fsrs.review(state.d[r, c], state.s[r, c], state.practiced[r, c], elapsed, good)
         gm = float(self.inputs.learning.gamma[0])
         state.d[r, c] = d
         state.s[r, c] = s
@@ -609,14 +832,16 @@ class _Model:
 
     def _session(self, state: _State, ledger: _Ledger, at: np.ndarray, mask: np.ndarray, start: np.ndarray, day: int,
                  *, past_cutoff: bool, target: float | None = None,
-                 before_block: Callable[[np.ndarray, np.ndarray], None] | None = None) -> None:
+                 before_block: Callable[[np.ndarray, np.ndarray], None] | None = None,
+                 crosses: Callable[[np.ndarray, np.ndarray], bool] | None = None) -> None:
         """A tail session from ``start`` session minutes to ``m̄`` (or ``target``: today's, for ``G``), in blocks
         of ``d̄`` with ``ī`` practice opportunities each, for the draws in ``mask``, each draw on its own clock from
         ``at`` (days, per draw; never a batch's maximum, Codex re-review F12). The session's topics are ranked once
         on the belief at its start (adaptive to the belief), the top ones practised in turn; its cost is the κ
         integral from ``start`` over its blocks' minutes. Each block's effect lands at its end, as a segment's
         does, and ``before_block(end, active)`` runs first, so a dated use the block's end crosses is scored on
-        the state before it."""
+        the state before it. ``crosses(last_end, active)``: whether a dated use ``before_block`` scores could be
+        crossed by any block's end up to ``last_end`` (None: ``before_block`` scores nothing)."""
 
         d = float(self.inputs.tail_block_minutes)
         if d <= 0 or self.n == 0:
@@ -636,7 +861,20 @@ class _Model:
         priority = self._priority(state, when)
         order = np.argsort(-priority, axis=1, kind="stable")
         u = self.streams.outcome_u[:, min(day, self.days), :]
-        for block in range(int(blocks.max())):
+        total = int(blocks.max())
+        if (self.merged and total * items <= self.n
+                and (crosses is None or not crosses(when + blocks * d / MINUTES_PER_DAY, blocks > 0))):
+            # The follow-up batch (item 3): with no topic repeated in the session (the ranking taken once, its
+            # slots fewer than the topics) and no dated use any block's end could cross, the blocks touch distinct
+            # cells and ``before_block`` scores nothing, so the session is one vectorized step over every block's
+            # cells, each at its own block's end: the per-block loop below, cell for cell.
+            slots = np.arange(total * items)
+            block_of = slots // items
+            cols = order[:, :total * items]
+            ends = when[:, None] + (block_of[None, :] + 1) * d / MINUTES_PER_DAY
+            self._practice_batch(state, cols, ends, u[:, slots % u.shape[1]], blocks[:, None] > block_of[None, :])
+            return
+        for block in range(total):
             active = blocks > block
             end = when + (block + 1) * d / MINUTES_PER_DAY
             if before_block is not None:
@@ -690,11 +928,16 @@ class _Model:
                 if crossed.any():
                     score(index, use, crossed)
 
+        def crosses(last_end: np.ndarray, active: np.ndarray) -> bool:
+            # Whether before_block could score anything in a session whose blocks end by last_end (per draw).
+            return any(bool((active & ~done[:, index] & (use.at_days <= last_end + 1e-12)).any())
+                       for index, use in enumerate(self.dated))
+
         if today_minutes is not None:
             today = after < 1.0
             if today.any():
                 self._session(state, ledger, after, today, today_minutes, 0, past_cutoff=False, target=today_target,
-                              before_block=before_block)
+                              before_block=before_block, crosses=crosses)
         rows = np.arange(k)
         gaps = self.theta.return_days
         # The session that ended at the action's end (today's) is the 0th; its gap is column 0.
@@ -723,7 +966,8 @@ class _Model:
                 mask = (next_session <= day_start + 1e-9) & (after <= day_start + 1e-9)
                 if mask.any():
                     self._session(state, ledger, np.full(k, day_start), mask, np.zeros(k), day,
-                                  past_cutoff=day_start >= self.cutoff - 1e-12, before_block=before_block)
+                                  past_cutoff=day_start >= self.cutoff - 1e-12, before_block=before_block,
+                                  crosses=crosses)
                     ended = np.where(mask, np.minimum(ended + 1, gaps.shape[1] - 1), ended)
                     next_session = np.where(mask, day_start + gaps[rows, ended], next_session)
             day_end = min(day_start + 1.0, self.end)
@@ -914,11 +1158,12 @@ class _Model:
             inputs, learning = self.inputs, self.inputs.learning
             believed = replace(
                 inputs,
-                combiner=replace(inputs.combiner, variance=(0.0, 0.0, 0.0)),
+                combiner=inputs.combiner.at_mean(),
                 learning=replace(learning, gamma=(learning.gamma[0], 0.0),
                                  gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
                 effect=None, stop_accept=(1.0, 1.0))
-            self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried)
+            self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried,
+                                  merged_sessions=self.merged, consistent_review_draw=self.consistent)
         return self._belief
 
     def _probe_choice(self, probe: Action, repair: Action, result: bool | None) -> dict[str, Any]:
@@ -1058,7 +1303,8 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
              keep_going: Callable[[], bool] | None = None, deadline: float | None = None,
              clock: Callable[[], float] = time.monotonic,
              on_complete: Callable[[Evaluation], None] | None = None,
-             cutoff: float | None = None, unmeasured: Collection[str] | None = None) -> Evaluation:
+             cutoff: float | None = None, unmeasured: Collection[str] | None = None,
+             merged_sessions: bool = False, consistent_review_draw: bool = False) -> Evaluation:
     """``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more
     while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s). An evaluation
     that could not finish its first batch by the deadline is ``complete = False``; a refinement the deadline cuts
@@ -1068,12 +1314,16 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
     the value of this state at an earlier decision's carried cutoff (§3.2; Codex re-review F3). ``unmeasured``
     (RO6's landing ruling R7; None: not kept): topics whose share of each ``Q`` is kept apart on the same paths
     (``terms.unmeasured_reward``), so the measurable part ``q − unmeasured_reward`` decomposes by term exactly;
-    ``q`` itself is unchanged."""
+    ``q`` itself is unchanged. ``merged_sessions`` (the follow-up batch's item 3; False: mvp-0.49's per-block loop):
+    the tail's sessions merged where they can be, faster, so a deadline admits more refinement batches.
+    ``consistent_review_draw`` (the batch's landing ruling R1; False: mvp-0.49's draw): a practised topic's practice
+    outcome drawn from the memory model's own ``P(perform)`` (:data:`REVIEW_DRAW_VERSION`)."""
 
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
-    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured)
+    options = {"merged_sessions": merged_sessions, "consistent_review_draw": consistent_review_draw}
+    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options)
     latest: Evaluation | None = None
     while True:
         rows: list[Valued] = []
@@ -1097,7 +1347,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
         if not more or total >= limit or (deadline is not None and clock() > deadline):
             break
         total = min(total * 2, limit)
-        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured)
+        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options)
     if latest is not None:
         return replace(latest, elapsed_ms=int(round((clock() - started) * 1000)))
     return Evaluation(valued=(), draws=model.k, cutoff=model.cutoff, seed=seed,
@@ -1132,12 +1382,13 @@ def numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str,
                     "paired_se_top_two": precision, "rule": "argmax_qbar_ties_within_paired_se_by_support_order"}
 
 
-def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str) -> dict[str, Any]:
+def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str,
+              merged_sessions: bool = False, consistent_review_draw: bool = False) -> dict[str, Any]:
     """§8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the
     tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated
     use's at its date."""
 
-    model = _Model(inputs, draws, seed)
+    model = _Model(inputs, draws, seed, merged_sessions=merged_sessions, consistent_review_draw=consistent_review_draw)
     ledger = _Ledger.zeros(model.k)
     state = model.initial()
     recorder: dict[str, Any] = {"days": int(window_days)}
@@ -1151,12 +1402,14 @@ def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str) -> dic
     return {"topics": per_topic, "dated": dict(recorder.get("dated") or {})}
 
 
-def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str) -> dict[float, float]:
+def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str,
+         merged_sessions: bool = False, consistent_review_draw: bool = False) -> dict[float, float]:
     """``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from
     the start under the tail, then the tail; for the price's daily seed and the frontier."""
 
     out: dict[float, float] = {}
-    model = _Model(replace(inputs, session_minutes=0.0), draws, seed)
+    model = _Model(replace(inputs, session_minutes=0.0), draws, seed, merged_sessions=merged_sessions,
+                   consistent_review_draw=consistent_review_draw)
     for length in session_lengths:
         ledger = _Ledger.zeros(model.k)
         state = model.initial()
@@ -1172,8 +1425,9 @@ def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: 
 
 
 __all__ = [
-    "Action", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
-    "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW", "SEQUENCE", "STOP",
+    "AD_LINK_VERSION", "Action", "AdLink", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
+    "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW",
+    "REVIEW_DRAW_VERSION", "SEQUENCE", "STOP",
     "TAIL_VERSION", "TEACH_BACK", "TERMINAL_VERSION", "Topic", "Valued", "cutoff_for", "evaluate", "gain",
     "numeric_choice", "paired_standard_error",
 ]

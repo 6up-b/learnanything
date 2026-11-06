@@ -940,6 +940,8 @@ _PLAIN_ATOMS = {
     ("open", "("): "(", ("open", "["): "[", ("open", r"\{"): "{", ("open", r"\lvert"): "|",
     ("close", ")"): ")", ("close", "]"): "]", ("close", r"\}"): "}", ("close", r"\rvert"): "|", ("close", "!"): "!",
     ("punct", ","): ", ", ("punct", ";"): "; ", ("inner", r"\ldots"): "...",
+    # The router objective's follow-up batch (item 8; reader-rw5c-p1.md's open item): KaTeX writes \cdots as \@cdots.
+    ("inner", r"\@cdots"): "...",
 }
 _PLAIN_ORDS = {"/": "/", "|": "|", r"\|": "||", ".": ".", r"\infty": "infinity", r"\partial": "∂", r"\nabla": "∇", r"\ell": "ell",
                r"\Gamma": "Gamma", r"\Phi": "Phi"}

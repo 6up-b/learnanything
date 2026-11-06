@@ -153,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_codex_rereview.py](../../../../../../tests/test_ro5_codex_rereview.py) — direct import
   - `test_f4_a_reader_interval_spanning_two_attempts_is_one_session_on_both_clocks`
   - `test_f4_the_shared_construction_serves_ro4s_session_minutes_exactly`
+- [tests/test_rofu_review_draw.py](../../../../../../tests/test_rofu_review_draw.py) — direct import
+  - `test_the_probe_after_the_fix_pins_its_numbers_and_the_seed`
 
 ## Modification guidance
 

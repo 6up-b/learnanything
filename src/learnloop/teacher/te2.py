@@ -1,6 +1,6 @@
 """Teacher TE2's switch, prompt and turn shape (spec_teacher_v1 rev 5 §9, §11.3, §11.5, §11.7, §11.8, §18.3).
 
-One successor (``TEACHER_PROBES_VERSIONS``, mvp-0.50 on this branch; one constant, renumbered at landing) behind
+One successor (``TEACHER_PROBES_VERSIONS``, mvp-0.51; built as mvp-0.50, one constant renumbered at landing) behind
 ``teacher.probes`` with the existing ``teacher.enabled``:
 
 * **The turn grows** (§9): ``serve_probe {node, readings, p}`` (:mod:`.probes`) and ``propose_gap {ref, gap_kind,

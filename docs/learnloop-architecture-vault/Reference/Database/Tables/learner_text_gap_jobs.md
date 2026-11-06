@@ -3,13 +3,13 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
+source_commit_timestamp: "2026-11-06T03:42:12-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 248
+schema_head: 247
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,7 +21,6 @@ source_paths:
   - "migrations/182_learner_text_gaps.sql"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/reader/reader_report.py"
-  - "src/learnloop/teacher/service.py"
   - "src/learnloop_sidecar/post_attempt_worker.py"
 tags:
   - "learnloop/database/table"
@@ -49,7 +48,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `248_teacher_te2_sources.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -92,7 +91,6 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/reader/reader_report.py`
-- `src/learnloop/teacher/service.py`
 
 ### Direct SQL writers
 
@@ -146,8 +144,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE "learner_text_gap_jobs" (
   id TEXT PRIMARY KEY,
   source_kind TEXT NOT NULL CHECK (source_kind IN (
-    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note',
-    'lesson', 'external_chat'
+    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note'
   )),
   source_id TEXT NOT NULL,
   state TEXT NOT NULL DEFAULT 'queued'

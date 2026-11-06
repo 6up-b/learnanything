@@ -1,7 +1,8 @@
 """``learnloop upgrade --to <TEACHER_PROBES_ALGORITHM_VERSION>``: teacher TE2, probes, gaps and typed goals in lessons.
 
 TE2 (``docs/specs/spec_teacher_v1.md`` rev 5 §11.3, §11.5, §11.7, §11.8, §18.3, §24; owner Nov 5). It is the next
-link of the linear chain: everything the predecessor (RO6's mvp-0.49) means PLUS this:
+link of the linear chain: everything the predecessor (the router objective's follow-up batch's mvp-0.50) means PLUS
+this:
 
 * **probes in lessons** (``serve_probe``): FG1's generation path with a lesson origin writes one single-use
   question per (lesson, node), served cold inside the lesson (tools refused, the teacher silent) and never again;
@@ -20,7 +21,7 @@ mutation lock with the publication LAST; a death between the publication and the
 guarded open, which installs :func:`complete_interrupted_activation`, the chain's latest; a journal naming an
 earlier link is handed to the predecessor's completion).
 
-``teacher.probes = false`` serves mvp-0.49's lessons exactly; rolling the version back is restore-only.
+``teacher.probes = false`` serves mvp-0.50's lessons exactly; rolling the version back is restore-only.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from pathlib import Path
 
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
-    ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
+    ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
@@ -40,8 +41,8 @@ from learnloop.clock import Clock
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
-from learnloop.router_learned_tail_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.router_learned_tail_upgrade import upgrade_to_router_learned_tail
+from learnloop.router_followups_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.router_followups_upgrade import upgrade_to_router_followups
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -49,8 +50,8 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_router_learned_tail
+PREDECESSOR = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_router_followups
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

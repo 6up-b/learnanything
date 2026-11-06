@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/app.py"
 source_paths:
   - "src/learnloop/cli/app.py"
-source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "modified"
+source_commit: "93b36220c760253c6ca7454b02f82dd32569088c"
+source_commit_timestamp: "2026-11-05T21:27:36-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -56,14 +56,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `93b36220c760253c6ca7454b02f82dd32569088c` |
+| Commit timestamp | `2026-11-05T21:27:36-05:00` |
 
 ## Public API
 
 - `init(path: Annotated[Path, typer.Argument(help='Vault directory to create.')]=Path('.'), force: Annotated[bool, typer.Option('--force', help='Allow scaffolding inside a populated directory that is not already a vault.')]=False, subject: Annotated[str | None, typer.Option('--subject', help='Optional first subject title to seed.')]=None, starting_level: Annotated[str | None, typer.Option('--starting-level', help='Optional learner level: new_to_this, some_exposure, comfortable, or strong_background.')]=None, level_note: Annotated[str | None, typer.Option('--level-note', help='Optional note accompanying --starting-level.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/app.py), line 63)
-- `upgrade(vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, to: Annotated[str, typer.Option('--to', help=f'Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION}, {CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION}, {HELP_FOLD_ATTACH_ALGORITHM_VERSION}, {LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, {FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, {ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, {ROUTER_LEARNED_TAIL_ALGORITHM_VERSION} or {TEACHER_PROBES_ALGORITHM_VERSION}); default: the latest.')]=LATEST_ALGORITHM_VERSION) -> None` ([source](../../../../../../src/learnloop/cli/app.py), line 104) — Atomically activate a knowledge-model version for this vault.
+- `upgrade(vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, to: Annotated[str, typer.Option('--to', help=f'Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION}, {CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION}, {HELP_FOLD_ATTACH_ALGORITHM_VERSION}, {LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, {FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, {ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, {ROUTER_LEARNED_TAIL_ALGORITHM_VERSION} or {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}); default: the latest.')]=LATEST_ALGORITHM_VERSION) -> None` ([source](../../../../../../src/learnloop/cli/app.py), line 104) — Atomically activate a knowledge-model version for this vault.
 - `add_subject(subject_id: Annotated[str, typer.Argument(help='Kebab-case subject id.')], title: Annotated[str, typer.Argument(help='Display title.')], vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/app.py), line 534)
 - `add_note(subject_id: Annotated[str, typer.Argument(help='Subject id.')], note_id: Annotated[str, typer.Argument(help='Note id, with or without note_ prefix.')], title: Annotated[str, typer.Argument(help='Note title.')], body: Annotated[str, typer.Option('--body', help='Inline note body.')]='', file: Annotated[Path | None, typer.Option('--file', help='Markdown file to use as note body.')]=None, source_type: Annotated[str, typer.Option('--source-type', help='Source type: learner_note, canonical_source, or imported.')]='learner_note', related_los: Annotated[str | None, typer.Option('--related-los', help='Comma-separated learning object ids to link this note to.')]=None, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/app.py), line 543)
 - `ingest(source: Annotated[str, typer.Argument(help='URL or local source file to ingest.')], kind: Annotated[str, typer.Option('--kind', help='Source kind: auto, website_page, youtube_video, arxiv_html, or textbook_chapter.')]='auto', subject: Annotated[str | None, typer.Option('--subject', help='Target subject id.')]=None, learning_objects: Annotated[list[str] | None, typer.Option('--learning-object', help='Existing Learning Object anchor. Can be repeated.')]=None, goal: Annotated[str | None, typer.Option('--goal', help='Active goal id to link ingested concepts to.')]=None, allow_auto_captions: Annotated[bool | None, typer.Option('--allow-auto-captions', help='Allow generated YouTube captions when human captions are unavailable.')]=None, instructions: Annotated[str | None, typer.Option('--instructions', help='Extra canonical-ingestor instructions.')]=None, ai_provider: Annotated[str | None, typer.Option('--ai-provider', help='AI provider profile to use for ingestion.')]=None, pdf_engine: Annotated[str | None, typer.Option('--pdf-engine', help='PDF extraction engine override: auto, glm_ocr, marker, or pypdf.')]=None, pdf_llm: Annotated[bool | None, typer.Option('--pdf-llm/--no-pdf-llm', help="Toggle marker's VLM boost for difficult scans/math (see [ingest.pdf]).")]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit stable JSON.')]=False, progress_json: Annotated[bool, typer.Option('--progress-json', hidden=True)]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/app.py), line 578)
@@ -184,7 +184,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `collecting`, `command_grant`; calls `collecting`, `command_grant`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `MANUAL_PROVIDER`, `provider_for_task`; calls `provider_for_task`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SUBSCRIPTION_PROFILE_TYPES`, `SpendCaps`, `SpendLimitExceeded`; calls `SpendCaps`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`, `CLAIM_FIXES_ALGORITHM_VERSION`, `COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`, `DATA_CAPTURE_ALGORITHM_VERSION`, `DELIVERABLE_PLAN_ALGORITHM_VERSION`, `FOLLOWUP_SERVE_ALGORITHM_VERSION`, `HELP_FOLD_ATTACH_ALGORITHM_VERSION`, `INTERVAL_FACTOR_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LESSON_SUGGESTIONS_ALGORITHM_VERSION`, `ONE_ASK_ALGORITHM_VERSION`, `READER_FOLLOWUPS_ALGORITHM_VERSION`, `READING_PATH_PLAN_ALGORITHM_VERSION`, `REPLAY_LEDGER_ALGORITHM_VERSION`, `ROUTER_CALIBRATION_ALGORITHM_VERSION`, `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `ROUTER_OBJECTIVE_ALGORITHM_VERSION`, `SUPERSEDED_CLAIMS_ALGORITHM_VERSION`, `TEACHER_ALGORITHM_VERSION`, `TEACHER_PROBES_ALGORITHM_VERSION`, `WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`, `CLAIM_FIXES_ALGORITHM_VERSION`, `COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`, `DATA_CAPTURE_ALGORITHM_VERSION`, `DELIVERABLE_PLAN_ALGORITHM_VERSION`, `FOLLOWUP_SERVE_ALGORITHM_VERSION`, `HELP_FOLD_ATTACH_ALGORITHM_VERSION`, `INTERVAL_FACTOR_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LESSON_SUGGESTIONS_ALGORITHM_VERSION`, `ONE_ASK_ALGORITHM_VERSION`, `READER_FOLLOWUPS_ALGORITHM_VERSION`, `READING_PATH_PLAN_ALGORITHM_VERSION`, `REPLAY_LEDGER_ALGORITHM_VERSION`, `ROUTER_CALIBRATION_ALGORITHM_VERSION`, `ROUTER_FOLLOWUPS_ALGORITHM_VERSION`, `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `ROUTER_OBJECTIVE_ALGORITHM_VERSION`, `SUPERSEDED_CLAIMS_ALGORITHM_VERSION`, `TEACHER_ALGORITHM_VERSION`, `WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] — imports `launch_tui`; calls `launch_tui`
 - [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `upgrade_to_attempt_content_state`; calls `upgrade_to_attempt_content_state`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `plan_grading_calls`, `validate_attempt_draft`; calls `plan_grading_calls`, `validate_attempt_draft`
@@ -284,6 +284,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `upgrade_to_replay_ledger`; calls `upgrade_to_replay_ledger`
 - [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `upgrade_to_mvp020`; calls `upgrade_to_mvp020`
 - [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `upgrade_to_router_calibration`; calls `upgrade_to_router_calibration`
+- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `upgrade_to_router_followups`; calls `upgrade_to_router_followups`
 - [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `upgrade_to_router_learned_tail`; calls `upgrade_to_router_learned_tail`
 - [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `upgrade_to_mvp024`; calls `upgrade_to_mvp024`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `upgrade_to_router_objective`; calls `upgrade_to_router_objective`
@@ -297,7 +298,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `upgrade_to_mvp013`; calls `upgrade_to_mvp013`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `data_quality_report`; calls `data_quality_report`
 - [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `upgrade_to_superseded_claims`; calls `upgrade_to_superseded_claims`
-- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `upgrade_to_teacher_probes`; calls `upgrade_to_teacher_probes`
 - [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `upgrade_to_teacher`; calls `upgrade_to_teacher`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `reconcile_accepted_question_promotion_patch`, `reconcile_rejected_question_promotion_patch`; calls `reconcile_accepted_question_promotion_patch`, `reconcile_rejected_question_promotion_patch`
 - [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_yaml`; calls `read_yaml`
@@ -727,6 +727,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_cli_upgrade_reaches_the_tag_by_default`
 - [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
   - `test_the_report_states_the_claim_and_lists_versions_and_w_hats_history`
+- [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
+  - `test_the_cli_upgrade_reaches_the_tag_by_default`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_cli_dry_run_plans_one_grading_call`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
@@ -812,8 +814,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_generate_practice_mode_mix_teach_back_count_violation_is_hard`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`
-- [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
-  - `test_the_cli_upgrade_reaches_the_tag_by_default`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_review_dry_run_plans_and_prices_the_deciders_link_calls`
 - [tests/test_tools_cli.py](../../../../../../tests/test_tools_cli.py) — direct import

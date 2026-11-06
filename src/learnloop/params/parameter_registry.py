@@ -1941,6 +1941,32 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "prior sd on each standardized coefficient (0.01 use-equivalents, about one block's effect, as "
         "delta_prior_sd; its regularization, centred on no residual), and the residual's calibration slope w^'s "
         "prior sd (1.0, centred on zero, so w^ starts at zero); only randomized stop-coin contrasts move w^."),
+    # The router objective's follow-up batch (mvp-0.50; docs/reviews/router-followups-nov5.md): one kill switch per
+    # part that changes serving; none is a decision parameter.
+    _ConfigRule(_exact("router_objective.combiner_trace_outcomes"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (RO4 item 6): the memory combiner is also fitted "
+        "on the traces' frozen sensors joined to resolved cold outcomes; off, mvp-0.49's checks-only fit."),
+    _ConfigRule(_exact("router_objective.merged_sessions"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (item 3, Codex review F2): the rollouts' tail "
+        "sessions merged into one vectorized step (the same values per draw; more draws within a deadline); off, "
+        "mvp-0.49's per-block loop."),
+    _ConfigRule(_exact("router_objective.consistent_review_draw"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R1): a practised topic's practice "
+        "outcome in the rollouts drawn from the memory model's own P(perform) (the combiner over AD's predictive and "
+        "FSRS's R), the belief observing it under the same likelihood; off, mvp-0.49's draw from AD's predictive."),
+    _ConfigRule(_exact("router_objective.monotone_combiner"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R6): the memory model's combiner "
+        "monotone in ability by construction (eta's slopes log-normal in its prior and fit); off, RO4's linear one."),
+    _ConfigRule(_exact("router_objective.ad_predictive_link"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R9): the rollouts read AD's own "
+        "predicted success F(eta) with its lapse term (eta on AD's latent scale) where they read AD's predictive; "
+        "off, sigma(eta) on logit p-bar."),
+    _ConfigRule(_exact("router_objective.carried_in_prefetch"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R12, R3): a decision served before its "
+        "carried valuation existed is valued in the next boundary's prefetch; off, mvp-0.49 (censored)."),
+    _ConfigRule(_exact("router_objective.scope_extension"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R11): a topic entering the retention scope at "
+        "its configured default density extends the objective's scope; off, mvp-0.49 (a change point)."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

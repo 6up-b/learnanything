@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/book_math.py"
 source_paths:
   - "src/learnloop/figures/book_math.py"
-source_commit: "ddda73b843d2383ec920b205be7bfccd11240279"
-source_commit_timestamp: "2026-11-03T00:29:56-05:00"
+source_commit: "8974d418693080c6fd8b7a6ebb36880acfd033ee"
+source_commit_timestamp: "2026-11-05T21:28:18-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py) |
-| Source lines | 1299 |
+| Source lines | 1301 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ddda73b843d2383ec920b205be7bfccd11240279` |
-| Commit timestamp | `2026-11-03T00:29:56-05:00` |
+| Source commit | `8974d418693080c6fd8b7a6ebb36880acfd033ee` |
+| Commit timestamp | `2026-11-05T21:28:18-05:00` |
 
 ## Public API
 
@@ -66,8 +66,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 142) — A read equation.
 - `segments(text: str, *, trees: KT.Trees | None=None) -> list[Segment]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 163) — The equations the page shows for a block's text (§5.2), found by the page's own pipeline (:meth:`.katex_tree.Trees.page_math`), or :class:`Unreadable`.
 - `binary64_exact(text: str) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 410) — Whether a decimal's exact value is a binary64 value: no made-up bound, no ``Decimal`` context (§6.1): 0, 1, 0.5, 0.375, never 0.3.
-- `plain_words(nodes: Sequence[Tree]) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 961) — KaTeX's list as plain text for ``aria-label``s, SVG text and a prediction's choices, in the reader's vocabulary, with a fraction's and a script's grouping written out: ``dF(x)/dx``, ``(1-a)/k``, ``e^(-k)``.
-- `read_relation(latex: str, *, display: bool=False, trees: KT.Trees | None=None) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1239) — One math segment read as one relation, or :class:`Unreadable`.
+- `plain_words(nodes: Sequence[Tree]) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 963) — KaTeX's list as plain text for ``aria-label``s, SVG text and a prediction's choices, in the reader's vocabulary, with a fraction's and a script's grouping written out: ``dF(x)/dx``, ``(1-a)/k``, ``e^(-k)``.
+- `read_relation(latex: str, *, display: bool=False, trees: KT.Trees | None=None) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1241) — One math segment read as one relation, or :class:`Unreadable`.
 
 ### Module constants
 
@@ -89,12 +89,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_ATOMS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 219)
 - `_NODE_REASONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 228)
 - `_PLAIN_ATOMS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 934)
-- `_PLAIN_ORDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 944)
-- `_PLAIN_DELIMITERS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 946)
-- `_PLAIN_OPERATORS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 948)
-- `_PLAIN_FONTS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 950)
-- `_PLAIN_ACCENTS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 952)
-- `_PLAIN_TEXT_PUNCTUATION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 954)
+- `_PLAIN_ORDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 946)
+- `_PLAIN_DELIMITERS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 948)
+- `_PLAIN_OPERATORS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 950)
+- `_PLAIN_FONTS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 952)
+- `_PLAIN_ACCENTS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 954)
+- `_PLAIN_TEXT_PUNCTUATION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 956)
 
 ### Explicit exports
 
@@ -136,25 +136,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_is_atom(node: Tree, family: str, text: str | None=None) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 848)
 - `_split_relation(nodes: Sequence[Tree]) -> tuple[int, int]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 852) — Where the one top-level ``=`` or ``:=`` of KaTeX's list is, as ``(lhs_end, rhs_start)`` indices: a segment must hold exactly one.
 - `_compound(nodes: Sequence[Tree]) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 885) — Whether a left-hand side, in KaTeX's list, is more than one term to a reader: an operator written before it (``\sum``, ``\int``) would seem to reach only its first.
-- `class _NoWords(Exception)` ([source](../../../../../../src/learnloop/figures/book_math.py), line 957) — The tree holds something the plain writer has no faithful words for.
-- `_drawn(nodes: Sequence[Tree]) -> list[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 973) — What a list draws: braces draw nothing and gaps have no words of their own.
-- `_plain_list(nodes: Sequence[Tree]) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 985) — The pieces in order: only a word, or a gap the page shows, parts two letters or digits.
-- `_ends_a_term(node: Tree | None, families: tuple[str, ...]) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1011)
-- `_plain_node(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1015)
-- `_plain_whole(node: Tree | None) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1060) — Something that must have words: an empty group (``\sqrt{}``) says nothing to write.
-- `_plain_text(body: Sequence[Tree]) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1069)
-- `_one_symbol(text: str) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1082)
-- `_plain_script(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1086)
-- `_plain_script_part(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1107)
-- `_is_differential(node: Tree) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1112)
-- `_one_factor(drawn: Sequence[Tree]) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1117) — Whether a denominator reads whole after a slash with no brackets: ``a/bc`` parts books (``ambiguous_slash``).
-- `_plain_fraction(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1139)
-- `_lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1160) — The symbols of a ``name(args)`` left-hand side, with how the book spells them; empty for ``P(X = k)``, ``E[X]`` or a bare name.
-- `_walk(value: Any) -> Iterator[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1195) — Every node under ``value``, whatever field holds it.
-- `_without_places(value: Any) -> Any` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1208)
-- `_parse(trees: KT.Trees, source: str, display: bool) -> list[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1216)
-- `_left_hand_side(source: str, tree: Sequence[Tree], lhs_end: int, *, trees: KT.Trees, display: bool) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1223) — The book's own substring, kept only when KaTeX reads it alone as the left of this parse.
-- `_translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: bool) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1262)
+- `class _NoWords(Exception)` ([source](../../../../../../src/learnloop/figures/book_math.py), line 959) — The tree holds something the plain writer has no faithful words for.
+- `_drawn(nodes: Sequence[Tree]) -> list[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 975) — What a list draws: braces draw nothing and gaps have no words of their own.
+- `_plain_list(nodes: Sequence[Tree]) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 987) — The pieces in order: only a word, or a gap the page shows, parts two letters or digits.
+- `_ends_a_term(node: Tree | None, families: tuple[str, ...]) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1013)
+- `_plain_node(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1017)
+- `_plain_whole(node: Tree | None) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1062) — Something that must have words: an empty group (``\sqrt{}``) says nothing to write.
+- `_plain_text(body: Sequence[Tree]) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1071)
+- `_one_symbol(text: str) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1084)
+- `_plain_script(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1088)
+- `_plain_script_part(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1109)
+- `_is_differential(node: Tree) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1114)
+- `_one_factor(drawn: Sequence[Tree]) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1119) — Whether a denominator reads whole after a slash with no brackets: ``a/bc`` parts books (``ambiguous_slash``).
+- `_plain_fraction(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1141)
+- `_lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1162) — The symbols of a ``name(args)`` left-hand side, with how the book spells them; empty for ``P(X = k)``, ``E[X]`` or a bare name.
+- `_walk(value: Any) -> Iterator[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1197) — Every node under ``value``, whatever field holds it.
+- `_without_places(value: Any) -> Any` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1210)
+- `_parse(trees: KT.Trees, source: str, display: bool) -> list[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1218)
+- `_left_hand_side(source: str, tree: Sequence[Tree], lhs_end: int, *, trees: KT.Trees, display: bool) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1225) — The book's own substring, kept only when KaTeX reads it alone as the left of this parse.
+- `_translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: bool) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 1264)
 
 ## Who imports or calls it
 
@@ -219,6 +219,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a_generated_left_hand_side_is_whole_in_every_template_in_katexs_own_mathml`
 - [tests/test_rw5c_plain_words.py](../../../../../../tests/test_rw5c_plain_words.py) — direct import
+  - `test_cdots_has_plain_words_as_ldots_does`
   - `test_generated_words_read_back_to_the_value_katex_s_own_mathml_means`
   - `test_the_fallback_is_written_whole_as_an_operand_with_no_brackets`
   - `test_what_has_no_faithful_words_says_so_in_closed_words`

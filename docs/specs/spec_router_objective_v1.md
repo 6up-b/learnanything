@@ -1,6 +1,6 @@
 # Router objective (RO): one objective, two policies, a dataset that can test it
 
-**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6); RO4 built Nov 5 2026 (§8.11); RO5 built Nov 5 2026 (§9.1); RO6 built Nov 5 2026 (§10.1). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
+**Status:** RO1 built Nov 4 2026 (§5.7); RO2 built Nov 4 2026 (§6.6); RO4 built Nov 5 2026 (§8.11); RO5 built Nov 5 2026 (§9.1); RO6 built Nov 5 2026 (§10.1); the follow-up batch built Nov 5 2026 as `mvp-0.50` (§8.11, §10.1; `docs/reviews/router-followups-nov5.md`). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
 
 ## 1. The owner's decisions
 
@@ -587,6 +587,39 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
 - **The trace** (§8.8): `router_objective_traces`, one row per `plan_block` or `plan_interrupt` decision, written with
   the decision and RO0's state row; `learnloop router trace <decision>`; `learnloop router objective-report`; the
   desktop's "why" has "how was this chosen?" (`router_objective_explain`).
+- **The follow-up batch** (`mvp-0.50`, `ROUTER_FOLLOWUPS_ALGORITHM_VERSION`, upgrade `learnloop.router_followups_upgrade`,
+  a projection activation; no migration; `docs/reviews/router-followups-nov5.md`). Landing ruling R3's two items: the
+  rollouts' `γ` and reading curve have been AD's posterior moments since RO5 (§9.1 item 7, read through AD's read-only
+  `decision_state_fields(learning_moments=True)`; the reading map is R6's `section_learning_objects` path); at the
+  batch's tag the trace also holds the numbers (`inputs_sources.learning`) and `objective-report` says what the
+  rollouts read (`memory_model`). The combiner (`[router_objective] combiner_trace_outcomes`) is fitted, with its
+  labelled prior, on RO5's checks **and** the traces' frozen sensors joined to resolved cold outcomes
+  (`router_objective.combiner_data`, `combiner_trace_join_v1`): for each traced decision that served a block, every
+  topic it froze sensors for except the drawn option's own (the block acted on those), RO2's resolver per protocol,
+  `R` at the realized lag, one outcome once (the latest decision before it; a check's answer stays the check's), as of
+  the decision through the availability predicate; the trace's `versions.memory_model` names the fit
+  (`fit_version`, `n`, rows per source). The rollouts' tail sessions are one vectorized step over every block's cells
+  when no topic repeats and no dated use can be crossed (bitwise equal to the per-block loop here; a test holds it to
+  1e-12); arxiv_v2-shaped evaluation 435 to 232 ms. Behind `[router_objective] merged_sessions` at the tag: a faster
+  draw lets a deadline-bound refinement complete more draws, which moves `Q̄` and the tie rule (Codex review F2).
+  Landing ruling R1 (`[router_objective] consistent_review_draw`): a practised topic's practice outcome in the
+  rollouts is drawn from the memory model's own `P(perform)` at that moment (the combiner over the draw's `η` and
+  FSRS's `R` at the elapsed lag, as above), and the belief observes it under the same likelihood (slope `aA − aR` in
+  `η`), so a review FSRS calls a lapse is one the model expects; an unpractised topic's first attempt and a probe read
+  AD's predictive as before. The trace names it (`versions.review_draw`); off, or below the tag, mvp-0.49's draw.
+  Landing ruling R6 (`[router_objective] monotone_combiner`): the combiner is monotone in ability by construction
+  (`memory.FORM_MONOTONE`). `η`'s two slopes, `aA` (unpractised) and `aA − aR` (practised), are log-normal in the prior
+  (moment-matched to the linear one's marginals) and in every fit, and `aR = aA − b` is derived. Landing ruling R9
+  (`[router_objective] ad_predictive_link`): where the rollouts read AD's predicted success, they read AD's own
+  `F(η)` with its lapse term (`value.AdLink`), with `η` on AD's latent. This covers an unpractised topic and a probe,
+  which draw from `F` directly, and the combiner's `η` input (its own unclipped `logit F(η)`, R11). Landing ruling
+  R10: the latent starts at AD's own posterior moments (`decision_state_fields(eta_moments=True)`). Where only `p̄`
+  and a variance exist, it starts at the inverse of the variance-integrated predictive. Landing ruling R8: the batch's
+  serving switches that change the logger's values (`combiner_trace_outcomes`, `merged_sessions`,
+  `consistent_review_draw`, `monotone_combiner`, `ad_predictive_link`, `scope_extension`) are part of RO6's generator
+  version (`versions.serving_switches`), so flipping one is a change point. Landing ruling R12: every switch of the
+  batch is part of the prefetch boundary key, and each numeric answer's trace records the switches it was computed
+  under.
 
 ## 9. RO5: return and calibration
 
@@ -732,6 +765,9 @@ declared price for information whose zero (`"off"`) serves mvp-0.47 exactly; the
   retrievability at the administration) against the label, its labelled prior with none.
 - **The report**: `learnloop router objective-report` adds `calibration` at the tag (each arm per day with its minutes,
   the price's regime, the return model, the weight's scores, the goal-date read, the floor).
+- **The follow-up batch** (`mvp-0.50`): RO5's open items (availability as a covariate in κ0's likelihood, the
+  goal-date read inside `V`, linear_algebra's zero-price sessions, the closed-window score cache) are recorded in
+  `docs/reviews/router-followups-nov5.md` with the smallest way to finish each; none changed in this batch.
 
 ## 10. RO6: a learned tail
 
@@ -871,6 +907,20 @@ differs from §10:
 - **The report** (`router_objective/tail_report.py`): `learnloop router objective-report`'s `learned_tail` section at
   the tag: the claim, no guarantee, the kept evaluations, the fits by version with change points and censoring, `ŵ`
   now and its history, the residual's share of `Ṽ`, how often it moved the argmax, serving time, the cross-check.
+- **The follow-up batch** (`mvp-0.50`; `docs/reviews/router-followups-nov5.md`). **Carried valuations**
+  (`[router_objective] carried_in_prefetch`; landing rulings R12 and R3's open items): a decision's second valuation
+  is no longer run in its own job after the answer; each answer that can serve carries its own (the final answer, an
+  early uncorrected publication: Codex review F3), the serve hands the one it took to the
+  next boundary's prefetch, which runs it after its own answer is out (the no-model branch, which has no prefetch, to
+  a thread of its own started after the serve; never the serving thread), and a later decision's trace records it
+  (`carried_for`: the decision's id and its `previous` with `q` and `features`, read as of the carrying trace's own
+  time; the earliest carrier stands; one naming another earlier decision is ignored), so the transition into that
+  decision is valued at `previous_cutoff` instead of censored `cutoff_unmatched`. **Scope extension**
+  (`[router_objective] scope_extension`; ruling R11's open item): §3.3's undated uses run from enrollment, so a topic
+  entering the retention scope at the scope's density is a change of state, not of the objective; the objective's
+  definition (`ro6_objective_definition_v3_scope_extension`) reads the retention topics by their set of densities,
+  so such a transition keeps its backup (equal to the no-growth one, a test) and its generator version, while a
+  density change (Codex's 0.1 -> 0.9), a goal, a weight or the horizon is still `objective_changed`.
 
 ## 11. Not in this spec
 

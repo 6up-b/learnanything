@@ -101,6 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `publish_algorithm_version`; statically calls `publish_algorithm_version`
 - [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `publish_algorithm_version`; statically calls `publish_algorithm_version`
 - [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `publish_algorithm_version`; statically calls `publish_algorithm_version`
+- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `publish_algorithm_version`; statically calls `publish_algorithm_version`
 - [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `publish_algorithm_version`; statically calls `publish_algorithm_version`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `publish_algorithm_version`; statically calls `publish_algorithm_version`
 - [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `publish_algorithm_version`; statically calls `publish_algorithm_version`

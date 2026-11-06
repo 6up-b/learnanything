@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/readiness.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/readiness.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit: "f1129754c8477586c9a27ba3fcc41476bb33c8a0"
+source_commit_timestamp: "2026-11-06T02:20:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/readiness.py](../../../../../../src/learnloop/adaptive_difficulty/readiness.py) |
-| Source lines | 288 |
+| Source lines | 317 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Source commit | `f1129754c8477586c9a27ba3fcc41476bb33c8a0` |
+| Commit timestamp | `2026-11-06T02:20:30-05:00` |
 
 ## Public API
 
 - `lo_readiness(vault: Any, repository: Any, learning_object_id: str, *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 57) — The LO's readiness lines (labelled predictions), or the not-predicted line.
 - `aggregate_line(rows: list[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 85) — The LO's one visible line (Codex review F9): "likely ready" only when **every** cell is tested and likely ready; a partly untested LO says so in the line itself, since the desktop shows this line alone, and is never "likely ready" on its tested cells.
 - `card_fields(vault: Any, repository: Any, learning_object_id: str, *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 104) — The router card's AD fields for one LO (None with ``promoted_predictor`` off).
-- `decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, snapshot: RP.Snapshot | None=None, view: Any=None, reading_doses: bool=False, learning_moments: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 121) — RO0 row 9 (spec_router_objective_v1 §4): the card's numbers for each candidate LO at one decision, and the state they were read from.
-- `band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 216) — Per LO, where adaptive difficulty predicts the learner stands against its practice band (teacher TE1b's ``below_band`` lesson reason; codex review F6).
-- `card_line(fields: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 280)
+- `decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, snapshot: RP.Snapshot | None=None, view: Any=None, reading_doses: bool=False, learning_moments: bool=False, eta_moments: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 121) — RO0 row 9 (spec_router_objective_v1 §4): the card's numbers for each candidate LO at one decision, and the state they were read from.
+- `band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, snapshot: RP.Snapshot | None=None, view: Any=None) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 245) — Per LO, where adaptive difficulty predicts the learner stands against its practice band (teacher TE1b's ``below_band`` lesson reason; codex review F6).
+- `card_line(fields: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 309)
 
 ### Module constants
 
@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `UNTESTED` ([src/learnloop/adaptive_difficulty/readiness.py](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 37)
 - `LIKELY` ([src/learnloop/adaptive_difficulty/readiness.py](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 38)
 - `NOT_YET` ([src/learnloop/adaptive_difficulty/readiness.py](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 39)
-- `LEARNING_PARAMETERS` ([src/learnloop/adaptive_difficulty/readiness.py](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 158)
+- `LEARNING_PARAMETERS` ([src/learnloop/adaptive_difficulty/readiness.py](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 166)
 
 ### Explicit exports
 
@@ -95,9 +95,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_cells(view: Any, learning_object_id: str) -> list[tuple[str, str, str]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 42) — ``(facet, capability, subject)`` of every cell the LO's visible active items measure, read through the material view: a protected item (held-out material, an exam reservation) never shapes a readiness line or the router card (A8); with the predicate unavailable there are none.
-- `_learning_moments(subject: Any) -> dict[str, list[float]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 161) — The subject view's posterior mean and variance of ``γ`` and the reading curve's ``γ̄_1, γ̄_2``: the mixture's moments over the bank's first group (``dose_report.coefficient_draws``'s rows), a read, never a write.
-- `_lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 181) — One LO's AD numbers in its main cell, or None with no visible cell.
-- `_main_cell(view: Any, vault: Any, learning_object_id: str) -> tuple[str, str, str] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 263) — The LO's main cell: the facet its visible items weigh most (as :func:`card_fields` picks).
+- `_learning_moments(subject: Any) -> dict[str, list[float]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 169) — The subject view's posterior mean and variance of ``γ`` and the reading curve's ``γ̄_1, γ̄_2``: the mixture's moments over the bank's first group (``dose_report.coefficient_draws``'s rows), a read, never a write.
+- `_lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id: str, *, moments: bool=False) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 189) — One LO's AD numbers in its main cell, or None with no visible cell.
+- `_latent_moments(subject: Any, prediction: PR.Prediction, spec: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 230) — R10: the latent ``η`` the prediction integrates, as a mixture's mean and variance over the bank's rows (each row's ``(m, v_e)``, weighted as ``predict`` weights them), and the spec's guess.
+- `_main_cell(view: Any, vault: Any, learning_object_id: str) -> tuple[str, str, str] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/readiness.py), line 292) — The LO's main cell: the facet its visible items weigh most (as :func:`card_fields` picks).
 
 ## Who imports or calls it
 
@@ -121,7 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `material_view`; calls `material_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
-- [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `module`; calls `capability`, `facet_weights`, `item_subject`, `point_spec`, `predict`, `score`
+- [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `module`; calls `capability`, `facet_weights`, `item_subject`, `mixture_weights`, `point_spec`, `predict`, `score`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] — imports `module`; calls `commission_candidates`, `constants_from_config`, `default_target`, `ladder_id`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `subject_view_live`; calls `subject_view_live`
@@ -158,6 +159,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f8_ad_reports_the_reading_dose_position_only_when_asked`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_ad_exposes_the_subject_views_learning_moments`
+- [tests/test_rofu_ad_latent.py](../../../../../../tests/test_rofu_ad_latent.py) — direct import
+  - `test_ads_entry_point_hands_the_latent_moments_only_when_asked`
 - [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
   - `test_band_positions_thresholds_p_band_and_reads_the_side_from_expected_success`
   - `test_below_band_reads_adaptive_difficultys_posterior_not_the_mastery_model`

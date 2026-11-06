@@ -51,9 +51,10 @@ SWITCHES = ("scheduler.surprise.remove_interval_factor", "router_objective.avail
 
 def test_the_successor_is_one_constant_after_fg1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.45"
-    # Router objective RO4 (mvp-0.47), RO5 (mvp-0.48) and RO6 (mvp-0.49) landed after it and keep it.
-    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.50"
-    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50"})
+    # Router objective RO4 (mvp-0.47), RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2
+    # (mvp-0.51) landed after it and keep it.
+    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-6] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.51"
+    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51"})
 
 
 def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
@@ -69,8 +70,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_ro4_successor import RO4_KEYS
     from tests.test_ro5_successor import RO5_KEYS
     from tests.test_ro6_successor import RO6_KEYS
+    from tests.test_rofu_successor import FOLLOWUP_KEYS
 
-    for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS):
+    for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS, *FOLLOWUP_KEYS):
         section.pop(key)
     assert section == {"receipts": True}  # RO0's switch stays
     assert dumped["scheduler"]["surprise"].pop("remove_interval_factor") is True
@@ -80,7 +82,7 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
     from tests.test_teacher_te2_successor import drop_te2_keys
 
-    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.50; tests/test_teacher_te2_successor.py), inert below it
+    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.51; tests/test_teacher_te2_successor.py), inert below it
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "ec22e2fc1e80ca9df220fe21ca66c5bb1166aedee8ce48b7eea38793e9ef83f7"
 

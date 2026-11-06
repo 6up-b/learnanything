@@ -121,4 +121,4 @@ def test_the_page_reads_this_policy_and_a_change_to_it_needs_a_certification_bum
     assert "readerDisplaysBlock(b.blockType)" in screen and '"PageHeader"' not in screen
     assert 'from "./readerBlockPolicy.json"' in module
     # Another policy can make a stored candidate one the page doesn't show: bump CERTIFICATION_VERSION with it, then this tuple.
-    assert (SC.CERTIFICATION_VERSION, hashlib.sha256(RV.BLOCK_POLICY_PATH.read_bytes()).hexdigest()[:12]) == (6, "a6f23ef6343f")
+    assert (SC.CERTIFICATION_VERSION, hashlib.sha256(RV.BLOCK_POLICY_PATH.read_bytes()).hexdigest()[:12]) == (7, "a6f23ef6343f")

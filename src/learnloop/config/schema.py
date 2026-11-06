@@ -4189,6 +4189,10 @@ class RouterObjectiveConfig(BaseModel):
     RO6 (mvp-0.49, §10): ``learned_tail`` (the kill switch; off serves mvp-0.48 exactly) and the learned tail's
     labelled priors (``residual_prior_sd`` on the fitted Q evaluation's coefficients, ``residual_weight_prior_sd``
     on its calibration slope ``ŵ``, which starts at zero).
+
+    The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
+    ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
+    switch (off, or below the tag, mvp-0.49 exactly).
     """
 
     receipts: bool = True
@@ -4277,6 +4281,29 @@ class RouterObjectiveConfig(BaseModel):
     #: §10: the prior sd of the residual's calibration slope ``ŵ``, centred on zero (a seed, labelled: one
     #: residual's worth either way); only randomized stop-coin contrasts move it.
     residual_weight_prior_sd: float = Field(default=1.0, gt=0.0, le=10.0)
+    #: The follow-up batch (mvp-0.50; docs/reviews/router-followups-nov5.md), each part's own switch; off, or
+    #: below the tag, that part is mvp-0.49's exactly. RO4 item 6: the memory combiner is also fitted on the
+    #: traces' frozen sensors joined to resolved cold outcomes (RO2's resolver, as of each decision).
+    combiner_trace_outcomes: bool = True
+    #: Item 3 (Codex review F2): the rollouts' tail sessions merged into one vectorized step where no topic repeats
+    #: and no dated use is crossed; the same values per draw, but faster, so a deadline admits more draws.
+    merged_sessions: bool = True
+    #: Landing ruling R1: a practised topic's practice outcome in the rollouts is drawn from the memory model's own
+    #: ``P(perform)`` at that moment (the combiner over AD's predictive and FSRS's R, §8.4), and the belief observes
+    #: it under the same likelihood, so a review FSRS calls a lapse is one the model expects; off, AD's predictive.
+    consistent_review_draw: bool = True
+    #: Landing ruling R6: the memory model's combiner is monotone in ability by construction (η's slopes log-normal
+    #: in its prior and its fit), so higher ability never lowers predicted performance; off, RO4's linear combiner.
+    monotone_combiner: bool = True
+    #: Landing ruling R9: where the rollouts read AD's predicted success (an unpractised topic, a probe, the
+    #: combiner's η input) they use AD's own F(η) with its lapse term, η on AD's latent scale; off, σ(η).
+    ad_predictive_link: bool = True
+    #: RO6 R12/R3: a decision served before its carried valuation existed is valued again in the next
+    #: boundary's prefetch (the no-model branch too), recorded beside its trace, so its backup is not censored.
+    carried_in_prefetch: bool = True
+    #: RO6 R11: a topic entering the retention scope at its configured default density extends the objective's
+    #: scope instead of changing it, for transitions whose earlier value never valued the topic.
+    scope_extension: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

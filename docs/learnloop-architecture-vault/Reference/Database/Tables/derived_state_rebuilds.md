@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
+source_commit_timestamp: "2026-11-06T03:42:12-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 248
+schema_head: 247
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -110,10 +110,10 @@ Indexes and uniqueness:
 - `src/learnloop/placement/report.py`
 - `src/learnloop/reader_followups_upgrade.py`
 - `src/learnloop/router_calibration_upgrade.py`
+- `src/learnloop/router_followups_upgrade.py`
 - `src/learnloop/router_learned_tail_upgrade.py`
 - `src/learnloop/router_objective_upgrade.py`
 - `src/learnloop/superseded_claims_upgrade.py`
-- `src/learnloop/teacher_probes_upgrade.py`
 - `src/learnloop/teacher_upgrade.py`
 
 ### Direct SQL writers

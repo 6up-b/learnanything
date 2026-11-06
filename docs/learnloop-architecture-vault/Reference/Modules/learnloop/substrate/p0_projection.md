@@ -100,6 +100,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
+- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
