@@ -1606,7 +1606,7 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
             E.close_episodes(repository, state.lesson_id, closed_at=now, reason="lesson_closed")
         receipt = _receipt(loaded, repository, state, reason=reason, recap=recap, delayed_checks=delayed_checks,
                            warnings=warnings, landed=landed, rows=rows, usage=_lesson_tokens(state, outcome),
-                           shown_items=shown)
+                           shown_items=shown, closed_at=now)
         connection = repository.connection()
         store.insert_receipt(connection, lesson_id=state.lesson_id, version=RECEIPT_VERSION, close_reason=reason,
                              receipt=receipt, created_at=now)
@@ -1647,8 +1647,9 @@ def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[st
 def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None,
              delayed_checks: Sequence[Mapping[str, Any]], warnings: Sequence[str], landed: Sequence[Mapping[str, Any]],
              rows: Sequence[Mapping[str, Any]], usage: Mapping[str, int],
-             shown_items: Sequence[str] = ()) -> dict[str, Any]:
-    """``LessonReceiptV1`` (§8.3)."""
+             shown_items: Sequence[str] = (), closed_at: str | None = None) -> dict[str, Any]:
+    """``LessonReceiptV1`` (§8.3). TE2-log adds ``episodes``, ``minutes`` and ``node_held_forecasts`` while
+    ``teacher.episode_log`` is on (absent off: TE1's receipt)."""
 
     with repository.connection() as connection:
         reveal_rows = connection.execute(
@@ -1678,6 +1679,10 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
     stability_inputs = _stability_inputs(repository, landed, rows, state)
     visuals = [{key: (entry.get("payload") or {}).get(key) for key in ("node", "figure_id", "status", "version")}
                for entry in state.turns if entry["action"] == "visual"]
+    episode_fields = _receipt_episode_fields(vault, repository, state, closed_at=closed_at)
+    if episode_fields.get("unrecorded"):
+        warnings = [*warnings, f"{episode_fields.pop('unrecorded')} detour note(s) have no episode row (refused)"]
+    episode_fields.pop("unrecorded", None)
     return {
         "version": RECEIPT_VERSION,
         "lesson_id": state.lesson_id,
@@ -1709,7 +1714,30 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "warnings": list(warnings),
         # Reader RW5d P4b: the lesson's figures (absent when it had none: TE1's receipt).
         **({"visuals": visuals} if visuals else {}),
+        # TE2-log: the episode ids by kind, the minutes and the placement forecasts (absent off: TE1's receipt).
+        **episode_fields,
     }
+
+
+def _receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *,
+                            closed_at: str | None) -> dict[str, Any]:
+    """§8.3's ``episodes`` (the lesson's episode ids by kind) and ``minutes`` (active and elapsed, and their source;
+    never blended), and the ``lesson_node_held`` receipt keys; ``{}`` while ``teacher.episode_log`` is off."""
+
+    if not E.on(vault):
+        return {}
+    episodes = E.receipt_episodes(repository, state.lesson_id)
+    with repository.connection() as connection:
+        opened_by = {str(row[0]) for row in connection.execute(
+            "SELECT opened_by FROM lesson_episodes WHERE lesson_id = ?", (state.lesson_id,)).fetchall()} \
+            if store.episode_tables_present(connection) else set()
+        held = [str(row[0]) for row in connection.execute(
+            "SELECT receipt_key FROM forecast_receipts WHERE kind = 'lesson_node_held' AND decision_ref = ? "
+            "ORDER BY created_at, receipt_key", (state.lesson_id,)).fetchall()] \
+            if E.has_table(connection, "forecast_receipts") else []
+    notes = [str(entry["id"]) for entry in state.turns if entry["action"] == "note_detour"]
+    return {"episodes": episodes, "minutes": E.lesson_minutes(repository, state.lesson, closed_at=closed_at),
+            "node_held_forecasts": held, "unrecorded": len([n for n in notes if n not in opened_by])}
 
 
 def _stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]],

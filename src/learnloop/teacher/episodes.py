@@ -103,9 +103,12 @@ def text_hash(texts: Sequence[str]) -> str:
 # =============================================================================
 
 
-def _table(connection: Any, name: str) -> bool:
+def has_table(connection: Any, name: str) -> bool:
     return connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone() \
         is not None
+
+
+_table = has_table
 
 
 def prior_belief(repository: Any, brief: Mapping[str, Any], learning_object_id: str | None) -> dict[str, Any]:
@@ -465,6 +468,7 @@ __all__ = [
     "UNLOGGED",
     "close_episodes",
     "doctrine_family",
+    "has_table",
     "inserted_nodes",
     "instructions",
     "lesson_minutes",
