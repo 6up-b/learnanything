@@ -389,3 +389,72 @@ combiner) takes 270 ms with `σ` and 431 ms with `F` (median of 5). The 32-node 
 | Durability | `--durable-sqlite`: `test_rofu_ad_link`, `test_rofu_monotone`, `test_rofu_generator_switches`, `test_rofu_review_draw`, `test_rofu_successor`, `test_rofu_learning` | 81 passed |
 | Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
 | Not regenerated yet | the architecture reference (config leaves for `consistent_review_draw`, `monotone_combiner`, `ad_predictive_link`; the changed modules' pages) | step 2 |
+
+## Scoped verify and landing rulings R10-R12
+
+The scoped verify was Codex job `/home/saturn/.cache/codex-agent/jobs/20261106-020429-CzeZSi` over
+`122e47603b..591fd37f13`.
+
+**Confirmed fixed:**
+- F1, F2 and F3;
+- R1;
+- R6;
+- the cold all-off rollouts identical to mvp-0.49, over three decision shapes;
+- `AdLink.p`, pointwise equal to `residual_success`.
+
+**Three Medium findings**, each fixed reproduce-first in its own commit with Codex's reproduction as a test:
+
+| Finding | Ruling | Commit | Test (result on the pre-fix full tree) |
+|---|---|---|---|
+| N1: R9 rebuilt the wrong latent distribution under nonzero variance | R10 | `f1129754c8` | `tests/test_rofu_ad_latent.py` (4 failed, 1 passed: zero variance) |
+| N2: FSRS's logit clip changed AD's probabilities near zero | R11 | `0c448efaa7`, `a63fc11ba0` | `tests/test_rofu_ad_stable.py` (3 failed) |
+| N3: a switch flip reused a prefetch computed under the old settings | R12 | `f707b88555` | `tests/test_rofu_switch_key.py` (10 failed) |
+
+**R10.**
+- **AD's entry point.** `decision_state_fields(eta_moments=True)` is AD's read-only entry point; this is the only
+  caller that asks for the moments, and the other rows are unchanged. It hands each LO's `eta_at_top`: the latent its
+  `p_bar_at_top_raw` integrates, as the mixture's mean and variance over `predict`'s rows and weights, plus the
+  point's guess.
+- **The rollouts.** With R9's link they start from that latent (`Topic.eta_latent`). With only `p̄` and a variance,
+  the mean is `AdLink.inverse(p̄, variance)`: the inverse of the variance-integrated predictive
+  (`AdLink.p_integrated`, which is AD's `expected_success` with `g = 0`).
+- **Precision.** In Codex's two cases, the initial rollout predictive (AD's quadrature over the model's latent)
+  equals AD's `p̄` to 1e-6, from the moments and from `p̄` with the variance alike. Two nested 32-node rules differ
+  by about 2e-7, and the integrated predictive itself agrees to 1e-9. Zero variance stays equal.
+
+**R11.**
+- An unpractised attempt, its belief and a probe now read `F` itself.
+- The combiner's input is its own logit of `F`. `log(1 − F)` is computed directly, which loses nothing since
+  `1 − F ≥ λ`. `log F` is computed directly while it is a normal float, and in log space where it underflows (`η`
+  below about −700).
+- The slope is `F'/F + F'/(1 − F)`, the derivative of the transformation applied.
+- FSRS keeps its clip.
+- In Codex's case (`η` −14, `u` 5e-5), the graded path (R1 off and on), the observe path and the performance path all
+  give one outcome, a miss, and every forecast is `F(−14) = 1.34e-6`.
+- **Part 2 (`a63fc11ba0`).** The first build computed everything in log space. That made the copy-shaped evaluation
+  2.4 times slower (432 to 1040 ms), which moved `test_rofu_carried.py`'s deadline-bound early publication. The
+  direct form restored 454 ms with the same values.
+
+**R12.**
+- **The key.** `objective_settings`, and so every objective boundary key, names `followup_switch_snapshot` at the
+  tag: the six generator switches plus `carried_in_prefetch`.
+- **The answer.** `run_numeric` freezes the generator switches at the job's start into `NumericPolicy.switches`,
+  using the same config as the residual's generator. `_trace` records those.
+- **The test.** Through the real `choose`, serving the same boundary again at once:
+  - the same config reuses the warm entry;
+  - each switch's flip starts a new job, and the served trace names the new switches and generator;
+  - with the key forced back to the predecessor's, the reused answer's trace names the switches it was computed
+    under and the generator its residual was logged under.
+
+**R1's probe after R10-R12** (R1's draw, R6's combiner, AD's `F`), marginal gain at `m̄` per minute:
+- 64 draws: +0.000349, +0.000593, +0.000289, +0.000202, +0.000344;
+- 512 draws: +0.000356, +0.000405, +0.000280, +0.000408, +0.000312.
+
+κ0's seed is the positive day seed in every case. The pins live in `test_rofu_ad_link.py`. R10 moved them, since the
+probe's `η` variance is 0.3. R11 moved three of the 512-draw cases by under 2e-6.
+
+**A timing-sensitive test.** `tests/test_rofu_carried.py::test_an_early_publication_served_keeps_its_carried_valuation`
+has a 3 s serve wait, and the first numeric publication takes about 2.2 s here. It already failed 1 run in 4, alone,
+at `591fd37f13`, while Steam's shader compilation held the CPU (load average 17). At R10 and later it failed 4 in 4
+alone under the same load. Its second decision's numeric policy times out (no publication within 3 s) on both
+trees. This was rerun at the gate (see "Landing onto main" in `router-followups-nov5.md`).

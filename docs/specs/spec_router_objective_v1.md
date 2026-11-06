@@ -611,11 +611,15 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   (`memory.FORM_MONOTONE`). `η`'s two slopes, `aA` (unpractised) and `aA − aR` (practised), are log-normal in the prior
   (moment-matched to the linear one's marginals) and in every fit, and `aR = aA − b` is derived. Landing ruling R9
   (`[router_objective] ad_predictive_link`): where the rollouts read AD's predicted success, they read AD's own
-  `F(η)` with its lapse term (`value.AdLink`), with `η` on AD's latent (`F⁻¹(p̄)` at the start). This covers an
-  unpractised topic, a probe, and the combiner's `η` input (`logit F(η)`). Landing ruling R8: the batch's serving
-  switches that change the logger's values (`combiner_trace_outcomes`, `merged_sessions`, `consistent_review_draw`,
-  `monotone_combiner`, `ad_predictive_link`, `scope_extension`) are part of RO6's generator version
-  (`versions.serving_switches`), so flipping one is a change point.
+  `F(η)` with its lapse term (`value.AdLink`), with `η` on AD's latent. This covers an unpractised topic and a probe,
+  which draw from `F` directly, and the combiner's `η` input (its own unclipped `logit F(η)`, R11). Landing ruling
+  R10: the latent starts at AD's own posterior moments (`decision_state_fields(eta_moments=True)`). Where only `p̄`
+  and a variance exist, it starts at the inverse of the variance-integrated predictive. Landing ruling R8: the batch's
+  serving switches that change the logger's values (`combiner_trace_outcomes`, `merged_sessions`,
+  `consistent_review_draw`, `monotone_combiner`, `ad_predictive_link`, `scope_extension`) are part of RO6's generator
+  version (`versions.serving_switches`), so flipping one is a change point. Landing ruling R12: every switch of the
+  batch is part of the prefetch boundary key, and each numeric answer's trace records the switches it was computed
+  under.
 
 ## 9. RO5: return and calibration
 
