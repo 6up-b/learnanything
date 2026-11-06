@@ -541,7 +541,20 @@ def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
                     _CACHE.clear()
                 _CACHE[key] = found
         out.append(found)
-    return _with_late_carried(out)
+    # The follow-up batch's item 4 is read only with its switch (Codex review F1): switched off after carriers
+    # exist, the later traces' records are not read and every transition mvp-0.49 censors stays censored.
+    return _with_late_carried(out) if carried_in_prefetch_on(config) else out
+
+
+def carried_in_prefetch_on(config: Any) -> bool:
+    """The follow-up batch's item 4: deferred carried valuations are run, recorded and read (its tag and
+    ``[router_objective] carried_in_prefetch``); off, or below the tag, RO6's rulings R12 and R3 exactly."""
+
+    if config is None:
+        return False
+    from learnloop.router_objective_switches import followup_on
+
+    return followup_on(config, "carried_in_prefetch")
 
 
 # -- the trajectories -------------------------------------------------------------------------------------

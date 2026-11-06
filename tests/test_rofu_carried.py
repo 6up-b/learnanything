@@ -146,6 +146,51 @@ def test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path(t
     assert any(step.detail.get("cutoff") == "previous_cutoff" for step in steps.transitions)
 
 
+def _step_key(step) -> tuple:
+    return (step.decision_id, step.generator, step.reward, step.next_v_tail, step.next_phi,
+            step.detail.get("cutoff"))
+
+
+def test_the_switch_turned_off_after_carriers_exist_reads_the_predecessors_transitions(tmp_path, monkeypatch):
+    """Codex review F1: carriers are in the log, then the owner sets ``carried_in_prefetch = false``: the late
+    records are no longer read (no transition is admitted that mvp-0.49 censors), so eligibility and the fits equal
+    the predecessor's reading of the same traces (``_with_late_carried`` as the identity) exactly."""
+
+    from learnloop.daily_plan.engine import advance
+
+    from tests.daily_plan_fakes import record_attempt
+    from tests.router_mixture_helpers import mixture_env
+    from tests.router_model_fakes import fake_runtime
+
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=TAG)
+    for _ in range(8):
+        _record, step = advance(env, serve=True)
+        _carried_threads()
+        if step is None or step["kind"] != "item":
+            break
+        env.clock.advance(2)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                       session_id=env.session_id)
+    assert any(trace.get("carried_for") for trace in _traces(env)), "carriers exist"
+    on = env.vault.config
+    off = on.model_copy(update={"router_objective": on.router_objective.model_copy(
+        update={"carried_in_prefetch": False})})
+    at = "2100-01-01T00:00:00Z"
+    with env.repository.connection() as connection:
+        with_carriers = TD.fits(connection, on, at=at)
+        assert any(row.carried_source == "later_prefetch" for row in TD.logged(connection, on, at=at))
+        assert any(step.detail.get("cutoff") == "previous_cutoff" for step in with_carriers.steps.transitions)
+        switched_off = TD.fits(connection, off, at=at)
+        assert all(row.carried_source == "own_trace" for row in TD.logged(connection, off, at=at))
+        monkeypatch.setattr(TD, "_with_late_carried", lambda rows: rows)
+        predecessor = TD.fits(connection, on, at=at)
+    assert [_step_key(step) for step in switched_off.steps.transitions] == [
+        _step_key(step) for step in predecessor.steps.transitions]
+    assert dict(switched_off.steps.censored) == dict(predecessor.steps.censored)
+    assert dict(switched_off.steps.censored) != dict(with_carriers.steps.censored)
+    assert repr(switched_off.by_generator) == repr(predecessor.by_generator)
+
+
 def test_below_the_tag_the_no_model_branch_is_r3s(tmp_path):
     from tests.router_mixture_helpers import mixture_env, run
     from tests.router_model_fakes import fake_runtime

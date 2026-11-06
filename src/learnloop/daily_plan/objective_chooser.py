@@ -642,9 +642,10 @@ def _with_carried(numeric: "NumericPolicy | None", entry: Any) -> "NumericPolicy
 
 
 def _carry_on(config: Any) -> bool:
-    from learnloop.router_objective_switches import followup_on
+    # One predicate for the serving side and the reading side (tail_data.logged; Codex review F1).
+    from learnloop.router_objective import tail_data as TD
 
-    return followup_on(config, "carried_in_prefetch")
+    return TD.carried_in_prefetch_on(config)
 
 
 def _register_carry(sqlite_path: Any, decision_id: str, compute: Callable[[], dict[str, Any]]) -> None:
