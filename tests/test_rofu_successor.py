@@ -61,13 +61,14 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.49's value at this branch's base (e7a7d7734f), frozen here: dropping the batch's keys reproduces it.
+    # mvp-0.49's value on main (5565bede25, merged at the landing: its own mvp-0.49 snapshot, which TE2-log's
+    # teacher.episode_log moved), frozen here: dropping the batch's keys reproduces it.
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
     for key in FOLLOWUP_KEYS:
         dumped["router_objective"].pop(key)
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "f50d5cae5bb8e27aa69cdc7037afccd6afb5b165de619d082c80af4e92331459"
+    assert digest == "cb3a4f907f667d77deb1b53eb92c2e7b57f836443f7058de2a5a6e2b431e2e48"
 
 
 @pytest.mark.parametrize("path", [f"router_objective.{key}" for key in FOLLOWUP_KEYS])
