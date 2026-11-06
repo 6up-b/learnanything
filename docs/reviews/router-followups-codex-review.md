@@ -169,3 +169,43 @@ its `git archive`):
 | Targeted | 187 files, `-n 6`: the 155 of this review's list, with every `test_rofu_*`, `test_ro6_*`, `test_ro5_*`, `test_ro4_*`, `test_ro0_*`, `test_ro1_availability*`, `test_ro2_ad_raw_document_reads`, `test_followup_*`, the display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_cli_help_snapshot`, `test_data_capture_successor`, `test_registry_audit`, `test_architecture`, and every file naming the defaults snapshots, `LATEST_ALGORITHM_VERSION`, mvp-0.49, mvp-0.50 or the batch's version | 3541 passed, 16 skipped, 6 xfailed |
 | Durability | `--durable-sqlite`: `test_rofu_review_draw`, `test_rofu_successor`, `test_rofu_speed`, `test_rofu_learning`, `test_registry_audit` | 71 passed |
 | Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
+
+## Landing ruling R7: practice's learning increment, the rollouts against AD's own model (recorded, nothing built)
+
+**AD's form** (`adaptive_difficulty/state.py`, `View.learn`; `model.py`, `Bank.add_linear` and `Bank.drift`):
+
+- **Practice.** Each practice opportunity adds `γ·w` to the item's cell mean (`w` is the item's weight on the facet).
+  In the subject view, each coupled facet's cell also gets `corr·γ·w`.
+- **No growth bound.** The update is linear in the number of opportunities, with no ceiling, no saturation and no
+  dependence on the current level.
+- **Time.** `drift` grows only the cell's variance (`DRIFT_PER_DAY` 0.01 per day). It has no mean reversion, so the
+  latent mean never decays.
+- **Prediction.** What AD bounds is the predictive, not the growth: `F(η) = g + (1 − g − λ)·E_ε[σ(η − aε)]`, with
+  lapse `λ` 0.02, tops out at `1 − λ`.
+- **γ.** `γ`'s prior is `N(0.2, 0.01)` (`priors.GAMMA_PRIOR`), and its posterior is RO5's read.
+
+**The rollouts** (`value._Model._practice` and `_practice_batch`) add `γ·mass` to `η` per opportunity: AD's form,
+linear and unbounded. The draw's `γ` comes from AD's posterior. So per the ruling nothing is aligned, and no ceiling
+is invented here.
+
+**AD-level finding (for the owner and the next AD stage).** On R1's probe (η 0.5 at the start, S 40, 64 draws, R1's
+draw and R6's combiner), the tail practises about 9 opportunities a day over 8 topics. The mean true `η` per topic
+climbs at about 0.23 a day:
+
+| Day | η (true) | Belief | P(perform), mean of the draws |
+|---:|---:|---:|---:|
+| 0 | 0.76 | 0.72 | 0.847 |
+| 7 | 2.40 | 2.29 | 0.911 |
+| 30 | 7.79 | 7.44 | 0.970 |
+| 90 (`C`) | 21.86 | 20.88 | 0.992 |
+| 150 | 35.93 | 34.35 | 0.995 |
+
+By `C + H` (180 days) it reaches about 42. A latent this far out on the logit scale, with no forgetting and no
+saturation, means any coefficient that weights `η` dominates the forecast. R6 removes the sign problem this created,
+but not the scale.
+
+Differences between the rollouts and AD, recorded and not built (each changes every valuation):
+
+- the rollouts' belief variance does not drift by `DRIFT_PER_DAY`;
+- the rollouts' predictive is `σ(η)`, not AD's `F(η)` with its guess and lapse;
+- coupled facets' transfer is not simulated.
