@@ -36,6 +36,7 @@ OLD = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 #: The batch's [router_objective] keys and their defaults (each part's switch).
 FOLLOWUP_KEYS: dict[str, object] = {
     "combiner_trace_outcomes": True,
+    "merged_sessions": True,
     "carried_in_prefetch": True,
     "scope_extension": True,
 }

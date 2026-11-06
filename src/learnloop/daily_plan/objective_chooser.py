@@ -130,11 +130,25 @@ def _local_date(now_iso: str) -> str:
 # -- the price, the weight -------------------------------------------------------------------------------
 
 
-def _frontier(inputs: V.Inputs, *, draws: int, seed: str) -> tuple[dict[float, float], dict[str, Any]]:
+def _merged(config: Any) -> bool:
+    """The follow-up batch's item 3 (Codex review F2): the rollouts' merged tail sessions serve only at the batch's
+    tag with ``[router_objective] merged_sessions``. The values of a fixed number of draws are the same either way,
+    but a faster draw lets a deadline-bound evaluation complete more of them, so below the tag, or off, every
+    rollout runs mvp-0.49's per-block loop (the same time per draw)."""
+
+    if config is None:
+        return False
+    from learnloop.router_objective_switches import followup_on
+
+    return followup_on(config, "merged_sessions")
+
+
+def _frontier(inputs: V.Inputs, *, draws: int, seed: str, merged_sessions: bool = False
+              ) -> tuple[dict[float, float], dict[str, Any]]:
     mbar = float(inputs.price.remembered)
     d = float(inputs.tail_block_minutes)
     points = sorted({0.0, mbar, mbar + d, 2 * mbar})
-    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier")
+    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", merged_sessions=merged_sessions)
     return curve, {"points": [{"minutes": m, "gain": curve[m]} for m in points],
                    "display": "; ".join(f"{m:.0f} minutes: predicted gain {curve[m]:+.3f}" for m in points if m > 0)
                    + " (predictions)"}
@@ -164,7 +178,7 @@ def _posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_da
         frontier: dict[str, Any] = {"carried_from": today[0]} if today is not None else {"status": "no_topics"}
         gain: dict[str, float] = {}
     else:
-        curve, frontier = _frontier(inputs, draws=draws, seed=seed)
+        curve, frontier = _frontier(inputs, draws=draws, seed=seed, merged_sessions=_merged(config))
         gain = {str(k): v for k, v in curve.items()}
     return P.Seeded(kappa0=float(posterior["kappa0"]), how=SC.POSTERIOR, regime=SC.POSTERIOR_REGIME, gain=gain,
                     local_date=local_date, posterior=posterior), frontier
@@ -202,7 +216,7 @@ def day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int,
     mbar = float(inputs.price.remembered)
     d = float(inputs.tail_block_minutes)
     points = sorted({0.0, mbar, mbar + d, 2 * mbar})
-    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier")
+    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", merged_sessions=_merged(config))
     kappa0, how = P.seed_from_gain(curve, remembered=mbar, block_minutes=d, last_positive=last_positive)
     frontier = {"points": [{"minutes": m, "gain": curve[m]} for m in points],
                 "display": "; ".join(f"{m:.0f} minutes: predicted gain {curve[m]:+.3f}" for m in points if m > 0)
@@ -393,6 +407,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         inputs = replace(inputs, price=replace(inputs.price, kappa0=priced.kappa0, regime=priced.regime))
         draws, ceiling = int(section.rollout_theta_draws), int(section.rollout_theta_draws_max)
         cached: dict[str, Any] = {}
+        # The follow-up batch's item 3 (Codex review F2): every rollout of this decision, or none, merged.
+        merged = _merged(config)
 
         def answered(evaluation: V.Evaluation, used: V.Inputs, acts: Sequence[V.Action], corrected: bool) -> NumericPolicy:
             if residual_record is not None and residual_record.get("status") == "applied":
@@ -406,7 +422,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             if "baselines" not in cached:
                 # The pre-action belief under the tail: no action and no correction enters it.
                 cached["baselines"] = V.baselines(used, int(section.evaluation_window_days),
-                                                  draws=min(evaluation.draws, 8), seed=seed)
+                                                  draws=min(evaluation.draws, 8), seed=seed, merged_sessions=merged)
             return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=used,
                                  actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
                                  baselines=cached["baselines"], corrected=corrected,
@@ -419,7 +435,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         # (``unmeasured`` only at RO6's tag with the learned tail on; None leaves the evaluation as mvp-0.48's)
         measured = {"unmeasured": unmeasured} if unmeasured is not None else {}
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
-                                deadline=deadline, clock=clock, on_complete=on_complete, **measured)
+                                deadline=deadline, clock=clock, on_complete=on_complete, merged_sessions=merged,
+                                **measured)
         corrected = False
         if evaluation.complete and forecasts is not None and bool(section.sensors_in_value):
             got = forecasts()
@@ -433,7 +450,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                     with_llm = replace(inputs, effect=effect, reference_forecast=float(reference))
                     acts = [replace(action, forecast=by_ref.get(action.ref)) for action in actions]
                     again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
-                                       **measured)
+                                       merged_sessions=merged, **measured)
                     if again.complete:
                         evaluation, inputs, actions, corrected = again, with_llm, acts, True
         if not evaluation.complete:
@@ -460,7 +477,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                     # batch's item 4); else this job's.
                     at_previous = V.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
                                              deadline=at_deadline if deadline is None else deadline,
-                                             clock=clock, cutoff=carried)
+                                             clock=clock, cutoff=carried, merged_sessions=merged)
                     return TS.with_carried_values(record, at_previous)
 
                 defer_carried(compute)
@@ -470,7 +487,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
                 # target, so the first batch's draws: its noise averages out in the fit, and no refinement is paid).
                 at_previous = V.evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
-                                         cutoff=carried)
+                                         cutoff=carried, merged_sessions=merged)
                 residual_record = tail_serve.with_carried_values(residual_record, at_previous)
         return answered(evaluation, inputs, actions, corrected)
     except Exception as exc:  # noqa: BLE001 - a failed policy's share goes to the staged rule

@@ -4190,8 +4190,8 @@ class RouterObjectiveConfig(BaseModel):
     labelled priors (``residual_prior_sd`` on the fitted Q evaluation's coefficients, ``residual_weight_prior_sd``
     on its calibration slope ``ŵ``, which starts at zero).
 
-    The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``carried_in_prefetch``, ``scope_extension``, each
-    part's own switch (off, or below the tag, mvp-0.49 exactly).
+    The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``carried_in_prefetch``,
+    ``scope_extension``, each part's own switch (off, or below the tag, mvp-0.49 exactly).
     """
 
     receipts: bool = True
@@ -4284,6 +4284,9 @@ class RouterObjectiveConfig(BaseModel):
     #: below the tag, that part is mvp-0.49's exactly. RO4 item 6: the memory combiner is also fitted on the
     #: traces' frozen sensors joined to resolved cold outcomes (RO2's resolver, as of each decision).
     combiner_trace_outcomes: bool = True
+    #: Item 3 (Codex review F2): the rollouts' tail sessions merged into one vectorized step where no topic repeats
+    #: and no dated use is crossed; the same values per draw, but faster, so a deadline admits more draws.
+    merged_sessions: bool = True
     #: RO6 R12/R3: a decision served before its carried valuation existed is valued again in the next
     #: boundary's prefetch (the no-model branch too), recorded beside its trace, so its backup is not censored.
     carried_in_prefetch: bool = True

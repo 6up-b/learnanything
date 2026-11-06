@@ -1946,6 +1946,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("router_objective.combiner_trace_outcomes"), "structural", "operational",
         "kill switch for the follow-up batch's successor mvp-0.50 (RO4 item 6): the memory combiner is also fitted "
         "on the traces' frozen sensors joined to resolved cold outcomes; off, mvp-0.49's checks-only fit."),
+    _ConfigRule(_exact("router_objective.merged_sessions"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (item 3, Codex review F2): the rollouts' tail "
+        "sessions merged into one vectorized step (the same values per draw; more draws within a deadline); off, "
+        "mvp-0.49's per-block loop."),
     _ConfigRule(_exact("router_objective.carried_in_prefetch"), "structural", "operational",
         "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R12, R3): a decision served before its "
         "carried valuation existed is valued in the next boundary's prefetch; off, mvp-0.49 (censored)."),

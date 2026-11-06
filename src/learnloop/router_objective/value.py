@@ -93,10 +93,12 @@ KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LES
 #: The reference row's ref: the tail's next action, sent to the LLM policy as a non-choosable row.
 REFERENCE_REF = "tail_next"
 MINUTES_PER_DAY = 1440.0
-#: The follow-up batch (item 3): a tail session with no repeated topic and no crossable dated use is one vectorized
-#: step over its blocks' cells (:meth:`_Model._session`); False keeps the per-block loop, the reference path the
-#: tests compare it with. Numerical only: the same cells, in the same order, each at its own block's end.
-MERGED_SESSIONS = True
+#: The follow-up batch (item 3): with ``merged_sessions`` (:func:`evaluate`, :func:`baselines`, :func:`gain`; the
+#: caller passes ``[router_objective] merged_sessions`` at the batch's tag), a tail session with no repeated topic and
+#: no crossable dated use is one vectorized step over its blocks' cells (:meth:`_Model._session`); off (the default,
+#: below the tag), the per-block loop. The same cells, in the same order, each at its own block's end, so a fixed
+#: number of draws gives the same values; but an evaluation refined until a deadline completes more draws when each
+#: is faster, which can change ``Q̄`` and the tie rule (Codex review F2), so it changes serving and has its switch.
 
 
 @dataclass(frozen=True)
@@ -400,9 +402,11 @@ class _Model:
     """One decision's rollouts: the frozen inputs, the draws, and the streams."""
 
     def __init__(self, inputs: Inputs, draws: int, seed: str, cutoff: float | None = None,
-                 unmeasured: Collection[str] | None = None) -> None:
+                 unmeasured: Collection[str] | None = None, merged_sessions: bool = False) -> None:
         self.inputs = inputs
         self.seed = seed
+        #: the follow-up batch's item 3 (module constant's note above): the tail's sessions merged when they can be
+        self.merged = bool(merged_sessions)
         #: RO6's landing ruling R7: topics whose undated uses no randomized check could measure as of the decision;
         #: their share of the undated reward is kept apart on the same paths (``_Ledger.unmeasured``). None: not kept.
         self.unmeasured = frozenset(unmeasured) if unmeasured is not None else None
@@ -645,7 +649,7 @@ class _Model:
         order = np.argsort(-priority, axis=1, kind="stable")
         u = self.streams.outcome_u[:, min(day, self.days), :]
         total = int(blocks.max())
-        if (MERGED_SESSIONS and total * items <= self.n
+        if (self.merged and total * items <= self.n
                 and (crosses is None or not crosses(when + blocks * d / MINUTES_PER_DAY, blocks > 0))):
             # The follow-up batch (item 3): with no topic repeated in the session (the ranking taken once, its
             # slots fewer than the topics) and no dated use any block's end could cross, the blocks touch distinct
@@ -945,7 +949,8 @@ class _Model:
                 learning=replace(learning, gamma=(learning.gamma[0], 0.0),
                                  gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
                 effect=None, stop_accept=(1.0, 1.0))
-            self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried)
+            self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried,
+                                  merged_sessions=self.merged)
         return self._belief
 
     def _probe_choice(self, probe: Action, repair: Action, result: bool | None) -> dict[str, Any]:
@@ -1085,7 +1090,8 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
              keep_going: Callable[[], bool] | None = None, deadline: float | None = None,
              clock: Callable[[], float] = time.monotonic,
              on_complete: Callable[[Evaluation], None] | None = None,
-             cutoff: float | None = None, unmeasured: Collection[str] | None = None) -> Evaluation:
+             cutoff: float | None = None, unmeasured: Collection[str] | None = None,
+             merged_sessions: bool = False) -> Evaluation:
     """``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more
     while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s). An evaluation
     that could not finish its first batch by the deadline is ``complete = False``; a refinement the deadline cuts
@@ -1095,12 +1101,13 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
     the value of this state at an earlier decision's carried cutoff (§3.2; Codex re-review F3). ``unmeasured``
     (RO6's landing ruling R7; None: not kept): topics whose share of each ``Q`` is kept apart on the same paths
     (``terms.unmeasured_reward``), so the measurable part ``q − unmeasured_reward`` decomposes by term exactly;
-    ``q`` itself is unchanged."""
+    ``q`` itself is unchanged. ``merged_sessions`` (the follow-up batch's item 3; False: mvp-0.49's per-block loop):
+    the tail's sessions merged where they can be, faster, so a deadline admits more refinement batches."""
 
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
-    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured)
+    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, merged_sessions=merged_sessions)
     latest: Evaluation | None = None
     while True:
         rows: list[Valued] = []
@@ -1124,7 +1131,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
         if not more or total >= limit or (deadline is not None and clock() > deadline):
             break
         total = min(total * 2, limit)
-        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured)
+        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, merged_sessions=merged_sessions)
     if latest is not None:
         return replace(latest, elapsed_ms=int(round((clock() - started) * 1000)))
     return Evaluation(valued=(), draws=model.k, cutoff=model.cutoff, seed=seed,
@@ -1159,12 +1166,13 @@ def numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str,
                     "paired_se_top_two": precision, "rule": "argmax_qbar_ties_within_paired_se_by_support_order"}
 
 
-def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str) -> dict[str, Any]:
+def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str,
+              merged_sessions: bool = False) -> dict[str, Any]:
     """§8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the
     tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated
     use's at its date."""
 
-    model = _Model(inputs, draws, seed)
+    model = _Model(inputs, draws, seed, merged_sessions=merged_sessions)
     ledger = _Ledger.zeros(model.k)
     state = model.initial()
     recorder: dict[str, Any] = {"days": int(window_days)}
@@ -1178,12 +1186,13 @@ def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str) -> dic
     return {"topics": per_topic, "dated": dict(recorder.get("dated") or {})}
 
 
-def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str) -> dict[float, float]:
+def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str,
+         merged_sessions: bool = False) -> dict[float, float]:
     """``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from
     the start under the tail, then the tail; for the price's daily seed and the frontier."""
 
     out: dict[float, float] = {}
-    model = _Model(replace(inputs, session_minutes=0.0), draws, seed)
+    model = _Model(replace(inputs, session_minutes=0.0), draws, seed, merged_sessions=merged_sessions)
     for length in session_lengths:
         ledger = _Ledger.zeros(model.k)
         state = model.initial()
