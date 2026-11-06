@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/episodes.py"
 source_paths:
   - "src/learnloop/teacher/episodes.py"
-source_commit: "c301f12a6fb3c4eee8ec28f70ccc8e9e185849ce"
-source_commit_timestamp: "2026-11-06T01:16:17-05:00"
+source_commit: "c1bfacd6622a998fac040f390a11c4132f80bd82"
+source_commit_timestamp: "2026-11-06T01:49:29-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py) |
-| Source lines | 563 |
+| Source lines | 564 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c301f12a6fb3c4eee8ec28f70ccc8e9e185849ce` |
-| Commit timestamp | `2026-11-06T01:16:17-05:00` |
+| Source commit | `c1bfacd6622a998fac040f390a11c4132f80bd82` |
+| Commit timestamp | `2026-11-06T01:49:29-05:00` |
 
 ## Public API
 
@@ -79,12 +79,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `record_intervals(vault: Any, repository: Any, *, lesson_id: str, intervals: Sequence[Mapping[str, Any]], occurred_at: str | None, received_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 365) — Append the screen's intervals (one row per (lesson, screen session, seq); a resend writes nothing), each in its own savepoint.
 - `node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, learning_objects: Collection[str], version: int, family: str, prompt: str, doctrine: str, now: str) -> list[Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 407) — One ``lesson_node_held`` forecast per plan node with ``p_held`` on a vault LO (the node's ``lo_id``, or a node named by its LO; an ``lo_id`` that is no vault LO writes none): bound to the first qualifying cold outcome on the LO, as ``lesson_step_retained`` is.
 - `turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 442) — The outlines a turn's ``write_plan`` requests write, in request order.
-- `logged_fields(turn_obj: Any) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 449) — ``(location, text)`` of every field an episode turn's model wrote that a log row, a receipt or a note's payload may copy: a note's ``hypothesis`` and ``node``, each plan node's ``id`` and ``lo_id``.
-- `node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 469) — A note's node names a node of the lesson's latest plan, of a plan its own turn writes (before or after the note), or a brief LO.
-- `outline_lo(outline: Sequence[Mapping[str, Any]], node_id: str, learning_objects: Collection[str]) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 480) — The node's LO in ``outline``: its ``lo_id`` when that is a vault LO, else the node's id when that is one; None otherwise (never a guess such as the goal's LO).
-- `node_lo(learning_objects: Collection[str], state: Any, turn_obj: Any, node_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 493) — A note's node's LO: from the newest plan holding the node (a plan its own turn writes first), else the node as an LO; :func:`outline_lo`'s rule.
-- `inserted_nodes(previous: Sequence[Mapping[str, Any]] | None, outline: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 504) — Nodes a revised plan inserts before a node the previous plan had (a foundation stepped back to), in order; none for a first plan or for nodes only appended after them.
-- `receipt_episodes(repository: Any, lesson_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 521) — §8.3 ``episodes``: the lesson's episode ids by kind.
+- `logged_fields(turn_obj: Any) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 449) — ``(location, text)`` of every field a turn's model wrote that a log row, a receipt or a note's payload may copy: a note's ``hypothesis`` and ``node`` (episode turns only), each plan node's ``id`` and ``lo_id`` (every turn: they reach the lesson receipt's ``nodes``).
+- `node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 470) — A note's node names a node of the lesson's latest plan, of a plan its own turn writes (before or after the note), or a brief LO.
+- `outline_lo(outline: Sequence[Mapping[str, Any]], node_id: str, learning_objects: Collection[str]) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 481) — The node's LO in ``outline``: its ``lo_id`` when that is a vault LO, else the node's id when that is one; None otherwise (never a guess such as the goal's LO).
+- `node_lo(learning_objects: Collection[str], state: Any, turn_obj: Any, node_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 494) — A note's node's LO: from the newest plan holding the node (a plan its own turn writes first), else the node as an LO; :func:`outline_lo`'s rule.
+- `inserted_nodes(previous: Sequence[Mapping[str, Any]] | None, outline: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 505) — Nodes a revised plan inserts before a node the previous plan had (a foundation stepped back to), in order; none for a first plan or for nodes only appended after them.
+- `receipt_episodes(repository: Any, lesson_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 522) — §8.3 ``episodes``: the lesson's episode ids by kind.
 
 ### Module constants
 

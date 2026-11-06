@@ -158,6 +158,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_bad_interval_is_refused_alone`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_a_refused_episode_row_rolls_back_alone_and_never_blocks_the_turn`
+  - `test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off`
 - [tests/test_teacher_te2log_receipt.py](../../../../../../../tests/test_teacher_te2log_receipt.py) — direct import
 
 ## Modification guidance

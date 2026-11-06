@@ -105,6 +105,7 @@ recorded verbatim in `docs/reviews/teacher-te2-log.md` under "Landing onto main"
 | R1 (a) | A plan node whose id is the reserved key of an LO the brief never named (`lo_id` that LO, `p_held` 0.6) was accepted and copied into `lesson_episodes.node_id` and the `lesson_node_held` receipt's key and inputs: the guard read only `state.los`'s keys | `c301f12a6f` | `test_a_plan_node_carrying_another_los_reserved_key_is_withheld_by_location`, `test_a_plan_lo_id_carrying_a_reserved_key_is_withheld_by_location` |
 | R1 (b) | A contract refusal echoed the model's text before any guard ran (`plan node <reserved>: these anchors don't resolve: S999`); a schema refusal echoed pydantic's `input_value` | `c301f12a6f` | `test_a_contract_refusal_names_the_field_by_location_never_by_its_text`, `test_a_schema_refusal_names_fields_by_location_never_by_their_input` |
 | R2 | TE1's `forecast` copied `request.node`, and the node's plan `lo_id`, into its receipt unchecked (switch off: an unknown node and a reserved node id / `lo_id` were all written) | `1c4bb43506` | `test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off` (and `test_te1s_forecast_on_a_known_node_is_unchanged_with_the_switch_off`, a pin that passes before and after) |
+| R1 (a), R2 (found at the landing smoke) | With the switch off, TE1's own plan node ids and `lo_id` reached a receipt (the lesson receipt's `nodes`), `lesson_plans` and the transcript unguarded (as on main); a posed check's node reaches a visual's record in the receipt | `c1bfacd662` | `test_te1s_plan_ids_reaching_the_lesson_receipt_are_guarded_with_the_switch_off` (failed on `1c4bb43506`'s source) |
 
 What changed:
 
@@ -112,10 +113,11 @@ What changed:
   every model-supplied field a log row, a receipt or a note's payload copies is checked against **every answer key
   the vault records, on any LO, with no exemption** (an exam-reserved or held-out item's included, an LO the brief
   never named and one a plan adds in the same turn included), after the existing output guards. The fields
-  (`service._logged`, `episodes.logged_fields`): with `teacher.episode_log` on, a note's hypothesis and node, each
-  plan node's id and `lo_id`; on every turn (R2), each forecast's node and the LO its receipt will hold
-  (`service._forecast_lo`, mirroring `_forecast`). A hit withholds the turn; an unreadable KeyBook withholds it
-  (fail closed).
+  (`service._logged`, `episodes.logged_fields`), on every turn, the switch off included: each plan node's id and
+  `lo_id` (the lesson receipt's `nodes` copy them; `c1bfacd662`), the posed check's and prediction's node, each
+  forecast's node and the LO its receipt will hold (`service._forecast_lo`, mirroring `_forecast`; R2); with
+  `teacher.episode_log` on also a note's hypothesis and node. A hit withholds the turn; an unreadable KeyBook
+  withholds it (fail closed).
 - **Refusals by location.** Every contract refusal (`service._contract_problem`, `visuals.contract_problem`) names the
   field by its location (`requests[0].plan[1].anchors[0]`, `check.anchors[2]`, `requests[0].node`,
   `visual.planned_node`), never by its text; a guard refusal names the field the same way
@@ -150,5 +152,6 @@ other Python or CLI under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOO
 | pytest `-n 6`: every `test_teacher_*`, `test_forecast_receipts*`, every test naming `lesson_weight`, the teacher files, the display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), `test_cli_help_snapshot`, `test_architecture`, `test_table_roles`, `test_registry_audit`, `test_tracked_fixture_databases`, `test_coordinated_migrations`, `test_migrations`, `test_codex_lockdown_round3`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot` (52 files) | 786 passed |
 | pytest `--durable-sqlite` on the touched test files | 62 passed |
 | `lint-imports --no-cache` | 43 kept, 0 broken |
+| After `c1bfacd662` (reproduced first on `1c4bb43506`'s source: 1 failed): the 28 teacher files and both forecast-receipt files; `--durable-sqlite` on the episodes file; `lint-imports` | 426 passed; 24 passed; 43 kept, 0 broken |
 
-New tests: `tests/test_teacher_te2log_episodes.py` 17 -> 23.
+New tests: `tests/test_teacher_te2log_episodes.py` 17 -> 24.
