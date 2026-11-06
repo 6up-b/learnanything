@@ -19,7 +19,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_248" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_249" / "state.sqlite"
 TE1_TABLES = {
     "lessons": TableRole.RAW_LEDGER, "lesson_turns": TableRole.RAW_LEDGER, "lesson_plans": TableRole.RAW_LEDGER,
     "lesson_turn_payloads": TableRole.WORKFLOW, "lesson_checks": TableRole.RECEIPT,
@@ -48,7 +48,10 @@ def test_234_is_te1s_migration_and_every_table_is_classified():
     assert names[234] == "234_teacher_lessons.sql"
     for table, role in TE1_TABLES.items():
         assert role_for_table(table) == role, table
-        assert PT.role(table) == PT.DENIED, table
+        # Teacher TE3a (spec_teacher_v1 rev 5 §14.2) moved the lesson, its plan and its receipt to READING
+        # (PROTECTED, read by the rules only); every other lesson table stays DENIED.
+        expected = PT.PROTECTED if table in ("lessons", "lesson_plans", "lesson_receipts") else PT.DENIED
+        assert PT.role(table) == expected, table
 
 
 def _upgrade(tmp_path: Path) -> Path:
@@ -64,7 +67,7 @@ def test_the_head_fixture_is_at_234_in_rollback_mode_with_empty_lesson_tables():
     # Follow-ups Nov 2's 235 is the head now (rebuilt from TE1's 234 head with only 235 applied); it holds 234.
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 248
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 249
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert TE1_ADDED_OBJECTS <= names
         for table in TE1_TABLES:

@@ -10,9 +10,9 @@ area: "TypeScript/screens/today"
 source_path: "apps/learnloop-tauri/src/screens/today/ContinueLessonCard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today/ContinueLessonCard.tsx"
-source_commit: "workspace/uncommitted @ 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "a46bf6f6332ca86b1596e26dbd9622aac983b503"
+source_commit_timestamp: "2026-11-06T04:43:21-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `workspace/uncommitted @ 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
-| Commit timestamp | `2026-11-06T11:32:04-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a46bf6f6332ca86b1596e26dbd9622aac983b503` |
+| Commit timestamp | `2026-11-06T04:43:21-05:00` |
 
 ## Activation and status evidence
 

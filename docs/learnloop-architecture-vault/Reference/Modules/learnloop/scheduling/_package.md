@@ -46,7 +46,7 @@ source_paths:
   - "src/learnloop/scheduling/unresolved_cost.py"
   - "src/learnloop/scheduling/voi_forecasts.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
+source_commit_timestamp: "2026-11-06T04:43:14-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling"
@@ -98,7 +98,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] | [[Reference/Modules/learnloop/scheduling/family_memory_model#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] | [[Reference/Modules/learnloop/scheduling/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 13 | 7 |
 | [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] | [[Reference/Modules/learnloop/scheduling/frame_constraints#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] | [[Reference/Modules/learnloop/scheduling/fsrs#^module-purpose|purpose]] | `ACTIVE` | 28 | 30 |
+| [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] | [[Reference/Modules/learnloop/scheduling/fsrs#^module-purpose|purpose]] | `ACTIVE` | 28 | 31 |
 | [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] | [[Reference/Modules/learnloop/scheduling/fsrs_fitting#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/scheduling/intent_planner|learnloop.scheduling.intent_planner]] | [[Reference/Modules/learnloop/scheduling/intent_planner#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] | [[Reference/Modules/learnloop/scheduling/interleaving#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |

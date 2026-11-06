@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/sim/ad_gates.py"
 source_paths:
   - "src/learnloop/sim/ad_gates.py"
-source_commit: "2778e23fe57cb9e86780e5e1e0b93ad814872e6e"
-source_commit_timestamp: "2026-10-19T00:49:53-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201"
+source_commit_timestamp: "2026-11-06T11:48:24-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.sim"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sim/ad_gates.py](../../../../../../src/learnloop/sim/ad_gates.py) |
-| Source lines | 394 |
+| Source lines | 395 |
 | Owning package | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] |
 | Architecture layer | `simulation` |
 | Refactor status | `EVALUATION` |
-| Worktree state | `clean` |
-| Source commit | `2778e23fe57cb9e86780e5e1e0b93ad814872e6e` |
-| Commit timestamp | `2026-10-19T00:49:53-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201` |
+| Commit timestamp | `2026-11-06T11:48:24-05:00` |
 
 > [!note] Evaluation-only authority
 > This module computes shadow, audit, or offline evidence. Its outputs do not directly choose learner-facing actions unless a governed promotion path says otherwise.
@@ -73,13 +73,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `g_ad3_11(scenario: str, *, floor: float=0.1, n: int=200) -> dict[str, Any]` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 220)
 - `g_ad3_15(*, n: int=200) -> dict[str, Any]` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 268)
 - `g_ad3_9(*, seeds: int=200, attempts: int=300) -> dict[str, Any]` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 285) — Flags on synthetic logs: the worse model 0.15 nats worse per first attempt over 300 first attempts (and the other flags' stated conditions); none fires when nothing is worse.
-- `main(argv: list[str]) -> int` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 378)
+- `main(argv: list[str]) -> int` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 379)
 
 ### Module constants
 
 - `SUBJECT` ([src/learnloop/sim/ad_gates.py](../../../../../../src/learnloop/sim/ad_gates.py), line 25)
 - `UNIFORM` ([src/learnloop/sim/ad_gates.py](../../../../../../src/learnloop/sim/ad_gates.py), line 26)
-- `GATES` ([src/learnloop/sim/ad_gates.py](../../../../../../src/learnloop/sim/ad_gates.py), line 354)
+- `GATES` ([src/learnloop/sim/ad_gates.py](../../../../../../src/learnloop/sim/ad_gates.py), line 355)
 
 ### Explicit exports
 
@@ -104,7 +104,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_bootstrap_mean(values: np.ndarray, *, samples: int=2000, seed: str='ad-sim-bootstrap') -> list[float]` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 29)
 - `_reading_flag_and_losses(result: A.ReaderResult) -> tuple[np.ndarray, np.ndarray]` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 182)
 - `_curve_coverage(result: A.ReaderResult, kind: str) -> np.ndarray` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 210)
-- `_shift_for_excess_loss(target: float) -> float` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 334) — The logit shift whose expected excess log loss over the truth (p ~ U(0.3, 0.9)) is ``target``.
+- `_shift_for_excess_loss(target: float) -> float` ([source](../../../../../../src/learnloop/sim/ad_gates.py), line 335) — The logit shift whose expected excess log loss over the truth (p ~ U(0.3, 0.9)) is ``target``.
 
 ## Who imports or calls it
 

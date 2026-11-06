@@ -78,11 +78,14 @@ class View:
     """One view's state: the subject view (a bank over the grid) or one LO's view (one filter)."""
 
     def __init__(self, bank: M.Bank, *, subject_view: bool, reading: bool = False, verdicts: bool = False,
-                 signals: Sequence[str] = P.BASE_SIGNALS) -> None:
+                 signals: Sequence[str] = P.BASE_SIGNALS, lessons: bool = False) -> None:
         self.bank = bank
         self.subject_view = subject_view
         self.reading_on = bool(reading and subject_view and bank.flags["reading"])
         self.verdicts_on = bool(verdicts and self.reading_on and bank.flags["verdict"])
+        #: Teacher TE3a (spec_teacher_v1 §14.2): lesson opportunities apply their subkind's dose curve (subject view
+        #: only, behind ``adaptive_difficulty.lesson_opportunities``; independent of reading's switch).
+        self.lessons_on = bool(lessons and subject_view)
         self.signals = tuple(signals)
         #: n_{κ,f}: each kind's dose on a facet since its last graded attempt (per row).
         self.windows: dict[tuple[str, str], np.ndarray] = {}
@@ -167,7 +170,7 @@ class View:
         selection's ``I_c`` reads the cell ability; nothing is created in this view)."""
 
         clone = View(self.bank.copy(), subject_view=self.subject_view, reading=self.reading_on,
-                     verdicts=self.verdicts_on, signals=self.signals)
+                     verdicts=self.verdicts_on, signals=self.signals, lessons=self.lessons_on)
         clone.windows = {key: value.copy() for key, value in self.windows.items()}
         at = 0.0
         clone.bank.ensure_subject(subject, at)
@@ -313,17 +316,24 @@ class View:
                         bank.add_linear(coupled, {"gamma": corr * weight * mask})
 
     def _reading_transition(self, doses: Mapping[str, np.ndarray], kind: str) -> None:
+        self._dose_transition(doses, kind, lambda m: (f"gbar:{m}", f"delta:{kind}:{m}"))
+
+    def _dose_transition(self, doses: Mapping[str, np.ndarray], window: str, names: Any) -> None:
+        """A dose-curve transition (§5.11) on each facet: ``θ_f ← θ_f + Σ_m c_m·(b_m(n + D) − b_m(n))``, the
+        coefficients ``names(m)`` (reading: ``γ̄_m + δ_{κ,m}``; a lesson: its subkind's own), the window
+        ``(window, f)``; with the coupled transfer."""
+
         bank = self.bank
         for facet, dose in sorted(doses.items()):
             dose = np.broadcast_to(np.asarray(dose, dtype=np.float64), (bank.B,))
             if not np.any(dose > 0):
                 continue
-            n = self.windows.get((kind, facet), np.zeros(bank.B))
+            n = self.windows.get((window, facet), np.zeros(bank.B))
             increments = M.dose_increments(n, dose)
             coefficients = {}
             for m_index, scale in ((1, increments[:, 0]), (2, increments[:, 1])):
-                coefficients[f"gbar:{m_index}"] = scale
-                coefficients[f"delta:{kind}:{m_index}"] = scale
+                for name in names(m_index):
+                    coefficients[name] = scale
             target = M.facet_name(facet)
             bank.add_linear(target, coefficients)
             for other in bank.structure.coupled_facets(facet):
@@ -333,11 +343,26 @@ class View:
                 corr = bank.corr0(target, coupled)
                 if np.any(corr != 0):
                     bank.add_linear(coupled, {name: corr * value for name, value in coefficients.items()})
-            self.windows[(kind, facet)] = n + dose
+            self.windows[(window, facet)] = n + dose
 
-    def reading(self, subject: str, kind: str, facet_doses: Mapping[str, float | np.ndarray], at: float) -> None:
-        """A reading opportunity (§5.11): its kind's next dose-curve increment on each facet."""
+    def reading(self, subject: str, kind: str, facet_doses: Mapping[str, float | np.ndarray], at: float, *,
+                subkind: str | None = None) -> None:
+        """A reading opportunity (§5.11): its kind's next dose-curve increment on each facet.
 
+        Teacher TE3a (spec_teacher_v1 §14.2): the kind gate admits ``lesson`` too, behind its own switch
+        (``lessons_on``): a ``landed`` or ``taught`` node takes its subkind's curve, on the lesson window (one per
+        facet, shared by both subkinds: the lessons since the facet's last graded attempt). Any other subkind, or
+        the switch off, applies nothing (the predecessor exactly)."""
+
+        if kind == P.LESSON_KIND:
+            if not self.lessons_on or subkind not in P.LESSON_SUBKINDS:
+                return
+            for facet in sorted(facet_doses):
+                self.ensure_facet(subject, facet, at)
+            self.bank.ensure_lessons()
+            self._dose_transition(facet_doses, P.LESSON_KIND,
+                                  lambda m: (P.lesson_coordinate(str(subkind), m),))
+            return
         if not self.reading_on or kind not in P.READING_KINDS:
             return
         for facet in sorted(facet_doses):

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/config/schema.py"
 source_paths:
   - "src/learnloop/config/schema.py"
-source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
+source_commit: "workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201"
+source_commit_timestamp: "2026-11-06T11:48:24-05:00"
 source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py) |
-| Source lines | 5113 |
+| Source lines | 5119 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
-| Commit timestamp | `2026-11-06T11:32:04-05:00` |
+| Source commit | `workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201` |
+| Commit timestamp | `2026-11-06T11:48:24-05:00` |
 
 ## Public API
 
@@ -218,21 +218,21 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `class ReplayConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4611) — How replay reads the attempt ledger (rebuild equivalence, ``mvp-0.34``; ``REPLAY_LEDGER_ALGORITHM_VERSION``, ``docs/reviews/rebuild-equivalence-fix.md``).
 - `class AskConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4626) — One Ask (Reader CA2; ``docs/specs/ux_reader_compare_ask_v1.md`` §7, ``docs/reviews/reader-ca2-one-ask.md``).
 - `class AdaptiveDifficultyConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4659) — Adaptive difficulty (``docs/specs/spec_adaptive_difficulty_v1.md`` §11.4).
-  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4784; internal)
-  - `_forecasters_switch(cls, value: Any) -> Any` (line 4792; internal)
-  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4802; internal)
-- `class LearnLoopConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4807)
-  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4896; internal) — Keep direct model validation compatible; implementation lives in compat.
-  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4904; internal)
-  - `codex(self) -> CodexConfig` (line 4993; public) — Non-serialized compatibility view of ``ai.providers.codex``.
-- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5001) — Return the modeled canonical Codex profile used when none is explicit.
-- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5028) — The code-default ChatGPT-plan profile (plan-first transport T1).
-- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5041)
-- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5053)
-- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5066) — Claude Haiku through OpenRouter, for cheap metered judges.
-- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5077)
-- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5088) — The template's embedding profile, for vaults whose config predates it.
-- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5104) — Perplexity Decider v1.1 through OpenRouter (router spec D4, owner).
+  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4790; internal)
+  - `_forecasters_switch(cls, value: Any) -> Any` (line 4798; internal)
+  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4808; internal)
+- `class LearnLoopConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4813)
+  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4902; internal) — Keep direct model validation compatible; implementation lives in compat.
+  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4910; internal)
+  - `codex(self) -> CodexConfig` (line 4999; public) — Non-serialized compatibility view of ``ai.providers.codex``.
+- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5007) — Return the modeled canonical Codex profile used when none is explicit.
+- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5034) — The code-default ChatGPT-plan profile (plan-first transport T1).
+- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5047)
+- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5059)
+- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5072) — Claude Haiku through OpenRouter, for cheap metered judges.
+- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5083)
+- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5094) — The template's embedding profile, for vaults whose config predates it.
+- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5110) — Perplexity Decider v1.1 through OpenRouter (router spec D4, owner).
 
 ### Module constants
 
@@ -570,6 +570,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_roles_key_and_the_route_are_classified_as_operational_switches_and_bounds`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
   - `test_a_route_override_cannot_exceed_the_profile_maximum`
+- [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
+  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key`
+  - `test_the_switch_defaults_on_and_is_classified`
 - [tests/test_teacher_te0_review_fixes.py](../../../../../../tests/test_teacher_te0_review_fixes.py) — direct import
   - `test_the_switch_is_on_by_default_and_registered`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import

@@ -109,12 +109,16 @@ class ReplaySettings:
     updates: bool = True
     #: The report's prior sensitivity (§5.8): ``(coordinate, mean)`` overrides of ``ad_priors_v1``.
     prior_means: tuple[tuple[str, float], ...] = ()
+    #: Teacher TE3a (spec_teacher_v1 §14.2): lesson opportunities are read and applied (off: none is loaded, so the
+    #: replay is its predecessor's exactly: no transition, no warmth, no fingerprint change).
+    lessons: bool = False
 
     def key(self) -> str:
         return json.dumps({"coupling": self.coupling, "reading": self.reading, "verdicts": self.verdicts,
                            "hyper": self.hyper, "fixed": self.fixed_point.key() if self.fixed_point else None,
                            "rating": self.rating, "timing": self.timing, "outside": self.outside,
-                           "updates": self.updates, "prior_means": [list(p) for p in self.prior_means]},
+                           "updates": self.updates, "prior_means": [list(p) for p in self.prior_means],
+                           **({"lessons": True} if self.lessons else {})},
                           sort_keys=True)
 
     @classmethod
@@ -122,10 +126,12 @@ class ReplaySettings:
         section = getattr(config, "adaptive_difficulty", None)
         if section is None:
             return cls()
+        from learnloop.adaptive_difficulty.successor import lesson_opportunities_on
+
         coupling = bool(getattr(section, "learned_coupling", True))
         reading = bool(getattr(section, "reading_opportunities", True))
         verdicts = reading and bool(getattr(section, "reading_self_check", True))
-        return cls(coupling=coupling, reading=reading, verdicts=verdicts)
+        return cls(coupling=coupling, reading=reading, verdicts=verdicts, lessons=lesson_opportunities_on(config))
 
 
 # -- events -------------------------------------------------------------------------------
@@ -383,6 +389,9 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
         # The firewall's carve-out is the only path from the receipt to AD's state (A12, §5.11);
         # the receipts reach it revalidated through the view (Codex verify F20).
         for record in learning_opportunity_events(view.reading_opportunities(connection)):
+            if record["kind"] == P.LESSON_KIND and not settings.lessons:
+                # TE3a's switch off: a lesson opportunity recorded earlier is not read at all.
+                continue
             try:
                 at = days(record["source_written_at"])
             except ValueError:
@@ -625,7 +634,7 @@ def _new_subject_view(settings: ReplaySettings, structure: M.Structure) -> View:
                   reading=True, verdict=True, rating=settings.rating, timing=settings.timing,
                   outside=settings.outside)
     return View(_override(bank, settings), subject_view=True, reading=settings.reading, verdicts=settings.verdicts,
-                signals=P.BASE_SIGNALS + (("z_v1",) if settings.outside else ()))
+                signals=P.BASE_SIGNALS + (("z_v1",) if settings.outside else ()), lessons=settings.lessons)
 
 
 def _new_lo_view(settings: ReplaySettings) -> View:
@@ -693,6 +702,8 @@ class Context:
     verdict_class: str | None = None
     #: Each reading kind's dose on the attempt's facets since their last answer (the dose report).
     doses: Mapping[str, float] = field(default_factory=dict)
+    #: Teacher TE3a: a lesson opportunity on the LO since its last answer (the lesson auto-flag's split).
+    after_lesson: bool = False
 
 
 def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: bool = True,
@@ -711,6 +722,7 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
     read_since: dict[str, bool] = {}
     verdict_since: dict[str, str] = {}
     dose_since: dict[str, dict[str, float]] = {}
+    lesson_since: dict[str, bool] = {}
     for kind, event in events.ordered():
         structure.now = event.at
         if kind == "claim":
@@ -719,6 +731,15 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
             for lo, view in los.items():
                 _apply_claim(view, event, events, observed_subjects={events.lo_subject.get(lo, "default")},
                              observed_facets=lo_observed_facets.get(lo, set()), los=[lo])
+            continue
+        if kind == "opportunity" and event.kind == P.LESSON_KIND:
+            # Teacher TE3a: a lesson node is not reading (it moves no reading split); its own split and doses.
+            lesson_since[event.learning_object_id] = True
+            bucket = dose_since.setdefault(event.learning_object_id, {})
+            dose = sum(event.facet_doses.values())
+            for key in (event.kind, f"{event.kind}:{event.subkind}"):
+                bucket[key] = bucket.get(key, 0.0) + dose
+            subject.reading(event.subject, event.kind, event.facet_doses, event.at, subkind=event.subkind)
             continue
         if kind == "opportunity":
             read_since[event.learning_object_id] = True
@@ -744,7 +765,8 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
                     after_reading=bool(read_since.get(attempt.learning_object_id)),
                     after_verdict=bool(verdict_since.get(attempt.learning_object_id)),
                     verdict_class=verdict_since.get(attempt.learning_object_id),
-                    doses=dict(dose_since.get(attempt.learning_object_id, {}))))
+                    doses=dict(dose_since.get(attempt.learning_object_id, {})),
+                    after_lesson=bool(lesson_since.get(attempt.learning_object_id))))
             record = subject.observe(spec, attempt.category, attempt.at, warmth=attempt.warmth,
                                      in_passage_kind=attempt.in_passage_kind, rating=attempt.rating,
                                      log_latency_ratio=attempt.log_latency_ratio, learn=settings.updates) \
@@ -790,6 +812,7 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
             read_since.pop(attempt.learning_object_id, None)
             verdict_since.pop(attempt.learning_object_id, None)
             dose_since.pop(attempt.learning_object_id, None)
+            lesson_since.pop(attempt.learning_object_id, None)
     structure.now = math.inf
     return snap
 
@@ -908,7 +931,8 @@ def _summary_payload(view: View, *, uniform_mask: np.ndarray | None = None) -> d
 
 
 def state_rows(snap: Snapshot, *, as_of: str | None) -> list[dict[str, Any]]:
-    versions = {**P.versions(), "replay": REPLAY_VERSION, "coupling": dict(snap.events.structure.versions)}
+    versions = {**P.versions(), "replay": REPLAY_VERSION, "coupling": dict(snap.events.structure.versions),
+                **({"lesson_priors": P.LESSON_PRIORS_VERSION} if snap.settings.lessons else {})}
     mask = np.array([p.uniform for p in snap.subject.bank.points])
     rows = [{"view": VIEW_SUBJECT, "part": "summary", "payload": _summary_payload(snap.subject, uniform_mask=mask),
              "state_hash": snap.subject.bank.state_hash(), "as_of": as_of, "versions": versions}]

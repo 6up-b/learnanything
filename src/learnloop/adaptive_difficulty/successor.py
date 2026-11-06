@@ -82,6 +82,22 @@ def verdicts_on(config: Any) -> bool:
     return reading_on(config) and switch_on(config, "reading_self_check")
 
 
+LESSON_SWITCH = "lesson_opportunities"
+
+
+def lesson_opportunities_on(config: Any) -> bool:
+    """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): lesson opportunities are swept, applied by the subject view and read
+    by the objective's lesson interface. Its own successor's tag (``LESSON_OPPORTUNITY_VERSIONS``, later than AD2+AD3's)
+    AND ``adaptive_difficulty.lesson_opportunities``, under the master switch; off, or below the tag, AD is its
+    predecessor exactly and the objective keeps RO4's placeholder."""
+
+    from learnloop.algorithm_versions import LESSON_OPPORTUNITY_VERSIONS
+
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    return (successor_active(config) and version in LESSON_OPPORTUNITY_VERSIONS
+            and bool(getattr(_section(config), LESSON_SWITCH, False)))
+
+
 def dose_offers_on(config: Any) -> bool:
     """The Reader's dose arm (outside the successor; every version)."""
 
@@ -110,18 +126,21 @@ def settings(config: Any) -> dict[str, bool]:
         **{name: switch_on(config, name) if name in SWITCHES else False for name in SWITCHES},
         "subject_view_live": subject_view_live(config),
         "reading_dose_offers": dose_offers_on(config),
+        **({LESSON_SWITCH: True} if lesson_opportunities_on(config) else {}),
     }
 
 
 __all__ = [
     "DOSE_SWITCH",
     "HISTORY_FALLBACKS",
+    "LESSON_SWITCH",
     "SUCCESSOR",
     "SWITCHES",
     "coupling_on",
     "dose_offers_on",
     "generation_contract_on",
     "history_fallback",
+    "lesson_opportunities_on",
     "reading_on",
     "selection_on",
     "settings",

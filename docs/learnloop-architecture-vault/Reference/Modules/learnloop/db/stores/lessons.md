@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/lessons.py"
 source_paths:
   - "src/learnloop/db/stores/lessons.py"
-source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
-source_worktree_state: "modified"
+source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
+source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
-| Commit timestamp | `2026-11-06T11:32:04-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a21f088b16f700d0b88634b19f64720fc58016ff` |
+| Commit timestamp | `2026-11-06T03:32:49-05:00` |
 
 ## Public API
 
@@ -157,6 +157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed`
 - [tests/test_teacher_te2_probes.py](../../../../../../../tests/test_teacher_te2_probes.py) — direct import
   - `test_a_reserved_question_match_gives_no_probe`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import

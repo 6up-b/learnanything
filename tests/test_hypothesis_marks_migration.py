@@ -15,7 +15,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_248" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_249" / "state.sqlite"
 ROLES = {
     "hypothesis_list_exposures": TableRole.RECEIPT,
     "hypothesis_exposure_probe_links": TableRole.RECEIPT,
@@ -45,14 +45,14 @@ def _downgraded(database: Path) -> None:
 
 def test_242_is_applied_and_its_tables_have_their_roles():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[242] == "242_hypothesis_marks.sql" and max(names) == 248
+    assert names[242] == "242_hypothesis_marks.sql" and max(names) == 249
     for table, role in ROLES.items():
         assert TABLE_ROLES[table] is role
 
 
 def test_the_head_fixture_holds_242_in_rollback_mode_with_empty_tables():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 248
+    assert max(applied_versions(HEAD)) == 249
     with closing(sqlite3.connect(HEAD)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert MARKS_ADDED_OBJECTS <= names

@@ -3,13 +3,13 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
+source_commit: "b1c67e1f52ee99dcfab1eeca5de019d636162201"
+source_commit_timestamp: "2026-11-06T11:48:24-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 248
+schema_head: 249
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/234_teacher_lessons.sql"
+  - "src/learnloop/adaptive_difficulty/arms.py"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/dose_report.py"
+  - "src/learnloop/adaptive_difficulty/history_card.py"
+  - "src/learnloop/adaptive_difficulty/lessons.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/ai/disclosures.py"
-  - "src/learnloop/algorithm_versions.py"
-  - "src/learnloop/cli/router.py"
-  - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
-  - "src/learnloop/daily_plan/lesson_suggestion.py"
+  - "src/learnloop/adaptive_difficulty/readiness.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -127,6 +127,8 @@ None found by exact static reference scan.
 - `tests/test_followups_batch6_review_fixes.py`
 - `tests/test_followups_batch6_router_report.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
+- `tests/test_ro2_ad_raw_document_reads.py`
+- `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`
@@ -137,8 +139,6 @@ None found by exact static reference scan.
 - `tests/test_teacher_te2_migration.py`
 - `tests/test_teacher_te2_probes.py`
 - `tests/test_teacher_te2_review_fixes.py`
-- `tests/test_teacher_te2_sidecar.py`
-- `tests/test_teacher_te2_successor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -375,6 +375,16 @@ class Bank:
         self.created_at[name] = at if at is not None else 0.0
         return self._append(name, np.zeros(self.B), self.split.copy())
 
+    def ensure_lessons(self) -> None:
+        """The lesson curves' coefficients (``ad_lesson_priors_v1``; spec_teacher_v1 §14.2), created at the subject
+        view's first lesson opportunity, as a subject or a facet is at its first observation: a bank no lesson has
+        reached has exactly its predecessor's coordinates, means and covariances (so its predictions, hashes and
+        rows), and creating them later is exact, since nothing before the first lesson touches them."""
+
+        for name, mean, var in P.LESSON_PRIORS:
+            if name not in self.index:
+                self._append(name, np.full(self.B, mean), np.full(self.B, var))
+
     def ensure_capability(self, subject: str, capability: str) -> int | None:
         prior = P.PSI_PRIORS.get(capability)
         if prior is None:

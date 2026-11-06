@@ -77,8 +77,8 @@ def test_the_openers_install_this_links_completion():
 
     # The openers install the chain's latest link (teacher TE2's mvp-0.51), which hands an earlier link's journal
     # down the chain, this one's included (as tests/test_teacher_te2_successor.py and tests/test_rofu_successor.py pin).
-    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_kill_switch_reads_off_a_vault_at_the_tag(tmp_path):

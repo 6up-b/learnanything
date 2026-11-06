@@ -26,6 +26,7 @@ from learnloop.db.stores.retrieval_spaces import (
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.substrate.rebuild_orchestrator import derived_table_owners
 from tests.test_ro1_availability import RO1_ALTERED_TABLES
+from tests.test_te3a_migration import TE3A_ALTERED_TABLES
 from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
@@ -52,7 +53,7 @@ from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_248" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_249" / "state.sqlite"
 NEW_TABLES = {"embedding_spaces", "retrieval_feedback", "retrieval_fusion_posteriors"}
 #: Every schema object 220 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 P1_ADDED_OBJECTS = frozenset({
@@ -85,9 +86,9 @@ def test_220_adds_three_tables_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248]
+    assert [migration.version for migration in applied] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249]
     after = _schema(database)
-    assert {name for name in before if before[name] != after.get(name)} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES)
+    assert {name for name in before if before[name] != after.get(name)} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES)
     # LP-min (a)'s 221 (one learner_claims column) and curriculum C0a's 222 (its one table, altering nothing)
     # follow on the way to head.
     assert set(after) - set(before) - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS == P1_ADDED_OBJECTS
@@ -95,7 +96,7 @@ def test_220_adds_three_tables_and_alters_nothing(tmp_path):
 
 def test_the_head_fixture_holds_220_in_rollback_mode():
     # Curriculum C0a's 222 is the head now (tests/test_section_coverage_migration.py).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 248
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 249
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert has_tables(connection)
@@ -148,7 +149,7 @@ def test_220_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 219)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248]
+        assert [migration.version for migration in apply_migrations(database)] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:

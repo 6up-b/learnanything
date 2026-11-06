@@ -180,7 +180,47 @@ _ENTITY_TABLES: dict[str, tuple[str, str]] = {
     "administration": ("activity_administrations", "id"),
     "surface": ("activity_surfaces", "id"),
     "help_assist": ("help_assists", "id"),
+    # Teacher TE3a: a lesson's plan and receipt reference their lesson.
+    "lesson": ("lessons", "id"),
 }
+#: Teacher TE3a: each lesson table's own record, judged by :meth:`MaterialView._lesson_record_withheld`.
+_LESSON_RECORDS: dict[str, str] = {"lessons": "goal_json", "lesson_plans": "outline_json",
+                                   "lesson_receipts": "receipt_json"}
+
+
+def _lesson_exposure(record: Any) -> tuple[set[str], bool, list[Mapping[str, Any]]] | None:
+    """Teacher TE3a (Codex review F1): a lesson receipt's ``exposure`` as ``(the vault items it showed or revealed,
+    whether the receipt cannot be judged, the frozen identities of the revisions it exposed)``; None for a record
+    with no exposure (a goal, an outline).
+
+    The items are ``exposure.reveals[].item_id`` and ``exposure.shown_items``. Their revisions are
+    ``exposure.identities`` (Codex re-review F1): one
+    :func:`~learnloop.adaptive_difficulty.outside.source_identity` per exposed revision (its id and the block keys and
+    whole extractions it cited, frozen when the lesson showed or revealed it, landing ruling R1, with the close's
+    own), which
+    :meth:`~learnloop.adaptive_difficulty.protection.Protection.covers_identity` revalidates, so a revision
+    protected after a public replacement still withholds the lesson. The passages are aliases
+    (``exposure.passages``); their readings are ``exposure.readings`` (``{extraction_id, span_id}`` per passage),
+    which the reference rule reads like any other named reading. A receipt with passages and no ``readings``, or an
+    exposed item without its identity (closed before TE3a), cannot be judged. A malformed exposure raises (the
+    caller fails closed)."""
+
+    if not isinstance(record, Mapping) or "exposure" not in record:
+        return None
+    exposure = record["exposure"]
+    if not isinstance(exposure, Mapping):
+        raise ValueError("a lesson receipt's exposure is not a mapping")
+    items = {str(entry["item_id"]) for entry in exposure.get("reveals") or [] if entry.get("item_id")}
+    items |= {str(item) for item in exposure.get("shown_items") or [] if item}
+    identities = exposure.get("identities")
+    if identities is not None and not (isinstance(identities, list)
+                                       and all(isinstance(entry, Mapping) for entry in identities)):
+        raise ValueError("a lesson receipt's identities are not a list of mappings")
+    identities = list(identities or [])
+    identified = {str(entry.get("practice_item_id")) for entry in identities}
+    unresolved = (bool(exposure.get("passages")) and not isinstance(exposure.get("readings"), list)) or bool(
+        items - identified)
+    return items, unresolved, identities
 
 
 #: A figure prediction's learner-text source id (``diagnosis.text_gaps.sources``' grammar, restated:
@@ -489,7 +529,38 @@ class MaterialView:
             return self.keys_withheld(keys, whole)
         if table == "learner_text_gaps":
             return self._gap_source_withheld(connection, row)
+        if table in _LESSON_RECORDS:
+            return self._lesson_record_withheld(row, _LESSON_RECORDS[table])
         raise ValueError(f"no self rule for {table}")
+
+    def _lesson_record_withheld(self, row: Mapping[str, Any], column: str) -> bool:
+        """Teacher TE3a (spec_teacher_v1 §14.2, §14.3; Option B): a lesson's own record (its goal, its outline, its
+        receipt) is withheld when any reading it names (an extraction, a span, a section, a passage's key: a Reader
+        selection's goal above all, and a receipt's ``exposure.readings``: the readings of the passages it delivered)
+        is one the withheld material touches, or while the predicate cannot tell; a receipt is withheld too when an
+        item it showed or revealed is withheld now, when the revision it exposed is, by its frozen identity (Codex
+        re-review F1), or when it names passages without their readings or an exposed item without its identity
+        (:func:`_lesson_exposure`); an unreadable record is withheld (fail closed)."""
+
+        try:
+            value = row.get(column, row.get(column[: -len("_json")]) if column.endswith("_json") else None)
+            record = value if isinstance(value, (Mapping, list)) else json.loads(value or "null")
+            keys, whole = reference_keys(record)
+            exposure = _lesson_exposure(record)
+        except Exception:  # noqa: BLE001 - fail closed
+            return True
+        if exposure is not None:
+            items, unresolved, identities = exposure
+            # Codex review F1: what the lesson showed, judged by today's protection (an item protected since the
+            # close withholds the lesson, as it withholds its own attempts); passages recorded by alias only (a
+            # receipt written before the receipt named their readings) cannot be judged: withheld. Codex re-review
+            # F1: the revision it showed too, by its frozen identity (a public replacement since leaves the id
+            # visible while the shown revision's own sources are held out); an exposed item without one: withheld.
+            if unresolved or not self.available or any(self.withheld(item) for item in items) or any(
+                    self.protection.covers_identity(identity) for identity in identities):
+                return True
+        return any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
+            self.reading_withheld(extraction) for extraction in whole)
 
     def _gap_source_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
         """Router objective RO2 (Codex review F1): a gap is withheld with the learner text it was named
@@ -1623,13 +1694,21 @@ class MaterialView:
         F20): a receipt whose source is withheld is invisible. Its doses were mapped under this very
         projection (round 2: a receipt of another epoch is swept again), so they stand as recorded; a
         frozen dose on a facet merely absent from current content stands (Codex verify F30). Oldest
-        source first."""
+        source first.
 
+        Teacher TE3a: a ``lesson`` receipt is read only while lesson opportunities are live (its successor's tag and
+        ``adaptive_difficulty.lesson_opportunities``); off, it is for AD as if never written (the replay, the serve's
+        warmth, the sweep's window, the history card and resolver: AD's predecessor exactly)."""
+
+        from learnloop.adaptive_difficulty.priors import LESSON_KIND
+        from learnloop.adaptive_difficulty.successor import lesson_opportunities_on
         from learnloop.db.stores import ad_receipts
 
         wanted = None if learning_object_ids is None else {str(lo) for lo in learning_object_ids}
+        lessons = lesson_opportunities_on(getattr(self.vault, "config", None))
         return [row for row in self.rows(connection, ad_receipts.READING, order="source_written_at, id")
-                if wanted is None or str(row.get("learning_object_id")) in wanted]
+                if (wanted is None or str(row.get("learning_object_id")) in wanted)
+                and (lessons or row.get("kind") != LESSON_KIND)]
 
     def _opportunity_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
         """Resolve a receipt's source again against the current predicate: the source row, by its own
@@ -1642,6 +1721,14 @@ class MaterialView:
             if table == "reader_section_progress":
                 extraction, _sep, _rest = source.partition("/")
                 return self.reading_withheld(extraction)
+            if table == "lesson_receipts":
+                # Teacher TE3a: a lesson node's source is ``<lesson id>/<node id>``; its receipt, by its rule.
+                lesson_id, _sep, _node = source.partition("/")
+                if not _has_table(connection, table):
+                    return False
+                found = _rows(connection, f"/* ad-rules */ SELECT {_select(table)} FROM {table} WHERE lesson_id = ?",
+                              (lesson_id,))
+                return any(not self.keep(connection, table, found_row) for found_row in found)
             if table in _T.COLUMNS and table != "ad_reading_opportunities":
                 if not _has_table(connection, table):
                     return False

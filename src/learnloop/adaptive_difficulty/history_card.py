@@ -558,8 +558,13 @@ def build_sections(vault: Any, connection: Any, item: Any, *, served_at: str, vi
     sections.update(whole_answers=_oldest_first(answers), help=_oldest_first(help_entries),
                     questions=_oldest_first(questions), reveals=_oldest_first(reveals))
 
-    # H2: the Reader, through AD's reading receipts on the LO (their sources resolved again now).
-    opportunities = [row for row in reads.reading() if days(row.get("source_written_at")) is not None]
+    # H2: the Reader, through AD's reading receipts on the LO (their sources resolved again now). Teacher TE3a: a
+    # lesson's receipt rows only while lesson opportunities are live (off: the card of before, exactly).
+    from learnloop.adaptive_difficulty.successor import lesson_opportunities_on
+
+    lessons = lesson_opportunities_on(getattr(vault, "config", None))
+    opportunities = [row for row in reads.reading() if days(row.get("source_written_at")) is not None
+                     and (lessons or row.get("kind") != "lesson")]
     reading = [{"evidence_id": f"reading:{row['id']}", "days_before": days(row.get("source_written_at")),
                 "topic": _topic(vault, row.get("learning_object_id")), "kind": row.get("kind"),
                 "subkind": row.get("subkind")} for row in opportunities]

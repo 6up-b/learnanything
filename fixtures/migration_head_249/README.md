@@ -37,6 +37,18 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Teacher TE3a (migration 249), `ad/te3a-lesson-opportunity`, 2026-11-06
+
+Renamed from `migration_head_248` at TE3a's landing (main at `23182034c6`, TE2 landed with migration 248; TE3a was
+built on `5565bede25` as migration 248 and renumbered 249). `249_ad_lesson_opportunities.sql`
+(`ad_reading_opportunities` rebuilt temp-then-rename with the kind CHECK widened by `'lesson'`; the same columns, keys,
+indexes and append-only triggers; the table is empty here) applied through `learnloop.db.migrate.apply_migrations` on a
+backup-API copy of main's tracked, sanitized `migration_head_248/state.sqlite` outside the checkout, under the
+scratch-copy upgrade allowance, which applied `[249]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; written into place from
+a backup-API copy in rollback mode, with no companion files. No row changes (only `schema_migrations` gains 249). The
+head holds 229 through 249.
+
 ## Teacher TE2 (migration 248), `teacher/te2`, 2026-11-06
 
 Renamed from `migration_head_247` on TE2's branch (base: main at `5565bede25`).

@@ -135,18 +135,20 @@ _ROLES: tuple[tuple[str, str], ...] = (
     # Curriculum C2 (migration 229): the learner's linked notes and their links (AD reads neither).
     ("learner_note_links", PROTECTED),
     ("learner_notes", PROTECTED),
-    # Teacher TE1 (migration 234): the lesson ledger, its receipts and the learned lesson-check weight
-    # are the incumbent's state derived from answers (a check's grade, its mass, the forecasts); AD
-    # reads none of them (spec_teacher_v1 §14.2: AD never reads a lesson check), and teacher code never
-    # runs inside an AD operation (§5.7).
+    # Teacher TE1 (migration 234): the lesson checks, turns and the learned lesson-check weight are the
+    # incumbent's state derived from answers (a check's grade, its mass, the forecasts); AD reads none of
+    # them (spec_teacher_v1 §14.2: AD never reads a lesson check), and teacher code never runs inside an AD
+    # operation (§5.7). Teacher TE3a (rev 5 §14.2): the lesson, its plan and its receipt move from DENIED to
+    # READING (PROTECTED, read by the rules only): AD's lesson opportunity reads a closed lesson's receipt,
+    # and a lesson whose record names a reading the withheld material touches is absent (Option B, §14.3).
     ("lesson_checks", DENIED),
-    ("lesson_plans", DENIED),
-    ("lesson_receipts", DENIED),
+    ("lesson_plans", PROTECTED),
+    ("lesson_receipts", PROTECTED),
     ("lesson_turn_payloads", DENIED),
     ("lesson_turns", DENIED),
     ("lesson_weight_state", DENIED),
     ("lesson_weight_trace", DENIED),
-    ("lessons", DENIED),
+    ("lessons", PROTECTED),
     # Teacher TE2-log (migration 247): the episode log and the lesson screen's intervals, DENIED as TE1's
     # lesson tables are (spec_teacher_v1 §18.1; TE3a moves the lesson tables it reads).
     ("lesson_activity_intervals", DENIED),
@@ -251,7 +253,8 @@ DERIVED = "derived_by_position"
 #: * ``item``, ``revision`` (a content hash), ``attempt``, ``presentation`` (a plan presentation),
 #:   ``note``, ``reader_question``, ``question_event``, ``facet`` (withheld when only withheld material
 #:   names it), ``dose_draw``, ``selection``, ``receipt`` (a forecast receipt), ``administration`` and
-#:   ``surface`` (through the surface's legacy item), ``extraction`` (a whole extraction held out);
+#:   ``surface`` (through the surface's legacy item), ``extraction`` (a whole extraction held out),
+#:   ``lesson`` (a lesson, by its own rule: teacher TE3a);
 #: * ``span@C``, ``section@C``, ``spans@C`` (a JSON list of spans): in the extraction column ``C``;
 #: * ``entity@C``: polymorphic, by the kind named in column ``C`` (:data:`ENTITY_KINDS`);
 #: * ``self``: the row's own identity, resolved by its table's rule (an attempt by the revisions it
@@ -508,6 +511,18 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     "learner_notes": _table({},
         values="id note_key line content_hash captured_on origin truncated created_at vault_ref_kind vault_ref_id",
         derived="path heading_path title heading text_md"),
+    # Teacher TE3a (spec_teacher_v1 rev 5 §14.2, §14.3): READING rows. A lesson stands or falls by its own rule
+    # (``self``: every reading its goal names, a Reader selection's above all), its plan and its receipt by their
+    # lesson (``lesson``) and their own records' readings (``self``); a reading the withheld material touches
+    # withholds the row (Option B). The learner's typed goal is never read as stored.
+    "lessons": _table({"id": "self", "goal_json": "self"},
+        values="driver origin origin_ref entry learning_object_ids_json doctrine_version brief_version route model "
+               "algorithm_version opened_at closed_at close_reason",
+        derived="goal_text"),
+    "lesson_plans": _table({"lesson_id": "lesson", "outline_json": "self"},
+        values="id version created_at"),
+    "lesson_receipts": _table({"lesson_id": "lesson", "receipt_json": "self"},
+        values="receipt_version close_reason created_at"),
     # Curriculum C0b: a scope input may name a passage of a reading (a syllabus page): a READING row;
     # the learner's words are never read as stored.
     "deliverable_scope_inputs": _table({"extraction_id": "extraction", "span_ids_json": "spans@extraction_id"},
@@ -671,6 +686,9 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
     **{("learner_notes", column): "unread: the learner's own note (its text and where it lives; a note "
                                   "may copy an exam question); AD reads no note" for column in (
         "path", "heading_path", "title", "heading", "text_md")},
+    # Teacher TE3a: AD reads a closed lesson's receipt nodes, never the learner's typed goal.
+    ("lessons", "goal_text"): "unread: the learner's own words for a lesson's goal (they may copy an exam "
+                              "question); AD reads a lesson's nodes from its receipt only",
     # Curriculum C0a: AD reads no section coverage.
     **{("section_coverage", column): "unread: the coverage judge's (or the learner's) reading of a section "
                                      "against an LO, ranked among other readings' sections; AD reads no "
@@ -704,6 +722,9 @@ READING = frozenset({
     "learner_note_links",
     # Router objective RO2: a Reader session's digest.
     "reader_session_digests",
+    # Teacher TE3a (rev 5 §14.2): a lesson, its plan and its receipt (a lesson grounded in a reading the
+    # withheld material touches is absent, as the reading is: §14.3, Option B).
+    "lessons", "lesson_plans", "lesson_receipts",
 })
 #: Tables with extraction-like references that are ITEM provenance, not reading: judged by the
 #: withheld material itself, as before (an item's own sources), each with why.

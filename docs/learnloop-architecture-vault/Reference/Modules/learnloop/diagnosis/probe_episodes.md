@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/probe_episodes.py"
 source_paths:
   - "src/learnloop/diagnosis/probe_episodes.py"
-source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
-source_worktree_state: "modified"
+source_commit: "5564387090cdebaa4652be844564f60385e8041f"
+source_commit_timestamp: "2026-11-06T06:41:58-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
-| Commit timestamp | `2026-11-06T11:32:04-05:00` |
+| Worktree state | `clean` |
+| Source commit | `5564387090cdebaa4652be844564f60385e8041f` |
+| Commit timestamp | `2026-11-06T06:41:58-05:00` |
 
 ## Public API
 

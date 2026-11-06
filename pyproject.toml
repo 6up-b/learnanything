@@ -649,6 +649,7 @@ source_modules = [
     "learnloop.router_learned_tail_upgrade",
     "learnloop.router_followups_upgrade",
     "learnloop.teacher_probes_upgrade",
+    "learnloop.lesson_opportunity_upgrade",
     "learnloop.route_rules_upgrade",
     "learnloop.scheduling",
     "learnloop.serve_eligibility",

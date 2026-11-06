@@ -167,6 +167,8 @@ FLAG_SWITCHES = {
     "coupling_worse_than_uniform": "learned_coupling = false",
     "reading_worse_than_no_reading": "reading_opportunities = false",
     "verdicts_worse_than_no_verdicts": "reading_self_check = false",
+    # Teacher TE3a (spec_teacher_v1 rev 5 §14.2): reported only while lesson opportunities are live.
+    "lessons_worse_than_no_lessons": "lesson_opportunities = false",
     "readiness_miscalibrated": "promoted_predictor = false",
     "band_missed": "selection = false",
     "dose_offers_a_burden": "reading_dose_offers = false",

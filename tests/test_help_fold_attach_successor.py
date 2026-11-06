@@ -54,9 +54,9 @@ def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     from learnloop.params.parameter_registry import classify_config_path
 
     # Teacher TE1b's mvp-0.43 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-11:-9] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.51" and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert HELP_FOLD_ATTACH_VERSIONS == frozenset({TAG, "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51"})
+    assert SUCCESSOR_CHAIN[-12:-10] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.52" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert HELP_FOLD_ATTACH_VERSIONS == frozenset({TAG, "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52"})
     assert HintsConfig().fold_follows_attach is True
     rule = classify_config_path("hints.fold_follows_attach")
     assert rule is not None and rule.kind == "structural" and "mvp-0.42" in rule.rationale

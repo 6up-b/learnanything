@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/causal_activity_policy.py"
 source_paths:
   - "src/learnloop/causal_activity_policy.py"
-source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
-source_worktree_state: "modified"
+source_commit: "a6fd6615fea1c0de474d6e7e5e559f8a223e14f6"
+source_commit_timestamp: "2026-11-06T05:25:38-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
-| Commit timestamp | `2026-11-06T11:32:04-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a6fd6615fea1c0de474d6e7e5e559f8a223e14f6` |
+| Commit timestamp | `2026-11-06T05:25:38-05:00` |
 
 ## Public API
 

@@ -823,6 +823,21 @@ ROUTER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.50"
 # probe's attempt as an existing type; nothing new is derived.
 TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.51"
 
+# mvp-0.52 (teacher TE3a, an adaptive difficulty successor; owner decision
+# 2026-11-05, docs/specs/spec_teacher_v1.md rev 5 §14.2, §23.1 item 4, §24), on
+# top of mvp-0.51 (the chain stays linear). A closed lesson's node with an LO,
+# landed or taught, is one of AD's learning opportunities (prediction-only,
+# under the reading-signal firewall's carve-out as amended by Q5), with its own
+# learned dose curve per subkind (ad_lesson_priors_v1, centred on RO4's lesson
+# placeholder: AD's prior gamma times the lesson-check mass prior 0.5), and the
+# router objective's lesson interface reads that curve's posterior moments in
+# place of the placeholder. [adaptive_difficulty] lesson_opportunities (default
+# true) is its kill switch: off, or below the tag, AD is mvp-0.51's exactly and
+# the objective keeps RO4's placeholder. Built on main 5565bede25 as mvp-0.50
+# and renumbered at its landing, after the router follow-up batch (mvp-0.50)
+# and TE2 (mvp-0.51) landed.
+LESSON_OPPORTUNITY_ALGORITHM_VERSION = "mvp-0.52"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -873,6 +888,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
+    LESSON_OPPORTUNITY_ALGORITHM_VERSION,
 )
 
 
@@ -1113,6 +1129,13 @@ ROUTER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(ROUTER_FOLLOWUPS_ALG
 # typed goal and offer "Continue your lesson" (teacher TE2), behind ``teacher.probes``. Every later successor keeps
 # them; gates must use this set, never equality.
 TEACHER_PROBES_VERSIONS: frozenset[str] = successors_from(TEACHER_PROBES_ALGORITHM_VERSION)
+
+# Versions whose adaptive difficulty reads a closed lesson's nodes as learning
+# opportunities with their own dose curve, and whose objective values a lesson
+# with that curve (teacher TE3a), behind
+# ``adaptive_difficulty.lesson_opportunities``. Every later successor keeps
+# them; gates must use this set, never equality.
+LESSON_OPPORTUNITY_VERSIONS: frozenset[str] = successors_from(LESSON_OPPORTUNITY_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

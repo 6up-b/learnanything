@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/value.py"
 source_paths:
   - "src/learnloop/router_objective/value.py"
-source_commit: "e66f62e6f15ef1402f451cf6b22ed472ba5b1aba"
-source_commit_timestamp: "2026-11-06T09:45:38-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201"
+source_commit_timestamp: "2026-11-06T11:48:24-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,70 +50,73 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py) |
-| Source lines | 1552 |
+| Source lines | 1625 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `e66f62e6f15ef1402f451cf6b22ed472ba5b1aba` |
-| Commit timestamp | `2026-11-06T09:45:38-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201` |
+| Commit timestamp | `2026-11-06T11:48:24-05:00` |
 
 ## Public API
 
-- `class AdLink` ([source](../../../../../../src/learnloop/router_objective/value.py), line 121) — Landing ruling R9: AD's own predicted success ``F(η) = g + (1 − g − λ)·E_ε[σ(η − a·τ0·ε)]`` (``adaptive_difficulty.model.residual_success``), with ``g = 0`` (a valued topic's unseen constructed item), lapse ``λ``, and ``ε`` integrated by AD's own Gauss-Hermite rule; the caller h…
-  - `__post_init__(self) -> None` (line 139; internal)
-  - `quadrature(self, eta: np.ndarray, *, slope: bool=True) -> tuple[np.ndarray, np.ndarray | None]` (line 145; public) — ``F(η)`` and (``slope``) ``dF/dη`` from **one** evaluation of the quadrature's sigmoids, elementwise over any array of ``η`` (router speed, item 1: a caller stacks every ``η`` it needs, the draws' and the belief's, into one array).
-  - `p(self, eta: np.ndarray) -> np.ndarray` (line 156; public)
-  - `slope(self, eta: np.ndarray) -> np.ndarray` (line 159; public) — ``dF/dη``.
-  - `p_integrated(self, mean: np.ndarray, variance: np.ndarray) -> np.ndarray` (line 164; public) — ``E[F(η)]`` for ``η ~ N(mean, variance)``: ``F`` with the residual's spread widened to ``√(a²τ0² + variance)``, AD's own ``expected_success`` (R10).
-  - `inverse(self, p: np.ndarray, variance: np.ndarray | float=0.0) -> np.ndarray` (line 173; public) — The mean whose variance-integrated predictive is ``p`` (``F⁻¹(p)`` at variance 0), by bisection on AD's range (a ``p`` at or past ``1 − λ`` is held just inside it).
-  - `logit_and_slope(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 189; public) — ``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``, never clipped (landing ruling R11: the combiner's own probability-logit, not FSRS's), the derivative the one of the transformation applied, ``F'/F + F'/(1 − F)``.
-  - `logit_and_slope_from(self, eta: np.ndarray, f: np.ndarray, df: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 199; public) — :meth:`logit_and_slope` from ``F(η)`` and ``dF/dη`` already computed (:meth:`quadrature`).
-  - `logit_p(self, eta: np.ndarray) -> np.ndarray` (line 213; public) — ``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path).
-  - `logit_p_from(self, eta: np.ndarray, f: np.ndarray) -> np.ndarray` (line 218; public) — :meth:`logit_p` from ``F(η)`` already computed (:meth:`quadrature`).
-  - `_logit_and_slope_logspace(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 229; internal) — The same in log space: ``log F``, ``log(1 − F) = log(λ + (1 − λ)·E[σ(−e)])`` and ``log F'``.
-- `class Topic` ([source](../../../../../../src/learnloop/router_objective/value.py), line 251) — One valued topic (an LO) as the decision believed it.
-- `class DatedUse` ([source](../../../../../../src/learnloop/router_objective/value.py), line 273)
-- `class Learning` ([source](../../../../../../src/learnloop/router_objective/value.py), line 283) — AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``.
-- `class EffectSlope` ([source](../../../../../../src/learnloop/router_objective/value.py), line 294) — ``ΔG = α_v + β_v·f(a)`` (§8.4): each coefficient's posterior mean and variance.
-- `class Price` ([source](../../../../../../src/learnloop/router_objective/value.py), line 304) — The attention price at this decision (§8.6): ``κ(x) = κ0·x/m̄`` on session minutes.
-- `class Action` ([source](../../../../../../src/learnloop/router_objective/value.py), line 314) — One candidate as the value estimator sees it.
-  - `__post_init__(self) -> None` (line 337; internal)
-- `class Inputs` ([source](../../../../../../src/learnloop/router_objective/value.py), line 347) — The frozen belief one decision values its candidates on (every number the trace reports).
-  - `cutoff(self) -> float` (line 376; public) — ``C`` in days from the decision (§3.2): carried through every rollout.
-- `cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float` ([source](../../../../../../src/learnloop/router_objective/value.py), line 383)
-- `class Valued` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1363) — One candidate's value (§8.8's terms).
-  - `q(self) -> float` (line 1374; public)
-- `class Evaluation` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1379)
-  - `by_ref(self) -> dict[str, Valued]` (line 1388; public)
-  - `v(self) -> float` (line 1392; public) — ``V = Σ_a π_tail(a)·Q(a)``: the tail's next action is deterministic, so ``V`` is its row's ``Q``.
-- `evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None=None, keep_going: Callable[[], bool] | None=None, deadline: float | None=None, clock: Callable[[], float]=time.monotonic, on_complete: Callable[[Evaluation], None] | None=None, cutoff: float | None=None, unmeasured: Collection[str] | None=None, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> Evaluation` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1414) — ``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s).
-- `paired_standard_error(a: Valued, b: Valued) -> float` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1473) — The standard error of ``Q̄(a) − Q̄(b)`` over the shared draws (common random numbers).
-- `numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1482) — ``π_Q`` (§8.3): plain argmax of ``Q̄``; candidates within the paired precision of the maximum are broken by support order (staged's pick first).
-- `baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1501) — §8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated use's at its date.
-- `gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[float, float]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1523) — ``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from the start under the tail, then the tail; for the price's daily seed and the frontier.
+- `class AdLink` ([source](../../../../../../src/learnloop/router_objective/value.py), line 123) — Landing ruling R9: AD's own predicted success ``F(η) = g + (1 − g − λ)·E_ε[σ(η − a·τ0·ε)]`` (``adaptive_difficulty.model.residual_success``), with ``g = 0`` (a valued topic's unseen constructed item), lapse ``λ``, and ``ε`` integrated by AD's own Gauss-Hermite rule; the caller h…
+  - `__post_init__(self) -> None` (line 141; internal)
+  - `quadrature(self, eta: np.ndarray, *, slope: bool=True) -> tuple[np.ndarray, np.ndarray | None]` (line 147; public) — ``F(η)`` and (``slope``) ``dF/dη`` from **one** evaluation of the quadrature's sigmoids, elementwise over any array of ``η`` (router speed, item 1: a caller stacks every ``η`` it needs, the draws' and the belief's, into one array).
+  - `p(self, eta: np.ndarray) -> np.ndarray` (line 158; public)
+  - `slope(self, eta: np.ndarray) -> np.ndarray` (line 161; public) — ``dF/dη``.
+  - `p_integrated(self, mean: np.ndarray, variance: np.ndarray) -> np.ndarray` (line 166; public) — ``E[F(η)]`` for ``η ~ N(mean, variance)``: ``F`` with the residual's spread widened to ``√(a²τ0² + variance)``, AD's own ``expected_success`` (R10).
+  - `inverse(self, p: np.ndarray, variance: np.ndarray | float=0.0) -> np.ndarray` (line 175; public) — The mean whose variance-integrated predictive is ``p`` (``F⁻¹(p)`` at variance 0), by bisection on AD's range (a ``p`` at or past ``1 − λ`` is held just inside it).
+  - `logit_and_slope(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 191; public) — ``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``, never clipped (landing ruling R11: the combiner's own probability-logit, not FSRS's), the derivative the one of the transformation applied, ``F'/F + F'/(1 − F)``.
+  - `logit_and_slope_from(self, eta: np.ndarray, f: np.ndarray, df: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 201; public) — :meth:`logit_and_slope` from ``F(η)`` and ``dF/dη`` already computed (:meth:`quadrature`).
+  - `logit_p(self, eta: np.ndarray) -> np.ndarray` (line 215; public) — ``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path).
+  - `logit_p_from(self, eta: np.ndarray, f: np.ndarray) -> np.ndarray` (line 220; public) — :meth:`logit_p` from ``F(η)`` already computed (:meth:`quadrature`).
+  - `_logit_and_slope_logspace(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 231; internal) — The same in log space: ``log F``, ``log(1 − F) = log(λ + (1 − λ)·E[σ(−e)])`` and ``log F'``.
+- `class Topic` ([source](../../../../../../src/learnloop/router_objective/value.py), line 253) — One valued topic (an LO) as the decision believed it.
+- `class DatedUse` ([source](../../../../../../src/learnloop/router_objective/value.py), line 275)
+- `class LessonCurve` ([source](../../../../../../src/learnloop/router_objective/value.py), line 285) — Teacher TE3a (spec_teacher_v1 rev 5 §14.2): AD's ``lesson`` dose curve per ``landed`` dose, as the decision read it (``readiness.decision_state_fields``' ``lesson_curve``): its two coefficients' posterior mean and covariance on :attr:`Learning.dose_scales`, their seeded prior's…
+  - `deviation(self, n: np.ndarray, scales: tuple[float, float]) -> tuple[np.ndarray, np.ndarray]` (line 306; public) — ``(Δμ(n), Δv(n))`` per draw at positions ``n``: zero (exactly) while the curve is at its prior.
+- `class Learning` ([source](../../../../../../src/learnloop/router_objective/value.py), line 322) — AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder).
+- `class EffectSlope` ([source](../../../../../../src/learnloop/router_objective/value.py), line 334) — ``ΔG = α_v + β_v·f(a)`` (§8.4): each coefficient's posterior mean and variance.
+- `class Price` ([source](../../../../../../src/learnloop/router_objective/value.py), line 344) — The attention price at this decision (§8.6): ``κ(x) = κ0·x/m̄`` on session minutes.
+- `class Action` ([source](../../../../../../src/learnloop/router_objective/value.py), line 354) — One candidate as the value estimator sees it.
+  - `__post_init__(self) -> None` (line 377; internal)
+- `class Inputs` ([source](../../../../../../src/learnloop/router_objective/value.py), line 387) — The frozen belief one decision values its candidates on (every number the trace reports).
+  - `cutoff(self) -> float` (line 416; public) — ``C`` in days from the decision (§3.2): carried through every rollout.
+- `cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float` ([source](../../../../../../src/learnloop/router_objective/value.py), line 423)
+- `class Valued` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1435) — One candidate's value (§8.8's terms).
+  - `q(self) -> float` (line 1446; public)
+- `class Evaluation` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1451)
+  - `by_ref(self) -> dict[str, Valued]` (line 1460; public)
+  - `v(self) -> float` (line 1464; public) — ``V = Σ_a π_tail(a)·Q(a)``: the tail's next action is deterministic, so ``V`` is its row's ``Q``.
+- `evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None=None, keep_going: Callable[[], bool] | None=None, deadline: float | None=None, clock: Callable[[], float]=time.monotonic, on_complete: Callable[[Evaluation], None] | None=None, cutoff: float | None=None, unmeasured: Collection[str] | None=None, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> Evaluation` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1486) — ``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s).
+- `paired_standard_error(a: Valued, b: Valued) -> float` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1545) — The standard error of ``Q̄(a) − Q̄(b)`` over the shared draws (common random numbers).
+- `numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1554) — ``π_Q`` (§8.3): plain argmax of ``Q̄``; candidates within the paired precision of the maximum are broken by support order (staged's pick first).
+- `baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1573) — §8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated use's at its date.
+- `gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[float, float]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1595) — ``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from the start under the tail, then the tail; for the price's daily seed and the frontier.
 
 ### Module constants
 
-- `OBJECTIVE_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 75)
-- `TAIL_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 76)
-- `TERMINAL_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 77)
-- `REVIEW` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 80)
-- `NEW_PRACTICE` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 81)
-- `READING` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 82)
-- `PROBE` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 83)
-- `REPAIR` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 84)
-- `TEACH_BACK` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 85)
-- `LESSON` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 86)
-- `STOP` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 87)
-- `SEQUENCE` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 90)
-- `PRACTICE_KINDS` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 91)
-- `KINDS` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 92)
-- `REFERENCE_REF` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 94)
-- `MINUTES_PER_DAY` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 95)
-- `REVIEW_DRAW_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 108)
-- `AD_LINK_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 110)
-- `_LEDGER_FIELDS` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 501)
+- `OBJECTIVE_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 77)
+- `TAIL_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 78)
+- `TERMINAL_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 79)
+- `REVIEW` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 82)
+- `NEW_PRACTICE` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 83)
+- `READING` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 84)
+- `PROBE` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 85)
+- `REPAIR` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 86)
+- `TEACH_BACK` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 87)
+- `LESSON` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 88)
+- `STOP` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 89)
+- `SEQUENCE` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 92)
+- `PRACTICE_KINDS` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 93)
+- `KINDS` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 94)
+- `REFERENCE_REF` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 96)
+- `MINUTES_PER_DAY` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 97)
+- `REVIEW_DRAW_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 110)
+- `AD_LINK_VERSION` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 112)
+- `_STATE_FIELDS` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 542)
+- `_LEDGER_FIELDS` ([src/learnloop/router_objective/value.py](../../../../../../src/learnloop/router_objective/value.py), line 545)
 
 ### Explicit exports
 
@@ -130,6 +133,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `KINDS`
 - `LESSON`
 - `Learning`
+- `LessonCurve`
 - `NEW_PRACTICE`
 - `OBJECTIVE_VERSION`
 - `PRACTICE_KINDS`
@@ -155,16 +159,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_logsumexp(x: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/value.py), line 243) — ``log Σ exp(x)`` over the last axis, stably.
-- `_seed_int(seed: str, stream: str) -> int` ([source](../../../../../../src/learnloop/router_objective/value.py), line 390)
-- `class _Streams` ([source](../../../../../../src/learnloop/router_objective/value.py), line 394) — Counter-free common random numbers: each stream is a fixed array, the same for every candidate.
-- `_beta_draw(u: np.ndarray, a: float, b: float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/value.py), line 418) — A Beta(a, b) quantile at ``u`` (inverse CDF by bisection on the regularized incomplete beta): the same uniform gives the same draw for every candidate.
-- `_betainc(a: float, b: float, x: float) -> float` ([source](../../../../../../src/learnloop/router_objective/value.py), line 434) — The regularized incomplete beta ``I_x(a, b)`` (Lentz's continued fraction).
-- `class _Theta` ([source](../../../../../../src/learnloop/router_objective/value.py), line 465)
-- `class _State` ([source](../../../../../../src/learnloop/router_objective/value.py), line 479)
-- `class _Ledger` ([source](../../../../../../src/learnloop/router_objective/value.py), line 506) — Per draw: the terms of one path (§8.8's per-candidate terms).
-- `class _Model` ([source](../../../../../../src/learnloop/router_objective/value.py), line 552) — One decision's rollouts: the frozen inputs, the draws, and the streams.
-- `_terms(ledger: _Ledger, model: '_Model | None'=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1398)
+- `_logsumexp(x: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/value.py), line 245) — ``log Σ exp(x)`` over the last axis, stably.
+- `_seed_int(seed: str, stream: str) -> int` ([source](../../../../../../src/learnloop/router_objective/value.py), line 430)
+- `class _Streams` ([source](../../../../../../src/learnloop/router_objective/value.py), line 434) — Counter-free common random numbers: each stream is a fixed array, the same for every candidate.
+- `_beta_draw(u: np.ndarray, a: float, b: float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/value.py), line 458) — A Beta(a, b) quantile at ``u`` (inverse CDF by bisection on the regularized incomplete beta): the same uniform gives the same draw for every candidate.
+- `_betainc(a: float, b: float, x: float) -> float` ([source](../../../../../../src/learnloop/router_objective/value.py), line 474) — The regularized incomplete beta ``I_x(a, b)`` (Lentz's continued fraction).
+- `class _Theta` ([source](../../../../../../src/learnloop/router_objective/value.py), line 505)
+- `class _State` ([source](../../../../../../src/learnloop/router_objective/value.py), line 519)
+- `class _Ledger` ([source](../../../../../../src/learnloop/router_objective/value.py), line 550) — Per draw: the terms of one path (§8.8's per-candidate terms).
+- `class _Model` ([source](../../../../../../src/learnloop/router_objective/value.py), line 596) — One decision's rollouts: the frozen inputs, the draws, and the streams.
+- `_terms(ledger: _Ledger, model: '_Model | None'=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/value.py), line 1470)
 
 ## Who imports or calls it
 
@@ -172,7 +176,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `EffectSlope`, `_Model`, `baselines`, `evaluate`, `gain`, `numeric_choice`, `paired_standard_error`
-- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Action`, `AdLink`, `DatedUse`, `Inputs`, `Learning`, `Price`, `Topic`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Action`, `AdLink`, `DatedUse`, `Inputs`, `Learning`, `LessonCurve`, `Price`, `Topic`
 
 ## Dependencies
 
@@ -262,6 +266,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_baselines_and_the_gain_are_the_landing_codes_bit_for_bit`
   - `test_the_held_values_follow_the_state_bit_for_bit`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_a_probe_closes_the_lesson_window_on_the_held_link_too`
+  - `test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder`
+  - `test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_moves_no_decision`
+  - `test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does`
 
 ## Modification guidance
 

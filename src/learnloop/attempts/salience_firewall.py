@@ -32,6 +32,16 @@ reading opportunities as learning opportunities, under four limits:
    reading_opportunities`` (and ``reading_self_check`` for the verdict term),
    with the AD report's reading and verdict auto-flags.
 
+*Amended at teacher TE3a (owner, 2026-11-05: spec_teacher_v1 rev 5 §23.1 item 4,
+Q5's amendment to A12 limit 1 and D20):* limit 1's list gains one more
+discrete event, a **lesson**: a closed lesson's node with an LO whose final
+status is ``landed`` or ``taught`` (the subkind), read from the lesson's
+receipt, the fact that it was taught with a dose of one on each of the LO's
+facets. Limits 2-4 bind it as they bind the reading kinds: prediction only
+(a lesson check is never read as an attempt), its own learned dose curve per
+subkind (``ad_lesson_priors_v1``), and its own kill switch
+(``adaptive_difficulty.lesson_opportunities``) and auto-flag.
+
 The carve-out is :func:`learning_opportunity_events`, beside
 :func:`proposal_priority_signal`: the only path from reading records (AD1's
 ``ad_reading_opportunities`` receipt) to AD's state. It admits exactly the
@@ -272,6 +282,9 @@ def salience_projection_v1(events: list[Mapping[str, Any]]) -> dict[str, Any]:
 
 #: D22's verdict classes: the one typed value the carve-out admits.
 SELF_CHECK_SUBKINDS: tuple[str, ...] = ("self_check:matched", "self_check:missed")
+#: Teacher TE3a: a lesson node's final status that is an opportunity (``adaptive_difficulty.priors``' list,
+#: restated: this module imports nothing of AD; ``tests/test_te3a_lesson_opportunity.py`` pins the two equal).
+LESSON_SUBKINDS: tuple[str, ...] = ("landed", "taught")
 
 #: The carve-out's allowlist, ``(kind, subkind, source table)``: the only sources
 #: whose records may reach AD's state (§5.11's table). One list: AD1's sweep
@@ -286,9 +299,16 @@ LEARNING_OPPORTUNITY_SOURCES: tuple[tuple[str, str, str], ...] = (
     *(("in_passage_question", style, "reader_authored_questions") for style in IN_PASSAGE_STYLES),
     ("in_passage_question", "owner_placed", "interaction_events"),
     *(("in_passage_question", subkind, "judgment_ledger") for subkind in SELF_CHECK_SUBKINDS),
+    # Teacher TE3a (spec_teacher_v1 rev 5 §14.2; the owner's amendment to A12 limit 1 and D20, Q5): a closed
+    # lesson's node with an LO, by its final status, from the lesson's receipt. The fact that it was taught, with a
+    # dose: no minutes, no text, no check outcome (a lesson check is never read as an attempt by AD).
+    *(("lesson", subkind, "lesson_receipts") for subkind in LESSON_SUBKINDS),
 )
-LEARNING_OPPORTUNITY_KINDS: tuple[str, ...] = ("reading", "reader_tutor_exchange", "worked_example",
-                                               "in_passage_question")
+#: The reading kinds (D20). AD1's sweep records these from the Reader's sources (``reading_sources``).
+READING_OPPORTUNITY_KINDS: tuple[str, ...] = ("reading", "reader_tutor_exchange", "worked_example",
+                                              "in_passage_question")
+#: Every learning-opportunity kind: the reading kinds and, from teacher TE3a, ``lesson``.
+LEARNING_OPPORTUNITY_KINDS: tuple[str, ...] = (*READING_OPPORTUNITY_KINDS, "lesson")
 #: The only fields a learning-opportunity record carries: ids, times, the LO,
 #: the facets and their doses. No magnitude field exists.
 LEARNING_OPPORTUNITY_FIELDS: tuple[str, ...] = (

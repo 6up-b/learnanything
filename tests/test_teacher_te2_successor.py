@@ -47,8 +47,9 @@ def drop_te2_keys(dumped: dict) -> dict:
 
 def test_the_successor_is_one_constant_after_the_router_followups_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.50"
-    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
-    assert TEACHER_PROBES_VERSIONS == frozenset({TAG})
+    # Teacher TE3a's AD successor (mvp-0.52) landed after it and keeps it.
+    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.52"
+    assert TEACHER_PROBES_VERSIONS == frozenset({TAG, "mvp-0.52"})
 
 
 def test_the_switch_and_the_keep_bound_and_their_validation():
@@ -71,6 +72,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert dumped["teacher"].pop("probes") is True
     assert dumped["teacher"].pop("placement") == {"max_probes": 8}
     assert dumped["router_objective"].pop("held_ad_link") is True
+    from tests.test_te3a_successor import drop_te3a_keys
+
+    drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "780d5afa78fc92eae0911c381a364428f126dabd594125f7d63f423a4638ae59"
 
@@ -100,8 +104,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.teacher_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to the follow-up batch's completion, which hands it on in turn.
     assert "learnloop.router_followups_upgrade import complete_interrupted_activation" in inspect.getsource(
         teacher_probes_upgrade)
@@ -142,4 +146,10 @@ def test_the_cli_upgrade_reaches_the_tag_by_default(tmp_path):
     set_algorithm_version(paths, OLD)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
+    # The default target is the chain's latest (TE3a's mvp-0.52 since its landing), through this link.
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+    named = create_basic_vault(tmp_path / "named")
+    set_algorithm_version(named, OLD)
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(named.root), "--to", TAG])
+    assert result.exit_code == 0, result.output
+    assert load_vault(named.root).config.algorithms.algorithm_version == TAG

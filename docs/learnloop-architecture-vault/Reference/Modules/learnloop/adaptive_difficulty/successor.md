@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/successor.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/successor.py"
-source_commit: "7216efcfa19a120d877b7922dbc4fd17850251d7"
-source_commit_timestamp: "2026-10-23T18:07:12-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201"
+source_commit_timestamp: "2026-11-06T11:48:24-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py) |
-| Source lines | 132 |
+| Source lines | 151 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `7216efcfa19a120d877b7922dbc4fd17850251d7` |
-| Commit timestamp | `2026-10-23T18:07:12-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD b1c67e1f52ee99dcfab1eeca5de019d636162201` |
+| Commit timestamp | `2026-11-06T11:48:24-05:00` |
 
 ## Public API
 
@@ -68,16 +68,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `coupling_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 73)
 - `reading_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 77)
 - `verdicts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 81)
-- `dose_offers_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 85) — The Reader's dose arm (outside the successor; every version).
-- `history_fallback(config: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 94) — How AD reads a historical attempt whose exact item revision was not saved (``adaptive_difficulty.history_fallback``; owner decision 2026-10-19): ``"current_content"`` (the default) reads it against today's item text, ``"exclude"`` leaves it out.
-- `settings(config: Any) -> dict[str, bool]` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 107)
+- `lesson_opportunities_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 88) — Teacher TE3a (spec_teacher_v1 rev 5 §14.2): lesson opportunities are swept, applied by the subject view and read by the objective's lesson interface.
+- `dose_offers_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 101) — The Reader's dose arm (outside the successor; every version).
+- `history_fallback(config: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 110) — How AD reads a historical attempt whose exact item revision was not saved (``adaptive_difficulty.history_fallback``; owner decision 2026-10-19): ``"current_content"`` (the default) reads it against today's item text, ``"exclude"`` leaves it out.
+- `settings(config: Any) -> dict[str, bool]` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 123)
 
 ### Module constants
 
 - `SUCCESSOR` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 34)
 - `SWITCHES` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 35)
 - `DOSE_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 37)
-- `HISTORY_FALLBACKS` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 91)
+- `LESSON_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 85)
+- `HISTORY_FALLBACKS` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 107)
 
 ### Explicit exports
 
@@ -85,12 +87,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `DOSE_SWITCH`
 - `HISTORY_FALLBACKS`
+- `LESSON_SWITCH`
 - `SUCCESSOR`
 - `SWITCHES`
 - `coupling_on`
 - `dose_offers_on`
 - `generation_contract_on`
 - `history_fallback`
+- `lesson_opportunities_on`
 - `reading_on`
 - `selection_on`
 - `settings`
@@ -111,10 +115,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]] — imports `history_fallback`; statically calls `history_fallback`
 - [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] — imports `dose_offers_on`; statically calls `dose_offers_on`
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `generation_contract_on`, `successor_active`; statically calls `generation_contract_on`, `successor_active`
-- [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `subject_view_live`; statically calls `subject_view_live`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `lesson_opportunities_on`; statically calls `lesson_opportunities_on`
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `lesson_opportunities_on`; statically calls `lesson_opportunities_on`
+- [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `lesson_opportunities_on`, `subject_view_live`; statically calls `lesson_opportunities_on`, `subject_view_live`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `lesson_opportunities_on`; statically calls `lesson_opportunities_on`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `switch_on`; statically calls `switch_on`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]] — imports `coupling_on`; statically calls `coupling_on`
-- [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `history_fallback`, `successor_active`; statically calls `history_fallback`, `successor_active`
+- [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `history_fallback`, `lesson_opportunities_on`, `successor_active`; statically calls `history_fallback`, `lesson_opportunities_on`, `successor_active`
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `successor_active`; statically calls `successor_active`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `coupling_on`, `selection_on`, `subject_view_live`, `successor_active`; statically calls `coupling_on`, `selection_on`, `subject_view_live`, `successor_active`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `selection_on`; statically calls `selection_on`
@@ -126,7 +133,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `ad_enabled`; calls `ad_enabled`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`, `ADAPTIVE_DIFFICULTY_VERSIONS`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`, `ADAPTIVE_DIFFICULTY_VERSIONS`, `LESSON_OPPORTUNITY_VERSIONS`
 
 ### Platform and third-party dependencies
 
@@ -140,7 +147,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -154,6 +161,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switches_compose`
 - [tests/test_ad_guard_offer_receipts.py](../../../../../../tests/test_ad_guard_offer_receipts.py) — direct import
   - `test_the_fix_changes_serving_on_the_affected_shape_and_the_switches_restore_the_refusal_state`
+- [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
+  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_ad_off`
+  - `test_the_switch_defaults_on_and_is_classified`
 - [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
   - `test_below_band_reads_adaptive_difficultys_posterior_not_the_mastery_model`
 

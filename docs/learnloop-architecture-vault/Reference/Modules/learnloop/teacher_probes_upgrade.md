@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher_probes_upgrade.py"
 source_paths:
   - "src/learnloop/teacher_probes_upgrade.py"
-source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
-source_worktree_state: "modified"
+source_commit: "0c2952c5a470f186b1c00af42dc00d4d20927074"
+source_commit_timestamp: "2026-11-06T06:38:56-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
-| Commit timestamp | `2026-11-06T11:32:04-05:00` |
+| Worktree state | `clean` |
+| Source commit | `0c2952c5a470f186b1c00af42dc00d4d20927074` |
+| Commit timestamp | `2026-11-06T06:38:56-05:00` |
 
 ## Public API
 
@@ -91,8 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `upgrade_to_teacher_probes`; statically calls `upgrade_to_teacher_probes`
-- [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `complete_interrupted_activation`; statically calls `complete_interrupted_activation`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `complete_interrupted_activation`; statically calls `complete_interrupted_activation`
+- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_teacher_probes`; statically calls `complete_interrupted_activation`
 
 ## Dependencies
 
@@ -123,7 +122,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

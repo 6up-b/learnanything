@@ -190,7 +190,32 @@ def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_pri
     return V.Learning(gamma=(float(gamma[0]), float(gamma[1])),
                       gbar=((float(gbar[0][0]), float(gbar[0][1])), (float(gbar[1][0]), float(gbar[1][1]))),
                       dose_scales=tuple(dose_scales),
-                      source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)")
+                      source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)",
+                      lesson=_lesson_curve(ad.get("lesson_curve")))
+
+
+def _lesson_curve(read: Any) -> V.LessonCurve | None:
+    """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): the lesson interface's effect, AD's ``landed`` curve as
+    ``decision_state_fields`` read it through AD's read-only entry (present only at TE3a's tag with its switch on;
+    absent: RO4's placeholder). With its seeded prior's moments (Codex review F2): the objective adds to the
+    placeholder only what lessons taught the curve beyond them (none read: nothing learned, the placeholder)."""
+
+    if not isinstance(read, Mapping) or not read.get("mean") or not read.get("cov"):
+        return None
+
+    def pair(value: Any) -> tuple[float, float]:
+        return float(value[0]), float(value[1])
+
+    def matrix(value: Any) -> tuple[tuple[float, float], tuple[float, float]]:
+        return pair(value[0]), pair(value[1])
+
+    prior_mean, prior_cov = read.get("prior_mean"), read.get("prior_cov")
+    return V.LessonCurve(mean=pair(read["mean"]), cov=matrix(read["cov"]),
+                         positions={str(lo): float(n) for lo, n in (read.get("positions") or {}).items()},
+                         version=str(read.get("version") or ""),
+                         source=f"adaptive_difficulty subject view ({read.get('source') or 'unknown'})",
+                         prior_mean=pair(prior_mean) if prior_mean else None,
+                         prior_cov=matrix(prior_cov) if prior_cov else None)
 
 
 def _ad_link(vault: Any) -> V.AdLink | None:
@@ -711,6 +736,14 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         "ad_status": ad.get("status"), "ad_state_hash": ad.get("state_hash"),
         "kappa0": kappa0, "kappa_how": kappa_how,
     }
+    if inputs.learning.lesson is not None:
+        # Teacher TE3a: the lesson interface's effect source (absent: RO4's placeholder, as before).
+        curve = inputs.learning.lesson
+        sources["lesson_curve"] = {"version": curve.version, "source": curve.source, "mean": list(curve.mean),
+                                   "cov": [list(row) for row in curve.cov], "positions": dict(curve.positions),
+                                   "prior_mean": list(curve.prior_mean) if curve.prior_mean else None,
+                                   "prior_cov": [list(row) for row in curve.prior_cov] if curve.prior_cov else None,
+                                   "effect": "RO4's placeholder plus the curve's learned shift from its prior"}
     from learnloop.router_objective_switches import followups_tag
 
     if followups_tag(config):

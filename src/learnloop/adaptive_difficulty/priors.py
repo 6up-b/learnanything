@@ -155,6 +155,58 @@ VERDICT_PRIORS: tuple[tuple[str, float, float], ...] = (
 )
 VERDICT_CLASSES = {"self_check:matched": "lam:matched", "self_check:missed": "lam:missed"}
 
+# -- the lesson opportunity (spec_teacher_v1 rev 5 §14.2; TE3a) ----------------------------
+#
+# A closed lesson's node with an LO, ``landed`` or ``taught`` by its final status, is one learning opportunity of
+# kind ``lesson`` (prediction-only, under the firewall's carve-out). Each subkind has its own dose curve of
+# reading's form, ``g(n) = c_1·b_1(n) + c_2·b_2(n)`` on :data:`DOSE_SCALES`, learned by the subject view's filter
+# from later eligible cold attempts. Its own versioned prior set (``ad_lesson_priors_v1``), apart from
+# ``ad_priors_v1`` so the reading kinds' priors and every bank without a lesson stay exactly as they were.
+
+LESSON_PRIORS_VERSION = "ad_lesson_priors_v1"
+LESSON_KIND = "lesson"
+#: A node's final status that is an opportunity (``held`` and ``uncertain`` are none; §14.2).
+LESSON_SUBKINDS = ("landed", "taught")
+#: The lesson-check mass RO4's placeholder values a lesson at: the teacher's seeded lesson-check mass,
+#: ``σ(η₀)`` at ``η₀``'s prior mean 0 (spec_teacher_v1 §12.1; basis ``legacy``: the check's attempt type's configured
+#: evidence mass 0.5). AD imports nothing of the evidence side, so ``tests/test_te3a_lesson_opportunity.py`` pins
+#: the two equal.
+LESSON_CHECK_MASS_PRIOR = 0.5
+
+
+def _lesson_priors() -> tuple[tuple[str, float, float], ...]:
+    """``ad_lesson_priors_v1``: each subkind's two coefficients, independent, with the same prior for both subkinds
+    (the data separate them; no hand-set ratio).
+
+    *The centre* (basis ``legacy``): one first dose (``n = 0 → 1``) moves the facet, so the LO's predicted ``η``, by
+    RO4's placeholder, ``γ``'s prior mean times :data:`LESSON_CHECK_MASS_PRIOR` (0.1 logit), and its spread is the
+    placeholder's (``γ``'s prior sd times the mass, 0.05), so the objective's lesson interface at this prior is the
+    placeholder's draw for draw (``router_objective.value``).
+
+    *The shape* is AD's existing rule for a new kind's prior (§5.5): a reading kind's coefficients are
+    ``γ̄_m + δ_{κ,m}``, means ``(0.10, 0.20)`` and variances ``(0.0049 + 0.0049, 0.01 + 0.01)``. The lesson's means
+    and variances keep those ratios between the scales, scaled to the centre and spread above (the rule's own
+    first-dose spread, 0.070, is wider than the placeholder's; the review file records the choice)."""
+
+    reading = {name: (mean, var) for name, mean, var in READING_PRIORS}
+    shape_mean = [reading[f"gbar:{m}"][0] + reading[f"delta:reading:{m}"][0] for m in (1, 2)]
+    shape_var = [reading[f"gbar:{m}"][1] + reading[f"delta:reading:{m}"][1] for m in (1, 2)]
+    first = [1.0 - math.exp(-1.0 / h) for h in DOSE_SCALES]
+    centre = GAMMA_PRIOR[1] * LESSON_CHECK_MASS_PRIOR
+    spread = GAMMA_PRIOR[2] * LESSON_CHECK_MASS_PRIOR ** 2
+    mean_scale = centre / sum(b * mu for b, mu in zip(first, shape_mean))
+    var_scale = spread / sum(b * b * var for b, var in zip(first, shape_var))
+    return tuple((f"lesson:{subkind}:{m}", shape_mean[m - 1] * mean_scale, shape_var[m - 1] * var_scale)
+                 for subkind in LESSON_SUBKINDS for m in (1, 2))
+
+
+LESSON_PRIORS: tuple[tuple[str, float, float], ...] = _lesson_priors()
+LESSON_NAMES = tuple(name for name, _mean, _var in LESSON_PRIORS)
+
+
+def lesson_coordinate(subkind: str, m: int) -> str:
+    return f"lesson:{subkind}:{m}"
+
 #: Sub-arms (§5.4), in unconstrained coordinates; present only when the arm is on.
 RATING_PRIORS: tuple[tuple[str, float, float], ...] = (
     ("rating:rho_t", math.log(0.5), 0.25),
@@ -273,6 +325,12 @@ __all__ = [
     "HyperPoint",
     "KAPPA",
     "LAPSE",
+    "LESSON_CHECK_MASS_PRIOR",
+    "LESSON_KIND",
+    "LESSON_NAMES",
+    "LESSON_PRIORS",
+    "LESSON_PRIORS_VERSION",
+    "LESSON_SUBKINDS",
     "LO_VIEW_POINT",
     "LO_VIEW_SPLIT",
     "MAX_COUPLED",
@@ -297,6 +355,7 @@ __all__ = [
     "feature_coding",
     "features_complete",
     "hyper_grid",
+    "lesson_coordinate",
     "offset_variance",
     "prior_demand",
     "uniform_points",

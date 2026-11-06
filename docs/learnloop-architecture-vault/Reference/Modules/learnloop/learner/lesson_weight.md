@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/lesson_weight.py"
 source_paths:
   - "src/learnloop/learner/lesson_weight.py"
-source_commit: "workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a"
-source_commit_timestamp: "2026-11-06T11:32:04-05:00"
-source_worktree_state: "modified"
+source_commit: "a6fd6615fea1c0de474d6e7e5e559f8a223e14f6"
+source_commit_timestamp: "2026-11-06T05:25:38-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.learner"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 271a042fd6e7c418c6abdb96d8eb08fd1d8e595a` |
-| Commit timestamp | `2026-11-06T11:32:04-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a6fd6615fea1c0de474d6e7e5e559f8a223e14f6` |
+| Commit timestamp | `2026-11-06T05:25:38-05:00` |
 
 ## Public API
 
@@ -230,6 +230,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
+- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_the_prior_is_centred_and_spread_on_ro4s_placeholder_with_ads_shape`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f2_a_held_cold_grade_resolves_nothing_until_released`
   - `test_f5_a_forecast_agreeing_with_the_cold_prediction_leaves_the_mass_near_the_learned_one`

@@ -318,10 +318,14 @@ def serve(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequenc
         retire(vault, repository, lesson, turns, probe, reason="not_servable", clock=clock)
         return None
     if probe.status == "ready":
+        from learnloop.teacher.exposure import EXPOSURE_KEY, exposed_identities
+
         with repository.atomic():
+            # Teacher TE3a landing ruling R1: the served question's revision, frozen on the record that shows it.
             store.append_turn(repository.connection(), lesson_id=str(lesson["id"]), actor="code", action=SERVED,
                               validation="ok", refs={"item": probe.item_id},
-                              payload={"probe_ref": probe.ref, "item_id": probe.item_id, "first": bool(claim.first)},
+                              payload={"probe_ref": probe.ref, "item_id": probe.item_id, "first": bool(claim.first),
+                                       EXPOSURE_KEY: exposed_identities(loaded, [probe.item_id])},
                               created_at=utc_now_iso(clock))
     return {"probe_ref": probe.ref, "node": probe.node, "question": item.prompt, "item_id": probe.item_id}
 

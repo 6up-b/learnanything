@@ -28,6 +28,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from learnloop.adaptive_difficulty import predict as PR
+from learnloop.adaptive_difficulty import priors as P
 from learnloop.adaptive_difficulty import replay as RP
 from learnloop.adaptive_difficulty import selection as S
 from learnloop.adaptive_difficulty.successor import subject_view_live
@@ -138,7 +139,13 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
     ``eta_moments`` (the router objective follow-up batch's landing ruling R10): each LO also carries
     ``eta_at_top``, the posterior moments of the latent ``η`` its ``p_bar_at_top_raw`` integrates (the mixture's
     mean and variance over the bank's rows, the target point's epistemic variance, before the item residual) and the
-    point's guess, so the rollouts start from AD's own latent distribution. Off for every other caller."""
+    point's guess, so the rollouts start from AD's own latent distribution. Off for every other caller.
+
+    Teacher TE3a (spec_teacher_v1 rev 5 §14.2): with ``learning_moments`` and the lesson switch live, also
+    ``lesson_curve``: the ``landed`` dose curve's posterior moments (both coefficients' means and their 2x2
+    covariance, the mixture's over the bank's first group; the seeded prior while no lesson has reached the bank)
+    and each LO's position on it (its main facet's lesson window), the one learned lesson effect the objective's
+    lesson interface reads (``router_objective.value``). Absent with the switch off or below its tag."""
 
     if not subject_view_live(vault.config):
         return {"status": "not_live"}
@@ -147,6 +154,7 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
     view = material_view(vault, repository, view)
     snapshot = snapshot or RP.snapshot(vault, repository, view=view)
     los: dict[str, Any] = {}
+    positions: dict[str, float] = {}
     for learning_object_id in learning_object_ids:
         fields = _lo_fields(vault, view, snapshot, learning_object_id, moments=eta_moments)
         if fields is not None:
@@ -156,10 +164,50 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
             if reading_doses:
                 window = snapshot.subject.windows.get(("reading", fields["cell"][0]))
                 los[learning_object_id]["reading_dose"] = float(window.mean()) if window is not None else 0.0
+            lesson_window = snapshot.subject.windows.get((P.LESSON_KIND, fields["cell"][0]))
+            positions[learning_object_id] = float(lesson_window.mean()) if lesson_window is not None else 0.0
     out: dict[str, Any] = {"status": "live", "state_hash": snapshot.state_hash(), "los": los}
     if learning_moments:
         out["learning"] = _learning_moments(snapshot.subject)
+        from learnloop.adaptive_difficulty.successor import lesson_opportunities_on
+
+        if lesson_opportunities_on(vault.config):
+            out["lesson_curve"] = {**lesson_curve_moments(snapshot.subject), "positions": positions}
     return out
+
+
+def lesson_curve_moments(subject: Any, subkind: str = "landed") -> dict[str, Any]:
+    """Teacher TE3a: a lesson subkind's dose-curve coefficients ``(c_1, c_2)``: the mixture's mean and covariance over
+    the bank's first group (as :func:`_learning_moments`), a read, never a write; the seeded prior
+    (``ad_lesson_priors_v1``) while the bank has no lesson coordinate (no lesson opportunity applied yet), and the
+    seeded prior's moments beside them (``prior_mean``, ``prior_cov``)."""
+
+    names = [P.lesson_coordinate(subkind, m) for m in (1, 2)]
+    bank = subject.bank
+    seeded = {name: (mean, var) for name, mean, var in P.LESSON_PRIORS}
+    prior_mean = [float(seeded[name][0]) for name in names]
+    prior_cov = [[float(seeded[names[0]][1]), 0.0], [0.0, float(seeded[names[1]][1])]]
+    # Codex review F2: the prior beside the posterior, so the objective values only what lessons taught the curve.
+    out = {"version": P.LESSON_PRIORS_VERSION, "subkind": subkind, "prior_mean": prior_mean, "prior_cov": prior_cov}
+    if not all(name in bank.index for name in names):
+        return {**out, "source": "prior", "mean": list(prior_mean), "cov": [list(row) for row in prior_cov]}
+    import numpy as np
+
+    weights = bank.weights()[0]
+    rows = len(weights)
+    index = [bank.index[name] for name in names]
+    mu = bank.mu[:rows][:, index]
+    cov = bank.S[:rows][:, index][:, :, index]
+    if np.array_equal(mu, np.broadcast_to(prior_mean, mu.shape)) and np.array_equal(
+            cov, np.broadcast_to(prior_cov, cov.shape)):
+        # Every component still at the seeded prior (a lesson applied, no later answer informed it): the mixture is
+        # the prior exactly (the moment arithmetic below would round it by an ulp).
+        return {**out, "source": "posterior", "mean": list(prior_mean), "cov": [list(row) for row in prior_cov]}
+    mean = weights @ mu
+    second = np.einsum("b,bij->ij", weights, cov + np.einsum("bi,bj->bij", mu, mu))
+    covariance = second - np.outer(mean, mean)
+    return {**out, "source": "posterior", "mean": [float(value) for value in mean],
+            "cov": [[float(covariance[0, 0]), float(covariance[0, 1])], [float(covariance[1, 0]), float(covariance[1, 1])]]}
 
 
 #: Router objective RO5 (§9 item 7): the learning parameters whose fitted moments the rollouts read.
@@ -314,4 +362,4 @@ def card_line(fields: Mapping[str, Any]) -> str:
 
 
 __all__ = ["LIKELY", "NOT_PREDICTED", "NOT_YET", "READINESS_VERSION", "UNTESTED", "aggregate_line", "band_positions",
-           "card_fields", "card_line", "decision_state_fields", "lo_readiness"]
+           "card_fields", "card_line", "decision_state_fields", "lesson_curve_moments", "lo_readiness"]
