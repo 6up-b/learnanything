@@ -97,9 +97,9 @@ PUBLISHED = "numeric_published"
 #: RO6's landing ruling R12: the prefetch material's key for the residual record with the carried valuation, set by
 #: the job after the answer released the serve's wait; a serve that comes first censors that backup.
 CARRIED = "numeric_carried_valuation"
-#: The follow-up batch's item 4: the material's key for the carried valuation a decision defers to the next
-#: boundary's prefetch (``carried_in_prefetch``), run there, off the serving path, and recorded in a later trace.
-DEFERRED = "numeric_carried_deferred"
+#: The follow-up batch's item 4 (``carried_in_prefetch``): a decision's carried valuation deferred to the next
+#: boundary's prefetch travels with the served answer (``NumericPolicy.carried``; Codex review F3), is registered at
+#: the serve, run there, off the serving path, and recorded in a later trace.
 #: ``keep`` (a resource bound): the most deferred carried valuations kept per database; past it the oldest is dropped
 #: and its backup stays censored ``cutoff_unmatched``.
 CARRY_LIMIT = 32
@@ -317,6 +317,10 @@ class NumericPolicy:
     #: RO6 (§10): the learned tail's residual record (:mod:`learnloop.router_objective.tail_serve`); None below the
     #: tag, with the switch off, or on a decision it does not value (a mid-block follow-up)
     residual: Mapping[str, Any] | None = None
+    #: The follow-up batch's item 4 (Codex review F3): this answer's own carried valuation, frozen to the inputs it
+    #: used (``compute(deadline=...)``), when its residual is pending; whichever answer serves (an early publication
+    #: or the final one) hands its own to the next boundary's prefetch. Never serialized.
+    carried: Callable[..., dict[str, Any]] | None = field(default=None, repr=False, compare=False)
 
 
 def generator_now(config: Any, objective: str | None = None) -> str:
@@ -428,10 +432,41 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                  baselines=cached["baselines"], corrected=corrected,
                                  latency_ms=int(round((clock() - started) * 1000)), residual=residual_record)
 
+        def carried_compute(record: Mapping[str, Any], at_inputs: V.Inputs, at_actions: Sequence[V.Action],
+                            at_cutoff: float) -> Callable[..., dict[str, Any]]:
+            """The carried valuation of one answer, frozen to the inputs it used (R12; item 4)."""
+
+            at_draws, at_deadline = draws, deadline
+
+            def compute(record: Mapping[str, Any] = record, deadline: float | None = None) -> dict[str, Any]:
+                from learnloop.router_objective import tail_serve as TS
+
+                # ``deadline``: a later prefetch's own, when the valuation was deferred to it (the follow-up
+                # batch's item 4); else this job's.
+                at_previous = V.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
+                                         deadline=at_deadline if deadline is None else deadline,
+                                         clock=clock, cutoff=at_cutoff, merged_sessions=merged)
+                return TS.with_carried_values(record, at_previous)
+
+            return compute
+
+        # The follow-up batch's item 4 (Codex review F3): at its tag, an early publication is an answer that can
+        # serve (``published_uncorrected``) before the job installs anything, so it carries its own pending carried
+        # valuation, frozen to its own (uncorrected) inputs; off, or below the tag, RO6's publication exactly.
+        early_carry: float | None = None
+        if publish is not None and defer_carried is not None and residual_record is not None and _carry_on(config):
+            from learnloop.router_objective import tail_serve
+
+            early_carry = tail_serve.carried_cutoff(residual_record)
         on_complete = None
         if publish is not None:
             def on_complete(evaluation: V.Evaluation) -> None:
-                publish(answered(evaluation, inputs, actions, False))
+                policy = answered(evaluation, inputs, actions, False)
+                if early_carry is not None and residual_record is not None:
+                    pending_early = tail_serve.pending_after_the_answer(residual_record)
+                    policy = replace(policy, residual=pending_early,
+                                     carried=carried_compute(pending_early, inputs, tuple(actions), early_carry))
+                publish(policy)
         # (``unmeasured`` only at RO6's tag with the learned tail on; None leaves the evaluation as mvp-0.48's)
         measured = {"unmeasured": unmeasured} if unmeasured is not None else {}
         evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
@@ -457,6 +492,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             return NumericPolicy(status=TIMEOUT, inputs=inputs, actions=tuple(actions), sources=sources, price=priced,
                                  frontier=frontier, latency_ms=int(round((clock() - started) * 1000)),
                                  error="no answer within the budget")
+        own_carry: Callable[..., dict[str, Any]] | None = None
         if residual_record is not None:
             from learnloop.router_objective import tail_serve
 
@@ -468,20 +504,12 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 # Landing ruling R12: the answer is released first; the carried valuation runs after it (the
                 # prefetch job calls ``compute`` once the numeric policy's completion event is set).
                 pending = tail_serve.pending_after_the_answer(residual_record)
-                at_inputs, at_actions, at_draws, at_deadline = inputs, actions, draws, deadline
-
-                def compute(record: Mapping[str, Any] = pending, deadline: float | None = None) -> dict[str, Any]:
-                    from learnloop.router_objective import tail_serve as TS
-
-                    # ``deadline``: a later prefetch's own, when the valuation was deferred to it (the follow-up
-                    # batch's item 4); else this job's.
-                    at_previous = V.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
-                                             deadline=at_deadline if deadline is None else deadline,
-                                             clock=clock, cutoff=carried, merged_sessions=merged)
-                    return TS.with_carried_values(record, at_previous)
-
+                compute = carried_compute(pending, inputs, tuple(actions), carried)
                 defer_carried(compute)
                 residual_record = pending
+                if _carry_on(config):
+                    # The follow-up batch's item 4: the answer carries its own (Codex review F3).
+                    own_carry = compute
             elif carried is not None:
                 # RO6 (Codex re-review F3): the candidates valued again with every rollout at the latest earlier
                 # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
@@ -489,7 +517,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 at_previous = V.evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
                                          cutoff=carried, merged_sessions=merged)
                 residual_record = tail_serve.with_carried_values(residual_record, at_previous)
-        return answered(evaluation, inputs, actions, corrected)
+        final = answered(evaluation, inputs, actions, corrected)
+        return replace(final, carried=own_carry) if own_carry is not None else final
     except Exception as exc:  # noqa: BLE001 - a failed policy's share goes to the staged rule
         LOG.warning("router objective: the numeric policy failed", exc_info=True)
         return NumericPolicy(status=FAILED, error=f"{type(exc).__name__}: {str(exc)[:200]}",
@@ -615,11 +644,9 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
         # Landing ruling R12: the answer releases the serve's wait; the carried valuation runs only after it, and a
         # serve that has already taken the answer censors that backup (``_decide_objective``).
         carry = _carry_on(config)
-        if carry:
-            # The follow-up batch's item 4: this decision's own carried valuation waits for the next boundary's
-            # prefetch (registered at its serve, which comes before it), kept beside the answer before it is out.
-            with entry.lock:
-                entry.material[DEFERRED] = list(deferred)
+        # The follow-up batch's item 4: this decision's own carried valuation waits for the next boundary's prefetch;
+        # each answer that can serve (the final one above, an early publication) carries its own (``carried``,
+        # Codex review F3), so the serve registers it whichever comes first.
         entry.events[NUMERIC].set()
         if carry:
             # ... and this job runs the ones earlier decisions left, now that its own answer is out.
@@ -1007,9 +1034,9 @@ class ObjectiveChooser(RouterChooser):
                                   # R3: the answer is served at once here; no second valuation on the serving path.
                                   carried_valuation=carry,
                                   defer_carried=no_model_deferred.append if carry else None)
+            # (the answer carries its own carried valuation, ``numeric.carried``, when one is pending)
             entry = _NoModels(key, {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
-                                    "decided_at": now_iso, "numeric": numeric,
-                                    **({DEFERRED: no_model_deferred} if carry else {})}, self.runtime.clock())
+                                    "decided_at": now_iso, "numeric": numeric}, self.runtime.clock())
         self._freeze_objective(record, staged, feasible, support)
         return self._decide_objective(entry, state, staged, staged_ref, record, support, by_id, feasible, readiness,
                                       settings, now_iso)
@@ -1018,7 +1045,10 @@ class ObjectiveChooser(RouterChooser):
         """The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation
         existed hands it to the next boundary's prefetch (the no-model branch, which has none, to a thread of its own
         started after this decision), off the serving path; a later decision's trace records it. The decision's own
-        record says where its value went."""
+        record says where its value went.
+
+        The valuation is the served answer's own (``numeric.carried``, frozen to that answer's inputs: Codex review
+        F3), so an early publication served before the job completes hands over its own, and a final answer its."""
 
         from learnloop.router_objective import tail_serve
 
@@ -1026,16 +1056,9 @@ class ObjectiveChooser(RouterChooser):
         previous = (residual or {}).get("previous")
         if not isinstance(previous, Mapping) or previous.get("q_status") != tail_serve.NOT_BEFORE_THE_SERVE:
             return numeric
-        material = getattr(entry, "material", {}) or {}
-        lock = getattr(entry, "lock", None)
-        if lock is not None:
-            with lock:
-                computes = list(material.get(DEFERRED) or ())
-        else:
-            computes = list(material.get(DEFERRED) or ())
-        if not computes:
+        if numeric.carried is None:
             return numeric
-        _register_carry(self.repository.sqlite_path, decision_id, computes[0])
+        _register_carry(self.repository.sqlite_path, decision_id, numeric.carried)
         no_models = entry.__class__.__name__ == "_NoModels"
         if no_models:
             deadline = self.runtime.clock() + float(self.vault.config.router.timeout_seconds)

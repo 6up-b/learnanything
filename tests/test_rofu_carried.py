@@ -248,3 +248,86 @@ def test_with_models_the_wait_returns_and_the_next_prefetch_runs_it(tmp_path, mo
         assert previous["q_status"] == TS.NOT_BEFORE_THE_SERVE and previous["deferred_to"] == "next_prefetch"
     finally:
         gate.set()
+
+
+def _join_jobs(timeout: float = 60.0) -> None:
+    for thread in list(threading.enumerate()):
+        if thread.name.startswith(("learnloop-router-", "learnloop-objective-")):
+            thread.join(timeout)
+
+
+def test_an_early_publication_served_keeps_its_carried_valuation(tmp_path, monkeypatch):
+    """Codex review F3: the LLM is slow, so the serve's wait runs out and the numeric job's early, uncorrected
+    publication serves (``published_uncorrected``) before the job's completion installs anything. The publication
+    carries its own carried valuation (frozen to its own inputs: no LLM correction), so the serve hands it to the next
+    boundary's prefetch; once the job and the next prefetch run, a later trace records it and the transition into the
+    published decision is valued at ``previous_cutoff`` instead of censored ``cutoff_unmatched``."""
+
+    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan.engine import advance
+
+    from tests.daily_plan_fakes import record_attempt
+    from tests.router_mixture_helpers import mixture_env
+    from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+
+    real = OC.V.evaluate
+    at_cutoff: list[tuple[bool, dict]] = []
+
+    def spy(*args, **kwargs):
+        out = real(*args, **kwargs)
+        if kwargs.get("cutoff") is not None and out.complete:
+            at_cutoff.append((args[0].effect is None, {row.ref: float(row.q) for row in out.valued}))
+        return out
+
+    monkeypatch.setattr(OC.V, "evaluate", spy)
+    gate = threading.Event()
+
+    def step_once(env):
+        _record, step = advance(env, serve=True)
+        if step is not None and step["kind"] == "item":
+            env.clock.advance(2)
+            record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                           session_id=env.session_id)
+        return step
+
+    try:
+        runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(gate=gate), inline=False,
+                               seed=block_drawing_seed())
+        env = mixture_env(tmp_path, runtime, version=TAG,
+                          toml="[router]\ntimeout_seconds = 3.0\nprefetch_timeout_seconds = 40.0\n")
+        for _ in range(4):
+            step = step_once(env)
+            if len(_traces(env)) >= 2 or step is None or step["kind"] != "item":
+                break
+        traces = _traces(env)
+        assert len(traces) >= 2
+        published = traces[1]
+        assert published["policies"]["numeric"]["stage"] == "published_uncorrected"
+        previous = published["residual"]["previous"]
+        assert previous["status"] == TS.CARRIED
+        assert previous.get("q_status") == TS.NOT_BEFORE_THE_SERVE, previous.get("q_status")
+        assert previous["deferred_to"] == "next_prefetch"
+    finally:
+        gate.set()
+    _join_jobs()
+    with env.repository.connection() as connection:
+        decided = [str(row["decision_id"]) for row in store.traces(connection) if row["decision_kind"] == "plan_block"]
+    first, served = decided[0], decided[1]
+    for _ in range(6):
+        step = step_once(env)
+        _join_jobs()
+        if any(entry["decision_id"] == served for trace in _traces(env) for entry in trace.get("carried_for") or ()):
+            break
+        if step is None or step["kind"] != "item":
+            break
+    carried = [entry for trace in _traces(env) for entry in trace.get("carried_for") or ()
+               if entry["decision_id"] == served]
+    assert carried and carried[0]["previous"]["q_status"] == "valued"
+    # Frozen to the publication's own inputs (uncorrected: no LLM effect slope), not the job's later corrected ones.
+    assert any(uncorrected and q.keys() == carried[0]["previous"]["q"].keys()
+               and all(round(value, 6) == carried[0]["previous"]["q"][ref] for ref, value in q.items())
+               for uncorrected, q in at_cutoff), at_cutoff
+    with env.repository.connection() as connection:
+        steps = TD.fits(connection, env.vault.config, at="2100-01-01T00:00:00Z").steps
+    into = [step for step in steps.transitions if step.decision_id == first]
+    assert len(into) == 1 and into[0].detail["cutoff"] == "previous_cutoff"
