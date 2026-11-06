@@ -171,3 +171,59 @@ test_teacher_te1b_migration.py test_teacher_te1b_rereview_fixes.py test_teacher_
 test_teacher_te1b_suggestions.py test_teacher_te1_successor.py test_teacher_te2_successor.py
 test_tracked_fixture_databases.py test_ux_phase4_feedback.py test_ux_phase4_landing.py test_voi_merge_composition.py
 test_voi_stopping.py test_voi_v2.py
+
+## Re-review
+
+The Codex re-review (gpt-6.1-sol, job `20261106-163121-c2hoHo`) of `0baa4ab39c` confirmed F1, F2 and F4 fixed and
+reopened F3. It found no new defect in the fix commits.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | A late generated probe becomes stranded inside an offer block | confirmed fixed | `02ca6dafac` | (re-review: confirmed) |
+| F2 | Medium | The kill switch does not withdraw prefetched offers | confirmed fixed | `02ca6dafac` | (re-review: confirmed) |
+| F3 (reopened) | Medium | Switch-off decline recovery still reads offer responses | fixed | `7e43d795e1` | `tests/test_te3b_codex_review.py::test_f3_reopened_switch_off_decline_recovery_never_reads_an_offer_response[declined]` and `[released]`. Pre-fix: both failed, the offered LO's logged candidate carried `days_since_decline: 2.0` where the predecessor logs `None` |
+| F4 | Medium | The duration sensor reads receipts unknown at its cutoff | confirmed fixed | `02ca6dafac` | (re-review: confirmed) |
+
+**What changed (F3).** `router.lesson_suggestions.declines_by_learning_object` took a decision map and ignored it.
+Now it reads only the response and release rows whose `decision_id` is in that map, as `observations` already did.
+With lesson offers off, the daily draw passes TE1b's own decisions (`_model(with_offers=False)`), so neither an
+offer's "Not now" (`declined`) nor a Start let go on its pending card (`released`) dates a switch-off candidate. With
+offers on, both callers (the daily draw and `lesson_offer`) pass every decision (`store.all_decisions`), so they read
+exactly what they read before. Below TE3b's tag no offer decision exists, so every response is on a daily decision and
+mvp-0.52's ledger reads byte-identically. No schema change, no new parameter, no model request.
+
+**The test.** For each response kind, an offer is drawn and answered, then the switch is turned off and a draw two days
+later runs. The test asserts three things. First, the offered LO is a candidate of that draw. Second, on the same
+ledger, the decline map holds the LO when it is read with every decision and is empty when it is read with TE1b's
+decisions only. Third, every logged candidate has `days_since_decline: None`, and its logged `p_accept` equals the
+priors' acceptance computed from the logged context with no decline term, which is what the predecessor logs. Unlike
+the first F3 test, this one recomputes from a candidate with the decline age cleared, so it no longer inherits a
+contaminated input.
+
+### Re-review gate
+
+Every pytest run was inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at `-n 6`, one
+run at a time, with `TMPDIR` outside the worktree. lint-imports ran under `env -i` with empty `HOME`, `CODEX_HOME` and
+`LEARNLOOP_CONFIG_DIR`. No live or paid call was made, and no full suite was run (owner rule, 2026-10-17).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install --offline pypdfium2==5.14.0` | ok |
+| `uv run lint-imports --no-cache` | 43 contracts kept, 0 broken (including "Existing deferred cross-package cycles are frozen") |
+| Reproduce-first: `pytest tests/test_te3b_codex_review.py -k f3` on the pre-fix `src/` | 2 failed (the new `[declined]` and `[released]` cases), 1 passed (the first F3 test) |
+| The same, with the fix | 3 passed |
+| Targeted run, 28 files, `-n 6` (list below) | 556 passed, 1 skipped, 0 failed (100 s) |
+
+Not run, and why: no frontend, `src-tauri`, migration, schema, DB or connection code changed (so no npm/vitest/cargo,
+no durability lane, no DB reference scripts).
+
+Test files of the targeted run: every test file that names `lesson_suggestions`, `lesson_suggestion` or
+`declines_by_learning_object` (test_data_capture_a4_delayed_completion.py test_data_capture_successor.py
+test_followups_batch6_review_fixes.py test_followups_batch6_router_report.py test_followups_batch6_te1b_card.py
+test_ro0_codex_review.py test_te3b_binding.py test_te3b_clock.py test_te3b_codex_review.py test_te3b_features.py
+test_te3b_offers.py test_te3b_population.py test_te3b_successor.py test_te3b_value.py test_teacher_te1b_landing_r2.py
+test_teacher_te1b_migration.py test_teacher_te1b_rereview_fixes.py test_teacher_te1b_review_fixes.py
+test_teacher_te1b_suggestions.py test_teacher_te1_successor.py), plus the contract tests: test_cli_help_snapshot.py,
+test_codex_lockdown_frozen.py, test_codex_tool_lockdown.py (process-launch lockdown), test_architecture.py,
+test_rw5c_plain_words.py and test_router_why_copy.py (copy and display-label audits), test_registry_audit.py and
+test_sidecar_serializer_snapshot.py.
