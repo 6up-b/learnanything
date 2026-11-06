@@ -59,5 +59,11 @@ def test_the_logit_is_stable_and_its_slope_matches_the_transformation():
     h = 1e-5
     numeric = (LINK.logit_and_slope(grid + h)[0] - LINK.logit_and_slope(grid - h)[0]) / (2 * h)
     assert np.allclose(slope, numeric, rtol=1e-5, atol=1e-9)
+    # where F underflows a float the log-space path takes over: finite, continuing the curve's straight left tail
+    far = np.array([-750.0, -800.0])
+    far_logit, far_slope = LINK.logit_and_slope(far)
+    assert np.all(np.isfinite(far_logit)) and np.allclose(far_slope, 1.0, atol=1e-6)
+    assert far_logit[1] - far_logit[0] == pytest.approx(-50.0, abs=1e-6)
+    assert np.allclose(LINK.logit_p(far), far_logit, atol=1e-9)
     # FSRS's own logit still clips (its retrievability's numerical floor is FSRS's)
     assert float(M.logit(np.array(1e-9))) == pytest.approx(float(M.logit(np.array(1e-4))))

@@ -170,12 +170,44 @@ class AdLink:
         return 0.5 * (low + high)
 
     def logit_and_slope(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``, in log space:
-        ``log F``, ``log(1 − F) = log(λ + (1 − λ)·E[σ(−e)])`` and ``log F'`` by log-sum-exp over the quadrature, so
-        neither clips (landing ruling R11: the combiner's own probability-logit, never FSRS's clipped one) and the
-        derivative is the one of the transformation applied, ``F'/F + F'/(1 − F)``."""
+        """``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``, never clipped
+        (landing ruling R11: the combiner's own probability-logit, not FSRS's), the derivative the one of the
+        transformation applied, ``F'/F + F'/(1 − F)``. ``1 − F ≥ λ``, so ``log(1 − F)`` loses nothing computed
+        directly; ``log F`` is direct while ``F`` is a normal float, and in log space (log-sum-exp over the
+        quadrature) where it underflows (``η`` below about −700)."""
 
-        e = np.asarray(eta, dtype=np.float64)[..., None] - self._shift
+        with np.errstate(over="ignore"):  # σ of a far-left node is 0, as the log-space path below takes over
+            s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
+        keep = 1.0 - self.lapse
+        f = keep * (self._w * s).sum(-1)
+        df = keep * (self._w * s * (1.0 - s)).sum(-1)
+        tiny = ~(f > 1e-300)
+        safe = np.where(tiny, 1.0, f)
+        out = np.log(safe) - np.log1p(-safe)
+        slope = df / safe + df / (1.0 - safe)
+        if np.any(tiny):
+            log_out, log_slope = self._logit_and_slope_logspace(np.asarray(eta, dtype=np.float64)[tiny])
+            out = np.array(out, copy=True)
+            slope = np.array(slope, copy=True)
+            out[tiny], slope[tiny] = log_out, log_slope
+        return out, slope
+
+    def logit_p(self, eta: np.ndarray) -> np.ndarray:
+        """``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path)."""
+
+        f = self.p(eta)
+        tiny = ~(f > 1e-300)
+        safe = np.where(tiny, 1.0, f)
+        out = np.log(safe) - np.log1p(-safe)
+        if np.any(tiny):
+            out = np.array(out, copy=True)
+            out[tiny] = self._logit_and_slope_logspace(np.asarray(eta, dtype=np.float64)[tiny])[0]
+        return out
+
+    def _logit_and_slope_logspace(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The same in log space: ``log F``, ``log(1 − F) = log(λ + (1 − λ)·E[σ(−e)])`` and ``log F'``."""
+
+        e = eta[..., None] - self._shift
         log_s = -np.logaddexp(0.0, -e)
         log_c = -np.logaddexp(0.0, e)
         lw = np.log(self._w)
@@ -184,16 +216,6 @@ class AdLink:
         log_q = np.logaddexp(math.log(self.lapse), log_keep + _logsumexp(lw + log_c))
         log_df = log_keep + _logsumexp(lw + log_s + log_c)
         return log_f - log_q, np.exp(log_df - log_f) + np.exp(log_df - log_q)
-
-    def logit_p(self, eta: np.ndarray) -> np.ndarray:
-        """``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path)."""
-
-        e = np.asarray(eta, dtype=np.float64)[..., None] - self._shift
-        lw = np.log(self._w)
-        log_keep = math.log1p(-self.lapse)
-        log_f = log_keep + _logsumexp(lw - np.logaddexp(0.0, -e))
-        log_q = np.logaddexp(math.log(self.lapse), log_keep + _logsumexp(lw - np.logaddexp(0.0, e)))
-        return log_f - log_q
 
 
 def _logsumexp(x: np.ndarray) -> np.ndarray:
