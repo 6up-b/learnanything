@@ -105,7 +105,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `KM_ALGORITHM_VERSION`, `LEGACY_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
@@ -117,6 +116,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
+- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
@@ -124,6 +124,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
+- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
@@ -159,7 +160,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] and 34 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] and 35 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

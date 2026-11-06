@@ -122,6 +122,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
   - `test_remint_guards`
   - `test_remint_is_idempotent_and_points_at_the_existing_remint`
+- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
+  - `test_a_probe_is_generated_once_served_cold_and_never_again`
 
 ## Modification guidance
 

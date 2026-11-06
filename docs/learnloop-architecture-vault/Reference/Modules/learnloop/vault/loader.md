@@ -192,7 +192,6 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `add_subject`, `init_vault`, `load_vault`; statically calls `add_subject`, `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `load_vault`; statically calls `load_vault`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `load_vault`; statically calls `load_vault`
@@ -212,6 +211,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `load_vault`; statically calls `load_vault`
@@ -226,7 +226,10 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `load_vault`; statically calls `load_vault`
@@ -269,7 +272,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 127 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 130 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -2871,6 +2874,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
   - `test_refitting_on_a_later_version_does_not_change_version_ks_evaluation`
+- [tests/test_rofu_learning.py](../../../../../../tests/test_rofu_learning.py) — direct import
+  - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
+- [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
+  - `test_each_part_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
+  - `test_the_upgrade_chains_from_an_older_link`
+  - `test_the_upgrade_publishes_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
+  - `test_two_weeks_before_and_after_the_batch`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_retired_proof_check_route_is_ignored_and_reported`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
@@ -3238,23 +3250,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_b1_writer_budget_follows_the_policy_and_the_flag`
   - `test_pf_caller_prices_a_truncation_retry_at_its_doubled_output_budget`
   - `test_the_facet_judge_asks_for_and_reserves_the_policy_budget`
-- [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
-  - `test_a_lesson_raises_the_prediction_and_never_evidence_or_mastery`
-  - `test_after_a_lesson_the_curve_the_objective_reads_has_the_topics_position`
-  - `test_codex_f1_the_teachers_close_records_each_delivered_passages_reading`
-  - `test_codex_rereview_f1_a_lesson_is_judged_by_the_revision_it_showed_not_the_items_current_one`
-  - `test_replay_equivalence_live_fresh_and_rebuilt`
-  - `test_switch_off_is_the_predecessor_exactly`
-  - `test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables`
-  - `test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on`
-  - `test_the_reports_lesson_row_at_the_prior_and_after_lessons`
-  - `test_the_sweep_records_one_opportunity_per_landed_or_taught_node_once`
-- [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
-  - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
-  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_ad_off`
-  - `test_the_upgrade_chains_from_an_older_link`
-  - `test_the_upgrade_publishes_the_tag_and_completes_once`
-  - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
@@ -3340,6 +3335,28 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_from_teacher_te1_and_its_refusals`
   - `test_todays_plan_is_byte_identical_with_a_suggestion_drawn`
   - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
+- [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
+  - `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`
+  - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
+  - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
+  - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
+- [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
+  - `test_a_typed_goal_opens_on_the_los_c0bs_resolver_names_and_says_what_is_not_in_the_books`
+  - `test_the_next_lesson_on_the_same_topics_starts_where_the_last_left_off`
+  - `test_typed_goals_need_the_switch`
+  - `test_yes_to_a_leftover_creates_the_topic_with_teacher_goal_v1_and_one_goal_lo_episode`
+- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f5_a_metered_typed_goal_resolver_is_sent_nothing`
+- [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
+  - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
+  - `test_lesson_goal_and_open_lessons_through_the_handlers`
+- [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
+  - `test_the_cli_upgrade_reaches_the_tag_by_default`
+  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_lessons_off`
+  - `test_the_upgrade_chains_from_an_older_link`
+  - `test_the_upgrade_publishes_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_teacher_te2log_activity.py](../../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_an_episodes_minutes_come_from_the_screens_intervals`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import

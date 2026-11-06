@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/delayed_checks.py"
 source_paths:
   - "src/learnloop/delayed_checks.py"
-source_commit: "0de875c28bff31b14fc26acc6034e3b7ffe3af21"
-source_commit_timestamp: "2026-11-03T12:35:46-05:00"
+source_commit: "dc5302d98cfcd397c2bb3678cdb2bf12f232164a"
+source_commit_timestamp: "2026-11-06T04:43:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/delayed_checks.py](../../../../../src/learnloop/delayed_checks.py) |
-| Source lines | 167 |
+| Source lines | 169 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0de875c28bff31b14fc26acc6034e3b7ffe3af21` |
-| Commit timestamp | `2026-11-03T12:35:46-05:00` |
+| Source commit | `dc5302d98cfcd397c2bb3678cdb2bf12f232164a` |
+| Commit timestamp | `2026-11-06T04:43:14-05:00` |
 
 ## Public API
 
@@ -64,9 +64,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `revealed_items(repository: Any, lesson_id: str) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 29) — Items this lesson exposed (a reveal row with basis ``lesson:<id>``), and items whose summed exposure already reaches the auto-prime threshold (an answer would be primed: never cold).
 - `lineage(item: Any) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 44) — The structural kin an item declares: its family, its contrast pair, its shared stimulus and the source exercise it presents (any shared key makes two items the same material).
 - `candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude: Iterable[str], withheld: Any, attempted: set[str], revealed: set[str], excluded_lineage: set[str] | frozenset[str]=frozenset()) -> list[Any]` ([source](../../../../../src/learnloop/delayed_checks.py), line 62) — The candidate rule (§13 step 1) for one LO, in id order.
-- `predicted_item_success(vault: Any, repository: Any, item: Any) -> float | None` ([source](../../../../../src/learnloop/delayed_checks.py), line 84) — The active predictor's predicted unassisted success on this item: the LO's mastery (its first update's prior when it has no evidence yet) through the item's own IRT parameters.
-- `pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> tuple[Any | None, dict[str, Any]]` ([source](../../../../../src/learnloop/delayed_checks.py), line 114) — The candidate pitched nearest the band's middle by its own prediction, and what was decided.
-- `due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 144) — Days until the check is due, and how they were set (``retrievability`` or ``fallback``).
+- `predicted_item_success(vault: Any, repository: Any, item: Any) -> float | None` ([source](../../../../../src/learnloop/delayed_checks.py), line 86) — The active predictor's predicted unassisted success on this item: the LO's mastery (its first update's prior when it has no evidence yet) through the item's own IRT parameters.
+- `pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> tuple[Any | None, dict[str, Any]]` ([source](../../../../../src/learnloop/delayed_checks.py), line 116) — The candidate pitched nearest the band's middle by its own prediction, and what was decided.
+- `due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 146) — Days until the check is due, and how they were set (``retrievability`` or ``fallback``).
 
 ### Module constants
 
@@ -88,8 +88,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_band_middle(vault: Any) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 102)
-- `_uniform(seed: str) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 107) — A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws).
+- `_band_middle(vault: Any) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 104)
+- `_uniform(seed: str) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 109) — A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws).
 
 ## Who imports or calls it
 
@@ -99,12 +99,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; statically calls `attempted_items`, `candidates`, `due_days`, `pick_with_receipt`, `revealed_items`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `candidates`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `PICK_VERSION`, `attempted_items`, `candidates`, `due_days`, `lineage`, `pick_with_receipt`, `revealed_items`; statically calls `attempted_items`, `candidates`, `due_days`, `lineage`, `pick_with_receipt`, `revealed_items`
+- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `candidates`, `revealed_items`; statically calls `candidates`, `revealed_items`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `generated_probe_ids`; calls `generated_probe_ids`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `predicted_success`; calls `predicted_success`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`; calls `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `interval_for_retention`; calls `interval_for_retention`
@@ -123,7 +125,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]], [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

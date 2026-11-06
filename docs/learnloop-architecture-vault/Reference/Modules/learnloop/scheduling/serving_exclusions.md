@@ -151,6 +151,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
   - `test_no_protected_or_exam_reserved_item_is_ever_eligible`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
+- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
+  - `test_a_probe_is_generated_once_served_cold_and_never_again`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
 
 ## Modification guidance

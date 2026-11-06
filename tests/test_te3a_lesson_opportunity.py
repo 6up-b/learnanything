@@ -15,6 +15,7 @@ Fakes only (synthetic vaults); no model call.
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 import sqlite3
@@ -34,7 +35,7 @@ from learnloop.adaptive_difficulty import replay as RP
 from learnloop.adaptive_difficulty.readiness import decision_state_fields, lesson_curve_moments
 from learnloop.adaptive_difficulty.reading import sweep
 from learnloop.adaptive_difficulty.state import ItemSpec, View
-from learnloop.algorithm_versions import LESSON_OPPORTUNITY_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LESSON_OPPORTUNITY_ALGORITHM_VERSION, TEACHER_PROBES_ALGORITHM_VERSION
 from learnloop.attempts import salience_firewall as SF
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -47,7 +48,7 @@ from tests.ad23_fakes import LO, ad23_vault, answer
 from tests.daily_plan_fakes import MovableClock
 
 TAG = LESSON_OPPORTUNITY_ALGORITHM_VERSION
-OLD = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+OLD = TEACHER_PROBES_ALGORITHM_VERSION
 ITEMS = ("pi_l1", "pi_l2", "pi_l3")
 #: The lesson closes the day before the answers (the fakes' clock starts 2026-10-12 09:00).
 CLOSED = "2026-10-11T10:00:00.000000Z"
@@ -384,6 +385,50 @@ def test_landing_r1_an_item_replaced_before_the_close_is_judged_by_the_revision_
     assert not material._lesson_record_withheld({"receipt_json": json.dumps(receipt)}, "receipt_json")
 
 
+def test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed(tmp_path):
+    """Landing ruling R1 with TE2 (merged at TE3a's landing): every displayed record of a lesson with a probe carries
+    its frozen identities, the served probe's ``probe_served`` included (its question is shown), so the receipt has
+    ``identities`` (it does not fail closed on every probe lesson) and holds the served question's identity; AD's guard
+    admits the lesson while nothing it exposed is protected and withholds it once the probe's item is."""
+
+    from learnloop.adaptive_difficulty import material_view as MV
+    from learnloop.adaptive_difficulty.protection import Protection
+    from learnloop.content.sources import exam_material
+    from learnloop.db.stores import lessons as store
+    from learnloop.teacher import probes as PR
+    from learnloop.teacher import service as S
+    from tests.teacher_fakes import close_turn
+    from tests.test_teacher_te2_probes import _Lesson, _probe, probe_turn
+
+    lesson = _Lesson(tmp_path, [probe_turn])
+    lesson.generate()
+    probe = _probe(lesson)
+    assert probe.status == "ready" and probe.item_id
+    assert lesson.look()["probe"]["status"] == "open"  # served: its question is shown now
+    lesson.act("answer_probe", {"answer": "(1, 0), stretched by three", "tap": 4}, turns=[close_turn()])
+    assert lesson.view["closed"]
+    with lesson.repository.connection() as connection:
+        turns = store.turns(connection, lesson.lesson_id)
+        receipt = json.loads(connection.execute("SELECT receipt_json FROM lesson_receipts").fetchone()[0])
+    vault = lesson.vault()
+    served = [entry for entry in turns if entry["action"] == PR.SERVED]
+    assert len(served) == 1
+    probe_identity = S._exposed_identities(vault, [probe.item_id])[0]
+    assert served[0]["payload"][S.EXPOSURE_KEY] == [probe_identity]
+    displayed = [entry for entry in turns if (entry["action"] == "teacher_turn" and entry["validation"] == "ok")
+                 or (entry["action"] == "visual" and (entry["payload"] or {}).get("shown_text"))
+                 or entry["action"] == PR.SERVED]
+    assert len(displayed) >= 3 and all(isinstance(entry["payload"].get(S.EXPOSURE_KEY), list) for entry in displayed)
+    identities = receipt["exposure"]["identities"]
+    assert probe_identity in identities
+    nothing = Protection(ids=frozenset(), material=exam_material.Material())
+    assert not MV.MaterialView(vault, lesson.repository, nothing)._lesson_record_withheld(
+        {"receipt_json": json.dumps(receipt)}, "receipt_json")
+    held = Protection(ids=frozenset({probe.item_id}), material=exam_material.Material())
+    assert MV.MaterialView(vault, lesson.repository, held)._lesson_record_withheld(
+        {"receipt_json": json.dumps(receipt)}, "receipt_json")
+
+
 def test_landing_r1_the_receipt_unions_frozen_identities_and_a_display_without_them_fails_closed():
     """Landing ruling R1: the receipt's identities are the union of each displayed record's frozen ones and the
     close's, deduplicated, in id order; a displayed record without frozen identities (shown before the rule) leaves
@@ -405,6 +450,12 @@ def test_landing_r1_the_receipt_unions_frozen_identities_and_a_display_without_t
     assert S._receipt_identities(vault, SimpleNamespace(turns=turns), ["pi_a"]) == {"identities": [other, old, new]}
     legacy = [*turns, {"action": "teacher_turn", "validation": "ok", "payload": {"turn": {}}}]
     assert S._receipt_identities(vault, SimpleNamespace(turns=legacy), ["pi_a"]) == {}
+    # TE2's served probe is a displayed record too: frozen, it joins the union; without, the receipt fails closed.
+    probe = {"action": "probe_served", "validation": "ok", "payload": {"probe_ref": "p1", S.EXPOSURE_KEY: [other]}}
+    assert S._receipt_identities(vault, SimpleNamespace(turns=[*turns, probe]), ["pi_a"]) == {
+        "identities": [other, old, new]}
+    unfrozen = {"action": "probe_served", "validation": "ok", "payload": {"probe_ref": "p1"}}
+    assert S._receipt_identities(vault, SimpleNamespace(turns=[*turns, unfrozen]), ["pi_a"]) == {}
     from learnloop.adaptive_difficulty.material_view import _lesson_exposure
 
     items, unresolved, identities = _lesson_exposure({"exposure": {"reveals": [{"item_id": "pi_a"}], "passages": []}})
@@ -590,15 +641,25 @@ def test_the_import_linter_contract_keeps_ad_off_evidence_writers():
 # -- the objective's lesson interface --------------------------------------------------------------------------------
 
 
-def _inputs(learning: V.Learning) -> V.Inputs:
+#: The router follow-up batch's switches as the objective's inputs see them (landing at TE3a's merge): R9's AD link
+#: with R10's latent posterior, R6's monotone combiner prior, and the merged sessions and consistent review draw.
+FOLLOWUPS: dict[str, bool] = {"off": False, "on": True}
+
+
+def _inputs(learning: V.Learning, *, followups: bool = False) -> V.Inputs:
+    from learnloop.adaptive_difficulty import model as ADM
+
+    link = V.AdLink(lapse=P.LAPSE, spread=P.A * P.TAU0, nodes=tuple(ADM.X32), weights=tuple(ADM.W32))
     return V.Inputs(
-        topics=(V.Topic(lo="lo_a", eta_mean=0.3, eta_var=0.5, undated_density=0.02),
+        topics=(V.Topic(lo="lo_a", eta_mean=0.3, eta_var=0.5, undated_density=0.02,
+                        eta_latent=(0.35, 0.45) if followups else None),
                 V.Topic(lo="lo_b", eta_mean=-0.4, eta_var=1.0, undated_density=0.02)),
         dated=(V.DatedUse(goal_id="exam", lo="lo_a", at_days=6.0, weight=1.0),), session_minutes=10.0,
         price=V.Price(kappa0=0.01, remembered=20.0, remembered_source="test"),
         tail_block_minutes=10.0, tail_block_items=2, horizon_days=7.0,
         fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS),
-        return_gaps_days=(1.0, 2.0), combiner=MEM.Combiner(), learning=learning)
+        return_gaps_days=(1.0, 2.0), combiner=MEM.monotone_prior() if followups else MEM.Combiner(),
+        learning=learning, ad_link=link if followups else None)
 
 
 def _prior_curve(positions: dict[str, float] | None = None, *, mean: tuple[float, float] | None = None,
@@ -613,14 +674,24 @@ def _prior_curve(positions: dict[str, float] | None = None, *, mean: tuple[float
 
 
 def _lesson_q(learning: V.Learning) -> tuple[float, tuple[float, ...]]:
+    return _lesson_q_at(learning)
+
+
+def _lesson_q_at(learning: V.Learning, *, followups: bool = False) -> tuple[float, tuple[float, ...]]:
     lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a", "lo_b"), minutes=15.0,
                       mass=P.LESSON_CHECK_MASS_PRIOR)
     block = V.Action(ref="practice", kind=V.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
-    out = V.evaluate(_inputs(learning), [lesson, block], draws=64, seed="te3a").by_ref()
+    out = V.evaluate(_inputs(learning, followups=followups), [lesson, block], draws=64, seed="te3a",
+                     merged_sessions=followups, consistent_review_draw=followups).by_ref()
     return out["lesson"].q, out["lesson"].q_draws
 
 
-def test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder():
+@pytest.mark.parametrize("followups", FOLLOWUPS.values(), ids=FOLLOWUPS.keys())
+def test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder(followups):
+    """With every router follow-up switch off (TE3a's own read on ``logit p̄``) and on (the lesson curve read
+    through AD's link on AD's latent ``η``, the monotone combiner, merged sessions, the consistent review draw)."""
+
+    _lesson_q = functools.partial(_lesson_q_at, followups=followups)
     placeholder = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]))
     curved = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve())
     q_placeholder, draws_placeholder = _lesson_q(placeholder)

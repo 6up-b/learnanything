@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/algoConfig.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/algoConfig.ts"
-source_commit: "ea4a3d46738a678115191097be49dad1080acaba"
-source_commit_timestamp: "2026-11-02T06:03:37-05:00"
+source_commit: "a46bf6f6332ca86b1596e26dbd9622aac983b503"
+source_commit_timestamp: "2026-11-06T04:43:21-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/algoConfig.ts](../../../../../../apps/learnloop-tauri/src/app/algoConfig.ts) |
-| Source lines | 258 |
+| Source lines | 263 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `ea4a3d46738a678115191097be49dad1080acaba` |
-| Commit timestamp | `2026-11-02T06:03:37-05:00` |
+| Source commit | `a46bf6f6332ca86b1596e26dbd9622aac983b503` |
+| Commit timestamp | `2026-11-06T04:43:21-05:00` |
 
 ## Activation and status evidence
 
@@ -61,33 +61,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface AlgoDisplayConfig` — interface, line 7
-- `export interface AskPanelConfig` — interface, line 69
-- `export interface WorkbenchHelpConfig` — interface, line 81
-- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 92
-- `export interface AdaptiveHintsConfig` — interface, line 94
-- `export function setAlgoConfig(config: unknown): void` — function, line 125
-- `export function subscribeAlgoConfig(listener: ()` — function, line 185
-- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 197
-- `export function storedHelpStyle(): HelpStyleValue` — function, line 206
-- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 212
-- `export function algoConfig(): AlgoDisplayConfig` — function, line 214
-- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 218
-- `export function masteryBand(mastery: number): MasteryBand` — function, line 220
-- `export function masteryTone<T>(mastery: number, palette:` — function, line 227
-- `export function useSymbolicChecksLive(): boolean` — function, line 239
-- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 251
-- `export function activeShell(): "simple" | "classic"` — function, line 256
+- `export interface AskPanelConfig` — interface, line 72
+- `export interface WorkbenchHelpConfig` — interface, line 84
+- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 95
+- `export interface AdaptiveHintsConfig` — interface, line 97
+- `export function setAlgoConfig(config: unknown): void` — function, line 129
+- `export function subscribeAlgoConfig(listener: ()` — function, line 190
+- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 202
+- `export function storedHelpStyle(): HelpStyleValue` — function, line 211
+- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 217
+- `export function algoConfig(): AlgoDisplayConfig` — function, line 219
+- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 223
+- `export function masteryBand(mastery: number): MasteryBand` — function, line 225
+- `export function masteryTone<T>(mastery: number, palette:` — function, line 232
+- `export function useSymbolicChecksLive(): boolean` — function, line 244
+- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 256
+- `export function activeShell(): "simple" | "classic"` — function, line 261
 
 ## Internal implementation anchors
 
-- `const DEFAULTS: AlgoDisplayConfig =` — const, line 101
-- `let current: AlgoDisplayConfig =` — let, line 121
-- `let renderedShell: "simple" | "classic" | null = null` — let, line 123
-- `const root = (config ??` — const, line 126
-- `const listeners = new Set<()` — const, line 181
-- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 192
-- `const band = masteryBand(mastery)` — const, line 228
-- `function asNumber(value: unknown, fallback: number): number` — function, line 232
+- `const DEFAULTS: AlgoDisplayConfig =` — const, line 104
+- `let current: AlgoDisplayConfig =` — let, line 125
+- `let renderedShell: "simple" | "classic" | null = null` — let, line 127
+- `const root = (config ??` — const, line 130
+- `const listeners = new Set<()` — const, line 186
+- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 197
+- `const band = masteryBand(mastery)` — const, line 233
+- `function asNumber(value: unknown, fallback: number): number` — function, line 237
 
 ## Who imports or calls it
 

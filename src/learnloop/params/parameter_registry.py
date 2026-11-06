@@ -1941,6 +1941,32 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "prior sd on each standardized coefficient (0.01 use-equivalents, about one block's effect, as "
         "delta_prior_sd; its regularization, centred on no residual), and the residual's calibration slope w^'s "
         "prior sd (1.0, centred on zero, so w^ starts at zero); only randomized stop-coin contrasts move w^."),
+    # The router objective's follow-up batch (mvp-0.50; docs/reviews/router-followups-nov5.md): one kill switch per
+    # part that changes serving; none is a decision parameter.
+    _ConfigRule(_exact("router_objective.combiner_trace_outcomes"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (RO4 item 6): the memory combiner is also fitted "
+        "on the traces' frozen sensors joined to resolved cold outcomes; off, mvp-0.49's checks-only fit."),
+    _ConfigRule(_exact("router_objective.merged_sessions"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (item 3, Codex review F2): the rollouts' tail "
+        "sessions merged into one vectorized step (the same values per draw; more draws within a deadline); off, "
+        "mvp-0.49's per-block loop."),
+    _ConfigRule(_exact("router_objective.consistent_review_draw"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R1): a practised topic's practice "
+        "outcome in the rollouts drawn from the memory model's own P(perform) (the combiner over AD's predictive and "
+        "FSRS's R), the belief observing it under the same likelihood; off, mvp-0.49's draw from AD's predictive."),
+    _ConfigRule(_exact("router_objective.monotone_combiner"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R6): the memory model's combiner "
+        "monotone in ability by construction (eta's slopes log-normal in its prior and fit); off, RO4's linear one."),
+    _ConfigRule(_exact("router_objective.ad_predictive_link"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R9): the rollouts read AD's own "
+        "predicted success F(eta) with its lapse term (eta on AD's latent scale) where they read AD's predictive; "
+        "off, sigma(eta) on logit p-bar."),
+    _ConfigRule(_exact("router_objective.carried_in_prefetch"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R12, R3): a decision served before its "
+        "carried valuation existed is valued in the next boundary's prefetch; off, mvp-0.49 (censored)."),
+    _ConfigRule(_exact("router_objective.scope_extension"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R11): a topic entering the retention scope at "
+        "its configured default density extends the objective's scope; off, mvp-0.49 (a change point)."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded
@@ -1953,6 +1979,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "learned mass (off: the type's configured 0.5) / the forecast pool on top of it (parametric: the "
         "learned mass alone) / curriculum C4's deliverable and notes in the brief. Operational only: the "
         "learned quantities move with the data, never with these."),
+    # Teacher TE2 (spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8, §18.3, §18.4): the successor's kill
+    # switch, and the probes one lesson may ask for (keep: a burden guardrail, the teacher decides when to stop).
+    _ConfigRule(_exact(
+        "teacher.probes", "teacher.placement.max_probes",
+    ), "structural", "operational",
+        "kill switch for teacher TE2's successor (generated single-use probes inside lessons, gaps filed from a "
+        "lesson's learner text, typed lesson goals and their new topics, the brief without vault probe headers, "
+        "the resume card; off, or below the tag: TE1's and TE2-log's lessons exactly) / keep: at most 8 probes "
+        "a lesson (a burden guardrail; the teacher decides when to stop, this only bounds it)."),
     # Teacher TE2-log (spec_teacher_v1 §11.6, §11.9, §20): item 5's logging. A boolean
     # (classified so every new key has a rule); it decides no lesson, only whether the
     # episode rows, the activity intervals and the node forecasts are written.
@@ -2536,7 +2571,7 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "which historical attempts enter AD's replay: those without a saved item revision read against "
         "today's item text (current_content, the default) or left out (exclude); membership of AD's serving "
         "state only, never evidence, mastery, FSRS or certification (A2); field.legacy_fallback unchanged."),
-    # Teacher TE3a (mvp-0.50 on its branch; spec_teacher_v1 rev 5 §14.2): the AD lesson opportunity's kill
+    # Teacher TE3a (mvp-0.52; spec_teacher_v1 rev 5 §14.2): the AD lesson opportunity's kill
     # switch. Its curve's prior (adaptive_difficulty.priors.LESSON_PRIORS, ad_lesson_priors_v1) is derived, not
     # chosen: centred and spread on RO4's placeholder (AD's gamma prior times the teacher's seeded lesson-check mass
     # 0.5, basis legacy), shaped by AD's existing rule for a new kind's prior; the filter learns it.

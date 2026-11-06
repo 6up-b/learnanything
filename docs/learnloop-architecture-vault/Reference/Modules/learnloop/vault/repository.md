@@ -129,7 +129,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
@@ -149,6 +148,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
+- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
@@ -159,6 +159,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
+- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `vault_repository`; statically calls `vault_repository`
@@ -195,7 +196,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] and 80 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] and 81 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

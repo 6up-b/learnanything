@@ -417,7 +417,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "origin_decision_id objective_trace_id generation_job_id generated_item_id gap_job_id created_lo_id "
         "closed_at close_reason active_seconds elapsed_seconds unreported_seconds missing_intervals minutes_source "
         "outcome_attempt_id outcome_correctness recheck_attempt_id gap_result lo_undo_state episode_version "
-        "created_at",
+        "created_at refusal_reason",
         "open_ids_json experiment_assignment_ids_json"),
     "learner_text_gap_reversals": (
         "id gap_id reversal actor created_at",

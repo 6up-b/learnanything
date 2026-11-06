@@ -38,6 +38,7 @@ import type { AskTarget } from "../components/AskOverlay";
 import { reentryRefresherLine, reentryRefreshers } from "./today/reentry";
 import { DailyPlanView } from "./today/DailyPlanView";
 import { LessonSuggestionCard } from "./today/LessonSuggestionCard";
+import { ContinueLessonCard } from "./today/ContinueLessonCard";
 import type { LessonEntry } from "./LessonScreen";
 import { planStepAction, useDailyPlan } from "../app/dailyPlan";
 import type { DailyPlanDto, PlanReadingDto, PlanStepDto, TodayHeadlineDto } from "../api/dto";
@@ -719,9 +720,14 @@ export function TodayScreen({
 
   // Teacher TE1b: the router's lesson suggestion card (at most one a day), only while the sidecar says
   // Today may suggest one; otherwise nothing is asked and Today is exactly what it was.
-  const suggestionCard = onStartLesson && algoConfig().lessonSuggestions
+  const suggestion = onStartLesson && algoConfig().lessonSuggestions
     ? <LessonSuggestionCard sessionId={session?.sessionId ?? null} onStartLesson={onStartLesson} onError={onError} />
     : null;
+  // Teacher TE2: "Continue your lesson" and "Learn something new", only while the sidecar says TE2 serves.
+  const continueCard = onStartLesson && algoConfig().lessonGoals
+    ? <ContinueLessonCard onStartLesson={onStartLesson} onError={onError} />
+    : null;
+  const suggestionCard = continueCard ? <>{suggestion}{continueCard}</> : suggestion;
 
   if (planView && planData) {
     return (

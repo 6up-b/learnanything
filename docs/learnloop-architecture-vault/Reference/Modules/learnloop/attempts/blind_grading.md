@@ -255,6 +255,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
   - `test_the_blind_grader_never_reads_a_tap_or_a_hedge_read`
+- [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
+  - `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`
+  - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
+  - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
+  - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity`
 
 ## Modification guidance
 

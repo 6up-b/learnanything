@@ -613,6 +613,8 @@ GAP_SOURCES: Mapping[str, str] = MappingProxyType({
     "stuck_answer": "the attempt",
     "diagnosis": "the diagnosed attempt (the gap's own attempt_id; none is withheld)",
     "learner_note": "withheld: AD reads no personal note (none is allowlisted for the card)",
+    # Teacher TE2: a lesson's words live in its ledger, which AD may not read (lesson tables are DENIED).
+    "lesson": "withheld: AD reads no lesson ledger (the lesson tables are denied to it)",
 })
 
 #: There is no incumbent scope (the final round: inversion, owner decision 2026-10-24). The plan

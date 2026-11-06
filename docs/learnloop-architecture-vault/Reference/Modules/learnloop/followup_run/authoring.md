@@ -115,6 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `AuthoredProbe`, `AuthoringRejected`, `QUESTION_MATCHES_RESERVED`, `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`; statically calls `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `QUESTION_MATCHES_RESERVED`, `RESERVED_MATCHES`, `module`, `resolve_author_client`; statically calls `causes_match_reserved`, `resolve_author_client`
+- [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `admissible_item`, `module`, `protection_view`, `reserved_view`; statically calls `admissible_item`, `check_output`, `protection_view`, `request_authored_probe`, `reserved_view`
 
 ## Dependencies
 
@@ -140,7 +141,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]].
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

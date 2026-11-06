@@ -79,7 +79,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]] | [[Reference/Modules/learnloop/content/authoring/pf_contracts#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/content/authoring/pf_sandbox|learnloop.content.authoring.pf_sandbox]] | [[Reference/Modules/learnloop/content/authoring/pf_sandbox#^module-purpose|purpose]] | `ACTIVE` | 8 | 43 |
 | [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] | [[Reference/Modules/learnloop/content/authoring/practice_generation#^module-purpose|purpose]] | `ACTIVE` | 8 | 15 |
-| [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] | [[Reference/Modules/learnloop/content/authoring/practice_leakage#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
+| [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] | [[Reference/Modules/learnloop/content/authoring/practice_leakage#^module-purpose|purpose]] | `ACTIVE` | 15 | 6 |
 | [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] | [[Reference/Modules/learnloop/content/authoring/rung_variants#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] | [[Reference/Modules/learnloop/content/authoring/source_exercise_import#^module-purpose|purpose]] | `ACTIVE` | 7 | 23 |
 
@@ -118,8 +118,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 5 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 4 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 4 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 3 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 3 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 3 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 3 static module edges
@@ -131,6 +131,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 1 static module edge
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 1 static module edge
 

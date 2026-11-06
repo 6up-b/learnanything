@@ -28,6 +28,14 @@ CONTAMINATION_PRECEDENCE: tuple[str, ...] = (
 )
 CONTAMINATION_CLASSES: frozenset[str] = frozenset(CONTAMINATION_PRECEDENCE)
 
+#: Teacher TE2 (spec_teacher_v1 rev 5 §11.3): a lesson probe's classification ``source``. Its answer has no probe
+#: presentation, so the attempts path records its class itself: a pure diagnostic, or an instructional one when the
+#: lesson had shown text on its topic first (the reveal ledger's topic-wide check). The exposed source is also how
+#: ``learner.lesson_weight.qualifying_outcomes`` leaves such an answer out of the cold outcomes (§12.1).
+LESSON_PROBE_EVIDENCE_ORIGIN = "lesson_probe"
+LESSON_PROBE_SOURCE = "lesson_probe"
+LESSON_PROBE_EXPOSED_SOURCE = "lesson_probe_exposed"
+
 
 @dataclass(frozen=True)
 class CausalActivityPolicy:

@@ -133,7 +133,8 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # RW6b's mvp-0.39; curriculum C1's mvp-0.40; teacher TE1's mvp-0.41; follow-ups Nov 2's mvp-0.42;
     # teacher TE1b's mvp-0.43; data capture's mvp-0.44; FG1's mvp-0.45; router objective RO1's mvp-0.46;
     # router objective RO4's mvp-0.47; router objective RO5's mvp-0.48; router objective RO6's mvp-0.49;
-    # teacher TE3a's lesson opportunity, mvp-0.50 on its branch, renumbered at landing).
+    # the router objective's follow-up batch's mvp-0.50; teacher TE2's mvp-0.51; teacher TE3a's lesson
+    # opportunity, mvp-0.52).
     from learnloop.lesson_opportunity_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)

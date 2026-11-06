@@ -20,7 +20,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_248" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_249" / "state.sqlite"
 TE1B_ADDED_OBJECTS = frozenset({
     "router_suggestion_responses", "idx_router_suggestion_responses_at",
     "router_suggestion_responses_no_update", "router_suggestion_responses_no_delete",
@@ -147,7 +147,7 @@ def test_236_keeps_every_router_decision_row(tmp_path):
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248]
+    assert [migration.version for migration in applied] == [236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("SELECT id, decision_kind, chosen_ref FROM router_decisions").fetchall() == [
             ("d_keep", "plan_block", "pi_1")]

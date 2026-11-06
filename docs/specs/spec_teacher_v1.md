@@ -1523,12 +1523,13 @@ LO, bound as `lesson_step_retained` and resolved by the forecast report. The rec
 from the replayer's trace. Not built here (TE2's): probe, gap and goal-LO writers, the `lesson_probe_correct` kind
 (the report already reads it), a probe refusal's reason (an enum column in TE2's migration). Paid calls: none.
 
-*As built (TE3a, `docs/reviews/teacher-te3a.md`; branch `ad/te3a-lesson-opportunity` on main `5565bede25`):* an AD
-successor, `LESSON_OPPORTUNITY_ALGORITHM_VERSION` = `mvp-0.50` on the branch (one constant, renumbered at landing,
-expected `mvp-0.52`), switch `adaptive_difficulty.lesson_opportunities` (default true; off or below the tag, AD is
-`mvp-0.49`'s exactly and the objective keeps RO4's placeholder); `learnloop.lesson_opportunity_upgrade` is the
-chain's next journalled link; every defaults snapshot recomputed. Migration 248 (renumbered at landing if TE2's
-lands first; head `migration_head_248`) rebuilds `ad_reading_opportunities` with `'lesson'` in its kind CHECK. AD's
+*As built (TE3a, `docs/reviews/teacher-te3a.md`; branch `ad/te3a-lesson-opportunity`, built on main `5565bede25`,
+merged with main `23182034c6` at its landing):* an AD successor, `LESSON_OPPORTUNITY_ALGORITHM_VERSION` = `mvp-0.52`
+after TE2's `mvp-0.51` (one constant, built as `mvp-0.50` and renumbered at landing), switch
+`adaptive_difficulty.lesson_opportunities` (default true; off or below the tag, AD is `mvp-0.51`'s exactly and the
+objective keeps RO4's placeholder); `learnloop.lesson_opportunity_upgrade` is the chain's next journalled link; every
+defaults snapshot recomputed. Migration 249 (built as 248, renumbered after TE2's 248; head `migration_head_249`)
+rebuilds `ad_reading_opportunities` with `'lesson'` in its kind CHECK. AD's
 sweep (`adaptive_difficulty.lessons`, called from `reading.sweep`) records one opportunity per closed lesson's node
 with a vault LO whose final status is `landed` or `taught` (the subkind; `held`, `uncertain` and any other status is
 none), source `lesson_receipts` / `<lesson id>/<node id>`, source time the receipt's write time (when the outcome
@@ -1546,8 +1547,8 @@ their records content): a lesson, its plan or its receipt naming a reading the w
 delivered passage's reading in the receipt (`exposure.readings`, ids only), so the lesson's book is judged too (a
 receipt with passages but no readings, closed before TE3a, is withheld), and each exposed revision by its frozen
 identity (`exposure.identities`, the serve's `source_identity`: id, block keys, whole extractions; frozen on the
-turn's or figure's record when the lesson shows or reveals the item, the receipt holding the union of every exposed
-revision's identity with the close's own), revalidated by `Protection.covers_identity`, so a revision protected after a public replacement still
+turn's, figure's or served probe's record when the lesson shows or reveals the item, the receipt holding the union of
+every exposed revision's identity with the close's own), revalidated by `Protection.covers_identity`, so a revision protected after a public replacement still
 withholds the lesson (an exposed item without an identity is withheld); the learner's typed goal is never read. The
 objective's `LESSON` branch reads the `landed` curve's posterior and prior moments and each LO's position through
 `readiness.decision_state_fields(learning_moments=True)` (`lesson_curve`, at the tag with the switch on and
@@ -1560,7 +1561,36 @@ draw for draw at any fitted `γ`, mass or position: switching TE3a on moves no d
 (recommends `lesson_opportunities = false`) and the dose-and-burden `lesson` row (per subkind the first lesson's step
 in logits and points with a 90% interval, the curve, the lesson count, RO4's placeholder beside it), all only while
 lessons are live. A graded lesson check is never an AD attempt (§14.1), so no `γ` is applied to one and nothing is
-replaced (the in-passage hook stays unwired). Paid calls: none.
+replaced (the in-passage hook stays unwired). Paid calls: none. With the router follow-up batch's AD link
+(`ad_predictive_link`, landing rulings R9, R10) on, the rollouts' `η` is AD's latent ability, so the lesson curve's
+shift adds on the scale AD fits it on; off, on `logit p̄` as built.
+
+*As built (TE2, `docs/reviews/teacher-te2.md`; branch `teacher/te2` on main `5565bede25`):* successor `mvp-0.50` after
+RO6's `mvp-0.49` (ONE constant, `TEACHER_PROBES_ALGORITHM_VERSION`; expected `mvp-0.51` at landing after the router
+follow-up batch), upgrade `learnloop.teacher_probes_upgrade`, kill switch `teacher.probes` with `teacher.enabled`, and
+`teacher.placement.max_probes` (8, `keep`). Migration 248 (head `migration_head_248`): the four CHECK rebuilds and
+`lesson_episodes.refusal_reason` (the close-once trigger recreated so a probe's item id is set once with its close).
+A lesson opened under TE2 has `lesson_brief_v2` (no probe headers; each node's `delayed_check` line; `where_you_left_off`
+from the newest earlier lesson's latest plan, while that lesson's recap is admissible) and its turns are the
+`TeacherTurnTE2*` schemas (`serve_probe`, `propose_gap`) with the paragraph `teacher/doctrine/te2/v1.md` (prompt
+`+te2-v1`, forecaster family `+teacher_te2_v1`). `serve_probe` writes its ledger entry, the `lesson_probe_correct`
+receipt bound to an attempt id minted with the request (so before any serve), FG1's job (kind `lesson`, key
+`lesson:<lesson>:<node>`) and a `probe` episode, in one transaction; the worker (`followup_run.lesson_probe`) reads the
+reserved questions first (a reading that matches gives no probe, `reserved_match`), authors through FG1's operation
+with the readings as rivals (one reading: the rival of full credit), runs FG1's output checks and `persist_item`
+(`source = 'lesson'`, parked, reserved: every door refuses it), and records `probe_ready` with an admission receipt or
+`probe_refused` with its reason. `lesson.view` burns it at first serve (surface `lesson`) and shows the question only;
+while it is open no teacher call and no reply is made; its answer is a blind-graded `diagnostic_probe` attempt
+(`entry_surface lesson`, no post-attempt pipeline), its independence the reveal ledger's topic-wide check, then the item
+is retired. "Teach it anyway" and the close retire it unused. `propose_gap` files the learner's turn (`ref t<seq>` in a
+TE2 transcript) with `source_kind = 'lesson'` (the teacher's words as the context model's reading, `context_judge
+tutor`). A typed goal (`lesson.goal`, then `lesson.turn open entry typed_goal`) runs C0b's resolver on the text alone
+(`deliverables.resolve_typed_goal`, keyed `lesson_goal:<hash>`, never in goals.yaml) and creates each leftover the
+learner said yes to with `create_goal_lo` (`teacher_goal_v1`, the lesson as goal id), one `goal_lo` episode each; the
+lesson row keeps entry `learning_object` (its CHECK has no `typed_goal`) with the goal's `typed` block. Today lists
+open lessons (`lesson.open_lessons`; "Continue", "Close it" = `lesson.turn close`, no teacher call) and "Learn
+something new". Not built: the teacher's own `create_goal_lo` action mid-lesson and the library lookup before a new
+topic (the review file gives the smallest way to finish each).
 
 ---
 

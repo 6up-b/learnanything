@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/runtime.py"
 source_paths:
   - "src/learnloop/cli/runtime.py"
-source_commit: "c884cbfd9cbf01413bffd6bd84b61dd1295f9e8f"
-source_commit_timestamp: "2026-11-06T04:20:02-05:00"
+source_commit: "0c2952c5a470f186b1c00af42dc00d4d20927074"
+source_commit_timestamp: "2026-11-06T06:38:56-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c884cbfd9cbf01413bffd6bd84b61dd1295f9e8f` |
-| Commit timestamp | `2026-11-06T04:20:02-05:00` |
+| Source commit | `0c2952c5a470f186b1c00af42dc00d4d20927074` |
+| Commit timestamp | `2026-11-06T06:38:56-05:00` |
 
 ## Public API
 
@@ -170,7 +170,6 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`
 - [[Reference/Modules/learnloop/learner/hypothesis_claims|learnloop.learner.hypothesis_claims]] — imports `export_claim_events`, `purge_claim_events`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `assert_recall_calibration_bands`, `format_recall_calibration_table`, `run_recall_calibration_harness`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] — imports `DebugAdvanceError`, `advance_vault_days`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `run_doctor`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`
@@ -179,6 +178,7 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_all_derived_state`, `rebuild_live_derived_state`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `ShadowRebuildError`, `shadow_rebuild`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `sync_vault_state`
+- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `add_note`, `add_subject`, `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`, `find_vault_root`; calls `VaultPaths`, `find_vault_root`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `open_vault_repository`; calls `open_vault_repository`
@@ -228,12 +228,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_openers_install_this_links_completion`
 - [tests/test_ro6_successor.py](../../../../../../tests/test_ro6_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
-- [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
+- [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`
   - `test_the_cli_installs_this_links_completion`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
+  - `test_the_openers_install_this_links_completion`
+- [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 
 ## Modification guidance

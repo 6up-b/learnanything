@@ -107,12 +107,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `learner_visible_text`, `matching_phrases`, `reserved_payload_findings`; statically calls `learner_visible_text`, `matching_phrases`, `reserved_payload_findings`
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `reserved_findings`, `reserved_questions`; statically calls `reserved_findings`, `reserved_questions`
+- [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `reserved_findings`; statically calls `reserved_findings`
 - [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]] — imports `held_out_spans`, `inventory_for_texts`, `screen_practice_payload`; statically calls `held_out_spans`, `inventory_for_texts`, `screen_practice_payload`
 - [[Reference/Modules/learnloop/ops/contamination/recipes|learnloop.ops.contamination.recipes]] — imports `held_out_spans`; statically calls `held_out_spans`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `build_cross_source_spans`, `build_held_out_inventory`, `screen_practice_payload`; statically calls `build_cross_source_spans`, `build_held_out_inventory`, `screen_practice_payload`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 - [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
+- [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `reserved_findings`, `reserved_questions`; statically calls `reserved_findings`, `reserved_questions`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 
 ## Dependencies
@@ -139,7 +141,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

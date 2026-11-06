@@ -86,10 +86,14 @@ LESSON_NODE_HELD = "lesson_node_held"
 #: learner no exposure to the LO in between. One receipt per lag, each carrying the whole curve;
 #: resolved by ``adaptive_difficulty.history_resolve`` (two bindings, scored at the realized lag).
 LO_COLD_SUCCESS = "lo_cold_success"
+#: Teacher TE2 (spec_teacher_v1 rev 5 §11.3, §18.2): the teacher's forecast that the learner answers a lesson probe
+#: right, written when the probe is asked for (before it is served) and bound to the probe's own attempt (its id is
+#: minted with the request).
+LESSON_PROBE_CORRECT = "lesson_probe_correct"
 FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME, ITEM_UNASSISTED_SUCCESS,
-                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED, LO_COLD_SUCCESS, LESSON_NODE_HELD)
+                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED, LO_COLD_SUCCESS, LESSON_NODE_HELD, LESSON_PROBE_CORRECT)
 
-SCOPES = ("next_observation", "followup_task", "presentation", "item", "lesson_check", "lesson_node")
+SCOPES = ("next_observation", "followup_task", "presentation", "item", "lesson_check", "lesson_node", "lesson_probe")
 
 #: The exact chains a resolver may follow; ``none`` is censored at birth.
 PRESENTED_ATTEMPT_ON_FACET = "presented_attempt_on_facet"
@@ -104,9 +108,12 @@ LESSON_COLD_OUTCOME = "lesson_cold_outcome"
 #: Router objective RO2: the first qualifying outcome on the LO after the forecast's block (the versioned
 #: resolver's per-protocol and intention-to-treat bindings, ``adaptive_difficulty.history_resolve``).
 LO_COLD_AFTER_BLOCK = "lo_cold_after_block"
+#: Teacher TE2: a lesson probe's own attempt (the id minted with the request, in the receipt's inputs).
+LESSON_PROBE_ATTEMPT = "lesson_probe_attempt"
 NO_BINDING = "none"
 BINDING_KINDS = (PRESENTED_ATTEMPT_ON_FACET, FOLLOWUP_TASK, "plan_presentation", "probe_presentation",
-                 FIRST_PRESENTATION, LESSON_CHECK_ATTEMPT, LESSON_COLD_OUTCOME, LO_COLD_AFTER_BLOCK, NO_BINDING)
+                 FIRST_PRESENTATION, LESSON_CHECK_ATTEMPT, LESSON_COLD_OUTCOME, LO_COLD_AFTER_BLOCK,
+                 LESSON_PROBE_ATTEMPT, NO_BINDING)
 
 #: ``serve`` (AD1): a presentation's forecasts, in-process in the serve
 #: transaction or from an outside forecaster after it; ``item_prepare`` (AD1):
@@ -300,6 +307,8 @@ __all__ = [
     "LESSON_CHECK_CORRECT",
     "LESSON_COLD_OUTCOME",
     "LESSON_NODE_HELD",
+    "LESSON_PROBE_ATTEMPT",
+    "LESSON_PROBE_CORRECT",
     "LESSON_STEP_RETAINED",
     "LO_COLD_AFTER_BLOCK",
     "LO_COLD_SUCCESS",

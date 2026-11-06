@@ -230,6 +230,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_w_hat_reads_no_window_still_open_at_the_decision`
 - [tests/test_ro6_serving.py](../../../../../../tests/test_ro6_serving.py) — direct import
   - `test_at_the_tag_the_trace_carries_the_residual_and_its_terms_recompute`
+- [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
+- [tests/test_rofu_scope.py](../../../../../../tests/test_rofu_scope.py) — direct import
 
 ## Modification guidance
 

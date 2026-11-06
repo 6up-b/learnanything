@@ -730,7 +730,11 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
                         *, until: str | None = None) -> list[dict[str, Any]]:
     """Graded attempts that can resolve a lesson check (§12.1), in order: on one of the LOs, after
     ``after``, of a cold type (:data:`COLD_ATTEMPT_TYPES`), unprimed, with no hint, the item's first
-    attempt, with no reveal row on the item before it."""
+    attempt, with no reveal row on the item before it, and not a lesson probe answered after its lesson showed
+    text on the topic (teacher TE2, Codex review F2: that answer is not independent, so it resolves nothing; only
+    TE2 writes the exposed source, so nothing recorded before it reads differently)."""
+
+    from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
 
     ids = sorted(set(learning_object_ids))
     if not ids or after is None:
@@ -742,6 +746,7 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
     if until is not None:
         bound = " AND a.created_at <= ?"
         params.append(until)
+    params.append(LESSON_PROBE_EXPOSED_SOURCE)
     rows = connection.execute(
         f"SELECT a.id, a.learning_object_id, a.practice_item_id, a.correctness, a.created_at, a.attempt_type "
         f"FROM practice_attempts a "
@@ -751,6 +756,8 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
         "  AND (b.created_at < a.created_at OR (b.created_at = a.created_at AND b.id < a.id))) "
         "AND NOT EXISTS (SELECT 1 FROM reveal_events r WHERE r.practice_item_id = a.practice_item_id "
         "  AND r.created_at < a.created_at) "
+        "AND NOT EXISTS (SELECT 1 FROM causal_activity_classification_events c WHERE c.attempt_id = a.id "
+        "  AND c.source = ?) "
         "ORDER BY a.created_at, a.id", params).fetchall()
     # A grade held for review is the grader's provisional score: no outcome anywhere (held_grades, the
     # canonical predicate; review F2). Released, it qualifies again on the next replay.

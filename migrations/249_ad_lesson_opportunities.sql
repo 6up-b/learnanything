@@ -2,10 +2,9 @@
 -- §14.2, §20 row TE3a, §24; spec_adaptive_difficulty_v1 §5.11 as amended at
 -- TE3a's landing (Q5: A12 limit 1 and D20); docs/reviews/teacher-te3a.md).
 --
--- Numbered 248, the next free number on TE3a's base (main 5565bede25, head
--- 247). TE2 builds its own migration in parallel; numbers are claimed at
--- landing in landing order, so this file is renumbered then if TE2 lands first
--- (the runner has no contiguity rule).
+-- Built as 248 on TE3a's base (main 5565bede25, head 247) and renumbered 249
+-- at its landing, after TE2's 248 (248_teacher_te2_sources.sql, which touches
+-- no table here) landed first; the runner has no contiguity rule.
 --
 -- ad_reading_opportunities (RECEIPT, append-only) gains the kind 'lesson': one
 -- row per closed lesson's node with an LO whose final status is landed or
@@ -20,7 +19,7 @@
 -- unique keys, indexes and append-only triggers. DROP TABLE removes the old
 -- indexes and triggers, which are recreated on the renamed table with the same
 -- names and definitions. No table references this one.
-CREATE TABLE ad_reading_opportunities_v248 (
+CREATE TABLE ad_reading_opportunities_v249 (
   id TEXT PRIMARY KEY,
   opportunity_key TEXT NOT NULL,
   kind TEXT NOT NULL
@@ -42,14 +41,14 @@ CREATE TABLE ad_reading_opportunities_v248 (
   UNIQUE (opportunity_key, protection_epoch),
   UNIQUE (kind, subkind, source_table, source_id, learning_object_id, protection_epoch)
 );
-INSERT INTO ad_reading_opportunities_v248 (
+INSERT INTO ad_reading_opportunities_v249 (
   id, opportunity_key, kind, subkind, source_table, source_id, source_written_at, learning_object_id,
   facet_doses_json, dose_offer_id, mapping_version, authority_class, sweep, sweep_ref, swept_at, protection_epoch)
 SELECT id, opportunity_key, kind, subkind, source_table, source_id, source_written_at, learning_object_id,
   facet_doses_json, dose_offer_id, mapping_version, authority_class, sweep, sweep_ref, swept_at, protection_epoch
 FROM ad_reading_opportunities;
 DROP TABLE ad_reading_opportunities;
-ALTER TABLE ad_reading_opportunities_v248 RENAME TO ad_reading_opportunities;
+ALTER TABLE ad_reading_opportunities_v249 RENAME TO ad_reading_opportunities;
 CREATE INDEX idx_ad_reading_opportunities_lo ON ad_reading_opportunities(learning_object_id, source_written_at);
 CREATE INDEX idx_ad_reading_opportunities_written ON ad_reading_opportunities(source_written_at, id);
 

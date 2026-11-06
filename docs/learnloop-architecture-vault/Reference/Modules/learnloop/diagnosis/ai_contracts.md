@@ -114,6 +114,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `PROBE_INSTANCE_PROMPT_VERSION`, `ProbeFamilyTrials`, `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `ProbeInstanceSurfaces`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`; statically calls `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `FOLLOWUP_PROBE_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `FollowupProbeAuthored`, `FollowupProbeContext`, `followup_probe_prompt`; statically calls `FollowupProbeContext`, `followup_probe_prompt`
+- [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `FollowupProbeContext`; statically calls `FollowupProbeContext`
 
 ## Dependencies
 
@@ -135,7 +136,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -161,6 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
   - `test_diagnostic_fire_uses_the_structured_completion_path`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_misconception_match`

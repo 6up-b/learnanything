@@ -1,7 +1,7 @@
 """``learnloop upgrade --to <LESSON_OPPORTUNITY_ALGORITHM_VERSION>``: teacher TE3a, AD's lesson opportunity.
 
 TE3a (owner decision 2026-11-05; ``docs/specs/spec_teacher_v1.md`` rev 5 §14.2, §23.1 item 4, §24). It is the next
-link of the linear chain: everything the predecessor (RO6's mvp-0.49) means PLUS this:
+link of the linear chain: everything the predecessor (teacher TE2's mvp-0.51) means PLUS this:
 
 * **a lesson is one of AD's learning opportunities** (``adaptive_difficulty.lesson_opportunities``): a closed
   lesson's node with an LO, ``landed`` or ``taught`` by its final status, read from the lesson's receipt through
@@ -10,7 +10,7 @@ link of the linear chain: everything the predecessor (RO6's mvp-0.49) means PLUS
 * **the router objective's lesson interface reads that curve's posterior moments** in place of RO4's placeholder
   (``γ`` at the lesson-check mass); at the seeded prior the two value a lesson alike, draw for draw.
 
-The upgrade changes nothing already recorded: migration 248 (the receipt's kind CHECK) is the vault's migration,
+The upgrade changes nothing already recorded: migration 249 (the receipt's kind CHECK) is the vault's migration,
 applied when the vault opens, and the lesson receipts already exist; the opportunities are recorded by AD's next
 sweep (every receipt not yet recorded, however old). Its activation is the idempotent rebuild of the same
 projection namespace, the registry refresh and the config's publication, journalled exactly as its predecessors'
@@ -19,7 +19,7 @@ publication and the commit is completed by the next guarded open, which installs
 :func:`complete_interrupted_activation`, the chain's latest; a journal naming an earlier link is handed to the
 predecessor's completion).
 
-``lesson_opportunities = false`` serves mvp-0.49 exactly; rolling the version back is restore-only.
+``lesson_opportunities = false`` serves mvp-0.51 exactly; rolling the version back is restore-only.
 """
 
 from __future__ import annotations
@@ -31,25 +31,25 @@ from pathlib import Path
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
-    ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
+    TEACHER_PROBES_ALGORITHM_VERSION,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
 from learnloop.clock import Clock
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
-from learnloop.router_learned_tail_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.router_learned_tail_upgrade import upgrade_to_router_learned_tail
 from learnloop.substrate.p0_projection import activate_p0_projection
+from learnloop.teacher_probes_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.teacher_probes_upgrade import upgrade_to_teacher_probes
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_router_learned_tail
+PREDECESSOR = TEACHER_PROBES_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_teacher_probes
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

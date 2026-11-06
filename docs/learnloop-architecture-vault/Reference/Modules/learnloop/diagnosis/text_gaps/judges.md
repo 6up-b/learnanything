@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/text_gaps/judges.py"
 source_paths:
   - "src/learnloop/diagnosis/text_gaps/judges.py"
-source_commit: "2d11fc7113d296b712971538e8684e070ca2664d"
-source_commit_timestamp: "2026-11-01T21:42:01-05:00"
+source_commit: "dc5302d98cfcd397c2bb3678cdb2bf12f232164a"
+source_commit_timestamp: "2026-11-06T04:43:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/judges.py](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py) |
-| Source lines | 530 |
+| Source lines | 532 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2d11fc7113d296b712971538e8684e070ca2664d` |
-| Commit timestamp | `2026-11-01T21:42:01-05:00` |
+| Source commit | `dc5302d98cfcd397c2bb3678cdb2bf12f232164a` |
+| Commit timestamp | `2026-11-06T04:43:14-05:00` |
 
 ## Public API
 
@@ -78,20 +78,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `__init__(self, budget: TextBudget, client: Any) -> None` (line 196; internal)
   - `__call__(self, prompt: str, result_model: type[SameOrDifferent], purpose: str) -> tuple[SameOrDifferent, str]` (line 205; internal)
 - `kind_state(text: LearnerText) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 219) — What the Decider reads for the kind: the learner's text and what it was about.
-- `kind_input_hash(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 238)
-- `log_reading(repository: Repository, text: LearnerText, reading: GapReading) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 256) — The context model's reading as a ``learner_gap_kind`` verdict (idempotent).
-- `class DeciderKind` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 278)
-  - `as_dict(self) -> dict[str, Any]` (line 286; public)
-- `decider_kind(repository: Repository, budget: TextBudget, client: Any, text: LearnerText) -> DeciderKind` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 291) — The Decider's typed kind, appended to ``judgment_ledger`` (judge ``decider``).
-- `reader_version(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 332) — The reader's prompt version for this text (RW1b's formative answers have their own task).
-- `reader_prompt(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 340)
-- `read_text(budget: TextBudget, client: Any, text: LearnerText) -> GapReading` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 351) — One isolated call naming the gap in a stuck answer; ``failed`` on refusal or error.
-- `needed_context(vault: LoadedVault, item: Any, prerequisite_lo: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 376)
-- `needed_prompt(context: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 386)
-- `ask_needed(repository: Repository, budget: TextBudget, *, context: Mapping[str, Any], learning_object_id: str, practice_item_id: str, judge_client: Any | None, decider_client: Any | None) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 392) — Both judges' "needed?" verdicts, each appended to the ledger.
-- `draft_prompt(context: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 464)
-- `draft_prerequisite(budget: TextBudget, client: Any, context: Mapping[str, Any]) -> PrerequisiteDraft` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 470) — One authoring-route call; raises on refusal or failure (the caller logs it).
-- `query_vector(repository: Repository, budget: TextBudget, embedder: Any, subject: Subject, *, field_name: str) -> np.ndarray | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 484) — The named gap's ``retrieval-query`` vector, stored once (a retry reuses it).
+- `kind_input_hash(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 240)
+- `log_reading(repository: Repository, text: LearnerText, reading: GapReading) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 258) — The context model's reading as a ``learner_gap_kind`` verdict (idempotent).
+- `class DeciderKind` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 280)
+  - `as_dict(self) -> dict[str, Any]` (line 288; public)
+- `decider_kind(repository: Repository, budget: TextBudget, client: Any, text: LearnerText) -> DeciderKind` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 293) — The Decider's typed kind, appended to ``judgment_ledger`` (judge ``decider``).
+- `reader_version(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 334) — The reader's prompt version for this text (RW1b's formative answers have their own task).
+- `reader_prompt(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 342)
+- `read_text(budget: TextBudget, client: Any, text: LearnerText) -> GapReading` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 353) — One isolated call naming the gap in a stuck answer; ``failed`` on refusal or error.
+- `needed_context(vault: LoadedVault, item: Any, prerequisite_lo: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 378)
+- `needed_prompt(context: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 388)
+- `ask_needed(repository: Repository, budget: TextBudget, *, context: Mapping[str, Any], learning_object_id: str, practice_item_id: str, judge_client: Any | None, decider_client: Any | None) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 394) — Both judges' "needed?" verdicts, each appended to the ledger.
+- `draft_prompt(context: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 466)
+- `draft_prerequisite(budget: TextBudget, client: Any, context: Mapping[str, Any]) -> PrerequisiteDraft` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 472) — One authoring-route call; raises on refusal or failure (the caller logs it).
+- `query_vector(repository: Repository, budget: TextBudget, embedder: Any, subject: Subject, *, field_name: str) -> np.ndarray | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 486) — The named gap's ``retrieval-query`` vector, stored once (a retry reuses it).
 
 ### Module constants
 
@@ -121,7 +121,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Internal implementation anchors
 
 - `_probabilities(answer: Any) -> dict[str, float]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 182)
-- `_already_logged(connection: Any, *, task: str, left: tuple[str, str], judge: str, judge_model: str, prompt_version: str, input_hash: str, right: tuple[str, str] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 242)
+- `_already_logged(connection: Any, *, task: str, left: tuple[str, str], judge: str, judge_model: str, prompt_version: str, input_hash: str, right: tuple[str, str] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/judges.py), line 244)
 
 ## Who imports or calls it
 

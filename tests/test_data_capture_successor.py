@@ -66,8 +66,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_ro4_successor import RO4_KEYS
     from tests.test_ro5_successor import RO5_KEYS
     from tests.test_ro6_successor import RO6_KEYS
+    from tests.test_rofu_successor import FOLLOWUP_KEYS
 
-    for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS):
+    for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS, *FOLLOWUP_KEYS):
         section.pop(key)
     assert section == {"receipts": True, "available_at_reads": True, "self_report_not_validated": True}
     dumped["ai"]["routing"].pop("followup_probe_author", None)
@@ -77,7 +78,12 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
     assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
     assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
-    assert dumped["adaptive_difficulty"].pop("lesson_opportunities") is True  # teacher TE3a's switch, inert below mvp-0.50
+    from tests.test_teacher_te2_successor import drop_te2_keys
+
+    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.51; tests/test_teacher_te2_successor.py), inert below it
+    from tests.test_te3a_successor import drop_te3a_keys
+
+    drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "08840dbd600321a4a8d52fafb969bfacb6ace0e53d3166f5bdb12f81be6b34f3"
 

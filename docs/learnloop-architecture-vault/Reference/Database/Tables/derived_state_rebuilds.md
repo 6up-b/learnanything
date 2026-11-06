@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
-source_commit_timestamp: "2026-11-06T04:58:47-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -105,15 +105,16 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/followup_serve_upgrade.py`
 - `src/learnloop/help_fold_attach_upgrade.py`
-- `src/learnloop/lesson_opportunity_upgrade.py`
 - `src/learnloop/lesson_suggestions_upgrade.py`
 - `src/learnloop/one_ask_upgrade.py`
 - `src/learnloop/placement/report.py`
 - `src/learnloop/reader_followups_upgrade.py`
 - `src/learnloop/router_calibration_upgrade.py`
+- `src/learnloop/router_followups_upgrade.py`
 - `src/learnloop/router_learned_tail_upgrade.py`
 - `src/learnloop/router_objective_upgrade.py`
 - `src/learnloop/superseded_claims_upgrade.py`
+- `src/learnloop/teacher_probes_upgrade.py`
 - `src/learnloop/teacher_upgrade.py`
 
 ### Direct SQL writers

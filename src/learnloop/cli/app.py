@@ -20,9 +20,11 @@ from learnloop.algorithm_versions import (
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
+    ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
+    TEACHER_PROBES_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -120,7 +122,8 @@ def upgrade(
                 f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
                 f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, "
                 f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
-                f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION} or {LESSON_OPPORTUNITY_ALGORITHM_VERSION}); "
+                f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
+                f"{TEACHER_PROBES_ALGORITHM_VERSION} or {LESSON_OPPORTUNITY_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -451,6 +454,14 @@ def upgrade(
         from learnloop.router_learned_tail_upgrade import upgrade_to_router_learned_tail
 
         result = upgrade_to_router_learned_tail(_root(vault))
+    elif to == ROUTER_FOLLOWUPS_ALGORITHM_VERSION:
+        from learnloop.router_followups_upgrade import upgrade_to_router_followups
+
+        result = upgrade_to_router_followups(_root(vault))
+    elif to == TEACHER_PROBES_ALGORITHM_VERSION:
+        from learnloop.teacher_probes_upgrade import upgrade_to_teacher_probes
+
+        result = upgrade_to_teacher_probes(_root(vault))
     elif to == LESSON_OPPORTUNITY_ALGORITHM_VERSION:
         from learnloop.lesson_opportunity_upgrade import upgrade_to_lesson_opportunity
 
@@ -469,7 +480,8 @@ def upgrade(
             f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
             f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, "
             f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
-            f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION} or {LESSON_OPPORTUNITY_ALGORITHM_VERSION}."
+            f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
+            f"{TEACHER_PROBES_ALGORITHM_VERSION} or {LESSON_OPPORTUNITY_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

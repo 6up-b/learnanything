@@ -3,8 +3,8 @@ title: "lesson_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
-source_commit_timestamp: "2026-11-06T04:58:47-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_checks"
@@ -122,8 +122,6 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
-- `tests/test_salience_firewall.py`
-- `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`

@@ -3,8 +3,8 @@ title: "generated_probe_burns"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
-source_commit_timestamp: "2026-11-06T04:58:47-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite generated_probe_burns"
@@ -44,7 +44,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/241_followup_generate_serve.sql`.
-- **Schema touched by:** `241_followup_generate_serve.sql`.
+- **Schema touched by:** `241_followup_generate_serve.sql`, `248_teacher_te2_sources.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -104,6 +104,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_followup_migration.py`
+- `tests/test_teacher_te2_probes.py`
+- `tests/test_teacher_te2_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

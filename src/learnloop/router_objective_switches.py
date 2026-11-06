@@ -25,6 +25,9 @@ serving (the coin and the checks live in its frame; the open picks only need the
 Router objective RO6's (§10; ``ROUTER_LEARNED_TAIL_VERSIONS``, mvp-0.49): :func:`learned_tail_on` (the tag, the
 objective serving and ``[router_objective] learned_tail``).
 
+The follow-up batch's (``ROUTER_FOLLOWUPS_VERSIONS``, mvp-0.50): :func:`followup_on` (the tag, the objective serving
+and the part's own ``[router_objective]`` switch).
+
 :func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
 snapshot, §5.5), so ``doctor`` can say when persisted due dates were derived under another setting.
 """
@@ -37,6 +40,7 @@ from typing import Any
 from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_VERSIONS,
     ROUTER_CALIBRATION_VERSIONS,
+    ROUTER_FOLLOWUPS_VERSIONS,
     ROUTER_LEARNED_TAIL_VERSIONS,
     ROUTER_OBJECTIVE_VERSIONS,
 )
@@ -248,6 +252,61 @@ def learned_tail_on(config: Any) -> bool:
     return learned_tail_tag(config) and objective_on(config) and bool(getattr(section, "learned_tail", False))
 
 
+def followups_tag(config: Any) -> bool:
+    """The router objective's follow-up batch: the vault is at its successor (mvp-0.50) or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in ROUTER_FOLLOWUPS_VERSIONS
+
+
+def followup_on(config: Any, key: str) -> bool:
+    """One part of the follow-up batch serves: the tag, the objective serving and its own ``[router_objective]``
+    switch ``key`` (default true). Off, or below the tag, that part is mvp-0.49's exactly."""
+
+    section = getattr(config, "router_objective", None)
+    return followups_tag(config) and objective_on(config) and bool(getattr(section, key, False))
+
+
+def monotone_combiner_on(config: Any) -> bool:
+    """The follow-up batch's landing ruling R6: the memory model's combiner is monotone in ability by construction
+    (``memory.FORM_MONOTONE``), in its prior and its fit: the tag, the objective serving and ``[router_objective]
+    monotone_combiner`` (a structural kill switch, default true); off, or below the tag, mvp-0.49's linear combiner."""
+
+    return followup_on(config, "monotone_combiner")
+
+
+#: The follow-up batch's landing ruling R8: its switches that change a logged decision's value or mixture, so each
+#: is part of RO6's generator payload and flipping one is a change point, never a change of ``Q`` under the same
+#: generator version. ``carried_in_prefetch`` is not here: it changes which transitions are valued, not the logger.
+FOLLOWUP_GENERATOR_SWITCHES: tuple[str, ...] = (
+    "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "monotone_combiner", "ad_predictive_link",
+    "scope_extension")
+
+
+def followup_generator_switches(config: Any) -> dict[str, bool] | None:
+    """R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None
+    below it, so a predecessor's generator payload (and its trace) keeps its bytes."""
+
+    if not followups_tag(config):
+        return None
+    return {key: followup_on(config, key) for key in FOLLOWUP_GENERATOR_SWITCHES}
+
+
+#: The follow-up batch's landing ruling R12: every switch of the batch, as part of the prefetch boundary key, so a
+#: flip between a prefetch and its serve starts a new job (``carried_in_prefetch`` too: it changes what the job does
+#: with its carried valuation, though not the logger's values).
+FOLLOWUP_SWITCHES: tuple[str, ...] = (*FOLLOWUP_GENERATOR_SWITCHES, "carried_in_prefetch")
+
+
+def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
+    """R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key
+    keeps its predecessor's bytes)."""
+
+    if not followups_tag(config):
+        return None
+    return {key: followup_on(config, key) for key in FOLLOWUP_SWITCHES}
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -270,6 +329,13 @@ __all__ = [
     "calibration_tag",
     "check_mode",
     "fitted_models_on",
+    "FOLLOWUP_GENERATOR_SWITCHES",
+    "FOLLOWUP_SWITCHES",
+    "followup_generator_switches",
+    "followup_switch_snapshot",
+    "followup_on",
+    "monotone_combiner_on",
+    "followups_tag",
     "interval_factor_removed",
     "learned_tail_on",
     "learned_tail_tag",

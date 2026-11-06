@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
-source_commit_timestamp: "2026-11-06T04:58:47-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`, `232_help_assist_figures.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`, `232_help_assist_figures.sql`, `248_teacher_te2_sources.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

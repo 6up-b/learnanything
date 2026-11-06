@@ -407,6 +407,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te1b_migration.py](../../../../../../tests/test_teacher_te1b_migration.py) — direct import
   - `test_236_is_te1bs_migration_and_its_table_is_classified`
   - `test_236_keeps_every_router_decision_row`
+- [tests/test_teacher_te2_migration.py](../../../../../../tests/test_teacher_te2_migration.py) — direct import
+  - `test_248_applies_under_production_pragmas`
+  - `test_248_changes_exactly_its_objects_and_keeps_every_row`
+  - `test_248_is_the_head_and_adds_no_table`
+  - `test_the_head_fixture_holds_248_in_rollback_mode`
 - [tests/test_teacher_te2log_migration.py](../../../../../../tests/test_teacher_te2log_migration.py) — direct import
   - `test_247_adds_exactly_its_objects`
   - `test_247_is_the_head_and_its_tables_receipts_denied_to_ad`

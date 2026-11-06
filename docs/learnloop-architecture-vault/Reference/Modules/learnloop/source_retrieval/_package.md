@@ -48,7 +48,7 @@ source_paths:
   - "src/learnloop/source_retrieval/verify.py"
   - "src/learnloop/source_retrieval/windows.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T18:35:07-05:00"
+source_commit_timestamp: "2026-11-06T05:25:38-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.source_retrieval"
@@ -93,7 +93,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/contracts|learnloop.source_retrieval.contracts]] | [[Reference/Modules/learnloop/source_retrieval/contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] | [[Reference/Modules/learnloop/source_retrieval/corpus#^module-purpose|purpose]] | `ACTIVE` | 43 | 25 |
 | [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] | [[Reference/Modules/learnloop/source_retrieval/deliverable_path#^module-purpose|purpose]] | `ACTIVE` | 5 | 13 |
-| [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] | [[Reference/Modules/learnloop/source_retrieval/deliverables#^module-purpose|purpose]] | `ACTIVE` | 5 | 13 |
+| [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] | [[Reference/Modules/learnloop/source_retrieval/deliverables#^module-purpose|purpose]] | `ACTIVE` | 6 | 14 |
 | [[Reference/Modules/learnloop/source_retrieval/dense|learnloop.source_retrieval.dense]] | [[Reference/Modules/learnloop/source_retrieval/dense#^module-purpose|purpose]] | `ACTIVE` | 5 | 12 |
 | [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] | [[Reference/Modules/learnloop/source_retrieval/evaluation#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] | [[Reference/Modules/learnloop/source_retrieval/fallback_space#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
@@ -167,8 +167,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 19 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 11 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 10 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 9 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 9 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 8 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 5 static module edges

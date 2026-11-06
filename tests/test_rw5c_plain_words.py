@@ -52,6 +52,14 @@ def test_the_tree_s_structure_is_in_the_words(lhs, plain, trees):
     assert _plain(lhs, trees) == plain
 
 
+def test_cdots_has_plain_words_as_ldots_does(trees):
+    """The router objective's follow-up batch, item 8 (reader-rw5c-p1.md's open item: all three fallbacks on the
+    owner's books came from it): KaTeX's ``\\@cdots`` reads as ``...``, never the fallback."""
+
+    assert _plain(r"a_1+\cdots+a_n", trees) == _plain(r"a_1+\ldots+a_n", trees)
+    assert "..." in _plain(r"a_1+\cdots+a_n", trees) and _plain(r"a_1+\cdots+a_n", trees) != B.PLAIN_FALLBACK
+
+
 #: The closed list of what has no faithful words (the review file names them): never a guess, and no markup in what is shown.
 _NO_WORDS = (
     r"\sqrt[3]{x}", r"\mathfrak{g}(x)", r"\mathscr{L}(x)", r"\mathsf{P}(x)", r"\mathtt{P}(x)", r"\check{x}", r"\breve{x}", r"\mathring{x}", r"\aleph",
@@ -183,4 +191,5 @@ def test_v1_a_bar_series_grouped_label_through_the_real_check(tmp_path):
 
 def test_stored_labels_regenerate():
     # A stored version-5 "checked" holds the old words: it is not delivered, and a recheck writes the new ones.
-    assert SC.CERTIFICATION_VERSION == 6
+    # (7: \cdots gained its words, the follow-up batch's item 8; a version-6 label is read again the same way.)
+    assert SC.CERTIFICATION_VERSION == 7

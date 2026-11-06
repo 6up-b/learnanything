@@ -231,6 +231,8 @@ def kind_state(text: LearnerText) -> dict[str, Any]:
                          "explanations of their trouble apart",
         # Curriculum C5 (C2b: asked of the Decider like any other learner text).
         "learner_note": "a note the learner wrote in their own notes and linked to what they study",
+        # Teacher TE2: the learner's words in a lesson, named by the teacher reading them in context.
+        "lesson": "something the learner wrote during a lesson with a teacher",
     }[text.source_kind]
     return {"learner_text": text.text, "what_it_is": surface, "about": dict(text.context)}
 

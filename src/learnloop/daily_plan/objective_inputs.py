@@ -119,10 +119,15 @@ def _mastery(connection: Any, los: Sequence[str]) -> dict[str, tuple[float, floa
         f"WHERE learning_object_id IN ({marks})", list(los)) if row[1] is not None and row[2] is not None}
 
 
-def _ad(vault: Any, repository: Any, los: Sequence[str], *, learning_moments: bool = False) -> dict[str, Any]:
+def _ad(vault: Any, repository: Any, los: Sequence[str], *, learning_moments: bool = False,
+        eta_moments: bool = False) -> dict[str, Any]:
     try:
         from learnloop.adaptive_difficulty.readiness import decision_state_fields
 
+        if eta_moments:
+            # The follow-up batch's landing ruling R10 (with R9's link): AD's latent posterior beside the predictive.
+            return dict(decision_state_fields(vault, repository, list(los), reading_doses=True,
+                                              learning_moments=learning_moments, eta_moments=True))
         if learning_moments:
             # RO5 §9 item 7: AD's fitted γ and reading curve beside the predictive (one read of the snapshot).
             return dict(decision_state_fields(vault, repository, list(los), reading_doses=True, learning_moments=True))
@@ -207,10 +212,38 @@ def _lesson_curve(read: Any) -> V.LessonCurve | None:
                          prior_cov=matrix(prior_cov) if prior_cov else None)
 
 
-def _combiner(repository: Any, now_iso: str) -> M.Combiner:
+def _ad_link(vault: Any) -> V.AdLink | None:
+    """The follow-up batch's landing ruling R9: AD's own predicted success (its lapse, its residual spread and its
+    Gauss-Hermite rule, read from AD's model) at the batch's tag with ``[router_objective] ad_predictive_link``;
+    None (mvp-0.49's ``σ``) below it or off."""
+
+    from learnloop.router_objective_switches import followup_on
+
+    if vault is None or not followup_on(vault.config, "ad_predictive_link"):
+        return None
+    from learnloop.adaptive_difficulty import model as ADM
+    from learnloop.adaptive_difficulty import priors as ADP
+
+    return V.AdLink(lapse=float(ADP.LAPSE), spread=float(ADP.A * ADP.TAU0),
+                    nodes=tuple(float(x) for x in ADM.X32), weights=tuple(float(w) for w in ADM.W32))
+
+
+def _combiner_prior(vault: Any, **fields: Any) -> M.Combiner:
+    """The combiner's labelled prior: the follow-up batch's landing ruling R6 makes it monotone in ability at its tag
+    (``memory.FORM_MONOTONE``, the fit in the same form); below it, RO4's linear one."""
+
+    from learnloop.router_objective_switches import monotone_combiner_on
+
+    if vault is not None and monotone_combiner_on(vault.config):
+        return M.monotone_prior(**fields)
+    return M.Combiner(**fields)
+
+
+def _combiner(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
     """RO5 §9 item 7: the memory model's Bayesian logistic combination fitted on resolved randomized checks (each
     check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior. The
-    checks stand as of the decision (landing ruling R1: ``checks.Closure`` at ``now_iso``)."""
+    checks stand as of the decision (landing ruling R1: ``checks.Closure`` at ``now_iso``). With ``vault`` at the
+    follow-up batch's tag and ``combiner_trace_outcomes``, the traces' outcomes too (:func:`_combiner_with_traces`)."""
 
     from learnloop.router_objective import checks as C
 
@@ -219,18 +252,65 @@ def _combiner(repository: Any, now_iso: str) -> M.Combiner:
             resolved = C.resolve(connection, closure=C.Closure.at(now_iso))
     except Exception:  # noqa: BLE001 - the prior stands in, and the trace says so
         LOG.warning("router objective RO5: the combiner's checks were not read", exc_info=True)
-        return M.Combiner()
+        return _combiner_prior(vault)
     rows = []
     for entry in resolved:
         sensors = entry.sensors or {}
         if entry.status != "completed" or entry.outcome is None or sensors.get("eta") is None:
             continue
         rows.append((float(sensors["eta"]), sensors.get("retrievability"), int(entry.outcome >= 0.5)))
+    if vault is not None:
+        from learnloop.router_objective_switches import followup_on
+
+        if followup_on(vault.config, "combiner_trace_outcomes"):
+            return _combiner_with_traces(vault, repository, now_iso, rows,
+                                         {str(entry.attempt_id) for entry in resolved if entry.attempt_id})
     if not rows:
-        return M.Combiner(source="prior (no resolved randomized check yet)")
-    fitted = M.fit_combiner(rows)
-    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n,
+        return _combiner_prior(vault, source="prior (no resolved randomized check yet)")
+    fitted = M.fit_combiner(rows, prior=_combiner_prior(vault))
+    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n, form=fitted.form,
                       source="laplace_fit on resolved randomized checks")
+
+
+def _combiner_with_traces(vault: Any, repository: Any, now_iso: str, check_rows: list[tuple[float, Any, int]],
+                          check_attempts: set[str]) -> M.Combiner:
+    """The follow-up batch's item 2 (RO4's item 6): the checks' rows plus the traces' frozen sensors joined to
+    resolved cold outcomes (``router_objective.combiner_data``: RO2's resolver, per protocol, as of ``now_iso``
+    through the availability predicate), refitted with the labelled prior. The trace names the fit's sources."""
+
+    import numpy as np
+
+    from learnloop.adaptive_difficulty.history_resolve import resolve_curves
+    from learnloop.params.fitted_params import resolve_fsrs_weights
+    from learnloop.router_objective import combiner_data as CD
+    from learnloop.router_objective_switches import known_at
+
+    joined: list[tuple[float, Any, int]] = []
+    counts: dict[str, Any] = {"version": CD.JOIN_VERSION, "status": "not_read"}
+    try:
+        fsrs = M.Fsrs(tuple(resolve_fsrs_weights(repository)))
+
+        def retrievability(stability: float, elapsed: float) -> float:
+            return float(fsrs.retrievability(np.array([stability]), np.array([elapsed]))[0])
+
+        with repository.connection() as connection:
+            groups, skipped = CD.groups(connection, now=now_iso)
+            resolved = resolve_curves(connection, vault, repository, groups, now=now_iso) if groups else []
+            joined, counts = CD.rows(connection, resolved, now=now_iso,
+                                     known_at=lambda row: known_at(row, vault.config),
+                                     retrievability=retrievability, exclude=check_attempts)
+        counts = {**counts, "status": "read", "decisions_joined_nothing": skipped}
+    except Exception:  # noqa: BLE001 - the checks' fit (or the prior) stands in, and the trace says so
+        LOG.warning("router objective: the combiner's trace outcomes were not read", exc_info=True)
+        counts = {"version": CD.JOIN_VERSION, "status": "unavailable"}
+    sources = {"randomized_checks": len(check_rows), "trace_outcomes": len(joined), "join": counts}
+    rows = [*check_rows, *joined]
+    if not rows:
+        return _combiner_prior(vault, source="prior (no resolved outcome yet)", sources=sources)
+    fitted = M.fit_combiner(rows, prior=_combiner_prior(vault))
+    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n, sources=sources, form=fitted.form,
+                      source="laplace_fit on resolved randomized checks and the traces' sensors joined to resolved "
+                             "cold outcomes")
 
 
 def population(vault: Any, repository: Any, now_iso: str) -> dict[str, float]:
@@ -452,7 +532,12 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
     from learnloop.router_objective_switches import fitted_models_on
 
     fitted = fitted_models_on(config)
-    ad = _ad(vault, repository, kept, learning_moments=True) if fitted else _ad(vault, repository, kept)
+    link = _ad_link(vault)
+    if link is not None:
+        # R10: with R9's link, AD's latent posterior too (the rollouts start from it).
+        ad = _ad(vault, repository, kept, learning_moments=fitted, eta_moments=True)
+    else:
+        ad = _ad(vault, repository, kept, learning_moments=True) if fitted else _ad(vault, repository, kept)
     ad_los = ad.get("los") or {}
     from learnloop.adaptive_difficulty.priors import COLD_START_VARIANCE, DOSE_SCALES, GAMMA_PRIOR, READING_PRIORS
 
@@ -480,9 +565,14 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         enrolled = in_goal or practiced or lo in candidate_los or lo in reading_los
         c = densities.get(lo, default_c) if enrolled else 0.0
         dose = fields.get("reading_dose")
+        latent = fields.get("eta_at_top") if link is not None and raw is not None else None
         topics.append(V.Topic(lo=lo, eta_mean=float(eta), eta_var=float(max(variance, 1e-9)), practiced=practiced,
                               difficulty=float(difficulty), stability=float(stability), elapsed_days=float(elapsed),
-                              undated_density=float(c), reading_count=float(dose or 0.0)))
+                              undated_density=float(c), reading_count=float(dose or 0.0),
+                              eta_latent=((float(latent["mean"]), float(max(latent["variance"], 1e-9)))
+                                          if latent else None)))
+        if latent:
+            eta_source = f"{eta_source}+ad_latent_posterior"
         topic_sources[lo] = {"eta": eta_source, "fsrs_items": len(memory),
                              "density": "goal" if in_goal else ("config" if practiced else
                                                                 ("candidate_only" if enrolled else "not_enrolled")),
@@ -515,8 +605,9 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         tail_block_minutes=float(block_minutes), tail_block_items=int(block_items),
         horizon_days=float(section.horizon_days), fsrs_weights=tuple(resolve_fsrs_weights(repository)),
         return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,
-        combiner=_combiner(repository, now_iso) if fitted else M.Combiner(),
+        combiner=_combiner(repository, now_iso, vault) if fitted else _combiner_prior(vault),
         learning=_learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES),
+        ad_link=_ad_link(vault),
     )
     sources = {
         "topics": topic_sources, "topic_limit": TOPIC_LIMIT, "topics_left_out": max(len(ordered) - len(kept), 0),
@@ -543,6 +634,15 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                                    "prior_mean": list(curve.prior_mean) if curve.prior_mean else None,
                                    "prior_cov": [list(row) for row in curve.prior_cov] if curve.prior_cov else None,
                                    "effect": "RO4's placeholder plus the curve's learned shift from its prior"}
+    from learnloop.router_objective_switches import followups_tag
+
+    if followups_tag(config):
+        # The follow-up batch (RO4's landing ruling R3, closed): the numbers the rollouts drew γ and the reading
+        # curve from, beside their source, so a trace shows which posterior (or prior) valued its candidates.
+        learning = inputs.learning
+        sources["learning"] = {"gamma": list(learning.gamma), "gbar": [list(part) for part in learning.gbar],
+                               "dose_scales": list(learning.dose_scales), "source": learning.source,
+                               "ad_parameters_read": sorted((ad.get("learning") or {}) if fitted else ())}
     return inputs, actions, sources
 
 

@@ -519,6 +519,7 @@ def regrade_attempt(
                     else {attempt["id"]: vault_grading_calibration_identity(vault)}
                 ),
                 clock=clock,
+                grading_source=grading_source,
             )
             from learnloop.attempts.grading_support import record_route_rule_judgment
 
@@ -581,6 +582,7 @@ def _publish_regrade(
     blind_context_hash: str | None,
     grader_identity_overrides: dict[str, tuple[str, str] | None] | None,
     clock: Clock | None,
+    grading_source: str = "ai",
 ) -> None:
     """Every write of one regrade, in order, inside the caller's transaction."""
 
@@ -676,6 +678,28 @@ def _publish_regrade(
             queue_diagnosis=True,
             clock=clock,
         )
+    # TE2 landing ruling R1: a probe answer's grade event and interpretation are written by its submission only
+    # (replay never re-mints them), so the regrade publishes the replacement grade's own, under the identity that
+    # produced it (the new blind record's calibration identity, else the joint door's), before the replay below
+    # reads it. An ordinary practice answer's are re-minted by its replay under that same identity.
+    from learnloop.attempts.attempts import publish_regraded_probe_grade
+    from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION as _BLIND_SCHEMA
+    from learnloop.outcome_contract import grade_held_for_review
+
+    publish_regraded_probe_grade(
+        vault,
+        repository,
+        attempt_id=attempt["id"],
+        grading_source=grading_source,
+        grader_identity=(
+            (str(blind_record["calibration_prompt_version"]), _BLIND_SCHEMA)
+            if blind_record is not None
+            else vault_grading_calibration_identity(vault)
+        ),
+        fired_error_types=[attribution.error_type for attribution in validated.error_attributions],
+        held=blind_record is not None and grade_held_for_review(blind_record.get("grading_support") or {}),
+        clock=clock,
+    )
     # Q9 (diagnosis input provenance): the replay below re-mints this
     # attempt's error events; the new ones record the ids they replace.
     replaced_event_ids = [str(event["id"]) for event in repository.raw_error_events_for_attempt(attempt["id"])]

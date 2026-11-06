@@ -4189,6 +4189,10 @@ class RouterObjectiveConfig(BaseModel):
     RO6 (mvp-0.49, §10): ``learned_tail`` (the kill switch; off serves mvp-0.48 exactly) and the learned tail's
     labelled priors (``residual_prior_sd`` on the fitted Q evaluation's coefficients, ``residual_weight_prior_sd``
     on its calibration slope ``ŵ``, which starts at zero).
+
+    The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
+    ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
+    switch (off, or below the tag, mvp-0.49 exactly).
     """
 
     receipts: bool = True
@@ -4277,6 +4281,29 @@ class RouterObjectiveConfig(BaseModel):
     #: §10: the prior sd of the residual's calibration slope ``ŵ``, centred on zero (a seed, labelled: one
     #: residual's worth either way); only randomized stop-coin contrasts move it.
     residual_weight_prior_sd: float = Field(default=1.0, gt=0.0, le=10.0)
+    #: The follow-up batch (mvp-0.50; docs/reviews/router-followups-nov5.md), each part's own switch; off, or
+    #: below the tag, that part is mvp-0.49's exactly. RO4 item 6: the memory combiner is also fitted on the
+    #: traces' frozen sensors joined to resolved cold outcomes (RO2's resolver, as of each decision).
+    combiner_trace_outcomes: bool = True
+    #: Item 3 (Codex review F2): the rollouts' tail sessions merged into one vectorized step where no topic repeats
+    #: and no dated use is crossed; the same values per draw, but faster, so a deadline admits more draws.
+    merged_sessions: bool = True
+    #: Landing ruling R1: a practised topic's practice outcome in the rollouts is drawn from the memory model's own
+    #: ``P(perform)`` at that moment (the combiner over AD's predictive and FSRS's R, §8.4), and the belief observes
+    #: it under the same likelihood, so a review FSRS calls a lapse is one the model expects; off, AD's predictive.
+    consistent_review_draw: bool = True
+    #: Landing ruling R6: the memory model's combiner is monotone in ability by construction (η's slopes log-normal
+    #: in its prior and its fit), so higher ability never lowers predicted performance; off, RO4's linear combiner.
+    monotone_combiner: bool = True
+    #: Landing ruling R9: where the rollouts read AD's predicted success (an unpractised topic, a probe, the
+    #: combiner's η input) they use AD's own F(η) with its lapse term, η on AD's latent scale; off, σ(η).
+    ad_predictive_link: bool = True
+    #: RO6 R12/R3: a decision served before its carried valuation existed is valued again in the next
+    #: boundary's prefetch (the no-model branch too), recorded beside its trace, so its backup is not censored.
+    carried_in_prefetch: bool = True
+    #: RO6 R11: a topic entering the retention scope at its configured default density extends the objective's
+    #: scope instead of changing it, for transitions whose earlier value never valued the topic.
+    scope_extension: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":
@@ -4466,6 +4493,13 @@ class TeacherDelayedConfig(BaseModel):
     max_wait_days: float = Field(default=14.0, gt=0.0)
 
 
+class TeacherPlacementConfig(BaseModel):
+    """Teacher TE2 (rev 5 §11.3, §18.4): ``max_probes`` (8, ``keep``), the generated probes one lesson may ask
+    for: a burden guardrail; the teacher decides when to stop, this only bounds it."""
+
+    max_probes: int = Field(default=8, ge=0, le=8)
+
+
 class TeacherConfig(BaseModel):
     """Teacher (spec_teacher_v1). TE0 (§15.2): the learner's confidence tap
     and the grader's hedge read, rendered as events with the outcome
@@ -4521,6 +4555,15 @@ class TeacherConfig(BaseModel):
     ``episodes`` and ``minutes``. Nothing serving, scheduling, certification or
     replay reads any of it; a refused row rolls back alone with a warning. Off,
     nothing of it is written and lessons are TE1's byte for byte.
+
+    Teacher TE2 (rev 5 §11.3, §11.5, §11.7, §11.8, §18.3; ``TEACHER_PROBES_VERSIONS``) adds ``probes``, the kill
+    switch of its successor: at that tag or later, with lessons on, a lesson's teacher may ask for a generated
+    single-use probe (``serve_probe``, FG1's generation path with a lesson origin) and file a gap from the
+    learner's words (``propose_gap``, the text-gap pipeline with ``source_kind = 'lesson'``); a lesson may open on
+    a typed goal (C0b's resolver; a new topic through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``);
+    the brief is ``lesson_brief_v2`` (no vault probe headers; where the last lesson left off); and Today offers
+    *Continue your lesson*. Off, or below the tag, every lesson is TE1's (and TE2-log's) byte for byte.
+    ``placement.max_probes`` (8, ``keep``): the probes one lesson may ask for.
     """
 
     confidence_events_enabled: bool = True
@@ -4536,6 +4579,9 @@ class TeacherConfig(BaseModel):
     visuals: bool = True
     # TE2-log: the episode log, intervals and node forecasts (off: nothing written, TE1's lessons exactly).
     episode_log: bool = True
+    # TE2: the successor's kill switch (off, or below the tag: TE1's and TE2-log's lessons exactly).
+    probes: bool = True
+    placement: TeacherPlacementConfig = Field(default_factory=TeacherPlacementConfig)
 
 
 class EligibilityConfig(BaseModel):

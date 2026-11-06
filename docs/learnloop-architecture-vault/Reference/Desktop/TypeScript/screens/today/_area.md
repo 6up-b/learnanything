@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today"
-source_commit: "838d8ee1fcee48de3b5b41f59e451f042ec9a690"
-source_commit_timestamp: "2026-11-05T04:03:05-05:00"
+source_commit: "a46bf6f6332ca86b1596e26dbd9622aac983b503"
+source_commit_timestamp: "2026-11-06T04:43:21-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -36,6 +36,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
+| [[Reference/Desktop/TypeScript/screens/today/ContinueLessonCard|ContinueLessonCard.tsx]] | `ACTIVE` | Implements the `ContinueLessonCard` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|DailyPlanView.tsx]] | `ACTIVE` | Implements the `DailyPlanView` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/screens/today/LessonSuggestionCard|LessonSuggestionCard.tsx]] | `ACTIVE` | Implements the `LessonSuggestionCard` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/screens/today/TodayPlace|TodayPlace.tsx]] | `ACTIVE` | Implements the `TodayPlace` routed desktop screen and coordinates its learner-facing workflow state. | 18 | 1 |

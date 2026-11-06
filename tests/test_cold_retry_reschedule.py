@@ -474,10 +474,10 @@ def test_mvp038_is_one_constant_after_mvp037():
     from learnloop.params.parameter_registry import classify_config_path
 
     # Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-15:-12] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, TAG) == (
+    assert SUCCESSOR_CHAIN[-17:-14] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, TAG) == (
         "mvp-0.36", "mvp-0.37", "mvp-0.38")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.50" and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert COLD_RETRY_RESCHEDULE_VERSIONS == frozenset({TAG, "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50"})
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.52" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert COLD_RETRY_RESCHEDULE_VERSIONS == frozenset({TAG, "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52"})
     assert PracticeConfig().reschedule_cold_after_assist is True
     rule = classify_config_path("practice.reschedule_cold_after_assist")
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale

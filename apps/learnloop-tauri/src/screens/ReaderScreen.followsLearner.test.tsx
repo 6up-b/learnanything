@@ -504,6 +504,17 @@ it("with no book open, the Reader shows the Library's own shelf, not a second li
   expect(screen.getByText("Pick a book to read, or search them all.")).toBeTruthy();
 });
 
+it("a lesson's 'Look in my library' opens the library search on the leftover's words (TE2 landing ruling R2)", async () => {
+  render(<ReaderScreen onError={() => undefined} shelf={<div data-testid="the-shelf">the one shelf</div>}
+                       initialLibrarySearch="when diagonalization fails" />);
+  await settle(2_000);
+
+  expect((screen.getByPlaceholderText("search all sources…") as HTMLInputElement).value)
+    .toBe("when diagonalization fails");
+  expect(invoke.mock.calls.some(([command, args]) => command === "reader_search_sources"
+    && (args as { input?: { query?: string } } | undefined)?.input?.query === "when diagonalization fails")).toBe(true);
+});
+
 it("R3: a book with block geometry reaches the passage's page even before the document is laid out", async () => {
   // Axler in the three-month library: boxes for every passage. The resume
   // asked the pane to centre a block on a page that did not exist yet, and

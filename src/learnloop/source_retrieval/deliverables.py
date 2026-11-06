@@ -69,7 +69,13 @@ from pydantic import Field
 
 from learnloop.ai.execution import call_labels, content_key, gate_model_requests
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded, spend_envelopes
+from learnloop.ai.spend import (
+    SpendBudget,
+    SpendCaps,
+    SpendLimitExceeded,
+    is_subscription_transport,
+    spend_envelopes,
+)
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources import exam_material as EM
@@ -196,6 +202,11 @@ def _is_plan_type(profile_type: Any) -> bool:
     return str(profile_type or "").strip().lower() == CHATGPT_PLAN_PROFILE_TYPE
 
 
+#: Teacher TE2's typed goal (spec_teacher_v1 rev 5 §24 row TE2: "Plan route only, nothing metered"; Codex review
+#: F5): a metered route or client is sent nothing.
+SUBSCRIPTION_ONLY_REASON = "not_subscription_route"
+
+
 class ChatRoute:
     """One C0b route's pinned plan for one call (RW7a's ``JudgeRoute`` shape).
 
@@ -203,10 +214,15 @@ class ChatRoute:
     closing the C1 round-5 ruling's follow-up (a)): the planned route must be
     the subscription ChatGPT plan (``problem``), and so must the exact client
     that sends (``ask`` checks the client it resolved, or was given, before
-    any request): anything else is ``not_plan_route`` and sends nothing."""
+    any request): anything else is ``not_plan_route`` and sends nothing.
+
+    ``subscription_only`` (teacher TE2's typed goal): the same two checks for
+    any subscription transport (the plan or Codex): a metered route or client
+    is ``not_subscription_route`` and sends nothing."""
 
     def __init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None,
-                 envelope: Any | None, label: str, plan_only: bool = False) -> None:
+                 envelope: Any | None, label: str, plan_only: bool = False,
+                 subscription_only: bool = False) -> None:
         self.vault = vault
         self.repository = repository
         self.task = task
@@ -214,15 +230,22 @@ class ChatRoute:
         self.envelope = envelope
         self.label = label
         self.plan_only = plan_only
+        self.subscription_only = subscription_only
         self.route: PaidRoute = plan_route(vault, task, client)  # type: ignore[arg-type]
         self.client: Any | None = None
         self.calls: PaidCalls | None = None
+
+    def _subscription_only_refusal(self) -> RouteUnavailable:
+        return RouteUnavailable(SUBSCRIPTION_ONLY_REASON, f"{self.label[:1].upper()}{self.label[1:]} is read on your "
+                                                          "ChatGPT plan only, and the plan isn't ready.")
 
     def plan_only_problem(self) -> RouteUnavailable | None:
         """With ``plan_only``, why the planned route may not be asked (None: it may)."""
 
         if self.plan_only and not _is_plan_type(self.route.profile_type):
             return RouteUnavailable(PLAN_ONLY_REASON, f"Only the ChatGPT plan is asked automatically for {self.label}.")
+        if self.subscription_only and not self.subscription:
+            return self._subscription_only_refusal()
         return None
 
     @property
@@ -267,6 +290,8 @@ class ChatRoute:
             # The exact client that would send, not only the planned route: a
             # resolution that lands anywhere but the plan sends nothing.
             raise RouteUnavailable(PLAN_ONLY_REASON, f"Only the ChatGPT plan is asked automatically for {self.label}.")
+        if self.subscription_only and not is_subscription_transport(client=self.client):
+            raise self._subscription_only_refusal()
         budget = SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS), subscription=self.subscription)
         self.calls = PaidCalls(route=self.route, budget=budget,
                                price_per_million=self.vault.config.source_retrieval.llm_price_per_million,
@@ -1490,6 +1515,92 @@ def deliverable_goals(vault: Any, repository: Repository) -> list[Any]:
 
 def learning_objects_of(entries: Iterable[Mapping[str, Any]]) -> list[str]:
     return [str(entry["learning_object_id"]) for entry in entries]
+
+
+# ---------------------------------------------------------------------------
+# Teacher TE2: a typed lesson goal through this resolver (spec_teacher_v1 rev 5 §11.5)
+# ---------------------------------------------------------------------------
+
+#: A typed lesson goal's resolution rows are keyed by this prefix and the text's key: never a learner goal (nothing
+#: is written to goals.yaml, and :func:`deliverable_goals` lists only learner goals).
+TYPED_GOAL_PREFIX = "lesson_goal:"
+
+
+def typed_goal_key(text: str) -> str:
+    return TYPED_GOAL_PREFIX + content_key(" ".join(str(text or "").split()).casefold())[:24]
+
+
+def resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client: Any | None = None,
+                       clock: Clock | None = None) -> ScopeResult:
+    """C0b's resolver on a lesson's typed goal alone (§11.5): one call returns the needed LOs, each with the phrase
+    it answers, and the phrases it could not match with a proposed title and statement; ids are validated. The same
+    text over the same LOs is answered from the stored resolution (``fresh``, no call). Writes C0b's resolution row
+    and its ledger verdict under :func:`typed_goal_key`; nothing to goals.yaml. Never raises for a model failure."""
+
+    words = _one_line(text, INPUT_CHARS)
+    if not words:
+        return ScopeResult("no_inputs", message="Say what you want to learn first.")
+    key = typed_goal_key(words)
+    budget = int(vault.config.curriculum.max_prompt_tokens) * _CHARS_PER_TOKEN - _OVERHEAD_CHARS
+    context = {"deliverable": {"sentence": words, "deadline": "", "exam": False},
+               "inputs": [{"n": 1, "kind": "text", "text": words}],
+               "topics": _bounded_topics(vault, max(0, budget - len(words) - 400))}
+    prompt = render_structured_prompt("Deliverable scope", SCOPE_PROMPT_VERSION,
+                                      {"instructions": _INSTRUCTIONS, "context": context})
+    state_key = content_key({"prompt_version": SCOPE_PROMPT_VERSION, "prompt": prompt})
+    with repository.connection() as connection:
+        cached = store.resolver_state(connection, key, state_key) if store.tables_present(connection) else None
+    if cached is not None:
+        return ScopeResult("fresh", resolution=cached)
+    # §24 row TE2: the plan route only, nothing metered (Codex review F5).
+    route = ChatRoute(vault, repository, SCOPE_ROUTE, client=client,
+                      envelope=daily_envelope(vault, repository, clock=clock), label="your lesson's goal",
+                      subscription_only=True)
+    try:
+        output = route.ask(prompt, ScopeResolutionV1, owner_id=f"{key}:{state_key[:16]}",
+                           prompt_version=SCOPE_PROMPT_VERSION)
+    except RouteUnavailable as exc:
+        return ScopeResult("unavailable", reason=exc.reason, message=exc.message)
+    needs, unmatched = validate_resolution(vault, output)
+    now = utc_now_iso(clock)
+    row = {"id": "dsr_" + new_ulid(), "goal_id": key, "origin": "resolver", "input_ids_json": "[]",
+           "learning_objects_json": json.dumps(needs), "unmatched_json": json.dumps(unmatched),
+           "facet_scope_json": json.dumps(scope_for(vault, repository, learning_objects_of(needs)), sort_keys=True),
+           "state_key": state_key, "model": route.model, "prompt_version": SCOPE_PROMPT_VERSION, "created_at": now}
+    with repository.atomic():
+        connection = repository.connection()
+        row["ledger_id"] = append_judgment(
+            connection, task=SCOPE_LEDGER_TASK, left_kind="lesson_goal", left_id=key, right_kind="scope_resolution",
+            right_id=row["id"], judge="llm", judge_model=route.model, prompt_version=SCOPE_PROMPT_VERSION,
+            input_hash=state_key, verdict="resolved",
+            rationale=json.dumps({"needs": needs, "unmatched": unmatched}, sort_keys=True), created_at=now)
+        store.insert_resolution(connection, row)
+        written = store.resolution(connection, row["id"])
+    return ScopeResult("ready", resolution=written)
+
+
+def create_lesson_topic(vault: Any, repository: Repository, *, lesson_id: str, phrase: str, title: str,
+                        statement: str, subject_id: str, anchors: Sequence[Mapping[str, Any]] = (),
+                        clock: Clock | None = None) -> dict[str, Any]:
+    """A typed lesson goal's phrase the learner said *yes* to: ``create_goal_lo`` with ``mechanism =
+    teacher_goal_v1`` (``origin = codex_proposal``, the anchors in ``source_refs``, none: unsourced), the lesson's
+    id as its goal id; undoable; the daily cap shared with text-gap creations, plus one a day. The learner's yes is
+    the decision: no judge."""
+
+    from learnloop.goals import goal_lo as GL
+
+    try:
+        return GL.create_goal_lo(vault.root, repository, GL.GoalLoRequest(
+            goal_id=lesson_id, phrase=phrase, title=title, statement=statement, subject_id=subject_id,
+            mechanism=GL.TEACHER_MECHANISM, anchors=tuple(dict(anchor) for anchor in anchors)), clock=clock)
+    except GL.GoalLoError as exc:
+        raise DeliverableError(exc.code, str(exc)) from exc
+
+
+def typed_goal_subject(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None:
+    """The subject a typed goal's new topic joins (:func:`_subject_for`'s rule)."""
+
+    return _subject_for(vault, needs)
 
 
 __all__ = [

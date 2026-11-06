@@ -128,7 +128,35 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
                                   "mean_chosen_q": round(mean(model_supported), 6) if model_supported else None,
                                   "n": len(model_supported)},
         "comparators": list(comparators.values()),
+        "memory_model": _memory_model(blocks),
     }
+
+
+#: The trace's ``versions.learning`` names AD's fitted posterior moments (RO5 §9 item 7) with this word.
+_POSTERIOR_MARK = "fitted posterior"
+
+
+def _memory_model(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """RO4's landing ruling R3, closed: what the rollouts' learning parameters and the memory combiner were, per
+    decision, read from each trace's ``versions`` (``learning``: AD's fitted posterior moments of ``γ`` and the reading
+    curve, or its priors; ``memory_model``: the combiner's version, source and fit size)."""
+
+    learning: Counter = Counter()
+    combiner: Counter = Counter()
+    latest: dict[str, Any] | None = None
+    for row in blocks:
+        versions = (json.loads(row["trace_json"]).get("versions") or {})
+        source = str(versions.get("learning") or "")
+        learning["posterior" if _POSTERIOR_MARK in source else ("prior" if source else "unknown")] += 1
+        memory = versions.get("memory_model") or {}
+        if memory:
+            combiner[str(memory.get("source"))] += 1
+            latest = {key: memory.get(key) for key in ("version", "source", "n", "sources")}
+    return {"decisions": len(blocks), "learning": dict(sorted(learning.items())),
+            "combiner_sources": dict(sorted(combiner.items())), "combiner_latest": latest,
+            "note": "learning: AD's fitted posterior moments of the learning increment and the reading curve where AD "
+                    "has them (each parameter its prior where it has none), or AD's priors; the combiner: its "
+                    "labelled prior until resolved outcomes exist"}
 
 
 def _kappa_seed(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -181,6 +209,13 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     out.append(f"recommendation value: evaluated {value['decisions_evaluated']}, pending {value['pending']}, closed "
                f"scores {value['closed_scores']}, censored {value['censored']}; w {value['w']} ({value['note']})")
     out.append(f"action value: {report['action_value']['status']}")
+    memory = report.get("memory_model")
+    if memory and memory.get("decisions"):
+        learning = memory["learning"]
+        latest = memory.get("combiner_latest") or {}
+        out.append(f"memory model: the rollouts read AD's posterior learning parameters on {learning.get('posterior', 0)} "
+                   f"of {memory['decisions']} decisions (its priors on {learning.get('prior', 0)}); the combiner "
+                   f"{latest.get('version')} is {latest.get('source')}, fitted on {latest.get('n')} outcomes")
     forecast = report["forecast"]
     if "comparators" not in forecast:
         out.append(f"forecast: {forecast.get('status')}")

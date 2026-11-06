@@ -3,8 +3,8 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "04d1b40e19aa935b9233c007868ca3c58d217e99"
-source_commit_timestamp: "2026-11-06T04:58:47-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
@@ -50,7 +50,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`, `248_teacher_te2_sources.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `src/learnloop/hints/discriminating.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/reader/reader_observations.py`
+- `src/learnloop/teacher/service.py`
 
 ### Direct SQL writers
 
@@ -174,11 +175,14 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE "learner_text_gaps" (
   id TEXT PRIMARY KEY,
   source_kind TEXT NOT NULL CHECK (source_kind IN (
-    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note'
+    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note',
+    'lesson', 'external_chat'
   )),
   -- question_events.id | practice_attempts.id | attempt_diagnoses.id |
   -- reader_authored_questions.id (reader_formative) | RW2b's row (workbench_text) |
-  -- help_assists.id (hint_feedback) | learner_notes.id (learner_note: a linked note's snapshot)
+  -- help_assists.id (hint_feedback) | learner_notes.id (learner_note: a linked note's snapshot) |
+  -- lesson_turns.id (lesson: the teacher's propose_gap entry, naming the learner's turn) |
+  -- C1b's row (external_chat)
   source_id TEXT NOT NULL,
   attempt_id TEXT,
   practice_item_id TEXT,

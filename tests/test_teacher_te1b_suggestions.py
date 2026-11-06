@@ -465,9 +465,9 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
 
 
 def test_the_successor_is_the_latest_link_after_followups_nov2():
-    assert SUCCESSOR_CHAIN[-10:-7] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.50"
-    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50"})
+    assert SUCCESSOR_CHAIN[-12:-9] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.52"
+    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52"})
 
 
 def test_the_upgrade_from_teacher_te1_and_its_refusals(tmp_path):
@@ -521,6 +521,12 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         assert dumped["router"].pop("lesson_suggestions") == {"enabled": True, "ceiling_per_day": 3}
         # Teacher TE2-log (no successor): its teacher.episode_log moved them too.
         assert dumped["teacher"].pop("episode_log") is True
+        from tests.test_teacher_te2_successor import drop_te2_keys
+
+        drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.51; tests/test_teacher_te2_successor.py), inert below it
+        from tests.test_te3a_successor import drop_te3a_keys
+
+        drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
         # Reader RW5d P5 landed after TE1b: its [figures] prefetch keys and route moved them too.
         # Reader RW5c P1 landed after it too: its kill switch moved them.
         dumped["figures"].pop("checked_labels_enabled")
@@ -537,7 +543,6 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
         dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
         assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
-        assert dumped["adaptive_difficulty"].pop("lesson_opportunities") is True  # teacher TE3a (mvp-0.50), inert below it
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM

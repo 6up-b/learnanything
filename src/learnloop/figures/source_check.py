@@ -65,7 +65,8 @@ from learnloop.reader.source_render_views import page_renders_block_type, page_r
 #: 5: only a block the page displays holds candidates (a running head could certify an equation the
 #: page drops), and a derived label groups a compound left-hand side.
 #: 6: a label's plain text comes from KaTeX's tree (the words "fracdF(x)dx" stood in a stored label's plain field).
-CERTIFICATION_VERSION = 6
+#: 7: \cdots has plain words ("..."), so a label stored under 6 with the fallback for it is read again.
+CERTIFICATION_VERSION = 7
 LEDGER_TASK = "figure_source_check"
 CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE = "checked", "differs", "undecided", "not_checkable"
 OUTCOMES = (CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE)

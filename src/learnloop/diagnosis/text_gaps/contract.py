@@ -31,7 +31,7 @@ PIPELINE_VERSION = "learner-text-gaps-v1"
 #: concept / LO, an added prerequisite edge (the serving gate reads it).
 PROVENANCE_MECHANISM = LEARNER_TEXT_GAP_MECHANISM
 SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "workbench_text", "hint_feedback",
-                "learner_note")
+                "learner_note", "lesson")
 #: The kinds this pipeline reads today: ``workbench_text`` is admitted by the
 #: schema (migration 208) for RW2b, which builds its adapter; until then a
 #: queued one is skipped as having nothing to read.
@@ -44,8 +44,12 @@ SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative
 #: Curriculum C5 (migration 231) adds ``learner_note``: a note the learner
 #: linked (spec_deliverable_curriculum_v1 §10.2), read by its adapter
 #: (:func:`~.sources.learner_note_text`) only while ``notes.gaps_enabled``.
+#: Teacher TE2 (migration 248) adds ``lesson``: the learner's words in a lesson that the teacher's
+#: ``propose_gap`` names (:func:`~.sources.lesson_gap_text`), the teacher reading in context as the tutor does
+#: (its reading names the gap; the Decider's second opinion as for any text). Serving, as a tutor question's: a
+#: missing prerequisite is created on first sighting under the daily cap, a misconception waits in the holding pen.
 READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback",
-                         "workbench_text", "learner_note")
+                         "workbench_text", "learner_note", "lesson")
 #: The kinds whose named gaps stay content and display (spec W1 tier 2, RW1b
 #: §4.5 "no successor"): a gap read from them names a prerequisite or a belief
 #: (and may create one), but never brings a check forward and is never a weak

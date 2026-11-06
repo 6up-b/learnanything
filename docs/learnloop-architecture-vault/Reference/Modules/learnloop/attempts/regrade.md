@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/regrade.py"
 source_paths:
   - "src/learnloop/attempts/regrade.py"
-source_commit: "42ab0bc90d513d76d7b0eea692d52330b51a8385"
-source_commit_timestamp: "2026-10-23T10:49:09-04:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py) |
-| Source lines | 803 |
+| Source lines | 827 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `42ab0bc90d513d76d7b0eea692d52330b51a8385` |
-| Commit timestamp | `2026-10-23T10:49:09-04:00` |
+| Source commit | `af3a9758713a5e9302784812ca9512cd04dcf253` |
+| Commit timestamp | `2026-11-06T06:50:30-05:00` |
 
 ## Public API
 
@@ -74,10 +74,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Internal implementation anchors
 
 - `_run_deferred_agent_regrades(vault: LoadedVault, repository: Repository, *, runtime, client: AIProviderClient | None, missing_client_reason: str, grading_source: str, limit: int | None, clock: Clock | None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 116)
-- `_publish_regrade(vault: LoadedVault, repository: Repository, attempt: dict, *, item, learning_object, validated: ValidatedCodexGrade, agent_run_id: str, new_evidence_rows: list[dict], first_new_evidence_id: str, supersede_tiers: tuple[int, ...], new_score: int, rubric, bind_frozen: Any | None, cite_contract: bool=False, primary_error_type: str | None, content_events: list[dict], blind_record: dict | None, prior_blind: dict | None, blind_context_hash: str | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 561) — Every write of one regrade, in order, inside the caller's transaction.
-- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 772)
-- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 788)
-- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 800)
+- `_publish_regrade(vault: LoadedVault, repository: Repository, attempt: dict, *, item, learning_object, validated: ValidatedCodexGrade, agent_run_id: str, new_evidence_rows: list[dict], first_new_evidence_id: str, supersede_tiers: tuple[int, ...], new_score: int, rubric, bind_frozen: Any | None, cite_contract: bool=False, primary_error_type: str | None, content_events: list[dict], blind_record: dict | None, prior_blind: dict | None, blind_context_hash: str | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, clock: Clock | None, grading_source: str='ai') -> None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 562) — Every write of one regrade, in order, inside the caller's transaction.
+- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 796)
+- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 812)
+- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 824)
 
 ## Who imports or calls it
 
@@ -99,7 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `AIRuntimeReport`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `REGRADE_CONTRACT_VERSIONS`, `SOURCE_REFERENCE_GATE_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`, `StuckGradingProposal`, `grading_prompt_version`; calls `grading_prompt_version`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GradeAttribution`, `_blind_grading_plan`, `assessed_rubric_score`, `attempt_graded_contract`, `regrade_reads_contract`, `snapshot_graded_contract`, `unverified_attribution_json`; calls `GradeAttribution`, `_blind_grading_plan`, `assessed_rubric_score`, `attempt_graded_contract`, `regrade_reads_contract`, `snapshot_graded_contract`, `unverified_attribution_json`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GradeAttribution`, `_blind_grading_plan`, `assessed_rubric_score`, `attempt_graded_contract`, `publish_regraded_probe_grade`, `regrade_reads_contract`, `snapshot_graded_contract`, `unverified_attribution_json`; calls `GradeAttribution`, `_blind_grading_plan`, `assessed_rubric_score`, `attempt_graded_contract`, `publish_regraded_probe_grade`, `regrade_reads_contract`, `snapshot_graded_contract`, `unverified_attribution_json`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `split_grading_active`, `validate_blind_grading_proposal`; calls `split_grading_active`, `validate_blind_grading_proposal`
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `record_clarification`; calls `record_clarification`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `ValidatedCodexGrade`, `build_grading_context`, `grading_context_hash`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`; calls `build_grading_context`, `grading_context_hash`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`
@@ -223,6 +223,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`
   - `test_regrade_teach_back_attempt_restricts_to_graded_criteria`
   - `test_regrade_teach_back_attempt_without_evidence_falls_back_to_core`
+- [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
+  - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_a_regrade_shows_one_rubric_row_per_criterion`
   - `test_f3_a_contest_the_regrade_does_not_uphold_is_queued`
