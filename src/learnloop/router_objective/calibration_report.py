@@ -157,7 +157,8 @@ def build(connection: Any, vault: Any, *, now: str, weight: Mapping[str, Any] | 
     posterior = W.posterior([detail.scored for detail in details], W.Seeds.from_config(vault.config), at=now)
     unique = W.unique_assessments((key, detail.scored.decision_id) for detail in details for key in detail.assessments)
     kappa = SC.handed_over(connection, vault.config)
-    slope_rows = SC.return_rows(connection, gap_minutes=float(vault.config.router_objective.session_gap_minutes))
+    slope_rows = SC.return_rows(connection, gap_minutes=float(vault.config.router_objective.session_gap_minutes),
+                                lessons=S._lessons_on(vault.config))
     return {
         "version": VERSION,
         "stop_coin": stop_coin_section(connection),

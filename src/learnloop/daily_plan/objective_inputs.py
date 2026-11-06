@@ -43,6 +43,16 @@ DURATION_LIMIT = 500
 _PROBE_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "probe"})
 
 
+def _lessons_on(config: Any) -> bool:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): at its tag with its switch on, lessons' active minutes count on
+    the objective's clock (``price.activity_spans``) and LOs with a pending lesson delayed check join §8.7's
+    population; off, or below the tag, mvp-0.52 exactly."""
+
+    from learnloop.router_objective_switches import lesson_offers_on
+
+    return lesson_offers_on(config)
+
+
 def _logit(p: float) -> float:
     p = min(max(float(p), 1e-4), 1 - 1e-4)
     return math.log(p / (1 - p))
@@ -394,7 +404,7 @@ def _return_model(connection: Any, config: Any) -> tuple[tuple[float, float] | N
     if stop_coin_rate(config) <= 0:
         return None, None
     section = config.router_objective
-    rows = SC.return_rows(connection, gap_minutes=float(section.session_gap_minutes))
+    rows = SC.return_rows(connection, gap_minutes=float(section.session_gap_minutes), lessons=_lessons_on(config))
     slope = SC.fit_return_slope(rows, float(section.return_slope_prior_sd))
     identified = slope.source == "posterior_randomized_coin"
     record = {**slope.as_dict(), "in_value": identified, "rows": len(rows),
@@ -523,7 +533,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
     with repository.connection() as connection:
         by_lo, practiced_order = _practiced(connection, vault)
         session_minutes, session_start, session_basis = P.session_active_minutes(
-            connection, now=now_iso, gap_minutes=float(section.session_gap_minutes))
+            connection, now=now_iso, gap_minutes=float(section.session_gap_minutes), lessons=_lessons_on(config))
         gaps = _return_gaps(connection, float(section.session_gap_minutes))
         return_slope, return_record = _return_model(connection, config)
         accept, accept_counts = _stop_accept(connection, (float(section.stop_accept_prior_a),

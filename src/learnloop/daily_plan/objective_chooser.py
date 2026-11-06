@@ -1438,7 +1438,8 @@ class ObjectiveChooser(RouterChooser):
         try:
             with self.repository.connection() as connection:
                 minutes, _start, _basis = P.session_active_minutes(
-                    connection, now=now_iso, gap_minutes=float(self.vault.config.router_objective.session_gap_minutes))
+                    connection, now=now_iso, gap_minutes=float(self.vault.config.router_objective.session_gap_minutes),
+                    lessons=OI._lessons_on(self.vault.config))
             return float(minutes)
         except Exception:  # noqa: BLE001 - unknown minutes are not above zero: no coin, never a blocked plan
             LOG.warning("router objective RO5: the session's minutes were not read for the stop coin", exc_info=True)

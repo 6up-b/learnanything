@@ -652,6 +652,7 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
         return by_end[cut]
 
     gap = float(config.router_objective.session_gap_minutes)
+    lessons = S._lessons_on(config)  # teacher TE3b: lessons' active minutes on the objective's clock
     censored: Counter[str] = Counter()
     change_points: list[dict[str, Any]] = []
     steps: list[LT.Transition] = []
@@ -679,7 +680,7 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
         start, end = row.created_at, later.created_at
         rate_at_end, prices = as_of_end(end)
         reward = -S.window_cost(connection, start=start, end=end, gap_minutes=gap, prices=prices,
-                                own=(row.kappa0, row.remembered))
+                                own=(row.kappa0, row.remembered), lessons=lessons)
         observed = 0
         is_open = False
         for when, entry in checks:

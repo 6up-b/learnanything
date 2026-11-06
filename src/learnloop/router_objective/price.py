@@ -52,11 +52,47 @@ def _parse(stamp: str) -> datetime:
 LOOKBACK_DAYS = 2
 
 
-def activity_spans(connection: Any, *, since: str, until: str) -> list[tuple[datetime, datetime, float]]:
+def lesson_spans(connection: Any, *, since: str, until: str) -> list[tuple[datetime, datetime, float]]:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): one span per lesson from TE2-log's
+    ``lesson_activity_intervals`` whose intervals finished in ``[since, until]``: from its first interval's start to
+    its last interval's end, with the union of its foreground intervals as its active seconds (TE2-log's own "active
+    is the union of foreground intervals", §11.6; never elapsed time). So a lesson's active minutes count on the
+    objective's clock and its idle gaps, inside its one span, never end a session by themselves. None before
+    migration 247."""
+
+    present = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'lesson_activity_intervals'").fetchone()
+    if present is None:
+        return []
+    by_lesson: dict[str, list[tuple[datetime, datetime, bool]]] = {}
+    for lesson_id, started, ended, foreground in connection.execute(
+            "SELECT lesson_id, started_at, ended_at, foreground FROM lesson_activity_intervals "
+            "WHERE ended_at >= ? AND ended_at <= ? ORDER BY lesson_id, started_at, ended_at", (since, until)):
+        by_lesson.setdefault(str(lesson_id), []).append((_parse(started), _parse(ended), bool(foreground)))
+    spans: list[tuple[datetime, datetime, float]] = []
+    for lesson_id in sorted(by_lesson):
+        rows = by_lesson[lesson_id]
+        active = 0.0
+        reach: datetime | None = None
+        for began, finished, foreground in sorted((row for row in rows if row[2]), key=lambda row: (row[0], row[1])):
+            if reach is None or began > reach:
+                active += (finished - began).total_seconds()
+                reach = finished
+            elif finished > reach:
+                active += (finished - reach).total_seconds()
+                reach = finished
+        spans.append((min(row[0] for row in rows), max(row[1] for row in rows), max(active, 0.0)))
+    return spans
+
+
+def activity_spans(connection: Any, *, since: str, until: str,
+                   lessons: bool = False) -> list[tuple[datetime, datetime, float]]:
     """The objective's activity clock: ``(began, finished, active seconds)`` for each attempt (at its completion,
     with its latency) and each Reader visit (over its interval, its active seconds), finished in ``[since,
     until]``. The serving clock (:func:`session_active_minutes`) and RO5's realized cost
-    (``router_objective.scores``) read this one list."""
+    (``router_objective.scores``) read this one list. ``lessons`` (teacher TE3b, at its tag with its switch on:
+    ``router_objective_switches.lesson_offers_on``): each lesson's span too (:func:`lesson_spans`); off, the
+    predecessor's list exactly."""
 
     end = _parse(until)
     spans: list[tuple[datetime, datetime, float]] = []
@@ -78,6 +114,8 @@ def activity_spans(connection: Any, *, since: str, until: str) -> list[tuple[dat
             continue
         spent = float(active) + (float(idle) if isinstance(idle, (int, float)) and idle > 0 else 0.0)
         spans.append((closed - timedelta(seconds=spent), closed, float(active)))
+    if lessons:
+        spans.extend(lesson_spans(connection, since=since, until=until))
     return spans
 
 
@@ -102,17 +140,19 @@ def session_components(spans: Sequence[tuple[datetime, datetime, float]], *, gap
     return out
 
 
-def session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> tuple[float, str | None, dict[str, Any]]:
+def session_active_minutes(connection: Any, *, now: str, gap_minutes: float,
+                           lessons: bool = False) -> tuple[float, str | None, dict[str, Any]]:
     """The active minutes of the current objective session: activity (attempts at their completion with their
     latency, Reader visits over their interval) in the session holding ``now`` (:func:`session_components`: less
     than ``gap_minutes`` from its last activity). Returns the minutes, the session's start and how it was read.
+    ``lessons`` (teacher TE3b): lessons' active minutes too (:func:`activity_spans`).
 
     The same minutes, start and summation order as walking back from ``now`` until a gap (RO4's form: the session
     holding ``now`` is exactly the activity that walk reaches)."""
 
     end = _parse(now)
     since = (end - timedelta(days=LOOKBACK_DAYS)).strftime(_STAMP)
-    spans = activity_spans(connection, since=since, until=now)
+    spans = activity_spans(connection, since=since, until=now, lessons=lessons)
     gap = timedelta(minutes=float(gap_minutes))
     sessions = session_components(spans, gap_minutes=gap_minutes)
     current: set[int] = set()
@@ -128,8 +168,10 @@ def session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> 
         began, _finished, active = spans[i]
         seconds += active
         start = began if start is None or began < start else start
+    basis = ("attempt_latency_plus_reader_active_seconds_plus_lesson_active_seconds" if lessons
+             else "attempt_latency_plus_reader_active_seconds")
     return seconds / 60.0, (start.strftime(_STAMP) if start else None), {
-        "basis": "attempt_latency_plus_reader_active_seconds", "gap_minutes": float(gap_minutes), "spans": len(spans)}
+        "basis": basis, "gap_minutes": float(gap_minutes), "spans": len(spans)}
 
 
 def guard_minutes(config: Any, remembered: float) -> float:
@@ -210,5 +252,5 @@ def grid_posterior(seed: float, observations: Sequence[Mapping[str, float]]) -> 
 __all__ = [
     "CARRIED_DAY", "CARRIED_LAST", "DAY_SEED", "FLOORED", "GRID_MULTIPLES", "GUARD_MULTIPLE", "PRICE_VERSION", "SEED",
     "Seeded", "TAIL_AVERAGE", "choice_log_likelihood", "grid_posterior", "guard_minutes", "seed_from_gain",
-    "activity_spans", "session_active_minutes", "session_components",
+    "activity_spans", "lesson_spans", "session_active_minutes", "session_components",
 ]

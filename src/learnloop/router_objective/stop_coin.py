@@ -585,9 +585,10 @@ def _contrast(arm: str, detail: Mapping[str, Any], propensity: float) -> float:
     return 0.0
 
 
-def return_rows(connection: Any, *, gap_minutes: float) -> list[ReturnRow]:
+def return_rows(connection: Any, *, gap_minutes: float, lessons: bool = False) -> list[ReturnRow]:
     """Every coin drawn in a session whose return is observed: its arm's contrast, the availability frozen before
-    its draw, and its session's final minutes and return gap (:class:`ReturnRow`)."""
+    its draw, and its session's final minutes and return gap (:class:`ReturnRow`). ``lessons`` (teacher TE3b): the
+    session's minutes on the objective's clock with lessons' active minutes."""
 
     from learnloop.router_objective import assignments as A
     from learnloop.router_objective import price as P
@@ -616,7 +617,7 @@ def return_rows(connection: Any, *, gap_minutes: float) -> list[ReturnRow]:
                 gap_days = (_parse(later[0]) - _parse(session[1])).total_seconds() / 86400.0
                 if gap_days > 0:
                     minutes, _start, _basis = P.session_active_minutes(connection, now=str(session[1]),
-                                                                       gap_minutes=gap_minutes)
+                                                                       gap_minutes=gap_minutes, lessons=lessons)
                     sessions[session_id] = (minutes, math.log(gap_days))
         outcome = sessions[session_id]
         if outcome is None:
