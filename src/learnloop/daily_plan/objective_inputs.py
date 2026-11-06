@@ -332,9 +332,25 @@ def population(vault: Any, repository: Any, now_iso: str) -> dict[str, float]:
     densities, _dated, _goals, goal_order = _goal_uses(vault, repository, now)
     with repository.connection() as connection:
         _by_lo, practiced_order = _practiced(connection, vault)
+        lesson_order = _pending_lesson_check_los(connection, vault, now_iso)
     default_c = float(vault.config.router_objective.undated_use_density)
-    return {lo: float(densities.get(lo, default_c)) for lo in dict.fromkeys([*goal_order, *practiced_order])
+    return {lo: float(densities.get(lo, default_c)) for lo in dict.fromkeys([*goal_order, *practiced_order,
+                                                                            *lesson_order])
             if lo in getattr(vault, "learning_objects", {})}
+
+
+def _pending_lesson_check_los(connection: Any, vault: Any, now_iso: str) -> list[str]:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a, owner decision 5): at its tag with its switch on, the LOs with a
+    pending lesson delayed check as of the decision are retention commitments of §8.7's population (at their undated
+    density, after the goals' scopes and the practised LOs: a population member already there keeps its place);
+    off, or below the tag, none (the population is mvp-0.52's)."""
+
+    if vault is None or not _lessons_on(vault.config):
+        return []
+    from learnloop.db.stores import lessons as lesson_store
+
+    return list(dict.fromkeys(entry["learning_object_id"]
+                              for entry in lesson_store.pending_delayed_checks(connection, at=now_iso)))
 
 
 def check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclude: Any = ()) -> dict[str, list[str]]:
@@ -546,7 +562,11 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         reading_los = [lo for ref in support if ref in candidates and candidates[ref].reading is not None
                        for lo in _reading_los(vault, repository, candidates[ref])]
         dated_los = [use.lo for use in sorted(dated, key=lambda use: use.at_days)]
-        ordered = list(dict.fromkeys([*candidate_los, *reading_los, *dated_los, *goal_order, *practiced_order]))
+        # Teacher TE3b (owner decision 5): LOs with a pending lesson delayed check (none off or below its tag).
+        lesson_los = [lo for lo in _pending_lesson_check_los(connection, vault, now_iso)
+                      if lo in getattr(vault, "learning_objects", {})]
+        ordered = list(dict.fromkeys([*candidate_los, *reading_los, *dated_los, *goal_order, *practiced_order,
+                                      *lesson_los]))
         kept = ordered[:TOPIC_LIMIT]
         mastery = _mastery(connection, kept)
     from learnloop.router_objective_switches import fitted_models_on
@@ -582,7 +602,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         difficulty = median(row["d"] for row in memory) if practiced else 5.0
         elapsed = median(_days(now, parse_utc(row["last"]) or now) for row in memory) if practiced else 0.0
         in_goal = lo in densities
-        enrolled = in_goal or practiced or lo in candidate_los or lo in reading_los
+        enrolled = in_goal or practiced or lo in candidate_los or lo in reading_los or lo in lesson_los
         c = densities.get(lo, default_c) if enrolled else 0.0
         dose = fields.get("reading_dose")
         latent = fields.get("eta_at_top") if link is not None and raw is not None else None
@@ -594,12 +614,13 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         if latent:
             eta_source = f"{eta_source}+ad_latent_posterior"
         topic_sources[lo] = {"eta": eta_source, "fsrs_items": len(memory),
-                             "density": "goal" if in_goal else ("config" if practiced else
+                             "density": "goal" if in_goal else ("config" if practiced or lo in lesson_los else
                                                                 ("candidate_only" if enrolled else "not_enrolled")),
                              "ad_cell": fields.get("cell"),
                              "reading_dose": ("ad_reading_window" if dose is not None else "none_read: 0")}
     # §8.7's population: the active goals' scopes and the retention commitments, never the candidates (F11).
-    population = {lo: float(densities.get(lo, default_c)) for lo in dict.fromkeys([*goal_order, *practiced_order])}
+    population = {lo: float(densities.get(lo, default_c))
+                  for lo in dict.fromkeys([*goal_order, *practiced_order, *lesson_los])}
     spread_used = spread if spread_n >= 2 else 0.0
     practiced_set = {topic.lo for topic in topics if topic.practiced}
     actions: list[V.Action] = []
@@ -634,7 +655,9 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
     sources = {
         "topics": topic_sources, "topic_limit": TOPIC_LIMIT, "topics_left_out": max(len(ordered) - len(kept), 0),
         "population": {"los": population, "basis": "active goals' scopes and retention commitments (LOs with FSRS "
-                                                   "memory) at the decision; never the candidates"},
+                                                   "memory) at the decision; never the candidates"
+                       + ("; with LOs holding a pending lesson delayed check (teacher TE3b)" if _lessons_on(config)
+                          else "")},
         "goals": goals, "remembered_minutes": remembered, "remembered_source": remembered_source,
         "session": {"minutes": session_minutes, "start": session_start, **session_basis},
         "return_gaps": {"n": len(gaps), "model": "empirical gaps, the same after every session's end (no return model "
