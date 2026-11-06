@@ -1,0 +1,34 @@
+{
+  "method": "get_feedback",
+  "requests": [
+    {
+      "wrapper": "getFeedback",
+      "envelope": {
+        "method": "get_feedback",
+        "params": {
+          "attemptId": "a1",
+          "recordOpen": true
+        }
+      }
+    },
+    {
+      "wrapper": "getFeedback",
+      "envelope": {
+        "method": "get_feedback",
+        "params": {
+          "attemptId": "a1",
+          "recordOpen": false
+        }
+      }
+    }
+  ],
+  "reads": [
+    "learningObjectTitle",
+    "rubricScore",
+    "maxPoints",
+    "manualReviewReason",
+    "feedbackMd",
+    "criterionEvidence",
+    "repairSuggestions"
+  ]
+}

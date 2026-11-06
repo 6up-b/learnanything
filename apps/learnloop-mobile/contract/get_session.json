@@ -1,0 +1,23 @@
+{
+  "method": "get_session",
+  "requests": [
+    {
+      "wrapper": "getSession",
+      "envelope": {
+        "method": "get_session",
+        "params": {
+          "sessionId": "s1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "sessionId",
+    "availableMinutes",
+    "endedAt",
+    "ownerDeviceId",
+    "ownerLabel",
+    "ownerGeneration",
+    "checkpoint"
+  ]
+}

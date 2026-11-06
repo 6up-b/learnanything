@@ -1,0 +1,18 @@
+{
+  "method": "diagnosis_status",
+  "requests": [
+    {
+      "wrapper": "diagnosisStatus",
+      "envelope": {
+        "method": "diagnosis_status",
+        "params": {
+          "attemptId": "a1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "status",
+    "cardEnabled"
+  ]
+}

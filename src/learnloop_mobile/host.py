@@ -13,6 +13,7 @@ from functools import partial
 import json
 import logging
 from pathlib import Path
+import re
 import sqlite3
 import time
 
@@ -30,10 +31,14 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.session_ownership import SessionOwnershipError
 from learnloop_mobile.adapter import error_body, status_for, translate
-from learnloop_mobile.allowlist import ALLOWLIST, ParamRejected, check_parameters, validate_envelope
+from learnloop_mobile.allowlist import (
+    ALLOWLIST, API_VERSION, ParamRejected, allowlist_digest, check_parameters, validate_envelope,
+)
 from learnloop_mobile.config import APP_DIR, MobileConfig, sqlite_path
 from learnloop_mobile.runtime import HostBusy, HostRuntime, JobView, ParamsInvalid, _status_body
 
+#: What ``/api/v1/status`` and ``/api/v1/meta`` call this host.
+HOST_VERSION = "0.1.0"
 HEADER_LIMIT = 16 * 1024
 JSON_LIMIT = 256 * 1024
 BODY_DEADLINE = 60
@@ -51,6 +56,7 @@ ENDPOINT_SCOPES = {
     ("GET", "/api/v1/capture/{capture_id}"): "capture",
     ("POST", "/rpc"): "app",
     ("GET", "/api/v1/queue-revision"): "app",
+    ("GET", "/api/v1/meta"): "app",
     ("GET", "/api/v1/jobs/{job_id}"): "app",
     ("GET", "/api/v1/submissions/{submission_id}"): "app",
 }
@@ -61,6 +67,12 @@ _ID_ROUTES = {
     "/api/v1/jobs/": "/api/v1/jobs/{job_id}",
     "/api/v1/submissions/": "/api/v1/submissions/{submission_id}",
 }
+#: The phone's measurement of its last ``/rpc`` round trip (mobile v2 §4.5), carried on its next
+#: one: ``<method>;status=<code>;dur=<ms>[;host=<ms>]``, ``host`` being the ``Server-Timing``
+#: total it read. One sample a request, so nothing here buffers or batches.
+CLIENT_TIMING_HEADER = "learnloop-client-timing"
+_CLIENT_TIMING = re.compile(r"([a-z_.]+);status=([1-5][0-9]{2});dur=([0-9]{1,9}(?:\.[0-9]{1,3})?)"
+                            r"(?:;host=([0-9]{1,9}(?:\.[0-9]{1,3})?))?")
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
 SECURITY_HEADERS = {
@@ -167,6 +179,58 @@ def _multipart(scope, body: bytes | bytearray, max_media: int) -> tuple[dict, by
         raise HostError(400, "invalid_request") from None
 
 
+def _ms(seconds: float) -> str:
+    return f"{max(seconds, 0.0) * 1000:.1f}"
+
+
+def server_timing(timing: dict[str, float] | None, total_seconds: float) -> str:
+    """Mobile v2 §4.5's ``Server-Timing``: the whole request on the host, and where it went.
+
+    ``queue`` is the wait for the RPC worker and ``handler`` the sidecar handler on it (a short
+    method); ``job`` is the time ``/rpc`` held a long method (its 15 s wait, or less). A request
+    refused before a worker saw it carries ``total`` alone.
+    """
+
+    parts = []
+    timing = timing or {}
+    if "submitted" in timing and "started" in timing:
+        parts.append(f"queue;dur={_ms(timing['started'] - timing['submitted'])}")
+        if "finished" in timing:
+            parts.append(f"handler;dur={_ms(timing['finished'] - timing['started'])}")
+    if "job_from" in timing and "job_to" in timing:
+        parts.append(f"job;dur={_ms(timing['job_to'] - timing['job_from'])}")
+    parts.append(f"total;dur={_ms(total_seconds)}")
+    return ", ".join(parts)
+
+
+def client_timing(value: str | None) -> tuple[str, int, float, float | None] | None:
+    """The phone's last round trip, as ``(method, status, ms, host ms)``, or None.
+
+    Only an allowlisted method's name is ever logged (the request log's rule), and a header that
+    does not parse is ignored, never refused: it is a measurement, not a request.
+    """
+
+    match = _CLIENT_TIMING.fullmatch(value or "")
+    if match is None or match.group(1) not in ALLOWLIST:
+        return None
+    duration = float(match.group(3))
+    host = float(match.group(4)) if match.group(4) is not None else None
+    if host is not None and host > duration:
+        host = None  # Two clocks that disagree say nothing about the network.
+    return match.group(1), int(match.group(2)), duration, host
+
+
+def _log_client_timing(repo: Repository, sample: tuple[str, int, float, float | None], device_id: str) -> None:
+    """``client:<method>``: the round trip the phone saw; ``network:<method>``: that less the host's
+    own ``Server-Timing`` total. Both in the request log's existing ``duration_ms`` (§4.5)."""
+
+    method, status, duration, host = sample
+    capture.log_request(repo, endpoint=f"client:{method}", status=status, duration_ms=duration, device_id=device_id)
+    if host is not None:
+        capture.log_request(repo, endpoint=f"network:{method}", status=status, duration_ms=duration - host,
+                            device_id=device_id)
+
+
 class MobileHost:
     def __init__(self, config: MobileConfig):
         if not config.enabled:
@@ -179,6 +243,9 @@ class MobileHost:
         self.active = {"short": 0, "capture": 0, "media": 0, "rpc": 0}
         self.runtime = HostRuntime(config.vault, self.repo, self.read_repo)
         self.app_dir = APP_DIR
+        # attach() checked the applied migrations are exactly the discovered ones, so the
+        # head is the vault's schema (mobile v2 §5.2's meta).
+        self.schema_version = max(migration.version for migration in discover_migrations())
         # Spec §4.6: no per-device/token rate limits (bounded admission covers
         # work). Only pairing attempts share an in-memory budget, on top of the
         # durable per-record and global exchange locks.
@@ -268,7 +335,11 @@ class MobileHost:
             return Response(self.assets["pair.js"], media_type="text/javascript")
         if (method, path) == ("GET", "/api/v1/status"):
             return JSONResponse({"vault_loaded": True, "schema_ok": True,
-                                 "grading_ready": self.runtime.grading_ready(), "host_version": "0.1.0"})
+                                 "grading_ready": self.runtime.grading_ready(), "host_version": HOST_VERSION})
+        if (method, path) == ("GET", "/api/v1/meta"):
+            # Mobile v2 §5.2: a cached app built against another allowlist offers a reload.
+            return JSONResponse({"host_version": HOST_VERSION, "api_version": API_VERSION,
+                                 "allowlist_digest": allowlist_digest(), "schema_version": self.schema_version})
         if (method, path) == ("GET", "/api/v1/queue-revision"):
             # Read-only, never the sidecar's get_queue_revision, which can reload (§3.1).
             value = await self.work(self.read_repo.queue_revision)
@@ -358,11 +429,18 @@ class MobileHost:
             check_parameters(method, params)
         except ParamRejected as rejected:
             return self._rpc_error("validation_error", rejected.message, details={"field": rejected.field})
+        timing: dict[str, float] = {}
+        scope["learnloop.timing"] = timing
         try:
             validated = await self.work(self.runtime.validate, method, params)
             if method.kind == "long":
-                return await self._rpc_long(method, params, validated, envelope, device)
-            future = self.runtime.call_short(method, params, device["device_id"])
+                timing["job_from"] = time.monotonic()
+                try:
+                    return await self._rpc_long(method, params, validated, envelope, device)
+                finally:
+                    timing["job_to"] = time.monotonic()
+            timing["submitted"] = time.monotonic()
+            future = self.runtime.call_short(method, params, device["device_id"], timing=timing)
             status, body = translate(await asyncio.wrap_future(future))
             return JSONResponse(body, status_code=status)
         except ParamsInvalid as invalid:
@@ -498,7 +576,16 @@ class MobileHost:
                                     device_id=device["device_id"] if device else None)
                 except Exception:
                     pass  # A log failure must not invalidate a committed receipt.
+                if device is not None and endpoint == ("POST", "/rpc"):
+                    sample = client_timing(headers.get(CLIENT_TIMING_HEADER))
+                    if sample is not None:
+                        try:
+                            await self.work(_log_client_timing, self.repo, sample, device["device_id"])
+                        except Exception:
+                            pass  # A measurement never costs the request its answer.
             response.headers.update(SECURITY_HEADERS)
+            if path == "/rpc":
+                response.headers["Server-Timing"] = server_timing(scope.get("learnloop.timing"), time.monotonic() - started)
             if scope.get("learnloop.static"):
                 # The shell revalidates by its ETag; the service worker caches it (§4.6).
                 response.headers["Cache-Control"] = "no-cache"

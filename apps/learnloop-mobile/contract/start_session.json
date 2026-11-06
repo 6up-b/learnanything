@@ -1,0 +1,33 @@
+{
+  "method": "start_session",
+  "requests": [
+    {
+      "wrapper": "startSession",
+      "envelope": {
+        "method": "start_session",
+        "params": {
+          "availableMinutes": 15
+        }
+      }
+    },
+    {
+      "wrapper": "startSession",
+      "envelope": {
+        "method": "start_session",
+        "params": {
+          "availableMinutes": 15,
+          "replace": "s_desk"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "sessionId",
+    "availableMinutes",
+    "endedAt",
+    "ownerDeviceId",
+    "ownerLabel",
+    "ownerGeneration",
+    "checkpoint"
+  ]
+}

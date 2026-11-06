@@ -279,9 +279,24 @@ class HostRuntime:
             raise ParamsInvalid({"errors": _safe_validation_errors(error)}) from None
         return validated.model_dump(mode="json")
 
-    def call_short(self, method: MobileMethod, params: Mapping[str, Any], device_id: str) -> Future:
+    def call_short(
+        self, method: MobileMethod, params: Mapping[str, Any], device_id: str, *, timing: dict[str, float] | None = None,
+    ) -> Future:
+        """``timing``, if given, gets the worker's ``started`` and ``finished`` monotonic times, for
+        ``Server-Timing`` (mobile v2 §4.5): the queue wait and the handler, measured, not guessed."""
+
         origin = self._origin(device_id)
-        return self.rpc_worker.submit(lambda worker: self._dispatch(worker, method.name, params, origin))
+
+        def run(worker: _Worker) -> dict[str, Any]:
+            if timing is not None:
+                timing["started"] = time.monotonic()
+            try:
+                return self._dispatch(worker, method.name, params, origin)
+            finally:
+                if timing is not None:
+                    timing["finished"] = time.monotonic()
+
+        return self.rpc_worker.submit(run)
 
     # -- jobs (§6.3) ------------------------------------------------------------
 

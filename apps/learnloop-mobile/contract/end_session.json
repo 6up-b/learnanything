@@ -1,0 +1,17 @@
+{
+  "method": "end_session",
+  "requests": [
+    {
+      "wrapper": "endSession",
+      "envelope": {
+        "method": "end_session",
+        "params": {
+          "sessionId": "s1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "attemptsRecorded"
+  ]
+}

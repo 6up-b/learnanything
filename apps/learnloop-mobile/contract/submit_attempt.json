@@ -1,0 +1,51 @@
+{
+  "method": "submit_attempt",
+  "requests": [
+    {
+      "wrapper": "submitAttempt",
+      "envelope": {
+        "method": "submit_attempt",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1",
+          "answerMd": "My answer",
+          "attemptType": "independent_attempt",
+          "submissionId": "k1",
+          "latencySeconds": 42,
+          "schedulerCandidateId": "cand_i1",
+          "assessmentContractVersionId": "acv",
+          "hintsUsed": 0,
+          "authoredHints": 0,
+          "bookCounted": false
+        },
+        "request_id": "k1"
+      }
+    },
+    {
+      "wrapper": "submitAttempt",
+      "envelope": {
+        "method": "submit_attempt",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1",
+          "answerMd": "",
+          "attemptType": "hinted_attempt",
+          "submissionId": "k1",
+          "latencySeconds": 42,
+          "schedulerCandidateId": null,
+          "assessmentContractVersionId": "acv",
+          "hintsUsed": 2,
+          "authoredHints": 1,
+          "bookCounted": true,
+          "planPresentationId": "pp1",
+          "firstHintProgress": "no_draft",
+          "declaredStuck": true
+        },
+        "request_id": "k1"
+      }
+    }
+  ],
+  "reads": [
+    "attemptId"
+  ]
+}
