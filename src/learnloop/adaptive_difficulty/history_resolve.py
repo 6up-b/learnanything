@@ -177,12 +177,17 @@ def resolve_curves(connection: Any, vault: Any, repository: Any, groups: Sequenc
     """The same event's curves stated outside ``forecast_receipts`` (router objective RO4's per-option policy
     forecasts on its traces, Codex review F9), resolved by exactly these bindings: each group names its
     ``plan_presentation_id`` (the block's), ``learning_object_id``, ``forecaster`` and ``curve`` (lag in days to
-    probability); every other key is carried onto its rows. Pure reads through the material view."""
+    probability); every other key is carried onto its rows. Pure reads through the material view.
+
+    Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a group may instead name ``anchor_at``, the moment its action
+    ended (an accepted lesson offer's lesson closing), with no plan presentation: its first qualifying cold outcome
+    on the LO is the first one after that moment, by the same bindings."""
 
     from learnloop.adaptive_difficulty.material_view import material_view
 
     view = material_view(vault, repository)
-    usable = [dict(group) for group in groups if isinstance(group.get("curve"), Mapping) and group.get("plan_presentation_id")]
+    usable = [dict(group) for group in groups if isinstance(group.get("curve"), Mapping)
+              and (group.get("plan_presentation_id") or group.get("anchor_at"))]
     return _resolve_groups(connection, vault, repository, view, usable, now=now or utc_now_iso())
 
 
@@ -205,17 +210,22 @@ def _resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, gro
         by_block.setdefault(str(row.get("block_id")), set()).add(pid)
     out: list[dict[str, Any]] = []
     for group in groups:
-        presentation = presentations.get(group["plan_presentation_id"])
         base = {"resolver_version": RESOLVER_VERSION, **{k: v for k, v in group.items() if k != "curve"},
                 "conditional_on_observation": True}
-        if presentation is None:
-            out += [{**base, "binding": binding, "status": "pending", "reason": "no_presentation"} for binding in BINDINGS]
-            continue
         lo = str(group["learning_object_id"] or "")
-        block = by_block.get(str(presentation.get("block_id")), {group["plan_presentation_id"]})
-        block_attempts = [row for row in attempts if str(row.get("plan_presentation_id") or "") in block]
-        block_end = max([str(presentation["served_at"])] + [str(row["created_at"]) for row in block_attempts])
-        block_ids = {str(row["id"]) for row in block_attempts}
+        if group.get("anchor_at") and not group.get("plan_presentation_id"):
+            # TE3b: an accepted lesson offer, anchored at its lesson's close (no plan presentation of its own).
+            block_end, block_ids = str(group["anchor_at"]), set()
+        else:
+            presentation = presentations.get(group["plan_presentation_id"])
+            if presentation is None:
+                out += [{**base, "binding": binding, "status": "pending", "reason": "no_presentation"}
+                        for binding in BINDINGS]
+                continue
+            block = by_block.get(str(presentation.get("block_id")), {group["plan_presentation_id"]})
+            block_attempts = [row for row in attempts if str(row.get("plan_presentation_id") or "") in block]
+            block_end = max([str(presentation["served_at"])] + [str(row["created_at"]) for row in block_attempts])
+            block_ids = {str(row["id"]) for row in block_attempts}
         on_lo = [row for row in attempts if str(row.get("learning_object_id")) == lo]
         candidate, passed = None, []
         for row in on_lo:
