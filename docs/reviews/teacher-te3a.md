@@ -146,9 +146,10 @@ the lesson opportunity interacts with it:
   landing may need to merge beside its own receipt edits); AD's rule reads it as any named reading. A receipt with
   passages and no `readings` (closed before TE3a) cannot be judged and is withheld. At the Codex re-review (F1) the
   receipt also gains `exposure.identities` (each exposed item's revision as of the close, `source_identity`'s shape),
-  revalidated by `Protection.covers_identity`; an exposed item without one is withheld. Residual: the identity is
-  the revision current at the close, so an item edited during an open lesson is judged by its closing revision
-  (smallest finish: record each reveal's identity on the turn's reveal rows and union them at the close).
+  revalidated by `Protection.covers_identity`; an exposed item without one is withheld. The re-review's residual
+  (the identity was the revision current at the close) was reopened by the final verify and fixed at the landing
+  (ruling R1): each identity is frozen when the lesson shows or reveals the item, on that turn's (or figure's)
+  record, and `exposure.identities` is the union of every exposed revision's identity with the close's own.
 * **"A graded lesson check takes the kind's increment in place of γ."** AD's eligibility admits no lesson check
   (§14.1: `reconstruction_after_walkthrough` is not an eligible type), so no `γ` is applied to one and there is
   nothing to replace; the in-passage hook (`in_passage_kind`) stays unwired, as it is for reading.

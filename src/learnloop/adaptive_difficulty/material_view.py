@@ -195,8 +195,9 @@ def _lesson_exposure(record: Any) -> tuple[set[str], bool, list[Mapping[str, Any
 
     The items are ``exposure.reveals[].item_id`` and ``exposure.shown_items``. Their revisions are
     ``exposure.identities`` (Codex re-review F1): one
-    :func:`~learnloop.adaptive_difficulty.outside.source_identity` per exposed item (its id and the block keys and
-    whole extractions its revision cited when the lesson closed), which
+    :func:`~learnloop.adaptive_difficulty.outside.source_identity` per exposed revision (its id and the block keys and
+    whole extractions it cited, frozen when the lesson showed or revealed it, landing ruling R1, with the close's
+    own), which
     :meth:`~learnloop.adaptive_difficulty.protection.Protection.covers_identity` revalidates, so a revision
     protected after a public replacement still withholds the lesson. The passages are aliases
     (``exposure.passages``); their readings are ``exposure.readings`` (``{extraction_id, span_id}`` per passage),

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/service.py"
 source_paths:
   - "src/learnloop/teacher/service.py"
-source_commit: "586a9ebbf5d6515ce128d304a34be9658b920103"
-source_commit_timestamp: "2026-11-06T06:12:12-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 7ee764d334f12bc2efeb332945df88ba5bf00c06"
+source_commit_timestamp: "2026-11-06T06:24:55-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py) |
-| Source lines | 2036 |
+| Source lines | 2082 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `586a9ebbf5d6515ce128d304a34be9658b920103` |
-| Commit timestamp | `2026-11-06T06:12:12-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 7ee764d334f12bc2efeb332945df88ba5bf00c06` |
+| Commit timestamp | `2026-11-06T06:24:55-05:00` |
 
 ## Public API
 
@@ -77,9 +77,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None=None, reads: bool=True, builder: V.Builder | None=None) -> '_Outcome | None'` ([source](../../../../../../src/learnloop/teacher/service.py), line 648) — Run what an interrupted action left of its last accepted teacher turn (review F9): each effect the ledger does not mark done, idempotently, with its reads' results riding with the next call.
 - `view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 750) — ``lesson.view``: the lesson as the screen shows it, after recovering an interrupted action's remaining effects (no model call).
 - `take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, payload: Mapping[str, Any], clients: Clients, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 760) — One learner action on an open lesson (``reply``, ``answer_prediction``, ``answer_check``, ``stop``), or ``resume``: run the teacher's turn an outage interrupted (nothing new from the learner).
-- `located(field: str, indices: Sequence[int]) -> str` ([source](../../../../../../src/learnloop/teacher/service.py), line 1293) — ``check.anchors[0], check.anchors[2]``: a refusal's fields by location (landing ruling R1 (b)).
-- `displayed_texts(state: LessonState, *, extra: Sequence[str]=()) -> list[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1768) — Everything the lesson displayed to the learner so far (accepted turns' fields), and ``extra``.
-- `view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1947) — The lesson as the screen shows it: what was shown, in order, the plan map, the open check (never its solution), the open prediction, and the close card.
+- `located(field: str, indices: Sequence[int]) -> str` ([source](../../../../../../src/learnloop/teacher/service.py), line 1295) — ``check.anchors[0], check.anchors[2]``: a refusal's fields by location (landing ruling R1 (b)).
+- `displayed_texts(state: LessonState, *, extra: Sequence[str]=()) -> list[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1789) — Everything the lesson displayed to the learner so far (accepted turns' fields), and ``extra``.
+- `view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1993) — The lesson as the screen shows it: what was shown, in order, the plan map, the open check (never its solution), the open prediction, and the close card.
 
 ### Module constants
 
@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LEARNER_ACTIONS` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 86)
 - `PROTECTION_CHANGED_NOTICE` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 303)
 - `_CALLS_TEACHER` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 675)
+- `EXPOSURE_KEY` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 1351)
 
 ### Explicit exports
 
@@ -144,25 +145,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_field_names(model: type[Any]) -> frozenset[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1146) — Every field name of a turn schema and the models it nests (a schema refusal's location names these only).
 - `_schema_detail(exc: BaseException, model: type[Any]) -> str` ([source](../../../../../../src/learnloop/teacher/service.py), line 1172) — A schema refusal as the teacher reads it (TE2-log landing, ruling R1 (b)): each failing field by its location (``requests[0].node``) and pydantic's message, never its input, so no untrusted text (an over-long node id carrying protected words) enters the transcript before the gua…
 - `_call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]], help_reply: bool, outcome: _Outcome, clock: Clock | None, deliver: Sequence[str]=(), visuals: bool=False, episodes: bool=False) -> tuple[TeacherTurnV1, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1205) — One teacher call: validated, guarded, recorded.
-- `_contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1299) — A correctable contract problem, or None.
-- `_record_reveals(vault: Any, repository: Any, state: LessonState, message: str, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1347) — Teaching text and cited passages (§12): ``tutor_answer`` for each item on the lesson's LOs whose key the text overlaps (amount = overlap, as the tutor), ``source_review`` for what a cited passage exposes; basis ``lesson:<id>``.
-- `_withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float, clock: Clock | None, outcome: _Outcome, turn_entry: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1377)
-- `_execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, turn_entry: Mapping[str, Any], model: str | None, deferred: bool, outcome: _Outcome, clock: Clock | None, help_reply: bool, done: set[str] | frozenset[str]=frozenset(), reads: bool=True, builder: V.Builder | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1401) — An accepted turn's effects, in order, each marked with the turn and its name (``refs.effect``) in the transaction that makes it, then a ``turn_executed`` marker: recovery runs only what is unmarked (``done``), so an interrupted action resumes idempotently (review F9).
-- `_episodes_turn(vault: Any, turn_entry: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/teacher/service.py), line 1485) — TE2-log writes for this turn: it was written under the episode paragraph and the switch is on now.
-- `_note_detour(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1, *, turn_entry: Mapping[str, Any] | None, effect: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1491) — ``note_detour`` (§11.7): the hypothesis in the turn's payload (a ``note_detour`` entry, marked as the turn's effect) and one ``detour`` episode row, its own savepoint (a refused row rolls back alone, with a warning).
-- `_plan_episodes(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, outline: Sequence[Mapping[str, Any]], previous: Sequence[Mapping[str, Any]] | None, *, version: int, entry: Mapping[str, Any], model: str | None, turn_entry: Mapping[str, Any] | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1511) — A stored plan's TE2-log rows: a ``lesson_node_held`` forecast receipt per node with ``p_held`` (§11.3; each receipt its own savepoint, so a refused one leaves its siblings: Codex review F2), and an ``unlogged`` detour when it inserts a node before ones the previous plan had and…
-- `_visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, builder: V.Builder, outcome: _Outcome, clock: Clock | None, turn_entry: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1538) — Reader RW5d P4b: build the turn's visual and record it.
-- `_figure_entry(vault: Any, repository: Any, record: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1584) — A lesson figure as the feed shows it (Reader RW5d P4b): its view NOW, with no predictions.
-- `_pose_check(vault: Any, repository: Any, state: LessonState, check: CheckV1, *, outcome: _Outcome, clock: Clock | None, turn_entry: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1597)
-- `_read_action(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1617)
-- `_forecast(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *, model: str | None, clock: Clock | None, turn_entry: Mapping[str, Any] | None=None, effect: str='forecast') -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1627)
-- `_close(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None, clock: Clock | None, outcome: _Outcome, turn_entry: Mapping[str, Any] | None=None, effect: str='close') -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1704) — Close the lesson: commit the delayed checks, write the receipt, close the row and append the close entry in one transaction (§7 step 7; review F9: never a closed row without its close entry).
-- `_lesson_shown(vault: Any, state: LessonState) -> list[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1760) — The lesson's own check items and the vault items its displayed text reproduced so far.
-- `_receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None, delayed_checks: Sequence[Mapping[str, Any]], warnings: Sequence[str], landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], usage: Mapping[str, int], shown_items: Sequence[str]=(), closed_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1784) — ``LessonReceiptV1`` (§8.3).
-- `_passage_readings(book: SourceBook) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1865) — ``exposure.readings``: ``{alias, extraction_id, span_id}`` per delivered passage, in alias order (no text).
-- `_exposed_identities(vault: Any, item_ids: Sequence[Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1872) — ``exposure.identities`` (Codex re-review F1): per exposed item still in the vault, in id order, its revision's protection identity, ``{practice_item_id, keys, whole}`` (the block keys and whole extractions its canonical exercise and provenance refs cite; ids, no text), the shape…
-- `_receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1892) — §8.3's ``episodes`` (the lesson's episode ids by kind) and ``minutes`` (active and elapsed, and their source; never blended), and the ``lesson_node_held`` receipt keys; ``{}`` while ``teacher.episode_log`` is off.
-- `_stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], state: LessonState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1913) — Per landed node, the liquid-stability inputs ``u`` (§8.3; logged before the family activates).
+- `_contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1301) — A correctable contract problem, or None.
+- `_record_reveals(vault: Any, repository: Any, state: LessonState, message: str, *, clock: Clock | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1354) — Teaching text and cited passages (§12): ``tutor_answer`` for each item on the lesson's LOs whose key the text overlaps (amount = overlap, as the tutor), ``source_review`` for what a cited passage exposes; basis ``lesson:<id>``.
+- `_withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float, clock: Clock | None, outcome: _Outcome, turn_entry: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1397)
+- `_execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, turn_entry: Mapping[str, Any], model: str | None, deferred: bool, outcome: _Outcome, clock: Clock | None, help_reply: bool, done: set[str] | frozenset[str]=frozenset(), reads: bool=True, builder: V.Builder | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1421) — An accepted turn's effects, in order, each marked with the turn and its name (``refs.effect``) in the transaction that makes it, then a ``turn_executed`` marker: recovery runs only what is unmarked (``done``), so an interrupted action resumes idempotently (review F9).
+- `_episodes_turn(vault: Any, turn_entry: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/teacher/service.py), line 1505) — TE2-log writes for this turn: it was written under the episode paragraph and the switch is on now.
+- `_note_detour(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1, *, turn_entry: Mapping[str, Any] | None, effect: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1511) — ``note_detour`` (§11.7): the hypothesis in the turn's payload (a ``note_detour`` entry, marked as the turn's effect) and one ``detour`` episode row, its own savepoint (a refused row rolls back alone, with a warning).
+- `_plan_episodes(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, outline: Sequence[Mapping[str, Any]], previous: Sequence[Mapping[str, Any]] | None, *, version: int, entry: Mapping[str, Any], model: str | None, turn_entry: Mapping[str, Any] | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1531) — A stored plan's TE2-log rows: a ``lesson_node_held`` forecast receipt per node with ``p_held`` (§11.3; each receipt its own savepoint, so a refused one leaves its siblings: Codex review F2), and an ``unlogged`` detour when it inserts a node before ones the previous plan had and…
+- `_visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, builder: V.Builder, outcome: _Outcome, clock: Clock | None, turn_entry: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1558) — Reader RW5d P4b: build the turn's visual and record it.
+- `_figure_entry(vault: Any, repository: Any, record: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1605) — A lesson figure as the feed shows it (Reader RW5d P4b): its view NOW, with no predictions.
+- `_pose_check(vault: Any, repository: Any, state: LessonState, check: CheckV1, *, outcome: _Outcome, clock: Clock | None, turn_entry: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1618)
+- `_read_action(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1638)
+- `_forecast(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *, model: str | None, clock: Clock | None, turn_entry: Mapping[str, Any] | None=None, effect: str='forecast') -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1648)
+- `_close(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None, clock: Clock | None, outcome: _Outcome, turn_entry: Mapping[str, Any] | None=None, effect: str='close') -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 1725) — Close the lesson: commit the delayed checks, write the receipt, close the row and append the close entry in one transaction (§7 step 7; review F9: never a closed row without its close entry).
+- `_lesson_shown(vault: Any, state: LessonState) -> list[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1781) — The lesson's own check items and the vault items its displayed text reproduced so far.
+- `_receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None, delayed_checks: Sequence[Mapping[str, Any]], warnings: Sequence[str], landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], usage: Mapping[str, int], shown_items: Sequence[str]=(), closed_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1805) — ``LessonReceiptV1`` (§8.3).
+- `_passage_readings(book: SourceBook) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1887) — ``exposure.readings``: ``{alias, extraction_id, span_id}`` per delivered passage, in alias order (no text).
+- `_receipt_identities(vault: Any, state: LessonState, item_ids: Sequence[Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1894) — ``{"identities": ...}`` for the receipt's exposure (landing ruling R1): the union of the identities frozen on each displayed record when it was shown (:data:`EXPOSURE_KEY`) and the close's own (the recap; every item the close counts as exposed, as the vault holds it now), dedupl…
+- `_exposed_identities(vault: Any, item_ids: Sequence[Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1918) — ``exposure.identities`` (Codex re-review F1): per exposed item still in the vault, in id order, its revision's protection identity, ``{practice_item_id, keys, whole}`` (the block keys and whole extractions its canonical exercise and provenance refs cite; ids, no text), the shape…
+- `_receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1938) — §8.3's ``episodes`` (the lesson's episode ids by kind) and ``minutes`` (active and elapsed, and their source; never blended), and the ``lesson_node_held`` receipt keys; ``{}`` while ``teacher.episode_log`` is off.
+- `_stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], state: LessonState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 1959) — Per landed node, the liquid-stability inputs ``u`` (§8.3; logged before the family activates).
 
 ## Who imports or calls it
 
@@ -272,6 +274,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_figure_never_reaches_the_grader_and_is_never_a_help_row`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_codex_f1_the_teachers_close_records_each_delivered_passages_reading`
+  - `test_landing_r1_an_item_replaced_before_the_close_is_judged_by_the_revision_the_lesson_revealed`
+  - `test_landing_r1_the_receipt_unions_frozen_identities_and_a_display_without_them_fails_closed`
 - [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
   - `test_a_note_never_reaches_the_grader`
   - `test_the_brief_reads_the_deliverable_its_path_and_the_learners_notes`

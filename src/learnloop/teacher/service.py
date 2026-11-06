@@ -1279,9 +1279,11 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
             payload["visuals"] = V.VISUALS_VERSION
         if episodes:
             payload["episodes"] = E.EPISODES_VERSION
+        # Landing ruling R1: what this turn exposes, frozen on the turn's own record as it is shown.
+        payload[EXPOSURE_KEY] = _record_reveals(vault, repository, state,
+                                                "\n".join(text for _name, text in displayed), clock=clock)
         entry = _append(repository, state, actor="teacher", action="teacher_turn", validation="ok",
                         payload=payload, clock=clock)
-        _record_reveals(vault, repository, state, "\n".join(text for _name, text in displayed), clock=clock)
     if deliver:
         delivered = set(deliver)
         state.pending_results = [r for r in state.pending_results if str(r.get("turn_id")) not in delivered]
@@ -1344,23 +1346,37 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
     return None
 
 
-def _record_reveals(vault: Any, repository: Any, state: LessonState, message: str, *, clock: Clock | None) -> None:
+#: Landing ruling R1: the payload key of a displayed record (an accepted ``teacher_turn``, a shown ``visual``) holding
+#: the frozen identities of the vault items it exposed (:func:`_record_reveals`).
+EXPOSURE_KEY = "exposure_identities"
+
+
+def _record_reveals(vault: Any, repository: Any, state: LessonState, message: str, *,
+                    clock: Clock | None) -> list[dict[str, Any]]:
     """Teaching text and cited passages (§12): ``tutor_answer`` for each item on the lesson's LOs whose key
     the text overlaps (amount = overlap, as the tutor), ``source_review`` for what a cited passage exposes;
     basis ``lesson:<id>``. The lesson's own check items are the attempts themselves, not reveals.
 
     The strict writer (re-review 2, F3; ruling R2): a failed write raises inside the accepted turn's
-    transaction, so the turn and its exposure accounting commit or roll back together."""
+    transaction, so the turn and its exposure accounting commit or roll back together.
+
+    Returns the frozen identities (:func:`_exposed_identities`) of what this display exposes, as the vault holds them
+    NOW (landing ruling R1): each item it reveals, and each vault item the lesson's displayed text shows with
+    ``message`` added (the close's rule, :func:`~learnloop.teacher.delayed.shown_vault_items`). The caller writes
+    them on the displayed record, which it appends after this call in the same transaction, so a revision replaced
+    before the close is still judged by the one the learner saw."""
 
     from learnloop.attempts.reveal_ledger import record_reveal_strict as record_reveal
+    from learnloop.teacher import delayed as D
     from learnloop.tutor.tutor_qa import answer_leak_overlap, span_answer_overlap
 
     if not message:
-        return
+        return []
     los = set(state.los)
     minted = set(state.minted.values())
     passages = [state.book.passages[alias]["text"] for alias in G.cited_aliases(message) if alias in state.book.passages]
     basis = f"lesson:{state.lesson_id}"
+    exposed_items: set[str] = set()
     with repository.atomic():
         for item in sorted(vault.practice_items.values(), key=lambda value: value.id):
             if item.learning_object_id not in los or item.id in minted or CK.lesson_item(item):
@@ -1368,10 +1384,14 @@ def _record_reveals(vault: Any, repository: Any, state: LessonState, message: st
             amount = answer_leak_overlap(message, item.expected_answer)
             record_reveal(repository, practice_item_id=item.id, source_kind="tutor_answer", amount=amount,
                           learning_object_id=item.learning_object_id, basis=basis, clock=clock)
+            exposed = max(span_answer_overlap(text, item.expected_answer) for text in passages) if passages else 0.0
             if passages:
-                exposed = max(span_answer_overlap(text, item.expected_answer) for text in passages)
                 record_reveal(repository, practice_item_id=item.id, source_kind="source_review", amount=exposed,
                               learning_object_id=item.learning_object_id, basis=basis, clock=clock)
+            if amount > 0 or exposed > 0:
+                exposed_items.add(item.id)
+    exposed_items.update(D.shown_vault_items(vault, displayed_texts(state, extra=[message])))
+    return _exposed_identities(vault, sorted(exposed_items))
 
 
 def _withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float, clock: Clock | None,
@@ -1573,11 +1593,12 @@ def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTu
             # checks never pick a vault item the lesson showed, nor the receipt's exposure miss one).
             record["shown_text"] = text
     with repository.atomic():
+        if text:
+            # Landing ruling R1: what the figure exposes, frozen on its own record as it is shown.
+            record[EXPOSURE_KEY] = _record_reveals(vault, repository, state, text, clock=clock)
         _append(repository, state, actor="code", action="visual",
                 refs=_effect_refs(turn_entry, "visual", {"figure": record.get("figure_id")}), payload=record,
                 clock=clock)
-        if text:
-            _record_reveals(vault, repository, state, text, clock=clock)
     outcome.shown.append(_figure_entry(vault, repository, record))
 
 
@@ -1839,9 +1860,10 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
                      # Teacher TE3a (Codex review F1): each delivered passage's reading, ids only, so AD's guard can
                      # judge the lesson against later protection (Option B, §14.3) without reading its payloads.
                      "readings": _passage_readings(state.book),
-                     # Codex re-review F1: each exposed item's revision as of the close, by its frozen identity, so
-                     # a revision protected after a public replacement still withholds the lesson in AD's guard.
-                     "identities": _exposed_identities(vault, [r[0] for r in reveal_rows] + list(shown_items))},
+                     # Codex re-review F1, landing ruling R1: every exposed revision's frozen identity (each display's,
+                     # and the close's), so a revision protected after a public replacement, made before the close or
+                     # after it, still withholds the lesson in AD's guard.
+                     **_receipt_identities(vault, state, [r[0] for r in reveal_rows] + list(shown_items))},
         "gaps": [],
         "created_los": [],
         "delayed_checks": list(delayed_checks),
@@ -1867,6 +1889,30 @@ def _passage_readings(book: SourceBook) -> list[dict[str, Any]]:
 
     return [{"alias": alias, "extraction_id": passage.get("extraction_id"), "span_id": passage.get("span_id")}
             for alias, passage in sorted(book.passages.items()) if isinstance(passage, Mapping)]
+
+
+def _receipt_identities(vault: Any, state: LessonState, item_ids: Sequence[Any]) -> dict[str, Any]:
+    """``{"identities": ...}`` for the receipt's exposure (landing ruling R1): the union of the identities frozen on
+    each displayed record when it was shown (:data:`EXPOSURE_KEY`) and the close's own (the recap; every item the
+    close counts as exposed, as the vault holds it now), deduplicated, in id order; never the close-time one alone.
+    ``{}`` when a displayed record carries no frozen identities (a turn shown before this rule): the exposure cannot
+    be told, so AD reads every exposed item as unidentified and withholds the receipt (fail closed)."""
+
+    frozen: list[Any] = []
+    for entry in state.turns:
+        payload = entry.get("payload") or {}
+        displayed = (entry["action"] == "teacher_turn" and entry["validation"] == "ok") or (
+            entry["action"] == "visual" and payload.get("shown_text"))
+        if not displayed:
+            continue
+        if not isinstance(payload.get(EXPOSURE_KEY), list):
+            return {}
+        frozen.extend(payload[EXPOSURE_KEY])
+    union: dict[str, dict[str, Any]] = {}
+    for identity in [*frozen, *_exposed_identities(vault, item_ids)]:
+        union.setdefault(json.dumps(identity, sort_keys=True), dict(identity))
+    return {"identities": [union[key] for key in sorted(union, key=lambda key: (
+        str(union[key].get("practice_item_id")), key))]}
 
 
 def _exposed_identities(vault: Any, item_ids: Sequence[Any]) -> list[dict[str, Any]]:

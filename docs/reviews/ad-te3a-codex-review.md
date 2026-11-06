@@ -194,3 +194,63 @@ needed.
 * References: `module_generate.py`, then `module_validate.py` (**PASS**) and `validate_vault.py` (**passed**).
   Stamp-only churn (the catalog and three package maps) was left out.
 * `git diff --check`: clean.
+
+## Final verify and landing ruling R1
+
+Codex final verify job `20261106-062519-P0bT6y` on `7ee764d334`: F2 and F3 CONFIRMED fixed; F1 (High) REOPENED: an
+item replaced before the lesson closes was judged by its revision at the close, not the one the learner saw. The
+orchestrator's landing ruling R1 fixes the class at the moment of exposure, with no further Codex round on it (the
+orchestrator reads the diff before landing). No model request, migration, schema, config key or decision constant is
+added; no reader or writer of the old item difficulty scalar.
+
+| Id | Severity | Title | Verdict | Test |
+|---|---|---|---|---|
+| F1 (final verify) | High | An item replaced before the close is judged by its close-time revision | Fixed (R1) | `test_te3a_lesson_opportunity.py::test_landing_r1_an_item_replaced_before_the_close_is_judged_by_the_revision_the_lesson_revealed` (fails on `7ee764d334`: the receipt holds only the public revision's identity), `::test_landing_r1_the_receipt_unions_frozen_identities_and_a_display_without_them_fails_closed` |
+
+### F1 (final verify): what was wrong, what changed
+
+Reproduced through the real teacher (`teacher_fakes`, fakes only), following Codex's sequence: an accepted teaching
+turn reveals `pi_eig_1` (a `tutor_answer` reveal row) while its revision cites `ext_old/b1`; the item is rewritten
+with a public revision before the close; the lesson closes; `ext_old/b1` becomes held out. On `7ee764d334` the
+receipt's `exposure.identities` held only `{pi_eig_1, keys: [], whole: []}` (the close-time revision), so AD's
+guarded reader admitted the receipt.
+
+* `teacher/service._record_reveals` (the reveal/show write) now returns the frozen identities
+  (`_exposed_identities`, AD's `outside.source_identity` shape, ids only) of what that display exposes, as the vault
+  holds it at that moment: every item it reveals (a positive `tutor_answer` or `source_review` amount) and every vault
+  item that the lesson's displayed text, this display included, shows (`delayed.shown_vault_items`, the close's
+  rule). The caller writes them on the displayed record itself, under `payload.exposure_identities`
+  (`EXPOSURE_KEY`): the accepted `teacher_turn`'s payload, or a shown `visual`'s. The reveal rows are written first
+  and the record is appended after, in the same transaction, so the turn and its exposure still commit or roll back
+  together. The transcript the teacher reads takes only named keys of those payloads, so the prompt is unchanged.
+* `teacher/service._receipt` (the exposure block): `identities` comes from `_receipt_identities`: the union of the
+  identities frozen on every displayed record and the close's own (the recap's display; each item the close counts
+  as exposed, as the vault holds it at the close), deduplicated, in id order; never the close-time one alone. A
+  displayed record with no frozen identities (a turn shown before this rule) leaves `identities` out, so AD reads
+  every exposed item as unidentified and withholds the receipt (fail closed).
+* `material_view` is unchanged in behaviour: every identity is still checked with `Protection.covers_identity`, and a
+  missing or malformed identity still withholds (docstring updated).
+* The change stays inside the reveal/show write and the receipt's exposure block, so TE2's edits to
+  `teacher/service.py` should merge beside it.
+* Docs: `teacher-te3a.md` (the residual note now records the fix) and spec_teacher_v1 §20 "As built" name the
+  frozen-at-exposure rule. Module references were regenerated for the two changed modules (stamp-only churn left
+  out).
+
+### Gate (R1 step)
+
+* `uv run lint-imports --no-cache`: **43 kept, 0 broken**.
+* Targeted run at `-n 6`, **9142 passed** (0 failed): `test_te3a_*.py`, every `test_teacher_*.py`, AD's guard and
+  material-view tests (`test_ad_guard*.py`, `test_ad1_send_guard.py`, `test_ad_protected_tables.py`,
+  `test_ad_protected_readings.py`, `test_ad_projection.py`, `test_ad_epoch.py`, `test_ad23_contract.py`,
+  `test_ad23_fix_r7.py`, `test_ad23_fix_r8.py`, `test_ad23_fix_r9.py`, `test_ad23_fix_review.py`,
+  `test_ad23_inversion.py`, `test_ad2_serving.py`, `test_ad3_subject_view.py`, `test_reader_source_identity_guard.py`,
+  `test_ro2_history_protection.py`), `test_salience_firewall.py`, `test_ro2_ad_raw_document_reads.py`.
+* The other lesson-receipt and figure readers plus `test_architecture.py`, **363 passed**:
+  `test_data_capture_a6_delayed_pick.py`, `test_followups_batch5_lesson.py`, `test_intervention_outcomes_replayer.py`,
+  `test_reader_rw5d_p4b_teacher_visuals.py`, `test_reader_rw6b_landing.py`, `test_reader_ca6_side_by_side.py`,
+  `test_goal_contracts.py`, `test_library_exercises.py`, `test_source_first_needs.py`, `test_substrate_cutover.py`,
+  `test_ux_phase4_feedback.py`.
+* One transient failure while iterating: `test_a_lesson_raises_the_prediction_and_never_evidence_or_mastery` failed
+  once in a whole-file run (the on and off vaults' recall states differed slightly). It then passed alone 3 times and
+  in 3 more whole-file runs. It builds its own `ad23_vault`s and never reaches the code changed here.
+* `module_validate.py`: **PASS**. `git diff --check`: clean.

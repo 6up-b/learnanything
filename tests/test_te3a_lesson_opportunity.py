@@ -324,6 +324,93 @@ def test_codex_rereview_f1_a_lesson_is_judged_by_the_revision_it_showed_not_the_
                   if e.kind == "lesson") == ["les_open/n1"]
 
 
+def test_landing_r1_an_item_replaced_before_the_close_is_judged_by_the_revision_the_lesson_revealed(tmp_path,
+                                                                                                   monkeypatch):
+    """Landing ruling R1 (Codex final verify, F1 reopened): the lesson reveals ``pi_eig_1`` while its revision cites
+    ``ext_old`` block b1; the item is replaced by a public revision BEFORE the lesson closes; the lesson closes; then
+    b1 becomes protected. The identity is frozen when the lesson reveals the item (on the turn's record), so the
+    receipt's ``exposure.identities`` holds the revealed revision's, and AD's guarded reader withholds the lesson
+    (its current id reads as visible). On the close-time identity alone the receipt would be admitted."""
+
+    from learnloop.adaptive_difficulty import material_view as MV
+    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.content.sources import exam_material
+    from learnloop.teacher import service as S
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+    from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, close_turn, plan_turn
+
+    # No exam reservation: b1 is then the only protected material, so the control below isolates the frozen identity.
+    paths, repository = build_teacher_vault(tmp_path / "vault", reserved=False)
+    item_path = paths.practice_item_path("linear-algebra", "pi_eig_1")
+    shown_revision = read_yaml(item_path)
+    shown_revision["provenance"] = {"origin": "human", "source_refs": [{
+        "ref_type": "canonical_source", "ref_id": "ext_old", "extraction_id": "ext_old", "span_ids": ["b1"]}]}
+    write_yaml(item_path, shown_revision)
+    # A teaching turn that partly reveals pi_eig_1's key (one word of five: below the key guard, above zero).
+    fake = TeacherFake([plan_turn, {"message": "Picture a quokka scaling its own shadow: that is an eigenvalue."}])
+    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                         clients=clients(fake))
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                payload={"text": "Go ahead."}, clients=clients(fake))
+    with repository.connection() as connection:
+        revealed = {row[0] for row in connection.execute(
+            "SELECT practice_item_id FROM reveal_events WHERE basis = ? AND amount > 0",
+            (f"lesson:{view['lesson_id']}",)).fetchall()}
+    assert "pi_eig_1" in revealed
+    # The public replacement, before the close.
+    write_yaml(item_path, {**shown_revision, "provenance": {"origin": "human", "source_refs": []}})
+    fake.turns = [close_turn()]
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                payload={"text": "Thanks."}, clients=clients(fake))
+    with repository.connection() as connection:
+        receipt_json = connection.execute("SELECT receipt_json FROM lesson_receipts").fetchone()[0]
+    identities = json.loads(receipt_json)["exposure"]["identities"]
+    frozen = {"practice_item_id": "pi_eig_1", "keys": [["ext_old", "b1"]], "whole": []}
+    assert frozen in identities, "the revealed revision's identity, frozen at the reveal"
+    # b1 becomes protected after the close.
+    monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: exam_material.Material(
+        spans=frozenset({("ext_old", "b1")})))
+    vault = load_vault(paths.root)
+    now = protection(vault, repository)
+    assert "pi_eig_1" not in now.ids  # the current revision is public: the id alone reads as visible
+    material = MV.MaterialView(vault, repository, now)
+    assert material._lesson_record_withheld({"receipt_json": receipt_json}, "receipt_json")
+    with repository.connection() as connection:
+        assert material.rows(connection, "lesson_receipts") == []
+    # Control: the close-time identity alone (the reopened defect) would have admitted it.
+    close_time = [entry for entry in identities if entry != frozen]
+    receipt = json.loads(receipt_json)
+    receipt["exposure"]["identities"] = close_time + [{"practice_item_id": "pi_eig_1", "keys": [], "whole": []}]
+    assert not material._lesson_record_withheld({"receipt_json": json.dumps(receipt)}, "receipt_json")
+
+
+def test_landing_r1_the_receipt_unions_frozen_identities_and_a_display_without_them_fails_closed():
+    """Landing ruling R1: the receipt's identities are the union of each displayed record's frozen ones and the
+    close's, deduplicated, in id order; a displayed record without frozen identities (shown before the rule) leaves
+    the receipt without ``identities``, so AD reads every exposed item as unidentified (withheld)."""
+
+    from types import SimpleNamespace
+
+    from learnloop.teacher import service as S
+
+    old = {"practice_item_id": "pi_a", "keys": [["ext_old", "b1"]], "whole": []}
+    new = {"practice_item_id": "pi_a", "keys": [], "whole": []}
+    other = {"practice_item_id": "pi_0", "keys": [], "whole": ["ext_w"]}
+    turns = [{"action": "teacher_turn", "validation": "ok", "payload": {S.EXPOSURE_KEY: [old]}},
+             {"action": "teacher_turn", "validation": "withheld", "payload": {}},  # never displayed
+             {"action": "visual", "validation": "ok", "payload": {"shown_text": "a figure", S.EXPOSURE_KEY: [other, old]}},
+             {"action": "visual", "validation": "ok", "payload": {"status": "failed"}},  # nothing shown
+             {"action": "teacher_turn", "validation": "ok", "payload": {S.EXPOSURE_KEY: [new]}}]
+    vault = SimpleNamespace(practice_items={})
+    assert S._receipt_identities(vault, SimpleNamespace(turns=turns), ["pi_a"]) == {"identities": [other, old, new]}
+    legacy = [*turns, {"action": "teacher_turn", "validation": "ok", "payload": {"turn": {}}}]
+    assert S._receipt_identities(vault, SimpleNamespace(turns=legacy), ["pi_a"]) == {}
+    from learnloop.adaptive_difficulty.material_view import _lesson_exposure
+
+    items, unresolved, identities = _lesson_exposure({"exposure": {"reveals": [{"item_id": "pi_a"}], "passages": []}})
+    assert items == {"pi_a"} and unresolved and identities == []
+
+
 def test_codex_f1_the_teachers_close_records_each_delivered_passages_reading(tmp_path):
     """Codex review F1: ``exposure.readings`` names each delivered passage's extraction and block (ids, no text), one
     per alias in ``exposure.passages``."""
