@@ -77,6 +77,18 @@ def offer_drawn(monkeypatch):
     monkeypatch.setattr(mix, "draw", draw)
 
 
+def _policy_arm_seed() -> Any:
+    """A decision seed whose RO5 stop coin lands on its ``policy`` arm (its uniform past ``offer_stop`` and
+    ``present_next``, 0.05 each), so a test that needs the drawn offer served is not stopped by the coin's 5%
+    ``offer_stop`` (TE3b landing: with the seed unpinned these tests failed about one run in twenty)."""
+
+    from learnloop.router.mixture import uniform
+
+    seed = next(f"te3b-policy-arm-{index}" for index in range(10_000)
+                if uniform(f"te3b-policy-arm-{index}", "stop_coin") >= 0.2)
+    return lambda _key, _decision_id: seed
+
+
 def _objective_rows(env) -> list[dict[str, Any]]:
     return [row for row in rows(env) if row["policy"] == mix.POLICY]
 
@@ -166,7 +178,7 @@ def test_the_llm_policy_sees_the_offer_in_its_existing_request(tmp_path, offerab
 
 
 def test_a_drawn_offer_is_a_block_answered_on_its_own_decision(tmp_path, offerable, offer_drawn):
-    env = mixture_env(tmp_path, fake_runtime(), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=TAG)
     record, step = _first_decision(env)
     assert step["kind"] == "lesson_offer" and step["offer"]["suggestion"]["ref"] == "lesson:lo_diag"
     block = record.current_block()
@@ -200,7 +212,7 @@ def test_a_drawn_offer_is_a_block_answered_on_its_own_decision(tmp_path, offerab
 
 
 def test_moving_on_without_an_answer_is_ignored_at_the_next_boundary(tmp_path, offerable, offer_drawn):
-    env = mixture_env(tmp_path, fake_runtime(), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=TAG)
     _record, step = _first_decision(env)
     assert step["kind"] == "lesson_offer"
     decision_id = step["offer"]["decision_id"]
