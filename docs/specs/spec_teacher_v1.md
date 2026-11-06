@@ -1542,16 +1542,21 @@ predecessor's exactly) on one lesson window per facet that a graded attempt clos
 spread 0.05 (sd), shaped between the two scales by AD's rule for a new kind; `taught` the same as `landed`.
 `lessons`, `lesson_plans` and `lesson_receipts` move from DENIED to READING (PROTECTED; `column_classes` unchanged,
 their records content): a lesson, its plan or its receipt naming a reading the withheld material touches is withheld
-(Option B), the learner's typed goal is never read. The objective's `LESSON` branch reads the `landed` curve's
-posterior moments and each LO's position through `readiness.decision_state_fields(learning_moments=True)`
-(`lesson_curve`, at the tag with the switch on and `fitted_models`): one dose from the position, the belief its mean,
-the true draw mean + sd·z on `γ`'s stream, so at the seeded prior every draw is the placeholder's (`Q̄` equal to
-1e-12). The report: an `ad_threshold@subject:nolesson` arm, the `lessons_worse_than_no_lessons` auto-flag
+(Option B), and so is a receipt whose shown or revealed item is withheld now; the teacher's close records each
+delivered passage's reading in the receipt (`exposure.readings`, ids only), so the lesson's book is judged too (a
+receipt with passages but no readings, closed before TE3a, is withheld); the learner's typed goal is never read. The
+objective's `LESSON` branch reads the `landed` curve's posterior and prior moments and each LO's position through
+`readiness.decision_state_fields(learning_moments=True)` (`lesson_curve`, at the tag with the switch on and
+`fitted_models`): RO4's placeholder (`γ` as the decision read it, times the lesson's learned mass) plus what lessons
+taught the curve beyond its prior at the topic's place on its lesson window (the dose's mean shift, and its variance
+change on the draw's spread along `γ`'s stream), the window carried through each rollout (a lesson advances it, a
+graded attempt resets it, as in AD). At the seeded prior the shift is exactly zero, so the lesson is the placeholder
+draw for draw at any fitted `γ`, mass or position: switching TE3a on moves no decision until lesson data arrive
+(Codex review F2, F3, `docs/reviews/ad-te3a-codex-review.md`). The report: an `ad_threshold@subject:nolesson` arm, the `lessons_worse_than_no_lessons` auto-flag
 (recommends `lesson_opportunities = false`) and the dose-and-burden `lesson` row (per subkind the first lesson's step
 in logits and points with a 90% interval, the curve, the lesson count, RO4's placeholder beside it), all only while
 lessons are live. A graded lesson check is never an AD attempt (§14.1), so no `γ` is applied to one and nothing is
-replaced (the in-passage hook stays unwired). Paid calls: none. Not built: the receipt naming the readings of the
-lesson's book (they live only in turn payloads AD never reads; the review file names the smallest addition).
+replaced (the in-passage hook stays unwired). Paid calls: none.
 
 ---
 

@@ -259,6 +259,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rollouts_read_ads_fitted_learning_posterior_at_the_tag_and_priors_otherwise`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder`
+  - `test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_moves_no_decision`
+  - `test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does`
   - `test_replay_equivalence_live_fresh_and_rebuilt`
   - `test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on`
   - `test_the_prior_is_centred_and_spread_on_ro4s_placeholder_with_ads_shape`

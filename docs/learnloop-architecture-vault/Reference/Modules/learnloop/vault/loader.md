@@ -3241,6 +3241,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_a_lesson_raises_the_prediction_and_never_evidence_or_mastery`
   - `test_after_a_lesson_the_curve_the_objective_reads_has_the_topics_position`
+  - `test_codex_f1_the_teachers_close_records_each_delivered_passages_reading`
   - `test_replay_equivalence_live_fresh_and_rebuilt`
   - `test_switch_off_is_the_predecessor_exactly`
   - `test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables`

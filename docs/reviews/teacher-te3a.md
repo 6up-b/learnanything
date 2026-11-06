@@ -28,9 +28,9 @@ reader or writer of the old item difficulty scalar is added.
 | Lazy coordinates | `model.Bank.ensure_lessons`: the four coefficients are created at the first lesson opportunity, so a bank no lesson reached has its predecessor's coordinates, hashes and rows exactly |
 | Replay | `replay.ReplaySettings.lessons` (from `successor.lesson_opportunities_on`); off, `load_events` reads no lesson row (no transition, no warmth, no fingerprint change); `run` routes a lesson to `View.reading` and keeps it out of the reading split (`after_lesson` is its own); `ad_state` rows name `lesson_priors` only with lessons on |
 | Guard tables | `protected_tables`: `lessons`, `lesson_plans`, `lesson_receipts` DENIED → PROTECTED and READING, with `COLUMNS` (a lesson by its own rule over `goal_json`; plan and receipt by their lesson and their own record; `lessons.goal_text` DERIVED, "unread"); the reference kind `lesson`; `column_classes` unchanged (records stay content, read by the rules only), comment updated; checks, turns, payloads and the weight tables stay DENIED |
-| Option B | `MaterialView._lesson_record_withheld`: a lesson record naming any reading the withheld material touches (via `exam_material.reference_keys`, so a Reader selection's goal above all) is withheld; an unreadable record is withheld; `_opportunity_withheld` resolves a lesson receipt by `lesson_id` |
+| Option B | `MaterialView._lesson_record_withheld`: a lesson record naming any reading the withheld material touches (via `exam_material.reference_keys`, so a Reader selection's goal above all, and the receipt's `exposure.readings`) is withheld; since Codex review F1 also a receipt whose shown or revealed item is withheld now, or that names passages without their readings; an unreadable record is withheld; `_opportunity_withheld` resolves a lesson receipt by `lesson_id` |
 | Switch off everywhere | `MaterialView.reading_opportunities` hands out no lesson row while the switch is off (the serve's warmth, the sweep's window, the history resolver), and the full-history card drops them too (`history_card.build_sections`) |
-| Objective | `readiness.decision_state_fields(learning_moments=True)` returns `lesson_curve` (the `landed` curve's mixture mean and 2x2 covariance; its seeded prior while no lesson reached the bank; each LO's lesson-window position) at the tag with the switch on; `daily_plan.objective_inputs._learning` turns it into `value.LessonCurve` (fitted models only; RO4's priors keep the placeholder); `value.py`'s `LESSON` branch: placeholder when `Learning.lesson is None`, else one dose from the topic's position, belief = the step's mean, true = mean + sd·z on `γ`'s stream; `sources["lesson_curve"]` in the trace's sources when present |
+| Objective | `readiness.decision_state_fields(learning_moments=True)` returns `lesson_curve` (the `landed` curve's mixture mean and 2x2 covariance; its seeded prior while no lesson reached the bank; each LO's lesson-window position) at the tag with the switch on; `daily_plan.objective_inputs._learning` turns it into `value.LessonCurve` (fitted models only; RO4's priors keep the placeholder); `value.py`'s `LESSON` branch (since Codex review F2, F3): the placeholder, plus, when the curve is present, its learned shift from the seeded prior (`LessonCurve.deviation`) at the topic's lesson-window position, the window carried in the rollout state; `sources["lesson_curve"]` in the trace's sources when present |
 | Report | `arms.NOLESSON` (`ad_threshold@subject:nolesson`, run only with lessons on), `Record.after_lesson`, the `lessons_worse_than_no_lessons` auto-flag (recommends `lesson_opportunities = false`; `monitoring.FLAG_SWITCHES`), the dose-and-burden `lesson` row (`dose_report.lesson_row`) and its lines; all absent with the switch off (the report is the predecessor's) |
 | Successor | `LESSON_OPPORTUNITY_ALGORITHM_VERSION`, `learnloop.lesson_opportunity_upgrade`, `[adaptive_difficulty] lesson_opportunities` (default true), every defaults snapshot recomputed |
 
@@ -49,10 +49,16 @@ and `DOSE_SCALES`; no new number). The resulting coefficient widths happen to be
 (0.07 and 0.10). The lesson-check mass prior 0.5 is the teacher's seeded mass (`σ(η₀)`, η₀'s prior mean 0, basis
 legacy); AD imports nothing of the evidence side, so a test pins `priors.LESSON_CHECK_MASS_PRIOR` to it.
 
-**The draw.** The `LESSON` branch draws the step as mean + sd·z with z on `γ`'s stream (`theta:gamma`), the stream the
-placeholder's `γ·mass` uses, so at the prior every draw equals the placeholder's to rounding. After data the lesson and
-practice effects share that common random number (perfectly correlated across draws), as the placeholder made them;
-a dedicated stream would cost the "equal at the prior" property for no decision gain while lessons sit at their prior.
+**The draw (revised at Codex review F2, F3; `docs/reviews/ad-te3a-codex-review.md`).** The first build drew the step
+as the curve's own mean + sd·z, which equals the placeholder only at `γ`'s *prior*, mass 0.5 and position 0. The
+`LESSON` branch is now RO4's placeholder (`θ_γ·mass` on the draw, `γ̄·mass` on the belief, at `γ` as the decision read
+it, fitted or not, and the lesson's learned mass) plus what lessons taught the curve beyond its seeded prior, one dose
+at the topic's place on its lesson window: the mean shift `Σ_m b_m'(n)(μ_m − μ⁰_m)` on both, and the step's variance
+change `s(n)ᵀ(Σ − Σ⁰)s(n)` on the draw's spread along `γ`'s stream. Both are exactly zero at the prior, so the lesson
+is the placeholder draw for draw at any `γ`, mass or position, and the window is carried through the rollout (a
+lesson advances it; practice, the tail's batch and a probe reset it). At the seeded prior two consecutive lessons on
+one topic therefore add the placeholder's 0.2, not AD's two-dose 0.154: the spec's "switching TE3a on moves no
+decision until data arrive" (§14.2, the owner's §23.1 item 4) rules there; the learned shift follows AD's window.
 
 **One dose per node, on every facet of the LO.** §5.11's reading rule spreads an LO-only opportunity's dose 1 over the
 LO's facets; a lesson names its LO's facets directly (dose 1 each), so one landed dose moves the LO's `η` by one curve
@@ -86,10 +92,13 @@ lesson coordinate; a vault that never had a lesson has the same subject bank has
 same coordinates as at `mvp-0.49` (`tests/test_te3a_lesson_opportunity.py`).
 
 **The objective's lesson Q̄ against RO4's placeholder** (two topics, an exam in 6 days, 64 draws, a lesson on both
-topics at mass 0.5): placeholder **0.23421279577**, curve at its seeded prior **0.23421279577**, difference **0.0**,
-largest per-draw difference **2.2e-16**. After the lesson above the curve the objective reads is the posterior
-(means 0.0936, 0.1865; position 0 after the answers closed the window): Q̄ 0.2341786 against the placeholder at the
-same fitted `γ` (0.19979) 0.2341378: the curve, not the placeholder, now decides, by 4e-5.
+topics at mass 0.5; recomputed after Codex review F2, F3 by `scratchpad/ad-te3a/fix/scripts/review_numbers.py`): at
+the seeded prior the curve's Q̄ equals the placeholder's exactly, at `γ`'s prior (**0.2342127957735361** both), at the
+vault's fitted `γ` (0.19979, 0.00996: **0.23413775813625765** both) and at F2's `γ` (0.05, 0.01: **0.07115061473999681**
+both), with positions 0 or (2, 1); largest per-draw difference **0.0**. After the lesson above the curve the objective
+reads is the posterior (means 0.09356, 0.18649 against the prior's 0.09306, 0.18613; position 0 after the answers
+closed the window): its learned first-dose shift is +0.00039 logit, and Q̄ is 0.23417199 against the placeholder's
+0.23413776 at the same fitted `γ`: the learned shift, not the prior, moves it, by 3.4e-5.
 
 ## AD's eta growth (the router follow-ups' finding), and the lesson curve
 
@@ -104,11 +113,11 @@ the lesson opportunity interacts with it:
   of practices; at one lesson a day it is about a tenth of a logit a day at the prior, small beside practice's
   `γ` per answer but of the same unbounded form. The curve's coefficients and the subject view's facet offsets carry
   no mean decay either.
-* **The centring ties the lesson's prior scale to `γ`'s prior, not to its posterior.** RO4's placeholder reads `γ`'s
-  posterior (fitted models) times the mass, so if the unbounded practice growth pushes `γ`'s posterior up, the
-  placeholder would follow while the lesson curve stays at its own prior until lessons and later cold answers
-  inform it: the switch-on objective values a lesson by the lesson curve (0.1 at the prior), not by an inflated `γ`.
-  At this vault's state the two differ by 4e-5 in Q̄ (above).
+* **The centring ties AD's lesson prior to `γ`'s prior; the objective follows `γ`'s posterior.** Since Codex review
+  F2 the objective values a lesson as RO4's placeholder (`γ`'s posterior times the mass) plus the curve's learned
+  shift, so if the unbounded practice growth pushes `γ`'s posterior up, the objective's lesson value follows it, as
+  RO4's did, until lessons and later cold answers move the curve off its prior. AD's own lesson prediction (the
+  curve in the subject view) stays at its prior scale.
 * **What the curve learns from is the same misspecified filter.** A post-lesson cold answer updates the lesson
   coefficients through the facet's covariance with them; any part of the answer the linear `γ` growth over- or
   under-predicts is shared between `γ`, the facet offset and the lesson coefficients in proportion to their
@@ -123,7 +132,7 @@ the lesson opportunity interacts with it:
 | The AD guard refuses unclassified reads and fails closed | `test_te3a_lesson_opportunity.py::test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables` (a raw read of `lesson_receipts` or `lesson_checks` inside an operation is refused and poisons it; the rules read it; an unclassified table is refused); `::test_a_lesson_naming_a_withheld_reading_is_absent_and_an_unavailable_predicate_reads_none`; `test_ad_protected_tables.py` (every column classified, every derived column treated, READING ⊆ COLUMNS); `test_ro2_ad_raw_document_reads.py`'s walk now roots at `lessons.py`, `value.py`, `dose_report.py` and the upgrade |
 | Replay equivalence | `::test_replay_equivalence_live_fresh_and_rebuilt` |
 | Switch off is AD's predecessor and RO4's placeholder exactly | `::test_switch_off_is_the_predecessor_exactly`, `::test_switch_off_or_below_the_tag_records_nothing`, `::test_the_view_gate_applies_each_subkinds_curve_and_off_is_the_predecessor_exactly`, `::test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on` (off / below the tag / fitted models off: `Learning.lesson is None`, the placeholder) |
-| At the seeded prior the lesson Q̄ equals the placeholder | `::test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder` (1e-12, and draw for draw) |
+| At the seeded prior the lesson Q̄ equals the placeholder | `::test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder` (1e-12, and draw for draw), `::test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_moves_no_decision` (fitted `γ`, two masses, two positions: equal draw for draw), `::test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does` (sequences against AD's transition) |
 | AD never writes evidence or mastery | `::test_the_import_linter_contract_keeps_ad_off_evidence_writers` (the `adaptive-difficulty-never-writes-evidence` contract, no TE3a exception) and `lint-imports` (43 kept); `::test_a_lesson_raises_the_prediction_and_never_evidence_or_mastery` (the evidence tables byte-identical on vs off) |
 | The report's lesson row | `::test_the_reports_lesson_row_at_the_prior_and_after_lessons` |
 | The firewall's allowlist | `test_salience_firewall.py` (the listed set gains the two lesson sources; every other table refused), `::test_the_firewall_admits_exactly_the_lesson_subkinds_and_they_stay_salience_only` |
@@ -132,16 +141,10 @@ the lesson opportunity interacts with it:
 
 ## Not built, or built differently (with the smallest way to finish)
 
-* **The readings a lesson's book used.** Option B asks that a lesson grounded in a reading with withheld blocks be
-  absent. AD's rule reads every reading the lesson's goal, outline and receipt *name* (a Reader selection's goal above
-  all), but a lesson's book (the sections and passages it read) is recorded only as aliases in the receipt and plan,
-  and by extraction only in `lesson_turn_payloads` (WORKFLOW, raw text, DENIED, never read by AD). The teacher's own
-  guard (`passage_teachable`, `teaching_scope` with `exam_withheld`) refuses withheld passages, and the opportunity
-  carries only an LO, a subkind and doses, so no withheld content can reach AD's state; but a lesson that taught from
-  the visible parts of a reading the withheld material touches is not withheld as the reading's own events are.
-  Smallest finish (proportionate, a TE2-era teacher change): the receipt gains `exposure.readings` (the extraction ids
-  of the book's sections and passages, ids only); AD's rule already reads any extraction named anywhere in the receipt
-  (`reference_keys`), so no AD change is needed. Not done here to keep TE3a off `teacher/service.py`, which TE2 edits.
+* **The readings a lesson's book used: built at Codex review F1.** The receipt gains `exposure.readings`
+  (`{alias, extraction_id, span_id}` per delivered passage, ids only; `teacher/service._receipt`, one key, which TE2's
+  landing may need to merge beside its own receipt edits); AD's rule reads it as any named reading. A receipt with
+  passages and no `readings` (closed before TE3a) cannot be judged and is withheld.
 * **"A graded lesson check takes the kind's increment in place of γ."** AD's eligibility admits no lesson check
   (§14.1: `reconstruction_after_walkthrough` is not an eligible type), so no `γ` is applied to one and there is
   nothing to replace; the in-passage hook (`in_passage_kind`) stays unwired, as it is for reading.
