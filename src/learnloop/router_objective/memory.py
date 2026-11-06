@@ -150,17 +150,21 @@ class Fsrs:
 
     weights: tuple[float, ...]
 
+    # ``np.minimum(np.maximum(x, lo), hi)`` is ``np.clip(x, lo, hi)`` exactly, without its per-call overhead (the
+    # follow-up batch, item 3: the tail calls these on small arrays hundreds of thousands of times a decision).
+
     def retrievability(self, stability: np.ndarray, elapsed: np.ndarray) -> np.ndarray:
         w = self.weights
         decay = w[20]
         factor = 0.9 ** (1 / -decay) - 1
-        s = np.maximum(np.asarray(stability, dtype=np.float64), 1e-12)
+        raw = np.asarray(stability, dtype=np.float64)
+        s = np.maximum(raw, 1e-12)
         value = (1 + factor * np.maximum(np.asarray(elapsed, dtype=np.float64), 0.0) / s) ** (-decay)
-        return np.clip(np.where(np.asarray(stability) > 0, value, 0.0), 0.0, 1.0)
+        return np.minimum(np.maximum(np.where(raw > 0, value, 0.0), 0.0), 1.0)
 
     def _initial_difficulty(self, rating: np.ndarray) -> np.ndarray:
         w = self.weights
-        return np.clip(w[4] - np.exp(w[5] * (rating - 1)) + 1, D_MIN, D_MAX)
+        return np.minimum(np.maximum(w[4] - np.exp(w[5] * (rating - 1)) + 1, D_MIN), D_MAX)
 
     def review(self, difficulty: np.ndarray, stability: np.ndarray, practiced: np.ndarray, elapsed: np.ndarray,
                good: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -174,7 +178,7 @@ class Fsrs:
         delta = w[6] * (rating - 3)
         next_d = difficulty - delta
         easy = float(np.clip(w[4] - math.exp(w[5] * 3) + 1, D_MIN, D_MAX))
-        d = np.clip(w[7] * easy + (1 - w[7]) * next_d, D_MIN, D_MAX)
+        d = np.minimum(np.maximum(w[7] * easy + (1 - w[7]) * next_d, D_MIN), D_MAX)
         s_safe = np.maximum(stability, S_MIN)
         forget = w[11] * d ** (-w[12]) * ((s_safe + 1) ** w[13] - 1) * np.exp((1 - r) * w[14])
         recall = s_safe * (1 + math.exp(w[8]) * (11 - d) * s_safe ** (-w[9]) * (np.exp((1 - r) * w[10]) - 1))

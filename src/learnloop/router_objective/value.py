@@ -93,6 +93,10 @@ KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LES
 #: The reference row's ref: the tail's next action, sent to the LLM policy as a non-choosable row.
 REFERENCE_REF = "tail_next"
 MINUTES_PER_DAY = 1440.0
+#: The follow-up batch (item 3): a tail session with no repeated topic and no crossable dated use is one vectorized
+#: step over its blocks' cells (:meth:`_Model._session`); False keeps the per-block loop, the reference path the
+#: tests compare it with. Numerical only: the same cells, in the same order, each at its own block's end.
+MERGED_SESSIONS = True
 
 
 @dataclass(frozen=True)
@@ -584,14 +588,16 @@ class _Model:
 
     def _practice_batch(self, state: _State, cols: np.ndarray, at: np.ndarray, u: np.ndarray,
                         active: np.ndarray) -> None:
-        """Practice opportunities at ``(draw, cols[draw, j])`` where ``active``, at each draw's own time ``at``:
-        each row's topics are distinct, so the updates are one vectorized step (:meth:`_practice`'s, elementwise)."""
+        """Practice opportunities at ``(draw, cols[draw, j])`` where ``active``, at each draw's own time ``at`` (one
+        per draw, or one per cell, shaped as ``cols``): each row's topics are distinct, so the updates are one
+        vectorized step (:meth:`_practice`'s, elementwise)."""
 
         rows = np.broadcast_to(np.arange(self.k)[:, None], cols.shape)
         r, c = rows[active], cols[active]
         if r.size == 0:
             return
-        when = np.broadcast_to(np.asarray(at, dtype=np.float64), (self.k,))[r]
+        times = np.asarray(at, dtype=np.float64)
+        when = times[active] if times.ndim == 2 else np.broadcast_to(times, (self.k,))[r]
         eta = state.eta[r, c]
         good = u[active] < sigmoid(eta)
         d, s = self.fsrs.review(state.d[r, c], state.s[r, c], state.practiced[r, c], when - state.last[r, c], good)
@@ -609,14 +615,16 @@ class _Model:
 
     def _session(self, state: _State, ledger: _Ledger, at: np.ndarray, mask: np.ndarray, start: np.ndarray, day: int,
                  *, past_cutoff: bool, target: float | None = None,
-                 before_block: Callable[[np.ndarray, np.ndarray], None] | None = None) -> None:
+                 before_block: Callable[[np.ndarray, np.ndarray], None] | None = None,
+                 crosses: Callable[[np.ndarray, np.ndarray], bool] | None = None) -> None:
         """A tail session from ``start`` session minutes to ``m̄`` (or ``target``: today's, for ``G``), in blocks
         of ``d̄`` with ``ī`` practice opportunities each, for the draws in ``mask``, each draw on its own clock from
         ``at`` (days, per draw; never a batch's maximum, Codex re-review F12). The session's topics are ranked once
         on the belief at its start (adaptive to the belief), the top ones practised in turn; its cost is the κ
         integral from ``start`` over its blocks' minutes. Each block's effect lands at its end, as a segment's
         does, and ``before_block(end, active)`` runs first, so a dated use the block's end crosses is scored on
-        the state before it."""
+        the state before it. ``crosses(last_end, active)``: whether a dated use ``before_block`` scores could be
+        crossed by any block's end up to ``last_end`` (None: ``before_block`` scores nothing)."""
 
         d = float(self.inputs.tail_block_minutes)
         if d <= 0 or self.n == 0:
@@ -636,7 +644,20 @@ class _Model:
         priority = self._priority(state, when)
         order = np.argsort(-priority, axis=1, kind="stable")
         u = self.streams.outcome_u[:, min(day, self.days), :]
-        for block in range(int(blocks.max())):
+        total = int(blocks.max())
+        if (MERGED_SESSIONS and total * items <= self.n
+                and (crosses is None or not crosses(when + blocks * d / MINUTES_PER_DAY, blocks > 0))):
+            # The follow-up batch (item 3): with no topic repeated in the session (the ranking taken once, its
+            # slots fewer than the topics) and no dated use any block's end could cross, the blocks touch distinct
+            # cells and ``before_block`` scores nothing, so the session is one vectorized step over every block's
+            # cells, each at its own block's end: the per-block loop below, cell for cell.
+            slots = np.arange(total * items)
+            block_of = slots // items
+            cols = order[:, :total * items]
+            ends = when[:, None] + (block_of[None, :] + 1) * d / MINUTES_PER_DAY
+            self._practice_batch(state, cols, ends, u[:, slots % u.shape[1]], blocks[:, None] > block_of[None, :])
+            return
+        for block in range(total):
             active = blocks > block
             end = when + (block + 1) * d / MINUTES_PER_DAY
             if before_block is not None:
@@ -690,11 +711,16 @@ class _Model:
                 if crossed.any():
                     score(index, use, crossed)
 
+        def crosses(last_end: np.ndarray, active: np.ndarray) -> bool:
+            # Whether before_block could score anything in a session whose blocks end by last_end (per draw).
+            return any(bool((active & ~done[:, index] & (use.at_days <= last_end + 1e-12)).any())
+                       for index, use in enumerate(self.dated))
+
         if today_minutes is not None:
             today = after < 1.0
             if today.any():
                 self._session(state, ledger, after, today, today_minutes, 0, past_cutoff=False, target=today_target,
-                              before_block=before_block)
+                              before_block=before_block, crosses=crosses)
         rows = np.arange(k)
         gaps = self.theta.return_days
         # The session that ended at the action's end (today's) is the 0th; its gap is column 0.
@@ -723,7 +749,8 @@ class _Model:
                 mask = (next_session <= day_start + 1e-9) & (after <= day_start + 1e-9)
                 if mask.any():
                     self._session(state, ledger, np.full(k, day_start), mask, np.zeros(k), day,
-                                  past_cutoff=day_start >= self.cutoff - 1e-12, before_block=before_block)
+                                  past_cutoff=day_start >= self.cutoff - 1e-12, before_block=before_block,
+                                  crosses=crosses)
                     ended = np.where(mask, np.minimum(ended + 1, gaps.shape[1] - 1), ended)
                     next_session = np.where(mask, day_start + gaps[rows, ended], next_session)
             day_end = min(day_start + 1.0, self.end)
