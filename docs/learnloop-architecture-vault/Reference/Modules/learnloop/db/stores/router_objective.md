@@ -206,9 +206,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro6_tail_data.py](../../../../../../../tests/test_ro6_tail_data.py) — direct import
   - `test_a_few_weeks_on_a_copy_shaped_synthetic_vault`
   - `test_a_row_received_after_the_moment_never_enters_a_feature`
+- [tests/test_rofu_ad_link.py](../../../../../../../tests/test_rofu_ad_link.py) — direct import
+  - `test_the_numeric_policy_reads_ads_own_predictive_only_at_the_tag_with_its_switch`
 - [tests/test_rofu_carried.py](../../../../../../../tests/test_rofu_carried.py) — direct import
   - `test_an_early_publication_served_keeps_its_carried_valuation`
+- [tests/test_rofu_generator_switches.py](../../../../../../../tests/test_rofu_generator_switches.py) — direct import
 - [tests/test_rofu_learning.py](../../../../../../../tests/test_rofu_learning.py) — direct import
+- [tests/test_rofu_monotone.py](../../../../../../../tests/test_rofu_monotone.py) — direct import
+  - `test_the_numeric_policy_reads_the_monotone_combiner_only_at_the_tag_with_its_switch`
+- [tests/test_rofu_review_draw.py](../../../../../../../tests/test_rofu_review_draw.py) — direct import
+  - `test_the_numeric_policy_draws_consistently_only_at_the_tag_with_its_switch`
 - [tests/test_rofu_weeks.py](../../../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
 

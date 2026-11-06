@@ -537,15 +537,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro6_successor.py](../../../../../tests/test_ro6_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro5_and_the_latest`
 - [tests/test_ro6_tail_data.py](../../../../../tests/test_ro6_tail_data.py) — direct import
+- [tests/test_rofu_ad_latent.py](../../../../../tests/test_rofu_ad_latent.py) — direct import
+  - `test_ads_entry_point_hands_the_latent_moments_only_when_asked`
+- [tests/test_rofu_ad_link.py](../../../../../tests/test_rofu_ad_link.py) — direct import
+  - `test_the_numeric_policy_reads_ads_own_predictive_only_at_the_tag_with_its_switch`
 - [tests/test_rofu_carried.py](../../../../../tests/test_rofu_carried.py) — direct import
   - `test_below_the_tag_the_no_model_branch_is_r3s`
+- [tests/test_rofu_generator_switches.py](../../../../../tests/test_rofu_generator_switches.py) — direct import
 - [tests/test_rofu_learning.py](../../../../../tests/test_rofu_learning.py) — direct import
+- [tests/test_rofu_monotone.py](../../../../../tests/test_rofu_monotone.py) — direct import
+  - `test_the_numeric_policy_reads_the_monotone_combiner_only_at_the_tag_with_its_switch`
+- [tests/test_rofu_review_draw.py](../../../../../tests/test_rofu_review_draw.py) — direct import
+  - `test_the_numeric_policy_draws_consistently_only_at_the_tag_with_its_switch`
 - [tests/test_rofu_scope.py](../../../../../tests/test_rofu_scope.py) — direct import
   - `test_switched_off_or_below_the_tag_the_growth_is_a_change_point`
 - [tests/test_rofu_speed.py](../../../../../tests/test_rofu_speed.py) — direct import
   - `test_the_numeric_policy_merges_only_at_the_tag_with_its_switch`
 - [tests/test_rofu_successor.py](../../../../../tests/test_rofu_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro6_and_the_latest`
+- [tests/test_rofu_switch_key.py](../../../../../tests/test_rofu_switch_key.py) — direct import
+  - `test_below_the_tag_the_key_names_no_switch`
 - [tests/test_rofu_weeks.py](../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
