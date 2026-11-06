@@ -153,7 +153,8 @@ under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No mo
 | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
 | `uv run lint-imports --no-cache` | 43 kept, 0 broken |
 | pytest, part 1: the 64 test files the head rename touched, `test_teacher_te2log_migration`, `test_table_roles`, `test_ad_protected_tables`, `test_tracked_fixture_databases` | 843 passed, 3 skipped |
-| pytest, the gate: 173 files (every test file added or changed on the branch; every test file naming `teacher`, `lesson_weight`, `forecast_receipts` or `forecast_report`; every defaults-fingerprint parity test; the contract set below) | 3301 passed, 26 skipped, 3 xfailed, 1 failed: `test_module_catalog_inventory` (the new `teacher/episodes.md` note was untracked until this commit); rerun after the commit below |
+| pytest, the gate: 173 files (every test file added or changed on the branch; every test file naming `teacher`, `lesson_weight`, `forecast_receipts` or `forecast_report`; every defaults-fingerprint parity test; the contract set below) | 3301 passed, 26 skipped, 3 xfailed, 1 failed: `test_module_catalog_inventory` (the new `teacher/episodes.md` note was untracked until part 7's commit) |
+| pytest after part 7's commit: `test_module_catalog_inventory`, `test_public_tip_guards`, `test_tracked_fixture_databases`; `lint-imports` again | 26 passed; 43 kept, 0 broken |
 | pytest `-m durability` on the 32 touched migration test files that carry durability tests | 35 passed |
 | `npm install`; `npm run typecheck` | ok |
 | `npx vitest run --maxWorkers=4 src/screens/lessonActivity.test.ts src/screens/LessonScreen.test.tsx` | 21 passed (2 files) |
