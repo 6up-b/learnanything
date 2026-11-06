@@ -14,6 +14,10 @@ AD's predictive as the baseline (``aA = 1``), FSRS's item memory moving it half 
 offset; each coefficient's prior variance 0.25. :func:`fit_combiner` is the posterior (a Laplace fit, damped
 Newton) on whatever (sensor, outcome) pairs exist; with none it is the prior, and the trace says so.
 
+At the follow-up batch's tag (landing ruling R6) the combiner is **monotone in ability by construction**
+(:data:`FORM_MONOTONE`): ``η``'s two slopes (``aA`` unpractised, ``aA − aR`` practised) are log-normal, in the prior
+(moment-matched to the linear one) and in the fit, so no draw predicts lower performance for higher ability.
+
 Only parameter uncertainty is drawn (θ): a known success probability of .7 still has noisy outcomes, and that
 noise is the rollouts' common random numbers, not uncertainty about the value.
 
@@ -24,7 +28,7 @@ checks it against the scalar one). A leaf: numpy and the standard library; the F
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Any
 
@@ -37,6 +41,30 @@ COMBINER_FIT_VERSION = "combiner_fit_v2:checks+trace_outcomes"
 #: The combiner's prior: (a0, aA, aR) means and variances (module docstring). A labelled seed.
 COMBINER_PRIOR_MEAN: tuple[float, float, float] = (0.0, 1.0, 0.5)
 COMBINER_PRIOR_VARIANCE: tuple[float, float, float] = (0.25, 0.25, 0.25)
+
+#: The combiner's parametrizations. ``linear_v1`` (RO4 to mvp-0.49): the Gaussian above on ``(a0, aA, aR)``.
+#: ``monotone_v1`` (the follow-up batch's landing ruling R6, at mvp-0.50): ``P(perform)`` cannot fall as ``η`` rises.
+#: ``η``'s slope is ``aA`` for an unpractised topic and ``aA − aR`` for a practised one, so both are kept positive:
+#: the parameters are ``(a0, log aA, log b)`` with ``b = aA − aR``, a diagonal Gaussian there (so each slope is
+#: log-normal), and ``aR = aA − b`` is derived (either sign: FSRS may move the forecast either way of AD's).
+FORM_LINEAR = "linear_v1"
+FORM_MONOTONE = "monotone_v1"
+
+
+def _log_normal(mean: float, variance: float) -> tuple[float, float]:
+    """The ``(μ, σ²)`` of the log-normal with this mean and variance (moment matching)."""
+
+    s2 = math.log1p(variance / mean ** 2)
+    return math.log(mean) - s2 / 2.0, s2
+
+
+#: ``monotone_v1``'s labelled prior, moment-matched to ``linear_v1``'s: ``a0`` as before; ``aA`` log-normal with
+#: ``linear_v1``'s mean 1 and variance 0.25; ``b = aA − aR`` log-normal with ``linear_v1``'s mean 0.5 and variance
+#: 0.5 (the two independent variances of 0.25 add; sd 0.71). A seed by judgment, labelled, as the linear one.
+_AA = _log_normal(COMBINER_PRIOR_MEAN[1], COMBINER_PRIOR_VARIANCE[1])
+_B = _log_normal(COMBINER_PRIOR_MEAN[1] - COMBINER_PRIOR_MEAN[2], COMBINER_PRIOR_VARIANCE[1] + COMBINER_PRIOR_VARIANCE[2])
+MONOTONE_PRIOR_MEAN: tuple[float, float, float] = (COMBINER_PRIOR_MEAN[0], _AA[0], _B[0])
+MONOTONE_PRIOR_VARIANCE: tuple[float, float, float] = (COMBINER_PRIOR_VARIANCE[0], _AA[1], _B[1])
 #: Retrievability is kept inside (0, 1) before its logit: numerical only (an exact 1 right after a review).
 _R_CLIP = 1e-4
 #: Newton's iterations and tolerance for the combiner's Laplace fit (numerical resolution, not a judgement).
@@ -55,7 +83,8 @@ def logit(p: np.ndarray | float) -> np.ndarray:
 
 @dataclass(frozen=True)
 class Combiner:
-    """The combination's coefficients (a0, aA, aR): a posterior mean and variance each (diagonal)."""
+    """The combination's coefficients: a posterior mean and variance each (diagonal), on ``form``'s parameters:
+    ``(a0, aA, aR)`` for :data:`FORM_LINEAR`, ``(a0, log aA, log(aA − aR))`` for :data:`FORM_MONOTONE`."""
 
     mean: tuple[float, float, float] = COMBINER_PRIOR_MEAN
     variance: tuple[float, float, float] = COMBINER_PRIOR_VARIANCE
@@ -64,6 +93,7 @@ class Combiner:
     #: The follow-up batch (item 2): how many rows each source gave the fit (the randomized checks, the traces'
     #: joined outcomes) and the join's counts; None before it, so the trace keeps its predecessor's bytes.
     sources: Mapping[str, Any] | None = None
+    form: str = FORM_LINEAR
 
     def as_dict(self) -> dict[str, object]:
         out: dict[str, object] = {"mean": [round(v, 6) for v in self.mean],
@@ -72,7 +102,40 @@ class Combiner:
         if self.sources is not None:
             out["sources"] = dict(self.sources)
             out["fit_version"] = COMBINER_FIT_VERSION
+        if self.form != FORM_LINEAR:
+            # Landing ruling R6: the parameters' meaning, and the slopes' posterior means on their own scale.
+            point = self.at_mean().coefficients(np.zeros((1, 3)))[0]
+            out["form"] = self.form
+            out["coefficients_at_mean"] = {"a0": round(float(point[0]), 6), "aA": round(float(point[1]), 6),
+                                           "aR": round(float(point[2]), 6)}
         return out
+
+    def coefficients(self, z: np.ndarray) -> np.ndarray:
+        """``(a0, aA, aR)`` per row of standard normal draws ``z`` shaped ``(K, 3)``: the posterior's draws."""
+
+        m = np.array(self.mean, dtype=np.float64)
+        sd = np.sqrt(np.maximum(np.array(self.variance, dtype=np.float64), 0.0))
+        theta = m[None, :] + sd[None, :] * z
+        if self.form == FORM_LINEAR:
+            return theta
+        a_eta = np.exp(theta[:, 1])
+        b = np.exp(theta[:, 2])
+        return np.stack([theta[:, 0], a_eta, a_eta - b], axis=1)
+
+    def at_mean(self) -> "Combiner":
+        """No parameter uncertainty, each coefficient at its posterior mean (the belief's own world): a log-normal
+        slope's mean is ``exp(μ + σ²/2)``, not its median."""
+
+        if self.form == FORM_LINEAR:
+            return replace(self, variance=(0.0, 0.0, 0.0))
+        m, v = self.mean, self.variance
+        return replace(self, mean=(m[0], m[1] + v[1] / 2.0, m[2] + v[2] / 2.0), variance=(0.0, 0.0, 0.0))
+
+
+def monotone_prior(**fields: Any) -> Combiner:
+    """Landing ruling R6's labelled prior (:data:`FORM_MONOTONE`)."""
+
+    return Combiner(mean=MONOTONE_PRIOR_MEAN, variance=MONOTONE_PRIOR_VARIANCE, form=FORM_MONOTONE, **fields)
 
 
 def features(eta: np.ndarray, retrievability: np.ndarray | None, practiced: np.ndarray) -> np.ndarray:
@@ -106,6 +169,8 @@ def fit_combiner(rows: Sequence[tuple[float, float | None, int]], prior: Combine
     practiced = np.array([row[1] is not None for row in rows])
     r = np.array([row[1] if row[1] is not None else 0.5 for row in rows], dtype=np.float64)
     y = np.array([float(row[2]) for row in rows], dtype=np.float64)
+    if prior.form == FORM_MONOTONE:
+        return _fit_monotone(eta, r, practiced, y, prior)
     x = features(eta, r, practiced)
     m0 = np.array(prior.mean, dtype=np.float64)
     p0 = 1.0 / np.array(prior.variance, dtype=np.float64)
@@ -137,6 +202,59 @@ def fit_combiner(rows: Sequence[tuple[float, float | None, int]], prior: Combine
     covariance = np.linalg.inv(precision)
     return Combiner(mean=tuple(float(v) for v in beta), variance=tuple(float(max(v, 1e-12)) for v in np.diag(covariance)),
                     n=len(rows), source="laplace_fit")
+
+
+def _fit_monotone(eta: np.ndarray, r: np.ndarray, practiced: np.ndarray, y: np.ndarray, prior: Combiner) -> Combiner:
+    """Landing ruling R6: the Laplace fit on :data:`FORM_MONOTONE`'s parameters ``θ = (a0, log aA, log b)``.
+
+    ``logit P = a0 + aA·u + b·v`` with ``(u, v) = (logit R, η − logit R)`` for a practised row and ``(η, 0)`` for an
+    unpractised one: :func:`perform`'s form with ``aR = aA − b``. Damped Newton on the log posterior (Fisher scoring
+    where the observed Hessian is not negative definite); the posterior's variance from the observed Hessian at the
+    mode (Fisher's if that one is not), so the fitted slopes are log-normal and positive in every draw."""
+
+    lr = logit(r)
+    u = np.where(practiced, lr, eta)
+    v = np.where(practiced, eta - lr, 0.0)
+    m0 = np.array(prior.mean, dtype=np.float64)
+    p0 = 1.0 / np.array(prior.variance, dtype=np.float64)
+
+    def z_of(t: np.ndarray) -> np.ndarray:
+        return t[0] + math.exp(t[1]) * u + math.exp(t[2]) * v
+
+    def objective(t: np.ndarray) -> float:
+        z = z_of(t)
+        return float(np.sum(y * z - np.logaddexp(0.0, z)) - 0.5 * np.sum(p0 * (t - m0) ** 2))
+
+    def derivatives(t: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        p = sigmoid(z_of(t))
+        jac = np.stack([np.ones_like(u), math.exp(t[1]) * u, math.exp(t[2]) * v], axis=1)
+        gradient = jac.T @ (y - p) - p0 * (t - m0)
+        fisher = -(jac.T * (p * (1 - p))) @ jac - np.diag(p0)
+        curvature = np.diag([0.0, float(np.sum((y - p) * jac[:, 1])), float(np.sum((y - p) * jac[:, 2]))])
+        return gradient, fisher, fisher + curvature
+
+    def negative_definite(h: np.ndarray) -> bool:
+        return bool(np.all(np.linalg.eigvalsh((h + h.T) / 2.0) < 0))
+
+    theta = m0.copy()
+    current = objective(theta)
+    for _ in range(_FIT_ITERATIONS):
+        gradient, fisher, hessian = derivatives(theta)
+        step = np.linalg.solve(hessian if negative_definite(hessian) else fisher, -gradient)
+        scale = 1.0
+        while scale > 1e-6:
+            if objective(theta + scale * step) >= current:
+                break
+            scale /= 2.0
+        theta, previous = theta + scale * step, current
+        current = objective(theta)
+        if abs(current - previous) < _FIT_TOLERANCE:
+            break
+    _gradient, fisher, hessian = derivatives(theta)
+    covariance = np.linalg.inv(-(hessian if negative_definite(hessian) else fisher))
+    return Combiner(mean=tuple(float(v) for v in theta),
+                    variance=tuple(float(max(v, 1e-12)) for v in np.diag(covariance)), n=len(y),
+                    source="laplace_fit", form=FORM_MONOTONE)
 
 
 # -- FSRS, vectorized ---------------------------------------------------------------------------------
@@ -190,11 +308,16 @@ __all__ = [
     "COMBINER_PRIOR_MEAN",
     "COMBINER_PRIOR_VARIANCE",
     "Combiner",
+    "FORM_LINEAR",
+    "FORM_MONOTONE",
     "Fsrs",
     "MEMORY_MODEL_VERSION",
+    "MONOTONE_PRIOR_MEAN",
+    "MONOTONE_PRIOR_VARIANCE",
     "features",
     "fit_combiner",
     "logit",
+    "monotone_prior",
     "perform",
     "sigmoid",
 ]

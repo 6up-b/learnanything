@@ -267,6 +267,14 @@ def followup_on(config: Any, key: str) -> bool:
     return followups_tag(config) and objective_on(config) and bool(getattr(section, key, False))
 
 
+def monotone_combiner_on(config: Any) -> bool:
+    """The follow-up batch's landing ruling R6: the memory model's combiner is monotone in ability by construction
+    (``memory.FORM_MONOTONE``), in its prior and its fit. Structural, so the tag alone (with the objective serving),
+    no switch; below the tag, mvp-0.49's linear combiner."""
+
+    return followups_tag(config) and objective_on(config)
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -290,6 +298,7 @@ __all__ = [
     "check_mode",
     "fitted_models_on",
     "followup_on",
+    "monotone_combiner_on",
     "followups_tag",
     "interval_factor_removed",
     "learned_tail_on",

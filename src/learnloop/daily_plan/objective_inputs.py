@@ -182,6 +182,17 @@ def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_pri
                       source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)")
 
 
+def _combiner_prior(vault: Any, **fields: Any) -> M.Combiner:
+    """The combiner's labelled prior: the follow-up batch's landing ruling R6 makes it monotone in ability at its tag
+    (``memory.FORM_MONOTONE``, the fit in the same form); below it, RO4's linear one."""
+
+    from learnloop.router_objective_switches import monotone_combiner_on
+
+    if vault is not None and monotone_combiner_on(vault.config):
+        return M.monotone_prior(**fields)
+    return M.Combiner(**fields)
+
+
 def _combiner(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
     """RO5 §9 item 7: the memory model's Bayesian logistic combination fitted on resolved randomized checks (each
     check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior. The
@@ -195,7 +206,7 @@ def _combiner(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
             resolved = C.resolve(connection, closure=C.Closure.at(now_iso))
     except Exception:  # noqa: BLE001 - the prior stands in, and the trace says so
         LOG.warning("router objective RO5: the combiner's checks were not read", exc_info=True)
-        return M.Combiner()
+        return _combiner_prior(vault)
     rows = []
     for entry in resolved:
         sensors = entry.sensors or {}
@@ -209,9 +220,9 @@ def _combiner(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
             return _combiner_with_traces(vault, repository, now_iso, rows,
                                          {str(entry.attempt_id) for entry in resolved if entry.attempt_id})
     if not rows:
-        return M.Combiner(source="prior (no resolved randomized check yet)")
-    fitted = M.fit_combiner(rows)
-    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n,
+        return _combiner_prior(vault, source="prior (no resolved randomized check yet)")
+    fitted = M.fit_combiner(rows, prior=_combiner_prior(vault))
+    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n, form=fitted.form,
                       source="laplace_fit on resolved randomized checks")
 
 
@@ -249,9 +260,9 @@ def _combiner_with_traces(vault: Any, repository: Any, now_iso: str, check_rows:
     sources = {"randomized_checks": len(check_rows), "trace_outcomes": len(joined), "join": counts}
     rows = [*check_rows, *joined]
     if not rows:
-        return M.Combiner(source="prior (no resolved outcome yet)", sources=sources)
-    fitted = M.fit_combiner(rows)
-    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n, sources=sources,
+        return _combiner_prior(vault, source="prior (no resolved outcome yet)", sources=sources)
+    fitted = M.fit_combiner(rows, prior=_combiner_prior(vault))
+    return M.Combiner(mean=fitted.mean, variance=fitted.variance, n=fitted.n, sources=sources, form=fitted.form,
                       source="laplace_fit on resolved randomized checks and the traces' sensors joined to resolved "
                              "cold outcomes")
 
@@ -538,7 +549,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         tail_block_minutes=float(block_minutes), tail_block_items=int(block_items),
         horizon_days=float(section.horizon_days), fsrs_weights=tuple(resolve_fsrs_weights(repository)),
         return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,
-        combiner=_combiner(repository, now_iso, vault) if fitted else M.Combiner(),
+        combiner=_combiner(repository, now_iso, vault) if fitted else _combiner_prior(vault),
         learning=_learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES),
     )
     sources = {

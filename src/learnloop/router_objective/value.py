@@ -460,9 +460,8 @@ class _Model:
         mean = np.array([t.eta_mean for t in inputs.topics], dtype=np.float64)
         sd = np.sqrt(np.maximum(np.array([t.eta_var for t in inputs.topics], dtype=np.float64), 0.0))
         eta = mean[None, :] + sd[None, :] * st.eta_z[:, : self.n]
-        cm = np.array(inputs.combiner.mean, dtype=np.float64)
-        csd = np.sqrt(np.maximum(np.array(inputs.combiner.variance, dtype=np.float64), 0.0))
-        coef = cm[None, :] + csd[None, :] * st.coef_z
+        # The combiner's draws on (a0, aA, aR), in its own form's parameters (landing ruling R6: monotone at the tag)
+        coef = inputs.combiner.coefficients(st.coef_z)
         gm, gv = inputs.learning.gamma
         gamma = gm + math.sqrt(max(gv, 0.0)) * st.gamma_z
         gbar = np.stack([inputs.learning.gbar[i][0] + math.sqrt(max(inputs.learning.gbar[i][1], 0.0)) * st.gbar_z[:, i]
@@ -979,7 +978,7 @@ class _Model:
             inputs, learning = self.inputs, self.inputs.learning
             believed = replace(
                 inputs,
-                combiner=replace(inputs.combiner, variance=(0.0, 0.0, 0.0)),
+                combiner=inputs.combiner.at_mean(),
                 learning=replace(learning, gamma=(learning.gamma[0], 0.0),
                                  gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0))),
                 effect=None, stop_accept=(1.0, 1.0))
