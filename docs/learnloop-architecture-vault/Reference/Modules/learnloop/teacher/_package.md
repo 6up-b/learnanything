@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/teacher/service.py"
   - "src/learnloop/teacher/visuals.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit_timestamp: "2026-11-06T00:45:24-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"

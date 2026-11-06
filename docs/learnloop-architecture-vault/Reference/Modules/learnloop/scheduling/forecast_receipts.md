@@ -193,6 +193,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_provenance_record_the_diagnosis_and_its_forecasts_commit_as_one_transaction`
 - [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
+  - `test_one_refused_node_forecast_leaves_its_siblings`
   - `test_switch_off_has_no_p_held_and_writes_no_forecast`
   - `test_the_forecast_report_resolves_it_on_the_first_cold_outcome`
 
