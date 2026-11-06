@@ -207,6 +207,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_a_schema_refusal_names_fields_by_location_never_by_their_input`
 
 ## Modification guidance
 

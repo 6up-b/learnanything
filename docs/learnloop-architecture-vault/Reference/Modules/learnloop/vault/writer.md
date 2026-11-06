@@ -382,6 +382,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — direct import
   - `test_practice_screen_uses_item_allowed_attempt_type`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import

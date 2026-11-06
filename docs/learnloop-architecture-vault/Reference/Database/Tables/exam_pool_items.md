@@ -3,8 +3,8 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "49f359311a7daeac5245231bd6ef6e4c14cb2bfd"
-source_commit_timestamp: "2026-11-05T23:30:15-05:00"
+source_commit: "240e8eef40acbec767b56435ca238ee28929f76a"
+source_commit_timestamp: "2026-11-06T01:27:54-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `tests/test_exam_protection_review.py`
 - `tests/test_followups_batch5_recap_protection.py`
 - `tests/test_teacher_te1_review_fixes.py`
+- `tests/test_teacher_te2log_episodes.py`
 - `tests/exam_scope_fixtures.py`
 - `tests/teacher_fakes.py`
 - `tests/test_characterization_assessment_exam.py`
