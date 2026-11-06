@@ -95,8 +95,11 @@ def _schema_sha(model):
 def test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed(tmp_path):
     paths, repository, fake, author, view, _build = _open(tmp_path, [visual_turn])
     lesson_id = view["lesson_id"]
-    # The teacher was offered the visual: its paragraph, its prompt version and the schema with ``visual``.
-    assert fake.result_models == [V.turn_model(True)]
+    # The teacher was offered the visual: its paragraph, its prompt version and the schema with ``visual``
+    # (teacher TE2-log's episode fields ride on it at the defaults, teacher.episode_log on).
+    from learnloop.teacher import episodes as E
+
+    assert fake.result_models == [E.turn_model(V.turn_model(True), True)]
     prompt = fake.prompts[0][1]
     assert f"prompt_version: {V.VISUALS_PROMPT_VERSION}" in prompt and "Instruments over description" in prompt
     # One author call: the teacher's goal, written by the teacher, grounded in the delivered passage.
@@ -270,8 +273,11 @@ def test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical(tmp_path):
 
     assert _schema_sha(TeacherTurnV1) == TE1_SCHEMA_SHA256 and doctrine_hash() == TE1_DOCTRINE_SHA256
     assert _schema_sha(V.turn_model(True)) != TE1_SCHEMA_SHA256
-    cases = (({("teacher", "visuals"): False}, True), ({("figures", "show_me_enabled"): False}, True),
-             ({("figures", "enabled"): False}, True), (None, False))
+    # Teacher TE2-log's teacher.episode_log off in every case: TE1's prompt is the one with both paragraphs off
+    # (tests/test_teacher_te2log_episodes.py pins the episode switch the same way).
+    off = {("teacher", "episode_log"): False}
+    cases = (({("teacher", "visuals"): False, **off}, True), ({("figures", "show_me_enabled"): False, **off}, True),
+             ({("figures", "enabled"): False, **off}, True), (off, False))
     for index, (config, builder) in enumerate(cases):
         paths, repository, fake, author, view, _ = _open(tmp_path / f"case{index}", [plan_turn],
                                                          config=config, builder=builder)
@@ -595,8 +601,13 @@ def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path):
     from learnloop.learner import lesson_weight as LW
     from tests.teacher_fakes import landed_turn
 
+    from tests.ux_phase1_support import set_config
+
     t0 = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
     paths, repository = build_teacher_vault(tmp_path / "vault")
+    # Teacher TE2-log's episode paragraph is its own family too (tests/test_teacher_te2log_episodes.py): off here,
+    # so the two families compared are TE1's and the visuals paragraph's.
+    set_config(paths.root, {("teacher", "episode_log"): False})
     author = AuthorFake([_spec()])
     build = _builder(paths, repository, author)
 

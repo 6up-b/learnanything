@@ -76,7 +76,8 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
     dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
     assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
-    digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
+    digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "08840dbd600321a4a8d52fafb969bfacb6ace0e53d3166f5bdb12f81be6b34f3"
 
 

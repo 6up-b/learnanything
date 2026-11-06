@@ -60,7 +60,8 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
         mode="json", exclude_none=False)
     for key in RO6_KEYS:
         dumped["router_objective"].pop(key)
-    digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
+    digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "dc39796ffa66ee54c1877cba358f697f24fe449020fba6b2e3a1f14ec521a2b1"
 
 

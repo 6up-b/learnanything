@@ -95,9 +95,12 @@ def turn_model(visuals: bool) -> type[TeacherTurnV1]:
 
 
 def stored_turn(data: Mapping[str, Any] | None) -> TeacherTurnV1:
-    """A stored accepted turn, read back (TE1's shape and the visuals shape both validate)."""
+    """A stored accepted turn, read back (TE1's shape, the visuals shape and TE2-log's episode fields all
+    validate: the widest stored shape)."""
 
-    return TeacherTurnVisualsV1.model_validate(dict(data or {}))
+    from learnloop.teacher.contracts import TeacherTurnVisualsEpisodesV1
+
+    return TeacherTurnVisualsEpisodesV1.model_validate(dict(data or {}))
 
 
 # --- the turn's visual ---------------------------------------------------------------------------

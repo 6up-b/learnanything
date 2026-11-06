@@ -66,6 +66,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.stores import lessons as store
 from learnloop.ids import new_ulid
 from learnloop.teacher import checks as CK
+from learnloop.teacher import episodes as E
 from learnloop.teacher import guards as G
 from learnloop.teacher import visuals as V
 from learnloop.teacher.brief import LessonRefused, SourceBook, build_brief, resolve_goal
@@ -288,6 +289,9 @@ def transcript(state: LessonState) -> list[dict[str, Any]]:
             # Reader RW5d P4b: what the step's figure turned out to be (or why it isn't shown).
             out.append({"by": "code", "visual": {k: data.get(k) for k in ("node", "status", "figure", "reason")
                                                  if data.get(k) is not None}})
+        elif action == "note_detour":
+            # TE2-log: the detour was logged (none while teacher.episode_log is off: TE1's transcript).
+            out.append({"by": "code", "detour_noted": {k: data.get(k) for k in ("node", "repair", "p")}})
     return out
 
 
@@ -326,7 +330,7 @@ def _end_for_protection(vault: Any, repository: Any, state: LessonState, *, cloc
 
 
 def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool,
-            visuals: bool = False) -> str:
+            visuals: bool = False, episodes: bool = False) -> str:
     # Sent only while the protection state is the brief's (:func:`protection_changed`, checked before
     # every call): what the lesson saved was safe when saved, and still is.
     context = {
@@ -338,11 +342,11 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
         "help_reply": help_reply,
         "transcript": transcript(state),
     }
-    # Reader RW5d P4b: the visuals paragraph and its prompt version only while visuals are on (off: TE1's
-    # prompt byte for byte).
+    # Reader RW5d P4b: the visuals paragraph and its prompt version only while visuals are on; TE2-log: the
+    # episode paragraph and its suffix only while teacher.episode_log is on (both off: TE1's prompt byte for byte).
     return render_structured_prompt(
-        "LearnLoop lesson: you are the teacher", V.prompt_version(visuals),
-        {"instructions": V.instructions(doctrine_text(), visuals), "context": context},
+        "LearnLoop lesson: you are the teacher", E.prompt_version(V.prompt_version(visuals), episodes),
+        {"instructions": E.instructions(V.instructions(doctrine_text(), visuals), episodes), "context": context},
         context_tail_fields=("transcript",))
 
 
@@ -378,13 +382,14 @@ def _model_name(client: Any) -> str | None:
     return getattr(client, "model", None)
 
 
-def _family_of(model: str | None, *, visuals: bool = False) -> str:
+def _family_of(model: str | None, *, visuals: bool = False, episodes: bool = False) -> str:
     """The forecaster of §12.2's pool: the doctrine version and the teacher model. A turn written under
-    the visuals paragraph (Reader RW5d P4b) is a new doctrine version, so its forecasts start their own
-    posterior (Codex review F3); TE1's family exactly when off."""
+    the visuals paragraph (Reader RW5d P4b) or the episode paragraph (TE2-log) is a new doctrine version, so
+    its forecasts start their own posterior from the seeded prior (Codex review F3); TE1's family exactly
+    when both are off."""
 
     doctrine = f"{DOCTRINE_VERSION}+{V.VISUALS_VERSION}" if visuals else DOCTRINE_VERSION
-    return f"{doctrine}:{model or 'unknown'}"
+    return f"{E.doctrine_family(doctrine, episodes)}:{model or 'unknown'}"
 
 
 def _family(client: Any) -> str:
@@ -909,6 +914,10 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
         grading_source=clients.grading_source, tap=tap, mass=mass, created_at=as_of,
         forecast_correct_key=(correct_forecast or {}).get("key"), forecast_retained_key=(retained or {}).get("key"),
         clock=clock)
+    if E.on(vault):
+        # TE2-log: a detour on this node closes at its re-check (its own savepoint; never blocks the answer).
+        E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
+                         kind="detour", outcome={"recheck_attempt_id": attempt_id, "outcome_correctness": correctness})
     _update_weight_state(vault, repository)
     result = {"check_ref": open_check["check_ref"], "correctness": correctness,
               "result": "right" if correctness >= 1.0 else ("wrong" if correctness <= 0.0 else "partly right"),
@@ -996,10 +1005,11 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
             _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
             break
         try:
-            # Reader RW5d P4b: visuals as configured NOW, before each call (off: TE1's prompt and schema).
+            # Reader RW5d P4b: visuals as configured NOW, before each call; TE2-log: the episode log likewise
+            # (both off: TE1's prompt and schema).
             parsed = _call_teacher(vault, repository, state, client, results=results, help_reply=help_reply,
                                    outcome=outcome, clock=clock, deliver=undelivered,
-                                   visuals=V.on(vault, builder))
+                                   visuals=V.on(vault, builder), episodes=E.on(vault))
         except LessonError:
             raise
         except Exception as exc:  # noqa: BLE001 - the plan is down or the route refused: the lesson waits
@@ -1073,17 +1083,26 @@ def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
     return [(name, text) for name, text in out if text]
 
 
+def _logged(turn_obj: TeacherTurnV1) -> list[str]:
+    """TE2-log: the texts a turn asks to log, never shown (a ``note_detour``'s hypothesis; none in TE1's turn)."""
+
+    return [str(request.hypothesis) for request in turn_obj.requests
+            if request.action == "note_detour" and getattr(request, "hypothesis", None)]
+
+
 def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
                   help_reply: bool, outcome: _Outcome, clock: Clock | None,
-                  deliver: Sequence[str] = (), visuals: bool = False) -> tuple[TeacherTurnV1, dict[str, Any]] | None:
+                  deliver: Sequence[str] = (), visuals: bool = False,
+                  episodes: bool = False) -> tuple[TeacherTurnV1, dict[str, Any]] | None:
     """One teacher call: validated, guarded, recorded. None when refused (a correctable error).
-    ``visuals`` (Reader RW5d P4b): the visuals paragraph and the turn's ``visual`` field; off, TE1's
-    prompt and schema exactly."""
+    ``visuals`` (Reader RW5d P4b): the visuals paragraph and the turn's ``visual`` field; ``episodes``
+    (TE2-log): the episode paragraph, ``note_detour`` and ``p_held``; both off, TE1's prompt and schema
+    exactly."""
 
     from learnloop.ai.errors import AIInvalidOutput
 
-    prompt = _prompt(state, results=results, help_reply=help_reply, visuals=visuals)
-    model = V.turn_model(visuals)
+    prompt = _prompt(state, results=results, help_reply=help_reply, visuals=visuals, episodes=episodes)
+    model = E.turn_model(V.turn_model(visuals), episodes)
     try:
         raw = execute_structured_operation(client, purpose=TEACHER_PURPOSE, prompt=prompt, result_model=model)
     except AIInvalidOutput as exc:
@@ -1123,6 +1142,16 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": turn_obj.model_dump()}, clock=clock)
             return None
+    # TE2-log: a detour's hypothesis is logged, never shown, but it passes the same guards before it is stored
+    # (spec §11.9: exam or held-out material is never in a hypothesis); a hit withholds the turn.
+    for text in _logged(turn_obj):
+        verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
+                              open_check=state.open_check and state.open_check.get("check"), help_reply=False)
+        if not verdict.ok:
+            _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
+                    payload={"reason": verdict.reason, "detail": f"note_detour: {verdict.detail}",
+                             "turn": turn_obj.model_dump()}, clock=clock)
+            return None
     # One transaction: the delivered results, the accepted turn and its exposure (reveal rows from every
     # displayed field), so an interruption leaves all of it or none.
     with repository.atomic():
@@ -1132,6 +1161,8 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         payload = {"turn": turn_obj.model_dump(), "turn_version": TURN_VERSION, "help_reply": bool(help_reply)}
         if visuals:
             payload["visuals"] = V.VISUALS_VERSION
+        if episodes:
+            payload["episodes"] = E.EPISODES_VERSION
         entry = _append(repository, state, actor="teacher", action="teacher_turn", validation="ok",
                         payload=payload, clock=clock)
         _record_reveals(vault, repository, state, "\n".join(text for _name, text in displayed), clock=clock)
@@ -1166,6 +1197,9 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
             return "a forecast needs forecast_kind, node and p"
         if request.action == "close" and request.close_reason is None:
             return "close needs a close_reason"
+        if request.action == "note_detour" and (not request.node or not getattr(request, "hypothesis", None)
+                                                or getattr(request, "repair", None) is None or request.p is None):
+            return "note_detour needs node, hypothesis, repair and p"
     visual_problem = V.contract_problem(state, turn_obj)
     if visual_problem is not None:
         return visual_problem
@@ -1282,15 +1316,24 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
                 results.append({"action": request.action, "result": _model_result(result)})
         elif request.action == "write_plan":
             outline = [node.model_dump() for node in request.plan]
+            previous = state.plans[-1]["outline"] if state.plans else None
             with repository.atomic():
                 version = store.insert_plan(repository.connection(), lesson_id=state.lesson_id, outline=outline,
                                             created_at=utc_now_iso(clock))
-                _append(repository, state, actor="code", action="write_plan", refs=_effect_refs(turn_entry, effect),
-                        payload={"version": version}, clock=clock)
+                entry = _append(repository, state, actor="code", action="write_plan",
+                                refs=_effect_refs(turn_entry, effect), payload={"version": version}, clock=clock)
+                if _episodes_turn(vault, turn_entry):
+                    # TE2-log, in their own savepoints: the nodes' p_held forecasts, and an unlogged detour when
+                    # the plan inserts a foundation with no note_detour in this turn (§11.3, §11.7).
+                    _plan_episodes(vault, repository, state, turn_obj, outline, previous, version=version,
+                                   entry=entry, model=model, turn_entry=turn_entry, clock=clock)
             state.plans.append({"version": version, "outline": outline})
         elif request.action == "forecast":
             _forecast(vault, repository, state, request, model=model, clock=clock, turn_entry=turn_entry,
                       effect=effect)
+        elif request.action == "note_detour":
+            if _episodes_turn(vault, turn_entry):
+                _note_detour(repository, state, request, turn_entry=turn_entry, effect=effect, clock=clock)
         elif request.action == "close":
             _close(vault, repository, state, reason=str(request.close_reason), recap=request.recap, clock=clock,
                    outcome=outcome, turn_entry=turn_entry, effect=effect)
@@ -1301,6 +1344,47 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
             clock=clock)
     state.executed.add(str(turn_entry["id"]))
     return results
+
+
+def _episodes_turn(vault: Any, turn_entry: Mapping[str, Any] | None) -> bool:
+    """TE2-log writes for this turn: it was written under the episode paragraph and the switch is on now."""
+
+    return bool(((turn_entry or {}).get("payload") or {}).get("episodes")) and E.on(vault)
+
+
+def _note_detour(repository: Any, state: LessonState, request: ActionRequestV1, *,
+                 turn_entry: Mapping[str, Any] | None, effect: str, clock: Clock | None) -> None:
+    """``note_detour`` (§11.7): the hypothesis in the turn's payload (a ``note_detour`` entry, marked as the turn's
+    effect) and one ``detour`` episode row, its own savepoint (a refused row rolls back alone, with a warning).
+    Logging only: no plan, evidence or schedule changes."""
+
+    node = str(request.node)
+    lo = state.node_lo(node)
+    now = utc_now_iso(clock)
+    data = {"node": node, "hypothesis": str(getattr(request, "hypothesis", "") or ""),
+            "repair": getattr(request, "repair", None), "p": float(request.p or 0.0), "learning_object_id": lo}
+    with repository.atomic():
+        entry = _append(repository, state, actor="teacher", action="note_detour",
+                        refs=_effect_refs(turn_entry, effect), payload=data, clock=clock)
+        E.open_episode(repository, lesson=state.lesson, brief=state.brief, kind="detour", opened_by=str(entry["id"]),
+                       opened_at=now, node_id=node, learning_object_id=lo, hypotheses=[data["hypothesis"]],
+                       hypothesis_payload_id=str(entry["id"]), repair_class=data["repair"], teacher_p=data["p"])
+
+
+def _plan_episodes(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1,
+                   outline: Sequence[Mapping[str, Any]], previous: Sequence[Mapping[str, Any]] | None, *,
+                   version: int, entry: Mapping[str, Any], model: str | None,
+                   turn_entry: Mapping[str, Any] | None, clock: Clock | None) -> None:
+    """A stored plan's TE2-log rows: an ``unlogged`` detour when it inserts a node before ones the previous plan
+    had and the turn has no ``note_detour`` (so coverage is measurable, §11.7)."""
+
+    inserted = E.inserted_nodes(previous, outline)
+    if inserted and not any(request.action == "note_detour" for request in turn_obj.requests):
+        node = next(n for n in outline if str(n.get("id")) == inserted[0])
+        lo = node.get("lo_id") or state.node_lo(inserted[0])
+        E.open_episode(repository, lesson=state.lesson, brief=state.brief, kind="detour", opened_by=str(entry["id"]),
+                       opened_at=utc_now_iso(clock), node_id=inserted[0], learning_object_id=lo,
+                       repair_class=E.UNLOGGED)
 
 
 def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, builder: V.Builder,
@@ -1406,7 +1490,9 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
     node = str(request.node)
     # The doctrine the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph or not).
     visuals = bool(((turn_entry or {}).get("payload") or {}).get("visuals"))
-    family = _family_of(model, visuals=visuals)
+    # TE2-log: a turn under the episode paragraph forecasts as its own family (§12.2).
+    episodes = bool(((turn_entry or {}).get("payload") or {}).get("episodes"))
+    family = _family_of(model, visuals=visuals, episodes=episodes)
     now = utc_now_iso(clock)
     if kind == "lesson_check_correct":
         ref = state.open_check["check_ref"] if state.open_check is not None else node
@@ -1444,8 +1530,10 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
                                          "failure": round(1.0 - float(request.p), 8)}},
         inputs=inputs, parameters=[{"name": "p", "value": float(request.p), "provenance": "model"}],
         versions={"doctrine": DOCTRINE_VERSION,
-                  # The prompt the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph).
-                  "prompt": V.prompt_version(visuals)},
+                  # The prompt the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph;
+                  # TE2-log: with the episode paragraph).
+                  "prompt": E.prompt_version(V.prompt_version(visuals), episodes),
+                  **({"episodes": E.EPISODES_VERSION} if episodes else {})},
         inputs_as_of=now, p=float(request.p),
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
     data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
@@ -1502,6 +1590,9 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
                 goal_learning_object_ids=(state.brief.get("goal") or {}).get("learning_object_ids") or [],
                 lesson_items_by_lo=lesson_items_by_lo, shown_items=[*state.minted.values(), *shown],
                 taught_learning_objects=[node["lo_id"] for node in landed if node.get("lo_id")], clock=clock)
+        if E.on(vault):
+            # TE2-log: every episode still open closes with the lesson (its own savepoint).
+            E.close_episodes(repository, state.lesson_id, closed_at=now, reason="lesson_closed")
         receipt = _receipt(loaded, repository, state, reason=reason, recap=recap, delayed_checks=delayed_checks,
                            warnings=warnings, landed=landed, rows=rows, usage=_lesson_tokens(state, outcome),
                            shown_items=shown)

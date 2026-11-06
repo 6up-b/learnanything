@@ -171,10 +171,99 @@ def receipt(connection: sqlite3.Connection, lesson_id: str) -> dict[str, Any] | 
     return json.loads(row[0]) if row is not None else None
 
 
+# --- Teacher TE2-log (migration 247): the episode log and the lesson screen's intervals -------------------
+
+#: An episode's columns set at its opening (everything but the closing fields).
+EPISODE_OPEN_COLUMNS: tuple[str, ...] = (
+    "id", "lesson_id", "kind", "opened_by", "node_id", "learning_object_id", "opened_at", "hypothesis_count",
+    "hypothesis_hash", "hypothesis_payload_id", "repair_class", "teacher_p", "teacher_forecast_receipt_id",
+    "predicted_success", "predicted_low", "predicted_high", "predicted_source", "mastery_mean", "mastery_variance",
+    "open_misconceptions", "open_hypotheses", "open_ids_json", "origin", "origin_decision_id", "objective_trace_id",
+    "generation_job_id", "generated_item_id", "gap_job_id", "created_lo_id", "experiment_assignment_ids_json",
+    "episode_version", "created_at",
+)
+#: The closing fields, set once (the table's close-once trigger).
+EPISODE_CLOSE_COLUMNS: tuple[str, ...] = (
+    "closed_at", "close_reason", "active_seconds", "elapsed_seconds", "unreported_seconds", "missing_intervals",
+    "minutes_source", "outcome_attempt_id", "outcome_correctness", "recheck_attempt_id", "gap_result", "lo_undo_state",
+)
+
+
+def episode_tables_present(connection: sqlite3.Connection) -> bool:
+    rows = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN "
+                              "('lesson_episodes', 'lesson_activity_intervals')").fetchall()
+    return len(rows) == 2
+
+
+def insert_episode(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
+    """One episode at its opening; False when its opening action already has one (a recovered action)."""
+
+    values = {**{column: None for column in EPISODE_OPEN_COLUMNS}, **{k: v for k, v in row.items()
+                                                                      if k in EPISODE_OPEN_COLUMNS}}
+    values["open_ids_json"] = _dumps(dict(row.get("open_ids") or {}))
+    values["experiment_assignment_ids_json"] = _dumps(list(row.get("experiment_assignment_ids") or []))
+    marks = ", ".join("?" for _ in EPISODE_OPEN_COLUMNS)
+    cursor = connection.execute(
+        f"INSERT OR IGNORE INTO lesson_episodes({', '.join(EPISODE_OPEN_COLUMNS)}) VALUES ({marks})",
+        [values[column] for column in EPISODE_OPEN_COLUMNS])
+    return cursor.rowcount == 1
+
+
+def close_episode(connection: sqlite3.Connection, episode_id: str, fields: Mapping[str, Any]) -> bool:
+    """Set an open episode's closing fields once; False when it was already closed."""
+
+    columns = [column for column in EPISODE_CLOSE_COLUMNS if column in fields]
+    if "closed_at" not in columns or "close_reason" not in columns:
+        raise ValueError("an episode closes with closed_at and close_reason")
+    cursor = connection.execute(
+        f"UPDATE lesson_episodes SET {', '.join(f'{column} = ?' for column in columns)} "
+        "WHERE id = ? AND closed_at IS NULL", [*[fields[column] for column in columns], episode_id])
+    return cursor.rowcount == 1
+
+
+def episodes(connection: sqlite3.Connection, lesson_id: str | None = None) -> list[dict[str, Any]]:
+    where, params = ("WHERE lesson_id = ? ", (lesson_id,)) if lesson_id is not None else ("", ())
+    cursor = connection.execute(f"SELECT * FROM lesson_episodes {where}ORDER BY opened_at, id", params)
+    out = []
+    for row in cursor.fetchall():
+        data = _row(cursor, row)
+        data["open_ids"] = json.loads(data.pop("open_ids_json") or "{}")
+        data["experiment_assignment_ids"] = json.loads(data.pop("experiment_assignment_ids_json") or "[]")
+        out.append(data)
+    return out
+
+
+def insert_interval(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
+    """One activity interval; False when its (lesson, screen session, seq) is already recorded (a resend)."""
+
+    cursor = connection.execute(
+        "INSERT OR IGNORE INTO lesson_activity_intervals(id, lesson_id, screen_session, seq, started_at, ended_at, "
+        "seconds, foreground, occurred_at, received_at, receipt_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (str(row.get("id") or f"lai_{new_ulid().lower()}"), row["lesson_id"], row["screen_session"], int(row["seq"]),
+         row["started_at"], row["ended_at"], float(row["seconds"]), 1 if row["foreground"] else 0,
+         row["occurred_at"], row["received_at"], row["receipt_version"]))
+    return cursor.rowcount == 1
+
+
+def intervals(connection: sqlite3.Connection, lesson_id: str | None = None) -> list[dict[str, Any]]:
+    where, params = ("WHERE lesson_id = ? ", (lesson_id,)) if lesson_id is not None else ("", ())
+    cursor = connection.execute(
+        f"SELECT * FROM lesson_activity_intervals {where}ORDER BY started_at, screen_session, seq", params)
+    return [_row(cursor, row) for row in cursor.fetchall()]
+
+
 __all__ = [
+    "EPISODE_CLOSE_COLUMNS",
+    "EPISODE_OPEN_COLUMNS",
     "append_turn",
     "checks",
+    "close_episode",
     "close_lesson",
+    "episode_tables_present",
+    "episodes",
+    "insert_episode",
+    "insert_interval",
+    "intervals",
     "insert_check",
     "insert_lesson",
     "insert_plan",
