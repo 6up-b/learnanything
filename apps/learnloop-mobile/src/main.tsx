@@ -1,10 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { applyTheme, readThemeChoice } from "./shell/theme";
 import { pickUpFragmentToken } from "./store/credential";
 import "./styles.css";
 
 async function start(): Promise<void> {
+  // Before the first paint, so a manual light or dark choice never flashes the other one.
+  applyTheme(readThemeChoice());
   await pickUpFragmentToken().catch(() => false);
   createRoot(document.getElementById("root") as HTMLElement).render(
     <StrictMode>

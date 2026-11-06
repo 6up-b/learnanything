@@ -34,15 +34,16 @@ export function PairScreen({ waiting }: { waiting: number }) {
   }
 
   return (
-    <div className="main">
+    <div className="screen">
       <h1>Pair this phone</h1>
-      {waiting > 0 ? <p className="banner">Scan a new token to send {waiting} {waiting === 1 ? "capture" : "captures"}.</p> : null}
+      {/* Plain words (mobile v2 §4.1): the deny-list has "token", so the count says what to do instead. */}
+      {waiting > 0 ? <p className="banner">Pair again to send {waiting} waiting {waiting === 1 ? "capture" : "captures"}.</p> : null}
       <p className="dim">On the desktop, run <code>learnloop-mobile pair --scope app</code>, then enter its manual code.</p>
       <form onSubmit={(event) => void pair(event)}>
         <label htmlFor="pair-code">Manual code</label>
         <input id="pair-code" value={code} onChange={(event) => setCode(event.target.value)} autoComplete="off" autoCapitalize="characters" maxLength={10} />
-        <div className="row">
-          <button className="primary" type="submit" disabled={busy || code.trim().length === 0}>Pair</button>
+        <div className="actions">
+          <button className="primary block" type="submit" disabled={busy || code.trim().length === 0}>Pair</button>
         </div>
       </form>
       {message ? <p className="bad" role="status">{message}</p> : null}

@@ -1,9 +1,12 @@
-// One IndexedDB database for the two things that must survive a closed app (spec §0, §4.2, §7):
-// the device token (IndexedDB, so a service worker could read it) and the capture outbox.
+// One IndexedDB database for what must survive a closed app (spec §0, §4.2, §7): the device token
+// (IndexedDB, so a service worker could read it), the capture outbox, and since mobile v2 (§5.4) the
+// display cache. Version 2 only adds the display store: an upgrade from 1 keeps the token and every
+// capture still waiting to send.
 const DB_NAME = "learnloop-phone";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 export const CREDENTIAL_STORE = "credential";
 export const OUTBOX_STORE = "outbox";
+export const DISPLAY_STORE = "display";
 
 let opened: Promise<IDBDatabase> | null = null;
 
@@ -11,10 +14,13 @@ export function openDb(): Promise<IDBDatabase> {
   if (opened) return opened;
   opened = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
-      db.createObjectStore(CREDENTIAL_STORE);
-      db.createObjectStore(OUTBOX_STORE, { keyPath: "clientCaptureId" });
+      if (event.oldVersion < 1) {
+        db.createObjectStore(CREDENTIAL_STORE);
+        db.createObjectStore(OUTBOX_STORE, { keyPath: "clientCaptureId" });
+      }
+      if (event.oldVersion < 2) db.createObjectStore(DISPLAY_STORE, { keyPath: "key" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => {

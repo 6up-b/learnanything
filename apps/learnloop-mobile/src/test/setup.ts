@@ -2,6 +2,8 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, beforeEach } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { resetTimingForTests } from "../api/http";
+import { resetConnectionForTests } from "../shell/connection";
 import { resetCredentialForTests } from "../store/credential";
 import { resetDbForTests } from "../store/db";
 
@@ -26,7 +28,12 @@ beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
   resetDbForTests();
   resetCredentialForTests();
+  resetConnectionForTests();
+  resetTimingForTests();
   localStorage.clear();
+  // A fresh app opens on Today: the fragment one test left would open another place.
+  window.history.replaceState(null, "", "/app/");
+  delete document.documentElement.dataset.theme;
 });
 
 afterEach(() => cleanup());
