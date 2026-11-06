@@ -163,18 +163,21 @@ def test_the_probe_before_and_after_r6_is_pinned(draws, form):
         assert got == pytest.approx(PROBE[(draws, form)][(eta, stability)], rel=1e-12, abs=0.0), (eta, stability)
 
 
-# -- serving: the tag alone ------------------------------------------------------------------------------------
+# -- serving: the tag with [router_objective] monotone_combiner --------------------------------------------------
 
 
-@pytest.mark.parametrize("version,expected", [(ROUTER_FOLLOWUPS_ALGORITHM_VERSION, True),
-                                              (ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, False)])
-def test_the_numeric_policy_reads_the_monotone_combiner_only_at_the_tag(tmp_path, version, expected):
+@pytest.mark.parametrize("version,switch,expected", [(ROUTER_FOLLOWUPS_ALGORITHM_VERSION, True, True),
+                                                     (ROUTER_FOLLOWUPS_ALGORITHM_VERSION, False, False),
+                                                     (ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, True, False)])
+def test_the_numeric_policy_reads_the_monotone_combiner_only_at_the_tag_with_its_switch(tmp_path, version, switch,
+                                                                                         expected):
     from learnloop.db.stores import router_objective as store
 
     from tests.router_mixture_helpers import mixture_env, run
     from tests.router_model_fakes import block_drawing_seed, fake_runtime
 
-    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=version)
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=version,
+                      toml=f"[router_objective]\nmonotone_combiner = {'true' if switch else 'false'}\n")
     run(env, steps=4)
     with env.repository.connection() as connection:
         traces = [store.trace(connection, row["decision_id"]) for row in store.traces(connection)]

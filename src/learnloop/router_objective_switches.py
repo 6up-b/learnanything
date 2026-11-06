@@ -269,17 +269,17 @@ def followup_on(config: Any, key: str) -> bool:
 
 def monotone_combiner_on(config: Any) -> bool:
     """The follow-up batch's landing ruling R6: the memory model's combiner is monotone in ability by construction
-    (``memory.FORM_MONOTONE``), in its prior and its fit. Structural, so the tag alone (with the objective serving),
-    no switch; below the tag, mvp-0.49's linear combiner."""
+    (``memory.FORM_MONOTONE``), in its prior and its fit: the tag, the objective serving and ``[router_objective]
+    monotone_combiner`` (a structural kill switch, default true); off, or below the tag, mvp-0.49's linear combiner."""
 
-    return followups_tag(config) and objective_on(config)
+    return followup_on(config, "monotone_combiner")
 
 
 #: The follow-up batch's landing ruling R8: its switches that change a logged decision's value or mixture, so each
 #: is part of RO6's generator payload and flipping one is a change point, never a change of ``Q`` under the same
 #: generator version. ``carried_in_prefetch`` is not here: it changes which transitions are valued, not the logger.
 FOLLOWUP_GENERATOR_SWITCHES: tuple[str, ...] = (
-    "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "scope_extension")
+    "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "monotone_combiner", "scope_extension")
 
 
 def followup_generator_switches(config: Any) -> dict[str, bool] | None:
