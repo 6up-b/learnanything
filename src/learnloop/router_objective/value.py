@@ -170,10 +170,37 @@ class AdLink:
         return 0.5 * (low + high)
 
     def logit_and_slope(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``."""
+        """``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``, in log space:
+        ``log F``, ``log(1 − F) = log(λ + (1 − λ)·E[σ(−e)])`` and ``log F'`` by log-sum-exp over the quadrature, so
+        neither clips (landing ruling R11: the combiner's own probability-logit, never FSRS's clipped one) and the
+        derivative is the one of the transformation applied, ``F'/F + F'/(1 − F)``."""
 
-        p = self.p(eta)
-        return logit(p), self.slope(eta) / np.maximum(p * (1.0 - p), 1e-300)
+        e = np.asarray(eta, dtype=np.float64)[..., None] - self._shift
+        log_s = -np.logaddexp(0.0, -e)
+        log_c = -np.logaddexp(0.0, e)
+        lw = np.log(self._w)
+        log_keep = math.log1p(-self.lapse)
+        log_f = log_keep + _logsumexp(lw + log_s)
+        log_q = np.logaddexp(math.log(self.lapse), log_keep + _logsumexp(lw + log_c))
+        log_df = log_keep + _logsumexp(lw + log_s + log_c)
+        return log_f - log_q, np.exp(log_df - log_f) + np.exp(log_df - log_q)
+
+    def logit_p(self, eta: np.ndarray) -> np.ndarray:
+        """``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path)."""
+
+        e = np.asarray(eta, dtype=np.float64)[..., None] - self._shift
+        lw = np.log(self._w)
+        log_keep = math.log1p(-self.lapse)
+        log_f = log_keep + _logsumexp(lw - np.logaddexp(0.0, -e))
+        log_q = np.logaddexp(math.log(self.lapse), log_keep + _logsumexp(lw - np.logaddexp(0.0, e)))
+        return log_f - log_q
+
+
+def _logsumexp(x: np.ndarray) -> np.ndarray:
+    """``log Σ exp(x)`` over the last axis, stably."""
+
+    top = np.max(x, axis=-1)
+    return top + np.log(np.exp(x - top[..., None]).sum(-1))
 
 
 @dataclass(frozen=True)
@@ -600,8 +627,9 @@ class _Model:
         r = self.fsrs.retrievability(state.s, when - state.last)
         eta = state.bel if belief else state.eta
         if self.link is not None:
-            # R9: the combiner's η input is AD's predictive on the logit scale, logit F(η) (``logit p̄`` at the start)
-            eta = logit(self.link.p(eta))
+            # R9: the combiner's η input is AD's predictive on the logit scale, logit F(η) (``logit p̄`` at the start),
+            # R11: its own stable logit, not FSRS's clipped one
+            eta = self.link.logit_p(eta)
         return perform(self.theta.coef, eta, r, state.practiced)
 
     def cost(self, start: np.ndarray, minutes: np.ndarray) -> np.ndarray:
@@ -647,19 +675,22 @@ class _Model:
         """:meth:`_graded` with AD's own predictive (R9): ``ẽ = logit F(η)`` where ``σ(η)`` stood. Without R1's draw,
         every result is drawn from ``F(η)``; with it, a practised topic's from the combiner over ``ẽ`` and ``R``.
         The belief's Laplace step uses the same prediction at ``bel`` and its slope in ``η`` (``dẽ/dη``, times
-        ``aA − aR`` for a practised topic under R1's draw)."""
+        ``aA − aR`` for a practised topic under R1's draw). Landing ruling R11: AD's own probability is drawn from
+        directly (``F(η)``, never ``σ`` of a clipped logit); only the combiner reads ``ẽ``, its stable logit; FSRS's
+        retrievability keeps FSRS's clip."""
 
         assert self.link is not None
-        e, _de = self.link.logit_and_slope(eta)
+        f_true, f_bel = self.link.p(eta), self.link.p(bel)
         eb, deb = self.link.logit_and_slope(bel)
         if self.consistent:
+            e, _de = self.link.logit_and_slope(eta)
             a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
             lr = logit(self.fsrs.retrievability(stability, elapsed))
-            p_true = np.where(practiced, sigmoid(a0 + a_eta * e + a_r * (lr - e)), sigmoid(e))
-            p_bel = np.where(practiced, sigmoid(a0 + a_eta * eb + a_r * (lr - eb)), sigmoid(eb))
+            p_true = np.where(practiced, sigmoid(a0 + a_eta * e + a_r * (lr - e)), f_true)
+            p_bel = np.where(practiced, sigmoid(a0 + a_eta * eb + a_r * (lr - eb)), f_bel)
             slope = np.where(practiced, (a_eta - a_r) * deb, deb)
         else:
-            p_true, p_bel, slope = sigmoid(e), sigmoid(eb), deb
+            p_true, p_bel, slope = f_true, f_bel, deb
         good = u < p_true
         var = 1.0 / (1.0 / bel_var + slope * slope * p_bel * (1 - p_bel))
         return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
@@ -687,10 +718,10 @@ class _Model:
         the result given, for valuing the branches on one result). With R9's link, AD's own ``F``."""
 
         if self.link is not None:
-            eb, deb = self.link.logit_and_slope(state.bel[:, lo])
+            _eb, deb = self.link.logit_and_slope(state.bel[:, lo])
             good = (u < self.link.p(state.eta[:, lo]) if observed is None
                     else np.asarray(observed, dtype=bool))
-            p_bel = sigmoid(eb)
+            p_bel = self.link.p(state.bel[:, lo])
             var = 1.0 / (1.0 / state.bel_var[:, lo] + deb * deb * p_bel * (1 - p_bel))
             bel = state.bel[:, lo] + var * deb * (good.astype(np.float64) - p_bel)
             state.bel[:, lo] = np.where(mask, bel, state.bel[:, lo])
