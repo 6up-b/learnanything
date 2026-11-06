@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/practice_leakage.py"
 source_paths:
   - "src/learnloop/content/authoring/practice_leakage.py"
-source_commit: "fa2f73234bec22c4fde78a2a23b6e1a5b81400e5"
-source_commit_timestamp: "2026-11-04T05:19:00-05:00"
+source_commit: "b18685c89ea24659f1ed763ea937199a39a96fb8"
+source_commit_timestamp: "2026-11-06T09:42:06-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,50 +51,51 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/practice_leakage.py](../../../../../../../src/learnloop/content/authoring/practice_leakage.py) |
-| Source lines | 458 |
+| Source lines | 483 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `fa2f73234bec22c4fde78a2a23b6e1a5b81400e5` |
-| Commit timestamp | `2026-11-04T05:19:00-05:00` |
+| Source commit | `b18685c89ea24659f1ed763ea937199a39a96fb8` |
+| Commit timestamp | `2026-11-06T09:42:06-05:00` |
 
 ## Public API
 
-- `class HeldOutInventory` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 48) — Deterministic fingerprint of held-out exam text (§8.5).
-  - `empty(self) -> bool` (line 57; public)
-- `class CrossSourceSpan` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 62)
-  - `as_dict(self) -> dict[str, Any]` (line 71; public)
-- `held_out_spans(vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None=None) -> list[HeldOutSpan]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 118) — Every held-out span vault-wide, with its identity and text (§4.2, §8.5).
-- `build_held_out_inventory(vault: LoadedVault, repository: Repository, *, subject_ids: list[str] | None=None, shingle_n: int=DEFAULT_SHINGLE_N) -> HeldOutInventory` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 143) — Fingerprint every held-out exam span text vault-wide (§8.5).
-- `inventory_for_texts(texts: list[str], *, shingle_n: int=DEFAULT_SHINGLE_N) -> HeldOutInventory` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 157) — The deterministic fingerprint of the given held-out texts (§8.5).
-- `check_leakage(text: str, inventory: HeldOutInventory) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 179) — Deterministic overlap findings between ``text`` and held-out material.
-- `screen_practice_payload(payload: dict[str, Any], inventory: HeldOutInventory) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 223) — Leakage findings for one generated practice-item payload (§14).
-- `class ReservedQuestions` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 233) — What a generated probe's words may not reproduce, as this module's gate reads it.
-- `reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any) -> ReservedQuestions` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 243) — Every question ``withheld`` (the one authority, ``learner_protection.withheld_items``) still holds for an exam or an assessment, and every held-out span: stem, solution and rubric.
-- `reserved_findings(text: str, reserved: ReservedQuestions) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 292) — What this text reproduces of a reserved question: ``check_leakage``'s contiguous wording and distinctive numbers, and a whole stem.
-- `reserved_payload_findings(payload: dict[str, Any], reserved: ReservedQuestions) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 305) — The same, over everything a learner sees of a generated item: stem, key, rubric, hints.
-- `learner_visible_text(payload: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 311)
-- `matching_phrases(text: str, findings: list[dict[str, str]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 315) — The stretches of ``text`` the findings fall in, in order: its own words only, so telling its author about them shows nothing of a reserved question it hadn't already written.
-- `build_cross_source_spans(vault: LoadedVault, repository: Repository, learning_object_id: str, *, max_spans_per_item: int=4, exam: exam_material.ExamMaterial | None=None) -> list[CrossSourceSpan]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 382) — Bounded multi-source grounding spans for one learning object (§8.5).
+- `class HeldOutInventory` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 49) — Deterministic fingerprint of held-out exam text (§8.5).
+  - `empty(self) -> bool` (line 58; public)
+- `class CrossSourceSpan` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 63)
+  - `as_dict(self) -> dict[str, Any]` (line 72; public)
+- `held_out_spans(vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None=None) -> list[HeldOutSpan]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 119) — Every held-out span vault-wide, with its identity and text (§4.2, §8.5).
+- `build_held_out_inventory(vault: LoadedVault, repository: Repository, *, subject_ids: list[str] | None=None, shingle_n: int=DEFAULT_SHINGLE_N) -> HeldOutInventory` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 144) — Fingerprint every held-out exam span text vault-wide (§8.5).
+- `inventory_for_texts(texts: list[str], *, shingle_n: int=DEFAULT_SHINGLE_N) -> HeldOutInventory` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 158) — The deterministic fingerprint of the given held-out texts (§8.5).
+- `check_leakage(text: str, inventory: HeldOutInventory) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 180) — Deterministic overlap findings between ``text`` and held-out material.
+- `screen_practice_payload(payload: dict[str, Any], inventory: HeldOutInventory) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 224) — Leakage findings for one generated practice-item payload (§14).
+- `class ReservedQuestions` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 234) — What a generated probe's words may not reproduce, as this module's gate reads it.
+- `reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any) -> ReservedQuestions` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 247) — Every question ``withheld`` (the one authority, ``learner_protection.withheld_items``) still holds for an exam or an assessment, and every held-out span: stem, solution and rubric.
+- `distinctive_words(stem: str, reserved: ReservedQuestions) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 288) — A reserved stem's words distinctive in this vault, by its own text (the teacher exam-question guard's landing ruling R1): no other item's prompt, answer or rubric shows them, and no passage the learner can read does (``source_shows``: source text outside held-out and exam spans;…
+- `reserved_findings(text: str, reserved: ReservedQuestions) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 317) — What this text reproduces of a reserved question: ``check_leakage``'s contiguous wording and distinctive numbers, and a whole stem.
+- `reserved_payload_findings(payload: dict[str, Any], reserved: ReservedQuestions) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 330) — The same, over everything a learner sees of a generated item: stem, key, rubric, hints.
+- `learner_visible_text(payload: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 336)
+- `matching_phrases(text: str, findings: list[dict[str, str]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 340) — The stretches of ``text`` the findings fall in, in order: its own words only, so telling its author about them shows nothing of a reserved question it hadn't already written.
+- `build_cross_source_spans(vault: LoadedVault, repository: Repository, learning_object_id: str, *, max_spans_per_item: int=4, exam: exam_material.ExamMaterial | None=None) -> list[CrossSourceSpan]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 407) — Bounded multi-source grounding spans for one learning object (§8.5).
 
 ### Module constants
 
-- `DEFAULT_SHINGLE_N` ([src/learnloop/content/authoring/practice_leakage.py](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 36)
-- `_SEMANTIC_RELATION_PRIORITY` ([src/learnloop/content/authoring/practice_leakage.py](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 40)
-- `_SPAN_TEXT_CAP` ([src/learnloop/content/authoring/practice_leakage.py](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 44)
+- `DEFAULT_SHINGLE_N` ([src/learnloop/content/authoring/practice_leakage.py](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 37)
+- `_SEMANTIC_RELATION_PRIORITY` ([src/learnloop/content/authoring/practice_leakage.py](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 41)
+- `_SPAN_TEXT_CAP` ([src/learnloop/content/authoring/practice_leakage.py](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 45)
 
 ## Internal implementation anchors
 
-- `_normalize_tokens(text: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 86)
-- `_shingles(tokens: list[str], n: int) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 90)
-- `_numeric_literals(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 98) — Distinctive numeric literals: multi-digit integers, decimals, fractions, or percentages.
-- `_held_out_span_texts(vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 135) — The text of every held-out exam span vault-wide (§4.2 use modes).
-- `_payload_surfaces(payload: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 196) — Concatenate the learner-visible surfaces of a practice-item payload.
-- `_source_shows(repository: Repository, withheld: Any) -> Callable[[str], bool]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 272) — R10: a phrase the learner can read in source text outside held-out spans can't leak.
-- `_lo_facet_ids(vault: LoadedVault, learning_object) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 342) — Canonical facet ids a learning object teaches: blueprint recipe components plus its practice items' evidence facets.
-- `_span_text(repository: Repository, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 359)
-- `_span_id_from_locator(locator: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 370)
+- `_normalize_tokens(text: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 87)
+- `_shingles(tokens: list[str], n: int) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 91)
+- `_numeric_literals(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 99) — Distinctive numeric literals: multi-digit integers, decimals, fractions, or percentages.
+- `_held_out_span_texts(vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 136) — The text of every held-out exam span vault-wide (§4.2 use modes).
+- `_payload_surfaces(payload: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 197) — Concatenate the learner-visible surfaces of a practice-item payload.
+- `_source_shows(repository: Repository, withheld: Any) -> Callable[[str], bool]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 297) — R10: a phrase the learner can read in source text outside held-out spans can't leak.
+- `_lo_facet_ids(vault: LoadedVault, learning_object) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 367) — Canonical facet ids a learning object teaches: blueprint recipe components plus its practice items' evidence facets.
+- `_span_text(repository: Repository, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 384)
+- `_span_id_from_locator(locator: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/authoring/practice_leakage.py), line 395)
 
 ## Who imports or calls it
 
@@ -114,7 +115,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 - [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
-- [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `inventory_for_texts`, `reserved_findings`, `reserved_questions`; statically calls `inventory_for_texts`, `reserved_findings`, `reserved_questions`
+- [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `distinctive_words`, `inventory_for_texts`, `reserved_findings`, `reserved_questions`; statically calls `distinctive_words`, `inventory_for_texts`, `reserved_findings`, `reserved_questions`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `reserved_findings`, `reserved_questions`; statically calls `reserved_findings`, `reserved_questions`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `build_cross_source_spans`; statically calls `build_cross_source_spans`
 
@@ -168,6 +169,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_screen_practice_payload_catches_expected_answer_leak`
 - [tests/test_teacher_exam_question_guard.py](../../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`
+  - `test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages`
   - `test_the_matcher_reads_both_items_as_withheld_questions`
   - `test_unreadable_protection_fails_closed`
 

@@ -3258,8 +3258,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_reserved_question_split_between_message_and_check_is_withheld`
   - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`
-  - `test_a_whole_short_reserved_question_posed_on_its_own_counts_without_a_number`
+  - `test_a_short_reserved_question_with_a_word_distinctive_in_the_vault_counts_wherever_it_stands`
   - `test_a_whole_short_reserved_question_with_a_distinctive_number_counts`
+  - `test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages`
   - `test_reserved_book_is_unreadable_when_withheld_items_is`
   - `test_the_matcher_reads_both_items_as_withheld_questions`
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
