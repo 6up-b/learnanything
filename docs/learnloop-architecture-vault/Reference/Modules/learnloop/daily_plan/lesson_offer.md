@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/lesson_offer.py"
 source_paths:
   - "src/learnloop/daily_plan/lesson_offer.py"
-source_commit: "67ea2c899bbc30a3f6217101d3b57cca2b7aaa90"
-source_commit_timestamp: "2026-11-06T14:55:42-05:00"
+source_commit: "02ca6dafaccff31b2c68eff85db35ae8f38c69b5"
+source_commit_timestamp: "2026-11-06T16:30:06-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py) |
-| Source lines | 404 |
+| Source lines | 449 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `67ea2c899bbc30a3f6217101d3b57cca2b7aaa90` |
-| Commit timestamp | `2026-11-06T14:55:42-05:00` |
+| Source commit | `02ca6dafaccff31b2c68eff85db35ae8f38c69b5` |
+| Commit timestamp | `2026-11-06T16:30:06-05:00` |
 
 ## Public API
 
@@ -67,16 +67,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `accept_moments(state: LS.AcceptanceState, context: LS.Context, candidate: LS.Candidate) -> tuple[float, float]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 97) — ``P(accept)``'s posterior mean and sd: the recovery grid's mixture of ``σ(h·θ)``, ``h·θ ~ N(h·m, h·Σ·h)`` per grid point, each by AD's quadrature (the mean is :meth:`LS.AcceptanceState.p_accept`'s).
 - `beta_from_moments(mean: float, sd: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 113) — The Beta with this mean and sd (moment matching; structural): the value's per-draw ``p``.
 - `lesson_active_minutes(connection: Any, *, at: str) -> list[float]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 135) — Each lesson closed by ``at`` with foreground intervals: its active minutes (TE2-log §11.6: the union of its foreground intervals inside its opening and close; a lesson with none has active unknown and is left out).
-- `duration_model(connection: Any, *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 158) — The lesson's active minutes, log-normal: the log median's normal posterior from its labelled prior and the closed lessons' active minutes (known spread :data:`DURATION_LOG_SD`), and the predictive's median and log-sd (sampled in the value, never averaged).
-- `check_mass(vault: Any, repository: Any, learning_object_id: str, *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 175) — The lesson-check mass the lesson's effect is scaled by (RO4's placeholder, ``γ`` at it; spec §12.1's learned weight, ``learner.lesson_weight``): its posterior mean and sd as of ``at`` on the target (no confidence or prediction term).
-- `shown_today(decisions: Sequence[Mapping[str, Any]], today: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 213) — The day's shown cards and drawn offers together (the ceiling's count).
-- `pending_start(connection: Any, decisions: Sequence[Mapping[str, Any]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 219) — An accepted card or offer whose lesson never opened (TE1b ruling R2's reservation) is still waiting.
-- `build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: float, minutes_left: float | None, reentry: bool, forced: bool) -> Offer` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 232) — This boundary's offer, or none with why (module docstring).
-- `end_block(connection: Any, block_id: str | None, outcome: str, *, at: str) -> None` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 332) — End the offer's block with the learner's response (once; a block already ended is left as it is).
-- `record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 348) — The boundary passed with no answer (spec §15.1a): ``ignored`` on the offer's own decision, once (the ledger's one response a decision), its block ended so.
-- `sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 361) — Every drawn offer left unanswered whose boundary has passed (its block ended, its plan no longer open, or an earlier day): ``ignored`` (the next boundary's step).
-- `card(candidate: BlockCandidate) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 377) — The offer card a drawn offer's block shows and its decision records (``lesson_offer`` on the block's detail and the decision row): its context and candidates (the acceptance model's replay inputs), the value's sensors.
-- `action_inputs(candidate: BlockCandidate) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 384) — What the value estimator reads for the offer (``objective_inputs.action_for``).
+- `duration_model(connection: Any, *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 161) — The lesson's active minutes, log-normal: the log median's normal posterior from its labelled prior and the closed lessons' active minutes (known spread :data:`DURATION_LOG_SD`), and the predictive's median and log-sd (sampled in the value, never averaged).
+- `check_mass(vault: Any, repository: Any, learning_object_id: str, *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 178) — The lesson-check mass the lesson's effect is scaled by (RO4's placeholder, ``γ`` at it; spec §12.1's learned weight, ``learner.lesson_weight``): its posterior mean and sd as of ``at`` on the target (no confidence or prediction term).
+- `shown_today(decisions: Sequence[Mapping[str, Any]], today: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 216) — The day's shown cards and drawn offers together (the ceiling's count).
+- `pending_start(connection: Any, decisions: Sequence[Mapping[str, Any]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 222) — An accepted card or offer whose lesson never opened (TE1b ruling R2's reservation) is still waiting.
+- `build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: float, minutes_left: float | None, reentry: bool, forced: bool) -> Offer` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 235) — This boundary's offer, or none with why (module docstring).
+- `end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, reason: str | None=None) -> None` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 343) — End the offer's block with the learner's response (once; a block already ended is left as it is).
+- `withdrawn(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 360) — The row that took a drawn offer back before an answer (:func:`withdraw`), if one did.
+- `withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 370) — Take back a drawn offer nobody answered (Codex review F1, F2): forced items arrived after it was drawn (a probe FG1 made ready while the offer waited, a follow-up), or offers no longer serve (switch off: the predecessor's boundary decides next).
+- `record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 391) — The boundary passed with no answer (spec §15.1a): ``ignored`` on the offer's own decision, once (the ledger's one response a decision), its block ended so.
+- `sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 404) — Every drawn offer left unanswered whose boundary has passed (its block ended, its plan no longer open, or an earlier day): ``ignored`` (the next boundary's step).
+- `card(candidate: BlockCandidate) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 422) — The offer card a drawn offer's block shows and its decision records (``lesson_offer`` on the block's detail and the decision row): its context and candidates (the acceptance model's replay inputs), the value's sensors.
+- `action_inputs(candidate: BlockCandidate) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 429) — What the value estimator reads for the offer (``objective_inputs.action_for``).
 
 ### Module constants
 
@@ -87,7 +89,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DURATION_LOG_SD` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 58)
 - `DURATION_MEDIAN_PRIOR_SD` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 60)
 - `CONTEXT_RESOLUTION_DAYS` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 63)
-- `ENDED_OUTCOMES` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 315)
+- `WITHDRAWN` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 318)
+- `WITHDRAWN_FORCED` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 321)
+- `WITHDRAWN_OFF` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 322)
+- `ENDED_OUTCOMES` ([src/learnloop/daily_plan/lesson_offer.py](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 326)
 
 ### Explicit exports
 
@@ -100,6 +105,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DURATION_VERSION`
 - `OFFER_VERSION`
 - `Offer`
+- `WITHDRAWN`
+- `WITHDRAWN_FORCED`
+- `WITHDRAWN_OFF`
 - `accept_moments`
 - `action_inputs`
 - `beta_from_moments`
@@ -113,22 +121,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `offers_on`
 - `pending_start`
 - `shown_today`
+- `withdraw`
+- `withdrawn`
 
 ## Internal implementation anchors
 
 - `_union_seconds(rows: Sequence[tuple[str, str]]) -> float` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 123)
-- `_quantized(context: LS.Context) -> LS.Context` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 203)
-- `_block_state(connection: Any, block_id: str | None) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 318) — Whether the offer's block has ended, and its plan's status.
+- `_quantized(context: LS.Context) -> LS.Context` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 206)
+- `_block_state(connection: Any, block_id: str | None) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop/daily_plan/lesson_offer.py), line 329) — Whether the offer's block has ended, and its plan's status.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `end_block`, `record_ignored`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `end_block`, `offers_on`; statically calls `end_block`, `offers_on`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `end_block`, `offers_on`, `record_ignored`, `withdraw`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `end_block`, `module`, `offers_on`; statically calls `end_block`, `offers_on`, `withdrawn`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `action_inputs`; statically calls `action_inputs`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `module`; statically calls `build`, `sweep_ignored`
+- [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `offers_on`; statically calls `offers_on`
 
 ## Dependencies
 
@@ -140,7 +151,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `objective_active`; calls `objective_active`
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `BlockCandidate`, `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`; calls `BlockCandidate`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `module`; calls `append_block_event`
-- [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `all_decisions`, `insert_response`, `offer_decisions`, `releases`, `response_for`, `responses`, `tables_present`
+- [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `all_decisions`, `insert_response`, `offer_decision`, `offer_decisions`, `release_for`, `releases`, `response_for`, `responses`, `tables_present`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `module`; calls `replay_state`
 - [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] — imports `module`; calls `Context`, `days_between`, `declines_by_learning_object`, `design_vector`, `observations`, `replay`, `score`
@@ -158,7 +169,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -166,12 +177,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
 - [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
+  - `test_f1_a_probe_ready_after_the_prefetched_offer_is_served_next_and_the_offer_withdrawn`
+  - `test_f2_switching_off_takes_back_a_prefetched_offer_and_its_card`
 - [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_no_offer_beside_forced_items`
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
 - [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import
   - `test_the_acceptance_posterior_is_moment_matched_to_a_beta`
+  - `test_the_duration_sensor_reads_only_intervals_received_by_its_decision`
   - `test_the_lessons_duration_starts_at_the_seed_and_learns_from_active_minutes`
 
 ## Modification guidance

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/engine.py"
 source_paths:
   - "src/learnloop/daily_plan/engine.py"
-source_commit: "e4131322b0676d232c53ccd2d25fb8ded32f6ea6"
-source_commit_timestamp: "2026-11-06T13:48:58-05:00"
+source_commit: "02ca6dafaccff31b2c68eff85db35ae8f38c69b5"
+source_commit_timestamp: "2026-11-06T16:30:06-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py) |
-| Source lines | 5670 |
+| Source lines | 5685 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e4131322b0676d232c53ccd2d25fb8ded32f6ea6` |
-| Commit timestamp | `2026-11-06T13:48:58-05:00` |
+| Source commit | `02ca6dafaccff31b2c68eff85db35ae8f38c69b5` |
+| Commit timestamp | `2026-11-06T16:30:06-05:00` |
 
 ## Public API
 
@@ -105,18 +105,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `decide(record: PlanRecord, context: PoolContext, policy: PlanPolicy, *, forced_minutes: float=0.0, forced_items: int=0, forced_allotment: Mapping[str, float] | None=None, forced_spent: Mapping[str, float] | None=None, offer: BlockCandidate | None=None) -> Decision` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 2605) — §6.8 at one boundary: redistribution, feasibility, choice, fallback.
 - `ro5_check_origin() -> str` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 3072) — Router objective RO5's randomized check's plan origin (``router_objective.checks.ORIGIN``).
 - `reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 3413) — Fold answers into the plan: done items, unservable items, finished blocks.
-- `followup_placement(record: PlanRecord | None, practice_item_id: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4124) — R13: the one answer to "will this plan serve this probe".
-- `advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None=None) -> tuple[PlanRecord, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4502) — Reconcile, insert follow-ups, cross a boundary if needed, and name the next step.
-- `advance_with_context(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None=None) -> tuple[PlanRecord, dict[str, Any], PoolContext | None]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4514)
-- `learner_pick(env: PlanEnv, practice_item_id: str, *, offer_candidate_id: str | None=None, idempotency_key: str | None=None, within: WithinPick | None=None) -> tuple[PlanRecord | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5063) — §6.1, L3, G12: opening an item from the full list is a one-item block.
-- `picked_under(env: PlanEnv, idempotency_key: str, practice_item_id: str) -> tuple[PlanRecord | None, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5330) — The learner pick already made under ``idempotency_key``, as :func:`learner_pick` returned it: its ORIGINAL block, candidate and presentation, found by its keyed receipt (``PICK_KEYED``) under any plan (today's, or one replaced since).
-- `set_minutes(env: PlanEnv, minutes: int) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5382) — A chip tap (§6.6): sets the remembered budget and re-plans the rest.
-- `keep_going(env: PlanEnv) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5463) — §6.5: one extension.
-- `class PlanStillOpenError(RuntimeError)` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5483) — "More new material" is offered on the done screen: today's plan is still open.
-- `more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5487) — §6.3: "more new material" bypasses the ceiling and the cap once.
-- `reading_ended(env: PlanEnv, outcome: str) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5552) — §6.10: end the current reading block; its estimate counts as used.
-- `note_reading_progress(env: PlanEnv, *, extraction_id: str, section_id: str, spans_seen: int | None, span_count: int | None, completed: bool) -> bool` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5567) — ``reader.mark_section_progress`` while a reading block is current (§6.10).
-- `stop_today(env: PlanEnv) -> PlanRecord | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5607) — The learner stops for today ("Done" mid-plan).
+- `followup_placement(record: PlanRecord | None, practice_item_id: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4126) — R13: the one answer to "will this plan serve this probe".
+- `advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None=None) -> tuple[PlanRecord, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4505) — Reconcile, insert follow-ups, cross a boundary if needed, and name the next step.
+- `advance_with_context(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None=None) -> tuple[PlanRecord, dict[str, Any], PoolContext | None]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4517)
+- `learner_pick(env: PlanEnv, practice_item_id: str, *, offer_candidate_id: str | None=None, idempotency_key: str | None=None, within: WithinPick | None=None) -> tuple[PlanRecord | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5078) — §6.1, L3, G12: opening an item from the full list is a one-item block.
+- `picked_under(env: PlanEnv, idempotency_key: str, practice_item_id: str) -> tuple[PlanRecord | None, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5345) — The learner pick already made under ``idempotency_key``, as :func:`learner_pick` returned it: its ORIGINAL block, candidate and presentation, found by its keyed receipt (``PICK_KEYED``) under any plan (today's, or one replaced since).
+- `set_minutes(env: PlanEnv, minutes: int) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5397) — A chip tap (§6.6): sets the remembered budget and re-plans the rest.
+- `keep_going(env: PlanEnv) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5478) — §6.5: one extension.
+- `class PlanStillOpenError(RuntimeError)` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5498) — "More new material" is offered on the done screen: today's plan is still open.
+- `more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5502) — §6.3: "more new material" bypasses the ceiling and the cap once.
+- `reading_ended(env: PlanEnv, outcome: str) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5567) — §6.10: end the current reading block; its estimate counts as used.
+- `note_reading_progress(env: PlanEnv, *, extraction_id: str, section_id: str, spans_seen: int | None, span_count: int | None, completed: bool) -> bool` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5582) — ``reader.mark_section_progress`` while a reading block is current (§6.10).
+- `stop_today(env: PlanEnv) -> PlanRecord | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5622) — The learner stops for today ("Done" mid-plan).
 
 ### Module constants
 
@@ -140,13 +140,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `CHOOSER_CHOSEN_BY` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 2698)
 - `WHY_KINDS` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 2699)
 - `RO5_CHECK_WHY` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 3107)
-- `FOLLOWUP_LIVE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4119)
-- `FOLLOWUP_DUE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4120)
-- `FOLLOWUP_GONE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4121)
-- `_AD_UNAVAILABLE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4650)
-- `_AD_LOG` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4654)
-- `PICK_KEYED` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 5031)
-- `READING_OUTCOMES` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 5549)
+- `FOLLOWUP_LIVE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4121)
+- `FOLLOWUP_DUE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4122)
+- `FOLLOWUP_GONE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4123)
+- `_AD_UNAVAILABLE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4665)
+- `_AD_LOG` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4669)
+- `PICK_KEYED` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 5046)
+- `READING_OUTCOMES` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 5564)
 
 ### Explicit exports
 
@@ -291,30 +291,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_displace_tail(env: PlanEnv, connection: Any, record: PlanRecord, need: float, *, by: str, keep: set[str]=frozenset()) -> tuple[float, list[str]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 3967) — Free ``need`` minutes by displacing the latest unserved planned items.
 - `_pending_followups(record: PlanRecord, built: _Pool) -> list[PoolItem]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 3998) — Follow-ups produced by this session's answers: not in the plan's universe at build as follow-ups, and not planned yet (§6.1).
 - `_insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[PlanRecord, list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4011) — Plan mid-plan follow-ups next in the current block, displacing the tail.
-- `_place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[PlanRecord, list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4137) — FG1: the plan's end of a workflow whose router decision is made and whose item exists.
-- `_place_followup(record: PlanRecord, current: PlannedBlock, item: PoolItem, victims: Sequence[PlannedItem], *, position: int, now: str) -> tuple[str, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4208) — Apply one follow-up's placement to the in-memory plan (its victims displaced, the follow-up appended to the current block); returns its lane and its lane release.
-- `_write_followup(connection: Any, current: PlannedBlock, item: PoolItem, victims: Sequence[PlannedItem], *, lane: str, release: dict[str, Any] | None, position: int, decision_ref: str | None, now: str) -> None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4232) — The events of one placed follow-up: its victims' displacement, then its ``item_planned``.
-- `_restrained_followups(env: PlanEnv, record: PlanRecord, current: PlannedBlock, followups: Sequence[PoolItem], gate: Any, cap: Any, *, material: Any=None, estimator: Any=None) -> tuple[PlanRecord, list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4267) — Router R2c: each placeable mid-block follow-up's ``plan_interrupt`` decision.
-- `_interrupt_ad_fields(env: PlanEnv, items: Sequence[PoolItem]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4346) — RO0 row 9: the follow-ups' LOs, read before the write that logs their decisions opens.
-- `_log_interrupt(env: PlanEnv, connection: Any, record: PlanRecord, current: PlannedBlock, item: PoolItem, outcome: Any, *, material: Any=None, estimator: Any=None, ad: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4358) — Router R2c: the follow-up's ``plan_interrupt`` row, on the write's own connection, and this build's prefilter linked to it (data capture A1).
-- `_item_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, *, boundary: bool, candidate_id: str | None, presentation_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4429)
-- `_reading_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *, boundary: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4460)
-- `_lesson_offer_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *, boundary: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4482) — Teacher TE3b: the offer card's step (its decision, the suggestion and up to two alternatives, plain words).
-- `_done_step(record: PlanRecord) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4498)
-- `_code(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4657) — An AD failure's code (its only argument), never its text beyond that.
-- `_ad_phase(run: Any, where: str) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4665) — An AD phase (``ad_slot``): its result, or None when AD is unavailable (logged with its code).
-- `_incumbent_facts(run: Any, where: str) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4679) — Phase 2: the plan's own facts, or None.
-- `_ad_deferrals_cleared(env: PlanEnv, record: PlanRecord, built: _Pool, active: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4697) — §6.1 step 0 by the four phases: the AD deferrals whose checks all pass now, each a member of the plan's admitted pool were it released; none on any failure (nothing re-admitted).
-- `_ad_slot_serve(env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, built: _Pool, context: PoolContext, *, boundary: bool) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4728) — Adaptive difficulty AD2+AD3 (spec §6.1): the slot's support, AD's draw, its ``ad_selections`` row, any ``item_substituted`` event and ``item_served``, in one transaction (a propensity is never recomputed after the draw).
-- `_held_cold_check(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> tuple[bool, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4814) — Revalidate a cold check at the moment the plan would serve it (the one eligibility decision, ``scheduler.cold_check_serve_decision``): one whose hold time clears (a routine display, a reveal since it was scheduled) is displaced, with the reason; one submit would prime with no la…
-- `_standing_presentation(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4840) — The presentation an already-served plan item was served under, if any.
-- `_present(env: PlanEnv, connection: Any, *, block_id: str, decision_ref: str | None, practice_item_id: str, position: int | None, origin: str, candidate_id: str | None, served_at: str, strict: bool=False) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4855) — Router R2a: the served item's ``plan_presentations`` row, in the serve's own transaction (one per block and item: a reopen returns the first).
-- `_serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None, strict: bool=False) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4927) — Record the item as served; returns its presentation (router R2a).
-- `_skip(env: PlanEnv, record: PlanRecord, practice_item_id: str) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4985)
-- `_offered_candidate(env: PlanEnv, candidate_id: str | None, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5000) — The full list's offer for this item, when ``candidate_id`` is one (F5).
-- `_keyed_pick_scope(env: PlanEnv, idempotency_key: str | None) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5038) — A keyed pick's one transaction (fix round 6, F13): the block, the serve, the keyed receipt and the caller's ``within`` commit together or not at all, so no reserved-but-unserved pick can exist.
-- `_record_pick_key(env: PlanEnv, connection: Any, *, block_id: str, practice_item_id: str, presentation_id: str | None, idempotency_key: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5049) — The keyed receipt, only ever with the presentation it names (fix round 7): a keyed pick without one refuses, and its transaction rolls back.
-- `_pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practice_item_id: str, est: float, lane: str | None, lo_id: str, deductions: dict[str, float], lefts: Mapping[str, float], candidate_id: str | None, idempotency_key: str | None, within: WithinPick | None, material: Any=None, state_receipt: Any=None) -> tuple[PlanRecord, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5238) — The one-item learner-pick block (L3): its block, its serve and, for a keyed pick, its keyed receipt and ``within`` (one transaction then).
+- `_place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[PlanRecord, list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4139) — FG1: the plan's end of a workflow whose router decision is made and whose item exists.
+- `_place_followup(record: PlanRecord, current: PlannedBlock, item: PoolItem, victims: Sequence[PlannedItem], *, position: int, now: str) -> tuple[str, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4211) — Apply one follow-up's placement to the in-memory plan (its victims displaced, the follow-up appended to the current block); returns its lane and its lane release.
+- `_write_followup(connection: Any, current: PlannedBlock, item: PoolItem, victims: Sequence[PlannedItem], *, lane: str, release: dict[str, Any] | None, position: int, decision_ref: str | None, now: str) -> None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4235) — The events of one placed follow-up: its victims' displacement, then its ``item_planned``.
+- `_restrained_followups(env: PlanEnv, record: PlanRecord, current: PlannedBlock, followups: Sequence[PoolItem], gate: Any, cap: Any, *, material: Any=None, estimator: Any=None) -> tuple[PlanRecord, list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4270) — Router R2c: each placeable mid-block follow-up's ``plan_interrupt`` decision.
+- `_interrupt_ad_fields(env: PlanEnv, items: Sequence[PoolItem]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4349) — RO0 row 9: the follow-ups' LOs, read before the write that logs their decisions opens.
+- `_log_interrupt(env: PlanEnv, connection: Any, record: PlanRecord, current: PlannedBlock, item: PoolItem, outcome: Any, *, material: Any=None, estimator: Any=None, ad: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4361) — Router R2c: the follow-up's ``plan_interrupt`` row, on the write's own connection, and this build's prefilter linked to it (data capture A1).
+- `_item_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, *, boundary: bool, candidate_id: str | None, presentation_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4432)
+- `_reading_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *, boundary: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4463)
+- `_lesson_offer_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *, boundary: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4485) — Teacher TE3b: the offer card's step (its decision, the suggestion and up to two alternatives, plain words).
+- `_done_step(record: PlanRecord) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4501)
+- `_code(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4672) — An AD failure's code (its only argument), never its text beyond that.
+- `_ad_phase(run: Any, where: str) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4680) — An AD phase (``ad_slot``): its result, or None when AD is unavailable (logged with its code).
+- `_incumbent_facts(run: Any, where: str) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4694) — Phase 2: the plan's own facts, or None.
+- `_ad_deferrals_cleared(env: PlanEnv, record: PlanRecord, built: _Pool, active: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4712) — §6.1 step 0 by the four phases: the AD deferrals whose checks all pass now, each a member of the plan's admitted pool were it released; none on any failure (nothing re-admitted).
+- `_ad_slot_serve(env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, built: _Pool, context: PoolContext, *, boundary: bool) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4743) — Adaptive difficulty AD2+AD3 (spec §6.1): the slot's support, AD's draw, its ``ad_selections`` row, any ``item_substituted`` event and ``item_served``, in one transaction (a propensity is never recomputed after the draw).
+- `_held_cold_check(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> tuple[bool, Any]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4829) — Revalidate a cold check at the moment the plan would serve it (the one eligibility decision, ``scheduler.cold_check_serve_decision``): one whose hold time clears (a routine display, a reveal since it was scheduled) is displaced, with the reason; one submit would prime with no la…
+- `_standing_presentation(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4855) — The presentation an already-served plan item was served under, if any.
+- `_present(env: PlanEnv, connection: Any, *, block_id: str, decision_ref: str | None, practice_item_id: str, position: int | None, origin: str, candidate_id: str | None, served_at: str, strict: bool=False) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4870) — Router R2a: the served item's ``plan_presentations`` row, in the serve's own transaction (one per block and item: a reopen returns the first).
+- `_serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None, strict: bool=False) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 4942) — Record the item as served; returns its presentation (router R2a).
+- `_skip(env: PlanEnv, record: PlanRecord, practice_item_id: str) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5000)
+- `_offered_candidate(env: PlanEnv, candidate_id: str | None, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5015) — The full list's offer for this item, when ``candidate_id`` is one (F5).
+- `_keyed_pick_scope(env: PlanEnv, idempotency_key: str | None) -> Any` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5053) — A keyed pick's one transaction (fix round 6, F13): the block, the serve, the keyed receipt and the caller's ``within`` commit together or not at all, so no reserved-but-unserved pick can exist.
+- `_record_pick_key(env: PlanEnv, connection: Any, *, block_id: str, practice_item_id: str, presentation_id: str | None, idempotency_key: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5064) — The keyed receipt, only ever with the presentation it names (fix round 7): a keyed pick without one refuses, and its transaction rolls back.
+- `_pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practice_item_id: str, est: float, lane: str | None, lo_id: str, deductions: dict[str, float], lefts: Mapping[str, float], candidate_id: str | None, idempotency_key: str | None, within: WithinPick | None, material: Any=None, state_receipt: Any=None) -> tuple[PlanRecord, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5253) — The one-item learner-pick block (L3): its block, its serve and, for a keyed pick, its keyed receipt and ``within`` (one transaction then).
 
 ## Who imports or calls it
 
@@ -355,7 +355,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `CHOOSER_NAME`, `LaneQuotaChooser`; calls `LaneQuotaChooser`
 - [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] — imports `Estimator`, `load_duration_evidence`; calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `LegacyLanesSource`, `PoolItem`, `REPAIR_RULE_DIAGNOSIS`, `REPAIR_RULE_RECENT_ERROR`, `SOURCE_NAME`, `ScheduledCheck`, `classify_pool`, `reentry_order`, `scheduled_checks`; calls `LegacyLanesSource`, `PoolItem`, `ScheduledCheck`, `classify_pool`, `reentry_order`, `scheduled_checks`
-- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `end_block`, `record_ignored`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `end_block`, `offers_on`, `record_ignored`, `withdraw`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `offer_card_view`; calls `offer_card_view`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; calls `applies`, `freeze`, `freeze_followup`, `plan_slots`, `record`, `with_last_block`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; calls `check_eligible_items`, `check_sensors`, `population`
@@ -862,6 +862,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_12_9_reproduction_is_served_as_practice_and_its_check_withdrawn`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f4_the_plan_serves_the_12_9_case_as_mvp_026_with_the_switch_off`
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
+  - `test_f1_a_probe_ready_after_the_prefetched_offer_is_served_next_and_the_offer_withdrawn`
+  - `test_f1_a_shown_card_with_a_probe_ready_is_withdrawn_not_ignored`
+  - `test_f1_a_start_answered_before_the_plan_reads_again_keeps_the_lesson_and_the_probe_is_next`
+  - `test_f1_an_answer_after_the_plan_took_the_offer_back_is_refused_and_the_probe_served`
+  - `test_f2_switching_off_takes_back_a_prefetched_offer_and_its_card`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`
   - `test_moving_on_without_an_answer_is_ignored_at_the_next_boundary`

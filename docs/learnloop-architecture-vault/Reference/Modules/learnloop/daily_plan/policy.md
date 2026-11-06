@@ -171,6 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_matured_decision_from_an_earlier_day_is_shown_to_the_models`
 - [tests/test_router_why_copy.py](../../../../../../tests/test_router_why_copy.py) — direct import
   - `test_every_why_the_staged_chooser_writes_on_a_plan_is_plain`
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
   - `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`
 

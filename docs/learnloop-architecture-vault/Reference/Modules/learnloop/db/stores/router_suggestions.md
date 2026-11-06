@@ -129,8 +129,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `module`; statically calls `decisions`, `releases`, `responses`, `tables_present`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `offer_decision`, `response_for`
-- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `all_decisions`, `insert_response`, `offer_decisions`, `releases`, `response_for`, `responses`, `tables_present`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `module`; statically calls `all_decisions`, `attempts_by_learning_object`, `decision`, `decision_for_day`, `insert_response`, `last_lesson_opened_by_learning_object`, `lesson_exists`, `offer_decision`, `open_lesson_learning_objects`, `receipt_key`, `release_for`, `releases`, `response_for`, `responses`, `tables_present`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `all_decisions`, `insert_response`, `offer_decision`, `offer_decisions`, `release_for`, `releases`, `response_for`, `responses`, `tables_present`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `module`; statically calls `all_decisions`, `attempts_by_learning_object`, `decision`, `decision_for_day`, `decisions`, `insert_response`, `last_lesson_opened_by_learning_object`, `lesson_exists`, `offer_decision`, `open_lesson_learning_objects`, `receipt_key`, `release_for`, `releases`, `response_for`, `responses`, `tables_present`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `module`; statically calls `tables_present`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `module`; statically calls `all_decisions`, `releases`, `responses`, `tables_present`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `lesson_exists`, `release_for`, `response_for`, `tables_present`
@@ -163,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
 - [tests/test_followups_batch6_router_report.py](../../../../../../../tests/test_followups_batch6_router_report.py) — direct import
   - `test_router_report_on_a_database_before_lesson_suggestions_is_refused`
+- [tests/test_te3b_codex_review.py](../../../../../../../tests/test_te3b_codex_review.py) — direct import
 - [tests/test_te3b_offers.py](../../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`
   - `test_moving_on_without_an_answer_is_ignored_at_the_next_boundary`

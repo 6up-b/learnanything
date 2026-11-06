@@ -138,6 +138,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_miss_at_the_tag_opens_one_workflow_and_withholds_the_predecessors_insertion`
   - `test_auto_generate_on_entry_is_effectively_true_only_while_fg1_is_on`
   - `test_below_the_tag_or_with_the_switch_off_no_workflow_opens`
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
 
 ## Modification guidance
 
