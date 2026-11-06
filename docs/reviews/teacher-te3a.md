@@ -205,3 +205,174 @@ None new. At landing: renumber `mvp-0.50` and migration 248 if the router follow
 head fixture from main's head, and move the version pins. After landing, the owner's vault upgrade to the chain's head
 activates it; the census has no lesson, so the curve stays at its prior and the objective values a lesson exactly as
 RO4 does until lessons and later cold answers exist.
+
+## Landing onto main
+
+Main was `23182034c6`: TE2 had landed as mvp-0.51 with migration 248 (`248_teacher_te2_sources.sql`), on the router
+follow-up batch's mvp-0.50. The merge renumbered TE3a to **mvp-0.52 <- mvp-0.51** and its migration to **249**. While
+the gate ran, main moved to `64f7d1dc86` (the teacher exam-question guard: no successor, no migration); it was merged
+after the gate (below). The router speed stage had not landed.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "F1 is fixed at the moment of exposure: each item's identity (practice_item_id, keys, whole, in AD's outside.source_identity shape, ids only) is frozen when the lesson shows or reveals it, on the turn's reveal or show record, and the closing receipt's exposure.identities is the union of every exposed revision's identity, never only the close-time one. AD's MaterialView keeps checking each identity with Protection.covers_identity and fails closed on a missing or malformed identity. Codex's reproduction (reveal pi_l1 citing ext_old/b1, replace pi_l1 with a public revision before close, close, protect ext_old/b1) is a test and must withhold the lesson. Build it so TE2's changes to teacher/service.py merge cleanly: keep the change to the reveal/show write and the receipt's exposure block. No further Codex round on this class; I read the diff before landing."
+- R2: "The lesson prior's spread (first-dose sd 0.05, so the objective's lesson Q-bar equals RO4's placeholder draw for draw) rather than AD's new-kind width 0.070 is accepted, recorded as a labelled prior choice; once lessons give data the posterior moves it."
+- R3: "Receipts closed before TE3a are withheld (fail closed): accepted, the census had no lessons. The receipt naming the readings a lesson read from (exposure.readings) and lesson minutes in AD's report row go to the follow-up batch, as recorded."
+- R4: "Owner, Nov 5: the old item difficulty scalar is to be retired in the refactor. TE3a adds no new reader or writer of it; the landing checks this with a grep of the diff against main for the difficulty columns, mastery.irt.difficulty_from_prior and surprise's b, and records the result."
+
+### Commits
+
+| Step | Commit | What |
+|---|---|---|
+| R1 | `f60da20c5b` | Each display's frozen identities on its own record; the receipt's union; Codex's reproduction as a test (`docs/reviews/ad-te3a-codex-review.md`, "Final verify and landing ruling R1") |
+| Merge, renumber | `6cad8141ec` | Main (`23182034c6`) merged. `LESSON_OPPORTUNITY_ALGORITHM_VERSION = mvp-0.52` after `TEACHER_PROBES_ALGORITHM_VERSION`; the upgrade's `PREDECESSOR` and completion are TE2's; the openers install TE3a's completion; `--to` names it; pyproject's source modules list it. Migration renamed 249; `migration_head_249` rebuilt from main's tracked `migration_head_248` with only 249 applied. Every defaults snapshot recomputed (all 43 moved: TE3a's key is in each, inert below its tag). value.py, readiness, objective_inputs and service.py resolved (below). R1 extended to TE2's probe card. CLI help snapshot regenerated |
+| Pins | `dab159b1d1` | 14 pins the first mechanical pass missed (found by step 2): six head `MAX(version)` checks, five version sets ending at `LATEST`, the default upgrade's output, two by hand (`test_ad23_migration`, `test_help_assist_figures_migration`); the reference scripts' `SCHEMA_HEAD` |
+| References | `49341f807e` | DB and configuration reference (head 249, 1181 effective leaves, the two prose counts 1180 -> 1181), desktop and module catalogs, vault validated |
+| Merge | `7d9172c742` | Main (`64f7d1dc86`, the exam-question guard) merged without a source conflict; module references regenerated |
+
+**The resolutions.**
+- **value.py.** The follow-up batch's AD link (R9) and latent moments (R10) are kept, with TE3a's `LESSON` branch. With
+  `ad_predictive_link` on, the rollouts' eta is AD's latent ability, the scale AD fits the lesson curve on, so the
+  curve's shift adds there. Off, it adds on `logit p-bar`, as built. The curve is read from the same
+  `decision_state_fields` call that, with the link, also carries `eta_moments`. The linked probe observation
+  (`_observe` with the link, new on main) returned before it closed the lesson window; it now closes it too, as the
+  unlinked branch does. The lesson Q-bar at the seeded prior equals RO4's placeholder, draw for draw, with every
+  follow-up switch off and with them on (link with latent moments, monotone combiner, merged sessions, consistent
+  review draw): `test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder[off|on]`.
+- **teacher/service.py.** TE2's `te2` payload and its receipt fields (`gaps`, `created_los`, `probes`) are kept with
+  TE3a's `exposure.readings` and R1's `exposure.identities`.
+- **R1 and TE2's probe card.** A served probe shows its question, so `probes.serve` writes the question's frozen
+  identity on its `probe_served` record, and the receipt's union counts that record as a displayed one. Without
+  this, every probe lesson's receipt would have failed closed. The identity helper moved to
+  `learnloop.teacher.exposure`, which `service` and `probes` share.
+  `test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed` drives TE2's
+  probe end to end: every displayed record is frozen, the receipt has `identities` with the probe's, and AD's guard
+  admits it until the probe's item is protected, then withholds it. The union test covers a served probe with
+  identities and one without them (fails closed).
+- **The head and the earlier migrations' pins.** TE2's 248 touches no table TE3a's 249 rebuilds.
+  `test_ad23_migration`'s vault without 214 now reaches 248 (TE2's), and the runner applies `[214, 249]`. The
+  altered-tables pins carry `TE3A_ALTERED_TABLES` again where main's side had been taken.
+
+**R4.** `git diff 23182034c6 HEAD -- src migrations` (at `49341f807e`) adds no reader or writer of the difficulty
+columns, `mastery.irt.difficulty_from_prior` or surprise's `b`. Its 32 added lines naming "difficulty" all name the
+`adaptive_difficulty` package (imports, docstrings, the switch, the trace's source label). No added line names
+`surprise`, `irt` or `difficulty_from_prior`.
+
+### Gate
+
+The gate ran at `49341f807e`. Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --scope
+--quiet -p MemoryMax=5G -p MemorySwapMax=1G`. The full suite ran in 10G/2G under `flock /tmp/learnloop-fullsuite.lock`.
+Every other Python or CLI ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No model call
+or paid call was made.
+
+| Command | Result |
+|---|---|
+| Step 2: targeted pytest, 262 files, `-n 6` (every file the merge touched, `test_te3a_*`, `test_teacher_*`, `test_ro*` (the `test_rofu_*` among them), `test_ad*`, `test_measurement_state_labels`, `test_codex_lockdown_round3`, the CLI help snapshot, the contract set) | 12254 passed, 20 skipped, 39 xfailed, 14 failed: all pins (`dab159b1d1`); their 14 files then 138 passed, 6 skipped, 1 xfailed |
+| Step 3: `db_generate_reference` + `db_validate_reference` | errors [] (head 249; 1181 effective leaves, after the two prose counts) |
+| Step 3: `desktop_generate` / `desktop_validate` | passed (321 TS/TSX + 6 Rust) |
+| Step 3: `module_generate` / `module_validate` | PASS (1247 modules) |
+| Step 3: `validate_vault.py` | passed (2238 notes) |
+| Step 3: config fingerprints | all 43 snapshots recomputed; TE3a's successor test freezes main's mvp-0.51 value (`94291ed4...`, reproduced by dropping TE3a's key); every earlier frozen digest drops it (`drop_te3a_keys`) |
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| Full pytest (`-n 8 --dist worksteal`) | **29806 passed, 91 skipped, 47 xfailed, 2 failed** (59:03). Each failure passed alone 3 times: `test_rofu_carried::test_an_early_publication_served_keeps_its_carried_valuation` (the known flake TE2's record names) and `test_mvp021_upgrade::test_the_successor_rebuild_equals_mvp020s_projection` (a projection comparison, under the full suite's load) |
+| Durability lane (`-m durability`) | 404 passed, 1 skipped |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 4 skipped, and the 2 known failures (`test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`) |
+| Desktop: typecheck, whole vitest (`--maxWorkers=4`), `frontend:build`, `cargo check` | ok, 2772 passed, ok, ok |
+| Mobile: typecheck, build | ok, ok |
+| After merging `64f7d1dc86` (teacher-guard-only): `test_teacher_*` (with `test_teacher_exam_question_guard`), `test_te3a_*`, `test_architecture`, `lint-imports` | 399 passed; 43 kept, 0 broken |
+
+The full suite was not rerun after the guard's merge: it touched only the teacher's guards and their call sites
+(no successor, no migration), so the teacher, TE3a and exam-guard files were rerun instead.
+
+### Smoke
+
+**Setup.**
+- **Copies.** Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (arxiv_v2, linear_algebra,
+  probability), neutralized (every AI route at 127.0.0.1:9), under `fixtures-local/landing-te3a-smoke/` (since
+  deleted).
+- **Code.** `git archive` of main (`23182034c6`) and of the branch (`6cad8141ec`; the later commits change tests,
+  references and records only), each with `migrations/`, run with that tree first on the path.
+- **Upgrades.** On main code: mvp-0.45, rebuild, mvp-0.46, mvp-0.47, rebuild, then the default (mvp-0.51; head 248).
+  On branch code: that copy opened once (migration 249 applied on open; mvp-0.51, head 249), then the default
+  upgrade (mvp-0.51 -> mvp-0.52).
+
+**Below the tag, and at the tag with `lesson_opportunities = false`.**
+- **AD** (the replay's state hash, events fingerprint, opportunities and bank; `lo_readiness` for every LO;
+  `decision_state_fields` with the learning moments; `report.build`): main at mvp-0.51 against the branch below the
+  tag and against the branch at mvp-0.52 switched off. Identical on all three copies, the version label aside.
+- **Today, Next and the follow-up gate** (the follow-up batch's driver: one day, seed pinned, the second item missed
+  with FG1's follow-up written by `AuthorFake`, the first stop declined):
+  - Below the tag: identical on each copy (Today, plan, every step, every router LLM and Decider request, the gate,
+    every written row).
+  - At the tag, switched off: as in RO5's, RO6's, the follow-up batch's and TE2's landings, the boundary key's
+    version string seeds the rollouts' noise. It was set aside on both sides (`SMOKE_PIN_KEY`). So was the trace's
+    generator key, which names the version. Without the key aside, the sessions diverged on linear_algebra (7
+    attempts against 9). With both aside, everything was identical on all three copies: steps, Today, plan, the 5-6
+    LLM and Decider requests, the gate and every row.
+
+**At the tag** (switch on), through the real lesson handlers with the tests' `TeacherFake`:
+- **Two lessons per copy, both closed `goal_reached`.**
+  - Lesson 1 (R1): a teaching turn partly reveals item X, whose revision cites book blocks
+    (`pi_a_causally_masked_transf`, `pi_linear_combinations_basis_recognize_01`,
+    `pi_binary_mask_complement_story_proof`). X is rewritten with a public revision (no source refs) before the
+    close. Then a check is answered right, the node lands and the lesson closes.
+  - Lesson 2: a check answered right, then landed and closed.
+- **Receipts.** Lesson 1's `exposure.identities` holds X's frozen pre-replacement identity; lesson 2's holds only
+  the public one. Every displayed record carries its frozen identities.
+- **AD's rows.** The sweep wrote one `lesson` row per lesson (`landed`, `salience_only`), and the replay reads both.
+- **The report's lesson row.** `landed`: posterior, 2 lessons, first dose median 0.096 logit (90% 0.014 to 0.176),
+  beside RO4's placeholder of 0.1. `taught`: 0 lessons. The `lessons_worse_than_no_lessons` flag is listed.
+- **The lesson Q-bar at the prior.** The curve read at the decision is exactly the seeded prior (a lesson applied, no
+  later cold answer). The lesson's Q with the curve equals RO4's placeholder draw for draw, with the follow-up switches
+  off and on, on each copy (max draw difference 0.0).
+- **AD's guard.** Raw reads of `lesson_receipts`, `lesson_turns` and `lesson_checks` inside an AD operation were
+  refused, and each poisoned the operation.
+- **Replay equivalence.** The live replay, a fresh run of the loaded events, the stored subject state after AD's
+  rebuild, and the replay after a state sync were equal on each copy.
+- **R1 on real data.** One block of X's old revision was protected (the held-out predicate patched in that process).
+  X's current id stayed visible, and its frozen identity was covered.
+  - On arxiv_v2 the block chosen is cited by nothing else either lesson exposed. The sweep at the new epoch
+    withheld lesson 1 and kept lesson 2.
+  - On linear_algebra and probability every block X cites is also cited by another revision lesson 2 exposed (a
+    sibling item, or its book). Both lessons were withheld there, rightly.
+- **`rebuild --shadow`** on each lesson copy: facet 0, schedule 0. Mastery changed by the `algorithm_version` stamp
+  alone (mvp-0.47; arxiv_v2 33 rows, probability 17), except one row on linear_algebra: the lesson LO's
+  `learning_object_mastery` (logit mean 1.152 live against 0.927 rebuilt). The same two lessons driven on **main's
+  code** at mvp-0.51 give the same row with the same numbers, with or without X's replacement. So it is main's
+  behaviour for a lesson check's mastery on that copy, not TE3a's. Recorded as an open item.
+- **Calls and processes.**
+  - No new `model_call_receipts`: 0 -> 0 on arxiv_v2 and linear_algebra, 56 -> 56 on probability (the backup's own
+    Oct 25-26 receipts).
+  - The socket watch logged no connect at all, no non-loopback address and no resolve.
+  - The only subprocesses were `powerprofilesctl get` and `git -C` (the code stamp). No Codex process ran.
+
+### What the owner runs after the fast-forward
+
+For each vault (`~/learnloop-vaults/<name>`), once TE2's steps from its record are done (mvp-0.51):
+
+```
+learnloop upgrade --vault ~/learnloop-vaults/<name>        # mvp-0.51 -> mvp-0.52 (the default); migration 249 applies on open
+learnloop rebuild-derived-state --vault ~/learnloop-vaults/<name>
+```
+
+Then rebuild the desktop app and restart the phone host, as for every landing. A vault still at an older tag reaches
+mvp-0.52 through the chain with the same command.
+
+To turn lesson opportunities off in a vault, add to its `learnloop.toml`:
+
+```
+[adaptive_difficulty]
+lesson_opportunities = false
+```
+
+AD and the objective are then mvp-0.51's exactly. The lesson rows already recorded stay, unread.
+
+### Open items
+
+- **A lesson check's live mastery against its rebuild** (linear_algebra copy; on main too, above): for the follow-up
+  batch.
+- **R3's two items go to the follow-up batch**, as recorded: the receipt naming the readings a lesson read from, and
+  lesson minutes in AD's report row.
+- **Receipts closed before TE3a, and lessons open across the upgrade**, are withheld from AD (fail closed). A lesson
+  open across the upgrade has displayed records without frozen identities; its receipt carries no `identities`.
