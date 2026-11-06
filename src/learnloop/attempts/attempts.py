@@ -3089,6 +3089,35 @@ def _record_lesson_probe(
     )
 
 
+def publish_regraded_probe_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    grading_source: str,
+    grader_identity: tuple[str, str] | None,
+    fired_error_types: Iterable[str],
+    held: bool,
+    clock: Clock | None = None,
+) -> bool:
+    """A regrade's probe grade under the replacement grade's identity (TE2 landing ruling R1): the attempts
+    package's door to :func:`learnloop.diagnosis.probe_episodes.dual_write_regraded_probe_grade` (the probe
+    dual-writes live there, and this module already reads them), so the regrade adds no cross-package edge."""
+
+    from learnloop.diagnosis.probe_episodes import dual_write_regraded_probe_grade
+
+    return dual_write_regraded_probe_grade(
+        vault,
+        repository,
+        attempt_id=attempt_id,
+        grading_source=grading_source,
+        grader_identity=grader_identity,
+        fired_error_types=fired_error_types,
+        held=held,
+        clock=clock,
+    )
+
+
 def _signature_matched(attempt: ApplyAttemptInput) -> bool:
     """``raw_grade_events.signature_matched`` for this grade.
 

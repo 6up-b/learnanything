@@ -682,11 +682,11 @@ def _publish_regrade(
     # (replay never re-mints them), so the regrade publishes the replacement grade's own, under the identity that
     # produced it (the new blind record's calibration identity, else the joint door's), before the replay below
     # reads it. An ordinary practice answer's are re-minted by its replay under that same identity.
+    from learnloop.attempts.attempts import publish_regraded_probe_grade
     from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION as _BLIND_SCHEMA
-    from learnloop.diagnosis.probe_episodes import dual_write_regraded_probe_grade
     from learnloop.outcome_contract import grade_held_for_review
 
-    dual_write_regraded_probe_grade(
+    publish_regraded_probe_grade(
         vault,
         repository,
         attempt_id=attempt["id"],
