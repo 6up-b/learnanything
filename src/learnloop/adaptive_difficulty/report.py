@@ -65,6 +65,9 @@ COMPARISONS = (("sharing", A.SUBJECT, A.LO, "first_attempt_lo", "sharing_worse_t
                ("coupling", A.SUBJECT, A.UNIFORM, "first_attempt_lo", "coupling_worse_than_uniform"),
                ("reading", A.SUBJECT, A.NOREAD, "after_reading", "reading_worse_than_no_reading"),
                ("verdicts", A.SUBJECT, A.NOVERDICT, "after_verdict", "verdicts_worse_than_no_verdicts"))
+#: Teacher TE3a: the lesson opportunity's auto-flag (recommends ``lesson_opportunities = false`` when the subject
+#: view predicts first attempts after a lesson worse than without lessons), reported only while lessons are live.
+LESSON_COMPARISON = ("lessons", A.SUBJECT, A.NOLESSON, "after_lesson", "lessons_worse_than_no_lessons")
 FAST_TRACK_Q = 0.9
 
 
@@ -108,17 +111,19 @@ def _field_rule(records: Sequence[A.Record], challenger: str, comparator: str) -
 
 def _flags_and_lines(records: Sequence[A.Record], previous_errors: Sequence[float | None], *,
                      selected_outcomes: Sequence[float], delivered: Sequence[Mapping[str, Any]],
-                     lowerings: Sequence[str], now: str) -> tuple[list[dict[str, Any]], list[str]]:
+                     lowerings: Sequence[str], now: str, lessons: bool = False
+                     ) -> tuple[list[dict[str, Any]], list[str]]:
     dicts = [r.__dict__ | {"p": r.p, "y": r.y} for r in records]
     flags, lines = [], []
-    for subject, challenger, comparator, split, flag in COMPARISONS:
+    for subject, challenger, comparator, split, flag in (*COMPARISONS, *((LESSON_COMPARISON,) if lessons else ())):
         diffs, ranges = MON.difference_terms(dicts, challenger, comparator, split=split)
         result = MON.comparison_flag(flag, diffs, ranges)
         flags.append(result.as_dict())
         lines.append(MON.honest_line({"sharing": "Sharing across topics against topic-only",
                                       "coupling": "The learned coupling against uniform sharing",
                                       "reading": "Reading against no reading",
-                                      "verdicts": "Self-check verdicts against none"}[subject],
+                                      "verdicts": "Self-check verdicts against none",
+                                      "lessons": "Lessons against no lessons"}[subject],
                                      MON.verdict(result.detail), result.detail.get("n", 0)))
     subject_scores = arm_scores(records, A.SUBJECT, None)
     errors = list(previous_errors) + [subject_scores.get("band_region_error")]
@@ -489,6 +494,24 @@ def _self_check(records: Sequence[A.Record]) -> dict[str, Any]:
     return out
 
 
+def _lesson_inputs(snapshot: RP.Snapshot, records: Sequence[A.Record]) -> dict[str, Any]:
+    """Teacher TE3a: what the dose report's lesson row is computed from: the lesson opportunities the replay
+    applied, by subkind, and the first attempts after a lesson with their realized and predicted success."""
+
+    counts = {subkind: 0 for subkind in P.LESSON_SUBKINDS}
+    for event in snapshot.events.opportunities:
+        if event.kind == P.LESSON_KIND and event.subkind in counts:
+            counts[event.subkind] += 1
+    after = [r for r in records if r.after_lesson]
+    return {"opportunities": counts, "after_lesson": {
+        "n": len(after),
+        "realized": float(np.mean([r.y for r in after])) if after else None,
+        "predicted": float(np.mean([r.p[A.SUBJECT] for r in after if A.SUBJECT in r.p])) if after else None,
+        "predicted_without_lessons": (float(np.mean([r.p[A.NOLESSON] for r in after if A.NOLESSON in r.p]))
+                                      if after and any(A.NOLESSON in r.p for r in after) else None),
+    }}
+
+
 def _median_doses(records: Sequence[A.Record]) -> dict[str, float]:
     out = {}
     for kind in P.READING_KINDS:
@@ -621,22 +644,24 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
         errors = readiness_errors(records, [row["created_at"] for row in view.selections(connection, kind="serve")],
                                   every=report_every)
         previous_errors = errors[:-1]
+    lessons = bool(log["settings"].lessons)
     flags, lines = _flags_and_lines(records, previous_errors, selected_outcomes=stats["realized_outcomes"],
                                     delivered=dose_arm["delivered"], lowerings=density_lowerings(connection, view=view),
-                                    now=now)
+                                    now=now, lessons=lessons)
     selections = view.selections(connection)
     dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot, view=view),
                       answer_minutes=_answer_minutes(connection, view=view),
                       median_doses=_median_doses(records),
                       offers=_offer_outcomes(connection, snapshot, view=view,
                                              delayed_definition=serving_on(vault.config)),
-                      records=[{"y": r.y, "p": r.p.get(A.SUBJECT), "doses": r.doses} for r in records])
+                      records=[{"y": r.y, "p": r.p.get(A.SUBJECT), "doses": r.doses} for r in records],
+                      lessons=_lesson_inputs(snapshot, records) if lessons else None)
     report = {
         "version": REPORT_VERSION,
         "generated_at": now,
         "algorithm_version": vault.config.algorithms.algorithm_version,
         "versions": {**P.versions(), "replay": RP.REPLAY_VERSION, "select": S.SELECT_VERSION,
-                     "dose": DR.DOSE_REPORT_VERSION},
+                     "dose": DR.DOSE_REPORT_VERSION, **({"lesson_priors": P.LESSON_PRIORS_VERSION} if lessons else {})},
         "inputs": dict(log["events"].summary),
         # The material view the whole report read (A8): with the held-out predicate unavailable it
         # read nothing item-derived, and says so.

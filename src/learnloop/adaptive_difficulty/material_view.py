@@ -180,7 +180,12 @@ _ENTITY_TABLES: dict[str, tuple[str, str]] = {
     "administration": ("activity_administrations", "id"),
     "surface": ("activity_surfaces", "id"),
     "help_assist": ("help_assists", "id"),
+    # Teacher TE3a: a lesson's plan and receipt reference their lesson.
+    "lesson": ("lessons", "id"),
 }
+#: Teacher TE3a: each lesson table's own record, judged by :meth:`MaterialView._lesson_record_withheld`.
+_LESSON_RECORDS: dict[str, str] = {"lessons": "goal_json", "lesson_plans": "outline_json",
+                                   "lesson_receipts": "receipt_json"}
 
 
 #: A figure prediction's learner-text source id (``diagnosis.text_gaps.sources``' grammar, restated:
@@ -489,7 +494,25 @@ class MaterialView:
             return self.keys_withheld(keys, whole)
         if table == "learner_text_gaps":
             return self._gap_source_withheld(connection, row)
+        if table in _LESSON_RECORDS:
+            return self._lesson_record_withheld(row, _LESSON_RECORDS[table])
         raise ValueError(f"no self rule for {table}")
+
+    def _lesson_record_withheld(self, row: Mapping[str, Any], column: str) -> bool:
+        """Teacher TE3a (spec_teacher_v1 §14.2, §14.3; Option B): a lesson's own record (its goal, its outline, its
+        receipt) is withheld when any reading it names (an extraction, a span, a section, a passage's key: a Reader
+        selection's goal above all) is one the withheld material touches, or while the predicate cannot tell; an
+        unreadable record is withheld (fail closed). The lesson's book (the passages it read, by alias) lives only in
+        its turns' payloads, which AD never reads; the teacher's own guard refuses withheld passages there."""
+
+        try:
+            value = row.get(column, row.get(column[: -len("_json")]) if column.endswith("_json") else None)
+            record = value if isinstance(value, (Mapping, list)) else json.loads(value or "null")
+            keys, whole = reference_keys(record)
+        except Exception:  # noqa: BLE001 - fail closed
+            return True
+        return any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
+            self.reading_withheld(extraction) for extraction in whole)
 
     def _gap_source_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
         """Router objective RO2 (Codex review F1): a gap is withheld with the learner text it was named
@@ -1623,13 +1646,21 @@ class MaterialView:
         F20): a receipt whose source is withheld is invisible. Its doses were mapped under this very
         projection (round 2: a receipt of another epoch is swept again), so they stand as recorded; a
         frozen dose on a facet merely absent from current content stands (Codex verify F30). Oldest
-        source first."""
+        source first.
 
+        Teacher TE3a: a ``lesson`` receipt is read only while lesson opportunities are live (its successor's tag and
+        ``adaptive_difficulty.lesson_opportunities``); off, it is for AD as if never written (the replay, the serve's
+        warmth, the sweep's window, the history card and resolver: AD's predecessor exactly)."""
+
+        from learnloop.adaptive_difficulty.priors import LESSON_KIND
+        from learnloop.adaptive_difficulty.successor import lesson_opportunities_on
         from learnloop.db.stores import ad_receipts
 
         wanted = None if learning_object_ids is None else {str(lo) for lo in learning_object_ids}
+        lessons = lesson_opportunities_on(getattr(self.vault, "config", None))
         return [row for row in self.rows(connection, ad_receipts.READING, order="source_written_at, id")
-                if wanted is None or str(row.get("learning_object_id")) in wanted]
+                if (wanted is None or str(row.get("learning_object_id")) in wanted)
+                and (lessons or row.get("kind") != LESSON_KIND)]
 
     def _opportunity_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
         """Resolve a receipt's source again against the current predicate: the source row, by its own
@@ -1642,6 +1673,14 @@ class MaterialView:
             if table == "reader_section_progress":
                 extraction, _sep, _rest = source.partition("/")
                 return self.reading_withheld(extraction)
+            if table == "lesson_receipts":
+                # Teacher TE3a: a lesson node's source is ``<lesson id>/<node id>``; its receipt, by its rule.
+                lesson_id, _sep, _node = source.partition("/")
+                if not _has_table(connection, table):
+                    return False
+                found = _rows(connection, f"/* ad-rules */ SELECT {_select(table)} FROM {table} WHERE lesson_id = ?",
+                              (lesson_id,))
+                return any(not self.keep(connection, table, found_row) for found_row in found)
             if table in _T.COLUMNS and table != "ad_reading_opportunities":
                 if not _has_table(connection, table):
                     return False

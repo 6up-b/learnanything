@@ -44,6 +44,8 @@ UNIFORM = "ad_threshold@subject_uniform"
 LO = "ad_threshold@lo"
 NOREAD = "ad_threshold@subject:noread"
 NOVERDICT = "ad_threshold@subject:noverdict"
+#: Teacher TE3a: the subject view without lesson opportunities (run only while they are live).
+NOLESSON = "ad_threshold@subject:nolesson"
 HYPER_FINE = "ad_threshold@subject:hyper_fine"
 GRID = "ad_threshold:grid"
 FIELD_ARMS = ("mastery_ekf", "lo_general")
@@ -73,6 +75,8 @@ class Record:
     p: dict[str, float] = field(default_factory=dict)
     verdict_class: str | None = None
     doses: dict[str, float] = field(default_factory=dict)
+    #: Teacher TE3a: a lesson opportunity on the LO since its last answer (the lesson flag's split).
+    after_lesson: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {"attempt_id": self.attempt_id, "learning_object_id": self.learning_object_id,
@@ -81,7 +85,8 @@ class Record:
                 "first_surface_cell": self.first_surface_cell, "after_reading": self.after_reading,
                 "after_verdict": self.after_verdict, "created_at": self.created_at,
                 "verdict_class": self.verdict_class, "doses": {k: round(v, 6) for k, v in sorted(self.doses.items())},
-                "p": {name: (None if value is None else round(float(value), 10)) for name, value in sorted(self.p.items())}}
+                "p": {name: (None if value is None else round(float(value), 10)) for name, value in sorted(self.p.items())},
+                **({"after_lesson": True} if self.after_lesson else {})}
 
 
 def _p(view: View, spec: Any, warmth: float, weights: np.ndarray | None = None) -> tuple[float, np.ndarray]:
@@ -107,7 +112,7 @@ def _run(events: RP.Events, settings: RP.ReplaySettings, *, base: bool, sink: di
                             1.0 if attempt.category == 2 else 0.0, int(attempt.category), attempt.warmth,
                             context.first_attempt_lo, context.first_surface_cell, context.after_reading,
                             context.after_verdict, attempt.created_at, verdict_class=context.verdict_class,
-                            doses=dict(context.doses))
+                            doses=dict(context.doses), after_lesson=context.after_lesson)
             sink[attempt.attempt_id] = record
         if "subject" in names:
             p_subject, rows = _p(subject, spec, attempt.warmth)
@@ -218,6 +223,9 @@ def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[
         runs.append((NOREAD, replace(base_settings, reading=False, verdicts=False), {"subject": NOREAD}))
     if NOVERDICT in selected:
         runs.append((NOVERDICT, replace(base_settings, verdicts=False), {"subject": NOVERDICT}))
+    if base_settings.lessons:
+        # Teacher TE3a: the lesson flag's comparator, only while lessons are live (off: the predecessor's arms).
+        runs.append((NOLESSON, replace(base_settings, lessons=False), {"subject": NOLESSON}))
     if HYPER_FINE in selected:
         runs.append((HYPER_FINE, replace(base_settings, hyper=P.HYPER_FINE_VERSION), {"subject": HYPER_FINE}))
     for sub in ("outside", "rating", "timing"):
@@ -234,5 +242,5 @@ def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[
             "view": view}
 
 
-__all__ = ["DEFAULT_ARMS", "FIELD_ARMS", "GRID", "HYPER_FINE", "LO", "NOREAD", "NOVERDICT", "Record", "SUBJECT",
+__all__ = ["DEFAULT_ARMS", "FIELD_ARMS", "GRID", "HYPER_FINE", "LO", "NOLESSON", "NOREAD", "NOVERDICT", "Record", "SUBJECT",
            "UNIFORM", "hyper_fixed_name", "prequential"]

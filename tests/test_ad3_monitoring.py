@@ -84,7 +84,8 @@ def test_monitoring_applies_field_rule_as_monitor_never_gate(tmp_path):
     lines = report["honest_lines"]
     assert len(lines) == 4 and all(any(v in line for v in (MON.HELPING, MON.HURTING, MON.CANT_TELL)) for line in lines)
     assert all("first attempts)" in line for line in lines)
-    assert {flag["flag"] for flag in report["auto_flags"]} == set(MON.FLAG_SWITCHES)
+    # Teacher TE3a's lesson flag is reported only while lesson opportunities are live (this vault is below its tag).
+    assert {flag["flag"] for flag in report["auto_flags"]} == set(MON.FLAG_SWITCHES) - {"lessons_worse_than_no_lessons"}
     assert all(flag["recommends"] == MON.FLAG_SWITCHES[flag["flag"]] for flag in report["auto_flags"])
     assert report["identifiability"]["statement"] == REP.HONEST_STATEMENT
     assert "hyperparameter_margins" in report["identifiability"]

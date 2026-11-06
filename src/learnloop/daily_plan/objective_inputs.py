@@ -179,7 +179,23 @@ def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_pri
     return V.Learning(gamma=(float(gamma[0]), float(gamma[1])),
                       gbar=((float(gbar[0][0]), float(gbar[0][1])), (float(gbar[1][0]), float(gbar[1][1]))),
                       dose_scales=tuple(dose_scales),
-                      source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)")
+                      source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)",
+                      lesson=_lesson_curve(ad.get("lesson_curve")))
+
+
+def _lesson_curve(read: Any) -> V.LessonCurve | None:
+    """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): the lesson interface's effect, AD's ``landed`` curve as
+    ``decision_state_fields`` read it through AD's read-only entry (present only at TE3a's tag with its switch on;
+    absent: RO4's placeholder)."""
+
+    if not isinstance(read, Mapping) or not read.get("mean") or not read.get("cov"):
+        return None
+    mean, cov = read["mean"], read["cov"]
+    return V.LessonCurve(mean=(float(mean[0]), float(mean[1])),
+                         cov=((float(cov[0][0]), float(cov[0][1])), (float(cov[1][0]), float(cov[1][1]))),
+                         positions={str(lo): float(n) for lo, n in (read.get("positions") or {}).items()},
+                         version=str(read.get("version") or ""),
+                         source=f"adaptive_difficulty subject view ({read.get('source') or 'unknown'})")
 
 
 def _combiner(repository: Any, now_iso: str) -> M.Combiner:
@@ -510,6 +526,11 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         "ad_status": ad.get("status"), "ad_state_hash": ad.get("state_hash"),
         "kappa0": kappa0, "kappa_how": kappa_how,
     }
+    if inputs.learning.lesson is not None:
+        # Teacher TE3a: the lesson interface's effect source (absent: RO4's placeholder, as before).
+        curve = inputs.learning.lesson
+        sources["lesson_curve"] = {"version": curve.version, "source": curve.source, "mean": list(curve.mean),
+                                   "cov": [list(row) for row in curve.cov], "positions": dict(curve.positions)}
     return inputs, actions, sources
 
 

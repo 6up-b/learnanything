@@ -48,7 +48,10 @@ def test_234_is_te1s_migration_and_every_table_is_classified():
     assert names[234] == "234_teacher_lessons.sql"
     for table, role in TE1_TABLES.items():
         assert role_for_table(table) == role, table
-        assert PT.role(table) == PT.DENIED, table
+        # Teacher TE3a (spec_teacher_v1 rev 5 §14.2) moved the lesson, its plan and its receipt to READING
+        # (PROTECTED, read by the rules only); every other lesson table stays DENIED.
+        expected = PT.PROTECTED if table in ("lessons", "lesson_plans", "lesson_receipts") else PT.DENIED
+        assert PT.role(table) == expected, table
 
 
 def _upgrade(tmp_path: Path) -> Path:

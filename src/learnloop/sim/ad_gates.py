@@ -297,8 +297,9 @@ def g_ad3_9(*, seeds: int = 200, attempts: int = 300) -> dict[str, Any]:
         worse = 1.0 / (1.0 + np.exp(-(logit + shift)))
         twin_a = 1.0 / (1.0 + np.exp(-(logit + rng.normal(0.0, 0.3, attempts))))
         twin_b = 1.0 / (1.0 + np.exp(-(logit + rng.normal(0.0, 0.3, attempts))))
+        # Teacher TE3a's lesson flag is the same comparison flag (its own arm, its own split).
         for name in ("sharing_worse_than_topic_only", "coupling_worse_than_uniform", "reading_worse_than_no_reading",
-                     "verdicts_worse_than_no_verdicts"):
+                     "verdicts_worse_than_no_verdicts", "lessons_worse_than_no_lessons"):
             terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(worse, p, y)]
             fired_worse[name].append(MON.comparison_flag(name, [t[0] for t in terms], [t[1] for t in terms]).fires)
             terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(twin_a, twin_b, y)]

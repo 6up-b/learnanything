@@ -37,6 +37,11 @@ moved there by the AD2+AD3 stage so the sweep and the carve-out read one list):
   ``reader_quick_check_self_check``): ``self_check:matched`` (matches) or
   ``self_check:missed`` (partly, no), with the question's LOs and doses. A
   later changed verdict writes nothing.
+* ``lesson`` (teacher TE3a, spec_teacher_v1 §14.2; behind
+  ``adaptive_difficulty.lesson_opportunities`` at its successor): a closed
+  lesson's node with an LO whose final status is ``landed`` or ``taught``
+  (the subkind), from the lesson's receipt (:mod:`.lessons`), dose one on
+  each of the LO's facets; once per node and LO.
 
 **Never a magnitude.** No dwell, scroll, highlight, skip, visibility segment,
 active time or answer text is read: each query selects ids, keys and write
@@ -282,6 +287,9 @@ def _keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, 
         return f"worked_example:{event.identity}:{lo_id}"
     if event.subkind.startswith("self_check:"):
         return f"{event.identity}:{lo_id}"
+    if event.kind == "lesson":
+        # Teacher TE3a: once per lesson node and LO (the identity is ``<lesson id>/<node id>``).
+        return f"lesson:{event.identity}:{lo_id}"
     return f"in_passage_question:{event.identity}:{lo_id}"
 
 
@@ -347,6 +355,13 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
             newest = parse_utc(max(visible)) if visible else None
             lower = _stamp((newest - SWEEP_OVERLAP).isoformat()) if newest is not None else None
         events = listed_events(connection, mapping, lower, upper, view=material)
+        from learnloop.adaptive_difficulty.successor import lesson_opportunities_on
+
+        if lesson_opportunities_on(vault.config):
+            # Teacher TE3a (spec_teacher_v1 §14.2): every closed lesson's landed or taught node not yet recorded.
+            from learnloop.adaptive_difficulty.lessons import lesson_events
+
+            events.extend(lesson_events(connection, mapping, upper, view=material, vault=vault))
         events.sort(key=lambda event: (event.written_at, event.source_table, event.source_id, event.subkind))
         result.considered = len(events)
         # AD2+AD3 (§5.12): a taken dose offer's extra carries the offer's id on its receipt.

@@ -118,7 +118,9 @@ def test_belief_modules_never_import_the_reading_firewall() -> None:
 #: Every source table a reading record can come from, and some it never may.
 _SOURCE_TABLES = ("reader_section_progress", "source_exposure_events", "question_events",
                   "reader_authored_questions", "interaction_events", "judgment_ledger", "reader_observations",
-                  "practice_attempts", "salience_projections")
+                  "practice_attempts", "salience_projections",
+                  # Teacher TE3a: a lesson's receipt (listed), and its checks and turns (never).
+                  "lesson_receipts", "lesson_checks", "lesson_turns")
 _MAGNITUDES = ("dwell_ms", "dwell_seconds", "active_seconds", "idle_seconds", "scroll_depth", "scroll_count",
                "highlight_count", "revisit_count", "outcome_class", "response_md", "answer_md", "answer_text",
                "visibility_ms", "payload_json")
@@ -144,8 +146,11 @@ _LISTED = {
     ("in_passage_question", "owner_placed", "interaction_events"),
     ("in_passage_question", "self_check:matched", "judgment_ledger"),
     ("in_passage_question", "self_check:missed", "judgment_ledger"),
+    # Teacher TE3a (spec_teacher_v1 rev 5 §14.2; Q5's amendment to A12 limit 1 and D20): a closed lesson's node.
+    ("lesson", "landed", "lesson_receipts"),
+    ("lesson", "taught", "lesson_receipts"),
 }
-_KINDS = ("reading", "reader_tutor_exchange", "worked_example", "in_passage_question")
+_KINDS = ("reading", "reader_tutor_exchange", "worked_example", "in_passage_question", "lesson")
 _CANDIDATES = sorted({(kind, subkind, table)
                       for kind in [*_KINDS, *SF.READING_EVENT_KINDS, *SF.SALIENCE_PROJECTIONS]
                       for subkind in {s for _k, s, _t in _LISTED} | {kind, "dwell", "skipped", "reconstruct"}

@@ -313,10 +313,75 @@ def recommendation(kind: str, n_star: Mapping[str, Any], tag: str) -> str:
     return f"{name}: about {count} {unit} before practice helped your later recall most per minute ({tag})."
 
 
+LESSON_NAME = "A lesson"
+PRIOR_ONLY = "your prior: no lesson followed by a cold answer yet"
+
+
+def lesson_draws(view: Any, subkind: str, *, draws: int = DRAWS, seed: str = SEED) -> tuple[np.ndarray, np.ndarray, str]:
+    """Teacher TE3a: posterior draws of a lesson subkind's two curve coefficients from the subject view's mixture
+    (as :func:`coefficient_draws`), or from the seeded prior (``ad_lesson_priors_v1``) while the bank has no lesson
+    coordinate; and which of the two it is."""
+
+    names = [P.lesson_coordinate(subkind, m) for m in (1, 2)]
+    bank = view.bank
+    rng = np.random.default_rng(_seed(f"{seed}:lesson:{subkind}"))
+    if not all(name in bank.index for name in names):
+        prior = {name: (mean, var) for name, mean, var in P.LESSON_PRIORS}
+        samples = np.stack([prior[name][0] + math.sqrt(prior[name][1]) * rng.standard_normal(draws) for name in names],
+                           axis=1)
+        return samples[:, 0], samples[:, 1], "prior"
+    index = [bank.index[name] for name in names]
+    weights = bank.weights()[0]
+    points = rng.choice(len(weights), size=draws, p=weights)
+    samples = np.zeros((draws, 2))
+    for point in sorted(set(points.tolist())):
+        rows = np.where(points == point)[0]
+        cov = bank.S[point][np.ix_(index, index)]
+        cov = 0.5 * (cov + cov.T) + 1e-12 * np.eye(2)
+        samples[rows] = rng.multivariate_normal(bank.mu[point, index], cov, size=len(rows))
+    return samples[:, 0], samples[:, 1], "posterior"
+
+
+def lesson_row(view: Any, inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): the ``lesson`` row. Per subkind, what one lesson node does to
+    cold retrieval for this learner: the first dose's logit step and its points at the band's centre, with a 90%
+    interval; the curve; how many lessons and later first attempts inform it, and RO4's placeholder beside it
+    (``γ``'s prior times the lesson-check mass prior), which the prior is centred on. Read-only: nothing it computes
+    acts; the auto-flag (``lessons_worse_than_no_lessons``) is in the report's flags."""
+
+    counts = dict(inputs.get("opportunities") or {})
+    out: dict[str, Any] = {"version": P.LESSON_PRIORS_VERSION, "subkinds": {},
+                           "placeholder": {"logit": P.GAMMA_PRIOR[1] * P.LESSON_CHECK_MASS_PRIOR,
+                                           "basis": "RO4's lesson interface: AD's prior gamma x the lesson-check "
+                                                    "mass prior 0.5"},
+                           "after_lesson": dict(inputs.get("after_lesson") or {}), "lines": []}
+    informed = int((inputs.get("after_lesson") or {}).get("n") or 0)
+    for subkind in P.LESSON_SUBKINDS:
+        c1, c2, source = lesson_draws(view, subkind)
+        step = curve(c1, c2, 1) - curve(c1, c2, 0)
+        gain = points_gain(step)
+        out["subkinds"][subkind] = {
+            "source": source, "lessons": int(counts.get(subkind, 0)),
+            "first_dose_logit": {"median": float(np.median(step)),
+                                 "ci90": [float(np.quantile(step, 0.05)), float(np.quantile(step, 0.95))]},
+            "first_dose_points": {"median": float(np.median(gain)),
+                                  "ci90": [float(np.quantile(gain, 0.05)), float(np.quantile(gain, 0.95))]},
+            "curve": [{"n": n, "median": float(np.median(curve(c1, c2, n)))} for n in range(0, MAX_DOSE + 1)],
+        }
+        row = out["subkinds"][subkind]
+        tag = PRIOR_ONLY if source == "prior" or informed == 0 else OBSERVATIONAL
+        out["lines"].append(
+            f"{LESSON_NAME} ({subkind}): about {100 * row['first_dose_points']['median']:+.1f} points on your next "
+            f"cold answer on its topic (90% interval {100 * row['first_dose_points']['ci90'][0]:+.1f} to "
+            f"{100 * row['first_dose_points']['ci90'][1]:+.1f}; {row['lessons']} lesson node(s); {tag}).")
+    return out
+
+
 def analyse(view: Any, *, visits: Sequence[Mapping[str, Any]], answer_minutes: float | None,
             median_doses: Mapping[str, float], offers: Mapping[str, Sequence[OfferOutcome]] | None = None,
-            records: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
-    """The whole section (``ad_dose_report_v1``): curves, gains, minutes, useful doses, offers, lines."""
+            records: Sequence[Mapping[str, Any]] = (), lessons: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The whole section (``ad_dose_report_v1``): curves, gains, minutes, useful doses, offers, lines; with
+    ``lessons`` (teacher TE3a, while lesson opportunities are live), the ``lesson`` row and its lines."""
 
     draws = coefficient_draws(view)
     minutes = minutes_per_event(visits)
@@ -361,6 +426,9 @@ def analyse(view: Any, *, visits: Sequence[Mapping[str, Any]], answer_minutes: f
                                                      for kind, entry in out["kinds"].items()})
     out["lines"].extend(out["helps_when"])
     out["burden"] = {kind: {"minutes_per_event": out["kinds"][kind]["minutes_per_event"]} for kind in P.READING_KINDS}
+    if lessons is not None:
+        out["lesson"] = lesson_row(view, lessons)
+        out["lines"].extend(out["lesson"]["lines"])
     return out
 
 
@@ -376,6 +444,8 @@ __all__ = [
     "curve",
     "helps_when_lines",
     "label",
+    "lesson_draws",
+    "lesson_row",
     "level_band",
     "minutes_per_event",
     "moderated_contrasts",

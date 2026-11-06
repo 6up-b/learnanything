@@ -22,7 +22,9 @@ from tests.ad23_fakes import ad23_vault
 
 KINDS = {"value", "item", "revision", "attempt", "presentation", "note", "reader_question", "question_event",
          "facet", "dose_draw", "selection", "receipt", "administration", "surface", "extraction", "self",
-         "epoch", "derived_by_position", "reading_payload"}
+         "epoch", "derived_by_position", "reading_payload",
+         # Teacher TE3a: a lesson's plan and receipt reference their lesson.
+         "lesson"}
 WITH_COLUMN = {"span", "section", "spans", "entity", "served_item", "source", "plan_detail"}
 
 

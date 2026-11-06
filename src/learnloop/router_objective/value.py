@@ -43,7 +43,8 @@ averaged over the belief's own world before the two are compared (every draw the
 ability drawn from it, the believed parameters, noise independent of the true world's), so the choice is one per
 result, integrates over the repair's possible outcomes and never sees the simulated repair's result or the true
 path's noise (Codex review F2, re-review); the chosen repair is simulated afterwards. A lesson is AD's ``γ`` at the
-lesson's learned mass;
+lesson's learned mass (RO4's placeholder), or, from teacher TE3a, one landed dose of AD's learned lesson curve
+(:class:`LessonCurve`, centred and spread on the placeholder at its seeded prior);
 an offer-type action is valued accepted and declined **as branches**, ``Q = p·E[R+V | acc] + (1−p)·E[R+V | dec]``;
 the stop offer is two branches, accepted (no more today; the next session after a drawn return gap) and
 overridden (the tail's next non-stop block at the same session minutes, so its value is never defined in terms
@@ -125,14 +126,29 @@ class DatedUse:
 
 
 @dataclass(frozen=True)
+class LessonCurve:
+    """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): AD's ``lesson`` dose curve per ``landed`` dose, as the decision
+    read it (``readiness.decision_state_fields``' ``lesson_curve``): its two coefficients' posterior mean and
+    covariance on :attr:`Learning.dose_scales`, and each topic's position ``n`` on it (its lessons since its last
+    graded attempt)."""
+
+    mean: tuple[float, float]
+    cov: tuple[tuple[float, float], tuple[float, float]]
+    positions: Mapping[str, float] = field(default_factory=dict)
+    version: str = "ad_lesson_priors_v1"
+    source: str = "adaptive_difficulty subject view"
+
+
+@dataclass(frozen=True)
 class Learning:
     """AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose
-    curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``."""
+    curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder)."""
 
     gamma: tuple[float, float] = (0.2, 0.01)
     gbar: tuple[tuple[float, float], tuple[float, float]] = ((0.10, 0.0049), (0.20, 0.01))
     dose_scales: tuple[float, float] = (1.0, 4.0)
     source: str = "adaptive_difficulty.priors"
+    lesson: LessonCurve | None = None
 
 
 @dataclass(frozen=True)
@@ -557,10 +573,29 @@ class _Model:
             for slot, lo in enumerate(los):
                 self._practice(state, lo, at, u[:, slot % u.shape[1]], mask, float(action.mass))
         elif action.kind == LESSON:
-            gm = float(self.inputs.learning.gamma[0])
-            for lo in dict.fromkeys(los):
-                state.eta[:, lo] = np.where(mask, state.eta[:, lo] + self.theta.gamma * action.mass, state.eta[:, lo])
-                state.bel[:, lo] = np.where(mask, state.bel[:, lo] + gm * action.mass, state.bel[:, lo])
+            curve = self.inputs.learning.lesson
+            if curve is None:
+                # RO4's placeholder: AD's γ at the lesson's learned mass.
+                gm = float(self.inputs.learning.gamma[0])
+                for lo in dict.fromkeys(los):
+                    state.eta[:, lo] = np.where(mask, state.eta[:, lo] + self.theta.gamma * action.mass,
+                                                state.eta[:, lo])
+                    state.bel[:, lo] = np.where(mask, state.bel[:, lo] + gm * action.mass, state.bel[:, lo])
+            else:
+                # Teacher TE3a: AD's lesson curve, one landed dose from the topic's position: its posterior mean
+                # (the belief) and a draw of mean + sd·z on γ's stream, so at the curve's seeded prior (centred
+                # and spread on the placeholder) every draw is the placeholder's.
+                h1, h2 = self.inputs.learning.dose_scales
+                for topic in dict.fromkeys(name for name in action.item_los if name in self.index):
+                    lo = self.index[topic]
+                    n = float(curve.positions.get(topic, 0.0))
+                    inc = (math.exp(-n / h1) - math.exp(-(n + 1.0) / h1), math.exp(-n / h2) - math.exp(-(n + 1.0) / h2))
+                    mean = inc[0] * curve.mean[0] + inc[1] * curve.mean[1]
+                    var = (inc[0] * inc[0] * curve.cov[0][0] + inc[0] * inc[1] * (curve.cov[0][1] + curve.cov[1][0])
+                           + inc[1] * inc[1] * curve.cov[1][1])
+                    true = mean + math.sqrt(max(var, 0.0)) * self.streams.gamma_z
+                    state.eta[:, lo] = np.where(mask, state.eta[:, lo] + true, state.eta[:, lo])
+                    state.bel[:, lo] = np.where(mask, state.bel[:, lo] + mean, state.bel[:, lo])
         elif action.kind == READING:
             for lo in los:
                 self._read(state, lo, mask)
@@ -1172,7 +1207,8 @@ def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: 
 
 
 __all__ = [
-    "Action", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
+    "Action", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning",
+    "LessonCurve", "NEW_PRACTICE",
     "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW", "SEQUENCE", "STOP",
     "TAIL_VERSION", "TEACH_BACK", "TERMINAL_VERSION", "Topic", "Valued", "cutoff_for", "evaluate", "gain",
     "numeric_choice", "paired_standard_error",
