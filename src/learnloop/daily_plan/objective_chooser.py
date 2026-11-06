@@ -387,7 +387,9 @@ def generator_now(config: Any, objective: str | None = None) -> str:
         algorithm_version=str(config.algorithms.algorithm_version), objective=V.OBJECTIVE_VERSION,
         tail=V.TAIL_VERSION, terminal=V.TERMINAL_VERSION, horizon_days=float(config.router_objective.horizon_days),
         llm_schema=rq.LLM_POLICY_SCHEMA, seeds=_seed_record(seeds), epsilon=float(config.router.epsilon_min),
-        objective_definition=objective, switches=followup_generator_switches(config)))
+        objective_definition=objective, switches=followup_generator_switches(config),
+        # Teacher TE3b: the features version served (its ``lesson`` indicator: a change point once, at its tag).
+        features=TD.features_version(config)))
 
 
 def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],

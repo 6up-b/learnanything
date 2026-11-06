@@ -191,14 +191,24 @@ def trace_objective_hash(trace: Mapping[str, Any], *, scope_extension: bool = Fa
                           scope_extension=scope_extension)
 
 
-def served_features_version(trace: Mapping[str, Any]) -> str:
+def features_version(config: Any) -> str:
+    """The features version this build serves and fits with: teacher TE3b's (the ``lesson`` indicator) at its tag
+    with its switch on, else RO6's (``router_objective_switches.lesson_offers_on``)."""
+
+    from learnloop.router_objective_switches import lesson_offers_on
+
+    return LT.FEATURES_VERSION_LESSON if config is not None and lesson_offers_on(config) else LT.FEATURES_VERSION
+
+
+def served_features_version(trace: Mapping[str, Any], active: str = LT.FEATURES_VERSION) -> str:
     """The features version a decision's residual served with (Codex re-review F7): its record's, else its fit's
     (an earlier RO6 build's trace), else ``unversioned``; a decision with no applied residual never read features,
-    so this build's version stands for it (its features are rebuilt with this build's function)."""
+    so this build's version (``active``, :func:`features_version`) stands for it (its features are rebuilt with
+    this build's function)."""
 
     residual = trace.get("residual")
     if not isinstance(residual, Mapping) or residual.get("status") != "applied":
-        return LT.FEATURES_VERSION
+        return active
     fit = residual.get("fit") if isinstance(residual.get("fit"), Mapping) else {}
     return str(residual.get("features_version") or fit.get("features_version") or "unversioned")
 
@@ -208,9 +218,11 @@ def generator_key(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
-def generator(trace: Mapping[str, Any], algorithm_version: str, *, scope_extension: bool = False) -> str:
+def generator(trace: Mapping[str, Any], algorithm_version: str, *, scope_extension: bool = False,
+              active: str = LT.FEATURES_VERSION) -> str:
     """A logged decision's generator version (module docstring). ``scope_extension``: the objective's definition
-    read with the follow-up batch's item 5 (:func:`objective_definition`)."""
+    read with the follow-up batch's item 5 (:func:`objective_definition`). ``active``: this build's features
+    version (:func:`features_version`), standing for a decision that served no residual."""
 
     versions = trace.get("versions") or {}
     mixing = trace.get("mixing") or {}
@@ -218,7 +230,7 @@ def generator(trace: Mapping[str, Any], algorithm_version: str, *, scope_extensi
         algorithm_version=algorithm_version, objective=versions.get("objective"), tail=versions.get("tail"),
         terminal=versions.get("terminal"), horizon_days=versions.get("horizon_days"),
         llm_schema=versions.get("llm_schema"), seeds=mixing.get("seeds"), epsilon=mixing.get("epsilon"),
-        features=served_features_version(trace),
+        features=served_features_version(trace, active),
         objective_definition=trace_objective_hash(trace, scope_extension=scope_extension),
         switches=versions.get("serving_switches")))
 
@@ -312,8 +324,10 @@ def nearest_goal_days(trace: Mapping[str, Any]) -> float | None:
     return min(days) if days else None
 
 
-def rebuilt_features(trace: Mapping[str, Any], receipt: Mapping[str, Any] | None) -> dict[str, tuple[float, ...]]:
-    """Each candidate's features from the trace's frozen belief numbers and RO0's decision-time snapshot."""
+def rebuilt_features(trace: Mapping[str, Any], receipt: Mapping[str, Any] | None, *,
+                     features_version: str = LT.FEATURES_VERSION) -> dict[str, tuple[float, ...]]:
+    """Each candidate's features from the trace's frozen belief numbers and RO0's decision-time snapshot, by
+    ``features_version``'s function."""
 
     candidates = trace.get("candidates") or {}
     session = trace.get("session") or {}
@@ -328,7 +342,7 @@ def rebuilt_features(trace: Mapping[str, Any], receipt: Mapping[str, Any] | None
                        cutoff_days=(float(trace["cutoff_days"]) if trace.get("cutoff_days") is not None else None))
     return {ref: LT.vector(belief, LT.ActionView(ref=ref, kind=str(entry.get("kind") or ""),
                                                  minutes=float(entry.get("minutes") or 0.0), topics=_topics(entry)),
-                           remembered=remembered)
+                           remembered=remembered, features_version=features_version)
             for ref, entry in candidates.items()}
 
 
@@ -399,18 +413,20 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
                     if q_tail is not None and all(ref in unmeasured for ref in support) else None)
     residual = trace.get("residual") if isinstance(trace.get("residual"), Mapping) else None
     frozen = (residual or {}).get("candidates") or {}
-    width = len(LT.NAMES)
+    # Teacher TE3b: this build's features version follows the config (its ``lesson`` indicator at its tag).
+    active = features_version(config)
+    width = len(LT.names_for(active))
     # Frozen features are read only at this build's features version and width (Codex re-review F7: an earlier
     # build's thirteen are another function); any other trace's are rebuilt with this build's function from its
     # frozen belief numbers and RO0's decision-time receipt, so every vector a fit reads is one version's.
-    current = served_features_version(trace) == LT.FEATURES_VERSION
+    current = served_features_version(trace, active) == active
     if (current and frozen and all(isinstance(frozen.get(ref), Mapping) and frozen[ref].get("features")
                                    and len(frozen[ref]["features"]) == width for ref in support)):
         phi = {ref: tuple(float(v) for v in frozen[ref]["features"]) for ref in support}
         source = "frozen"
     else:
         receipt = _receipt(connection, str(row["decision_id"]), config, at) if receipts else None
-        phi = rebuilt_features(trace, receipt)
+        phi = rebuilt_features(trace, receipt, features_version=active)
         source = "rebuilt" + ("" if receipt is not None else ":no_receipt")
     evaluation = trace.get("evaluation") or {}
     population = {str(use["lo"]): float(use.get("c") or 0.0) for use in (evaluation.get("uses") or {}).get("topics") or ()}
@@ -435,7 +451,7 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
     # The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the
     # evaluation run at it and the features taken at its span, both for every candidate of the support, at this
     # build's features version; anything less leaves the transition into this decision cutoff_unmatched.
-    q_at_previous, phi_at_previous = _carried_values(previous, support, current)
+    q_at_previous, phi_at_previous = _carried_values(previous, support, current, width)
     extension = scope_extension_on(config)
     carried_for = tuple((str(entry["decision_id"]), dict(entry["previous"]))
                         for entry in (trace.get("carried_for") or ()) if isinstance(entry, Mapping)
@@ -444,7 +460,7 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         decision_id=str(row["decision_id"]), trace_id=str(row["id"]), created_at=str(row["created_at"]),
         local_date=str(row["local_date"]), window_closes_at=row.get("window_closes_at"),
         algorithm_version=str(row["algorithm_version"]),
-        generator=generator(trace, str(row["algorithm_version"]), scope_extension=extension),
+        generator=generator(trace, str(row["algorithm_version"]), scope_extension=extension, active=active),
         support=support, served=served, served_dist=served_dist,
         mu={str(k): float(v) for k, v in (mixing.get("mu") or {}).items()}, q_tail=q_tail, phi=phi,
         features_source=source,
@@ -466,13 +482,14 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         previous_q_status=str(previous.get("q_status")) if previous and previous.get("q_status") else None)
 
 
-def _carried_values(previous: Mapping[str, Any] | None, support: Sequence[str], current: bool) -> tuple[
+def _carried_values(previous: Mapping[str, Any] | None, support: Sequence[str], current: bool,
+                    width: int = len(LT.NAMES)) -> tuple[
         dict[str, float] | None, dict[str, tuple[float, ...]] | None]:
     """The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the
     evaluation run at it and the features taken at its span, both for every candidate of the support, at this
-    build's features version; anything less leaves the transition into this decision cutoff_unmatched."""
+    build's features version (``width`` its length); anything less leaves the transition into this decision
+    cutoff_unmatched."""
 
-    width = len(LT.NAMES)
     carried_q = (previous or {}).get("q") if isinstance((previous or {}).get("q"), Mapping) else {}
     carried_phi = (previous or {}).get("features") if isinstance((previous or {}).get("features"), Mapping) else {}
     q_at_previous = ({ref: float(carried_q[ref]) for ref in support}
@@ -510,7 +527,8 @@ def _with_late_carried(rows: list["Logged"]) -> list["Logged"]:
         found = carried.get(row.decision_id)
         if (found is not None and row.q_at_previous is None and row.previous_q_status in _LATE_STATUSES
                 and row.previous_id and str(found.get("decision_id")) == row.previous_id):
-            q, phi = _carried_values(found, row.support, row.features_source == "frozen")
+            width = len(next(iter(row.phi.values()))) if row.phi else len(LT.NAMES)
+            q, phi = _carried_values(found, row.support, row.features_source == "frozen", width)
             if q is not None:
                 row = replace(row, q_at_previous=q, phi_at_previous=phi, carried_source="later_prefetch")
         out.append(row)
@@ -710,7 +728,7 @@ def transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str
             censored[CUTOFF_UNMATCHED] += 1
             continue
         next_v = sum(float(later.served_dist.get(ref, 0.0)) * values[ref] for ref in later.support)
-        width = len(LT.NAMES)
+        width = len(row.phi[row.served])  # this build's features version's (teacher TE3b's adds one)
         next_phi = tuple(sum(float(later.served_dist.get(ref, 0.0)) * vectors[ref][k] for ref in later.support
                              if ref in vectors) for k in range(width))
         steps.append(LT.Transition(
@@ -754,7 +772,9 @@ def fits(connection: Any, config: Any, *, at: str, rows: Sequence[Logged] | None
     for step in steps.transitions:
         groups.setdefault(step.generator, []).append(step)
     order = tuple(dict.fromkeys(row.generator for row in sorted(rows, key=lambda r: (r.created_at, r.decision_id))))
-    by_generator = {key: LT.fit(groups[key], prior_sd=prior, generator=key) for key in order if key in groups}
+    active = features_version(config)  # teacher TE3b: every row's features are this build's version's
+    by_generator = {key: LT.fit(groups[key], prior_sd=prior, generator=key, features_version=active)
+                    for key in order if key in groups}
     return Fits(by_generator=by_generator, order=order, steps=steps, decisions=len(rows))
 
 

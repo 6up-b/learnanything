@@ -139,7 +139,8 @@ def build(connection: Any, vault: Any, *, now: str) -> dict[str, Any]:
     return {
         "version": VERSION, "claim": CLAIM, "no_guarantee": NO_GUARANTEE,
         "kept_evaluations": ["forecast", "action_value", "recommendation_value", "whole_policy"],
-        "fit_version": LT.FIT_VERSION, "features_version": LT.FEATURES_VERSION, "features": list(LT.NAMES),
+        "fit_version": LT.FIT_VERSION, "features_version": TD.features_version(config),
+        "features": list(LT.names_for(TD.features_version(config))),
         "model_class": "Bayesian linear regression (ridge) on the standardized features; FQE's fixed point under a "
                        "Gaussian prior (residual_prior_sd), never accepted on its TD fit",
         "versions": versions, "change_points": list(fitted.steps.change_points),
