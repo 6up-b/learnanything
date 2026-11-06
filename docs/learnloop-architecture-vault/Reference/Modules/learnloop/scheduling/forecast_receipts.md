@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/forecast_receipts.py"
 source_paths:
   - "src/learnloop/scheduling/forecast_receipts.py"
-source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "modified"
+source_commit: "dc5302d98cfcd397c2bb3678cdb2bf12f232164a"
+source_commit_timestamp: "2026-11-06T04:43:14-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `dc5302d98cfcd397c2bb3678cdb2bf12f232164a` |
+| Commit timestamp | `2026-11-06T04:43:14-05:00` |
 
 ## Public API
 

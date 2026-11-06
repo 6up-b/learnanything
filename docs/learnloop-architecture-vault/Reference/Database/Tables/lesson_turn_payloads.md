@@ -3,13 +3,13 @@ title: "lesson_turn_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
-source_commit_timestamp: "2026-11-06T03:42:12-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_turn_payloads"
   - "table lesson_turn_payloads"
-schema_head: 247
+schema_head: 248
 table_name: "lesson_turn_payloads"
 table_role: "workflow"
 functionality_status: "active"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`
+- `tests/test_teacher_te2_probes.py`
 - `tests/test_teacher_te2log_episodes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

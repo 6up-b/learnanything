@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/identity.py"
 source_paths:
   - "src/learnloop/followup_serve/identity.py"
-source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "modified"
+source_commit: "dc5302d98cfcd397c2bb3678cdb2bf12f232164a"
+source_commit_timestamp: "2026-11-06T04:43:14-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `dc5302d98cfcd397c2bb3678cdb2bf12f232164a` |
+| Commit timestamp | `2026-11-06T04:43:14-05:00` |
 
 ## Public API
 
@@ -231,6 +231,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_late_question_is_retired_as_it_lands`
   - `test_a_probe_is_generated_once_served_cold_and_never_again`
   - `test_a_probe_still_preparing_is_retired_at_the_close`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f3_a_fault_after_the_attempt_rolls_everything_back_and_the_answer_can_be_sent_again`
+  - `test_f3_a_view_after_a_half_recorded_answer_delivers_its_result_instead_of_dropping_the_probe`
 
 ## Modification guidance
 

@@ -367,6 +367,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
   - `test_the_follow_up_rechecks_independence_before_serving_a_need_import`
+- [tests/test_teacher_te2_landing_r1.py](../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
+  - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
 - [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
   - `test_the_report_scores_a_project_probe_through_r1s_plan_block`
 - [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import

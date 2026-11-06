@@ -64,7 +64,7 @@ source_paths:
   - "src/learnloop/diagnosis/voi_forecasting.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit_timestamp: "2026-11-06T06:41:58-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
@@ -139,7 +139,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] | [[Reference/Modules/learnloop/diagnosis/probe_blocks#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]] | [[Reference/Modules/learnloop/diagnosis/probe_coverage#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] | [[Reference/Modules/learnloop/diagnosis/probe_dialogue#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] | [[Reference/Modules/learnloop/diagnosis/probe_episodes#^module-purpose|purpose]] | `ACTIVE` | 22 | 53 |
+| [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] | [[Reference/Modules/learnloop/diagnosis/probe_episodes#^module-purpose|purpose]] | `ACTIVE` | 22 | 54 |
 | [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] | [[Reference/Modules/learnloop/diagnosis/probe_families#^module-purpose|purpose]] | `ACTIVE` | 17 | 22 |
 | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses#^module-purpose|purpose]] | `ACTIVE` | 14 | 10 |
 | [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] | [[Reference/Modules/learnloop/diagnosis/probe_instance_generation#^module-purpose|purpose]] | `ACTIVE` | 11 | 9 |
@@ -171,7 +171,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 78 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 79 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 52 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 50 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 26 static module edges
@@ -249,7 +249,7 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    center -->|78| n_learnloop
+    center -->|79| n_learnloop
     center -->|52| n_learnloop_vault
     center -->|50| n_learnloop_db
     n_learnloop_attempts -->|20| center

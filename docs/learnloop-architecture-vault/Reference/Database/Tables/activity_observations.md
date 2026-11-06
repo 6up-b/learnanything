@@ -3,13 +3,13 @@ title: "activity_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
-source_commit_timestamp: "2026-11-06T03:42:12-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_observations"
   - "table activity_observations"
-schema_head: 247
+schema_head: 248
 table_name: "activity_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_teacher_te2_landing_r1.py`
 - `tests/test_effective_observation.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_exam_session.py`

@@ -16,7 +16,7 @@ source_paths:
   - "src/learnloop/followup_run/router.py"
   - "src/learnloop/followup_run/serving.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
+source_commit_timestamp: "2026-11-06T06:48:36-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -74,12 +74,12 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 3 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 3 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 2 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
@@ -107,9 +107,9 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_ai["learnloop.ai"]
-    n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
+    n_learnloop_content_authoring["learnloop.content.authoring"]
+    n_learnloop_vault["learnloop.vault"]
     center -->|19| n_learnloop_diagnosis
     center -->|14| n_learnloop_followup_serve
     center -->|9| n_learnloop
@@ -117,9 +117,9 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|9| center
     center -->|7| n_learnloop_daily_plan
     center -->|5| n_learnloop_db_stores
+    center -->|4| n_learnloop_ai
     center -->|4| n_learnloop_content_authoring
-    center -->|3| n_learnloop_ai
-    center -->|3| n_learnloop_diagnosis_split
+    center -->|4| n_learnloop_vault
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

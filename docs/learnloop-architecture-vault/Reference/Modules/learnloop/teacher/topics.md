@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/topics.py"
 source_paths:
   - "src/learnloop/teacher/topics.py"
-source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "untracked"
+source_commit: "dc5302d98cfcd397c2bb3678cdb2bf12f232164a"
+source_commit_timestamp: "2026-11-06T04:43:14-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `dc5302d98cfcd397c2bb3678cdb2bf12f232164a` |
+| Commit timestamp | `2026-11-06T04:43:14-05:00` |
 
 ## Public API
 
@@ -125,6 +125,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
   - `test_a_typed_goal_opens_on_the_los_c0bs_resolver_names_and_says_what_is_not_in_the_books`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f5_a_metered_typed_goal_resolver_is_sent_nothing`
 
 ## Modification guidance
 

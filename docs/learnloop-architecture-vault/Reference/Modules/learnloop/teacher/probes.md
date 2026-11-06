@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/probes.py"
 source_paths:
   - "src/learnloop/teacher/probes.py"
-source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "untracked"
+source_commit: "a6fd6615fea1c0de474d6e7e5e559f8a223e14f6"
+source_commit_timestamp: "2026-11-06T05:25:38-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/probes.py](../../../../../../src/learnloop/teacher/probes.py) |
-| Source lines | 430 |
+| Source lines | 497 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a6fd6615fea1c0de474d6e7e5e559f8a223e14f6` |
+| Commit timestamp | `2026-11-06T05:25:38-05:00` |
 
 ## Public API
 
@@ -72,9 +72,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `record_ready(vault: Any, repository: Any, *, lesson_id: str, node_id: str, item_id: str, receipt: Mapping[str, Any], clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/probes.py), line 233) — The generated question is admitted: its ``probe_ready`` entry with the admission receipt.
 - `record_refused(vault: Any, repository: Any, *, lesson_id: str, node_id: str, reason: str, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/probes.py), line 254) — No question passed: the ``probe_refused`` entry and its episode closed ``refused`` with the reason.
 - `serve(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 293) — The question the screen may show now: a served probe again (the same administration), or a ready one served now (FG1's atomic first-serve claim, surface ``lesson``, and its ``probe_served`` entry, before any text leaves).
-- `retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], probe: Probe, *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 325) — Retire an unanswered probe unused ("Teach it anyway", the lesson's close, an unservable item): its queued job is skipped, a generated item retired (FG1's ledger: no door opens it again), a ``probe_retired`` entry, and its episode closed ``retired``.
-- `record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe: Probe, *, answer: str, tap: int | None, grading_client: Any, grading_source: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/probes.py), line 349) — The learner's answer to the open probe: blind-graded (the answer only), one ``diagnostic_probe`` attempt at full evidence through the attempts path, its independence from the reveal ledger's topic-wide check, the item retired (never served again), the ``probe_result`` entry and…
-- `transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 399) — A probe step as the teacher reads it (TE2 lessons only), or None: never the question's key or rubric.
+- `retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], probe: Probe, *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 329) — Retire an unanswered probe unused ("Teach it anyway", the lesson's close, an unservable item): its queued job is skipped, a generated item retired (FG1's ledger: no door opens it again), a ``probe_retired`` entry, and its episode closed ``retired``.
+- `record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe: Probe, *, answer: str | None, tap: int | None, grading_client: Any, grading_source: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/probes.py), line 368) — The learner's answer to the open probe: blind-graded (the answer only), one ``diagnostic_probe`` attempt at full evidence through the attempts path, its independence from the reveal ledger's topic-wide check (carried into the attempt's activity class), the item retired (never se…
+- `finish_recorded(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/probes.py), line 448) — The view's recovery (no model call): a served probe whose attempt is already recorded but whose result is not (an interrupted write before Codex review F3's one transaction) is finished from the stored attempt, so its result reaches the feed and the teacher (``probe_result`` is…
+- `transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 465) — A probe step as the teacher reads it (TE2 lessons only), or None: never the question's key or rubric.
 
 ### Module constants
 
@@ -109,6 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `RETIRED`
 - `SERVED`
 - `contract_problem`
+- `finish_recorded`
 - `logged_fields`
 - `open_probe`
 - `pending_request`
@@ -126,6 +128,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_probe_of(connection: Any, lesson_id: str, node_id: str) -> tuple[dict[str, Any] | None, Probe | None]` ([source](../../../../../../src/learnloop/teacher/probes.py), line 218)
 - `_close_episode(repository: Any, lesson_id: str, probe: Probe, *, closed_at: str, reason: str, outcome: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 276) — Close the probe's own episode row (opened by its request), once.
+- `_current(connection: Any, lesson_id: str, ref: str) -> Probe | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 353)
+- `_stored_feedback(repository: Any, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 357) — The grader's feedback an already-recorded attempt was shown with (its saved completion), or None.
 
 ## Who imports or calls it
 
@@ -133,7 +137,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `module`; statically calls `pending_request`, `record_ready`, `record_refused`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `contract_problem`, `logged_fields`, `open_probe`, `probes`, `record_answer`, `request`, `retire`, `serve`, `transcript_entry`, `unanswered`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `contract_problem`, `finish_recorded`, `logged_fields`, `open_probe`, `probes`, `record_answer`, `request`, `retire`, `serve`, `transcript_entry`, `unanswered`
 
 ## Dependencies
 
@@ -175,6 +179,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_late_question_is_retired_as_it_lands`
   - `test_a_probe_is_generated_once_served_cold_and_never_again`
   - `test_a_reserved_question_match_gives_no_probe`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f3_a_fault_after_the_attempt_rolls_everything_back_and_the_answer_can_be_sent_again`
+  - `test_f3_a_second_submit_of_an_answered_probe_returns_its_result`
 
 ## Modification guidance
 

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher_probes_upgrade.py"
 source_paths:
   - "src/learnloop/teacher_probes_upgrade.py"
-source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "untracked"
+source_commit: "0c2952c5a470f186b1c00af42dc00d4d20927074"
+source_commit_timestamp: "2026-11-06T06:38:56-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -49,24 +49,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher_probes_upgrade.py](../../../../../src/learnloop/teacher_probes_upgrade.py) |
-| Source lines | 226 |
+| Source lines | 227 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `0c2952c5a470f186b1c00af42dc00d4d20927074` |
+| Commit timestamp | `2026-11-06T06:38:56-05:00` |
 
 ## Public API
 
-- `upgrade_to_teacher_probes(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 62) — The predecessor (or mvp-0.9 onwards, through the chain) -> TE2's tag.
-- `complete_interrupted_activation(root: Path, *, vault=None, clock: Clock | None=None) -> str | None` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 72) — Finish any journalled activation of the chain a dead process left; None when there is none.
+- `upgrade_to_teacher_probes(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 63) — The predecessor (or mvp-0.9 onwards, through the chain) -> TE2's tag.
+- `complete_interrupted_activation(root: Path, *, vault=None, clock: Clock | None=None) -> str | None` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 73) — Finish any journalled activation of the chain a dead process left; None when there is none.
 
 ### Module constants
 
-- `PREDECESSOR` ([src/learnloop/teacher_probes_upgrade.py](../../../../../src/learnloop/teacher_probes_upgrade.py), line 52)
-- `_CHAINED_PREDECESSORS` ([src/learnloop/teacher_probes_upgrade.py](../../../../../src/learnloop/teacher_probes_upgrade.py), line 56)
-- `_STEP_REFUSAL` ([src/learnloop/teacher_probes_upgrade.py](../../../../../src/learnloop/teacher_probes_upgrade.py), line 59)
+- `PREDECESSOR` ([src/learnloop/teacher_probes_upgrade.py](../../../../../src/learnloop/teacher_probes_upgrade.py), line 53)
+- `_CHAINED_PREDECESSORS` ([src/learnloop/teacher_probes_upgrade.py](../../../../../src/learnloop/teacher_probes_upgrade.py), line 57)
+- `_STEP_REFUSAL` ([src/learnloop/teacher_probes_upgrade.py](../../../../../src/learnloop/teacher_probes_upgrade.py), line 60)
 
 ### Explicit exports
 
@@ -78,12 +78,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_journal_path(vault) -> Path` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 107)
-- `_read_journal(path: Path) -> tuple[str, str] | str | None` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 111)
-- `_upgrade(root: Path, *, clock: Clock | None) -> UpgradeResult` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 121)
-- `_activate(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 160) — Activate ``target`` in one transaction (the predecessor's contract: the journal before the publication, the publication last, the journal removed once committed).
-- `_activation_committed(repository, target: str) -> bool` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 168)
-- `_activate_as_writer(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 178)
+- `_journal_path(vault) -> Path` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 108)
+- `_read_journal(path: Path) -> tuple[str, str] | str | None` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 112)
+- `_upgrade(root: Path, *, clock: Clock | None) -> UpgradeResult` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 122)
+- `_activate(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 161) — Activate ``target`` in one transaction (the predecessor's contract: the journal before the publication, the publication last, the journal removed once committed).
+- `_activation_committed(repository, target: str) -> bool` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 169)
+- `_activate_as_writer(root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../src/learnloop/teacher_probes_upgrade.py), line 179)
 
 ## Who imports or calls it
 
@@ -99,13 +99,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] — imports `module`; calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `TEACHER_PROBES_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ROUTER_FOLLOWUPS_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `TEACHER_PROBES_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `write_activation_journal`; calls `write_activation_journal`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `UpgradeResult`; calls `UpgradeResult`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `module`; calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `publish_algorithm_version`; calls `publish_algorithm_version`
-- [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_router_learned_tail`; calls `complete_interrupted_activation`
+- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_router_followups`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `activate_p0_projection`; calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
@@ -129,9 +129,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_rofu_successor.py](../../../../../tests/test_rofu_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_teacher_te2_successor.py](../../../../../tests/test_teacher_te2_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
-  - `test_the_successor_is_one_constant_after_ro6_and_the_latest`
+  - `test_the_successor_is_one_constant_after_the_router_followups_and_the_latest`
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`

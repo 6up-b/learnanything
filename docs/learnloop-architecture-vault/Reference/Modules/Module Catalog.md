@@ -9,7 +9,7 @@ source_paths:
   - "src/learnloop_sidecar"
   - "apps/learnloop-tauri"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T03:42:12-05:00"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 generated: true
 generated_at: "2026-11-02"
 tags:
@@ -21,13 +21,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1239 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **598 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **67 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1244 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **601 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **67 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1216 | Live ownership after the refactor. |
+| `ACTIVE` | 1221 | Live ownership after the refactor. |
 | `COMPAT` | 4 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 2 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 17 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -41,7 +41,7 @@ tags:
 
 | Package | Layer | Status | Direct modules | Responsibility |
 |---|---|---|---:|---|
-| [[Reference/Modules/learnloop/_package|learnloop]] | `coordination` | `ACTIVE` | 70 | Application-level coordinators and dependency-neutral authorities shared across LearnLoop. |
+| [[Reference/Modules/learnloop/_package|learnloop]] | `coordination` | `ACTIVE` | 71 | Application-level coordinators and dependency-neutral authorities shared across LearnLoop. |
 | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] | `domain` | `ACTIVE` | 45 | Adaptive difficulty: logged reading opportunities and outside forecasters, the readiness model, guarded selection near the target band, and its receipts. |
 | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] | `infrastructure` | `ACTIVE` | 24 | Provider-neutral structured transport, routing, provider composition, capability checks, and usage accounting. |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] | `infrastructure` | `ACTIVE` | 7 | Sign in with ChatGPT for the chatgpt_plan provider: the machine-local sign-in store, the PKCE flow, access tokens and plan-usage state, and its requests. |
@@ -73,7 +73,7 @@ tags:
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] | `domain` | `ACTIVE` | 12 | Experiment E1: the local pplx v2-context-9b batch pilot over E0's bank and finalists. |
 | [[Reference/Modules/learnloop/field/_package|learnloop.field]] | `domain` | `ACTIVE` | 18 | Replay-only learner-field contracts (the LearnerPredictor contract, signals, outcomes); no serving policy or evidence writes. |
 | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] | `domain` | `ACTIVE` | 25 | Explorable figures: declarative specs and sketches, their authoring routes, verification, labels, help records and the figure service. |
-| [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] | `domain` | `ACTIVE` | 9 | FG1's composition, imported only by the sidecar: lanes, the frontier authoring operation, machine admission, the router's itemless decision, what the feedback screen and Next read, and the generation worker. |
+| [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] | `domain` | `ACTIVE` | 10 | FG1's composition, imported only by the sidecar: lanes, the frontier authoring operation, machine admission, the router's itemless decision, what the feedback screen and Next read, and the generation worker. |
 | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] | `domain` | `ACTIVE` | 6 | FG1's leaf: the kill switch, the durable workflow's record, the generation queue's writes and the generated probe's single-use identity, read by the domain packages. |
 | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] | `domain` | `ACTIVE` | 19 | Learning goals, forecasts, certification, readiness, and exam workflows. |
 | [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] | `domain` | `ACTIVE` | 19 | Adaptive hints: telemetry and report, approach maps, the hint service and its outcomes. |
@@ -100,7 +100,7 @@ tags:
 | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] | `domain` | `ACTIVE` | 42 | Source retrieval and the Reader's sources side: keyword and dense search, section coverage, deliverables and paths, and the learner's notes. |
 | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] | `domain` | `ACTIVE` | 23 | Activity, card, surface, and identity substrate plus canonical projections. |
 | [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] | `domain` | `COMPAT` | 4 | Frozen compatibility machinery retained for old vaults. |
-| [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] | `domain` | `ACTIVE` | 13 | Lessons on the latent learner state: the brief, the teacher's turn contract and actions, guards, checks, delayed checks and receipts. |
+| [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] | `domain` | `ACTIVE` | 16 | Lessons on the latent learner state: the brief, the teacher's turn contract and actions, guards, checks, delayed checks and receipts. |
 | [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] | `adapter` | `ACTIVE` | 6 | Textual UI adapter, screens, widgets, state, and presentation behavior. |
 | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] | `adapter` | `ACTIVE` | 5 | Individual Textual user-interface screens. |
 | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] | `domain` | `ACTIVE` | 10 | Tutoring, hints, teach-back, and tutor question-and-answer workflows. |
@@ -111,7 +111,7 @@ tags:
 
 ## Desktop client modules
 
-The Tauri desktop application has **598 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
+The Tauri desktop application has **601 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
 
 > [!tip] Choose the catalog by source tree
 > Use this catalog for Python under `src/`; use [[Desktop Module Catalog]] for TypeScript, TSX, and Rust under `apps/learnloop-tauri/`. Both link back to the same concepts and end-to-end workflows.
@@ -163,4 +163,4 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1409 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1416 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.

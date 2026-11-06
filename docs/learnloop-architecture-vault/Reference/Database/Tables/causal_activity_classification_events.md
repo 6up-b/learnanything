@@ -3,13 +3,13 @@ title: "causal_activity_classification_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
-source_commit_timestamp: "2026-11-06T03:42:12-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_activity_classification_events"
   - "table causal_activity_classification_events"
-schema_head: 247
+schema_head: 248
 table_name: "causal_activity_classification_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/learner/lesson_weight.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
@@ -103,6 +104,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
@@ -128,6 +130,7 @@ Database triggers:
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_repair_mapping_p2.py`
 - `tests/test_hint_h2a_review_round2.py`
+- `tests/test_teacher_te2_review_fixes.py`
 - `tests/test_causal_attribution_p2.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_mobile_handoff.py`

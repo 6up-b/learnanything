@@ -3,13 +3,13 @@ title: "lesson_turns"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1fd90d95da5dd172041df67752d679ed62c8db9b"
-source_commit_timestamp: "2026-11-06T03:42:12-05:00"
+source_commit: "af3a9758713a5e9302784812ca9512cd04dcf253"
+source_commit_timestamp: "2026-11-06T06:50:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_turns"
   - "table lesson_turns"
-schema_head: 247
+schema_head: 248
 table_name: "lesson_turns"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/lessons.py"
+  - "src/learnloop/diagnosis/text_gaps/jobs.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
+  - "src/learnloop/teacher/probes.py"
   - "src/learnloop/teacher/service.py"
 tags:
   - "learnloop/database/table"
@@ -46,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/234_teacher_lessons.sql`.
-- **Schema touched by:** `234_teacher_lessons.sql`, `247_lesson_episodes.sql`.
+- **Schema touched by:** `234_teacher_lessons.sql`, `247_lesson_episodes.sql`, `248_teacher_te2_sources.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -90,6 +93,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/lessons.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 
 ### Direct SQL writers
 
@@ -111,6 +115,9 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`
+- `tests/test_teacher_te2_lessons.py`
+- `tests/test_teacher_te2_probes.py`
+- `tests/test_teacher_te2_review_fixes.py`
 - `tests/test_teacher_te2log_episodes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

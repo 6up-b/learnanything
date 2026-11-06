@@ -132,6 +132,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_grader_channel_prior_knobs.py](../../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_p0_replays_bulk_load_calibration_references_once`
+- [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
 
 ## Modification guidance
 

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/lesson_probe.py"
 source_paths:
   - "src/learnloop/followup_run/lesson_probe.py"
-source_commit: "workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "untracked"
+source_commit: "a6fd6615fea1c0de474d6e7e5e559f8a223e14f6"
+source_commit_timestamp: "2026-11-06T05:25:38-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -50,26 +50,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/lesson_probe.py](../../../../../../src/learnloop/followup_run/lesson_probe.py) |
-| Source lines | 188 |
+| Source lines | 196 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a6fd6615fea1c0de474d6e7e5e559f8a223e14f6` |
+| Commit timestamp | `2026-11-06T05:25:38-05:00` |
 
 ## Public API
 
-- `parse_key(dedupe_key: str) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 42) — ``(lesson id, node id)`` from a lesson job's key.
-- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 51)
-- `refuse(vault: Any, repository: Repository, job: Mapping[str, Any], reason: str, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 57)
-- `failure_reason(error: str) -> str` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 63) — A job's last error as the probe's refusal reason (its runs exhausted).
-- `run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 106) — One lesson job: a typed refusal recorded in the lesson, or the admitted question.
+- `parse_key(dedupe_key: str) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 43) — ``(lesson id, node id)`` from a lesson job's key.
+- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 52)
+- `refuse(vault: Any, repository: Repository, job: Mapping[str, Any], reason: str, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 58)
+- `failure_reason(error: str) -> str` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 64) — A job's last error as the probe's refusal reason (its runs exhausted).
+- `run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 107) — One lesson job: a typed refusal recorded in the lesson, or the admitted question.
 
 ### Module constants
 
-- `ADMISSION_VERSION` ([src/learnloop/followup_run/lesson_probe.py](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 36)
-- `LESSON_DECISION` ([src/learnloop/followup_run/lesson_probe.py](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 38)
+- `ADMISSION_VERSION` ([src/learnloop/followup_run/lesson_probe.py](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 37)
+- `LESSON_DECISION` ([src/learnloop/followup_run/lesson_probe.py](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 39)
 
 ### Explicit exports
 
@@ -85,7 +85,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_context(vault: Any, repository: Repository, *, learning_object_id: str, readings: list[str], card: Any, template: Any) -> tuple[Any, dict[str, str]]` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 69) — FG1's context with the readings as the rival readings (no causal hypothesis row exists for them).
+- `_context(vault: Any, repository: Repository, *, learning_object_id: str, readings: list[str], card: Any, template: Any) -> tuple[Any, dict[str, str]]` ([source](../../../../../../src/learnloop/followup_run/lesson_probe.py), line 70) — FG1's context with the readings as the rival readings (no causal hypothesis row exists for them).
 
 ## Who imports or calls it
 
@@ -98,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `is_subscription_transport`; calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `reserved_findings`; calls `reserved_findings`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
