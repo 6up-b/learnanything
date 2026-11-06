@@ -13,6 +13,8 @@ model itself (``extra="forbid"``), so an unknown parameter never reaches a handl
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import re
 from types import MappingProxyType
 from typing import Any, Callable, Literal, Mapping
@@ -136,6 +138,24 @@ _M2 = (
 )
 
 ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in _M2})
+
+#: The phone's API generation (mobile v2 §5.2). v2 adds methods and endpoints and changes no
+#: existing contract, so it stays 1; a breaking change would add ``/api/v2/``.
+API_VERSION = 1
+
+
+def allowlist_digest() -> str:
+    """What the client was built against, as one hash (mobile v2 §5.2).
+
+    ``GET /api/v1/meta`` answers it and the PWA build embeds it (``phoneMethods.ts``); a
+    mismatch is a stale cached app, which offers a reload. It covers what the client's own
+    code depends on: each method's name, kind and retry policy, and the API generation.
+    The constraints are the host's alone, so a stricter one does not ask the phone to reload.
+    """
+
+    rows = [[entry.name, entry.kind, entry.retry_safe] for entry in sorted(ALLOWLIST.values(), key=lambda one: one.name)]
+    encoded = json.dumps({"api_version": API_VERSION, "methods": rows}, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def validate_envelope(value: object) -> dict:

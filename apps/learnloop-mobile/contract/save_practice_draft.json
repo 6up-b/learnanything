@@ -1,0 +1,39 @@
+{
+  "method": "save_practice_draft",
+  "requests": [
+    {
+      "wrapper": "saveDraft",
+      "envelope": {
+        "method": "save_practice_draft",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1",
+          "answerMd": "Half",
+          "submissionId": "k1",
+          "schedulerCandidateId": "cand_i1",
+          "hintsUsed": 0
+        }
+      }
+    },
+    {
+      "wrapper": "saveDraft",
+      "envelope": {
+        "method": "save_practice_draft",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1",
+          "answerMd": "Half",
+          "submissionId": "k1",
+          "schedulerCandidateId": null,
+          "hintsUsed": 1,
+          "planPresentationId": "pp1",
+          "firstHintProgress": "draft_started",
+          "hintSeen": true,
+          "pageSeen": true,
+          "declaredStuck": true
+        }
+      }
+    }
+  ],
+  "reads": []
+}

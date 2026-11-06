@@ -15,8 +15,10 @@ from .errors import CaptureError
 # Only route templates, never arbitrary URLs, queries, tokens or request bodies.
 _LOG_ENDPOINTS = frozenset({"/pair", "/api/v1/capture", "/rpc"})
 # ...and an allowlisted method's name (spec §4.6), which the host has checked by then:
-# the M2 report reads a submit's status from it (the share returning 202).
-_RPC_METHOD = re.compile(r"rpc:[a-z_.]+")
+# the M2 report reads a submit's status from it (the share returning 202). ``client:`` and
+# ``network:`` are the phone's own round trip of that method and its network share (mobile v2
+# §4.5), in the same ``duration_ms``.
+_RPC_METHOD = re.compile(r"(?:rpc|client|network):[a-z_.]+")
 
 
 def log_request(

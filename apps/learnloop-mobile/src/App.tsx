@@ -1,3 +1,7 @@
+// The phone app: the shell of mobile v2 §4.2 (four places, a stack in each, sheets, the URL
+// fragment) around M2a's practice, whose logic is unchanged: the same requests with the same
+// parameters, the same handoff, the same outbox (spec §6.1, stage V1). What moved is where things
+// sit on the screen; `App.test.tsx` and `src/api/contract.test.ts` pin that nothing else did.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, ScheduledItemDto, SessionEndSummary, SessionSnapshot } from "@desktop/api/dto";
 import { invalidate, setQueryData, clear as clearQueries } from "@desktop/api/queryCache";
@@ -5,11 +9,23 @@ import { TAG } from "@desktop/api/queryTags";
 import { committedAttempt, pollJob, refusedOutright } from "./api/http";
 import { phone, type OwnerSnapshot } from "./api/phone";
 import { useVisibleInterval } from "./util/useVisibleInterval";
-import { CaptureScreen } from "./screens/CaptureScreen";
-import { FeedbackScreen } from "./screens/FeedbackScreen";
-import { PairScreen } from "./screens/PairScreen";
-import { GRADING_DOWN, QuestionScreen, type QuestionTarget, type SkipOutcome, type SkipSettled } from "./screens/QuestionScreen";
-import { PHONE_QUEUE_LIMIT, queueKey, queueRows, TodayScreen } from "./screens/TodayScreen";
+import { CaptureScreen } from "./capture/CaptureScreen";
+import { FeedbackScreen } from "./practice/FeedbackScreen";
+import { PairScreen } from "./pair/PairScreen";
+import { GRADING_DOWN, QuestionScreen, type QuestionTarget, type SkipOutcome, type SkipSettled } from "./practice/QuestionScreen";
+import { ProgressScreen } from "./progress/ProgressScreen";
+import { ReadScreen } from "./read/ReadScreen";
+import { ConnectionLine } from "./shell/ConnectionLine";
+import { markOffline, onReconnect } from "./shell/connection";
+import { DbBlockedScreen, useDbBlocked } from "./shell/DbBlocked";
+import { DisplaySheet } from "./shell/DisplaySheet";
+import { checkFreshness } from "./shell/freshness";
+import { parseFragment, TABS, writeFragment, type Tab } from "./shell/navigation";
+import { ScreenFrame, type FrameAction } from "./shell/ScreenFrame";
+import { Sheet } from "./shell/Sheet";
+import { TabBar } from "./shell/TabBar";
+import { useVisualViewportInset } from "./shell/viewport";
+import { PHONE_QUEUE_LIMIT, queueKey, queueRows, TodayScreen } from "./today/TodayScreen";
 import { readCredential, subscribeCredential, type Credential } from "./store/credential";
 import { flushOutbox, listOutbox, type FlushStop } from "./store/outbox";
 import {
@@ -49,12 +65,23 @@ function useCredential(): Credential | null | undefined {
 
 export function App() {
   const credential = useCredential();
+  const blocked = useDbBlocked();
   const [waiting, setWaiting] = useState(0);
   useEffect(() => {
     if (credential === null) void listOutbox().then((records) => setWaiting(records.filter((one) => !one.problem).length));
   }, [credential]);
+  // An upgrade waiting on another tab: the credential can't be read until it closes (F2).
+  if (blocked) return <DbBlockedScreen />;
   if (credential === undefined) return null;
-  if (credential === null) return <PairScreen waiting={waiting} />;
+  if (credential === null) {
+    return (
+      <div className="shell">
+        <main className="frame">
+          <PairScreen waiting={waiting} />
+        </main>
+      </div>
+    );
+  }
   return <Phone credential={credential} />;
 }
 
@@ -96,28 +123,44 @@ function restoredFrom(snapshot: SessionSnapshot, practiceItemId: string): NonNul
   };
 }
 
+/**
+ * Today's stack, as the fragment names it. Only the tab and the path are mirrored: a question or a
+ * feedback is never reopened from the fragment, because opening either writes (the serve, the
+ * feedback's open). They come back from the checkpoint and a pending submit, as M2a built it.
+ */
+function todayPath(view: View): string[] {
+  if (view.name === "question") return ["question", view.target.practiceItemId];
+  if (view.name === "feedback") return ["feedback", view.attemptId];
+  if (view.name === "waiting") return ["waiting"];
+  return [];
+}
+
 function Phone({ credential }: { credential: Credential }) {
-  const [tab, setTab] = useState<"today" | "capture">("today");
+  const [tab, setTab] = useState<Tab>(() => parseFragment(window.location.hash).tab);
   const [view, setView] = useState<View>({ name: "today" });
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [moved, setMoved] = useState<Moved | null>(null);
   const [elsewhere, setElsewhere] = useState<Elsewhere | null>(null);
-  const [offline, setOffline] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState<SessionEndSummary | null>(null);
   const [outboxWaiting, setOutboxWaiting] = useState(0);
+  const [display, setDisplay] = useState(false);
+  // A submit or a skip on its way: the question's own Back is disabled meanwhile, and so are the
+  // frame's chevron and edge swipe, or its reply would land on whatever opened after (F1).
+  const [questionBusy, setQuestionBusy] = useState(false);
   // Diagnostic checks this session left for the desktop. The next build holds them back and counts
   // them; this covers a list read before that build (§6.4).
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const deviceId = credential.deviceId;
+  useVisualViewportInset();
 
   const reportError = useCallback((error: unknown) => {
     const command = error as CommandError;
     if (command?.code === "desktop_offline") {
-      setOffline(true);
+      markOffline();
       return;
     }
     if (command?.code === "session_moved") {
@@ -131,6 +174,8 @@ function Phone({ credential }: { credential: Credential }) {
       return;
     }
     if (command?.code === "not_paired" || command?.code === "unauthorized") return;
+    // A method this build names and the host no longer allows: the connection line offers the reload (§5.2).
+    if (command?.code === "method_not_allowed") return;
     // A job's end read from afar: the phone has no self-grade to offer, whatever the message says.
     if (command?.code === "grading_fallback_required") {
       setNotice(GRADING_DOWN);
@@ -277,10 +322,9 @@ function Phone({ credential }: { credential: Credential }) {
   // Today's token: a change refetches once, as the desktop's poll does, and re-reads the session.
   const seenRevision = useRef<number | null>(null);
   const pollToday = view.name === "today" && tab === "today";
-  useVisibleInterval(() => {
+  const pollRevision = useCallback(() => {
     void phone.queueRevision().then(
       ({ revision }) => {
-        setOffline(false);
         const changed = seenRevision.current !== null && seenRevision.current !== revision;
         seenRevision.current = revision;
         const open = sessionRef.current;
@@ -293,20 +337,68 @@ function Phone({ credential }: { credential: Credential }) {
       },
       (error) => reportError(error)
     );
-  }, REVISION_POLL_MS, pollToday);
+  }, [deviceId, reportError]);
+  useVisibleInterval(pollRevision, REVISION_POLL_MS, pollToday);
 
   // §7: on open, on focus and every minute while open. iOS has no Background Sync.
-  const flush = useCallback(() => {
-    void flushOutbox()
-      .then((stop: FlushStop) => {
-        if (stop.reason === "offline") setOffline(true);
-        if (stop.reason === "forbidden") setNotice(stop.message);
-        return listOutbox();
-      })
-      .then((records) => setOutboxWaiting(records.filter((one) => !one.problem).length))
-      .catch(() => undefined);
-  }, []);
+  const flushNow = useCallback(
+    (): Promise<void> =>
+      flushOutbox()
+        .then((stop: FlushStop) => {
+          if (stop.reason === "offline") markOffline();
+          if (stop.reason === "forbidden") setNotice(stop.message);
+          return listOutbox();
+        })
+        .then((records) => setOutboxWaiting(records.filter((one) => !one.problem).length))
+        .catch(() => undefined),
+    []
+  );
+  const flush = useCallback(() => void flushNow(), [flushNow]);
   useVisibleInterval(flush, OUTBOX_FLUSH_MS);
+
+  // Mobile v2 §4.4: back from offline, in this order, each step done before the next starts: the
+  // outbox, the session (it may have moved meanwhile), the token, and the screen in view. Today
+  // refreshes through its token, so nothing refreshes under an answer being typed.
+  // The screen in view when the token's turn comes, not when the reconnect began.
+  const readTokenIfToday = useRef(() => undefined as void);
+  readTokenIfToday.current = () => {
+    if (pollToday) pollRevision();
+  };
+  const reconnect = useRef(async (): Promise<void> => undefined);
+  reconnect.current = async () => {
+    await flushNow();
+    const open = sessionRef.current;
+    if (open) {
+      await phone.getSession(open.sessionId).then((snapshot) => {
+        const away = movedFrom(snapshot, deviceId);
+        if (away) setMoved(away);
+      }, () => undefined);
+    }
+    readTokenIfToday.current();
+  };
+  useEffect(() => onReconnect(() => void reconnect.current()), []);
+  useEffect(() => {
+    const online = () => flush();
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, [flush]);
+
+  // §5.2: a cached app built against another allowlist says so, on open and on every return.
+  useEffect(() => {
+    void checkFreshness();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void checkFreshness();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  // §4.2: the current view, mirrored in the fragment.
+  const path = tab === "today" ? todayPath(view) : [];
+  const pathKey = path.join("/");
+  useEffect(() => {
+    writeFragment(tab, pathKey ? pathKey.split("/") : []);
+  }, [tab, pathKey]);
 
   async function begin(minutes: number, replace?: string) {
     setBusy(true);
@@ -451,91 +543,109 @@ function Phone({ credential }: { credential: Credential }) {
   }
 
   const frozen = moved !== null;
+  // §4.2: Question and Feedback (and the wait between them) cover the tab bar, so the primary
+  // action owns the bottom. Capture stays one tap away in the top bar, and the practice side stays
+  // mounted under it, as M2a's tab did: an open question keeps its editor, its serve and a submit.
+  const covering = tab === "today" && view.name !== "today";
+  const toCapture: FrameAction = { label: "+", name: "Capture", onClick: () => setTab("capture") };
+  const toDisplay: FrameAction = { label: "Aa", name: "Display", onClick: () => setDisplay(true) };
+  const frame = covering
+    ? view.name === "question"
+      ? { title: "Question", onBack: () => setView({ name: "today" }), backDisabled: questionBusy, actions: [toCapture] }
+      : { title: view.name === "waiting" ? "Grading" : "Feedback", onBack: null, backDisabled: false, actions: [toCapture] }
+    : { title: TABS.find((spec) => spec.tab === tab)?.title ?? "Today", onBack: null, backDisabled: false, actions: [toDisplay] };
+
   return (
-    <div className="shell">
-      {offline ? (
-        <div className="banner" role="status">
-          Desktop offline.{outboxWaiting > 0 ? ` ${outboxWaiting} ${outboxWaiting === 1 ? "capture" : "captures"} waiting to send.` : " Captures are saved and sent when it wakes."}
-        </div>
-      ) : null}
-      {moved ? (
-        <div className="banner" role="status">
-          {moved.reason === "adopted" ? (
-            <>
-              <div>This session continued on {moved.ownerLabel ?? "the desktop"}.</div>
-              <div className="row">
-                <button className="primary" type="button" disabled={busy} onClick={() => void adopt(moved.sessionId, moved.ownerGeneration ?? 0)}>Take it back</button>
-                <button className="plain" type="button" disabled={busy} onClick={() => void begin(sessionRef.current?.availableMinutes ?? 15, moved.sessionId)}>Start fresh</button>
-              </div>
-            </>
+    <div className={covering ? "shell covering" : "shell"}>
+      <ScreenFrame
+        screenKey={`${tab}:${pathKey}`}
+        title={frame.title}
+        onBack={frame.onBack}
+        backDisabled={frame.backDisabled}
+        backName="Back to Today"
+        actions={frame.actions}
+      >
+        <ConnectionLine outboxWaiting={outboxWaiting} />
+        {moved ? (
+          <div className="banner" role="status">
+            {moved.reason === "adopted" ? (
+              <>
+                <div>This session continued on {moved.ownerLabel ?? "the desktop"}.</div>
+                <div className="row">
+                  <button className="primary" type="button" disabled={busy} onClick={() => void adopt(moved.sessionId, moved.ownerGeneration ?? 0)}>Take it back</button>
+                  <button className="plain" type="button" disabled={busy} onClick={() => void begin(sessionRef.current?.availableMinutes ?? 15, moved.sessionId)}>Start fresh</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>This session ended on another device.</div>
+                <div className="row">
+                  <button className="primary" type="button" onClick={() => { installSession(null); setView({ name: "today" }); }}>OK</button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+        {notice ? <div className="banner bad" role="alert" onClick={() => setNotice(null)}>{notice}</div> : null}
+        {tab === "capture" ? <CaptureScreen onSaved={flush} /> : null}
+        {tab === "read" ? <ReadScreen /> : null}
+        {tab === "progress" ? <ProgressScreen /> : null}
+        {/* The practice side stays mounted under the other places. */}
+        <div style={{ display: tab === "today" ? "contents" : "none" }}>
+          {view.name === "question" && session ? (
+            <QuestionScreen
+              key={`${session.sessionId}:${session.ownerGeneration ?? 0}:${view.target.practiceItemId}`}
+              session={session}
+              target={view.target}
+              frozen={frozen}
+              onFeedback={(attemptId, practiceItemId) => setView({ name: "feedback", attemptId, practiceItemId })}
+              onWaiting={(submissionId, practiceItemId) => setView({ name: "waiting", submissionId, practiceItemId })}
+              onDesktopOnly={leftForDesktop}
+              onSkipped={skip}
+              onSkipUnknown={settleSkip}
+              onBack={() => setView({ name: "today" })}
+              onBusy={setQuestionBusy}
+              onError={reportError}
+            />
+          ) : view.name === "waiting" ? (
+            <div className="screen"><p className="dim" role="status">Your answer is being graded. The result will be here in a moment.</p></div>
+          ) : view.name === "feedback" ? (
+            <FeedbackScreen
+              key={view.attemptId}
+              attemptId={view.attemptId}
+              onNext={() => void nextAfter(null)}
+              onError={reportError}
+            />
           ) : (
-            <>
-              <div>This session ended on another device.</div>
-              <div className="row">
-                <button className="primary" type="button" onClick={() => { installSession(null); setView({ name: "today" }); }}>OK</button>
-              </div>
-            </>
+            <TodayScreen
+              session={session}
+              held={held}
+              finished={finished}
+              busy={busy}
+              onBegin={(minutes) => void begin(minutes)}
+              onOpen={(row: ScheduledItemDto) => void openRow(row)}
+              onEnd={() => void endSession()}
+              onError={reportError}
+            />
           )}
         </div>
-      ) : null}
+      </ScreenFrame>
+      {covering ? null : <TabBar current={tab} onSelect={setTab} />}
       {elsewhere ? (
-        <div className="banner" role="dialog" aria-label="A session is open elsewhere">
-          <div>You have a session open on {elsewhere.details.owner_label ?? "the desktop"}.</div>
+        <Sheet title="A session is open elsewhere" onClose={() => setElsewhere(null)} closeLabel="Cancel">
+          <p>You have a session open on {elsewhere.details.owner_label ?? "the desktop"}.</p>
           {elsewhere.details.has_draft ? (
-            <div className="dim">It has an unsent answer{elsewhere.details.draft_first_line ? `: “${elsewhere.details.draft_first_line}”` : "."}</div>
+            <p className="dim">It has an unsent answer{elsewhere.details.draft_first_line ? `: “${elsewhere.details.draft_first_line}”` : "."}</p>
           ) : null}
-          <div className="row">
-            <button className="primary" type="button" disabled={busy} onClick={() => void adopt(elsewhere.details.session_id, elsewhere.details.owner_generation ?? 0)}>Continue it here</button>
-            <button className="plain" type="button" disabled={busy} onClick={() => void begin(elsewhere.minutes, elsewhere.details.session_id)}>Start fresh</button>
-            <button className="plain" type="button" onClick={() => setElsewhere(null)}>Cancel</button>
+          <div className="actions">
+            <button className="primary block" type="button" disabled={busy} onClick={() => void adopt(elsewhere.details.session_id, elsewhere.details.owner_generation ?? 0)}>Continue it here</button>
+            <div className="row">
+              <button className="plain" type="button" disabled={busy} onClick={() => void begin(elsewhere.minutes, elsewhere.details.session_id)}>Start fresh</button>
+            </div>
           </div>
-        </div>
+        </Sheet>
       ) : null}
-      {notice ? <div className="banner bad" role="alert" onClick={() => setNotice(null)}>{notice}</div> : null}
-      {tab === "capture" ? <CaptureScreen onSaved={flush} /> : null}
-      {/* Capture sits over the practice side, which stays mounted: an open question keeps its
-          editor, its serve and a submit under way. */}
-      <div style={{ display: tab === "capture" ? "none" : "contents" }}>
-      {view.name === "question" && session ? (
-        <QuestionScreen
-          key={`${session.sessionId}:${session.ownerGeneration ?? 0}:${view.target.practiceItemId}`}
-          session={session}
-          target={view.target}
-          frozen={frozen}
-          onFeedback={(attemptId, practiceItemId) => setView({ name: "feedback", attemptId, practiceItemId })}
-          onWaiting={(submissionId, practiceItemId) => setView({ name: "waiting", submissionId, practiceItemId })}
-          onDesktopOnly={leftForDesktop}
-          onSkipped={skip}
-          onSkipUnknown={settleSkip}
-          onBack={() => setView({ name: "today" })}
-          onError={reportError}
-        />
-      ) : view.name === "waiting" ? (
-        <div className="main"><p className="dim" role="status">Your answer is being graded. The result will be here in a moment.</p></div>
-      ) : view.name === "feedback" ? (
-        <FeedbackScreen
-          key={view.attemptId}
-          attemptId={view.attemptId}
-          onNext={() => void nextAfter(null)}
-          onError={reportError}
-        />
-      ) : (
-        <TodayScreen
-          session={session}
-          held={held}
-          finished={finished}
-          busy={busy}
-          onBegin={(minutes) => void begin(minutes)}
-          onOpen={(row: ScheduledItemDto) => void openRow(row)}
-          onEnd={() => void endSession()}
-          onError={reportError}
-        />
-      )}
-      </div>
-      <nav className="tabs">
-        <button type="button" aria-current={tab === "today" ? "page" : undefined} onClick={() => setTab("today")}>Today</button>
-        <button type="button" aria-current={tab === "capture" ? "page" : undefined} onClick={() => setTab("capture")}>Capture</button>
-      </nav>
+      {display ? <DisplaySheet onClose={() => setDisplay(false)} /> : null}
     </div>
   );
 }

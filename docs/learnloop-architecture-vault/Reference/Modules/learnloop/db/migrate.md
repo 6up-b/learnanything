@@ -312,6 +312,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_239_is_named_and_the_table_is_classified`
   - `test_a_database_at_238_gets_it_and_nothing_else_changes`
   - `test_the_head_fixture_is_at_head_in_rollback_mode_with_an_empty_table`
+- [tests/test_mobile_meta_timing.py](../../../../../../tests/test_mobile_meta_timing.py) — direct import
+  - `test_meta_names_the_allowlist_the_host_enforces`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_persistence_open.py](../../../../../../tests/test_persistence_open.py) — direct import

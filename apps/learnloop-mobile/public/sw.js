@@ -4,7 +4,10 @@
 // the second lock.
 "use strict";
 
-const SHELL_CACHE = "learnloop-shell-v1";
+// The build's hash, written in by the build (src/shell/swBuild.ts), so every build is a new worker
+// whose activate drops the last build's cache (mobile v2 §5.2). "dev" in the source.
+const BUILD = "dev";
+const SHELL_CACHE = `learnloop-shell-${BUILD}`;
 
 function isShell(url) {
   return url.origin === self.location.origin && url.pathname.startsWith("/app/");

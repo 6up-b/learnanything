@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, PracticeItemDetail, SessionSnapshot } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { MathLiveEditor } from "@desktop/render/MathLiveEditor";
-import { committedAttempt } from "../api/http";
+import { committedAttempt, staleRefusal } from "../api/http";
 import { phone, type SubmitInput } from "../api/phone";
 import { phoneAttemptType } from "../util/attemptType";
 import { newUlid } from "../util/ulid";
@@ -91,6 +91,7 @@ export function QuestionScreen({
   onSkipped,
   onSkipUnknown,
   onBack,
+  onBusy,
   onError
 }: {
   session: SessionSnapshot;
@@ -106,6 +107,8 @@ export function QuestionScreen({
   /** Landed, the App has dropped the phone's copy and moved on, unless `writtenSince` says there's more to keep. */
   onSkipUnknown: (practiceItemId: string, writtenSince: () => boolean) => Promise<SkipSettled>;
   onBack: () => void;
+  /** A submit or a skip on its way, so the frame's Back waits too (Codex review of V1, F1). */
+  onBusy?: (busy: boolean) => void;
   onError: (error: unknown) => void;
 }) {
   const { practiceItemId } = target;
@@ -138,6 +141,13 @@ export function QuestionScreen({
   const dirty = useRef(opened.own && !opened.sentInput);
   const latest = useRef({ answer, stuck, frozen, ready: false });
   latest.current = { answer, stuck, frozen, ready: item !== null && !probeActive };
+
+  const busy = submitting || skipping;
+  useEffect(() => {
+    onBusy?.(busy);
+  }, [busy, onBusy]);
+  // Gone from the screen, it holds nothing back.
+  useEffect(() => () => onBusy?.(false), [onBusy]);
 
   /** The phone's copy of all this, written as it changes. */
   function remember(next: { answer?: string; stuck?: boolean } = {}) {
@@ -175,7 +185,8 @@ export function QuestionScreen({
           return;
         }
         onError(error);
-        setLoadError(error.message);
+        // A stale app: the connection line says so and offers Reload; Try again and Back stay (F3).
+        setLoadError(staleRefusal(error) ? "" : error.message);
       });
     return () => {
       cancelled = true;
@@ -381,8 +392,9 @@ export function QuestionScreen({
         await finish(committed, submissionId.current);
         return;
       }
-      // The App's banner says where the session went; this screen has nothing to add.
-      if (command.code === "session_moved") {
+      // The App's banner says where the session went, and the connection line that this app is
+      // stale (F3); this screen has nothing to add.
+      if (command.code === "session_moved" || staleRefusal(command)) {
         onError(error);
       } else {
         setFailure(command);
@@ -423,34 +435,38 @@ export function QuestionScreen({
     if (settled !== "unreachable") void saveDraft().catch(onError);
   }
 
-  if (loadError) {
+  if (loadError !== null) {
     return (
-      <div className="main">
-        <p className="bad" role="alert">{loadError}</p>
-        <div className="row">
-          <button className="primary" type="button" onClick={() => setLoadRevision((value) => value + 1)}>Try again</button>
-          <button className="plain" type="button" onClick={onBack}>Back</button>
+      <div className="screen">
+        {loadError ? <p className="bad" role="alert">{loadError}</p> : null}
+        <div className="actions">
+          <button className="primary block" type="button" onClick={() => setLoadRevision((value) => value + 1)}>Try again</button>
+          <div className="row">
+            <button className="plain" type="button" onClick={onBack}>Back</button>
+          </div>
         </div>
       </div>
     );
   }
-  if (!item) return <div className="main"><p className="dim">Opening…</p></div>;
+  if (!item) return <div className="screen"><p className="dim">Opening…</p></div>;
   // A serve's honest label when its cold check could not be taken (`queue.eligibility_dto`).
   const eligibilityMessage = (item as unknown as { eligibility?: { message?: string | null } }).eligibility?.message;
   if (probeActive) {
     // §6.4: the serve is committed and the check waits on the desktop; no skip is recorded.
     return (
-      <div className="main">
+      <div className="screen">
         <h1>{item.learningObjectTitle}</h1>
         <p className="banner" role="status">This is a diagnostic check. Continue it on the desktop.</p>
-        <div className="row">
-          <button className="primary" type="button" onClick={() => onDesktopOnly(practiceItemId)}>Next</button>
+        <div className="actions">
+          <button className="primary block" type="button" onClick={() => onDesktopOnly(practiceItemId)}>Next</button>
         </div>
       </div>
     );
   }
+  // Mobile v2 §4.3: the symbol bar and Submit sit together in the thumb zone, kept above the
+  // keyboard by the shell's visual-viewport inset; the secondary actions wrap beneath.
   return (
-    <div className="main">
+    <div className="screen">
       <h1>{item.learningObjectTitle}</h1>
       {item.intentCheck?.banner ? <p className="banner">{item.intentCheck.banner}</p> : null}
       {eligibilityMessage ? <p className="dim">{eligibilityMessage}</p> : null}
@@ -460,21 +476,6 @@ export function QuestionScreen({
           <div className="markdown"><MarkdownMath value={block.markdown} components={RemoteImageAsLink} /></div>
         </div>
       ))}
-      <div className="symbols" aria-label="Math symbols">
-        {SYMBOLS.map((symbol) => (
-          <button
-            key={symbol}
-            type="button"
-            disabled={submitting || skipping || frozen}
-            // Keep the caret in the editor.
-            onPointerDown={(event) => event.preventDefault()}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => insertSymbol(symbol, (text) => edit(latest.current.answer + text))}
-          >
-            {symbol}
-          </button>
-        ))}
-      </div>
       <MathLiveEditor
         value={answer}
         onChange={edit}
@@ -486,15 +487,32 @@ export function QuestionScreen({
         <p className="bad" role="alert">{failure.code === "grading_fallback_required" ? GRADING_DOWN : failure.message}</p>
       ) : null}
       {submitting ? <p className="dim" role="status">Grading. You can leave; the result will be here when you come back.</p> : null}
-      <div className="row">
-        <button className="primary" type="button" disabled={submitting || skipping || frozen || (!stuck && !answer.trim())} onClick={() => void submit()}>
+      <div className="actions">
+        <div className="symbols" aria-label="Math symbols">
+          {SYMBOLS.map((symbol) => (
+            <button
+              key={symbol}
+              type="button"
+              disabled={submitting || skipping || frozen}
+              // Keep the caret in the editor.
+              onPointerDown={(event) => event.preventDefault()}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => insertSymbol(symbol, (text) => edit(latest.current.answer + text))}
+            >
+              {symbol}
+            </button>
+          ))}
+        </div>
+        <button className="primary block" type="button" disabled={submitting || skipping || frozen || (!stuck && !answer.trim())} onClick={() => void submit()}>
           {failure?.retryable ? "Try again" : "Submit"}
         </button>
-        {stuck ? null : (
-          <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => { dirty.current = true; revision.current += 1; setStuck(true); remember({ stuck: true }); }}>I'm stuck</button>
-        )}
-        <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => void skip()}>Skip</button>
-        <button className="plain" type="button" disabled={submitting || skipping} onClick={onBack}>Back</button>
+        <div className="row">
+          {stuck ? null : (
+            <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => { dirty.current = true; revision.current += 1; setStuck(true); remember({ stuck: true }); }}>I'm stuck</button>
+          )}
+          <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => void skip()}>Skip</button>
+          <button className="plain" type="button" disabled={submitting || skipping} onClick={onBack}>Back</button>
+        </div>
       </div>
     </div>
   );

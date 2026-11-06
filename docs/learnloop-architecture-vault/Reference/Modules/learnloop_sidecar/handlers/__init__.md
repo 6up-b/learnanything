@@ -244,6 +244,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — direct import
+- [tests/test_mobile_phone_contract.py](../../../../../../tests/test_mobile_phone_contract.py) — direct import
 - [tests/test_mobile_rpc.py](../../../../../../tests/test_mobile_rpc.py) — direct import
 - [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import

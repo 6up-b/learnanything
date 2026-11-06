@@ -114,7 +114,7 @@ describe("the retry policy (§6.2)", () => {
     }
   });
 
-  it.each(["start_session", "adopt_session", "end_session", "skip_practice_item"])("never retries %s on its own", async (method) => {
+  it.each(["start_session", "adopt_session", "end_session", "skip_practice_item"] as const)("never retries %s on its own", async (method) => {
     expect(isRetrySafe(method)).toBe(false);
     fetchMock.mockResolvedValueOnce(busy());
     await expect(rpcOutcome(method, {})).rejects.toMatchObject({ code: "database_busy" });

@@ -206,6 +206,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_terminal_failure_that_cannot_be_written_is_read_as_failed`
   - `test_a_terminal_write_a_recovery_owes_is_paid_like_any_other`
   - `test_a_terminal_write_that_keeps_failing_is_paid_without_a_restart`
+- [tests/test_mobile_meta_timing.py](../../../../../../tests/test_mobile_meta_timing.py) — direct import
+  - `test_the_report_carries_the_round_trips`
 - [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — direct import
   - `test_authentication_and_device_listing_are_read_only`
   - `test_exchange_failure_rolls_back_consumption`

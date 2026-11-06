@@ -54,17 +54,12 @@ export function CaptureScreen({ onSaved }: { onSaved: () => void }) {
   const stuck = records.filter((record) => record.problem);
   const waiting = records.length - stuck.length;
   return (
-    <div className="main">
+    <div className="screen">
       <h1>Capture</h1>
       <label htmlFor="capture-text">A thought, a problem or a link</label>
       <textarea id="capture-text" rows={5} value={text} onChange={(event) => { setText(event.target.value); setSaved(false); }} />
       <label htmlFor="capture-note">Note (optional)</label>
       <input id="capture-note" value={note} onChange={(event) => setNote(event.target.value)} />
-      <div className="row">
-        <button className="primary" type="button" disabled={!text.trim()} onClick={() => void saveText()}>Save</button>
-        <button className="plain" type="button" onClick={() => photo.current?.click()}>Photo</button>
-        <input ref={photo} type="file" accept="image/*" hidden aria-label="Photo" onChange={(event) => void savePhoto(event.target.files?.[0])} />
-      </div>
       {saved ? <p className="dim" role="status">Saved.</p> : null}
       {error ? <p className="bad" role="alert">{error}</p> : null}
       {waiting > 0 ? <p className="dim">{waiting} waiting to send.</p> : null}
@@ -77,6 +72,13 @@ export function CaptureScreen({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
       ))}
+      <div className="actions">
+        <button className="primary block" type="button" disabled={!text.trim()} onClick={() => void saveText()}>Save</button>
+        <div className="row">
+          <button className="plain" type="button" onClick={() => photo.current?.click()}>Photo</button>
+          <input ref={photo} type="file" accept="image/*" hidden aria-label="Photo" onChange={(event) => void savePhoto(event.target.files?.[0])} />
+        </div>
+      </div>
     </div>
   );
 }

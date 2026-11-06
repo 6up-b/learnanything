@@ -1,0 +1,17 @@
+{
+  "method": "acknowledge_practice_submission",
+  "requests": [
+    {
+      "wrapper": "acknowledge",
+      "envelope": {
+        "method": "acknowledge_practice_submission",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1",
+          "submissionId": "k1"
+        }
+      }
+    }
+  ],
+  "reads": []
+}

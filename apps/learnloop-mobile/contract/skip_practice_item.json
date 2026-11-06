@@ -1,0 +1,19 @@
+{
+  "method": "skip_practice_item",
+  "requests": [
+    {
+      "wrapper": "skipItem",
+      "envelope": {
+        "method": "skip_practice_item",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "sections",
+    "deviceDeferredCount"
+  ]
+}

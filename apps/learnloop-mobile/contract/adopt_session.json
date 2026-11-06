@@ -1,0 +1,16 @@
+{
+  "method": "adopt_session",
+  "requests": [
+    {
+      "wrapper": "adoptSession",
+      "envelope": {
+        "method": "adopt_session",
+        "params": {
+          "sessionId": "s_desk",
+          "expectedGeneration": 0
+        }
+      }
+    }
+  ],
+  "reads": []
+}

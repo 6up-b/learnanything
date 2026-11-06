@@ -1,0 +1,33 @@
+{
+  "method": "get_today_queue",
+  "requests": [
+    {
+      "wrapper": "getTodayQueue",
+      "envelope": {
+        "method": "get_today_queue",
+        "params": {
+          "sessionId": "s1",
+          "limit": 20,
+          "availableMinutes": 15
+        }
+      }
+    },
+    {
+      "wrapper": "getTodayQueue",
+      "envelope": {
+        "method": "get_today_queue",
+        "params": {
+          "sessionId": "s1",
+          "limit": 20,
+          "availableMinutes": null
+        }
+      }
+    }
+  ],
+  "reads": [
+    "sections[].items[].practiceItemId",
+    "sections[].items[].schedulerCandidateId",
+    "sections[].items[].learningObjectTitle",
+    "deviceDeferredCount"
+  ]
+}

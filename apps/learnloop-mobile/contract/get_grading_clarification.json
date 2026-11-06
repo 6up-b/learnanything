@@ -1,0 +1,17 @@
+{
+  "method": "get_grading_clarification",
+  "requests": [
+    {
+      "wrapper": "getClarification",
+      "envelope": {
+        "method": "get_grading_clarification",
+        "params": {
+          "attemptId": "a1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "clarification"
+  ]
+}

@@ -59,14 +59,59 @@ def _rate(part: int, whole: int) -> float | None:
     return round(part / whole, 4) if whole else None
 
 
-def mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None = None) -> dict[str, Any]:
+#: Mobile v2 §4.5's budget for a fresh short read, a ``keep`` bound the report checks and nothing
+#: gates on: p50 at or under a second.
+SHORT_READ_P50_BUDGET_MS = 1000.0
+
+
+def round_trips(rows: list[Mapping[str, Any]], *, short_methods: frozenset[str] | None = None) -> dict[str, Any]:
+    """Per method: the host's own time (``rpc:``), the phone's round trip (``client:``) and the network's
+    part of it (``network:``), each p50/p95 in ms, from the request log (mobile v2 §4.5).
+
+    ``network_share`` is the median network time over the median round trip. ``short_methods``, the
+    allowlist's short ones, are checked against the short-read budget (reported, never enforced).
+    """
+
+    samples: dict[str, dict[str, list[float]]] = {}
+    for row in rows:
+        kind, _, method = str(row["endpoint"]).partition(":")
+        if kind in ("rpc", "client", "network") and method:
+            samples.setdefault(method, {"rpc": [], "client": [], "network": []})[kind].append(float(row["duration_ms"]))
+    methods: dict[str, Any] = {}
+    for method, values in sorted(samples.items()):
+        client_p50 = _percentile(values["client"], 0.5)
+        network_p50 = _percentile(values["network"], 0.5)
+        entry: dict[str, Any] = {
+            "host_ms": {"count": len(values["rpc"]), "p50": _percentile(values["rpc"], 0.5), "p95": _percentile(values["rpc"], 0.95)},
+            "round_trip_ms": {"count": len(values["client"]), "p50": client_p50, "p95": _percentile(values["client"], 0.95)},
+            "network_ms": {"count": len(values["network"]), "p50": network_p50, "p95": _percentile(values["network"], 0.95)},
+            "network_share": round(network_p50 / client_p50, 4) if client_p50 and network_p50 is not None else None,
+        }
+        if short_methods is not None and method in short_methods:
+            entry["within_short_read_budget"] = None if client_p50 is None else client_p50 <= SHORT_READ_P50_BUDGET_MS
+        methods[method] = entry
+    return {
+        "methods": methods,
+        "short_read_p50_budget_ms": SHORT_READ_P50_BUDGET_MS,
+        "note": "The phone reports each round trip on its next request; a sample lost with a closed app is not counted.",
+    }
+
+
+def mobile_report(
+    repo: Repository, *, prompts: Mapping[str, str] | None = None, short_methods: frozenset[str] | None = None,
+) -> dict[str, Any]:
     """§9's M2a report, §10's device split and §6.4's suspected figures.
 
     ``prompts`` is the loaded vault's item prompts; without it the suspected-figure list is
-    not computed (``None``), which says so rather than reporting an empty list.
+    not computed (``None``), which says so rather than reporting an empty list. ``round_trips``
+    is mobile v2 §4.5's latency table.
     """
 
     with repo.connection() as conn:
+        timings = [dict(row) for row in conn.execute(
+            "SELECT endpoint, duration_ms FROM mobile_request_log "
+            "WHERE endpoint LIKE 'rpc:%' OR endpoint LIKE 'client:%' OR endpoint LIKE 'network:%'"
+        )]
         attempts = [dict(row) for row in conn.execute(
             "SELECT id, session_id, practice_item_id, entry_surface, created_at FROM practice_attempts"
         )]
@@ -135,4 +180,5 @@ def mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None = None)
         "contest_note": CONTEST_NOTE,
         "suspected_figure": figures,
         "suspected_figure_note": "Report-only: a word pattern. Nothing that decides serving reads it (spec §6.4).",
+        "round_trips": round_trips(timings, short_methods=short_methods),
     }

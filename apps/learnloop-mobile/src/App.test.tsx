@@ -1419,6 +1419,7 @@ describe("pairing (§4.2)", () => {
     await deleteCredential();
     await addToOutbox({ clientCaptureId: "c", kind: "text", text: "x", capturedAt: "t" });
     render(<App />);
-    expect(await screen.findByText("Scan a new token to send 1 capture.")).toBeTruthy();
+    // Mobile v2 §4.1's plain words: "token" is on the deny-list, so the line says what to do.
+    expect(await screen.findByText("Pair again to send 1 waiting capture.")).toBeTruthy();
   });
 });

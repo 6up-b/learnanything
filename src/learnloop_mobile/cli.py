@@ -96,13 +96,15 @@ def inbox_list(config: ConfigOption = None, limit: int = 100, offset: int = 0):
 
 @app.command()
 def report(config: ConfigOption = None):
-    """The M2 usage report (spec §9, §10), read-only, with no thresholds."""
+    """The M2 usage report (spec §9, §10), read-only, with no thresholds; round trips per method (v2 §4.5)."""
     from learnloop.capture import mobile_report
     from learnloop.vault.loader import load_vault
+    from learnloop_mobile.allowlist import ALLOWLIST
     settings = _config(config)
     # The vault's files, for the suspected-figure list, which is report-only (§6.4).
     prompts = {item.id: item.prompt for item in load_vault(settings.vault).practice_items.values()}
-    _print(mobile_report(_repo(settings, read_only=True), prompts=prompts))
+    short = frozenset(name for name, entry in ALLOWLIST.items() if entry.kind == "short")
+    _print(mobile_report(_repo(settings, read_only=True), prompts=prompts, short_methods=short))
 
 
 @app.command()
