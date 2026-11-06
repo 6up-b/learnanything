@@ -165,6 +165,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_the_trace_carries_the_residual_and_its_terms_recompute`
 - [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
   - `test_a_few_weeks_on_a_copy_shaped_synthetic_vault`
+- [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
+  - `test_below_the_tag_the_no_model_branch_is_r3s`
+  - `test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path`
+  - `test_with_models_the_wait_returns_and_the_next_prefetch_runs_it`
 
 ## Modification guidance
 

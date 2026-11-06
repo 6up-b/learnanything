@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/memory.py"
 source_paths:
   - "src/learnloop/router_objective/memory.py"
-source_commit: "f6e46ff9d1c47643fdb8d2c1c934ce177092f37b"
-source_commit_timestamp: "2026-11-05T02:22:58-05:00"
+source_commit: "a574409cc195e8d400ff5b455e5b8cfb03a238bb"
+source_commit_timestamp: "2026-11-05T21:28:04-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,36 +50,37 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py) |
-| Source lines | 184 |
+| Source lines | 200 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f6e46ff9d1c47643fdb8d2c1c934ce177092f37b` |
-| Commit timestamp | `2026-11-05T02:22:58-05:00` |
+| Source commit | `a574409cc195e8d400ff5b455e5b8cfb03a238bb` |
+| Commit timestamp | `2026-11-05T21:28:04-05:00` |
 
 ## Public API
 
-- `sigmoid(x: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 43)
-- `logit(p: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 47)
-- `class Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 53) — The combination's coefficients (a0, aA, aR): a posterior mean and variance each (diagonal).
-  - `as_dict(self) -> dict[str, object]` (line 61; public)
-- `features(eta: np.ndarray, retrievability: np.ndarray | None, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 66) — The combiner's design columns ``(1, η, (logit R − η)·[practiced])``, stacked on the last axis.
-- `perform(coefficients: np.ndarray, eta: np.ndarray, retrievability: np.ndarray, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 76) — ``P(perform)``: ``coefficients`` shaped ``(K, 3)`` against ``(K, N)`` sensors.
-- `fit_combiner(rows: Sequence[tuple[float, float | None, int]], prior: Combiner | None=None) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 86) — The posterior of the combiner on ``(η, R or None, outcome 0/1)`` rows: a Laplace approximation by damped Newton on the log posterior (diagonal Gaussian prior).
-- `class Fsrs` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 136) — :mod:`learnloop.scheduling.fsrs`'s formulas over arrays (ratings: 1 again, 3 good).
-  - `retrievability(self, stability: np.ndarray, elapsed: np.ndarray) -> np.ndarray` (line 141; public)
-  - `_initial_difficulty(self, rating: np.ndarray) -> np.ndarray` (line 149; internal)
-  - `review(self, difficulty: np.ndarray, stability: np.ndarray, practiced: np.ndarray, elapsed: np.ndarray, good: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 153; public) — ``apply_review`` for each element: a first review where ``practiced`` is False.
+- `sigmoid(x: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 47)
+- `logit(p: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 51)
+- `class Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 57) — The combination's coefficients (a0, aA, aR): a posterior mean and variance each (diagonal).
+  - `as_dict(self) -> dict[str, object]` (line 68; public)
+- `features(eta: np.ndarray, retrievability: np.ndarray | None, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 78) — The combiner's design columns ``(1, η, (logit R − η)·[practiced])``, stacked on the last axis.
+- `perform(coefficients: np.ndarray, eta: np.ndarray, retrievability: np.ndarray, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 88) — ``P(perform)``: ``coefficients`` shaped ``(K, 3)`` against ``(K, N)`` sensors.
+- `fit_combiner(rows: Sequence[tuple[float, float | None, int]], prior: Combiner | None=None) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 98) — The posterior of the combiner on ``(η, R or None, outcome 0/1)`` rows: a Laplace approximation by damped Newton on the log posterior (diagonal Gaussian prior).
+- `class Fsrs` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 148) — :mod:`learnloop.scheduling.fsrs`'s formulas over arrays (ratings: 1 again, 3 good).
+  - `retrievability(self, stability: np.ndarray, elapsed: np.ndarray) -> np.ndarray` (line 156; public)
+  - `_initial_difficulty(self, rating: np.ndarray) -> np.ndarray` (line 165; internal)
+  - `review(self, difficulty: np.ndarray, stability: np.ndarray, practiced: np.ndarray, elapsed: np.ndarray, good: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 169; public) — ``apply_review`` for each element: a first review where ``practiced`` is False.
 
 ### Module constants
 
-- `MEMORY_MODEL_VERSION` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 32)
-- `COMBINER_PRIOR_MEAN` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 34)
-- `COMBINER_PRIOR_VARIANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 35)
-- `_R_CLIP` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 37)
-- `_FIT_ITERATIONS` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 39)
-- `_FIT_TOLERANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 40)
+- `MEMORY_MODEL_VERSION` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 33)
+- `COMBINER_FIT_VERSION` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 36)
+- `COMBINER_PRIOR_MEAN` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 38)
+- `COMBINER_PRIOR_VARIANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 39)
+- `_R_CLIP` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 41)
+- `_FIT_ITERATIONS` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 43)
+- `_FIT_TOLERANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 44)
 
 ### Explicit exports
 
@@ -117,7 +118,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `math`
+- Standard library: `__future__`, `collections`, `dataclasses`, `math`, `typing`
 - Third party: `numpy`
 
 ## Larger workflow participation
@@ -147,6 +148,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v_recomputed_from_the_logged_rows_is_the_tails_next_action`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_the_combiner_is_fitted_on_resolved_checks_and_is_its_prior_with_none`
+- [tests/test_rofu_learning.py](../../../../../../tests/test_rofu_learning.py) — direct import
+  - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
+- [tests/test_rofu_speed.py](../../../../../../tests/test_rofu_speed.py) — direct import
+  - `test_the_fsrs_update_without_clip_equals_the_schedulers_scalar_formulas`
+  - `test_the_merged_path_calls_the_fsrs_update_far_fewer_times`
 
 ## Modification guidance
 

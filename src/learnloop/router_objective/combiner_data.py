@@ -28,6 +28,7 @@ importers), so the combiner is refitted, with its labelled prior, on every outco
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
 from datetime import datetime
 import json
@@ -103,7 +104,12 @@ def rows(connection: Any, resolved: Sequence[Mapping[str, Any]], *, now: str, kn
     counts: dict[str, Any] = {"version": JOIN_VERSION, "groups": len({(row.get("decision_id"), row.get("learning_object_id"))
                                                                        for row in resolved
                                                                        if row.get("binding") == _PER_PROTOCOL}),
-                              "scored": len(scored), "not_known_by_now": 0, "check_answers": 0, "duplicates": 0}
+                              "scored": len(scored), "not_known_by_now": 0, "check_answers": 0, "duplicates": 0,
+                              # every per-protocol row by its status and reason (why most natural outcomes join
+                              # nothing: pending, or an intervening exposure)
+                              "per_protocol": dict(sorted(Counter(
+                                  f"{row.get('status')}:{row.get('reason') or ''}".rstrip(":") for row in resolved
+                                  if row.get("binding") == _PER_PROTOCOL).items()))}
     ids = sorted({str(row["attempt_id"]) for row in scored})
     times: dict[str, Mapping[str, Any]] = {}
     for start in range(0, len(ids), 500):

@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "524335ad355ef012173deac6b903afeade533986"
-source_commit_timestamp: "2026-11-05T18:01:39-05:00"
+source_commit: "8974d418693080c6fd8b7a6ebb36880acfd033ee"
+source_commit_timestamp: "2026-11-05T21:28:18-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/placement/report.py`
 - `src/learnloop/reader_followups_upgrade.py`
 - `src/learnloop/router_calibration_upgrade.py`
+- `src/learnloop/router_followups_upgrade.py`
 - `src/learnloop/router_learned_tail_upgrade.py`
 - `src/learnloop/router_objective_upgrade.py`
 - `src/learnloop/superseded_claims_upgrade.py`

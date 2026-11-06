@@ -204,6 +204,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_numeric_policy_honours_its_deadline`
 - [tests/test_ro4_value.py](../../../../../../tests/test_ro4_value.py) — direct import
   - `test_the_vectorized_fsrs_is_the_scalar_one`
+- [tests/test_rofu_speed.py](../../../../../../tests/test_rofu_speed.py) — direct import
+  - `test_the_fsrs_update_without_clip_equals_the_schedulers_scalar_formulas`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import

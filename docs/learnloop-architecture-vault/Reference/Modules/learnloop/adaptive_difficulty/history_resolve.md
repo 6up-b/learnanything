@@ -102,6 +102,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `module`; statically calls `resolve`
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `resolve_curves`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `resolve_curves`; statically calls `resolve_curves`
 
 ## Dependencies
 
@@ -131,7 +132,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -141,6 +142,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_log_time_interpolation`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
+- [tests/test_rofu_learning.py](../../../../../../tests/test_rofu_learning.py) — direct import
+  - `test_below_the_tag_the_combiner_reads_no_trace`
+  - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
 
 ## Modification guidance
 
