@@ -141,7 +141,7 @@ def _vault(tmp_path, *, version: str = TAG, ad: str = "") -> Any:
 
 
 def _lesson(paths: Any, lesson_id: str, nodes: list[dict[str, Any]], *, closed_at: str = CLOSED,
-            goal: dict[str, Any] | None = None) -> None:
+            goal: dict[str, Any] | None = None, exposure: dict[str, Any] | None = None) -> None:
     """A closed lesson and its receipt, as TE1's close writes them (ids, statuses and LOs; no text AD reads)."""
 
     with closing(sqlite3.connect(paths.sqlite_path)) as connection:
@@ -155,6 +155,8 @@ def _lesson(paths: Any, lesson_id: str, nodes: list[dict[str, Any]], *, closed_a
         receipt = {"version": "lesson_receipt_v1", "lesson_id": lesson_id, "goal": goal or {}, "nodes": [
             {"id": node["id"], "lo_id": node.get("lo_id", LO), "status": node["status"], "anchors": [], "checks": []}
             for node in nodes], "recap": "retrieve the definition"}
+        if exposure is not None:
+            receipt["exposure"] = exposure
         connection.execute("INSERT INTO lesson_receipts(lesson_id, receipt_version, close_reason, receipt_json, "
                            "created_at) VALUES (?, 'lesson_receipt_v1', 'goal_reached', ?, ?)",
                            (lesson_id, json.dumps(receipt), closed_at))
@@ -230,6 +232,78 @@ def test_a_lesson_naming_a_withheld_reading_is_absent_and_an_unavailable_predica
     monkeypatch.setattr(MV.MaterialView, "__init__", predicate_unavailable)
     _sweep(unavailable)
     assert _opportunities(unavailable) == []
+
+
+def _exposure(*, shown: tuple[str, ...] = (), revealed: tuple[str, ...] = (),
+              readings: list[dict[str, Any]] | None = None, passages: tuple[str, ...] = ()) -> dict[str, Any]:
+    out: dict[str, Any] = {"reveals": [{"item_id": item, "kind": "tutor_answer", "amount": 1.0} for item in revealed],
+                           "passages": list(passages), "shown_items": list(shown)}
+    if readings is not None:
+        out["readings"] = readings
+    return out
+
+
+def test_codex_f1_a_lesson_whose_shown_items_or_passages_are_withheld_now_is_absent(tmp_path, monkeypatch):
+    """Codex review F1: a closed lesson's receipt is judged against today's protection by what it showed (its shown and
+    revealed items) and by the readings of the passages it delivered (``exposure.readings``); a receipt that names
+    passages without their readings cannot be judged (withheld). An opportunity recorded before an item became
+    protected is withheld from the replay afterwards (the receipt is resolved again by its rule)."""
+
+    from learnloop.adaptive_difficulty import material_view as MV
+
+    paths = _vault(tmp_path)
+    landed = [{"id": "n1", "status": "landed"}]
+    _lesson(paths, "les_shown", landed, exposure=_exposure(shown=("pi_exam",)))
+    _lesson(paths, "les_revealed", landed, exposure=_exposure(revealed=("pi_exam_2",)))
+    _lesson(paths, "les_legacy", landed, exposure=_exposure(passages=("S1",)))
+    _lesson(paths, "les_reading", landed, exposure=_exposure(
+        passages=("S1",), readings=[{"alias": "S1", "extraction_id": "ext_exam", "span_id": "b7"}]))
+    _lesson(paths, "les_open", landed, exposure=_exposure(
+        shown=(ITEMS[0],), passages=("S1",), readings=[{"alias": "S1", "extraction_id": "ext_open", "span_id": "b1"}]))
+    withheld_items: set[str] = set()
+    original_item, original_reading = MV.MaterialView.withheld, MV.MaterialView.reading_withheld
+    monkeypatch.setattr(MV.MaterialView, "withheld",
+                        lambda self, item: str(item) in withheld_items or original_item(self, item))
+    monkeypatch.setattr(MV.MaterialView, "reading_withheld",
+                        lambda self, extraction_id: str(extraction_id) == "ext_exam"
+                        or original_reading(self, extraction_id))
+    _sweep(paths)
+    # Nothing protected yet but the exam reading: the shown and revealed lessons are recorded; the alias-only
+    # receipt and the one whose passage reads the exam's extraction are not.
+    assert [row["source_id"] for row in _opportunities(paths)] == ["les_open/n1", "les_revealed/n1", "les_shown/n1"]
+    # The items become protected after the close: the recorded opportunities stop contributing.
+    source = {row["id"]: row["source_id"] for row in _opportunities(paths)}
+    assert sorted(source[e.opportunity_id] for e in _snapshot(paths).events.opportunities
+                  if e.kind == "lesson") == ["les_open/n1", "les_revealed/n1", "les_shown/n1"]
+    withheld_items.update({"pi_exam", "pi_exam_2"})
+    assert sorted(source[e.opportunity_id] for e in _snapshot(paths).events.opportunities
+                  if e.kind == "lesson") == ["les_open/n1"]
+
+
+def test_codex_f1_the_teachers_close_records_each_delivered_passages_reading(tmp_path):
+    """Codex review F1: ``exposure.readings`` names each delivered passage's extraction and block (ids, no text), one
+    per alias in ``exposure.passages``."""
+
+    from learnloop.teacher import service as S
+    from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, clients, landed_and_close_turn, \
+        plan_turn
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    fake = TeacherFake([plan_turn, check_turn()])
+    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                         clients=clients(fake))
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                payload={"text": "Go ahead."}, clients=clients(fake))
+    fake.turns = [landed_and_close_turn()]
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
+                payload={"answer": "det(A - tI) = 0", "tap": 4}, clients=clients(fake))
+    with repository.connection() as connection:
+        receipt = json.loads(connection.execute("SELECT receipt_json FROM lesson_receipts").fetchone()[0])
+    exposure = receipt["exposure"]
+    assert exposure["passages"], "the fake library delivers passages"
+    assert [entry["alias"] for entry in exposure["readings"]] == exposure["passages"]
+    assert all(entry["extraction_id"] and entry["span_id"] and set(entry) == {"alias", "extraction_id", "span_id"}
+               for entry in exposure["readings"])
 
 
 def test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables(tmp_path):

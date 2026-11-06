@@ -188,6 +188,27 @@ _LESSON_RECORDS: dict[str, str] = {"lessons": "goal_json", "lesson_plans": "outl
                                    "lesson_receipts": "receipt_json"}
 
 
+def _lesson_exposure(record: Any) -> tuple[set[str], bool] | None:
+    """Teacher TE3a (Codex review F1): a lesson receipt's ``exposure`` as ``(the vault items it showed or revealed,
+    whether a delivered passage's reading is unrecorded)``; None for a record with no exposure (a goal, an outline).
+
+    The items are ``exposure.reveals[].item_id`` and ``exposure.shown_items`` (ids; the receipt names no item
+    revision). The passages are aliases (``exposure.passages``); their readings are ``exposure.readings``
+    (``{extraction_id, span_id}`` per passage, written by the teacher's close since TE3a), which the reference rule
+    reads like any other named reading. A receipt with passages and no ``readings`` (closed before TE3a) cannot be
+    judged. A malformed exposure raises (the caller fails closed)."""
+
+    if not isinstance(record, Mapping) or "exposure" not in record:
+        return None
+    exposure = record["exposure"]
+    if not isinstance(exposure, Mapping):
+        raise ValueError("a lesson receipt's exposure is not a mapping")
+    items = {str(entry["item_id"]) for entry in exposure.get("reveals") or [] if entry.get("item_id")}
+    items |= {str(item) for item in exposure.get("shown_items") or [] if item}
+    unresolved = bool(exposure.get("passages")) and not isinstance(exposure.get("readings"), list)
+    return items, unresolved
+
+
 #: A figure prediction's learner-text source id (``diagnosis.text_gaps.sources``' grammar, restated:
 #: AD imports nothing of the diagnosis package, by contract): the prediction id, with this suffix for
 #: its later "what changed?" text. ``tests/test_ro2_history_protection.py`` pins the two equal.
@@ -501,16 +522,25 @@ class MaterialView:
     def _lesson_record_withheld(self, row: Mapping[str, Any], column: str) -> bool:
         """Teacher TE3a (spec_teacher_v1 §14.2, §14.3; Option B): a lesson's own record (its goal, its outline, its
         receipt) is withheld when any reading it names (an extraction, a span, a section, a passage's key: a Reader
-        selection's goal above all) is one the withheld material touches, or while the predicate cannot tell; an
-        unreadable record is withheld (fail closed). The lesson's book (the passages it read, by alias) lives only in
-        its turns' payloads, which AD never reads; the teacher's own guard refuses withheld passages there."""
+        selection's goal above all, and a receipt's ``exposure.readings``: the readings of the passages it delivered)
+        is one the withheld material touches, or while the predicate cannot tell; a receipt is withheld too when an
+        item it showed or revealed is withheld now, or when it names passages without their readings
+        (:func:`_lesson_exposure`); an unreadable record is withheld (fail closed)."""
 
         try:
             value = row.get(column, row.get(column[: -len("_json")]) if column.endswith("_json") else None)
             record = value if isinstance(value, (Mapping, list)) else json.loads(value or "null")
             keys, whole = reference_keys(record)
+            exposure = _lesson_exposure(record)
         except Exception:  # noqa: BLE001 - fail closed
             return True
+        if exposure is not None:
+            items, unresolved = exposure
+            # Codex review F1: what the lesson showed, judged by today's protection (an item protected since the
+            # close withholds the lesson, as it withholds its own attempts); passages recorded by alias only (a
+            # receipt written before the receipt named their readings) cannot be judged: withheld.
+            if unresolved or any(self.withheld(item) for item in items):
+                return True
         return any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
             self.reading_withheld(extraction) for extraction in whole)
 

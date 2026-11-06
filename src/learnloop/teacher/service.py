@@ -1835,7 +1835,10 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "nodes": nodes,
         "nodes_summary": [{"id": n["id"], "lo_id": n["lo_id"], "status": n["status"]} for n in nodes],
         "exposure": {"reveals": [{"item_id": r[0], "kind": r[1], "amount": r[2]} for r in reveal_rows],
-                     "passages": sorted(state.book.passages), "shown_items": list(shown_items)},
+                     "passages": sorted(state.book.passages), "shown_items": list(shown_items),
+                     # Teacher TE3a (Codex review F1): each delivered passage's reading, ids only, so AD's guard can
+                     # judge the lesson against later protection (Option B, §14.3) without reading its payloads.
+                     "readings": _passage_readings(state.book)},
         "gaps": [],
         "created_los": [],
         "delayed_checks": list(delayed_checks),
@@ -1854,6 +1857,13 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         # TE2-log: the episode ids by kind, the minutes and the placement forecasts (absent off: TE1's receipt).
         **episode_fields,
     }
+
+
+def _passage_readings(book: SourceBook) -> list[dict[str, Any]]:
+    """``exposure.readings``: ``{alias, extraction_id, span_id}`` per delivered passage, in alias order (no text)."""
+
+    return [{"alias": alias, "extraction_id": passage.get("extraction_id"), "span_id": passage.get("span_id")}
+            for alias, passage in sorted(book.passages.items()) if isinstance(passage, Mapping)]
 
 
 def _receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *,
