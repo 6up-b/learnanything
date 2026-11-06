@@ -39,6 +39,7 @@ FOLLOWUP_KEYS: dict[str, object] = {
     "merged_sessions": True,
     "consistent_review_draw": True,
     "monotone_combiner": True,
+    "ad_predictive_link": True,
     "carried_in_prefetch": True,
     "scope_extension": True,
 }

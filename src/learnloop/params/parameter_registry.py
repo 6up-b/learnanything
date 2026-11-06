@@ -1957,6 +1957,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("router_objective.monotone_combiner"), "structural", "operational",
         "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R6): the memory model's combiner "
         "monotone in ability by construction (eta's slopes log-normal in its prior and fit); off, RO4's linear one."),
+    _ConfigRule(_exact("router_objective.ad_predictive_link"), "structural", "operational",
+        "kill switch for the follow-up batch's successor mvp-0.50 (landing ruling R9): the rollouts read AD's own "
+        "predicted success F(eta) with its lapse term (eta on AD's latent scale) where they read AD's predictive; "
+        "off, sigma(eta) on logit p-bar."),
     _ConfigRule(_exact("router_objective.carried_in_prefetch"), "structural", "operational",
         "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R12, R3): a decision served before its "
         "carried valuation existed is valued in the next boundary's prefetch; off, mvp-0.49 (censored)."),

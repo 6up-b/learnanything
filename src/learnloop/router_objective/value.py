@@ -106,6 +106,60 @@ MINUTES_PER_DAY = 1440.0
 #: (the default, below the tag), mvp-0.49's draw from AD's predictive alone, draw for draw. An unpractised topic's
 #: first attempt and a probe's observation read AD's predictive either way (the combiner has no ``R`` for them).
 REVIEW_DRAW_VERSION = "review_draw_memory_model_v1"
+#: The follow-up batch's landing ruling R9 (:class:`AdLink`, :attr:`Inputs.ad_link`).
+AD_LINK_VERSION = "ad_predictive_link_v1"
+
+
+@dataclass(frozen=True)
+class AdLink:
+    """Landing ruling R9: AD's own predicted success ``F(η) = g + (1 − g − λ)·E_ε[σ(η − a·τ0·ε)]``
+    (``adaptive_difficulty.model.residual_success``), with ``g = 0`` (a valued topic's unseen constructed item),
+    lapse ``λ``, and ``ε`` integrated by AD's own Gauss-Hermite rule; the caller hands in AD's constants, so this
+    module stays a leaf. With it the rollouts' ``η`` is AD's latent ability (practice's ``γ``, reading's dose and a
+    lesson add where AD adds them), a decision's ``p̄`` enters as ``F⁻¹(p̄)``, and wherever the rollouts read AD's
+    predictive (an unpractised topic, a probe, the combiner's ``η`` input, which is ``logit p̄``) they read
+    ``F(η)``, not ``σ(η)``. The decision's ``η`` variance is read as the latent's (AD's posterior is on its latent)."""
+
+    lapse: float
+    spread: float
+    nodes: tuple[float, ...]
+    weights: tuple[float, ...]
+    version: str = AD_LINK_VERSION
+
+    def __post_init__(self) -> None:
+        # The quadrature's arrays, built once (the rollouts call F per day, topic and draw).
+        object.__setattr__(self, "_shift", self.spread * np.asarray(self.nodes, dtype=np.float64))
+        object.__setattr__(self, "_w", np.asarray(self.weights, dtype=np.float64))
+
+    def p(self, eta: np.ndarray) -> np.ndarray:
+        e = np.asarray(eta, dtype=np.float64)[..., None] - self._shift
+        return (1.0 - self.lapse) * (self._w * sigmoid(e)).sum(-1)
+
+    def slope(self, eta: np.ndarray) -> np.ndarray:
+        """``dF/dη``."""
+
+        s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
+        return (1.0 - self.lapse) * (self._w * s * (1.0 - s)).sum(-1)
+
+    def inverse(self, p: np.ndarray) -> np.ndarray:
+        """``F⁻¹(p)`` by bisection on AD's range (a ``p`` at or past ``1 − λ`` is held just inside it)."""
+
+        top = (1.0 - self.lapse) * (1.0 - 1e-9)
+        target = np.clip(np.asarray(p, dtype=np.float64), 1e-9, top)
+        low, high = np.full_like(target, -60.0), np.full_like(target, 60.0)
+        for _ in range(200):
+            mid = 0.5 * (low + high)
+            below = self.p(mid) < target
+            low, high = np.where(below, mid, low), np.where(below, high, mid)
+            if float(np.max(high - low, initial=0.0)) < 1e-12:
+                break
+        return 0.5 * (low + high)
+
+    def logit_and_slope(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``."""
+
+        p = self.p(eta)
+        return logit(p), self.slope(eta) / np.maximum(p * (1.0 - p), 1e-300)
 
 
 @dataclass(frozen=True)
@@ -227,6 +281,8 @@ class Inputs:
     reference_forecast: float | None = None
     #: the trace's sources (where each number came from)
     sources: Mapping[str, Any] = field(default_factory=dict)
+    #: Landing ruling R9: AD's own predictive (:class:`AdLink`). None: mvp-0.49's ``σ(η)`` on ``logit p̄``.
+    ad_link: AdLink | None = None
 
     @property
     def cutoff(self) -> float:
@@ -430,6 +486,12 @@ class _Model:
         self.index = {topic.lo: i for i, topic in enumerate(inputs.topics)}
         self.n = len(inputs.topics)
         self.fsrs = Fsrs(tuple(inputs.fsrs_weights))
+        #: Landing ruling R9: AD's own predictive (None: ``σ`` on ``logit p̄``, mvp-0.49's), and each topic's ``η``
+        #: mean on the scale the rollouts move it on (AD's latent ``F⁻¹(p̄)`` with the link; ``logit p̄`` without).
+        self.link = inputs.ad_link
+        means = [t.eta_mean for t in inputs.topics]
+        self.eta_means: list[float] = (means if self.link is None or not means else
+                                       [float(v) for v in self.link.inverse(sigmoid(np.array(means)))])
         self.cutoff = inputs.cutoff if self.carried is None else self.carried
         self.end = self.cutoff + float(inputs.horizon_days)
         self.days = int(math.ceil(self.end))
@@ -457,7 +519,7 @@ class _Model:
 
     def _draw_theta(self) -> _Theta:
         inputs, st = self.inputs, self.streams
-        mean = np.array([t.eta_mean for t in inputs.topics], dtype=np.float64)
+        mean = np.array(self.eta_means, dtype=np.float64)
         sd = np.sqrt(np.maximum(np.array([t.eta_var for t in inputs.topics], dtype=np.float64), 0.0))
         eta = mean[None, :] + sd[None, :] * st.eta_z[:, : self.n]
         # The combiner's draws on (a0, aA, aR), in its own form's parameters (landing ruling R6: monotone at the tag)
@@ -495,7 +557,7 @@ class _Model:
         topics = inputs.topics
         return _State(
             eta=self.theta.eta.copy(),
-            bel=column([t.eta_mean for t in topics]),
+            bel=column(self.eta_means),
             bel_var=column([max(t.eta_var, 1e-12) for t in topics]),
             d=column([t.difficulty for t in topics]),
             s=column([t.stability for t in topics]),
@@ -513,6 +575,9 @@ class _Model:
             when = when[:, None]
         r = self.fsrs.retrievability(state.s, when - state.last)
         eta = state.bel if belief else state.eta
+        if self.link is not None:
+            # R9: the combiner's η input is AD's predictive on the logit scale, logit F(η) (``logit p̄`` at the start)
+            eta = logit(self.link.p(eta))
         return perform(self.theta.coef, eta, r, state.practiced)
 
     def cost(self, start: np.ndarray, minutes: np.ndarray) -> np.ndarray:
@@ -531,8 +596,13 @@ class _Model:
         with ``σ(bel)``. Landing ruling R1 (on): a practised topic's result is drawn from the memory model's own
         ``P(perform)`` at this moment, ``σ(a0 + aA·η + aR·(logit R − η))`` with ``R`` FSRS's at the elapsed lag
         (:func:`memory.perform`'s formula), and the belief observes it under the same likelihood (its prediction at
-        ``bel``, its slope in ``η`` ``aA − aR``), so the belief does not read a memory effect as ability."""
+        ``bel``, its slope in ``η`` ``aA − aR``), so the belief does not read a memory effect as ability.
 
+        Landing ruling R9 (``self.link``): AD's predictive is ``F(η)``, so ``η`` enters as ``logit F(η)`` and every
+        slope carries its derivative (:meth:`_graded_linked`)."""
+
+        if self.link is not None:
+            return self._graded_linked(eta, bel, bel_var, stability, practiced, elapsed, coef, u)
         if not self.consistent:
             good = u < sigmoid(eta)
             p_bel = sigmoid(bel)
@@ -543,6 +613,29 @@ class _Model:
         p_true = np.where(practiced, sigmoid(a0 + a_eta * eta + a_r * (lr - eta)), sigmoid(eta))
         p_bel = np.where(practiced, sigmoid(a0 + a_eta * bel + a_r * (lr - bel)), sigmoid(bel))
         slope = np.where(practiced, a_eta - a_r, 1.0)
+        good = u < p_true
+        var = 1.0 / (1.0 / bel_var + slope * slope * p_bel * (1 - p_bel))
+        return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
+
+    def _graded_linked(self, eta: np.ndarray, bel: np.ndarray, bel_var: np.ndarray, stability: np.ndarray,
+                       practiced: np.ndarray, elapsed: np.ndarray, coef: np.ndarray, u: np.ndarray
+                       ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """:meth:`_graded` with AD's own predictive (R9): ``ẽ = logit F(η)`` where ``σ(η)`` stood. Without R1's draw,
+        every result is drawn from ``F(η)``; with it, a practised topic's from the combiner over ``ẽ`` and ``R``.
+        The belief's Laplace step uses the same prediction at ``bel`` and its slope in ``η`` (``dẽ/dη``, times
+        ``aA − aR`` for a practised topic under R1's draw)."""
+
+        assert self.link is not None
+        e, _de = self.link.logit_and_slope(eta)
+        eb, deb = self.link.logit_and_slope(bel)
+        if self.consistent:
+            a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
+            lr = logit(self.fsrs.retrievability(stability, elapsed))
+            p_true = np.where(practiced, sigmoid(a0 + a_eta * e + a_r * (lr - e)), sigmoid(e))
+            p_bel = np.where(practiced, sigmoid(a0 + a_eta * eb + a_r * (lr - eb)), sigmoid(eb))
+            slope = np.where(practiced, (a_eta - a_r) * deb, deb)
+        else:
+            p_true, p_bel, slope = sigmoid(e), sigmoid(eb), deb
         good = u < p_true
         var = 1.0 / (1.0 / bel_var + slope * slope * p_bel * (1 - p_bel))
         return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
@@ -567,8 +660,18 @@ class _Model:
     def _observe(self, state: _State, lo: int, u: np.ndarray, mask: np.ndarray,
                  observed: np.ndarray | None = None) -> np.ndarray:
         """A probe's observation: the belief's update, nothing direct. Returns the result per draw (``observed``:
-        the result given, for valuing the branches on one result)."""
+        the result given, for valuing the branches on one result). With R9's link, AD's own ``F``."""
 
+        if self.link is not None:
+            eb, deb = self.link.logit_and_slope(state.bel[:, lo])
+            good = (u < self.link.p(state.eta[:, lo]) if observed is None
+                    else np.asarray(observed, dtype=bool))
+            p_bel = sigmoid(eb)
+            var = 1.0 / (1.0 / state.bel_var[:, lo] + deb * deb * p_bel * (1 - p_bel))
+            bel = state.bel[:, lo] + var * deb * (good.astype(np.float64) - p_bel)
+            state.bel[:, lo] = np.where(mask, bel, state.bel[:, lo])
+            state.bel_var[:, lo] = np.where(mask, var, state.bel_var[:, lo])
+            return good
         good = u < sigmoid(state.eta[:, lo]) if observed is None else np.asarray(observed, dtype=bool)
         p_bel = sigmoid(state.bel[:, lo])
         var = 1.0 / (1.0 / state.bel_var[:, lo] + p_bel * (1 - p_bel))
@@ -1245,7 +1348,7 @@ def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: 
 
 
 __all__ = [
-    "Action", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
+    "AD_LINK_VERSION", "Action", "AdLink", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
     "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW",
     "REVIEW_DRAW_VERSION", "SEQUENCE", "STOP",
     "TAIL_VERSION", "TEACH_BACK", "TERMINAL_VERSION", "Topic", "Valued", "cutoff_for", "evaluate", "gain",

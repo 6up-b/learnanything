@@ -1000,6 +1000,9 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                      # The follow-up batch's landing ruling R1: the rollouts' review draw, named only when it serves
                      # (below the tag, or off, the trace keeps mvp-0.49's bytes).
                      **({"review_draw": V.REVIEW_DRAW_VERSION} if _consistent_draw(config) else {}),
+                     # Landing ruling R9: AD's own predictive in the rollouts, named only when it serves.
+                     **({"ad_link": V.AD_LINK_VERSION}
+                        if inputs is not None and inputs.ad_link is not None else {}),
                      # Landing ruling R8: the batch's serving switches as they served, part of the generator
                      # payload (``tail_data.generator``); only at the batch's tag.
                      **_serving_switches(config)},

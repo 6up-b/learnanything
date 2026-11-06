@@ -279,7 +279,8 @@ def monotone_combiner_on(config: Any) -> bool:
 #: is part of RO6's generator payload and flipping one is a change point, never a change of ``Q`` under the same
 #: generator version. ``carried_in_prefetch`` is not here: it changes which transitions are valued, not the logger.
 FOLLOWUP_GENERATOR_SWITCHES: tuple[str, ...] = (
-    "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "monotone_combiner", "scope_extension")
+    "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "monotone_combiner", "ad_predictive_link",
+    "scope_extension")
 
 
 def followup_generator_switches(config: Any) -> dict[str, bool] | None:

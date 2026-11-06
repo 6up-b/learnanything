@@ -182,6 +182,22 @@ def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_pri
                       source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)")
 
 
+def _ad_link(vault: Any) -> V.AdLink | None:
+    """The follow-up batch's landing ruling R9: AD's own predicted success (its lapse, its residual spread and its
+    Gauss-Hermite rule, read from AD's model) at the batch's tag with ``[router_objective] ad_predictive_link``;
+    None (mvp-0.49's ``σ``) below it or off."""
+
+    from learnloop.router_objective_switches import followup_on
+
+    if vault is None or not followup_on(vault.config, "ad_predictive_link"):
+        return None
+    from learnloop.adaptive_difficulty import model as ADM
+    from learnloop.adaptive_difficulty import priors as ADP
+
+    return V.AdLink(lapse=float(ADP.LAPSE), spread=float(ADP.A * ADP.TAU0),
+                    nodes=tuple(float(x) for x in ADM.X32), weights=tuple(float(w) for w in ADM.W32))
+
+
 def _combiner_prior(vault: Any, **fields: Any) -> M.Combiner:
     """The combiner's labelled prior: the follow-up batch's landing ruling R6 makes it monotone in ability at its tag
     (``memory.FORM_MONOTONE``, the fit in the same form); below it, RO4's linear one."""
@@ -551,6 +567,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,
         combiner=_combiner(repository, now_iso, vault) if fitted else _combiner_prior(vault),
         learning=_learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES),
+        ad_link=_ad_link(vault),
     )
     sources = {
         "topics": topic_sources, "topic_limit": TOPIC_LIMIT, "topics_left_out": max(len(ordered) - len(kept), 0),

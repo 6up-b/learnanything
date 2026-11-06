@@ -4191,8 +4191,8 @@ class RouterObjectiveConfig(BaseModel):
     on its calibration slope ``ŵ``, which starts at zero).
 
     The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
-    ``monotone_combiner``, ``carried_in_prefetch``, ``scope_extension``, each part's own switch (off, or below the tag,
-    mvp-0.49 exactly).
+    ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
+    switch (off, or below the tag, mvp-0.49 exactly).
     """
 
     receipts: bool = True
@@ -4295,6 +4295,9 @@ class RouterObjectiveConfig(BaseModel):
     #: Landing ruling R6: the memory model's combiner is monotone in ability by construction (η's slopes log-normal
     #: in its prior and its fit), so higher ability never lowers predicted performance; off, RO4's linear combiner.
     monotone_combiner: bool = True
+    #: Landing ruling R9: where the rollouts read AD's predicted success (an unpractised topic, a probe, the
+    #: combiner's η input) they use AD's own F(η) with its lapse term, η on AD's latent scale; off, σ(η).
+    ad_predictive_link: bool = True
     #: RO6 R12/R3: a decision served before its carried valuation existed is valued again in the next
     #: boundary's prefetch (the no-model branch too), recorded beside its trace, so its backup is not censored.
     carried_in_prefetch: bool = True
