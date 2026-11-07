@@ -501,6 +501,33 @@ def _require_pinned(repository, pinned: tuple[str, int], device_id: str | None,
     raise ownership_error(SessionOwnershipError("session_moved", message, details))
 
 
+def _pin_open_session(repository, device_id: str | None) -> Callable[[], None]:
+    """A phone's sessionless check, pinned now and run later (each call raises ``session_moved``).
+
+    Codex re-review of V2, F6: the open session this write was accepted against is pinned with its generation, so
+    a handoff during the step's slow work (even one adopted back) refuses the commit, as a named session's does. A
+    session opened since is checked for its owner."""
+
+    accepted = repository.most_recent_open_session()
+    pinned = (str(accepted["id"]), int(accepted.get("owner_generation") or 0)) if accepted is not None else None
+
+    def no_session_elsewhere() -> None:
+        current = repository.most_recent_open_session()
+        if pinned is not None:
+            # Landing ruling R1 (final verify, F6 reopened): the pinned session is revalidated on
+            # its own, not through the current-session lookup: gone, ended, moved (even back) or
+            # replaced by another open session, the write was accepted against a session that is
+            # no longer where it was, and commits nothing.
+            _require_pinned(repository, pinned, device_id, current)
+            return
+        if current is None:
+            return
+        with owned_session_errors():
+            repository.require_session_owner(str(current["id"]), device_id, require_open=False)
+
+    return no_session_elsewhere
+
+
 def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None) -> Callable[[], None] | None:
     """Mobile v2 §5.6 (PR-4's open list, mobile-m2a §3 item 9): a session-keyed write outside
     practice (a plan step, a tutor question, a lesson suggestion's answer) from a device that does
@@ -529,27 +556,7 @@ def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None
     if session is None or session.get("ended_at") is not None:
         if origin is None:
             return None
-        device_id = ctx.origin_device_id
-        # Codex re-review of V2, F6: the open session this write was accepted against is pinned with
-        # its generation, so a handoff during the step's slow work (even one adopted back) refuses
-        # the commit, as a named session's does. A session opened since is checked for its owner.
-        accepted = repository.most_recent_open_session()
-        pinned = (str(accepted["id"]), int(accepted.get("owner_generation") or 0)) if accepted is not None else None
-
-        def no_session_elsewhere() -> None:
-            current = repository.most_recent_open_session()
-            if pinned is not None:
-                # Landing ruling R1 (final verify, F6 reopened): the pinned session is revalidated on
-                # its own, not through the current-session lookup: gone, ended, moved (even back) or
-                # replaced by another open session, the write was accepted against a session that is
-                # no longer where it was, and commits nothing.
-                _require_pinned(repository, pinned, device_id, current)
-                return
-            if current is None:
-                return
-            with owned_session_errors():
-                repository.require_session_owner(str(current["id"]), device_id, require_open=False)
-
+        no_session_elsewhere = _pin_open_session(repository, ctx.origin_device_id)
         no_session_elsewhere()
         return no_session_elsewhere
     device_id = ctx.origin_device_id
@@ -574,13 +581,30 @@ def phone_claim_owner(ctx: SidecarContext, repository, session_id: str | None, *
     probe (``serving.refuse_generated_probe_door``'s ``owned``): the named session is this device's, or, for a
     sessionless door, no other device owns the open session (:func:`refuse_moved_session`'s pin). A probe's one
     administration is the session owner's, so a phone the learner has left can't take the desktop's. None for the
-    desktop and for a phone that serves no probe (whose doors never burn), so neither changes."""
+    desktop and for a phone that serves no probe (whose doors never burn), so neither changes.
+
+    Codex re-review of V3, F1: what is checked is pinned when the door starts and only run in the transaction (so a
+    door that burns nothing, an ordinary item, is refused nothing). A named session is pinned with its owner's
+    generation and must still be open and this device's at that generation: one ended since (the desktop adopted
+    and ended it, or the phone did) or moved, even back, is refused, never let through as a sessionless write would
+    be. A sessionless door pins the open session it started against (:func:`_pin_open_session`)."""
 
     if ctx.request_origin is None or not phone_probes:
         return None
+    if session_id is None:
+        return _pin_open_session(repository, ctx.origin_device_id)
+    origin = ctx.request_origin
+    session = repository.fetch_session(session_id)
+    device_id = ctx.origin_device_id
+    if session is not None and origin.accepted_session_id == session_id:
+        # A job accepted for this session: its acceptance checked the owner (§6.3, §6.5).
+        device_id = session.get("owner_device_id")
+    generation = int(session.get("owner_generation") or 0) if session is not None else None
 
     def owned() -> None:
-        refuse_moved_session(ctx, repository, session_id)
+        with owned_session_errors():
+            repository.require_session_owner(str(session_id), device_id, require_open=True,
+                                             expected_generation=generation)
 
     return owned
 

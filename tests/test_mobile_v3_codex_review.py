@@ -80,6 +80,104 @@ def test_f1_the_owning_phone_still_burns_it_as_its_own(world):
     assert identity.served_surface(repository, item_id) == PHONE_SURFACE
 
 
+def _unserved_then_the_desktops(world, repository, item_id):
+    """Nothing was claimed, and the desktop's next session opens the probe as its own."""
+
+    assert identity.served_surface(repository, item_id) is None
+    assert item_id not in identity.closed_probe_ids(repository)
+    desktop_session = _call(world.ctx, "start_session", {"availableMinutes": 30})["sessionId"]
+    _call(world.ctx, "get_practice_item", {"practiceItemId": item_id, "sessionId": desktop_session})
+    assert identity.served_surface(repository, item_id) == SERVING_SURFACE
+
+
+@pytest.mark.parametrize("door", ["get_practice_item", "get_probe_contract"])
+def test_f1_reopened_a_stale_phone_serve_naming_a_session_the_desktop_ended_burns_nothing(world, door):
+    """Codex re-review of V3, F1: the desktop adopts the phone's session and ends it, so no session is open; a stale
+    phone serve naming the ended session is refused (a named serving session must still be open), not let through as
+    a sessionless phone write would be."""
+
+    _attempt_id, row, repository = _ready(world, PHONE)
+    item_id = row["practice_item_id"]
+    _adopt(world, None)
+    _call(world.ctx, "end_session", {"sessionId": world.session})
+    assert repository.most_recent_open_session() is None
+    _refused(world.ctx, door, {"practiceItemId": item_id, "sessionId": world.session}, PHONE, "session_moved")
+    _unserved_then_the_desktops(world, repository, item_id)
+
+
+def test_f1_reopened_a_session_the_phone_ended_itself_is_refused_too(world):
+    _attempt_id, row, repository = _ready(world, PHONE)
+    item_id = row["practice_item_id"]
+    _call(world.ctx, "end_session", {"sessionId": world.session}, PHONE)
+    _refused(world.ctx, "get_practice_item", {"practiceItemId": item_id, "sessionId": world.session}, PHONE,
+             "validation_error")
+    _unserved_then_the_desktops(world, repository, item_id)
+
+
+def _between_check_and_claim(monkeypatch, move):
+    """Runs ``move`` once, after the door built its ownership check and before the claim's transaction runs it."""
+
+    from learnloop_sidecar import serving
+
+    real = serving._claim_refusal
+    pending = [move]
+
+    def claim(*args, **kwargs):
+        while pending:
+            pending.pop()()
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(serving, "_claim_refusal", claim)
+
+
+def test_f1_reopened_a_handoff_and_back_between_the_check_and_the_claim_refuses_the_named_burn(world, monkeypatch):
+    """The generation the door pinned is revalidated in the claim's transaction: the session went to the desktop and
+    came back to the phone in between, so the phone's request was accepted against an owner that no longer stands."""
+
+    _attempt_id, row, repository = _ready(world, PHONE)
+    item_id = row["practice_item_id"]
+
+    def there_and_back():
+        _adopt(world, None)
+        _adopt(world, PHONE)
+
+    _between_check_and_claim(monkeypatch, there_and_back)
+    _refused(world.ctx, "get_practice_item", {"practiceItemId": item_id, "sessionId": world.session}, PHONE,
+             "session_moved")
+    assert identity.served_surface(repository, item_id) is None
+    assert item_id not in identity.closed_probe_ids(repository)
+
+
+def test_f1_reopened_an_end_between_the_check_and_the_claim_refuses_the_named_burn(world, monkeypatch):
+    _attempt_id, row, repository = _ready(world, PHONE)
+    item_id = row["practice_item_id"]
+
+    def adopt_and_end():
+        _adopt(world, None)
+        _call(world.ctx, "end_session", {"sessionId": world.session})
+
+    _between_check_and_claim(monkeypatch, adopt_and_end)
+    _refused(world.ctx, "get_practice_item", {"practiceItemId": item_id, "sessionId": world.session}, PHONE,
+             "session_moved")
+    _unserved_then_the_desktops(world, repository, item_id)
+
+
+def test_f1_reopened_a_sessionless_phone_door_keeps_the_session_it_started_against(world, monkeypatch):
+    """The queue's sessionless door pins the open session at its start: a handoff and back before the claim refuses it,
+    where a fresh lookup at the claim would have found the phone's own session and burned."""
+
+    _attempt_id, row, repository = _ready(world, PHONE)
+    item_id = row["practice_item_id"]
+
+    def there_and_back():
+        _adopt(world, None)
+        _adopt(world, PHONE)
+
+    _between_check_and_claim(monkeypatch, there_and_back)
+    _refused(world.ctx, "open_queue_item", {"practiceItemId": item_id}, PHONE, "session_moved")
+    assert identity.served_surface(repository, item_id) is None
+
+
 # -- F2: the desktop's Next and a phone answer still being graded ----------------------------------------------------
 
 
