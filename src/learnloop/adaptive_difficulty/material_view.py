@@ -1694,7 +1694,10 @@ class MaterialView:
                         rows, _blocks, _map = extraction_sections(ir)
                         sections = {str(row["id"]): [str(span) for span in row["span_ids"]] for row in rows}
                         if key is not None and self.reading_structure_digest(extraction_id) == digest:
-                            reading_cache.hold(key, None, {section: tuple(spans) for section, spans in sections.items()})
+                            from types import MappingProxyType
+
+                            reading_cache.hold(key, None, MappingProxyType(
+                                {section: tuple(spans) for section, spans in sections.items()}))
                 except Exception:  # noqa: BLE001 - an unreadable extraction has no spans
                     sections = {}
             self._section_spans[extraction_id] = sections

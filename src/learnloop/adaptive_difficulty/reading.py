@@ -64,6 +64,7 @@ import logging
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 from learnloop.attempts.salience_firewall import LEARNING_OPPORTUNITY_KINDS, LEARNING_OPPORTUNITY_SOURCES
@@ -116,7 +117,7 @@ class VaultReadingMap:
         # Router speed stage 2, item 1 (:mod:`.reading_cache`): each section's LOs and each reading's span → section
         # map once per map, and across maps under the held key (read once per map and reading).
         self._mapped: dict[tuple[str, str], list[str]] = {}
-        self._span_sections: dict[str, dict[str, str] | None] = {}
+        self._span_sections: dict[str, Mapping[str, str] | None] = {}
         self._held_keys: dict[str, tuple[Any, ...] | None] = {}
         self._verified: dict[str, bool] = {}
         self._vault_key: Any = _UNREAD
@@ -218,8 +219,8 @@ class VaultReadingMap:
             if found is None:
                 ir = self._document_ir(extraction_id)
                 try:
-                    found = None if ir is None else {str(span): str(section)
-                                                     for span, section in extraction_sections(ir)[2].items()}
+                    found = None if ir is None else MappingProxyType(
+                        {str(span): str(section) for span, section in extraction_sections(ir)[2].items()})
                     if found is not None and self._holdable(extraction_id, base):
                         reading_cache.hold(held_key, self.vault, found)
                 except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
