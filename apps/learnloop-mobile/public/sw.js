@@ -12,9 +12,11 @@
 // whose activate drops the last build's cache (mobile v2 §5.2). "dev" in the source.
 const BUILD = "dev";
 const SHELL_CACHE = `learnloop-shell-${BUILD}`;
-// Kept across builds (an image never changes), and cleared by the page on a 401 and when a reading's
-// protection changes (`src/store/displayCache.ts`, PAGE_CACHE).
-const PAGE_CACHE = "learnloop-pages-v1";
+// Kept across builds (an image never changes), and cleared by the page on a 401, on a new token and when a
+// reading's protection changes (`src/store/displayCache.ts`, PAGE_CACHE). v2 (Codex re-review F1): every copy in it
+// is tied to the token it was fetched under (`Vary: Authorization`); v1, which held copies tied to none, is not
+// carried over (activate drops every other name).
+const PAGE_CACHE = "learnloop-pages-v2";
 // A `keep` bound on the images kept: about the display cache's 50 MB of pages at 1080 px.
 const PAGE_CACHE_ENTRIES = 300;
 
@@ -82,24 +84,41 @@ async function hostCode(response) {
   }
 }
 
+// Codex re-review F1: a copy is one token's. The host says so (`Vary: Authorization`), and the Cache API then
+// matches a request only under the token the copy was fetched with; a copy that says nothing of it is never kept
+// and never answers (the page also drops the whole cache on a new token, `src/store/credential.ts`).
+function tokenBound(response) {
+  return (response.headers.get("Vary") || "").split(",").some((name) => name.trim().toLowerCase() === "authorization");
+}
+
+async function keptCopy(cache, request) {
+  const copy = await cache.match(request);
+  if (!copy) return undefined;
+  if (tokenBound(copy)) return copy;
+  await cache.delete(request);
+  return undefined;
+}
+
 async function mediaResponse(request) {
   const cache = await caches.open(PAGE_CACHE);
   let response;
   try {
     response = await fetch(request, { cache: "no-cache" });
   } catch (error) {
-    return (await cache.match(request)) || Response.error();
+    return (await keptCopy(cache, request)) || Response.error();
   }
   if (response.status === 200 && (response.headers.get("Cache-Control") || "").includes("immutable")) {
-    await cache.put(request, response.clone());
-    await trimPages(cache);
+    if (tokenBound(response)) {
+      await cache.put(request, response.clone());
+      await trimPages(cache);
+    }
     return response;
   }
-  if (GATEWAY_DOWN.includes(response.status)) return (await cache.match(request)) || response;
+  if (GATEWAY_DOWN.includes(response.status)) return (await keptCopy(cache, request)) || response;
   if (response.status === 503) {
     // The host is up and says why. Its vault changing under it may be a mark being made: no copy then.
     if ((await hostCode(response)) === "vault_unsettled") return response;
-    return (await cache.match(request)) || response;
+    return (await keptCopy(cache, request)) || response;
   }
   if (response.status >= 400 && response.status < 500) await cache.delete(request);
   return response;

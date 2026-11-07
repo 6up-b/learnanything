@@ -5,12 +5,12 @@ import {
   pageLinkTarget,
   pagePath,
   pageWidthFor,
+  phoneUrlTransform,
   protectionKey,
   resumeSection,
   sectionState,
   selectionProtected,
-  storeNameOf,
-  withPageLinks
+  storeNameOf
 } from "./readerModel";
 
 const NAME = `sha256-${"ab".repeat(32)}`;
@@ -54,8 +54,10 @@ describe("the Reader's pure parts (mobile v2 §3)", () => {
   it("turns a prompt's stored page links into the host's pages, and leaves every other link alone (§2.3)", () => {
     expect(llpdfPage(`llpdf://localhost/${NAME}#page=3`)).toEqual({ name: NAME, page: 2 });
     expect(llpdfPage("llpdf://source/abc#page=3")).toBeNull();
-    const rewritten = withPageLinks(`See [page 3](llpdf://localhost/${NAME}#page=3) and [that](llpdf://source/abc).`);
-    expect(rewritten).toBe(`See [page 3](#llpage/${NAME}/2) and [that](llpdf://source/abc).`);
+    expect(phoneUrlTransform(`llpdf://localhost/${NAME}#page=3`)).toBe(`#llpage/${NAME}/2`);
+    // Every other destination gets react-markdown's own filter, as before the phone mapped any.
+    expect(phoneUrlTransform("llpdf://source/abc")).toBe("");
+    expect(phoneUrlTransform("https://example.com/a")).toBe("https://example.com/a");
     expect(pageLinkTarget(`#llpage/${NAME}/2`)).toEqual({ name: NAME, page: 2 });
     expect(pageLinkTarget("#llpage/nope/2")).toBeNull();
     expect(storeNameOf(`canonical-sources/raw/${NAME}`)).toBe(NAME);

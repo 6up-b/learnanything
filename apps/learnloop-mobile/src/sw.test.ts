@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import source from "../public/sw.js?raw";
+import { PAGE_CACHE } from "./store/displayCache";
 
 // The real service worker, run with its globals faked (§4.6): only the shell is ever cached.
 let handlers: Record<string, (event: unknown) => void>;
@@ -129,13 +130,15 @@ describe("the page images (mobile v2 §3.3, V4): the one stated exception", () =
 
   const PAGE = "https://desktop.tail.ts.net/api/v1/reader/page/ext1/1?w=720";
 
-  const IMMUTABLE = { "Cache-Control": "private, max-age=31536000, immutable" };
+  const IMMUTABLE = { "Cache-Control": "private, max-age=31536000, immutable", Vary: "Authorization" };
+  // The page cache's name: the page's own (`src/store/displayCache.ts`), so the two never drift.
+  const PAGES = PAGE_CACHE;
 
   it("keeps an immutable page, and asks the host again at every view while it answers (Codex review F1)", async () => {
     const { stored, opened, network } = workerFor(() => new Response("png", { status: 200, headers: IMMUTABLE }));
     expect((await get(PAGE)).status).toBe(200);
     expect(stored.has(PAGE)).toBe(true);
-    expect(opened).toEqual(["learnloop-pages-v1"]);
+    expect(opened).toEqual([PAGES]);
     await get(PAGE);
     expect(network).toHaveBeenCalledTimes(2);
     // Past the browser's own cache too: every view revalidates the token and the protection with the host.
@@ -177,5 +180,39 @@ describe("the page images (mobile v2 §3.3, V4): the one stated exception", () =
     const { stored } = workerFor(() => new Response("png", { status: 200, headers: { "Cache-Control": "no-store" } }));
     await get(PAGE);
     expect(stored.size).toBe(0);
+  });
+
+  // Codex re-review F1: a kept copy is one token's (`Vary: Authorization`, which the Cache API matches on), and
+  // the cache that predates that is not carried over.
+  it("never keeps a page the host did not tie to its token (no Vary: Authorization)", async () => {
+    const { stored } = workerFor(() => new Response("png", { status: 200, headers: { "Cache-Control": IMMUTABLE["Cache-Control"] } }));
+    expect((await get(PAGE)).status).toBe(200);
+    expect(stored.size).toBe(0);
+  });
+
+  it("offline, a copy not tied to a token is never the answer", async () => {
+    let answer: () => Response = () => new Response("png", { status: 200, headers: IMMUTABLE });
+    const { stored } = workerFor(() => answer());
+    await get(PAGE);
+    stored.set(PAGE, new Response("legacy", { status: 200, headers: { "Cache-Control": IMMUTABLE["Cache-Control"] } }));
+    answer = () => { throw new TypeError("offline"); };
+    expect((await get(PAGE)).type).toBe("error");
+    answer = () => new Response("down", { status: 502 });
+    expect((await get(PAGE)).status).toBe(502);
+  });
+
+  it("a new worker drops the pre-fix page cache, keeps its own and the shell", async () => {
+    const deleted: string[] = [];
+    const self = { location: { origin: "https://desktop.tail.ts.net" }, addEventListener: (name: string, handler: (event: unknown) => void) => { handlers[name] = handler; }, skipWaiting: vi.fn(), clients: { claim: vi.fn() } };
+    const caches = {
+      open: async () => ({ put }), match: async () => undefined,
+      keys: async () => ["learnloop-shell-dev", "learnloop-pages-v1", PAGES, "learnloop-shell-old"],
+      delete: async (name: string) => { deleted.push(name); return true; }
+    };
+    new Function("self", "caches", "fetch", "Response", source)(self, caches, async () => new Response("x"), Response);
+    const waits: Promise<unknown>[] = [];
+    handlers.activate({ waitUntil: (work: Promise<unknown>) => waits.push(work) });
+    await Promise.all(waits);
+    expect(deleted.sort()).toEqual(["learnloop-pages-v1", "learnloop-shell-old"]);
   });
 });

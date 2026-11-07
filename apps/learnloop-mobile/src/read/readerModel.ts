@@ -1,6 +1,7 @@
 // The phone Reader's pure parts (mobile v2 §3): what a section's state is, where reading resumes, how a page's
 // image is named, and how a prompt's page and image links become the host's content-addressed URLs (§2.3).
 // Nothing here talks to the host.
+import { defaultUrlTransform } from "react-markdown";
 import type { ReaderGuideSectionDto, ReaderProgressListDto, ReaderProtectionDto } from "@desktop/api/dto";
 import { resumeSpanFromHistory } from "@desktop/screens/reader/readingPosition";
 
@@ -78,7 +79,8 @@ export function storeNameOf(target: string | undefined | null): string | null {
 }
 
 /** The fragments a page link and a stored file become (react-markdown keeps fragments; its URL filter empties an
- *  unknown scheme such as `llpdf:` or `asset:`, so the targets are rewritten before it runs, Codex review F11). */
+ *  unknown scheme such as `llpdf:` or `asset:`, so the targets are mapped in its place, `phoneUrlTransform`,
+ *  Codex review F11). */
 export const PAGE_LINK = "#llpage/";
 export const ASSET_LINK = "#llasset/";
 
@@ -93,30 +95,13 @@ export function phoneMediaTarget(target: string): string | null {
   return name ? `${ASSET_LINK}${name}` : null;
 }
 
-/** An inline link or image target (`](target "title")`), a reference definition (`[x]: target`), an autolink. */
-const LINK_TARGET = /\]\(\s*(<)?([^)\s>]+)>?((?:\s+"[^"]*")?)\s*\)/g;
-const REFERENCE_TARGET = /^( {0,3}\[[^\]\n]+\]:[ \t]*)<?([^\s>]+)>?/gm;
-const AUTOLINK_TARGET = /<((?:llpdf|asset):[^>\s]+)>/gi;
-
-/** A prompt's page links and stored images, rewritten so they survive the renderer and open from the host. */
-export function withPhoneMedia(markdown: string): string {
-  return markdown
-    .replace(LINK_TARGET, (whole, _angle: string | undefined, target: string, title: string) => {
-      const mapped = phoneMediaTarget(target);
-      return mapped ? `](${mapped}${title ?? ""})` : whole;
-    })
-    .replace(REFERENCE_TARGET, (whole, head: string, target: string) => {
-      const mapped = phoneMediaTarget(target);
-      return mapped ? `${head}${mapped}` : whole;
-    })
-    .replace(AUTOLINK_TARGET, (whole, target: string) => {
-      const mapped = phoneMediaTarget(target);
-      return mapped ? `<${mapped}>` : whole;
-    });
+/** react-markdown's `urlTransform` on the phone: a parsed link or image destination (inline, reference-style or an
+ *  autolink) the host serves becomes the phone's own fragment, and every other one gets the renderer's default
+ *  filter. It sees destinations only, never text, so a link written inside code stays as the book printed it
+ *  (Codex re-review F15: the earlier rewrite of the whole Markdown string changed code examples too). */
+export function phoneUrlTransform(url: string): string {
+  return phoneMediaTarget(url) ?? defaultUrlTransform(url);
 }
-
-/** The name `withPhoneMedia` had when it rewrote page links only. */
-export const withPageLinks = withPhoneMedia;
 
 export function pageLinkTarget(href: string | undefined | null): { name: string; page: number } | null {
   if (!href || !href.startsWith(PAGE_LINK)) return null;

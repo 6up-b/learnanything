@@ -6,7 +6,7 @@ import { useEffect, useState, type ComponentProps } from "react";
 import type ReactMarkdown from "react-markdown";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { getImage } from "../api/http";
-import { assetLinkTarget, assetPath, pagePath, pageLinkTarget, pageWidthFor, storeNameOf, withPhoneMedia } from "./readerModel";
+import { assetLinkTarget, assetPath, pagePath, pageLinkTarget, pageWidthFor, phoneUrlTransform, storeNameOf } from "./readerModel";
 
 type Components = NonNullable<ComponentProps<typeof ReactMarkdown>["components"]>;
 
@@ -64,7 +64,7 @@ export function StoredImage({ name, alt }: { name: string; alt?: string | null }
   return <img className="stored-image" src={url} alt={alt || "image"} />;
 }
 
-/** A page link in a prompt (`llpdf:`, rewritten by `withPageLinks`): its page opens under it, on demand. */
+/** A page link in a prompt (`llpdf:`, mapped by `phoneUrlTransform`): its page opens under it, on demand. */
 function PageLink({ name, page, children }: { name: string; page: number; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
@@ -81,8 +81,9 @@ function PageLink({ name, page, children }: { name: string; page: number; childr
  * Mobile v2 §2.3: how a prompt's images and links render on the phone. A stored image (its target ends in the
  * originals store's `sha256-<hex>` name) and a page link render from the host; a remote image stays the link it
  * is (the CSP has no remote images, M2a §3.4). The targets arrive as the phone's own fragments
- * (`withPhoneMedia`, before react-markdown's URL filter empties an `asset:` or `llpdf:` one; Codex review F11), so
- * render prompts through `PhoneMarkdown`.
+ * (`phoneUrlTransform`, in place of react-markdown's URL filter, which empties an `asset:` or `llpdf:` one; Codex
+ * review F11; on parsed destinations only, so code keeps its text, re-review F15), so render prompts through
+ * `PhoneMarkdown`.
  */
 export const PhoneMedia: Components = {
   img: ({ src, alt }) => {
@@ -105,5 +106,5 @@ export const PhoneMedia: Components = {
 /** A prompt, a book's text or an answer as the phone renders it: the desktop's `MarkdownMath` (KaTeX), with its
  *  page links and stored images served by the host (§2.3). */
 export function PhoneMarkdown({ value }: { value: string }) {
-  return <MarkdownMath value={withPhoneMedia(value || "")} components={PhoneMedia} />;
+  return <MarkdownMath value={value || ""} components={PhoneMedia} urlTransform={phoneUrlTransform} />;
 }

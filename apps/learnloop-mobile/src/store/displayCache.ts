@@ -111,13 +111,16 @@ export async function deleteLatest(name: string): Promise<void> {
   await writeAll([latestKey(name)], null);
 }
 
-/** Mobile v2 V4: the page images' cache in the service worker (`public/sw.js`), which the page can clear too. */
-export const PAGE_CACHE = "learnloop-pages-v1";
+/** Mobile v2 V4: the page images' cache in the service worker (`public/sw.js`), which the page can clear too. v2
+ *  holds only copies tied to their token (Codex re-review F1); v1 held copies tied to none. */
+export const PAGE_CACHE = "learnloop-pages-v2";
+const LEGACY_PAGE_CACHES = ["learnloop-pages-v1"];
 
-/** Drop every cached page and stored image (all readings: an image's URL may name the file, not the reading). */
+/** Drop every cached page and stored image (all readings: an image's URL may name the file, not the reading), and
+ *  the pre-F1 cache too, should this page run before the new worker's activate has dropped it. */
 export async function purgePageImages(): Promise<void> {
   if (typeof caches === "undefined") return;
-  await caches.delete(PAGE_CACHE).catch(() => false);
+  await Promise.all([PAGE_CACHE, ...LEGACY_PAGE_CACHES].map((name) => caches.delete(name).catch(() => false)));
 }
 
 /** §1: revocation deletes the display cache with the token, page images included; the outbox stays. */

@@ -15,16 +15,20 @@ type MarkdownProps = ComponentProps<typeof ReactMarkdown>;
 const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex];
 
 // `components`: the phone renders a remote image as a link (mobile spec §3.4, its CSP has none).
-// Keep it a module-level constant, for the same reason as the plugin list. The desktop passes none.
+// `urlTransform`: the phone maps the destinations its host serves (mobile v2 §2.3); none is react-markdown's default.
+// Keep both module-level constants, for the same reason as the plugin list. The desktop passes neither.
 export const MarkdownMath = memo(function MarkdownMath({
   value,
-  components
+  components,
+  urlTransform
 }: {
   value: string;
   components?: MarkdownProps["components"];
+  urlTransform?: MarkdownProps["urlTransform"];
 }) {
   return (
-    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS} components={components}>
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS} components={components}
+      urlTransform={urlTransform}>
       {normalizeMathDelimiters(value || "")}
     </ReactMarkdown>
   );
