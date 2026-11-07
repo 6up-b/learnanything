@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/adaptive_difficulty.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/adaptive_difficulty.py"
-source_commit: "031c10cc83242fcf014d5c0ed5e995d014bcf732"
-source_commit_timestamp: "2026-11-07T06:17:58-05:00"
+source_commit: "c61150f982e9b7910573adf87ad5fbce3c77ae6c"
+source_commit_timestamp: "2026-11-07T06:50:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/adaptive_difficulty.py](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py) |
-| Source lines | 194 |
+| Source lines | 204 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `031c10cc83242fcf014d5c0ed5e995d014bcf732` |
-| Commit timestamp | `2026-11-07T06:17:58-05:00` |
+| Source commit | `c61150f982e9b7910573adf87ad5fbce3c77ae6c` |
+| Commit timestamp | `2026-11-07T06:50:40-05:00` |
 
 ## Public API
 
@@ -67,10 +67,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 48) — The dose arm's draw at a section boundary (§5.12): ``offer`` is the extra to show, or null.
 - `class ReaderDoseOfferEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 116)
 - `reader_dose_offer_event(ctx: SidecarContext, params: ReaderDoseOfferEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 122) — Record that the offer was delivered, not delivered, taken or dismissed.
-- `class AdaptiveDifficultyReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 139)
-- `adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficultyReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 144) — An LO's readiness lines (predictions; "untested" where it has no answer of its own).
-- `class AdaptiveDifficultyWhyItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 164)
-- `adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficultyWhyItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 169) — "Why this item" (§12): ``{"why": null}`` when no AD draw chose the served item.
+- `class AdaptiveDifficultyReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 149)
+- `adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficultyReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 154) — An LO's readiness lines (predictions; "untested" where it has no answer of its own).
+- `class AdaptiveDifficultyWhyItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 174)
+- `adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficultyWhyItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 179) — "Why this item" (§12): ``{"why": null}`` when no AD draw chose the served item.
 
 ### Module constants
 
@@ -106,6 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `once_per_job`; calls `once_per_job`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies

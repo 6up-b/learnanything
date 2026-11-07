@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/request_origin.py"
 source_paths:
   - "src/learnloop_sidecar/request_origin.py"
-source_commit: "031c10cc83242fcf014d5c0ed5e995d014bcf732"
-source_commit_timestamp: "2026-11-07T06:17:58-05:00"
+source_commit: "c61150f982e9b7910573adf87ad5fbce3c77ae6c"
+source_commit_timestamp: "2026-11-07T06:50:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,26 +53,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py) |
-| Source lines | 167 |
+| Source lines | 172 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `031c10cc83242fcf014d5c0ed5e995d014bcf732` |
-| Commit timestamp | `2026-11-07T06:17:58-05:00` |
+| Source commit | `c61150f982e9b7910573adf87ad5fbce3c77ae6c` |
+| Commit timestamp | `2026-11-07T06:50:40-05:00` |
 
 ## Public API
 
 - `class RequestOrigin` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 41) — One authenticated caller: the paired device and the surface it runs.
-  - `__post_init__(self) -> None` (line 58; internal)
-- `device_class(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 65) — The class the eligibility module asks about (§6.4); None is the desktop.
-- `phone_probes_on(origin: RequestOrigin | None, config: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 71) — Mobile v2 V3 (owner decision D3): a phone origin serves and answers phone-eligible probes, diagnostic and FG1's generated ones, under the probe contract.
-- `phone_reader_on(origin: RequestOrigin | None) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 85) — Mobile v2 V4: a phone origin whose host has its Reader on (``phone_reader``).
-- `practice_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 91) — ``entry_surface`` of an attempt and of a submission's binding.
-- `offer_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 97) — ``entry_surface`` of a published scheduler offer.
-- `plan_surface(origin: RequestOrigin) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 103) — Mobile v2 §2.2: the surface a phone's plan step and its boundary decisions record.
-- `bump_for_host(ctx: Any) -> None` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 118) — Tell the desktop a host request changed what it shows (PR-7, §3.3).
-- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 145) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
+  - `__post_init__(self) -> None` (line 63; internal)
+- `device_class(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 70) — The class the eligibility module asks about (§6.4); None is the desktop.
+- `phone_probes_on(origin: RequestOrigin | None, config: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 76) — Mobile v2 V3 (owner decision D3): a phone origin serves and answers phone-eligible probes, diagnostic and FG1's generated ones, under the probe contract.
+- `phone_reader_on(origin: RequestOrigin | None) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 90) — Mobile v2 V4: a phone origin whose host has its Reader on (``phone_reader``).
+- `practice_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 96) — ``entry_surface`` of an attempt and of a submission's binding.
+- `offer_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 102) — ``entry_surface`` of a published scheduler offer.
+- `plan_surface(origin: RequestOrigin) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 108) — Mobile v2 §2.2: the surface a phone's plan step and its boundary decisions record.
+- `bump_for_host(ctx: Any) -> None` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 123) — Tell the desktop a host request changed what it shows (PR-7, §3.3).
+- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 150) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
 
 ### Module constants
 
@@ -80,7 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DESKTOP_QUEUE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 34)
 - `PHONE_PRACTICE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 36)
 - `PHONE_QUEUE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 37)
-- `_COMMITTED_REFUSALS` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 115)
+- `_COMMITTED_REFUSALS` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 120)
 
 ## Internal implementation anchors
 
@@ -145,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
   - `test_the_gate_is_the_switch_and_the_tag_and_never_the_desktop`
   - `test_the_switch_is_the_hosts_and_defaults_on`
+- [tests/test_mobile_v4_codex_review.py](../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f10_a_page_is_phone_eligible_exactly_when_the_page_endpoint_serves_it`
 - [tests/test_request_origin.py](../../../../../tests/test_request_origin.py) — direct import
   - `test_an_origin_names_a_device_and_a_known_surface`
   - `test_another_paired_device_is_refused_on_the_phones_session`

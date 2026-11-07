@@ -21,6 +21,11 @@ from dataclasses import dataclass
 import logging
 from typing import Any, Iterable
 
+# Module level, so the reader's cross-domain edges stay the architecture's frozen inventory: exam material decides
+# protection, and the eligibility's sniff decides what is an image.
+from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, exam_material, held_out_refusal
+from learnloop.scheduling.device_eligibility import image_kind
+
 LOG = logging.getLogger(__name__)
 
 #: The largest stored image served (the upload cap of a capture, mobile spec §4.4). A ``keep`` bound.
@@ -61,8 +66,6 @@ def phone_withheld(vault_or_sets: Any, repository: Any, extraction_id: str,
     """What exam material (rules 1-4, the held-out partition included) covers of
     ``extraction_id``, among ``span_ids``. A predicate that can't be read withholds the whole
     reading (fail closed)."""
-
-    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, exam_material, held_out_refusal
 
     extraction = str(extraction_id)
     try:
@@ -165,7 +168,6 @@ def asset_refusal(vault: Any, repository: Any, digest: str) -> MediaRefusal | No
     pages); an image that is a book's own original is withheld as that book's readings are."""
 
     from learnloop.ingest.originals import stored_original_path
-    from learnloop.scheduling.device_eligibility import image_kind
 
     if not str(digest).startswith("sha256:"):
         return NOT_FOUND

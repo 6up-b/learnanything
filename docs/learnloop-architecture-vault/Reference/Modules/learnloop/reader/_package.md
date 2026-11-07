@@ -10,6 +10,7 @@ source_paths:
   - "src/learnloop/reader/ai_contracts.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/as_printed.py"
+  - "src/learnloop/reader/phone_media.py"
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/reader/reader_capture.py"
   - "src/learnloop/reader/reader_cues.py"
@@ -34,7 +35,7 @@ source_paths:
   - "src/learnloop/reader/span_view.py"
   - "src/learnloop/reader/workbench.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T06:17:58-05:00"
+source_commit_timestamp: "2026-11-07T07:08:52-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -76,10 +77,11 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/ai_contracts|learnloop.reader.ai_contracts]] | [[Reference/Modules/learnloop/reader/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] | [[Reference/Modules/learnloop/reader/annotations#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
 | [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]] | [[Reference/Modules/learnloop/reader/as_printed#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
+| [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] | [[Reference/Modules/learnloop/reader/phone_media#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] | [[Reference/Modules/learnloop/reader/reader_authoring#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] | [[Reference/Modules/learnloop/reader/reader_capture#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] | [[Reference/Modules/learnloop/reader/reader_cues#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
-| [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] | [[Reference/Modules/learnloop/reader/reader_dialogue#^module-purpose|purpose]] | `ACTIVE` | 18 | 24 |
+| [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] | [[Reference/Modules/learnloop/reader/reader_dialogue#^module-purpose|purpose]] | `ACTIVE` | 19 | 24 |
 | [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] | [[Reference/Modules/learnloop/reader/reader_guidance#^module-purpose|purpose]] | `ACTIVE` | 15 | 24 |
 | [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] | [[Reference/Modules/learnloop/reader/reader_inquiry#^module-purpose|purpose]] | `ACTIVE` | 1 | 21 |
 | [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] | [[Reference/Modules/learnloop/reader/reader_intent#^module-purpose|purpose]] | `ACTIVE` | 1 | 10 |
@@ -105,12 +107,12 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 18 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 17 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 18 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 16 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
-- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 10 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 13 static module edges
+- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 11 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 10 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 8 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 8 static module edges
@@ -123,6 +125,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 1 static module edge
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 
 ### Packages that import this package
 
@@ -132,11 +135,11 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 4 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 4 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 2 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 2 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 2 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 2 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
@@ -163,12 +166,12 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|49| center
     center -->|27| n_learnloop
     n_learnloop_source_retrieval -->|27| center
-    center -->|18| n_learnloop_db
-    center -->|17| n_learnloop_content_sources
+    center -->|19| n_learnloop_db
+    center -->|18| n_learnloop_content_sources
     center -->|16| n_learnloop_ai
     center -->|14| n_learnloop_db_stores
-    center -->|12| n_learnloop_vault
-    center -->|10| n_learnloop_ingest
+    center -->|13| n_learnloop_vault
+    center -->|11| n_learnloop_ingest
     center -->|10| n_learnloop_substrate
 ```
 
