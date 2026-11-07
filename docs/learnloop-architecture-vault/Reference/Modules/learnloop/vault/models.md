@@ -143,7 +143,6 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `CanonicalExercise`, `PracticeItem`, `SourceRef`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
-- [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]] — imports `learning_object_facet_union`; statically calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]] — imports `PracticeItem`
 - [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LoadedVault`, `PracticeItem`, `Rubric`
@@ -460,7 +459,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 293 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 292 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -628,6 +627,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_r1_an_in_place_vault_edit_made_and_undone_within_one_map_never_reaches_a_later_job`
   - `test_the_held_map_is_the_landing_codes_through_protection_source_and_vault_changes`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f2_a_criterion_the_grader_declares_unverified_is_unassessed_on_a_divergent_route`

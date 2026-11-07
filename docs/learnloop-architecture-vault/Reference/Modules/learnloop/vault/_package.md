@@ -63,7 +63,7 @@ For system intent, use [[State and Persistence]].
 | [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] | [[Reference/Modules/learnloop/vault/hashes#^module-purpose|purpose]] | `ACTIVE` | 22 | 18 |
 | [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] | [[Reference/Modules/learnloop/vault/lifecycle#^module-purpose|purpose]] | `ACTIVE` | 17 | 3 |
 | [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 138 | 790 |
-| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 298 | 76 |
+| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 297 | 76 |
 | [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 140 | 117 |
 | [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] | [[Reference/Modules/learnloop/vault/repository#^module-purpose|purpose]] | `ACTIVE` | 89 | 32 |
 | [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] | [[Reference/Modules/learnloop/vault/required_method#^module-purpose|purpose]] | `ACTIVE` | 50 | 10 |
@@ -117,13 +117,13 @@ For system intent, use [[State and Persistence]].
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 4 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 4 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 4 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
 - [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 4 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 4 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 3 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 3 static module edges
 - [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 2 static module edges

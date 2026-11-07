@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/connection.py"
 source_paths:
   - "src/learnloop/db/connection.py"
-source_commit: "8685acc889cbad5162988bbc2e4c1c86ab105139"
-source_commit_timestamp: "2026-11-07T02:17:59-05:00"
+source_commit: "a24216bed39cfcca77dd83894e13473bb6b2a1e9"
+source_commit_timestamp: "2026-11-07T06:38:50-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py) |
-| Source lines | 319 |
+| Source lines | 387 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8685acc889cbad5162988bbc2e4c1c86ab105139` |
-| Commit timestamp | `2026-11-07T02:17:59-05:00` |
+| Source commit | `a24216bed39cfcca77dd83894e13473bb6b2a1e9` |
+| Commit timestamp | `2026-11-07T06:38:50-05:00` |
 
 ## Public API
 
@@ -78,14 +78,18 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `WAL_RESET_ADVISORY_URL` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 32)
 - `_READ_ONLY_OPEN_FAILURES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 36)
 - `_REUSED` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 132)
+- `_READ_ACTIONS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 298)
+- `_RESET_ATTRIBUTES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 301)
+- `_CONNECTION_STATE_CALLS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 303)
 
 ## Internal implementation anchors
 
-- `_open_writable(sqlite_path: Path) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 122)
-- `class _ConnectionPool` ([source](../../../../../../src/learnloop/db/connection.py), line 161) — One scope's idle connections, by database and mode, for its own thread only.
-- `class _ReusedConnection` ([source](../../../../../../src/learnloop/db/connection.py), line 212) — A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the pool reset (:func:`reused_connections`).
-- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 284)
-- `_open_read_only(sqlite_path: Path) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 290) — Open with ``mode=ro`` and surface a WAL open failure here.
+- `_open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 122)
+- `class _ConnectionPool` ([source](../../../../../../src/learnloop/db/connection.py), line 163) — One scope's idle connections, by database and mode, for its own thread only.
+- `class _ReusedConnection` ([source](../../../../../../src/learnloop/db/connection.py), line 216) — A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the pool reset (:func:`reused_connections`).
+- `class _PooledSqlite(sqlite3.Connection)` ([source](../../../../../../src/learnloop/db/connection.py), line 308) — A pooled connection's SQLite connection (router speed stage 2, landing ruling R4: Codex's verify N1).
+- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 352)
+- `_open_read_only(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 358) — Open with ``mode=ro`` and surface a WAL open failure here (``factory``: a pooled connection's class).
 
 ## Who imports or calls it
 
@@ -807,6 +811,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
   - `test_no_lock_and_no_stale_snapshot_under_wal`
   - `test_one_connection_per_database_and_mode_serves_the_scopes_thread`
+  - `test_r4_a_pragma_set_during_a_checkout_never_reaches_the_next_user`
+  - `test_r4_only_a_checkout_of_reads_is_pooled_again`
   - `test_switched_off_the_job_opens_a_connection_at_every_connect`
   - `test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains`
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import

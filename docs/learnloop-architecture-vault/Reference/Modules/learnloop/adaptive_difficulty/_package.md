@@ -53,7 +53,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/successor.py"
   - "src/learnloop/adaptive_difficulty/switches.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T05:01:30-05:00"
+source_commit_timestamp: "2026-11-07T06:25:22-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -122,7 +122,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]] | [[Reference/Modules/learnloop/adaptive_difficulty/protection#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] | [[Reference/Modules/learnloop/adaptive_difficulty/readiness#^module-purpose|purpose]] | `ACTIVE` | 10 | 10 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] | [[Reference/Modules/learnloop/adaptive_difficulty/reading#^module-purpose|purpose]] | `ACTIVE` | 7 | 17 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]] | [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]] | [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]] | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] | [[Reference/Modules/learnloop/adaptive_difficulty/replay#^module-purpose|purpose]] | `ACTIVE` | 12 | 17 |
@@ -151,8 +151,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 3 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 2 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 2 static module edges
@@ -165,7 +165,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 20 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 21 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 12 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 12 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
@@ -199,7 +199,7 @@ flowchart LR
     center -->|35| n_learnloop
     center -->|32| n_learnloop_ai
     center -->|29| n_learnloop_db_stores
-    n_learnloop_daily_plan -->|20| center
+    n_learnloop_daily_plan -->|21| center
     center -->|18| n_learnloop_db
     n_learnloop_sim -->|12| center
     n_learnloop_sidecar_handlers -->|12| center

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/hints.py"
 source_paths:
   - "src/learnloop/cli/hints.py"
-source_commit: "workspace/uncommitted @ HEAD 8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
-source_worktree_state: "modified"
+source_commit: "3e98c165d53a3ded31844c9970bb462d0c71404e"
+source_commit_timestamp: "2026-11-06T23:32:44-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 8d1e02e12e427b95bf7957b96682fa15110bf543` |
-| Commit timestamp | `2026-11-07T05:54:41-05:00` |
+| Worktree state | `clean` |
+| Source commit | `3e98c165d53a3ded31844c9970bb462d0c71404e` |
+| Commit timestamp | `2026-11-06T23:32:44-05:00` |
 
 ## Public API
 

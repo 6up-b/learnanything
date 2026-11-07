@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/config/schema.py"
 source_paths:
   - "src/learnloop/config/schema.py"
-source_commit: "e820e0798856930f39b48cfeeeda9aa79f4ba8d2"
-source_commit_timestamp: "2026-11-07T05:01:30-05:00"
+source_commit: "2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2"
+source_commit_timestamp: "2026-11-07T06:25:22-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e820e0798856930f39b48cfeeeda9aa79f4ba8d2` |
-| Commit timestamp | `2026-11-07T05:01:30-05:00` |
+| Source commit | `2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2` |
+| Commit timestamp | `2026-11-07T06:25:22-05:00` |
 
 ## Public API
 

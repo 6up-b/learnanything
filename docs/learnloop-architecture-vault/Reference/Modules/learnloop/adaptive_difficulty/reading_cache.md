@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/reading_cache.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/reading_cache.py"
-source_commit: "e820e0798856930f39b48cfeeeda9aa79f4ba8d2"
-source_commit_timestamp: "2026-11-07T05:01:30-05:00"
+source_commit: "2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2"
+source_commit_timestamp: "2026-11-07T06:25:22-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptiv
 
 ## Why this module exists
 
-`learnloop.adaptive_difficulty.reading_cache` exists within [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] to own the behavior summarized by its module contract: Router speed stage 2, item 1: AD's section → LO map held across calls (no successor: every value is the map's).
+`learnloop.adaptive_difficulty.reading_cache` exists within [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] to own the behavior summarized by its module contract: Router speed stage 2, item 1: AD's section → LO map held within ONE objective job (no successor).
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,72 +50,68 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py) |
-| Source lines | 242 |
+| Source lines | 182 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e820e0798856930f39b48cfeeeda9aa79f4ba8d2` |
-| Commit timestamp | `2026-11-07T05:01:30-05:00` |
+| Source commit | `2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2` |
+| Commit timestamp | `2026-11-07T06:25:22-05:00` |
 
 ## Public API
 
-- `commit_version(repository: Any) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 57) — The database's commit version as a read-only watcher sees it (``PRAGMA data_version``, which moves whenever another connection commits, and the watcher's own ``total_changes``; the pattern of ``objective_inputs.
-- `held_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 101) — ``[router_objective] held_reading_map`` at the follow-up batch's tag with the objective serving (router speed stage 2's Codex review F2): the map's values are the same either way, but held they cost less, so the objective job's input builds finish sooner and a deadline-bound ref…
-- `vault_digest(vault: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 123) — A digest of everything ``section_map.learning_objects_for_section_in_ir`` reads of ``vault``: every LO's id, status and provenance references, each facet of its blueprints' union with its canonical id and that facet's references, and every note's id and canonical source (``canon…
-- `base_key(view: Any, vault: Any, repository: Any, extraction_id: str, *, vault_key: str | None) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 152) — The key a reading's held values share in one map (see the module docstring), or None: nothing is held (the view is unavailable, the reading is withheld, or its rows or the vault cannot be digested).
-- `still_current(view: Any, vault: Any, repository: Any, extraction_id: str, base: tuple[Any, ...] | None, *, full: bool) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 170) — Whether a value just computed under ``base`` may be held: its key read again now is still ``base``.
-- `structure_key(repository: Any, digest: str | None, extraction_id: str, kind: str) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 184) — The key of a value derived from a reading's stored structure alone (``MaterialView.section_spans``: no vault, no projection), or None when the reading has no digest (withheld, unavailable or unreadable).
-- `held(key: Hashable | None, vault: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 198) — The value held under ``key`` for this vault object (None: a value no vault is read for), or None.
-- `hold(key: Hashable | None, vault: Any, value: Any) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 217) — Hold an immutable ``value`` under ``key`` for this vault object (weakly: a vault no longer loaded drops it; None: a value no vault is read for).
-- `clear() -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 235) — Drop every held mapping (tests; a held value is never stale, so production never needs it).
+- `held_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 42) — ``[router_objective] held_reading_map`` at the follow-up batch's tag with the objective serving (router speed stage 2's Codex review F2): the map's values are the same either way, but held they cost less, so the objective job's input builds finish sooner and a deadline-bound ref…
+- `class JobHold` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 54) — One objective job's held reading map (:func:`job_scope`): values per database, each under the protection epoch it was computed at.
+  - `__init__(self) -> None` (line 59; internal)
+  - `at_epoch(self, database: str, epoch: str) -> None` (line 64; public) — Landing ruling R1: a protection change within the job (another epoch for this database than the one the job holds values at) drops everything the job held for the database.
+  - `get(self, key: Hashable, vault: Any) -> Any` (line 76; public)
+  - `put(self, key: Hashable, vault: Any, value: Any) -> None` (line 87; public)
+  - `discard(self) -> None` (line 97; public)
+- `job_scope() -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 108) — One objective job's hold (landing ruling R1), opened by ``objective_inputs.decision_reads``: what AD's reading map holds inside lives until the scope ends and is discarded then.
+- `class HeldReads` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 128) — What one view may read of the job's hold: keys carry the database, the view's epoch and, for a vault-derived value, the raw vault object (with whether the map reads the operation's projection of it).
+  - `__init__(self, hold: JobHold, database: str, epoch: str) -> None` (line 132; internal)
+  - `_key(self, vault: Any, parts: tuple[Any, ...]) -> tuple[Any, ...]` (line 137; internal)
+  - `get(self, vault: Any, *parts: Any) -> Any` (line 142; public) — The value the job holds for ``parts`` (and this vault object; None: a value no vault is read for).
+  - `put(self, vault: Any, value: Any, *parts: Any) -> None` (line 147; public)
+  - `document_ir(self, view: Any, repository: Any, extraction_id: str) -> Any` (line 150; public) — The reading's IR as of the job's first read of it (``view.document_ir``, the chokepoint), the withheld rule asked of ``view`` fresh before a held IR is returned; None (never held) for a withheld or unreadable one.
+- `job_hold(view: Any, repository: Any) -> HeldReads | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 164) — The objective job's hold as ``view`` reads it, or None: outside a job, while the view is unavailable or has no epoch, or with no database to key by.
 
 ### Module constants
 
-- `_HELD_LIMIT` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 48)
-- `_HELD` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 49)
-- `_LOCK` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 50)
-- `_WATCHERS` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 53)
-- `_WATCH_LOCK` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 54)
+- `_JOB` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 104)
 
 ### Explicit exports
 
 `__all__` declares:
 
-- `base_key`
-- `clear`
-- `commit_version`
-- `held`
+- `HeldReads`
+- `JobHold`
 - `held_on`
-- `hold`
-- `still_current`
-- `structure_key`
-- `vault_digest`
+- `job_hold`
+- `job_scope`
 
 ## Internal implementation anchors
 
-- `_extras(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 113)
-- `_dump(ref: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 118)
-- `_owner(vault: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 194)
+- `_owner(vault: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 124)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `module`; statically calls `held`, `held_on`, `hold`, `structure_key`
-- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `module`; statically calls `base_key`, `commit_version`, `held`, `held_on`, `hold`, `still_current`, `vault_digest`
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `module`; statically calls `held_on`, `job_hold`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `module`; statically calls `held_on`, `job_hold`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `job_scope`; statically calls `job_scope`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `followup_on`; calls `followup_on`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `learning_object_facet_union`; calls `learning_object_facet_union`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `hashlib`, `json`, `os`, `pathlib`, `sqlite3`, `threading`, `typing`, `weakref`
+- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `pathlib`, `threading`, `typing`, `weakref`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -125,7 +121,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -135,7 +131,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pool_and_the_held_map_follow_their_switches`
   - `test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains`
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
-  - `test_a_failed_mapping_is_not_held`
   - `test_switched_off_the_map_is_mains_and_reads_nothing_of_the_hold`
 
 ## Modification guidance

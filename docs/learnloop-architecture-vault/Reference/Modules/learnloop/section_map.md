@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rospeed2_section_map.py](../../../../../tests/test_rospeed2_section_map.py) — direct import
   - `test_a_failed_mapping_is_not_held`
   - `test_a_mapping_computed_across_a_source_write_is_not_held`
+  - `test_r1_nothing_is_held_outside_or_across_jobs`
   - `test_switched_off_the_map_is_mains_and_reads_nothing_of_the_hold`
 
 ## Modification guidance

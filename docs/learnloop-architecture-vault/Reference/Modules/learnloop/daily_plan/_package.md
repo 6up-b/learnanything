@@ -40,7 +40,7 @@ source_paths:
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/daily_plan/view.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit_timestamp: "2026-11-07T06:31:44-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -91,7 +91,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] | [[Reference/Modules/learnloop/daily_plan/measurement#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] | [[Reference/Modules/learnloop/daily_plan/objective_card#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] | [[Reference/Modules/learnloop/daily_plan/objective_chooser#^module-purpose|purpose]] | `ACTIVE` | 3 | 16 |
-| [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] | [[Reference/Modules/learnloop/daily_plan/objective_inputs#^module-purpose|purpose]] | `ACTIVE` | 2 | 13 |
+| [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] | [[Reference/Modules/learnloop/daily_plan/objective_inputs#^module-purpose|purpose]] | `ACTIVE` | 2 | 14 |
 | [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] | [[Reference/Modules/learnloop/daily_plan/policy#^module-purpose|purpose]] | `ACTIVE` | 8 | 23 |
 | [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]] | [[Reference/Modules/learnloop/daily_plan/reading#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/daily_plan/reading_choice|learnloop.daily_plan.reading_choice]] | [[Reference/Modules/learnloop/daily_plan/reading_choice#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
@@ -118,7 +118,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 46 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 22 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 20 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 21 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 18 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 17 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 13 static module edges
@@ -173,7 +173,7 @@ flowchart LR
     n_learnloop -->|1| center
     center -->|46| n_learnloop
     center -->|22| n_learnloop_router_objective
-    center -->|20| n_learnloop_adaptive_difficulty
+    center -->|21| n_learnloop_adaptive_difficulty
     center -->|18| n_learnloop_db_stores
     center -->|17| n_learnloop_router
     n_learnloop_sidecar_handlers -->|16| center

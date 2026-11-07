@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "e820e0798856930f39b48cfeeeda9aa79f4ba8d2"
-source_commit_timestamp: "2026-11-07T05:01:30-05:00"
+source_commit: "bc1ceab278464791565150fcb67ce54821969a71"
+source_commit_timestamp: "2026-11-07T06:31:44-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 383 |
+| Source lines | 390 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e820e0798856930f39b48cfeeeda9aa79f4ba8d2` |
-| Commit timestamp | `2026-11-07T05:01:30-05:00` |
+| Source commit | `bc1ceab278464791565150fcb67ce54821969a71` |
+| Commit timestamp | `2026-11-07T06:31:44-05:00` |
 
 ## Public API
 
@@ -83,10 +83,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `followup_on(config: Any, key: str) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 263) — One part of the follow-up batch serves: the tag, the objective serving and its own ``[router_objective]`` switch ``key`` (default true).
 - `monotone_combiner_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 271) — The follow-up batch's landing ruling R6: the memory model's combiner is monotone in ability by construction (``memory.FORM_MONOTONE``), in its prior and its fit: the tag, the objective serving and ``[router_objective] monotone_combiner`` (a structural kill switch, default true);…
 - `followup_generator_switches(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 291) — R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None below it, so a predecessor's generator payload (and its trace) keeps its bytes.
-- `followup_switch_snapshot(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 306) — R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key keeps its predecessor's bytes).
-- `lesson_offers_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 315) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or later.
-- `lesson_offers_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 323) — Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on (``router.lesson_suggestions.enabled`` with the router and its dec…
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 339) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `followup_switch_snapshot(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 312) — R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key keeps its predecessor's bytes).
+- `lesson_offers_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 321) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or later.
+- `lesson_offers_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 329) — Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on (``router.lesson_suggestions.enabled`` with the router and its dec…
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 345) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
@@ -100,6 +100,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `CHECKS_OFF` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 198)
 - `FOLLOWUP_GENERATOR_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 286)
 - `FOLLOWUP_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 303)
+- `SEED_NEUTRAL_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 309)
 
 ### Explicit exports
 
@@ -122,6 +123,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `fitted_models_on`
 - `FOLLOWUP_GENERATOR_SWITCHES`
 - `FOLLOWUP_SWITCHES`
+- `SEED_NEUTRAL_SWITCHES`
 - `followup_generator_switches`
 - `followup_switch_snapshot`
 - `followup_on`
@@ -162,7 +164,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHECKS_OFF`, `check_mode`; statically calls `check_mode`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `lesson_offers_on`; statically calls `lesson_offers_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `lesson_offers_on`; statically calls `lesson_offers_on`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `objective_scores_on`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `objective_scores_on`, `stop_coin_rate`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `SEED_NEUTRAL_SWITCHES`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `objective_scores_on`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `objective_scores_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`; statically calls `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `lesson_offers_on`, `objective_on`; statically calls `lesson_offers_on`, `objective_on`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `attempt_time_sql`, `objective_on`; statically calls `attempt_time_sql`, `objective_on`
@@ -242,6 +244,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_switch_key.py](../../../../../tests/test_rofu_switch_key.py) — direct import
   - `test_flipping_a_switch_between_prefetch_and_serve_starts_a_new_job`
 - [tests/test_rospeed2_connections.py](../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches`
   - `test_the_pool_and_the_held_map_follow_their_switches`
 - [tests/test_rospeed_ad_link.py](../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_switch_reaches_every_rollout_from_the_config`

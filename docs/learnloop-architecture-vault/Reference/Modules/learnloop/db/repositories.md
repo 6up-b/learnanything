@@ -3178,6 +3178,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
   - `test_a_mapping_computed_across_a_source_write_is_not_held`
   - `test_every_ir_load_of_the_held_map_is_inside_the_chokepoint`
+  - `test_r1_an_ir_rewrite_mid_job_gives_the_snapshots_mapping_across_hits_and_misses`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
