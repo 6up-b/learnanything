@@ -305,6 +305,8 @@ MODULE_INVENTORY: dict[str, str] = {
     "router_objective_tail_report": "src/learnloop/router_objective/tail_report.py",
     # Router speed (the follow-up batch's item 2 join, made incremental): a keep bound and the resolver's flat curve.
     "router_objective_combiner_data": "src/learnloop/router_objective/combiner_data.py",
+    # Router speed stage 2 (item 1): AD's section → LO map held across calls; a keep bound only.
+    "ad_reading_cache": "src/learnloop/adaptive_difficulty/reading_cache.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -1621,6 +1623,10 @@ _reg_const("router_objective_combiner_data:_FLAT_CURVE", "numerical", kind="stru
            owner="router_objective_combiner_data",
            rationale="structural (the follow-up batch's item 2): the curve handed to RO2's resolver, which the join "
            "reads only for the outcome and its lag; its values reach no row.")
+_reg_const("ad_reading_cache:_HELD_LIMIT", "constraint", kind="structural", owner="ad_reading_cache",
+           rationale="keep (resource bound, router speed stage 2 item 1): AD's section mappings held per process, "
+           "keyed by the vault, the protection epoch and digests of everything they read; past it the oldest is "
+           "computed again on its next read, never a different value.")
 _reg_const("router_objective_tail_data:_SAME_CUTOFF_SECONDS", "numerical", kind="structural",
            owner="router_objective_tail_data",
            rationale="numerical (Codex review F3): two cutoffs this close are one; the trace keeps cutoff_days to six "

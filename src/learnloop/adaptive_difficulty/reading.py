@@ -93,6 +93,7 @@ TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
 #: The carve-out's allowlist: (kind, subkind, source table). One list, the
 #: firewall's (AD2+AD3 moved it there; G-AD3-13).
 SOURCES: tuple[tuple[str, str, str], ...] = LEARNING_OPPORTUNITY_SOURCES
+_UNREAD = object()
 
 
 class VaultReadingMap:
@@ -112,6 +113,13 @@ class VaultReadingMap:
         self._spans: dict[tuple[str, str], list[str]] = {}
         self._examples: dict[str, set[str]] = {}
         self._irs: dict[str, Any] = {}
+        # Router speed stage 2, item 1 (:mod:`.reading_cache`): each section's LOs and each reading's span → section
+        # map once per map, and across maps under the held key (read once per map and reading).
+        self._mapped: dict[tuple[str, str], list[str]] = {}
+        self._span_sections: dict[str, dict[str, str] | None] = {}
+        self._held_keys: dict[str, tuple[Any, ...] | None] = {}
+        self._verified: dict[str, bool] = {}
+        self._vault_key: Any = _UNREAD
         # What the section mapping is handed besides the IR (RO2 landing ruling R6): the operation's
         # projected repository, so the span translator's re-read aliases load each reading's IR through
         # the view too, whichever repository this map was built with.
@@ -133,31 +141,109 @@ class VaultReadingMap:
                 self._irs[extraction_id] = None
         return self._irs[extraction_id]
 
-    def los_for_section(self, extraction_id: str, section_id: str) -> list[str]:
+    def _held_key(self, extraction_id: str) -> tuple[Any, ...] | None:
+        """The reading's held key (:func:`.reading_cache.base_key`), read once per map and reading."""
+
+        from learnloop.adaptive_difficulty import reading_cache
+
+        if extraction_id not in self._held_keys:
+            if self._vault_key is _UNREAD:
+                try:
+                    self._vault_key = reading_cache.vault_digest(self.vault)
+                except Exception:  # noqa: BLE001 - a vault that cannot be digested is never held
+                    self._vault_key = None
+            try:
+                self._held_keys[extraction_id] = reading_cache.base_key(self.view, self.vault, self.repository,
+                                                                        extraction_id, vault_key=self._vault_key)
+            except Exception:  # noqa: BLE001 - nothing held: the map computes as it always did
+                self._held_keys[extraction_id] = None
+        return self._held_keys[extraction_id]
+
+    def _holdable(self, extraction_id: str, base: tuple[Any, ...] | None) -> bool:
+        """Whether a mapping this map just computed may be held under ``base``: its key read again after the
+        computation is still ``base``, so nothing it read (the IR this map loaded, the metadata, the vault) changed
+        since the key was read. In full after the reading's first computation in this map (the IR is loaded once per
+        map); after that, its metadata and aliases again at each further one."""
+
+        from learnloop.adaptive_difficulty import reading_cache
+
+        if base is None:
+            return False
+        try:
+            if extraction_id not in self._verified:
+                self._verified[extraction_id] = reading_cache.still_current(
+                    self.view, self.vault, self.repository, extraction_id, base, full=True)
+                return self._verified[extraction_id]
+            return self._verified[extraction_id] and reading_cache.still_current(
+                self.view, self.vault, self.repository, extraction_id, base, full=False)
+        except Exception:  # noqa: BLE001 - not verified: not held
+            return False
+
+    def _section_los(self, extraction_id: str, section_id: str) -> list[str]:
+        """A section's LOs once the caller's withheld rule let it through: ``learning_objects_for_section_in_ir`` over
+        the IR the reading chokepoint hands out (RO2's ruling R6), or the value held for this reading, vault, epoch
+        and digest (router speed stage 2, item 1). A failed mapping maps to nothing and is not held."""
+
+        from learnloop.adaptive_difficulty import reading_cache
         from learnloop.section_map import learning_objects_for_section_in_ir
 
         key = (extraction_id, section_id)
+        if key not in self._mapped:
+            base = self._held_key(extraction_id)
+            held_key = None if base is None else (*base, "section", str(section_id))
+            found = reading_cache.held(held_key, self.vault)
+            if found is None:
+                ir = self._document_ir(extraction_id)
+                try:
+                    found = () if ir is None else tuple(learning_objects_for_section_in_ir(
+                        self.vault, self._projected, ir, extraction_id=extraction_id, section_id=section_id))
+                    if ir is not None and self._holdable(extraction_id, base):
+                        reading_cache.hold(held_key, self.vault, found)
+                except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
+                    found = ()
+            self._mapped[key] = list(found)
+        return self._mapped[key]
+
+    def _span_section(self, extraction_id: str, span_id: str) -> str | None:
+        """The section of the reading's IR holding a span (``section_map.section_id_in_ir``), from the reading's span →
+        section map: once per map, and held like the sections' LOs. None for an unreadable reading."""
+
+        from learnloop.adaptive_difficulty import reading_cache
+        from learnloop.section_map import extraction_sections
+
+        if extraction_id not in self._span_sections:
+            base = self._held_key(extraction_id)
+            held_key = None if base is None else (*base, "span_sections")
+            found = reading_cache.held(held_key, self.vault)
+            if found is None:
+                ir = self._document_ir(extraction_id)
+                try:
+                    found = None if ir is None else {str(span): str(section)
+                                                     for span, section in extraction_sections(ir)[2].items()}
+                    if found is not None and self._holdable(extraction_id, base):
+                        reading_cache.hold(held_key, self.vault, found)
+                except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
+                    found = None
+            self._span_sections[extraction_id] = found
+        sections = self._span_sections[extraction_id]
+        return None if sections is None else sections.get(str(span_id))
+
+    def los_for_section(self, extraction_id: str, section_id: str) -> list[str]:
+        key = (extraction_id, section_id)
         if key not in self._sections:
-            # The sweep's withheld rule first (a reading the withheld material touches maps to nothing).
-            ir = None if self.withheld(extraction_id, None) else self._document_ir(extraction_id)
-            try:
-                self._sections[key] = [] if ir is None else list(learning_objects_for_section_in_ir(
-                    self.vault, self._projected, ir, extraction_id=extraction_id, section_id=section_id))
-            except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
-                self._sections[key] = []
+            # The sweep's withheld rule first, at every map (a reading the withheld material touches maps to
+            # nothing); only then the mapping, held or computed.
+            self._sections[key] = [] if self.withheld(extraction_id, None) else list(
+                self._section_los(extraction_id, section_id))
         return self._sections[key]
 
     def los_for_span(self, extraction_id: str, span_id: str) -> list[str]:
-        from learnloop.section_map import learning_objects_for_span_in_ir
-
         key = (extraction_id, span_id)
         if key not in self._spans:
-            ir = None if self.withheld(extraction_id, span_id) else self._document_ir(extraction_id)
-            try:
-                self._spans[key] = [] if ir is None else list(learning_objects_for_span_in_ir(
-                    self.vault, self._projected, ir, extraction_id=extraction_id, span_id=span_id))
-            except Exception:  # noqa: BLE001
-                self._spans[key] = []
+            # ``learning_objects_for_span_in_ir``: the span's section in the IR, then that section's mapping; the
+            # withheld rule first, at every map.
+            section = None if self.withheld(extraction_id, span_id) else self._span_section(extraction_id, span_id)
+            self._spans[key] = [] if section is None else list(self._section_los(extraction_id, section))
         return self._spans[key]
 
     def section_spans(self, extraction_id: str, section_id: str) -> list[str]:
