@@ -1444,6 +1444,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/practice_index/tool|learnloop.practice_index.tool]] — imports `Repository`
 - [[Reference/Modules/learnloop/practice_index/usage|learnloop.practice_index.usage]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `Repository`
+- [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `Repository`
@@ -1625,7 +1626,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 398 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 399 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -2665,6 +2666,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_kill_switch_refuses_the_plan_and_meta_says_so`
 - [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
+- [tests/test_mobile_v4_eligibility.py](../../../../../../tests/test_mobile_v4_eligibility.py) — direct import
 - [tests/test_mobile_v4_plan.py](../../../../../../tests/test_mobile_v4_plan.py) — direct import
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_the_page_endpoint_is_per_vault`

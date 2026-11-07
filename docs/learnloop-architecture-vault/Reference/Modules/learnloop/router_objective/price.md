@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/price.py"
 source_paths:
   - "src/learnloop/router_objective/price.py"
-source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
-source_worktree_state: "modified"
+source_commit: "02ca6dafaccff31b2c68eff85db35ae8f38c69b5"
+source_commit_timestamp: "2026-11-06T16:30:06-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
-| Commit timestamp | `2026-11-07T01:13:16-05:00` |
+| Worktree state | `clean` |
+| Source commit | `02ca6dafaccff31b2c68eff85db35ae8f38c69b5` |
+| Commit timestamp | `2026-11-06T16:30:06-05:00` |
 
 ## Public API
 
@@ -147,6 +147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f8_a_phone_visits_active_time_reaches_the_routers_activity_readers`
 - [tests/test_ro4_price.py](../../../../../../tests/test_ro4_price.py) — direct import
   - `test_a_session_ends_after_a_gap_of_session_gap_minutes`
   - `test_the_grid_posterior_is_its_prior_with_nothing_fed_and_learns_from_choices`

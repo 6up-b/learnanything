@@ -144,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f8_a_phone_visits_active_time_reaches_the_routers_activity_readers`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f2_the_forced_shape_names_its_item`
   - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
