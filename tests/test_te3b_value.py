@@ -94,6 +94,38 @@ def test_a_committed_delayed_check_enters_the_value_and_none_changes_nothing():
     assert again["plain"].q_draws == out["plain"].q_draws
 
 
+@pytest.mark.parametrize("option", ["every_switch_on", "per_block_loop_ad_draw", "merged_ad_draw"])
+def test_the_offer_runs_on_the_held_link_with_it_on_and_on_the_landing_link_with_it_off(option, monkeypatch):
+    """Landing ruling R1 (after the router speed stage): with AD's link (``Inputs.ad_link``) the lesson offer's
+    branches (the accepted lesson with its committed delayed check, the declined tail) run on the held link with
+    ``held_ad_link`` on and on the landing code's link with it off; the two give the same values bit for bit, and
+    the held run equals the landing code put back (``tests/test_rospeed_ad_link``'s), every value and every term."""
+
+    from tests.test_rospeed_ad_link import OPTIONS, _actions, _inputs as _linked_inputs, _landing_code, _rows
+
+    n = 12
+    inputs = _linked_inputs(n)
+    offer = V.Action(ref="lesson_offer:lo3", kind=V.LESSON, item_los=("lo3",), minutes=15.0, minutes_log_sd=0.7,
+                     mass=0.5, accept=(2.0, 3.0), commitments=(("lo3", 3.0),))
+    actions = [*_actions(n), offer]
+    held_on = dict(OPTIONS[option])
+    held_off = {**held_on, "held_ad_link": False}
+
+    def run(options):
+        return V.evaluate(inputs, actions, draws=8, seed="te3b-held", **options)
+
+    on, off = run(held_on), run(held_off)
+    assert _rows(on) == _rows(off)
+    with monkeypatch.context() as patch:
+        _landing_code(patch)
+        landing = run(held_on)
+    assert _rows(on) == _rows(landing)
+    out = on.by_ref()
+    branches = out["lesson_offer:lo3"].extra["branches"]
+    assert set(out["lesson_offer:lo3"].extra["branch_terms"]) == {"accepted", "declined", "p_accept_sd"}
+    assert np.isfinite(out["lesson_offer:lo3"].q) and 0.0 < branches["p_accept"] < 1.0
+
+
 # --- the sensors --------------------------------------------------------------------------------------------
 
 
