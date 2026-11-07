@@ -4206,7 +4206,8 @@ class RouterObjectiveConfig(BaseModel):
     The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
     ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
     switch (off, or below the tag, mvp-0.49 exactly). Router speed (at the same tag): ``held_ad_link`` (off, the
-    batch's landing code exactly).
+    batch's landing code exactly); its stage 2: ``held_reading_map`` and ``pooled_connections`` (off, main
+    e9ceaf8d44's code exactly).
     """
 
     receipts: bool = True
@@ -4322,6 +4323,15 @@ class RouterObjectiveConfig(BaseModel):
     #: and recomputed only where the state changed; the same values per draw, but faster, so a deadline admits more
     #: draws (part of RO6's generator payload). Off: the batch's landing code, a quadrature per read.
     held_ad_link: bool = True
+    #: Router speed stage 2, item 1 (its Codex review F2): AD's section → LO map (and the span → section and section
+    #: → spans maps) held across calls, keyed by the vault, the protection epoch and digests of every row they read;
+    #: the same values, but faster input builds, so a deadline admits more draws (part of RO6's generator payload).
+    #: Off: main e9ceaf8d44's map, computed afresh at every map.
+    held_reading_map: bool = True
+    #: Router speed stage 2, item 4 (its Codex review F2): the objective job's own thread reuses its SQLite
+    #: connections (``db.connection.reused_connections``); the same values, but faster input builds, so a deadline
+    #: admits more draws (part of RO6's generator payload). Off: a connection opened at every ``connect()``.
+    pooled_connections: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

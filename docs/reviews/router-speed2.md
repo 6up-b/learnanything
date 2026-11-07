@@ -2,10 +2,15 @@
 
 Base: main `e9ceaf8d44` (TE3b at mvp-0.53, migration head 249).
 
-**No successor and no migration.** Every served value, logged probability and trace field is main's for the same
-inputs and draws: nothing here changes what is computed, only how often it is computed and how its reads are
-opened. The equality tests put main's code back beside the new one (copied verbatim, or the same call made with the
-new mechanism switched off) and compare bit for bit. Nothing moved onto the serving path; no trace field changed.
+**No successor and no migration.** At a fixed number of draws every served value, logged probability and trace
+field is main's for the same inputs: nothing here changes what is computed, only how often it is computed and how
+its reads are opened. The equality tests put main's code back beside the new one (copied verbatim, or the same call
+made with the new mechanism switched off) and compare bit for bit. Nothing moved onto the serving path. **Corrected
+by the Codex review (F2, `router-speed2-codex-review.md`):** serving refines until the LLM answers or the deadline
+runs out, so faster input builds complete more draws by the same deadline and can change a deadline-bound choice.
+Both items are therefore serving changes behind their own kill switches, `[router_objective] held_reading_map` and
+`pooled_connections` (default on at the follow-up batch's tag, in RO6's generator payload, the trace's
+`versions.serving_switches` and the prefetch key, as router speed's `held_ad_link`); off serves main's code exactly.
 
 Fakes only. No paid call, no model request. No owner vault or tracked working vault was opened. Every measurement is
 on a synthetic vault under the worktree's `fixtures-local/rospeed2/`, run under `env -i` with an empty `HOME`,
@@ -13,8 +18,9 @@ on a synthetic vault under the worktree's `fixtures-local/rospeed2/`, run under 
 
 ## For the owner
 
-- **Nothing to upgrade.** No version moves, no migration, no new switch. Restart the desktop app and the phone host
-  to pick up the faster code.
+- **Nothing to upgrade.** No version moves, no migration. Two new kill switches (Codex review F2), both on by
+  default: `[router_objective] held_reading_map` and `pooled_connections`; RO6's generator changes once when the new
+  code first serves (a change point). Restart the desktop app and the phone host to pick up the faster code.
 - **Paid routes: none added.** No model request, no learner minutes.
 - **Speed**: see "The target". The landing's pinned linear_algebra week should be timed again on the copies at the
   landing gate's smoke (the synthetic vaults reproduce the regime, not the copies' exact sizes).
@@ -119,7 +125,8 @@ chokepoint, and each operation's view loaded it again for its section spans.
     reading's, revision's and source's metadata, the stored structure (units, blocks, assets) of every reading of
     the same source that the withheld material does not touch, and the aliases recorded onto the reading. Read in
     one read transaction, in the rules' derivation scope (where `document_ir` reads the structure), never a
-    withheld reading's rows. Every cell is encoded injectively (`quote`, reals to 17 digits).
+    withheld reading's rows. Every cell is encoded injectively (TEXT by the hex of all its bytes since Codex review
+    F3, reals to 17 digits, anything else by `quote`).
   - the reading and the section.
 - **The withheld rule is never held.** `los_for_section` and `los_for_span` ask the map's own operation view at every
   call, before any held value is read, exactly as before; a withheld reading has no digest, so nothing of it is held
@@ -128,6 +135,10 @@ chokepoint, and each operation's view loaded it again for its section spans.
   reading's first mapping in a map (the IR is loaded once per map, between the two reads), the metadata and aliases
   again after each further one. A source write landing mid-map is therefore never held under the earlier key (two
   tests, with a negative control). A failed mapping (no IR, an unreadable extraction, a guard refusal) is never held.
+- **A lookup re-reads the metadata first** (Codex review F1): main reads a reading's run, revision, source and aliases
+  at every mapping, so before every section or span the landing code would compute, the map reads the metadata and
+  aliases part of the key again; once it changed, that reading is mapped by the landing code's own calls (over the
+  IR the map loads once) for the rest of the map, and nothing more of it is held.
 - `los_for_span` now maps the span's section through the held span → section map and the same section mapping:
   `learning_objects_for_span_in_ir`'s two steps, unchanged.
 - Bound: `_HELD_LIMIT` (4096), a keep bound in the parameter registry (module `ad_reading_cache`).

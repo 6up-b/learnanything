@@ -187,6 +187,23 @@ def _held_link(config: Any) -> bool:
     return followup_on(config, "held_ad_link")
 
 
+def _pooled(config: Any) -> Any:
+    """Router speed stage 2, item 4 (its Codex review F2): the objective job's connection pool
+    (``db.connection.reused_connections``) only at the follow-up batch's tag with ``[router_objective]
+    pooled_connections``; off, a connection opened at every ``connect()`` (main e9ceaf8d44's job, at its time per
+    build, so a deadline-bound evaluation completes the draws it completed then)."""
+
+    from contextlib import nullcontext
+
+    from learnloop.router_objective_switches import followup_on
+
+    if config is None or not followup_on(config, "pooled_connections"):
+        return nullcontext()
+    from learnloop.db.connection import reused_connections
+
+    return reused_connections()
+
+
 def _serving_switches(config: Any) -> dict[str, Any]:
     """The trace's ``versions.serving_switches`` (landing ruling R8), or nothing below the batch's tag."""
 
@@ -637,11 +654,10 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
     # Router speed, item 2: the card's build and the numeric policy's share one read of the combiner's fit while no
     # write is committed between them (OI.decision_reads; Codex review F2). Router speed stage 2, item 4: the job's
     # own thread reuses its SQLite connections (db.connection.reused_connections: each given back reset, never shared
-    # across threads, never kept in a transaction); the model calls' threads open their own.
-    from learnloop.db.connection import reused_connections
-
-    with reused_connections(), runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER,
-                                                     owner_id=entry.key), OI.decision_reads():
+    # across threads, never kept in a transaction); the model calls' threads open their own. Behind [router_objective]
+    # pooled_connections (its Codex review F2: faster builds leave the deadline-bound refinement more draws).
+    with _pooled(config), runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER,
+                                                owner_id=entry.key), OI.decision_reads():
         threads: list[threading.Thread] = []
 
         def run(name: str, request: Any, parse: Any) -> None:

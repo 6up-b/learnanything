@@ -2004,6 +2004,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch at the follow-up batch's successor mvp-0.50 (router speed item 1, Codex review F1): R9's link "
         "evaluated once per array, its values held and recomputed only where the state changed (the same values per "
         "draw; more draws within a deadline; in RO6's generator payload); off, the batch's landing code."),
+    _ConfigRule(_exact("router_objective.held_reading_map"), "structural", "operational",
+        "kill switch at the follow-up batch's successor mvp-0.50 (router speed stage 2 item 1, its Codex review F2): "
+        "AD's section -> LO map held across calls under digests of everything it reads (the same values; faster "
+        "builds, so more draws within a deadline; in RO6's generator payload); off, main e9ceaf8d44's map."),
+    _ConfigRule(_exact("router_objective.pooled_connections"), "structural", "operational",
+        "kill switch at the follow-up batch's successor mvp-0.50 (router speed stage 2 item 4, its Codex review F2): "
+        "the objective job's thread reuses its SQLite connections (the same values; faster builds, so more draws "
+        "within a deadline; in RO6's generator payload); off, a connection opened at every connect()."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

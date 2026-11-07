@@ -73,6 +73,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
 
     drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
     assert dumped["router_objective"].pop("held_ad_link") is True
+    from tests.test_rofu_successor import drop_rospeed2_keys
+
+    drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "94291ed4789a10800d9b6174d87ae1ccf82a36e1d103d8c89fc98735e5d1d150"
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).

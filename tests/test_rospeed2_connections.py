@@ -271,6 +271,185 @@ def test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool(tmp_path
     print("ROSPEED2_COMPARED", json.dumps(compared))
 
 
+# -- Codex review F2: the pool is a serving change under the deadline, behind its own switch ------------------------
+
+
+class _OpenCharged:
+    """A deterministic clock: one unit per sigmoid element evaluated (the rollouts' work, as router speed's F1 clock)
+    and ``per_open`` units per SQLite connection opened on the replay's own thread (what the pool saves)."""
+
+    def __init__(self, per_open: int) -> None:
+        self.spent = 0
+        self.opens = 0
+        self.per_open = per_open
+        self.thread = threading.get_ident()
+
+    def __call__(self) -> float:
+        return float(self.spent)
+
+    def install(self, patch) -> None:
+        import numpy as np
+
+        from learnloop.router_objective import memory as M
+        from learnloop.router_objective import value as V
+
+        real_sigmoid = M.sigmoid
+
+        def charged(x):
+            self.spent += int(np.size(x))
+            return real_sigmoid(x)
+
+        for module in (V, M):
+            patch.setattr(module, "sigmoid", charged)
+        for name in ("_open_read_only", "_open_writable"):
+            real_open = getattr(DBC, name)
+
+            def opened(*args, _real=real_open, **kwargs):
+                if threading.get_ident() == self.thread:
+                    self.opens += 1
+                    self.spent += self.per_open
+                return _real(*args, **kwargs)
+
+            patch.setattr(DBC, name, opened)
+
+
+def test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains(tmp_path, monkeypatch):
+    """Codex review F2. One prefetch job's numeric policy, replayed on its own inputs with the LLM still out (so the
+    evaluation refines until the deadline): on a clock charged per sigmoid element and per connection opened, main's
+    code (no pool, ``held_reading_map`` off) completes its first 8 draws by a deadline that admits no more, and the
+    branch with both switches on completes more by the same deadline, so its choice can differ (the reason both are
+    serving changes in RO6's generator payload and the prefetch key). At a fixed number of draws the two are equal
+    bit for bit, and the job takes its pool from ``[router_objective] pooled_connections`` alone (``_pooled``)."""
+
+    from learnloop.adaptive_difficulty import reading_cache
+    from learnloop.daily_plan import objective_chooser as OC
+
+    from tests.test_rospeed_join import _journey
+
+    real = OC.run_numeric
+    found: dict[str, Any] = {}
+
+    def replay(vault, repository, kwargs, *, branch: bool, per_open: int, refine: bool,
+               deadline_after: float | None = None) -> tuple[Any, _OpenCharged]:
+        """The job's numeric policy on its own inputs: ``branch`` with both switches' code on (the pool, the held
+        map), else main's (no pool, the map off); ``refine``: while the LLM is out (until the deadline or 64 draws),
+        else the first batch alone (8 draws)."""
+
+        with monkeypatch.context() as patch:
+            clock = _OpenCharged(per_open)
+            clock.install(patch)
+            if not branch:
+                patch.setattr(reading_cache, "held_on", lambda _config: False)
+            token = DBC._REUSED.set(None)
+            try:
+                with reused_connections() if branch else OC._pooled(None):
+                    start = clock()
+                    policy = real(vault, repository, **{
+                        **kwargs, "clock": clock, "keep_going": lambda: refine, "forecasts": None, "publish": None,
+                        "defer_carried": None,
+                        "deadline": None if deadline_after is None else start + deadline_after})
+            finally:
+                DBC._REUSED.reset(token)
+        return policy, clock
+
+    def numeric(vault, repository, **kwargs):
+        if "runs" not in found:
+            replay(vault, repository, kwargs, branch=False, per_open=0, refine=False)  # warm (the day's price)
+            _policy, work = replay(vault, repository, kwargs, branch=False, per_open=0, refine=False)
+            per_open = max(1, int(work.spent))  # one open priced as main's whole first batch of rollouts
+            first, clock = replay(vault, repository, kwargs, branch=False, per_open=per_open, refine=False)
+            again, clock_again = replay(vault, repository, kwargs, branch=False, per_open=per_open, refine=False)
+            assert clock.spent == clock_again.spent and _canon(first.evaluation) == _canon(again.evaluation)
+            budget = float(clock.spent)  # main's first batch fits by the deadline; its refinement does not
+            main, main_clock = replay(vault, repository, kwargs, branch=False, per_open=per_open, refine=True,
+                                      deadline_after=budget)
+            branch, branch_clock = replay(vault, repository, kwargs, branch=True, per_open=per_open, refine=True,
+                                          deadline_after=budget)
+            fixed, _fixed_clock = replay(vault, repository, kwargs, branch=True, per_open=per_open, refine=False)
+            found["runs"] = {
+                "main": [main.evaluation.draws, main.evaluation.complete, main.choice, main_clock.opens],
+                "branch": [branch.evaluation.draws, branch.evaluation.complete, branch.choice, branch_clock.opens],
+                "fixed_draws_equal": _canon(fixed.evaluation.valued) == _canon(first.evaluation.valued),
+                "choice_at_8": [first.choice, fixed.choice],
+            }
+        return real(vault, repository, **kwargs)
+
+    monkeypatch.setattr(OC, "run_numeric", numeric)
+    _journey(tmp_path, steps=2)
+    runs = found["runs"]
+    print("ROSPEED2_F2", json.dumps(runs, default=str))
+    assert runs["main"][:2] == [8, True]
+    assert runs["branch"][3] < runs["main"][3]  # the pool opens fewer connections ...
+    assert runs["branch"][0] > runs["main"][0] and runs["branch"][1]  # ... so the same deadline admits more draws
+    assert runs["fixed_draws_equal"] and runs["choice_at_8"][0] == runs["choice_at_8"][1]  # equal at fixed draws
+
+
+def test_the_pool_and_the_held_map_follow_their_switches(tmp_path):
+    """``[router_objective] pooled_connections`` and ``held_reading_map``: on at the follow-up batch's tag by default,
+    off when switched off or below the tag; both in RO6's generator payload and the prefetch boundary key."""
+
+    from contextlib import nullcontext
+
+    from learnloop.adaptive_difficulty import reading_cache
+    from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.router_objective_switches import (FOLLOWUP_GENERATOR_SWITCHES, FOLLOWUP_SWITCHES,
+                                                     followup_generator_switches)
+    from learnloop.vault.loader import load_vault
+
+    from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
+
+    for key in ("held_reading_map", "pooled_connections"):
+        assert key in FOLLOWUP_GENERATOR_SWITCHES and key in FOLLOWUP_SWITCHES
+    paths = create_basic_vault(tmp_path / "vault")
+
+    def state() -> tuple[bool, bool, dict | None]:
+        config = load_vault(paths.root).config
+        return (not isinstance(OC._pooled(config), nullcontext), reading_cache.held_on(config),
+                followup_generator_switches(config))
+
+    set_algorithm_version(paths, ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
+    pooled, held, switches = state()
+    assert (pooled, held) == (True, True)
+    assert switches["pooled_connections"] is True and switches["held_reading_map"] is True
+    set_algorithm_version(paths, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+    assert state() == (False, False, None)
+    set_algorithm_version(paths, ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
+    append_config_toml(paths.root, "[router_objective]\npooled_connections = false\nheld_reading_map = false\n")
+    pooled, held, switches = state()
+    assert (pooled, held) == (False, False)
+    assert switches["pooled_connections"] is False and switches["held_reading_map"] is False
+    assert isinstance(OC._pooled(None), nullcontext)
+
+
+def test_switched_off_the_job_opens_a_connection_at_every_connect(tmp_path, monkeypatch):
+    """``pooled_connections = false``: no input build of any objective job runs inside a pool (main's job: a
+    connection opened at every ``connect()``)."""
+
+    from learnloop.daily_plan import objective_inputs as OI
+
+    from tests.test_rospeed_join import _journey
+
+    seen: list[bool] = []
+    real_build = OI.build
+
+    def build(*args, **kwargs):
+        seen.append(DBC._REUSED.get() is None)
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(OI, "build", build)
+    import tests.router_mixture_helpers as RMH
+
+    real_env = RMH.mixture_env
+
+    def switched_off(tmp_path, runtime, **kwargs):
+        return real_env(tmp_path, runtime, **{**kwargs, "toml": "[router_objective]\npooled_connections = false\n"})
+
+    monkeypatch.setattr(RMH, "mixture_env", switched_off)
+    _journey(tmp_path, steps=2)
+    assert seen and all(seen), seen
+
+
 def test_the_job_opens_a_handful_of_connections(tmp_path, monkeypatch):
     from learnloop.daily_plan import objective_chooser as OC
 

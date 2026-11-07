@@ -280,10 +280,12 @@ def monotone_combiner_on(config: Any) -> bool:
 #: is part of RO6's generator payload and flipping one is a change point, never a change of ``Q`` under the same
 #: generator version. ``carried_in_prefetch`` is not here: it changes which transitions are valued, not the logger.
 #: ``held_ad_link`` (router speed, item 1; Codex review F1 on it): like ``merged_sessions``, the same values per draw
-#: but more draws within a deadline, so it changes the logger's values and is here too.
+#: but more draws within a deadline, so it changes the logger's values and is here too. So are router speed stage 2's
+#: ``held_reading_map`` (item 1) and ``pooled_connections`` (item 4; its Codex review F2): the same values, but the
+#: input builds finish sooner, leaving the numeric refinement more of the same deadline.
 FOLLOWUP_GENERATOR_SWITCHES: tuple[str, ...] = (
     "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "monotone_combiner", "ad_predictive_link",
-    "scope_extension", "held_ad_link")
+    "scope_extension", "held_ad_link", "held_reading_map", "pooled_connections")
 
 
 def followup_generator_switches(config: Any) -> dict[str, bool] | None:

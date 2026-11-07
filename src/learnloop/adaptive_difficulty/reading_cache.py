@@ -20,6 +20,12 @@ Here a section's LOs, and a reading's span → section map, are held process-wid
   read at every map, so a new or edited source, a re-read or a new alias is a new key;
 * the reading and the section (or span map).
 
+Within one map the landing code loads a reading's IR once but reads its metadata and aliases at every mapping, so the
+held map re-reads that part of the key before every lookup the landing code would compute (Codex review F1): once it
+changed, the reading is mapped by the landing code's own calls for the rest of the map and nothing more of it is
+held. Every stored cell is encoded by its complete bytes (Codex review F3). Behind ``[router_objective]
+held_reading_map`` (:func:`held_on`; Codex review F2): off, nothing here is read.
+
 What is never held: the withheld rule. The map asks it of its own operation's view at every call, before any held
 value is read (a withheld reading or span maps to nothing, as before), and a reading the view withholds has no
 digest, so nothing of it is held or read. A mapping that failed (no IR, an unreadable extraction, a guard refusal) is
@@ -42,6 +48,66 @@ import weakref
 _HELD_LIMIT = 4096
 _HELD: OrderedDict[Hashable, tuple[Any, Any]] = OrderedDict()
 _LOCK = threading.Lock()
+
+
+_WATCHERS: dict[str, tuple[tuple[int, int], Any]] = {}
+_WATCH_LOCK = threading.Lock()
+
+
+def commit_version(repository: Any) -> tuple[Any, ...] | None:
+    """The database's commit version as a read-only watcher sees it (``PRAGMA data_version``, which moves whenever
+    another connection commits, and the watcher's own ``total_changes``; the pattern of ``objective_inputs.
+    _DecisionReads.version`` and ``reading_choice.fingerprint``), with the file's identity; None, never trusted, when
+    it cannot be watched. Codex review F1: a map compares it before re-reading a reading's metadata at a lookup, so a
+    lookup after no commit at all needs no read. The watcher runs no statement but the pragma and holds no lock or
+    snapshot (autocommit); one per database, shared under a lock, so no thread ever uses it unlocked."""
+
+    import os
+    import sqlite3
+
+    raw_repository = getattr(repository, "_ad_raw_repository", repository)
+    path = getattr(raw_repository, "sqlite_path", None)
+    if path is None:
+        return None
+    database = str(Path(path).resolve())
+
+    def identity() -> tuple[int, int] | None:
+        try:
+            status = os.stat(database)
+        except OSError:
+            return None
+        return (status.st_dev, status.st_ino)
+
+    try:
+        with _WATCH_LOCK:
+            found = identity()
+            if found is None:
+                return None
+            watched = _WATCHERS.get(database)
+            if watched is None or watched[0] != found:
+                if watched is not None:
+                    watched[1].close()
+                watcher = sqlite3.connect(f"{Path(database).as_uri()}?mode=ro", uri=True, check_same_thread=False)
+                _WATCHERS[database] = watched = (found, watcher)
+            version = int(watched[1].execute("PRAGMA data_version").fetchone()[0])
+            changes = int(watched[1].total_changes)
+            if identity() != found:  # replaced while it was read: never trusted
+                return None
+    except sqlite3.Error:
+        return None
+    return (database, found, version, changes)
+
+
+def held_on(config: Any) -> bool:
+    """``[router_objective] held_reading_map`` at the follow-up batch's tag with the objective serving (router speed
+    stage 2's Codex review F2): the map's values are the same either way, but held they cost less, so the objective
+    job's input builds finish sooner and a deadline-bound refinement completes more draws; it is versioned as RO6's
+    generator payload and the prefetch key version it. Off (or below the tag): main e9ceaf8d44's map, which reads
+    nothing of this module."""
+
+    from learnloop.router_objective_switches import followup_on
+
+    return config is not None and followup_on(config, "held_reading_map")
 
 
 def _extras(value: Any) -> dict[str, Any]:
@@ -173,4 +239,4 @@ def clear() -> None:
         _HELD.clear()
 
 
-__all__ = ["base_key", "clear", "held", "hold", "still_current", "structure_key", "vault_digest"]
+__all__ = ["base_key", "clear", "commit_version", "held", "held_on", "hold", "still_current", "structure_key", "vault_digest"]

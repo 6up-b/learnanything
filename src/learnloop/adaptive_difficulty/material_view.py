@@ -85,17 +85,19 @@ def _rows(connection: Any, sql: str, args: Iterable[Any] = ()) -> list[dict[str,
 
 def _table_rows_digest(connection: Any, table: str, where: str, args: Iterable[Any] = ()) -> bytes:
     """A digest of every row of ``table`` matching ``where``, every column, in rowid order (router speed stage 2,
-    item 1). Each cell is SQLite's ``quote`` of it (NULL, an integer, ``'text'`` with its quotes doubled, ``X'blob'``),
-    a real instead as ``r`` and 17 significant digits (``quote`` keeps 15; 17 round-trip every double), cells and rows
-    joined by separators no unquoted cell contains, so the encoding is injective: two different row sets never share
-    it. Concatenated in SQLite, hashed once here. A caller inside an AD operation runs it in the rules' derivation
-    scope (:meth:`MaterialView.reading_structure_digest`)."""
+    item 1). Each cell is typed and complete: a TEXT value as ``t`` and the hex of all its bytes (Codex review F3:
+    ``quote`` stops a TEXT value at its first U+0000, so ``'a\\0b'`` and ``'a\\0c'`` quoted alike), a real as ``r`` and
+    17 significant digits (``quote`` keeps 15; 17 round-trip every double), anything else as SQLite's ``quote`` of it
+    (NULL, an integer, ``X'blob'``, each complete). Cells and rows are joined by separators no encoded cell contains,
+    so the encoding is injective: two different row sets never share it. Concatenated in SQLite, hashed once here. A
+    caller inside an AD operation runs it in the rules' derivation scope (:meth:`MaterialView.reading_structure_digest`)."""
 
     import hashlib
 
     columns = [column[0] for column in connection.execute(f"/* ad-rules */ SELECT * FROM {table} LIMIT 0").description]
     cells = " || ',' || ".join(
-        f"CASE WHEN typeof(\"{column}\") = 'real' THEN 'r' || printf('%!.17g', \"{column}\") "
+        f"CASE typeof(\"{column}\") WHEN 'text' THEN 't' || hex(CAST(\"{column}\" AS BLOB)) "
+        f"WHEN 'real' THEN 'r' || printf('%!.17g', \"{column}\") "
         f"ELSE quote(\"{column}\") END" for column in columns)
     row = connection.execute(
         f"/* ad-rules */ SELECT count(*), group_concat(cell, ';') FROM (SELECT {cells} AS cell FROM {table} "
@@ -1680,10 +1682,12 @@ class MaterialView:
             from learnloop.reader.reader_guidance import extraction_sections
 
             # Router speed stage 2, item 1: the sections are the IR's alone, so they are held across views under the
-            # reading's structure digest, which a withheld reading has none of (it maps to nothing, as before).
-            digest = self.reading_structure_digest(extraction_id)
-            key = reading_cache.structure_key(self.repository, digest, extraction_id, "section_spans")
-            held = reading_cache.held(key, None)
+            # reading's structure digest, which a withheld reading has none of (it maps to nothing, as before). Only
+            # with [router_objective] held_reading_map (its Codex review F2); off, main's read, nothing held.
+            on = reading_cache.held_on(getattr(self.vault, "config", None))
+            digest = self.reading_structure_digest(extraction_id) if on else None
+            key = reading_cache.structure_key(self.repository, digest, extraction_id, "section_spans") if on else None
+            held = reading_cache.held(key, None) if on else None
             sections: dict[str, list[str]] = {}
             if held is not None:
                 sections = {section: list(spans) for section, spans in held.items()}

@@ -397,6 +397,174 @@ def test_a_mapping_computed_across_a_source_write_is_not_held(tmp_path, monkeypa
     assert [denial for op in observed for denial in op.guard.denials] == []
 
 
+def _elsewhere(write) -> None:
+    """A write by another connection outside the operation (a writer elsewhere: a plain thread has no context)."""
+
+    import threading
+
+    thread = threading.Thread(target=write)
+    thread.start()
+    thread.join()
+
+
+#: The span of ``ext_m1``'s unit u4 that ``lo_m5`` cites through the book's canonical note (by quote, no source id).
+_NOTE_QUOTE = "Chapter 4 paragraph 1: statement 125 about matrices"
+
+
+def _note_vault(tmp_path, *, note_uri: str, artifact_uri: str):
+    """``_vault`` plus the book's canonical note (``note_book``, its canonical URI ``note_uri``) and an LO citing u4
+    through it: ``section_map.canonical_note_ids`` admits the ref only while the source's stored canonical URI is
+    ``note_uri``, so the source's metadata row decides whether u4 maps to ``lo_m5``."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_markdown_with_frontmatter, write_yaml
+
+    paths, repository = _vault(tmp_path)
+    write_markdown_with_frontmatter(paths.note_path("linear-algebra", "note_book"), {
+        "schema_version": 1, "id": "note_book", "subjects": ["linear-algebra"], "related_los": [],
+        "related_concepts": [], "source_type": "canonical_source",
+        "canonical_source": {"kind": "pdf", "canonical_uri": note_uri, "title": "Matrices"},
+        "created_at": "2026-10-01T09:00:00Z", "updated_at": "2026-10-01T09:00:00Z"}, "The book's note.")
+    path = paths.learning_object_path("linear-algebra", "lo_m5")
+    body = read_yaml(path)
+    body["provenance"]["source_refs"].append({"ref_type": "note", "ref_id": "note_book", "quote": _NOTE_QUOTE})
+    write_yaml(path, body)
+    _set_uri(repository, artifact_uri)
+    return paths, repository
+
+
+def _set_uri(repository, uri: str) -> None:
+    with closing(sqlite3.connect(repository.sqlite_path)) as connection:
+        connection.execute("UPDATE source_artifacts SET canonical_uri = ? WHERE id = 'src_m'", (uri,))
+        connection.commit()
+
+
+def _manual_alias(repository) -> None:
+    Repository(repository.sqlite_path).insert_span_reanchor(
+        from_extraction_id="ext_m2", from_span_id="t3", to_extraction_id="ext_m1", to_span_id="t20",
+        match_kind="manual", confidence=1.0)
+
+
+def _no_manual_alias(repository) -> None:
+    with closing(sqlite3.connect(repository.sqlite_path)) as connection:
+        connection.execute("DELETE FROM source_span_reanchors WHERE match_kind = 'manual'")
+        connection.commit()
+
+
+@pytest.mark.parametrize("change", ["canonical_uri", "alias"])
+def test_a_source_edit_committed_between_two_held_reads_of_one_map_is_read(
+        tmp_path, monkeypatch, protected, observed, change):
+    """Codex review F1: with every mapping already held, a map reads one section, a source metadata edit commits
+    elsewhere (the source's canonical URI, or a manual alias onto the reading), and the map reads the rest. The
+    landing code re-reads the reading's run, revision, source and aliases at every mapping (only the IR once a map),
+    so each later read sees the edit; the held map must too, and must hold nothing from the edited rows under the
+    earlier key (the edit is undone after each walk, so a wrongly held value would be read next)."""
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    paths, repository = _note_vault(tmp_path, note_uri="file:///book.pdf", artifact_uri="file:///old.pdf")
+    edit, undo = {
+        "canonical_uri": (lambda: _set_uri(repository, "file:///book.pdf"), lambda: _set_uri(repository, "file:///old.pdf")),
+        "alias": (lambda: _manual_alias(repository), lambda: _no_manual_alias(repository)),
+    }[change]
+    vault = _load(paths)
+    sections = _sections(repository)
+    original = _maps(vault, repository, sections, _LandingMap)
+    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original  # every mapping is held now
+
+    def walk(cls) -> dict[str, Any]:
+        with ad_operation(vault, repository, read_only=True) as op:
+            mapping = cls(op.vault, repository, op.view)
+            out = {"ext_m1/u0": mapping.los_for_section("ext_m1", "u0")}
+            _elsewhere(edit)
+            for extraction, section, spans in sections:
+                out[f"{extraction}/{section}"] = mapping.los_for_section(extraction, section)
+                for span in spans:
+                    out[f"{extraction}#{span}"] = mapping.los_for_span(extraction, span)
+        undo()
+        return out
+
+    landing = walk(_LandingMap)
+    held = walk(ADR.VaultReadingMap)
+    assert {key: value for key, value in landing.items() if original.get(key) != value}  # the edit is read
+    if change == "canonical_uri":
+        assert "lo_m5" in landing["ext_m1/u4"] and "lo_m5" not in original["ext_m1/u4"]
+    assert held == landing, {key: (held[key], landing[key]) for key in landing if held.get(key) != landing[key]}
+    # Undone: the earlier key is current again, and nothing computed from the edited rows was held under it.
+    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original
+    # Committed for good: a fresh map reads it (warmed under the new key, then from what it held).
+    edit()
+    after = _maps(vault, repository, sections, _LandingMap)
+    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
+    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
+    assert [denial for op in observed for denial in op.guard.denials] == []
+
+
+def test_an_embedded_nul_in_a_stored_cell_is_part_of_the_held_key(tmp_path, monkeypatch, protected, observed):
+    """Codex review F3: SQLite's ``quote()`` stops a TEXT value at its first U+0000, so ``book\\0old`` and
+    ``book\\0new`` quoted alike and the held map served the old mapping after the edit. Every TEXT cell is now
+    encoded by its full bytes."""
+
+    from learnloop.adaptive_difficulty.material_view import _table_rows_digest
+
+    with closing(sqlite3.connect(":memory:")) as connection:
+        connection.execute("CREATE TABLE t(v)")
+        digests = []
+        for value in ("book\0old", "book\0new", "book", b"book\0old", "X'626F6F6B'", 7, 7.0, None):
+            connection.execute("DELETE FROM t")
+            connection.execute("INSERT INTO t(v) VALUES (?)", (value,))
+            digests.append(_table_rows_digest(connection, "t", "1"))
+        assert len(set(digests)) == len(digests)
+
+    paths, repository = _note_vault(tmp_path, note_uri="book\0new", artifact_uri="book\0old")
+    vault = _load(paths)
+    assert vault.notes["note_book"].model_extra["canonical_source"]["canonical_uri"] == "book\0new"
+    sections = _sections(repository)
+    before = _maps(vault, repository, sections, _LandingMap)
+    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == before  # held under "book\0old"
+    _set_uri(repository, "book\0new")
+    after = _maps(vault, repository, sections, _LandingMap)
+    assert "lo_m5" in after["ext_m1/u4"] and "lo_m5" not in before["ext_m1/u4"]
+    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
+    assert [denial for op in observed for denial in op.guard.denials] == []
+
+
+def test_switched_off_the_map_is_mains_and_reads_nothing_of_the_hold(tmp_path, monkeypatch, protected, observed):
+    """Codex review F2: ``[router_objective] held_reading_map = false`` serves main's map, which computes every
+    mapping (and the view's section spans) afresh and reads no digest and no held value."""
+
+    import learnloop.section_map as SM
+
+    from tests.helpers import append_config_toml
+
+    paths, repository = _vault(tmp_path)
+    append_config_toml(paths.root, "[router_objective]\nheld_reading_map = false\n")
+    vault = _load(paths)
+    assert not reading_cache.held_on(vault.config)
+    sections = _sections(repository)
+    landing = _maps(vault, repository, sections, _LandingMap)
+
+    def untouched(*_args, **_kwargs):
+        raise AssertionError("the hold is read with the switch off")
+
+    computed: list[str] = []
+    real = SM.learning_objects_for_section_in_ir
+
+    def counted(*args, **kwargs):
+        computed.append(kwargs.get("section_id"))
+        return real(*args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        for name in ("held", "hold", "base_key", "still_current", "vault_digest", "structure_key"):
+            patch.setattr(reading_cache, name, untouched)
+        patch.setattr(MaterialView, "reading_structure_digest", untouched)
+        patch.setattr(SM, "learning_objects_for_section_in_ir", counted)
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
+        first = len(computed)
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
+    assert first > 0 and len(computed) == 2 * first  # computed afresh at every map, as main
+    assert [denial for op in observed for denial in op.guard.denials] == []
+
+
 def test_the_opportunity_resolve_is_the_landing_codes_with_the_held_map(tmp_path, monkeypatch, protected, observed):
     """RO2's opportunity resolve (every reading event and its LOs) over completed sections, span views and an
     anchored question: the landing map's rows, then the held map's twice."""
