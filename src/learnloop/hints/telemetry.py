@@ -85,8 +85,12 @@ def record_authored_reveal(
     work_md: str,
     revealed_at: str | None = None,
     now: datetime | None = None,
+    surface: str = "practice",
 ) -> RevealRecord:
-    """One ``help_assists`` row for an authored hint the practice screen showed."""
+    """One ``help_assists`` row for an authored hint the practice screen showed.
+
+    ``surface``: ``practice`` (the desktop), or ``phone_practice`` for a reveal on the phone (mobile v2 V3,
+    migration 250)."""
 
     current = now or SystemClock().now()
     shown_at = reveal_instant(revealed_at, now=current)
@@ -94,7 +98,7 @@ def record_authored_reveal(
     assist_id = "ha_" + new_ulid()
     row = {
         "id": assist_id,
-        "surface": "practice",
+        "surface": surface,
         "assist_kind": "hint",
         "practice_item_id": item.id,
         "practice_item_hash": practice_item_hash(item),

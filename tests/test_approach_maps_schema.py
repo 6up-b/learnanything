@@ -51,7 +51,7 @@ from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_249" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_250" / "state.sqlite"
 NOW = "2026-10-18T09:00:00Z"
 #: §9's columns, plus the revision keys and the trigger H1 adds.
 SPEC_COLUMNS = {"id", "practice_item_id", "practice_item_hash", "family_id", "version", "map_json", "seeds_json",
@@ -172,6 +172,6 @@ def test_the_store_refuses_unknown_columns(tmp_path):
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 249
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 250
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

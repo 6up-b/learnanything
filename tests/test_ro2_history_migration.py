@@ -17,7 +17,7 @@ from learnloop.adaptive_difficulty import protected_tables as T
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_249" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_250" / "state.sqlite"
 TABLE = "ad_history_forecast_draws"
 #: What 245 adds: earlier migrations' "nothing else changed" diffs on the way to head read this.
 RO2_ADDED_OBJECTS = frozenset({
@@ -28,7 +28,7 @@ RO2_ADDED_OBJECTS = frozenset({
 
 def test_245_is_the_head_and_its_table_a_receipt_ad_classifies():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[245] == "245_history_forecaster.sql" and max(names) == 249
+    assert names[245] == "245_history_forecaster.sql" and max(names) == 250
     assert TABLE_ROLES[TABLE] is TableRole.RECEIPT
     assert T.ROLES[TABLE] == T.PROTECTED and TABLE in T.AD_WRITABLE and TABLE in T.EPOCH
     assert T.ROLES["help_assists"] == T.PROTECTED and "help_assists" in C.CLASSES
@@ -36,7 +36,7 @@ def test_245_is_the_head_and_its_table_a_receipt_ad_classifies():
 
 def test_the_head_fixture_holds_245_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 249
+    assert max(applied_versions(HEAD)) == 250
     with closing(sqlite3.connect(HEAD)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert RO2_ADDED_OBJECTS <= names
