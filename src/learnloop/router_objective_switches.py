@@ -302,6 +302,12 @@ def followup_generator_switches(config: Any) -> dict[str, bool] | None:
 #: with its carried valuation, though not the logger's values).
 FOLLOWUP_SWITCHES: tuple[str, ...] = (*FOLLOWUP_GENERATOR_SWITCHES, "carried_in_prefetch")
 
+#: Router speed stage 2's landing ruling R2: switches that change no value at a fixed draw count (only how soon the
+#: input builds finish), so the numeric policy's random seed is derived from the boundary identity WITHOUT them
+#: (``objective_chooser.numeric_seed``): whatever they are, its draws are main's. They stay in the prefetch key, the
+#: generator payload and ``serving_switches``.
+SEED_NEUTRAL_SWITCHES: tuple[str, ...] = ("held_reading_map", "pooled_connections")
+
 
 def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
     """R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key
@@ -360,6 +366,7 @@ __all__ = [
     "fitted_models_on",
     "FOLLOWUP_GENERATOR_SWITCHES",
     "FOLLOWUP_SWITCHES",
+    "SEED_NEUTRAL_SWITCHES",
     "followup_generator_switches",
     "followup_switch_snapshot",
     "followup_on",

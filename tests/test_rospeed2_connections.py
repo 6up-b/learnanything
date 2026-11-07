@@ -477,3 +477,80 @@ def test_the_job_opens_a_handful_of_connections(tmp_path, monkeypatch):
     _journey(tmp_path)
     assert opens and max(opens) <= 6, opens
     print("ROSPEED2_JOB_OPENS", json.dumps(opens))
+
+
+# -- landing ruling R2: the numeric policy's seed excludes the two speed switches -----------------------------------
+
+#: Main ccb6573987's FOLLOWUP_SWITCHES (the prefetch key's switch snapshot before this stage).
+_MAIN_SWITCHES = ("combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "monotone_combiner",
+                  "ad_predictive_link", "scope_extension", "held_ad_link", "carried_in_prefetch")
+
+
+@pytest.mark.parametrize("switches", ["off", "on"])
+def test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches(tmp_path, monkeypatch, switches):
+    """Codex's verify, F2: at the tag with both switches off, the boundary identity differs from main's only by the
+    two switches' entries in its snapshot, and the numeric seed was derived from it, so at eight draws (no deadline)
+    the real evaluator chose main ``a``, the branch ``b``. Landing ruling R2: both stay in the prefetch key, but the
+    numeric policy's seed is derived from the identity without them (they change no value at a fixed draw count), so
+    its draws are main's: here every job's seed is main's, and its eight-draw evaluation is main's bit for bit."""
+
+    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.router_objective_switches import FOLLOWUP_SWITCHES
+
+    import tests.router_mixture_helpers as RMH
+    from tests.test_rospeed_join import _journey
+
+    assert tuple(key for key in FOLLOWUP_SWITCHES if key not in ("held_reading_map", "pooled_connections")) == \
+        _MAIN_SWITCHES
+    identities: list[dict[str, Any]] = []
+    real_hash = OC._hash
+
+    def recording(value):
+        # The prefetch key's identity (its snapshot names every switch; the seed's own hash names fewer).
+        if isinstance(value, dict) and value.get("kind") == "objective_block" and "held_reading_map" in (
+                value.get("objective") or {}).get("followup_switches", {}):
+            identities.append(value)
+        return real_hash(value)
+
+    def mains(identity: dict[str, Any]) -> dict[str, Any]:
+        objective = dict(identity["objective"])
+        objective["followup_switches"] = {key: value for key, value in objective["followup_switches"].items()
+                                          if key in _MAIN_SWITCHES}
+        return {**identity, "objective": objective}
+
+    real = OC.run_numeric
+    seen: list[dict[str, Any]] = []
+
+    def numeric(vault, repository, **kwargs):
+        identity = next(found for found in reversed(identities) if real_hash({"numeric": real_hash(found)}) ==
+                        kwargs["seed"] or real_hash({"numeric": real_hash(mains(found))}) == kwargs["seed"])
+        main_seed = real_hash({"numeric": real_hash(mains(identity))})
+        old_seed = real_hash({"numeric": real_hash(identity)})
+        fixed = {**kwargs, "keep_going": lambda: False, "forecasts": None, "publish": None, "defer_carried": None,
+                 "deadline": None}
+        at_main = real(vault, repository, **{**fixed, "seed": main_seed})
+        at_served = real(vault, repository, **fixed)
+        at_old = real(vault, repository, **{**fixed, "seed": old_seed})
+        seen.append({"seed_is_mains": kwargs["seed"] == main_seed, "old_differs": old_seed != main_seed,
+                     "draws": [at_main.evaluation.draws, at_served.evaluation.draws],
+                     "equal": _canon(at_main.evaluation.valued) == _canon(at_served.evaluation.valued),
+                     "choices": [at_main.choice, at_served.choice, at_old.choice]})
+        return real(vault, repository, **kwargs)
+
+    monkeypatch.setattr(OC, "_hash", recording)
+    monkeypatch.setattr(OC, "run_numeric", numeric)
+    real_env = RMH.mixture_env
+    toml = ("[router_objective]\nheld_reading_map = false\npooled_connections = false\n" if switches == "off"
+            else None)
+
+    def env(tmp_path, runtime, **kwargs):
+        return real_env(tmp_path, runtime, **{**kwargs, "toml": toml})
+
+    monkeypatch.setattr(RMH, "mixture_env", env)
+    _journey(tmp_path, steps=3)
+    print("ROSPEED2_R2", json.dumps(seen, default=str))
+    assert seen
+    for row in seen:
+        assert row["old_differs"]  # the two entries change the key (and so main's derivation would move)
+        assert row["seed_is_mains"], row
+        assert row["draws"] == [8, 8] and row["equal"] and row["choices"][0] == row["choices"][1], row

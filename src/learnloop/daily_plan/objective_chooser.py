@@ -141,6 +141,22 @@ def objective_settings(config: Any) -> dict[str, Any]:
     return out
 
 
+def numeric_seed(identity: Mapping[str, Any]) -> str:
+    """The numeric policy's random seed for one boundary (router speed stage 2, landing ruling R2): derived from the
+    boundary identity the prefetch key hashes, less ``SEED_NEUTRAL_SWITCHES`` in its switch snapshot. Those switches
+    change no value at a fixed draw count, so whatever they are the draws are main's (with both off, main's exactly);
+    they stay in the key itself, the generator payload and ``serving_switches``."""
+
+    from learnloop.router_objective_switches import SEED_NEUTRAL_SWITCHES
+
+    objective = identity.get("objective")
+    switches = objective.get("followup_switches") if isinstance(objective, Mapping) else None
+    if isinstance(switches, Mapping):
+        identity = {**identity, "objective": {**objective, "followup_switches": {
+            key: value for key, value in switches.items() if key not in SEED_NEUTRAL_SWITCHES}}}
+    return _hash({"numeric": _hash(dict(identity))})
+
+
 def _local_date(now_iso: str) -> str:
     moment = parse_utc(now_iso)
     return (moment.astimezone().date().isoformat() if moment is not None else now_iso[:10])
@@ -1200,7 +1216,7 @@ class ObjectiveChooser(RouterChooser):
         staged_ref = STOP_FOR_TODAY if state.minutes_left < STOP_OFFER_MINUTES else staged.candidate_id
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        key = _hash({
+        identity = {
             "v": KEY_VERSION, "kind": "objective_block", "plan_id": state.plan_id,
             "state": {"minutes_left": round(state.minutes_left, 3), "items_left": state.items_left,
                       "lanes": {lane: round(value, 3) for lane, value in sorted(state.lane_minutes_left.items())},
@@ -1209,12 +1225,16 @@ class ObjectiveChooser(RouterChooser):
             "staged": staged_ref, "as_of": _latest_attempt(self.repository),
             "version": config.algorithms.algorithm_version, "settings": settings,
             "objective": objective_settings(config), "ready": ready,
-        })
+        }
+        key = _hash(identity)
+        # Landing ruling R2: the numeric policy's seed from the identity less the seed-neutral speed switches.
+        seed = numeric_seed(identity)
         now_iso = self._now_iso()
         if ready:
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:
-                entry = self._start_objective(key, state, feasible, support, by_id, ready, now_iso)
+                entry = self._start_objective(key, state, feasible, support, by_id, ready, now_iso,
+                                              numeric_seed=seed)
             _await(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
         else:
             card = _build_card(self.card_builder, state, feasible)
@@ -1223,7 +1243,7 @@ class ObjectiveChooser(RouterChooser):
             no_model_deferred: list[Callable[..., dict[str, Any]]] = []
             carry = _carry_on(config)
             numeric = run_numeric(self.vault, self.repository, state=state, support=support, candidates=by_id,
-                                  now_iso=now_iso, seed=_hash({"numeric": key}),
+                                  now_iso=now_iso, seed=seed,
                                   deadline=self.runtime.clock() + float(config.router.timeout_seconds),
                                   clock=self.runtime.clock, learned_tail=True,
                                   tail_snapshot=self._tail_snapshot(now_iso),
@@ -1282,7 +1302,8 @@ class ObjectiveChooser(RouterChooser):
             return None
 
     def _start_objective(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str],
-                         by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...], now_iso: str) -> Prefetch:
+                         by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...], now_iso: str, *,
+                         numeric_seed: str) -> Prefetch:
         from functools import partial
 
         config = self.vault.config
@@ -1295,7 +1316,7 @@ class ObjectiveChooser(RouterChooser):
         material = {
             "card": card, "card_hash": card.card_hash, "card_text": card.text, "card_json": card.json,
             "options": options, "evidence": list(rq.evidence_from_card(card.json)), "decided_at": now_iso,
-            "state": state, "support": list(support), "by_id": dict(by_id), "numeric_seed": _hash({"numeric": key}),
+            "state": state, "support": list(support), "by_id": dict(by_id), "numeric_seed": numeric_seed,
         }
         frozen = self._tail_snapshot(now_iso)
         if frozen is not None:
@@ -1530,17 +1551,18 @@ class ObjectiveRestraintGate(RestraintGate):
             return self._no_room(state, candidates)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        key = _hash({"v": KEY_VERSION, "kind": "objective_interrupt", "plan_id": record.id, "block": current.id,
-                     "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
-                     "version": config.algorithms.algorithm_version, "settings": settings,
-                     "objective": objective_settings(config), "ready": ready})
+        identity = {"v": KEY_VERSION, "kind": "objective_interrupt", "plan_id": record.id, "block": current.id,
+                    "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
+                    "version": config.algorithms.algorithm_version, "settings": settings,
+                    "objective": objective_settings(config), "ready": ready}
+        key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         topic = titles.get(item.learning_object_id, item.learning_object_id)
         options = [rq.BlockOption(INSERT_NOW, f"Ask the follow-up on {topic} now, inside the current block."),
                    rq.BlockOption(CONTINUE_CURRENT, "Finish the current block first; the follow-up then opens the next block.")]
         extra = [f"A follow-up question on {topic} came out of the learner's last answer."]
         return self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic, options=options,
-                           extra=extra)
+                           extra=extra, seed=numeric_seed(identity))
 
     def _no_room(self, state: PlanState, candidates: list[BlockCandidate]) -> RestraintOutcome:
         """``wait_feasible = False``: waiting would drop the follow-up from today's plan, so it joins now,
@@ -1551,8 +1573,9 @@ class ObjectiveRestraintGate(RestraintGate):
         base.update(policy="staged_v1", decided_by="no_room_to_wait", **_card_fields(card))
         return RestraintOutcome(INSERT_NOW, 1.0, base, why="", wait_feasible=False)
 
-    def _mixed(self, state: PlanState, candidates: list[BlockCandidate], *, key: str, readiness: Mapping[str, Any],
-               ready: tuple[str, ...], topic: str, options: Sequence[Any], extra: Sequence[str],
+    def _mixed(self, state: PlanState, candidates: list[BlockCandidate], *, key: str, seed: str,
+               readiness: Mapping[str, Any], ready: tuple[str, ...], topic: str, options: Sequence[Any],
+               extra: Sequence[str],
                valued: Mapping[str, BlockCandidate] | None = None,
                support: Sequence[str] = (INSERT_NOW, CONTINUE_CURRENT),
                sequences: Mapping[str, Sequence[BlockCandidate]] | None = None, start: Any = None,
@@ -1560,7 +1583,8 @@ class ObjectiveRestraintGate(RestraintGate):
         """The two-policy mix over ``support`` (§8.3; by default ``{insert_now, continue_current}``), drawn and
         traced. ``candidates`` are what the cards show; ``valued`` (default: the same) what ``π_Q`` values, as
         ``sequences`` where given (default: the two orders). ``llm_schema``: the restraint's ``intervene_now``
-        (two options) or ``router_llm_choice_v3`` (a probability per option, FG1's three at RO5's tag, ruling R8)."""
+        (two options) or ``router_llm_choice_v3`` (a probability per option, FG1's three at RO5's tag, ruling R8).
+        ``seed``: the numeric policy's (:func:`numeric_seed` of the boundary's identity; router speed stage 2's R2)."""
 
         base: dict[str, Any] = {"mode": MODE, "why_version": WHY_VERSION}
         config = self.vault.config
@@ -1572,11 +1596,11 @@ class ObjectiveRestraintGate(RestraintGate):
         values = dict(valued) if valued is not None else by_id
         if sequences is None:
             insert, cont = values[INSERT_NOW], values[CONTINUE_CURRENT]
-            numeric = self._numeric_restraint(state, insert, cont, now_iso, key)
+            numeric = self._numeric_restraint(state, insert, cont, now_iso, seed)
         else:
             numeric = run_numeric(self.vault, self.repository, state=state, support=support,
                                   candidates={ref: values[ref] for ref in support}, now_iso=now_iso,
-                                  seed=_hash({"numeric": key}),
+                                  seed=seed,
                                   deadline=self.runtime.clock() + float(config.router.timeout_seconds),
                                   clock=self.runtime.clock, sequences=sequences)
         if ready:
@@ -1650,14 +1674,14 @@ class ObjectiveRestraintGate(RestraintGate):
         return RestraintOutcome(drawn.chosen, 1.0 if drawn.deterministic else drawn.propensity, base, why=why)
 
     def _numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str,
-                           key: str) -> NumericPolicy:
+                           seed: str) -> NumericPolicy:
         """π_Q on the two orders, each an ordered sequence of the two blocks (the follow-up, then the remaining
         questions; or the reverse), every step valued with its own kind, duration, observation and effect on one
         clock; one cutoff, the same draws, each step its own noise in either order (F5)."""
 
         return run_numeric(self.vault, self.repository, state=state, support=[INSERT_NOW, CONTINUE_CURRENT],
                            candidates={INSERT_NOW: insert, CONTINUE_CURRENT: cont}, now_iso=now_iso,
-                           seed=_hash({"numeric": key}),
+                           seed=seed,
                            deadline=self.runtime.clock() + float(self.vault.config.router.timeout_seconds),
                            clock=self.runtime.clock,
                            sequences={INSERT_NOW: (insert, cont), CONTINUE_CURRENT: (cont, insert)})
@@ -1741,10 +1765,11 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
         settings = router_settings(config)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        key = _hash({"v": KEY_VERSION, "kind": "objective_followup", "plan_id": record.id,
-                     "workflow": workflow.get("id"), "block": current.id if current is not None else None,
-                     "version": config.algorithms.algorithm_version, "settings": settings,
-                     "objective": objective_settings(config), "ready": ready})
+        identity = {"v": KEY_VERSION, "kind": "objective_followup", "plan_id": record.id,
+                    "workflow": workflow.get("id"), "block": current.id if current is not None else None,
+                    "version": config.algorithms.algorithm_version, "settings": settings,
+                    "objective": objective_settings(config), "ready": ready}
+        key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         lo = str(workflow["learning_object_id"])
         topic = titles.get(lo, lo)
@@ -1765,8 +1790,9 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
                                                                   "follow-up question")
         valued = {INSERT_NOW: probe, CONTINUE_CURRENT: cont, NO_INTERVENTION: rest}
         sequences = {INSERT_NOW: (probe, cont), CONTINUE_CURRENT: (cont, probe), NO_INTERVENTION: (rest,)}
-        outcome = self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic,
-                              options=options, extra=extra, valued=valued, support=support, sequences=sequences,
+        outcome = self._mixed(state, candidates, key=key, seed=numeric_seed(identity), readiness=readiness,
+                              ready=ready, topic=topic, options=options, extra=extra, valued=valued, support=support,
+                              sequences=sequences,
                               start=self._start_choice, llm_schema=rq.LLM_POLICY_SCHEMA)
         outcome.record["objective_followup"] = offered
         return replace(outcome, wait_feasible=True)
