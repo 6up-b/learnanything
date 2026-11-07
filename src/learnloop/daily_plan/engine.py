@@ -788,6 +788,10 @@ class PlanEnv:
     policy: PlanPolicy = DEFAULT_POLICY
     #: Data capture A1: the last scheduler build's trace (``build_eligible``).
     last_trace: Any = field(default=None, repr=False, compare=False)
+    #: Mobile v2 §2.2: the requesting device's step filter
+    #: (``scheduling.device_eligibility.PlanStepFilter``), or None for the desktop, whose
+    #: steps, builds and decisions are exactly as they were.
+    device: Any = field(default=None, repr=False, compare=False)
 
     def now(self) -> datetime:
         return (self.clock or SystemClock()).now().astimezone(UTC)
@@ -2913,6 +2917,7 @@ def _boundary(
             {"practice_item_id": item.practice_item_id, "origin": forced_origin, "est_minutes": round(item.est_minutes, 4)}
             for item in forced
         ],
+        **_device_detail(env),
     }
     if offer is not None:
         # Teacher TE3b: the boundary's lesson offer (its candidate id and sensors), or why there was none (a ceiling
@@ -2967,6 +2972,23 @@ def _boundary(
         )
         if waiting is not None:
             raise PlanWaiting(waiting)
+        if env.device is not None and record.current_block() is not None:
+            # Mobile v2 §2.2: a device's step crossed this boundary past open work it left for the
+            # desktop, and the plan is not finished: that work waits for the desktop's next Next.
+            if decision.feasible:
+                # Codex review of V2, F4: the chooser drew a stop while work was feasible. It is
+                # that stop, logged now with its probability, on either device; the plan closes on
+                # it once the held work is done (``_stop_pending``), with no second draw.
+                _close(
+                    env, record, status="complete", reason=choice.why or "nothing more worth doing today",
+                    stop_detail=detail, log_decision=True, router_record=router_record,
+                    prefilter=context.prefilter, frozen=frozen, decision_state=state_receipt,
+                    after_held=True,
+                )
+                # Its offer rides on the held step (Codex re-review of V2, F7).
+                raise PlanWaiting(_held_step(env, _reload(env, record.id)))
+            # Nothing more is feasible: no draw was made, and nothing is decided.
+            raise PlanWaiting(_held_step(env, record))
         _close(
             env, record, status="complete", reason=choice.why or "nothing more worth doing today",
             stop_detail=detail, log_decision=True, router_record=router_record, prefilter=context.prefilter,
@@ -3163,6 +3185,7 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
                     "est_minutes": round(item.est_minutes, 4)} for item, origin in items],
         "ro5_check_block": {"version": "ro5_check_before_decision_v1",
                             "assignments": [placement.assignment_id for placement in placed]},
+        **_device_detail(env),
     }
     with env.repository.atomic(), env.repository.connection() as connection:
         block_id = new_ulid()
@@ -3344,17 +3367,24 @@ def _close(
     prefilter: Any = None,
     frozen: objectives.FrozenObjective | None = None,
     decision_state: Any = None,
+    after_held: bool = False,
 ) -> None:
     """Close the plan. A chooser's stop (``stop_detail``: the candidate set,
     chooser, propensity and fallback) is appended as a stop receipt, so a plan
     reopened by a minutes tap and stopped again keeps both decisions (F6).
     ``log_decision``: the stop is a block-boundary decision (``_boundary``),
-    handed to router R1's hook like a block."""
+    handed to router R1's hook like a block.
+
+    ``after_held`` (mobile v2 §2.2, Codex review of V2 F4; only under a device): the stop is
+    recorded exactly as above, but the plan stays open while work a device left for the desktop is
+    open, and closes on this stop once it is done (:func:`_stop_pending`)."""
 
     now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
         if stop_detail is not None:
             detail = {**dict(stop_detail), "stop_reason": reason, "status": status}
+            if after_held:
+                detail[STOP_AFTER_HELD] = {"replans": len(record.split.get("replans") or [])}
             receipt_id = new_ulid()
             decision_ref = detail.get("decision_ref")
             if log_decision:
@@ -3393,14 +3423,15 @@ def _close(
                 detail=detail,
                 receipt_id=receipt_id,
             )
-        store.update_plan(
-            connection,
-            record.id,
-            status=status,
-            stop_reason=reason,
-            updated_at=now,
-            completed_at=now,
-        )
+        if not after_held:
+            store.update_plan(
+                connection,
+                record.id,
+                status=status,
+                stop_reason=reason,
+                updated_at=now,
+                completed_at=now,
+            )
     if stop_detail is not None and log_decision:
         # The chooser's stop is a block-boundary decision too: its due project
         # probes' value decisions are forecasts (after the stop committed).
@@ -4392,6 +4423,7 @@ def _log_interrupt(
                 "why": outcome.why,
                 "decided_at": env.now_iso(),
                 "config": env.vault.config,
+                **_device_detail(env),
             },
         )
         if decision_ref is not None:
@@ -4502,6 +4534,166 @@ def _done_step(record: PlanRecord) -> dict[str, Any]:
     return {"kind": "done", "plan_id": record.id, "status": record.status, "stop_reason": record.row.get("stop_reason")}
 
 
+# -- mobile v2 §2.2: the step filter of a device that is not the desktop ---------------------
+
+#: The step a device gets when every open block holds only what it can't show: the plan is the
+#: desktop's until a boundary (the device's Next crosses one, a read never does).
+DEVICE_HELD_STEP = "held_for_desktop"
+#: The ``attention_block_events`` kind that records, once per block and item, that a device's
+#: step passed over a randomized check (RO5 §9 item 2): the check waits for the desktop and is
+#: never re-drawn for the device. Written only under a device, so the desktop writes none.
+ITEM_DEVICE_DEFERRED = "item_device_deferred"
+
+
+def _device_detail(env: PlanEnv) -> dict[str, Any]:
+    """A decision's ``device`` entry (its surface and device rules); nothing for the desktop."""
+
+    return {} if env.device is None else {"device": env.device.detail()}
+
+
+def _device_item(env: PlanEnv, block: PlannedBlock) -> PlannedItem | None:
+    """The block's next item the device can show, in :meth:`PlannedBlock.next_item`'s order
+    (served first, then follow-ups, then position); each one passed over stays assigned and is
+    counted on the device's filter. A randomized check passed over is recorded once."""
+
+    device = env.device
+    open_items = [item for item in block.items if not item.resolved]
+    served = [item for item in open_items if item.served_at is not None]
+    followups = [item for item in open_items if item.served_at is None and item.origin == ORIGIN_FOLLOWUP]
+    rest = sorted((item for item in open_items if item.served_at is None and item.origin != ORIGIN_FOLLOWUP),
+                  key=lambda item: item.position)
+    for planned in [*served, *followups, *rest]:
+        practice_item = env.vault.practice_items.get(planned.practice_item_id)
+        reason = device.holds(practice_item) if practice_item is not None else None
+        if reason is None:
+            return planned
+        device.held[planned.practice_item_id] = reason
+        if planned.origin == ro5_check_origin():
+            _note_check_deferral(env, block, planned, reason)
+    return None
+
+
+def _note_check_deferral(env: PlanEnv, block: PlannedBlock, item: PlannedItem, reason: str) -> None:
+    """RO5 §9 item 2 under a device (mobile v2 §2.2): the day's check waits for the desktop, its
+    trace says so, and nothing re-draws it. The draw and its logged probability are untouched."""
+
+    with env.repository.atomic(), env.repository.connection() as connection:
+        seen = connection.execute(
+            "SELECT 1 FROM attention_block_events WHERE block_id = ? AND kind = ? "
+            "AND json_extract(detail_json, '$.practice_item_id') = ? LIMIT 1",
+            (block.id, ITEM_DEVICE_DEFERRED, item.practice_item_id),
+        ).fetchone()
+        if seen is None:
+            _event(connection, block.id, ITEM_DEVICE_DEFERRED, {
+                "practice_item_id": item.practice_item_id, "origin": item.origin, "reason": reason,
+                "surface": env.device.surface, "session_id": env.session_id,
+            }, env.now_iso())
+
+
+def _device_block(env: PlanEnv, record: PlanRecord) -> tuple[PlannedBlock | None, PlannedItem | None]:
+    """The device's current block and item: the first open block, in plan order, with something it
+    can show. A reading block waits for the desktop until the phone has its Reader (V4)."""
+
+    for block in sorted(record.blocks, key=lambda b: b.ordinal):
+        if block.finished:
+            continue
+        if block.is_reading:
+            env.device.held_readings.add(block.id)
+            continue
+        item = _device_item(env, block)
+        if item is not None:
+            return block, item
+    return None, None
+
+
+#: The key a stop receipt carries when a device drew it while work it left for the desktop was open
+#: (Codex review of V2, F4): the plan closes on that stop once the work is done. Its value names the
+#: plan's re-plans at the stop, so a minutes tap since (which re-opens a stopped plan on the desktop
+#: too) lets it lapse.
+STOP_AFTER_HELD = "closes_after_held"
+
+
+def _stop_pending(record: PlanRecord) -> dict[str, Any] | None:
+    """The stop a device drew past held work, still to close this open plan, or None. Only a
+    device writes one, so for every record without it this is None and nothing changes."""
+
+    if not record.is_open:
+        return None
+    stops = record.stops()
+    if not stops:
+        return None
+    last = stops[-1].chosen or {}
+    marker = last.get(STOP_AFTER_HELD)
+    if not isinstance(marker, Mapping) or int(marker.get("replans") or 0) != len(record.split.get("replans") or []):
+        return None
+    return last
+
+
+def _close_on_pending_stop(env: PlanEnv, record: PlanRecord, stop: Mapping[str, Any]) -> PlanRecord:
+    """The held work is done: the plan closes on the stop already drawn and logged (no new draw)."""
+
+    now = env.now_iso()
+    with env.repository.atomic(), env.repository.connection() as connection:
+        store.update_plan(connection, record.id, status=str(stop.get("status") or "complete"),
+                          stop_reason=str(stop.get("stop_reason") or "nothing more worth doing today"),
+                          updated_at=now, completed_at=now)
+    return _reload(env, record.id)
+
+
+def open_randomized_check(env: PlanEnv, practice_item_id: str, *, presentation_id: str | None = None) -> bool:
+    """``practice_item_id`` is an open randomized check (RO5): answered cold, so a device offers no
+    help on it, whichever step or restored checkpoint opened it (mobile v2 J6; Codex review of V2, F5).
+
+    Either today's plan holds it open, or ``presentation_id`` (the presentation a restored
+    checkpoint's draft answers) is a check's presentation of this item that no attempt has answered
+    yet, whatever its day or plan (Codex re-review of V2, F5: a check left half answered overnight
+    is still that check). Read only; False with the plan off."""
+
+    if not plan_active(env.vault):
+        return False
+    origin = ro5_check_origin()
+    if presentation_id and _check_presentation_open(env, presentation_id, practice_item_id, origin):
+        return True
+    record = latest_today(env)
+    if record is None:
+        return False
+    return any(item.practice_item_id == practice_item_id and item.origin == origin and not item.resolved
+               for item in record.items())
+
+
+def _check_presentation_open(env: PlanEnv, presentation_id: str, practice_item_id: str, origin: str) -> bool:
+    from learnloop.db.stores import plan_presentations as presentations
+
+    with env.repository.connection() as connection:
+        bound, _why = presentations.bindable_presentation(connection, presentation_id, practice_item_id=practice_item_id)
+        row = presentations.presentation_by_id(connection, bound) if bound is not None else None
+    return row is not None and row.get("origin") == origin
+
+
+def _check_held(env: PlanEnv, record: PlanRecord) -> bool:
+    """An open randomized check is among what the device left for the desktop."""
+
+    origin = ro5_check_origin()
+    return any(item.origin == origin and item.practice_item_id in env.device.held
+               for item in record.items() if not item.resolved)
+
+
+def _held_step(env: PlanEnv, record: PlanRecord) -> dict[str, Any]:
+    """What the device shows when everything open waits for the desktop: how many, and the first
+    item's id, which its "Skip" names (the desktop's own skip link; never a reason or a label)."""
+
+    first = next((item.practice_item_id for item in record.items()
+                  if not item.resolved and item.practice_item_id in env.device.held), None)
+    step = {"kind": DEVICE_HELD_STEP, "plan_id": record.id, "held_count": env.device.held_count,
+            "held_readings": len(env.device.held_readings), "first_held_item_id": first}
+    pending = _stop_pending(record)
+    if pending is not None:
+        # Mobile v2 J5 (Codex re-review of V2, F7): the stop drawn past this held work is offered as
+        # the desktop's done step offers its stop: *Keep going* overrides it, *Done* takes it.
+        step["stop_offer"] = {"stop_reason": pending.get("stop_reason")}
+    return step
+
+
 def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None) -> tuple[PlanRecord, dict[str, Any]]:
     """Reconcile, insert follow-ups, cross a boundary if needed, and name the next step.
 
@@ -4537,6 +4729,22 @@ def advance_with_context(
     record, forced = _insert_followups(env, record, built)
     context = _context(env, record, built, day=())
     block = record.current_block()
+    device_item = None
+    if env.device is not None and block is not None:
+        # Mobile v2 §2.2: the device serves the first open block it can show; the rest stay
+        # assigned for the desktop. When every open block is held, a read says so, and the
+        # device's Next crosses a boundary past them (the decision's support is the desktop's).
+        block, device_item = _device_block(env, record)
+        if block is None and (not serve or _check_held(env, record) or _stop_pending(record) is not None):
+            # RO5 §9 item 2: the day's check comes first on every device. While it waits for the desktop,
+            # the device crosses no boundary, so no draw of a later decision (a stop) can leave it unanswered.
+            # A stop already drawn past held work (F4) is not drawn again: the plan waits on it.
+            return record, _held_step(env, record), context
+    if block is None and (pending := _stop_pending(record)) is not None:
+        # Codex review of V2, F4: what a device left for the desktop is done; the plan closes on the
+        # stop drawn while it was open (never with an open record at a None origin otherwise).
+        record = _close_on_pending_stop(env, record, pending)
+        return record, _done_step(record), context
     if block is None:
         forced_origin = ORIGIN_FOLLOWUP
         if not record.blocks and not record.receipts and _forced_rows(record.split):
@@ -4576,6 +4784,14 @@ def advance_with_context(
         if block_id is None:
             return record, _done_step(record), context
         block = next(b for b in record.blocks if b.id == block_id)
+        if env.device is not None:
+            # One boundary per step: a block the device can't show waits for the desktop.
+            if block.is_reading:
+                env.device.held_readings.add(block.id)
+                return record, _held_step(env, record), context
+            device_item = _device_item(env, block)
+            if device_item is None:
+                return record, _held_step(env, record), context
     boundary = block.started_at is None
     if block.is_lesson_offer:
         # Teacher TE3b (spec §15.1a): the offer card is the block. Serving it shows the card (``block_started``); a
@@ -4619,10 +4835,13 @@ def advance_with_context(
                     _event(connection, block.id, "block_started", {"session_id": env.session_id}, env.now_iso())
             record = _reload(env, record.id)
         return record, step, context
-    item = block.next_item()
+    item = block.next_item() if env.device is None else device_item
     if item is None:  # pragma: no cover - an unfinished item block has an open item
         return record, _done_step(record), context
-    if serve and item.served_at is None and _ad_selection(env):
+    # Mobile v2 §2.2: AD's slot draw is the desktop serve's. Under a device it is not asked, so its
+    # support and logged probabilities never depend on what the device can show: the planned item
+    # is served, as when AD is unavailable for a slot.
+    if serve and item.served_at is None and env.device is None and _ad_selection(env):
         from learnloop.adaptive_difficulty.serving import slot_applies
 
         if slot_applies(env.vault.config, item):
@@ -5283,6 +5502,7 @@ def _pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practic
             "candidate_set": [],
             "state": {"minutes_left": round(record.minutes_left(), 4), "lane_minutes_left": {k: round(v, 4) for k, v in lefts.items()}},
             **({"idempotency_key": idempotency_key} if idempotency_key else {}),
+            **_device_detail(env),
         }
         # Router R2a (G9; Codex review F4): the pick is the learner's own block
         # decision, logged (no propensity) in this block's transaction before
@@ -5394,6 +5614,47 @@ def picked_under(env: PlanEnv, idempotency_key: str,
 # -- minutes, keep going, more new, reading ----------------------------------------
 
 
+def _resplit(env: PlanEnv, record: PlanRecord, budget: float, now: str, *, via: str | None = None) -> dict[str, Any]:
+    """The plan's split re-sized to ``budget`` from now on, with the re-plan recorded (``via``: what
+    re-planned it, when not a minutes tap)."""
+
+    split = record.split
+    # The pool the new split is sized from; due project probes are valued
+    # against the minutes the NEW budget leaves (final verify F10).
+    context, built = _live_context(env, record, minutes_left=max(budget - record.minutes_planned(), 0.0))
+    allotment, spent = record.ledger()
+    pool_loads = {lane: 0.0 for lane in LANES}
+    for item in context.pool:
+        if item.lane in pool_loads and item.lane != "new":
+            pool_loads[item.lane] += item.est_minutes
+    loads = {lane: spent[lane] + pool_loads[lane] for lane in LANES}
+    admitted_new = float(split.get("admitted_new_minutes") or 0.0)
+    loads["new"] = admitted_new
+    requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in _forced_rows(split))
+    new_split = split_v1(
+        budget=budget,
+        requested_minutes=requested_minutes,
+        loads=loads,
+        admitted_new_minutes=admitted_new,
+        push_candidates=any(item.lane == "push" for item in context.pool),
+        repair_max_share=float(env.plan_config.repair_max_share),
+        maintain_max_share=float(env.plan_config.maintain_max_share),
+        lanes_allowed=record.lanes_allowed,
+    )
+    replans = list(split.get("replans") or [])
+    replan = {"at": now, "from_budget": record.budget, "to_budget": budget, "previous_lanes": split.get("lanes"), "epoch_ordinal": record.next_ordinal()}
+    if via is not None:
+        replan["via"] = via
+    replans.append(replan)
+    return {
+        **split,
+        **new_split.as_dict(),
+        "epoch_ordinal": record.next_ordinal(),
+        "epoch_at": now,
+        "replans": replans,
+    }
+
+
 def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
     """A chip tap (§6.6): sets the remembered budget and re-plans the rest.
 
@@ -5417,39 +5678,8 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
     else:
         budget = float(minutes)
     now = env.now_iso()
-    split = record.split
     if abs(budget - record.budget) > _EPS and record.status in ("open", "complete"):
-        # The pool the new split is sized from; due project probes are valued
-        # against the minutes the NEW budget leaves (final verify F10).
-        context, built = _live_context(env, record, minutes_left=max(budget - record.minutes_planned(), 0.0))
-        allotment, spent = record.ledger()
-        pool_loads = {lane: 0.0 for lane in LANES}
-        for item in context.pool:
-            if item.lane in pool_loads and item.lane != "new":
-                pool_loads[item.lane] += item.est_minutes
-        loads = {lane: spent[lane] + pool_loads[lane] for lane in LANES}
-        admitted_new = float(split.get("admitted_new_minutes") or 0.0)
-        loads["new"] = admitted_new
-        requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in _forced_rows(split))
-        new_split = split_v1(
-            budget=budget,
-            requested_minutes=requested_minutes,
-            loads=loads,
-            admitted_new_minutes=admitted_new,
-            push_candidates=any(item.lane == "push" for item in context.pool),
-            repair_max_share=float(env.plan_config.repair_max_share),
-            maintain_max_share=float(env.plan_config.maintain_max_share),
-            lanes_allowed=record.lanes_allowed,
-        )
-        replans = list(split.get("replans") or [])
-        replans.append({"at": now, "from_budget": record.budget, "to_budget": budget, "previous_lanes": split.get("lanes"), "epoch_ordinal": record.next_ordinal()})
-        updated = {
-            **split,
-            **new_split.as_dict(),
-            "epoch_ordinal": record.next_ordinal(),
-            "epoch_at": now,
-            "replans": replans,
-        }
+        updated = _resplit(env, record, budget, now)
         with env.repository.atomic(), env.repository.connection() as connection:
             status = record.status
             if budget < record.minutes_planned() - _EPS:
@@ -5482,7 +5712,8 @@ def keep_going(env: PlanEnv) -> PlanRecord:
     assert record is not None
     record = reconcile(env, record)
     if record.is_open:
-        return record
+        pending = _stop_pending(record)
+        return record if pending is None else _keep_going_past_pending_stop(env, record)
     if record.status == "complete":
         # RO0 row 7: the finished plan had offered the stop; the learner went on.
         session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
@@ -5493,6 +5724,28 @@ def keep_going(env: PlanEnv) -> PlanRecord:
         if remaining >= 1.0:
             return build_plan(env, kind="normal", budget=float(round(remaining, 2)), remembered=remembered, minutes_source="generated", parent_plan_id=record.id)
     return build_plan(env, kind="keep_going", budget=float(env.plan_config.keep_going_minutes), remembered=remembered, minutes_source="generated", parent_plan_id=record.id)
+
+
+def _keep_going_past_pending_stop(env: PlanEnv, record: PlanRecord) -> PlanRecord:
+    """*Keep going* on a stop a device drew past work held for the desktop (mobile v2 J5; Codex
+    re-review of V2, F7). The plan is still open, so the override is made in place rather than as a
+    new plan, which would leave the held blocks behind: the stop's receipt stays as it was logged,
+    the override is recorded as the desktop's (RO0 row 7), and the plan gains the desktop's *Keep
+    going* minutes past what it holds. The re-plan lets the pending stop lapse, so the next boundary
+    decides afresh, and the held work stays the desktop's next Next.
+
+    Landing ruling R3 (F9): the re-split (slow) is computed first; the override receipt and the plan
+    update then commit together in one transaction, which a device's write checks ownership at, so
+    a ``session_moved`` refusal leaves no receipt."""
+
+    now = env.now_iso()
+    budget = max(record.budget, record.minutes_planned()) + float(env.plan_config.keep_going_minutes)
+    updated = _resplit(env, record, budget, now, via="keep_going")
+    with env.repository.atomic(), env.repository.connection() as connection:
+        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id,
+                                              plan_id=record.id, via="keep_going", clock=env.clock)
+        store.update_plan(connection, record.id, minutes_budget=budget, split_json=updated, updated_at=now)
+    return _reload(env, record.id)
 
 
 class PlanStillOpenError(RuntimeError):
@@ -5625,6 +5878,17 @@ def stop_today(env: PlanEnv) -> PlanRecord | None:
     record = latest_today(env)
     if record is None:
         return None
+    if env.device is not None and _stop_pending(record) is not None:
+        # Mobile v2 J5 (Codex re-review of V2, F7): *Done for today* on a stop a device was offered
+        # past work held for the desktop takes that stop. It stands as drawn: the plan closes on it
+        # once the held work is done on the desktop, which is never left stranded. Landing ruling R2
+        # (F8): the taking is that stop's response, accepted, so the session ends on it.
+        decision = record.stops()[-1].decision_ref
+        if decision:
+            session_receipts.record_stop_acceptance(env.vault, env.repository, session_id=env.session_id,
+                                                    plan_id=record.id, stop_decision_id=str(decision),
+                                                    via="done_for_today", clock=env.clock)
+        return record
     if record.is_open:
         _close(env, record, status="stopped", reason="learner_stopped")
     return _reload(env, record.id)

@@ -137,7 +137,70 @@ _M2 = (
     _short("submit_eliciting_response", retry_safe=False),
 )
 
-ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in _M2})
+def _v2_short(name: str, *, retry_safe: bool, constraints=_no_constraint) -> MobileMethod:
+    return MobileMethod(name, "V2", "short", retry_safe, constraints)
+
+
+def _v2_long(name: str, constraints=_no_constraint) -> MobileMethod:
+    return MobileMethod(name, "V2", "long", True, constraints)
+
+
+def _contest_required(params: Mapping[str, Any]) -> None:
+    """The phone's regrade is "I think I was right" (UX Phase 4 §7.5): a reason, possibly empty, and
+    the contest's own key, which is the job's request id, so a retry records and queues it once."""
+
+    fields = _fields(params)
+    if not isinstance(fields.get("learner_reason"), str):
+        raise ParamRejected("learner_reason", "learner_reason is required")
+    contest = fields.get("contest_id")
+    if not isinstance(contest, str) or not contest.strip():
+        raise ParamRejected("contest_id", "contest_id is required")
+
+
+#: Mobile v2 stage V2 (spec §8): Today is the shared plan (J1, J5, J6, owner decision D1), the
+#: router's visible decisions (J4), feedback parity without probes (J2, J3 partial) and the item's
+#: own hints (J16 partial). ``next_plan_item`` is long-capable (§2.2): a decision at a boundary can
+#: call a model (RO4's LLM policy), so it is a job with the 15 s wait. Every plan write that names a
+#: session checks its owner in the shared handler (§5.6); the phone's eligibility is the origin's.
+#: No generated probe is served or answered (V3), so ``followup_next`` is not here.
+_V2 = (
+    # J1: Today and the plan with Next.
+    _v2_short("get_daily_plan", retry_safe=True),
+    _v2_short("get_today_headline", retry_safe=True),
+    _v2_short("get_start_summary", retry_safe=True),
+    _v2_long("next_plan_item"),
+    _v2_short("set_plan_minutes", retry_safe=False),
+    _v2_short("plan_keep_going", retry_safe=False),
+    _v2_short("plan_more_new", retry_safe=False),
+    _v2_short("plan_reading_ended", retry_safe=False),
+    # A proposal pick belongs to Find practice, which the phone does not have.
+    _v2_short("plan_learner_pick", retry_safe=False,
+              constraints=_reject("proposal_id", "source_exercise_import_id")),
+    # J4: read only.
+    _v2_short("router_objective_explain", retry_safe=True),
+    # J2: reveals, the diagnosis card's tap, the contest and the follow-up rating.
+    _v2_short("record_answer_display", retry_safe=True),
+    _v2_short("record_diagnosis_feedback", retry_safe=False),
+    _v2_long("trigger_regrade", _contest_required),
+    _v2_short("rate_followup", retry_safe=False),
+    # J3 without probes: the held feedback and its ways out, and the optional marks.
+    _v2_short("followup_status", retry_safe=True),
+    _v2_short("followup_continue_without", retry_safe=False),
+    _v2_short("followup_show_anyway", retry_safe=False),
+    _v2_short("record_hypothesis_exposure", retry_safe=False),
+    _v2_short("record_hypothesis_mark", retry_safe=False),
+    # J16 partial: an item's own hint, revealed on the phone (telemetry; submit counts it).
+    _v2_short("practice.record_hint_reveal", retry_safe=False),
+)
+
+ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2)})
+
+#: The plan's methods (J1): the kill switch ``phone_plan`` in ``mobile.toml`` refuses them
+#: (``phone_plan_off``), and the phone's Today is M2a's queue again.
+PLAN_METHODS = frozenset({
+    "get_daily_plan", "get_today_headline", "get_start_summary", "next_plan_item", "set_plan_minutes",
+    "plan_keep_going", "plan_more_new", "plan_reading_ended", "plan_learner_pick",
+})
 
 #: The phone's API generation (mobile v2 §5.2). v2 adds methods and endpoints and changes no
 #: existing contract, so it stays 1; a breaking change would add ``/api/v2/``.

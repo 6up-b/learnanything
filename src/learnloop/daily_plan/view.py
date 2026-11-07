@@ -222,6 +222,14 @@ def minute_choices(presets: list[int], remembered: int) -> list[int]:
     return sorted({*presets, int(remembered)})
 
 
+def device_current(record: PlanRecord, next_step: dict[str, Any] | None) -> PlannedBlock | None:
+    """Mobile v2 §2.2: a device's current block is its step's, not the plan's first open block
+    (which may be one it left for the desktop)."""
+
+    block_id = (next_step or {}).get("block_id")
+    return next((block for block in record.blocks if block.id == block_id), None) if block_id else None
+
+
 def plan_view(
     env: PlanEnv,
     record: PlanRecord,
@@ -236,7 +244,8 @@ def plan_view(
     allowed = [lane for lane in LANES if lane in (split.get("lanes_allowed") or LANES)]
     lane_minutes = {lane: float((lanes.get(lane) or {}).get("minutes", 0.0)) for lane in allowed}
     display = display_lane_minutes(lane_minutes)
-    current = record.current_block()
+    device = getattr(env, "device", None) is not None
+    current = record.current_block() if not device else device_current(record, next_step)
     current_id = current.id if current is not None else None
     waiting = (
         {key: next_step.get(key) for key in ("until", "minutes", "practice_item_id", "learning_object_title")}
@@ -300,7 +309,8 @@ def plan_view(
         "current_block_id": current_id,
         # Router R2b: the next block is being chosen (its models are still out
         # on a read); a serving step decides it, waiting a few seconds at most.
-        "deciding": bool(record.is_open and current is None and waiting is None),
+        "deciding": bool(record.is_open and current is None and waiting is None
+                         and not (device and next_step is not None)),
         # UX Phase 4 round 7: nothing to do until a hold lifts later today
         # (the waiting step: when, and on what).
         "waiting": waiting,
@@ -334,6 +344,13 @@ def plan_view(
             **_totals(day),
         },
         "streak": streak,
+        # Mobile v2 §2.2: what this device's step left for the desktop, the only count it shows
+        # ("2 questions are waiting for the desktop"). Absent for the desktop.
+        **({"device": {
+            "surface": env.device.surface,
+            "deferred_count": env.device.held_count,
+            "readings_waiting": len(env.device.held_readings),
+        }} if device else {}),
     }
 
 

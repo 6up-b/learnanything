@@ -1,0 +1,27 @@
+{
+  "method": "get_daily_plan",
+  "requests": [
+    {
+      "wrapper": "getDailyPlan",
+      "envelope": {
+        "method": "get_daily_plan",
+        "params": {
+          "sessionId": "s1"
+        }
+      }
+    },
+    {
+      "wrapper": "getDailyPlan",
+      "envelope": {
+        "method": "get_daily_plan",
+        "params": {
+          "sessionId": null
+        }
+      }
+    }
+  ],
+  "reads": [
+    "enabled",
+    "plan"
+  ]
+}

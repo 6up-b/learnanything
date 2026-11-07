@@ -219,6 +219,11 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 "The tutor is disabled during teach-back — the AI plays the student.",
                 retryable=False,
             )
+    # Mobile v2 §5.6 (PR-4's open list): a question bound to a session another device now holds is
+    # refused before anything is asked or written. A replayed capture above only answers what was.
+    from learnloop_sidecar.handlers.sessions import refuse_moved_session
+
+    refuse_moved_session(ctx, repository, params.session_id)
     panel_ask = _ask_panel_inputs(ctx, vault, repository, params)
     provider_name, runtime, client = ready_tutor_qa_provider(vault)
     if not runtime.ready or client is None:

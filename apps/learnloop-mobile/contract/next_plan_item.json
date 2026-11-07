@@ -1,0 +1,42 @@
+{
+  "method": "next_plan_item",
+  "requests": [
+    {
+      "wrapper": "nextPlanItem",
+      "envelope": {
+        "method": "next_plan_item",
+        "params": {
+          "sessionId": "s1",
+          "serve": true
+        },
+        "request_id": "r_next"
+      }
+    },
+    {
+      "wrapper": "nextPlanItem",
+      "envelope": {
+        "method": "next_plan_item",
+        "params": {
+          "sessionId": "s1",
+          "serve": true,
+          "skipPracticeItemId": "i9"
+        },
+        "request_id": "r_next"
+      }
+    },
+    {
+      "wrapper": "skipPlanItem",
+      "envelope": {
+        "method": "next_plan_item",
+        "params": {
+          "sessionId": "s1",
+          "skipPracticeItemId": "i1"
+        },
+        "request_id": "r_skip"
+      }
+    }
+  ],
+  "reads": [
+    "enabled"
+  ]
+}

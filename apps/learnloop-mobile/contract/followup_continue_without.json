@@ -1,0 +1,17 @@
+{
+  "method": "followup_continue_without",
+  "requests": [
+    {
+      "wrapper": "followupContinueWithout",
+      "envelope": {
+        "method": "followup_continue_without",
+        "params": {
+          "attemptId": "a1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "continued"
+  ]
+}

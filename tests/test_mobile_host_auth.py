@@ -290,10 +290,10 @@ def test_malformed_json_is_bounded_invalid_request(mobile, body):
 def test_every_method_outside_the_m2_row_is_http_denied(mobile):
     from learnloop_sidecar import handlers  # noqa: F401
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_mobile_allowlist import M2_ALLOWED
+    from tests.test_mobile_allowlist import PHONE_ALLOWED
     client, host, _, _, headers = mobile
     assert METHOD_REGISTRY
-    for method in sorted(set(METHOD_REGISTRY) - M2_ALLOWED):
+    for method in sorted(set(METHOD_REGISTRY) - PHONE_ALLOWED):
         response = client.post("/rpc", json={"method": method, "params": {}}, headers=headers)
         assert response.status_code == 403, method
         assert response.json()["error"]["code"] == "method_not_allowed"
@@ -309,8 +309,8 @@ def test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope(mobile
         DESKTOP_ONLY_CAPTURE_RPCS,
         FACET_IDENTITY_RPCS,
         LEARNER_TEXT_GAP_RPCS,
-        M2_ALLOWED,
         MAIN_SIDECAR_RPCS,
+        PHONE_ALLOWED,
     )
     client, _, repo, _, headers = mobile
     pending = capture.create_pairing(repo, scope=scope)
@@ -324,8 +324,8 @@ def test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope(mobile
         + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS
     ):
         assert method in METHOD_REGISTRY
-        if scope == "app" and method in M2_ALLOWED:
-            continue  # §4.5's M2 row; test_mobile_rpc.py holds what it may do.
+        if scope == "app" and method in PHONE_ALLOWED:
+            continue  # §4.5's M2 row and mobile v2's V2 row; their tests hold what each may do.
         response = client.post("/rpc", json={"method": method, "params": {"captureId": "c"}},
                                headers=phone)
         assert response.status_code == 403, (scope, method)

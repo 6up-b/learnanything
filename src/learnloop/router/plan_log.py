@@ -105,6 +105,20 @@ def _ledger_present(connection: Any) -> bool:
     )
 
 
+def _surface(device: Mapping[str, Any] | None) -> str:
+    """Mobile v2 §2.2: a decision taken under a phone origin records its plan surface
+    (``phone_plan``); every other decision, the desktop's, keeps :data:`SURFACE`."""
+
+    return str((device or {}).get("surface") or SURFACE)
+
+
+def _device_inputs(device: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The device rules a phone decision served under (``device_policy``), in its inputs as M2a's
+    queue offers name them. Nothing for the desktop, so its snapshot hash is unchanged."""
+
+    return {"device_policy": device.get("device_policy")} if device else {}
+
+
 def _probability(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -253,6 +267,7 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         "algorithm_version": algorithm_version,
         **({"staged_frame_snapshot": frame.get("snapshot_hash")} if frame else {}),
         **({"card_hash": router_record.get("card_hash")} if router_record.get("card_hash") else {}),
+        **_device_inputs(detail.get("device")),
     }
     row_detail = {
         "block_id": decision.block_id,
@@ -274,6 +289,7 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         "forced": forced,
         "state": detail.get("state"),
         "redistribution": detail.get("redistribution"),
+        **({"device": dict(detail["device"])} if detail.get("device") else {}),
     }
     if detail.get("voi_decisions"):
         # mvp-0.21: value-of-information stop/continue decisions (due project
@@ -315,7 +331,7 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         "id": str(router_record.get("decision_id") or new_ulid()),
         "receipt_key": f"{DECISION_KIND}:{decision.block_id}",
         "decision_kind": DECISION_KIND,
-        "surface": SURFACE,
+        "surface": _surface(detail.get("device")),
         "mode": str(router_record.get("mode") or MODE),
         "policy": policy,
         "algorithm_version": algorithm_version,
@@ -556,6 +572,7 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
         "candidates": candidates,
         "algorithm_version": algorithm_version,
         **({"card_hash": record.get("card_hash")} if record.get("card_hash") else {}),
+        **_device_inputs(decision.get("device")),
     }
     detail = {
         "plan_id": decision.get("plan_id"),
@@ -564,6 +581,7 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
         "block_id": decision.get("block_id"),
         "followup": dict(followup),
         "why": decision.get("why"),
+        **({"device": dict(decision["device"])} if decision.get("device") else {}),
         **({} if wait_feasible or refused else {"wait": {"feasible": False, "reason": "no_room_after_block"}}),
         "refused": [
             {key: reason.get(key) for key in ("constraint_key", "constraint_version", "reason", "kind")}
@@ -577,7 +595,7 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
         "id": str(record.get("decision_id") or new_ulid()),
         "receipt_key": f"{INTERRUPT_KIND}:{decision.get('block_id')}:{item_id}",
         "decision_kind": INTERRUPT_KIND,
-        "surface": SURFACE,
+        "surface": _surface(decision.get("device")),
         "mode": str(record.get("mode") or "mixture"),
         "policy": str(record.get("policy") or "staged_v1"),
         "algorithm_version": algorithm_version,

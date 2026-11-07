@@ -130,6 +130,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
   - `test_a_fallback_pick_is_not_exposed_by_its_own_listing_and_its_request_reaches_the_import_unchanged`
   - `test_use_this_one_on_a_fallback_exercise_runs_the_readers_import_unchanged`
+- [tests/test_mobile_phone_contract.py](../../../../../../tests/test_mobile_phone_contract.py) — direct import
+- [tests/test_mobile_v2_feedback.py](../../../../../../tests/test_mobile_v2_feedback.py) — direct import
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
 - [tests/test_reader_ca3_codex_rereview.py](../../../../../../tests/test_reader_ca3_codex_rereview.py) — direct import

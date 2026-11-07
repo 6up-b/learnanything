@@ -1,0 +1,18 @@
+{
+  "method": "router_objective_explain",
+  "requests": [
+    {
+      "wrapper": "routerObjectiveExplain",
+      "envelope": {
+        "method": "router_objective_explain",
+        "params": {
+          "decisionId": "rd1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "available",
+    "lines"
+  ]
+}

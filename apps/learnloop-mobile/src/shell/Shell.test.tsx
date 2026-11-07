@@ -15,6 +15,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { resetCredentialForTests } from "../store/credential";
 import { resetDbForTests } from "../store/db";
 import { BLOCKED_LINE } from "./DbBlocked";
+import { PLAN_OFF } from "../test/planOff";
 
 interface Sent { readonly url: string; readonly method?: string }
 type Answer = unknown | { status: number; body: unknown };
@@ -69,7 +70,8 @@ beforeEach(async () => {
   captures = 0;
   captureGate = null;
   clearQueries();
-  answers = { start_session: session, get_session: session, get_today_queue: queue, get_practice_item: item, get_probe_contract: { active: false }, save_practice_draft: { ok: true } };
+  // Mobile v2 V2: these are M2a's queue journeys, so the plan reads as off for this vault.
+  answers = { start_session: session, get_session: session, get_daily_plan: PLAN_OFF, get_today_queue: queue, get_practice_item: item, get_probe_contract: { active: false }, save_practice_draft: { ok: true } };
   gets = { "/api/v1/queue-revision": { revision: 1 }, "/api/v1/meta": { host_version: "0.1.0", api_version: 1, allowlist_digest: ALLOWLIST_DIGEST, schema_version: 250 } };
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
   await saveCredential({ token: "tok", deviceId: "dev", scope: "app" });

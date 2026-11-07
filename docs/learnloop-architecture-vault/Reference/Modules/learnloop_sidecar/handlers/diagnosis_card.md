@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/diagnosis_card.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/diagnosis_card.py"
-source_commit: "51766c96a7b6a1f182f4b018e6ec4bf330c49e1f"
-source_commit_timestamp: "2026-11-03T22:09:07-05:00"
+source_commit: "98ecc0dca01b7a869e5544bec341618560243ba1"
+source_commit_timestamp: "2026-11-06T19:52:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `51766c96a7b6a1f182f4b018e6ec4bf330c49e1f` |
-| Commit timestamp | `2026-11-03T22:09:07-05:00` |
+| Source commit | `98ecc0dca01b7a869e5544bec341618560243ba1` |
+| Commit timestamp | `2026-11-06T19:52:14-05:00` |
 
 ## Public API
 

@@ -1,0 +1,18 @@
+{
+  "method": "record_answer_display",
+  "requests": [
+    {
+      "wrapper": "recordAnswerDisplay",
+      "envelope": {
+        "method": "record_answer_display",
+        "params": {
+          "attemptId": "a1",
+          "displayId": "display_1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "recorded"
+  ]
+}

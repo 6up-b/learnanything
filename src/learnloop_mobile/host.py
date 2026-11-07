@@ -32,7 +32,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.session_ownership import SessionOwnershipError
 from learnloop_mobile.adapter import error_body, status_for, translate
 from learnloop_mobile.allowlist import (
-    ALLOWLIST, API_VERSION, ParamRejected, allowlist_digest, check_parameters, validate_envelope,
+    ALLOWLIST, API_VERSION, PLAN_METHODS, ParamRejected, allowlist_digest, check_parameters, validate_envelope,
 )
 from learnloop_mobile.config import APP_DIR, MobileConfig, sqlite_path
 from learnloop_mobile.runtime import HostBusy, HostRuntime, JobView, ParamsInvalid, _status_body
@@ -338,8 +338,10 @@ class MobileHost:
                                  "grading_ready": self.runtime.grading_ready(), "host_version": HOST_VERSION})
         if (method, path) == ("GET", "/api/v1/meta"):
             # Mobile v2 §5.2: a cached app built against another allowlist offers a reload.
+            # Mobile v2 §2.2: ``phone_plan`` says whether Today is the shared plan or M2a's queue.
             return JSONResponse({"host_version": HOST_VERSION, "api_version": API_VERSION,
-                                 "allowlist_digest": allowlist_digest(), "schema_version": self.schema_version})
+                                 "allowlist_digest": allowlist_digest(), "schema_version": self.schema_version,
+                                 "phone_plan": self.config.phone_plan})
         if (method, path) == ("GET", "/api/v1/queue-revision"):
             # Read-only, never the sidecar's get_queue_revision, which can reload (§3.1).
             value = await self.work(self.read_repo.queue_revision)
@@ -425,6 +427,9 @@ class MobileHost:
         if method is None:
             raise HostError(403, "method_not_allowed")
         scope["learnloop.log_endpoint"] = f"rpc:{name}"
+        if name in PLAN_METHODS and not self.config.phone_plan:
+            # Mobile v2 §2.2's kill switch: Today is M2a's queue, and the plan is the desktop's.
+            return self._rpc_error("phone_plan_off", "Today's plan is on the desktop; the phone shows today's list.")
         try:
             check_parameters(method, params)
         except ParamRejected as rejected:
@@ -458,6 +463,9 @@ class MobileHost:
             return self._rpc_error("validation_error", "A long request needs a request_id.")
         if method.name in {"submit_attempt", "submit_dont_know"} and request_id != str(validated["submission_id"]).strip():
             return self._rpc_error("validation_error", "A submit's request_id is its submission id.")
+        if method.name == "trigger_regrade" and request_id != str(validated["contest_id"]).strip():
+            # Mobile v2 V2: one contest, one job: a retry under its key records and queues it once.
+            return self._rpc_error("validation_error", "A contest's request_id is its contest id.")
         try:
             job = await self.work(
                 self.runtime.accept, method, params, validated, request_id=request_id, device_id=device["device_id"]

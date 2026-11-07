@@ -57,7 +57,32 @@ const EXAMPLES: Record<Exclude<Wrapper, (typeof NOT_RPC)[number]>, ReadonlyArray
   getClarification: [() => phone.getClarification("a1")],
   answerClarification: [() => phone.answerClarification("a1", "I meant the transpose.", "r1")],
   diagnosisStatus: [() => phone.diagnosisStatus("a1")],
-  submitElicitingResponse: [() => phone.submitElicitingResponse("a1", 0, "logits")]
+  submitElicitingResponse: [() => phone.submitElicitingResponse("a1", 0, "logits")],
+  // Mobile v2 V2.
+  getDailyPlan: [() => phone.getDailyPlan("s1"), () => phone.getDailyPlan(null)],
+  nextPlanItem: [() => phone.nextPlanItem("s1", "r_next"), () => phone.nextPlanItem("s1", "r_next", "i9")],
+  skipPlanItem: [() => phone.skipPlanItem("s1", "i1", "r_skip")],
+  setPlanMinutes: [() => phone.setPlanMinutes(40, null), () => phone.setPlanMinutes(10, "s1")],
+  planKeepGoing: [() => phone.planKeepGoing("s1"), () => phone.planKeepGoing("s1", true), () => phone.planKeepGoing(null)],
+  routerObjectiveExplain: [() => phone.routerObjectiveExplain("rd1")],
+  recordAnswerDisplay: [() => phone.recordAnswerDisplay("a1", "display_1")],
+  contestGrade: [() => phone.contestGrade("a1", "The other convention.", "contest_1"), () => phone.contestGrade("a1", "", "contest_2")],
+  followupStatus: [() => phone.followupStatus("a1")],
+  followupContinueWithout: [() => phone.followupContinueWithout("a1")],
+  followupShowAnyway: [() => phone.followupShowAnyway("a1")],
+  recordHypothesisExposure: [
+    () => phone.recordHypothesisExposure({ attemptId: "a1", surface: "marks_feedback", hypothesisVersionIds: ["h1", "h2"], shownAt: "2026-11-06T12:00:00.000Z" })
+  ],
+  recordHypothesisMark: [
+    () => phone.recordHypothesisMark({ attemptId: "a1", mark: "my_gap", hypothesisVersionId: "h1", freeText: null, surface: "marks_feedback" }),
+    () => phone.recordHypothesisMark({ attemptId: "a1", mark: "none_of_these", hypothesisVersionId: null, freeText: "Something else.", surface: "marks_feedback" })
+  ],
+  recordHintReveal: [
+    () =>
+      phone.recordHintReveal({
+        sessionId: "s1", practiceItemId: "i1", submissionId: "k1", authoredIndex: 0, answerMd: "Half", revealedAt: "2026-11-06T12:00:00.000Z"
+      })
+  ]
 };
 
 /**
@@ -88,12 +113,29 @@ const READS: Record<string, readonly string[]> = {
   get_grading_clarification: ["clarification"],
   answer_grading_clarification: ["feedback", "error"],
   diagnosis_status: ["status", "cardEnabled"],
-  submit_eliciting_response: ["admissibleAsIndependent"]
+  submit_eliciting_response: ["admissibleAsIndependent"],
+  // Mobile v2 V2. A plan reply's body is read where the plan is on (`tests/test_mobile_v2_plan.py`);
+  // here, on a vault whose plan is off, every one says whether it is.
+  get_daily_plan: ["enabled", "plan"],
+  next_plan_item: ["enabled"],
+  set_plan_minutes: ["enabled"],
+  plan_keep_going: ["enabled"],
+  router_objective_explain: ["available", "lines"],
+  record_answer_display: ["recorded"],
+  trigger_regrade: ["contest"],
+  followup_status: ["enabled"],
+  followup_continue_without: ["continued"],
+  followup_show_anyway: ["released"],
+  record_hypothesis_exposure: ["recorded"],
+  record_hypothesis_mark: ["recorded", "marks"],
+  "practice.record_hint_reveal": ["recorded"]
 };
 
 /** A reply the host journey cannot reach without a diagnosis model, pinned by these tests instead. */
 const REPLY_PINNED_BY: Record<string, readonly string[]> = {
-  submit_eliciting_response: ["tests/test_dialogue_causal_join.py", "tests/test_ux_phase4_feedback.py"]
+  submit_eliciting_response: ["tests/test_dialogue_causal_join.py", "tests/test_ux_phase4_feedback.py"],
+  // A mark needs a list of causes, which only a diagnosis writes.
+  record_hypothesis_mark: ["tests/test_hypothesis_marks.py"]
 };
 
 interface Recorded {

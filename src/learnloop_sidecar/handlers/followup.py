@@ -12,6 +12,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.request_origin import host_mutation
 
 
 class FollowupInput(ParamsModel):
@@ -55,7 +56,8 @@ def followup_status(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any
     vault = _fresh_vault(ctx, vault, repository, params.attempt_id)
     from learnloop.followup_serve.gates import generate_and_serve_on
 
-    current = view(vault, repository, params.attempt_id) if generate_and_serve_on(vault.config) else None
+    phone = ctx.request_origin is not None  # FG1 §10: its question waits for the desktop until V3
+    current = view(vault, repository, params.attempt_id, phone=phone) if generate_and_serve_on(vault.config) else None
     if current is None:
         return versioned({"enabled": False})
     ctx.resume_post_attempt_jobs()
@@ -80,6 +82,7 @@ def followup_next(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]:
 
 
 @method("followup_continue_without", FollowupInput)
+@host_mutation
 def followup_continue_without(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]:
     from learnloop.followup_run.serving import continue_without
 

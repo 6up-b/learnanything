@@ -236,10 +236,10 @@ def _open_followup_workflow(
     probe (an exam's report) is not held.
     """
 
-    from learnloop.followup_serve.gates import SERVING_SURFACE, generate_and_serve_on
+    from learnloop.followup_serve.gates import WORKFLOW_SURFACES, generate_and_serve_on
     from learnloop.followup_serve.workflow import open_for_attempt
 
-    if surface != SERVING_SURFACE or not generate_and_serve_on(vault.config):
+    if surface not in WORKFLOW_SURFACES or not generate_and_serve_on(vault.config):
         return None
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     if attempt is None:

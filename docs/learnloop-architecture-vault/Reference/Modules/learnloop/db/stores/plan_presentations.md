@@ -95,7 +95,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `insert_plan_presentation`, `plan_presentations_present`, `presentation_by_id`, `presentation_for`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `bindable_presentation`, `insert_plan_presentation`, `plan_presentations_present`, `presentation_by_id`, `presentation_for`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `bindable_presentation`; statically calls `bindable_presentation`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `bindable_presentation`; statically calls `bindable_presentation`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `presentations_for_blocks`; statically calls `presentations_for_blocks`
@@ -124,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_mobile_v2_rereview_fixes.py](../../../../../../../tests/test_mobile_v2_rereview_fixes.py) — direct import
 - [tests/test_reader_rw4b_fix6.py](../../../../../../../tests/test_reader_rw4b_fix6.py) — direct import
 - [tests/test_ro0_codex_verify.py](../../../../../../../tests/test_ro0_codex_verify.py) — direct import
 - [tests/test_ro0_row3_ask_availability.py](../../../../../../../tests/test_ro0_row3_ask_availability.py) — direct import

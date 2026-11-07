@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/post_attempt.py"
 source_paths:
   - "src/learnloop/attempts/post_attempt.py"
-source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
-source_commit_timestamp: "2026-11-04T08:47:30-05:00"
+source_commit: "98ecc0dca01b7a869e5544bec341618560243ba1"
+source_commit_timestamp: "2026-11-06T19:52:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
-| Commit timestamp | `2026-11-04T08:47:30-05:00` |
+| Source commit | `98ecc0dca01b7a869e5544bec341618560243ba1` |
+| Commit timestamp | `2026-11-06T19:52:14-05:00` |
 
 ## Public API
 
@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `FollowupDecision`, `attempt_followup_grade`, `enqueue_post_attempt_diagnosis`, `enqueue_post_attempt_learner_text`, `evaluate_attempt_intervention_followup`, `normalize_and_resolve_attempt`; calls `attempt_followup_grade`, `enqueue_post_attempt_diagnosis`, `enqueue_post_attempt_learner_text`, `evaluate_attempt_intervention_followup`, `normalize_and_resolve_attempt`
-- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `SERVING_SURFACE`, `generate_and_serve_on`, `hypothesis_marks_on`; calls `generate_and_serve_on`, `hypothesis_marks_on`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `WORKFLOW_SURFACES`, `generate_and_serve_on`, `hypothesis_marks_on`; calls `generate_and_serve_on`, `hypothesis_marks_on`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_workflow`; calls `enqueue_workflow`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `WORKFLOW_OWNS_REASON`, `open_for_attempt`, `probe_answered`; calls `open_for_attempt`, `probe_answered`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `schedule_certification_cold_probes`; calls `schedule_certification_cold_probes`

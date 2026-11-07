@@ -26,6 +26,9 @@ import { Sheet } from "./shell/Sheet";
 import { TabBar } from "./shell/TabBar";
 import { useVisualViewportInset } from "./shell/viewport";
 import { PHONE_QUEUE_LIMIT, queueKey, queueRows, TodayScreen } from "./today/TodayScreen";
+import { PlanToday, planKey, planOff } from "./today/PlanToday";
+import type { PhonePlanDto } from "./api/phone";
+import { newUlid } from "./util/ulid";
 import { readCredential, subscribeCredential, type Credential } from "./store/credential";
 import { flushOutbox, listOutbox, type FlushStop } from "./store/outbox";
 import {
@@ -152,6 +155,13 @@ function Phone({ credential }: { credential: Credential }) {
   // Diagnostic checks this session left for the desktop. The next build holds them back and counts
   // them; this covers a list read before that build (§6.4).
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
+  // Mobile v2 §2.2 (D1): Today is the shared plan, unless the plan is off for this vault or the host's
+  // kill switch (`phone_plan`) says so; then it is M2a's queue. Unknown until the first plan read.
+  const [planMode, setPlanMode] = useState<"unknown" | "plan" | "queue">("unknown");
+  const planModeRef = useRef(planMode);
+  planModeRef.current = planMode;
+  // The plan's Next is with the host: a decision at a boundary can take a while ("Choosing what's next…").
+  const [choosing, setChoosing] = useState(false);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const deviceId = credential.deviceId;
@@ -463,7 +473,94 @@ function Phone({ credential }: { credential: Credential }) {
     setView({ name: "question", target: { ...target, restored } });
   }
 
+  /** Where a plan reply takes the learner: its item opens; anything else is Today, showing the reply. */
+  function openStep(reply: PhonePlanDto, sessionId: string) {
+    setQueryData(planKey(sessionId), reply, [TAG.queue]);
+    const step = reply.step;
+    if (step && step.kind === "item") {
+      setView({
+        name: "question",
+        target: {
+          practiceItemId: step.practiceItemId,
+          schedulerCandidateId: step.schedulerCandidateId ?? null,
+          planPresentationId: step.presentationId ?? null,
+          // RO5's randomized check: answered cold, with no help and no label (J6).
+          noHelp: step.origin === "randomized_check"
+        }
+      });
+      return;
+    }
+    setView({ name: "today" });
+  }
+
+  /** Mobile v2 §2.2: the plan's Next, a serve under this phone's origin (never a peek: a peek can cross a
+   *  boundary and write its decision). `skip` is the desktop's skip link, for what waits for the desktop. */
+  async function planNext(skip?: string | null): Promise<void> {
+    const open = sessionRef.current;
+    if (!open) {
+      setView({ name: "today" });
+      return;
+    }
+    setChoosing(true);
+    try {
+      openStep(await phone.nextPlanItem(open.sessionId, newUlid(), skip), open.sessionId);
+    } catch (error) {
+      if (planOff(null, error)) {
+        setPlanMode("queue");
+        await queueNext(null);
+        return;
+      }
+      reportError(error);
+      setView({ name: "today" });
+    } finally {
+      setChoosing(false);
+    }
+  }
+
+  /** A plan read says whether Today is the plan (the first read, from wherever the app opened). */
+  async function learnPlanMode(): Promise<"plan" | "queue"> {
+    if (planModeRef.current !== "unknown") return planModeRef.current;
+    try {
+      const reply = await phone.getDailyPlan(sessionRef.current?.sessionId ?? null);
+      const mode = planOff(reply) ? "queue" : "plan";
+      setPlanMode(mode);
+      return mode;
+    } catch (error) {
+      const mode = planOff(null, error) ? "queue" : "plan";
+      if (mode === "queue") setPlanMode(mode);
+      return mode;
+    }
+  }
+
   async function nextAfter(practiceItemId: string | null) {
+    if ((await learnPlanMode()) === "plan") {
+      await planNext();
+      return;
+    }
+    await queueNext(practiceItemId);
+  }
+
+  /** J5: "Keep going" builds one more block of minutes; "Done for today" stops the plan and ends the session. */
+  async function keepGoing(stop: boolean) {
+    const open = sessionRef.current;
+    setBusy(true);
+    try {
+      setQueryData(planKey(open?.sessionId ?? null), await phone.planKeepGoing(open?.sessionId ?? null, stop), [TAG.queue]);
+    } catch (error) {
+      reportError(error);
+      return;
+    } finally {
+      setBusy(false);
+    }
+    if (stop && open) await endSession();
+  }
+
+  async function beginPlan(minutes: number) {
+    await begin(minutes);
+    if (sessionRef.current) await planNext();
+  }
+
+  async function queueNext(practiceItemId: string | null) {
     const open = sessionRef.current;
     if (!open) {
       setView({ name: "today" });
@@ -491,6 +588,12 @@ function Phone({ credential }: { credential: Credential }) {
       clearQuestionDraft(open.sessionId, practiceItemId);
       setQueryData(queueKey(open.sessionId), queue, [TAG.queue]);
       setView({ name: "today" });
+      if (planModeRef.current === "plan") {
+        // The plan's own record of it (the desktop's skip link), so its Next moves on. Its reply is Today's.
+        void phone
+          .skipPlanItem(open.sessionId, practiceItemId, newUlid())
+          .then((reply) => setQueryData(planKey(open.sessionId), reply, [TAG.queue]), reportError);
+      }
       return "recorded";
     } catch (error) {
       if (!refusedOutright(error)) return "unknown";
@@ -552,7 +655,11 @@ function Phone({ credential }: { credential: Credential }) {
   const frame = covering
     ? view.name === "question"
       ? { title: "Question", onBack: () => setView({ name: "today" }), backDisabled: questionBusy, actions: [toCapture] }
-      : { title: view.name === "waiting" ? "Grading" : "Feedback", onBack: null, backDisabled: false, actions: [toCapture] }
+      : view.name === "feedback"
+        ? // Mobile v2 V2 (V1's carried item 2): Feedback gets the back chevron. It goes to Today and
+          // serves nothing; the plan's Next is there, and the feedback stays one Next behind it.
+          { title: "Feedback", onBack: () => setView({ name: "today" }), backDisabled: choosing, actions: [toCapture] }
+        : { title: "Grading", onBack: null, backDisabled: false, actions: [toCapture] }
     : { title: TABS.find((spec) => spec.tab === tab)?.title ?? "Today", onBack: null, backDisabled: false, actions: [toDisplay] };
 
   return (
@@ -613,7 +720,21 @@ function Phone({ credential }: { credential: Credential }) {
             <FeedbackScreen
               key={view.attemptId}
               attemptId={view.attemptId}
+              choosing={choosing}
               onNext={() => void nextAfter(null)}
+              onError={reportError}
+            />
+          ) : planMode !== "queue" ? (
+            <PlanToday
+              session={session}
+              finished={finished}
+              busy={busy}
+              choosing={choosing}
+              onBegin={(minutes) => void beginPlan(minutes)}
+              onNext={(skipId) => void planNext(skipId)}
+              onKeepGoing={(stop) => void keepGoing(stop)}
+              onEnd={() => void endSession()}
+              onMode={setPlanMode}
               onError={reportError}
             />
           ) : (

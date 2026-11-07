@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommandError, DiagnosisCardDto, ElicitingResponseResultDto, FeedbackBundle, GradingClarificationDto } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { staleRefusal } from "../api/http";
@@ -6,6 +6,7 @@ import { phone } from "../api/phone";
 import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
+import { Contest, FollowupPanel, FullAnswer, HypothesisMarks, useFollowup } from "./FeedbackParts";
 
 /** The desktop's own interval for a pending diagnosis (`diagnosis_card.py`: every 2-3 s). */
 const DIAGNOSIS_POLL_MS = 3000;
@@ -74,10 +75,13 @@ function FollowUpQuestions({ attemptId, feedback }: { attemptId: string; feedbac
 
 export function FeedbackScreen({
   attemptId,
+  choosing = false,
   onNext,
   onError
 }: {
   attemptId: string;
+  /** Next is with the host (a plan decision can take a while, mobile v2 §2.2). */
+  choosing?: boolean;
   onNext: () => void;
   onError: (error: unknown) => void;
 }) {
@@ -89,6 +93,17 @@ export function FeedbackScreen({
   const [revision, setRevision] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [card, setCard] = useState<DiagnosisCardDto | null>(null);
+  const { followup, refresh: refreshFollowup } = useFollowup(attemptId, feedback?.followup);
+  const followupHeld = followup?.held === true;
+  // Released (shown anyway, or its question answered on the desktop): the bundle is re-read, never re-opened.
+  const wasHeld = useRef(false);
+  useEffect(() => {
+    if (followupHeld) wasHeld.current = true;
+    if (!followupHeld && wasHeld.current) {
+      wasHeld.current = false;
+      void phone.getFeedback(attemptId, false).then(setFeedback, () => undefined);
+    }
+  }, [attemptId, followupHeld]);
 
   const load = useCallback(() => {
     setLoadError(null);
@@ -179,6 +194,16 @@ export function FeedbackScreen({
           {row.notes ? <div className="dim markdown"><MarkdownMath value={row.notes} components={RemoteImageAsLink} /></div> : null}
         </div>
       ))}
+      {followup && (followup.line || followup.held || followup.canContinueWithout || followup.routerDecision) ? (
+        <FollowupPanel
+          attemptId={attemptId}
+          followup={followup}
+          onRefresh={refreshFollowup}
+          onReleased={() => void phone.getFeedback(attemptId, false).then(setFeedback, () => undefined)}
+        />
+      ) : null}
+      <FullAnswer feedback={feedback} held={followupHeld} />
+      {feedback.gradingSource !== "self" ? <Contest attemptId={attemptId} onBundle={setFeedback} /> : null}
       {pending ? <p className="dim" role="status">Looking into what happened here…</p> : null}
       {feedback.diagnosisStatus === "failed" ? (
         <p className="dim" role="status">The look into this answer didn't finish. Your grade stands.</p>
@@ -190,6 +215,7 @@ export function FeedbackScreen({
         </section>
       ) : null}
       {diagnosisDone ? <FollowUpQuestions attemptId={attemptId} feedback={feedback} /> : null}
+      {feedback.hypothesisMarks && !followupHeld ? <HypothesisMarks marks={feedback.hypothesisMarks} /> : null}
       {clarification ? (
         <div className="banner">
           <div className="markdown"><MarkdownMath value={clarification.questionMd} components={RemoteImageAsLink} /></div>
@@ -201,8 +227,9 @@ export function FeedbackScreen({
         </div>
       ) : null}
       {note ? <p className="dim" role="status">{note}</p> : null}
+      {choosing ? <p className="dim" role="status">Choosing what's next…</p> : null}
       <div className="actions">
-        <button className="primary block" type="button" onClick={onNext}>Next</button>
+        <button className="primary block" type="button" disabled={choosing} onClick={onNext}>Next</button>
       </div>
     </div>
   );

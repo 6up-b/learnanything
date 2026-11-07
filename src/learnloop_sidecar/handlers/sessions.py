@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -468,6 +468,106 @@ def require_owned_session(
     return _require_owned(repository, session_id, ctx.origin_device_id, expected_generation=expected_generation)
 
 
+_MOVED_KEYS = ("session_id", "owner_device_id", "owner_label", "owner_generation")
+
+
+def _require_pinned(repository, pinned: tuple[str, int], device_id: str | None,
+                    current: dict[str, Any] | None) -> None:
+    """Landing ruling R1: the session a phone's sessionless write pinned at its start, still open, still
+    this device's at the generation pinned, and still the open session; ``session_moved`` otherwise,
+    carrying the open session's owner (the pinned one's when none is open)."""
+
+    session_id, generation = pinned
+    with owned_session_errors():
+        try:
+            session = repository.require_session_owner(session_id, device_id, require_open=False,
+                                                       expected_generation=generation)
+        except SessionOwnershipError as error:
+            if error.code != "not_found":
+                raise
+            session = None
+    if session is not None and session.get("ended_at") is None and current is not None \
+            and str(current["id"]) == session_id:
+        return
+    shown = current or session
+    if shown is not None:
+        snapshot = repository.session_owner_snapshot(shown)
+        details = {key: snapshot[key] for key in _MOVED_KEYS}
+        message = (f"This session continued on {snapshot['owner_label']}." if current is not None
+                   else "This session is no longer open.")
+    else:
+        details = {"session_id": session_id, "owner_device_id": None, "owner_label": None, "owner_generation": None}
+        message = "This session is no longer open."
+    raise ownership_error(SessionOwnershipError("session_moved", message, details))
+
+
+def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None) -> Callable[[], None] | None:
+    """Mobile v2 §5.6 (PR-4's open list, mobile-m2a §3 item 9): a session-keyed write outside
+    practice (a plan step, a tutor question, a lesson suggestion's answer) from a device that does
+    not own the session is refused with ``session_moved``, as practice writes are.
+
+    The desktop (a None origin): only the move is new. A write naming no session, an unknown
+    session or an ended one keeps what it did before (those writes never required an open
+    session), so the desktop's own session answers exactly as it did.
+
+    A phone (Codex review of V2, F1): a write naming no open session (none, an unknown one, an
+    ended one) still changes the shared plan, so it is refused while another device owns the open
+    session. With no session open, or its own, the phone's pre-session writes (a minutes chip) go
+    through.
+
+    Returns the same check, to repeat inside each transaction that commits the write (F6): what
+    was decided before slow work (a queue build, a boundary's model call) commits only if the
+    session has not moved since, not even back (``expected_generation``). A phone's sessionless
+    write pins the open session it started against and revalidates that one on its own (landing
+    ruling R1): gone, ended, moved or replaced, it is refused. None when nothing was checked (the
+    desktop, with no open session named).
+    """
+
+    # A context without an origin (a None origin, or a caller's own minimal context) is the desktop.
+    origin = getattr(ctx, "request_origin", None)
+    session = repository.fetch_session(session_id) if session_id else None
+    if session is None or session.get("ended_at") is not None:
+        if origin is None:
+            return None
+        device_id = ctx.origin_device_id
+        # Codex re-review of V2, F6: the open session this write was accepted against is pinned with
+        # its generation, so a handoff during the step's slow work (even one adopted back) refuses
+        # the commit, as a named session's does. A session opened since is checked for its owner.
+        accepted = repository.most_recent_open_session()
+        pinned = (str(accepted["id"]), int(accepted.get("owner_generation") or 0)) if accepted is not None else None
+
+        def no_session_elsewhere() -> None:
+            current = repository.most_recent_open_session()
+            if pinned is not None:
+                # Landing ruling R1 (final verify, F6 reopened): the pinned session is revalidated on
+                # its own, not through the current-session lookup: gone, ended, moved (even back) or
+                # replaced by another open session, the write was accepted against a session that is
+                # no longer where it was, and commits nothing.
+                _require_pinned(repository, pinned, device_id, current)
+                return
+            if current is None:
+                return
+            with owned_session_errors():
+                repository.require_session_owner(str(current["id"]), device_id, require_open=False)
+
+        no_session_elsewhere()
+        return no_session_elsewhere
+    device_id = ctx.origin_device_id
+    if origin is not None and origin.accepted_session_id == session_id:
+        # A job accepted for this session: its acceptance checked the owner (§6.3, §6.5).
+        device_id = session.get("owner_device_id")
+    generation = int(session.get("owner_generation") or 0)
+    with owned_session_errors():
+        repository.require_session_owner(str(session_id), device_id, require_open=False)
+
+    def still_owned() -> None:
+        with owned_session_errors():
+            repository.require_session_owner(str(session_id), device_id, require_open=False,
+                                             expected_generation=generation)
+
+    return still_owned
+
+
 def _merged_value(existing: dict[str, Any], params: SessionCheckpointInput, fields: set[str], name: str):
     if name in fields:
         return getattr(params, name)
@@ -708,6 +808,18 @@ def draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_
         return None
     value = practice.get("planPresentationId")
     return value if isinstance(value, str) and value.strip() else None
+
+
+def checkpoint_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> str | None:
+    """The presentation the checkpoint's saved draft of ``practice_item_id`` answers, under the
+    draft's own retry key, or None (mobile v2 J6; Codex re-review of V2, F5)."""
+
+    focus = (checkpoint or {}).get("focus_block_state")
+    practice = focus.get("practice") if isinstance(focus, dict) else None
+    key = (practice.get("submissionId") or practice.get("submission_id")) if isinstance(practice, dict) else None
+    if not isinstance(key, str):
+        return None
+    return draft_plan_presentation(checkpoint, practice_item_id=practice_item_id, submission_id=key)
 
 
 def _with_submission_id(focus: dict[str, Any] | None, submission_id: str | None) -> dict[str, Any]:

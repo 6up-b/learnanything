@@ -34,7 +34,8 @@ correctness, or a label AD censors; never read as a zero, Codex review F1; it co
 completion rate, which is the rate of labelled completions), or not, with its reason:
 ``not_administered:no_session``, ``not_administered:no_practice_slot``
 (the day had a session but its first session placed no check: no eligible item of the topic in the plan's pool
-at any of its boundaries; the reason's name is kept from RO5's first build), ``displaced``, ``skipped`` or ``not_answered``. A day with no session
+at any of its boundaries; the reason's name is kept from RO5's first build), ``displaced``, ``skipped``, ``not_answered``
+or ``not_answered:device_deferred`` (a phone's step left it for the desktop, mobile v2 §2.2). A day with no session
 counts toward the completion gap (§8.7): the running completion rate is completed checks over assigned checks
 plus the checks of every day with no session since the first draw. Every such read is as of one closure
 (:class:`Closure`, landing ruling R1): the check's (the end of a date) or a scored window's, every counted event
@@ -70,6 +71,11 @@ NO_PRACTICE_SLOT = "not_administered:no_practice_slot"
 DISPLACED = "displaced"
 SKIPPED = "skipped"
 NOT_ANSWERED = "not_answered"
+#: Mobile v2 §2.2: administered, left for the desktop by a phone's step (its ``item_device_deferred``
+#: receipt), and never answered by the day's end. Not completed, as ``not_answered`` is: its own name
+#: lets the completion term and the report see what the device held.
+DEVICE_DEFERRED = "not_answered:device_deferred"
+DEVICE_DEFERRED_EVENT = "item_device_deferred"
 OPEN = "open"
 COMPLETED = "completed"
 #: Answered, but its grade carries no label now (Codex review F1): the reason follows the prefix.
@@ -550,7 +556,8 @@ class Ledger:
             "SELECT id, started_at FROM sessions ORDER BY started_at, id")]
         for block_id, kind, item_id, created in connection.execute(
                 "SELECT block_id, kind, json_extract(detail_json, '$.practice_item_id'), created_at "
-                "FROM attention_block_events WHERE kind IN ('item_skipped', 'item_displaced') ORDER BY created_at, id"):
+                "FROM attention_block_events WHERE kind IN ('item_skipped', 'item_displaced', ?) ORDER BY created_at, id",
+                (DEVICE_DEFERRED_EVENT,)):
             self.block_events.setdefault((str(block_id), str(item_id)), []).append((str(kind), str(created)))
         items = sorted({str(entry.get("practice_item_id")) for entry in self.administrations})
         columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
@@ -629,7 +636,8 @@ class Ledger:
                             and closure.admits(found["created_at"], found.get("ro5_received_at"))), None)
             if attempt is None:
                 status = DISPLACED if "item_displaced" in events else (SKIPPED if "item_skipped" in events else (
-                    OPEN if local_date == closure.local_date else NOT_ANSWERED))
+                    OPEN if local_date == closure.local_date else (
+                        DEVICE_DEFERRED if DEVICE_DEFERRED_EVENT in events else NOT_ANSWERED)))
                 out.append(Resolved(**base, status=status, item_id=item_id, replaced=planned.get("replaced"),
                                     sensors=planned.get("sensors") or {}))
                 continue
@@ -735,7 +743,8 @@ def support_at(connection: Any, at: str, *, days: Sequence[Mapping[str, Any]] | 
 
 
 __all__ = [
-    "Closure", "DAY_PREFIX", "DISPLACED", "Day", "Ledger", "NOT_ANSWERED", "NO_PRACTICE_SLOT", "NO_SESSION",
+    "Closure", "DAY_PREFIX", "DEVICE_DEFERRED", "DISPLACED", "Day", "Ledger", "NOT_ANSWERED", "NO_PRACTICE_SLOT",
+    "NO_SESSION",
     "OPEN", "ORIGIN", "Placement", "RESOLVER_VERSION", "Resolved", "SKIPPED", "VERSION", "administered", "completion",
     "day_record", "day_seed", "day_unit", "draw", "draw_day", "place", "r_for", "resolve",
     "slot_unit", "support_at",

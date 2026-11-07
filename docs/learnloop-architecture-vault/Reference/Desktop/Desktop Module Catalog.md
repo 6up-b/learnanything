@@ -7,8 +7,8 @@ version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "0394abccde203a1e4bd7d479ffe28c7035d61f2f"
-source_commit_timestamp: "2026-11-06T14:55:42-05:00"
+source_commit: "30213eb58031832c7ea2ce41e29ae27866751e9c"
+source_commit_timestamp: "2026-11-06T16:40:48-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -59,13 +59,13 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 | [[Reference/Desktop/TypeScript/fixtures/goldenpath/_area|TypeScript/fixtures/goldenpath]] | 1 | A barrel over checked-in golden-path JSON scenario fixtures. |
 | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] | 6 | Markdown, mathematics, and live-editor rendering adapters. |
 | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] | 30 | Top-level routed workflow screens in the desktop shell. |
-| [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] | 5 | The post-answer feedback surface: answer exposure, method comparison, and its exposure contract. |
+| [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] | 6 | The post-answer feedback surface: answer exposure, method comparison, and its exposure contract. |
 | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] | 7 | Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen. |
 | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] | 84 | Reader request-state coordination extracted from the main reader screen. |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] | 9 | Reader "show me" figures: the figure grammar and spec, inline figures, panels, predictions, and their state. |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] | 13 | The sandboxed sketch tier: the pinned engine host, its Worker protocol and runner, and the scene renderer. |
 | [[Reference/Desktop/TypeScript/screens/startBackdrops/_area|TypeScript/screens/startBackdrops]] | 8 | Canvas/SVG simulations and workers used as the start-screen visual backdrop. |
-| [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] | 6 | The Today place: the daily plan view and re-entry after time away. |
+| [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] | 5 | The Today place: the daily plan view and re-entry after time away. |
 | [[Reference/Desktop/TypeScript/screens/underhood/_area|TypeScript/screens/underhood]] | 1 | Under the hood's thin tool entry points (SQLite browser, inspector, calibration, mistake history, AI routes). |
 | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] | 12 | The Reader workbench: steps, Check my work, the help ladder, step hints, and the session state behind them. |
 

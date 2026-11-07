@@ -15,6 +15,14 @@
     "get_attempt",
     "get_grading_clarification",
     "answer_grading_clarification",
-    "diagnosis_status"
+    "diagnosis_status",
+    "get_daily_plan",
+    "get_today_headline",
+    "get_start_summary",
+    "next_plan_item",
+    "router_objective_explain",
+    "record_answer_display",
+    "trigger_regrade",
+    "followup_status"
   ]
 }

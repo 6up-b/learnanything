@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/serving.py"
 source_paths:
   - "src/learnloop/followup_run/serving.py"
-source_commit: "8895424941866d588bcdc1da656dfde91b0725cf"
-source_commit_timestamp: "2026-11-04T07:26:00-05:00"
+source_commit: "98ecc0dca01b7a869e5544bec341618560243ba1"
+source_commit_timestamp: "2026-11-06T19:52:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,28 +50,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py) |
-| Source lines | 275 |
+| Source lines | 284 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8895424941866d588bcdc1da656dfde91b0725cf` |
-| Commit timestamp | `2026-11-04T07:26:00-05:00` |
+| Source commit | `98ecc0dca01b7a869e5544bec341618560243ba1` |
+| Commit timestamp | `2026-11-06T19:52:14-05:00` |
 
 ## Public API
 
-- `class NextAction` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 44)
-- `is_holding(row: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 51)
-- `held_bundle(bundle: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 55) — The bundle with what is held taken out, on the server, so nothing can show it.
-- `view(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 76) — The screen's read of the attempt's workflow, or None (the bundle stays as it was).
-- `source_of_probe_attempt(repository: Repository, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 105) — The miss whose held feedback this probe answer released, or None.
-- `router_wait() -> str` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 117)
-- `plan_will_place(vault: Any, repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 123) — R12, R13: a plan serves a workflow's probe only if the miss came from the plan, which the attempt's own validated ``plan_presentation_id`` records, and placement itself says this probe has a live placement or gets one at the next step.
-- `next_action(vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None=None) -> NextAction` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 139) — §6.1: what Next does.
-- `continue_without(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 205) — §6.1: logged, it retires the probe, and §5.1 records today's *Teach me now* authorisation.
-- `show_anyway(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 228) — §6.0: releases what's held and marks the probe's answer not independent.
-- `bind_plan_step(repository: Repository, step: Mapping[str, Any] | None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 240) — The plan served it: the decision's second presentation joins its binding.
-- `abandon(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 252) — A generated probe skipped: abandonment closes it, for every generated probe, with or without a workflow, and what its workflow held is released.
+- `class NextAction` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 47)
+- `is_holding(row: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 54)
+- `held_bundle(bundle: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 58) — The bundle with what is held taken out, on the server, so nothing can show it.
+- `view(vault: Any, repository: Repository, attempt_id: str, *, phone: bool=False) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 79) — The screen's read of the attempt's workflow, or None (the bundle stays as it was).
+- `source_of_probe_attempt(repository: Repository, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 114) — The miss whose held feedback this probe answer released, or None.
+- `router_wait() -> str` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 126)
+- `plan_will_place(vault: Any, repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 132) — R12, R13: a plan serves a workflow's probe only if the miss came from the plan, which the attempt's own validated ``plan_presentation_id`` records, and placement itself says this probe has a live placement or gets one at the next step.
+- `next_action(vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None=None) -> NextAction` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 148) — §6.1: what Next does.
+- `continue_without(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 214) — §6.1: logged, it retires the probe, and §5.1 records today's *Teach me now* authorisation.
+- `show_anyway(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 237) — §6.0: releases what's held and marks the probe's answer not independent.
+- `bind_plan_step(repository: Repository, step: Mapping[str, Any] | None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 249) — The plan served it: the decision's second presentation joins its binding.
+- `abandon(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 261) — A generated probe skipped: abandonment closes it, for every generated probe, with or without a workflow, and what its workflow held is released.
 
 ### Module constants
 
@@ -79,7 +79,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `FAILED_LINE` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 21)
 - `NO_PLAN_LINE` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 22)
 - `READY_LINE` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 23)
-- `HELD_KEYS` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 28)
+- `PHONE_HANDOFF_LINE` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 26)
+- `HELD_KEYS` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 31)
 
 ### Explicit exports
 
@@ -102,10 +103,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_line(vault: Any, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 61)
-- `_served(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 100)
-- `_administration_over(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 184)
-- `_diagnosis_timed_out(vault: Any, repository: Repository, row: Mapping[str, Any], now: str) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 189) — Only while the diagnosis itself is what's outstanding; generation has *Continue without it*.
+- `_line(vault: Any, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 64)
+- `_served(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 109)
+- `_administration_over(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 193)
+- `_diagnosis_timed_out(vault: Any, repository: Repository, row: Mapping[str, Any], now: str) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 198) — Only while the diagnosis itself is what's outstanding; generation has *Continue without it*.
 
 ## Who imports or calls it
 
@@ -167,6 +168,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_exposure_while_held_is_recorded_and_counts`
   - `test_the_same_door_with_nothing_held_returns_the_whole_bundle`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
+- [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
+  - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
 
 ## Modification guidance
 
