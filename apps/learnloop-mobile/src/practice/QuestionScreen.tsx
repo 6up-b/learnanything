@@ -33,6 +33,9 @@ export interface QuestionTarget {
   readonly noHelp?: boolean;
 }
 
+/** The phone's serve of a plan question also says when it is the day's randomized check (`noHelp`). */
+type PhoneItemDetail = PracticeItemDetail & { readonly noHelp?: boolean };
+
 /** Into the focused editor at the caret; at the end of the answer if it isn't focused. */
 function insertSymbol(symbol: string, append: (text: string) => void): void {
   const editor = document.activeElement;
@@ -504,9 +507,12 @@ export function QuestionScreen({
     );
   }
   // J16: an item's own hints, unless this answer is to be cold (a randomized check, a check on your
-  // own, a cold follow-up lane), where help would make it a non-success: none is offered then.
+  // own, a cold follow-up lane), where help would make it a non-success: none is offered then. The
+  // serve itself says so for the randomized check (`noHelp`), so a question restored from a checkpoint
+  // (a reload, another device) is as cold as the step that opened it (Codex review of V2, F5).
   const ownHints = item.hints ?? [];
-  const helpOffered = !target.noHelp && !item.intentCheck && !item.activeFollowupKind && ownHints.length > 0;
+  const cold = Boolean(target.noHelp) || Boolean((item as PhoneItemDetail).noHelp);
+  const helpOffered = !cold && !item.intentCheck && !item.activeFollowupKind && ownHints.length > 0;
   const revealed = helpOffered ? ownHints.slice(0, Math.min(assist.hintsUsed, ownHints.length)) : [];
   // Mobile v2 §4.3: the symbol bar and Submit sit together in the thumb zone, kept above the
   // keyboard by the shell's visual-viewport inset; the secondary actions wrap beneath.

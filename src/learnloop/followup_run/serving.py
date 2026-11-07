@@ -21,6 +21,9 @@ PREPARING = "Preparing a question on this…"
 FAILED_LINE = "Couldn't prepare a question on this. It's noted for later."
 NO_PLAN_LINE = "This question comes first."
 READY_LINE = "Your next question is ready."
+#: FG1 §10, mobile v2 V2: the phone reads the workflow, and its question is the desktop's to serve
+#: until V3, so a ready or waiting one says where it is.
+PHONE_HANDOFF_LINE = "Your next question on this is waiting for the desktop."
 
 #: Exactly what §6.0 holds in the feedback bundle: the worked answer, the diagnosis
 #: summary and possible causes, repairs, the prerequisite explanation and escalation.
@@ -73,19 +76,25 @@ def _line(vault: Any, row: Mapping[str, Any]) -> str | None:
     return None
 
 
-def view(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any] | None:
-    """The screen's read of the attempt's workflow, or None (the bundle stays as it was)."""
+def view(vault: Any, repository: Repository, attempt_id: str, *, phone: bool = False) -> dict[str, Any] | None:
+    """The screen's read of the attempt's workflow, or None (the bundle stays as it was).
+
+    ``phone``: the reader is the phone, which serves no generated question until V3 (FG1 §10), so
+    a question ready or waiting for a block says it waits for the desktop."""
 
     row = wf.attempt_workflow(repository, attempt_id)
     if row is None:
         return None
     holding = is_holding(row)
+    line = _line(vault, row)
+    if phone and row["state"] in {wf.READY, wf.WAITING}:
+        line = PHONE_HANDOFF_LINE
     out: dict[str, Any] = {
         "workflow_id": row["id"],
         "state": row["state"],
         "lane": row.get("lane"),
         "held": holding,
-        "line": _line(vault, row),
+        "line": line,
         "chosen_ref": row.get("chosen_ref"),
         # Next never strands the learner: both exits stay open while anything is held.
         "can_show_anyway": holding,

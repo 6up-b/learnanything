@@ -41,9 +41,13 @@ def test_the_identity_is_stable_and_a_resumed_completion_reuses_it(tmp_path):
     assert len(_workflows(repository)) == 1
 
 
-def test_the_phone_and_the_tui_stay_on_the_predecessors_path(tmp_path):
+def test_the_tui_stays_on_the_predecessors_path(tmp_path):
+    # A door with no pending and skip UI names no surface. The phone has them from mobile v2 V2
+    # (surface "phone"): tests/test_mobile_v2_followup.py.
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, outcome = miss_with_rivals(vault, repository, surface=None)
+    assert outcome.workflow_id is None and _workflows(repository) == []
+    _result, outcome = miss_with_rivals(vault, repository, surface="tui", attempt_id="att_tui")
     assert outcome.workflow_id is None and _workflows(repository) == []
 
 

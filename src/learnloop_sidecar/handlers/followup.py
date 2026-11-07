@@ -56,7 +56,8 @@ def followup_status(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any
     vault = _fresh_vault(ctx, vault, repository, params.attempt_id)
     from learnloop.followup_serve.gates import generate_and_serve_on
 
-    current = view(vault, repository, params.attempt_id) if generate_and_serve_on(vault.config) else None
+    phone = ctx.request_origin is not None  # FG1 §10: its question waits for the desktop until V3
+    current = view(vault, repository, params.attempt_id, phone=phone) if generate_and_serve_on(vault.config) else None
     if current is None:
         return versioned({"enabled": False})
     ctx.resume_post_attempt_jobs()

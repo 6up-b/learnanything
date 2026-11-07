@@ -29,7 +29,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
 from learnloop.db.stores import hypothesis_marks as marks_store
-from learnloop.followup_serve.gates import RIVAL_CAUSES_FACTOR_VERSION, SERVING_SURFACE, generate_and_serve_on
+from learnloop.followup_serve.gates import RIVAL_CAUSES_FACTOR_VERSION, WORKFLOW_SURFACES, generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_workflow
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ def open_for_attempt(
     ``needs_diagnosis`` rule, or None when the attempt has no readable grade.
     """
 
-    if surface != SERVING_SURFACE or not generate_and_serve_on(vault.config):
+    if surface not in WORKFLOW_SURFACES or not generate_and_serve_on(vault.config):
         return None
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     if attempt is None:

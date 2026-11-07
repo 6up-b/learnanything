@@ -207,14 +207,15 @@ def _debit_released_feedback(vault: Any, repository: Any, attempt: dict[str, Any
 def _with_followup(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str, bundle: dict[str, Any],
                    holding: bool) -> dict[str, Any]:
     """FG1 §6: the workflow's read rides on the bundle; with no workflow it stays as it was.
-    The phone's feedback doesn't hold what it can't follow with a probe (§10)."""
+    The phone reads it too (mobile v2 stage V2, J3 partial; Codex review of V2, F3): what a
+    workflow holds is held on every device, whichever device's miss opened it."""
 
     from learnloop.followup_run.serving import held_bundle, source_of_probe_attempt, view
     from learnloop.followup_serve.gates import generate_and_serve_on
 
-    if ctx.request_origin is not None or not generate_and_serve_on(vault.config):
+    if not generate_and_serve_on(vault.config):
         return bundle
-    current = view(vault, repository, attempt_id)
+    current = view(vault, repository, attempt_id, phone=ctx.request_origin is not None)
     if current is None:
         # §3 step 8: this answered a generated probe, so what the earlier miss held appears now.
         source = source_of_probe_attempt(repository, attempt_id)
@@ -233,7 +234,7 @@ def _door_bundle(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: s
     contest on a held screen would show the causes, with no receipt, before the probe's answer."""
 
     bundle = feedback_bundle(vault, repository, attempt_id, **kwargs)
-    if ctx.request_origin is None and _followup_holding(repository, attempt_id):
+    if _followup_holding(repository, attempt_id):
         return _with_followup(ctx, vault, repository, attempt_id, bundle, True)
     return bundle
 
@@ -245,12 +246,13 @@ def _with_hypothesis_marks(ctx: SidecarContext, vault: Any, repository: Any, att
     costs the panel, never the feedback.
 
     FG1d: ``claim_checked_ids`` are the causes the bundle already computed, taken before any hold
-    blanked them, so the panel doesn't compute them again."""
+    blanked them, so the panel doesn't compute them again. The phone's bundle carries it too
+    (mobile v2 stage V2; Codex review of V2, F3)."""
 
     from learnloop.followup_run.marks import bundle_view
     from learnloop.followup_serve.gates import hypothesis_marks_on
 
-    if ctx.request_origin is not None or not hypothesis_marks_on(vault.config):
+    if not hypothesis_marks_on(vault.config):
         return bundle
     try:
         # A read only: one connection for its ~20 repository reads, which otherwise each open
@@ -275,7 +277,7 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     first_show = not stored_feedback.get("first_shown_at")
     if params.record_open:
         repository.record_feedback_shown(params.attempt_id, session_id=session_id)
-    followup_holding = ctx.request_origin is None and _followup_holding(repository, params.attempt_id)
+    followup_holding = _followup_holding(repository, params.attempt_id)
     if params.record_open and first_show and attempt is not None and not followup_holding:
         _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
     if params.record_open and attempt is not None and not first_show and not followup_holding:
@@ -828,8 +830,8 @@ def record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> di
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
-    if ctx.request_origin is None and _followup_holding(repository, params.attempt_id):
-        # FG1 §6.0: held means not shown, so nothing here records a display.
+    if _followup_holding(repository, params.attempt_id):
+        # FG1 §6.0: held means not shown, so nothing here records a display (on any device).
         raise SidecarError("followup_feedback_held", "The answer is held until the question is answered.",
                            details={"attempt_id": params.attempt_id})
     try:

@@ -41,13 +41,13 @@ def diagnosis_status(ctx: SidecarContext, params: DiagnosisStatusInput) -> dict[
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} was not found.")
     card = diagnosis_card(vault, repository, params.attempt_id)
-    if ctx.request_origin is None:
-        from learnloop.followup_run.serving import is_holding
-        from learnloop.followup_serve.workflow import attempt_workflow
+    from learnloop.followup_run.serving import is_holding
+    from learnloop.followup_serve.workflow import attempt_workflow
 
-        if is_holding(attempt_workflow(repository, params.attempt_id)):
-            # FG1 §6.0: the poll records no reveal for content it hasn't shown, and shows none.
-            return versioned({"status": "pending", "attempt_id": params.attempt_id})
+    if is_holding(attempt_workflow(repository, params.attempt_id)):
+        # FG1 §6.0: the poll records no reveal for content it hasn't shown, and shows none, on
+        # every device (mobile v2 V2; Codex review of V2, F3: the phone's poll held nothing).
+        return versioned({"status": "pending", "attempt_id": params.attempt_id})
     if card["status"] == DONE:
         # The view shows the diagnosis's repairs once this reports done (in
         # the card, and in the feedback bundle it then re-reads), whether or

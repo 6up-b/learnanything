@@ -16,6 +16,11 @@ from learnloop.algorithm_versions import FOLLOWUP_SERVE_VERSIONS
 SERVING_SURFACE = "desktop"
 #: The phone's request-origin surface name, used for its hand-off line (§10).
 PHONE_SURFACE = "phone"
+#: The doors whose miss opens a workflow. Mobile v2 stage V2 (spec_mobile_frontend_v2 §8, J3 partial;
+#: Codex review of V2, F3) gives the phone the held feedback, *Continue without it* and *Show anyway*,
+#: so a phone miss opens one too, recorded with the phone's surface. Its question is still served and
+#: answered on the desktop only (every phone door refuses a generated probe until V3).
+WORKFLOW_SURFACES = frozenset({SERVING_SURFACE, PHONE_SURFACE})
 #: R9: a factor FG1's lane opened for its question. It owes no repair mapping, so the machine
 #: check sweep leaves it out, and it closes when its question won't be asked.
 RIVAL_CAUSES_FACTOR_VERSION = "followup_rival_causes_v1"

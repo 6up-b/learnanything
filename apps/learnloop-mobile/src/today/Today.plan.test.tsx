@@ -3,7 +3,8 @@
 // desktop and is counted, the stop offer goes both ways, and a randomized check offers no help.
 import { findJargon } from "@desktop/copy/denyList";
 import {
-  answers, App, called, cleanup, describe, expect, feedback, fireEvent, installFakeHost, it, item, render, screen, waitFor
+  answers, App, cacheSessionId, called, cleanup, describe, expect, feedback, fireEvent, getAnswers, installFakeHost, it, item, render,
+  screen, session, waitFor
 } from "../test/fakeHost";
 
 installFakeHost();
@@ -186,6 +187,33 @@ describe("help on the phone (J16 partial) and the randomized check (J6)", () => 
     await beginPlan();
     expect(screen.queryByRole("button", { name: "Hint" })).toBeNull();
     expect(screen.queryByText(/check/i)).toBeNull();
+  });
+
+  it("a randomized check reopened from its checkpoint (a reload, another device) stays without help (Codex review F5)", async () => {
+    cacheSessionId("s1");
+    answers.get_daily_plan = reply();
+    answers.get_session = session({ checkpoint: { currentPracticeItemId: "i1", currentAnswer: "half an answer", submissionId: "k1", hintsUsed: 0, focusBlockState: null, pendingGradingProposal: null } });
+    getAnswers["/api/v1/submissions/k1"] = { state: "unknown" };
+    // The serve says it is the day's check; nothing on the restored target does.
+    answers.get_practice_item = { ...item(), hints: ["Think of the definition."], noHelp: true };
+    render(<App />);
+    const editor = await screen.findByRole("textbox", { name: "Your answer" });
+    await waitFor(() => expect(editor.textContent).toContain("half an answer"));
+    await screen.findByText("Define it.");
+    expect(screen.queryByRole("button", { name: "Hint" })).toBeNull();
+    expect(screen.queryByText(/check/i)).toBeNull();
+    expect(called("practice.record_hint_reveal")).toEqual([]);
+  });
+
+  it("an ordinary question reopened from its checkpoint keeps its own hints", async () => {
+    cacheSessionId("s1");
+    answers.get_daily_plan = reply();
+    answers.get_session = session({ checkpoint: { currentPracticeItemId: "i1", currentAnswer: "half an answer", submissionId: "k1", hintsUsed: 0, focusBlockState: null, pendingGradingProposal: null } });
+    getAnswers["/api/v1/submissions/k1"] = { state: "unknown" };
+    answers.get_practice_item = { ...item(), hints: ["Think of the definition."] };
+    render(<App />);
+    await screen.findByText("Define it.");
+    expect(await screen.findByRole("button", { name: "Hint" })).toBeTruthy();
   });
 });
 

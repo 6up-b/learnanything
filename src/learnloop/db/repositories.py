@@ -1099,6 +1099,13 @@ class Repository(
 
         return OwnedConnection(connect(self.sqlite_path, read_only=self._read_only))
 
+    def in_atomic(self) -> bool:
+        """This thread is inside an ``atomic()`` block (a new one would be a savepoint of it)."""
+
+        from learnloop.db.scopes import AtomicConnection
+
+        return isinstance(getattr(self._pin, "connection", None), AtomicConnection)
+
     @contextmanager
     def atomic(self) -> Iterator[None]:
         """Commit a local operation once, including its nested store writes.

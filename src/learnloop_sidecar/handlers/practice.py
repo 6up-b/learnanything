@@ -304,12 +304,14 @@ def _require_active_item(vault, practice_item_id: str):
 
 
 def followup_surface(ctx: SidecarContext) -> str | None:
-    """FG1 §3.1, §10: only the desktop has the pending and skip UI; a phone's miss
-    stays on the predecessor's path."""
+    """FG1 §3.1, §10: the doors with the pending and skip UI. The desktop, and from mobile v2
+    stage V2 the phone (its held feedback, *Continue without it*, *Show anyway*; Codex review of V2,
+    F3), whose miss opens its workflow under the phone's surface. The question it prepares is the
+    desktop's to serve until V3."""
 
-    from learnloop.followup_serve.gates import SERVING_SURFACE
+    from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE
 
-    return SERVING_SURFACE if ctx.request_origin is None else None
+    return SERVING_SURFACE if ctx.request_origin is None else PHONE_SURFACE
 
 
 @method("get_practice_item", ServePracticeItemInput)
@@ -398,6 +400,14 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
             check = cold_followup_view(vault, repository, item.id, now=SystemClock().now())
         if check is not None:
             detail["intentCheck"] = to_camel(check)
+    if params.session_id is not None and ctx.request_origin is not None:
+        # Mobile v2 J6 (Codex review of V2, F5): the day's randomized check is answered cold. The
+        # server says so on the serve itself, so a question restored from a checkpoint (a reload,
+        # another device) offers no help either, as the step that opened it didn't. Never a label.
+        from learnloop.daily_plan.engine import PlanEnv, open_randomized_check
+
+        if open_randomized_check(PlanEnv(vault=vault, repository=repository), item.id):
+            detail["noHelp"] = True
     detail["elicitation"] = (
         None
         if params.session_id is None

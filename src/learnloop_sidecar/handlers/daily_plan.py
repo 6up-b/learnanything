@@ -12,14 +12,19 @@ the same stored plan serves both devices, and the phone's door filters at the st
 (``PlanStepFilter``): the build, the router's support and every desktop reply are unchanged, and
 with no request origin nothing here differs from before. A phone request's boundary decisions
 record the surface ``phone_plan`` and the device rules they served under. Plan writes that name a
-session check its owner (§5.6, :func:`refuse_moved_session`); reads never do. The host's
+session check its owner (§5.6, :func:`refuse_moved_session`), and check it again inside every
+transaction they commit (:class:`OwnerCheckedRepository`); a phone's write that names no open
+session is refused while another device owns one; reads never check. A by-id pick refuses what the
+phone's step filter holds (:func:`_refuse_held_pick`). The host's
 secondary attach runs none of the plan's background work (D6): the deliverable refresh, AD's
 preparation and the figure prefetch stay the desktop's.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
+from dataclasses import replace as dataclass_replace
 from typing import Any, Literal
 
 from pydantic import Field
@@ -185,8 +190,7 @@ def _require(ctx: SidecarContext, session_id: str | None, *, serve: bool = False
     vault, repository = ctx.require_vault()
     if not plan_active(vault):
         return None
-    if writes:
-        refuse_moved_session(ctx, repository, session_id)
+    check = refuse_moved_session(ctx, repository, session_id) if writes else None
     if not _secondary(ctx):
         # Curriculum C1 (spec §7.6): the daily quiet re-judgment of the nearest
         # deliverable's stale path starts before the plan is built (background,
@@ -196,7 +200,42 @@ def _require(ctx: SidecarContext, session_id: str | None, *, serve: bool = False
 
         refresh_for_plan(ctx, vault, repository)
     prepare_queue_build(ctx, vault, repository, session_id)
-    return vault, repository, _env(ctx, vault, repository, session_id, serve=serve)
+    env = _env(ctx, vault, repository, session_id, serve=serve)
+    if check is not None:
+        # Codex review of V2, F6: the owner checked above is checked again inside every transaction
+        # the step commits, so a handoff during its slow work (the queue build, a boundary's model
+        # call) refuses the step instead of committing it for the device that lost the session.
+        # Only the plan's own writes: the policy's background work keeps the plain repository.
+        env = dataclass_replace(env, repository=OwnerCheckedRepository(repository, check))
+    return vault, env.repository, env
+
+
+class OwnerCheckedRepository:
+    """The repository a session's plan write commits through (mobile v2 §5.6; Codex review of V2,
+    F6): each transaction it begins runs the session's ownership check first, under the write lock it
+    has just taken, so no adopt can commit between the check and the step's rows. A nested
+    ``atomic()`` is a savepoint of a transaction already checked (and may run under AD's read guard),
+    so it checks nothing. Everything else is the repository's own. Nothing changes while the session
+    stays where it was."""
+
+    def __init__(self, repository: Any, check: Callable[[], None]) -> None:
+        self._repository = repository
+        self._check = check
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._repository, name)
+
+    @property
+    def base(self) -> Any:
+        return self._repository
+
+    @contextmanager
+    def atomic(self) -> Iterator[None]:
+        begins = not self._repository.in_atomic()
+        with self._repository.atomic():
+            if begins:
+                self._check()
+            yield
 
 
 def _secondary(ctx: SidecarContext) -> bool:
@@ -334,7 +373,9 @@ def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] |
         # on the vault's durable job queue (read, too, on a plan read: the recovery path).
         from learnloop.adaptive_difficulty.generation import schedule_commission_generation
 
-        schedule_commission_generation(vault, env.repository, _commission_enqueue(ctx))
+        # The plain repository: background work is no step of the session's (F6's check is the step's).
+        schedule_commission_generation(vault, getattr(env.repository, "base", env.repository),
+                                       _commission_enqueue(ctx))
         if not any_background_work(vault.config):
             return
         clients = getattr(ctx, "ad_clients", None)
@@ -401,9 +442,11 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
 
     if params.serve and not params.session_id:
         raise SidecarError("validation_error", "serving a plan item needs a session.", details={"field": "sessionId"})
-    # A serve or a skip is the session's step (mobile v2 §5.6); the prefetch read is not.
+    # A serve or a skip is the session's step (mobile v2 §5.6); the desktop's prefetch read is not.
+    # A phone never peeks (§4.5), and a read at a finished block crosses a boundary and writes its
+    # decision, so every phone call is checked as a write (Codex review of V2, F1).
     required = _require(ctx, params.session_id, serve=params.serve,
-                        writes=params.serve or bool(params.skip_practice_item_id))
+                        writes=params.serve or bool(params.skip_practice_item_id) or ctx.request_origin is not None)
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
@@ -495,7 +538,7 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     # Mobile v2 §5.6: the owner is checked before the proposal's selection is recorded.
     refuse_moved_session(ctx, ctx.require_vault()[1], params.session_id)
     selection = _proposal_selection(ctx, params) if params.proposal_id else None
-    required = _require(ctx, params.session_id)
+    required = _require(ctx, params.session_id, writes=True)
     if required is None:
         # The plan is off: nothing is served here. The open list serves the
         # item when the learner opens it (DL0's open, which the response tells
@@ -508,6 +551,7 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
             off["proposalPick"] = to_camel({**selection, "delivery": "on_open"})
         return off
     _vault, _repository, env = required
+    _refuse_held_pick(env, params.practice_item_id)
     from learnloop_sidecar.handlers.queue import revalidate_cold_check
 
     # A pick revalidates a cold check like every other serve (rounds 5, 6;
@@ -539,6 +583,33 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
                                                      router_decision_id=_served_decision(record, step))
     _schedule_ad(ctx, env, step=step)
     return versioned(result)
+
+
+def _refuse_held_pick(env: PlanEnv, practice_item_id: str) -> None:
+    """Mobile v2 §2.2 (Codex review of V2, F2): a by-id pick is a serving door too, so it refuses,
+    before anything is served or written, what the device's step filter holds for the desktop (PR-6's
+    rules, the diagnostic check this session left there, and a generated probe until V3). The
+    desktop (no filter) is never refused here."""
+
+    if env.device is None:
+        return
+    item = env.vault.practice_items.get(practice_item_id)
+    if item is None:
+        return  # learner_pick answers an unknown item as it always has
+    reason = env.device.holds(item)
+    if reason is None:
+        return
+    from learnloop.scheduling.device_eligibility import GENERATED_PROBE
+
+    if reason == GENERATED_PROBE:
+        from learnloop.followup_serve.identity import GENERATED_PROBE_RESERVED
+
+        raise SidecarError(GENERATED_PROBE_RESERVED, f"{item.id} is a single-use question and can't be opened here.",
+                           details={"practice_item_id": item.id})
+    from learnloop_sidecar.serving import DESKTOP_ONLY_ERROR_CODE
+
+    raise SidecarError(DESKTOP_ONLY_ERROR_CODE, f"{item.id} can only be answered on the desktop.",
+                       details={"practice_item_id": item.id, "reason": reason})
 
 
 def _served_decision(record: Any, step: Mapping[str, Any]) -> str | None:
