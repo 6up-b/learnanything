@@ -171,6 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_logged_propensity_is_reproducible_from_the_logged_components`
   - `test_the_two_stage_marginal_is_the_mixture`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
+- [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
 - [tests/test_teacher_te1b_rereview_fixes.py](../../../../../../tests/test_teacher_te1b_rereview_fixes.py) — direct import
   - `test_mixture_mode_draws_the_target_by_the_routers_model_mixture`
 
