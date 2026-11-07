@@ -84,7 +84,13 @@ from learnloop_sidecar.handlers.sessions import (
 )
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.request_origin import DESKTOP_PRACTICE, host_mutation, practice_surface
+from learnloop_sidecar.request_origin import (
+    DESKTOP_PRACTICE,
+    PHONE_PRACTICE,
+    host_mutation,
+    phone_probes_on,
+    practice_surface,
+)
 from learnloop_sidecar.serving import (
     device_filter,
     refuse_device_ineligible_item,
@@ -307,7 +313,8 @@ def followup_surface(ctx: SidecarContext) -> str | None:
     """FG1 §3.1, §10: the doors with the pending and skip UI. The desktop, and from mobile v2
     stage V2 the phone (its held feedback, *Continue without it*, *Show anyway*; Codex review of V2,
     F3), whose miss opens its workflow under the phone's surface. The question it prepares is the
-    desktop's to serve until V3."""
+    phone's to serve from V3 (owner decision D3) with the host's ``phone_probes``, and otherwise
+    the desktop's."""
 
     from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE
 
@@ -338,7 +345,8 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
     if item is None:
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
-    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=params.session_id is not None)
+    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=params.session_id is not None,
+                                phone_probes=phone_probes_on(ctx.request_origin, vault.config))
     if params.session_id is not None:
         item = _require_active_item(vault, params.practice_item_id)
         # A session serve of a dormant/resolved LO's item, or of one made from
@@ -502,7 +510,24 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # Mobile PR-6: committing a presentation is a serve, so an item the phone
     # cannot show never commits one from there.
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
-    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True)
+    phone_probes = phone_probes_on(ctx.request_origin, vault.config)
+    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True, phone_probes=phone_probes)
+    if phone_probes:
+        # Mobile v2 V3, G10's cap boundary: the phone answers probes, and the host's two workers can act for one
+        # device at once (this read on its RPC worker, a submit on its job worker). The admission (the session
+        # cap's count, the session's open presentation, the commit) is one BEGIN IMMEDIATE transaction, and a
+        # submit consumes its presentation and records its observation in one too (``apply_attempt``), so the
+        # count an admission reads always includes every observation it could race. The desktop is serial.
+        with repository.atomic():
+            reply = _probe_contract(ctx, vault, repository, item, params)
+        # The phone renders and answers this one under its contract (cold, no help): what the phone reads to know
+        # it may (below the tag, or with phone_probes off, an active contract still waits for the desktop, as V2's).
+        return {**reply, "phoneAnswers": True} if reply.get("active") else reply
+    return _probe_contract(ctx, vault, repository, item, params)
+
+
+def _probe_contract(ctx: SidecarContext, vault: Any, repository: Any, item: Any,
+                    params: ProbeContractInput) -> dict[str, Any]:
     episode = repository.open_probe_episode(item.learning_object_id)
     if episode is None or episode.status != "in_progress":
         return versioned({"active": False})
@@ -781,6 +806,8 @@ def record_hint_reveal(ctx: SidecarContext, params: HintRevealInput) -> dict[str
             authored_index=params.authored_index,
             work_md=params.answer_md,
             revealed_at=params.revealed_at,
+            # Mobile v2 V3 (migration 250; V2's landing ruling R5): the phone's reveal names its device.
+            **({"surface": PHONE_PRACTICE} if ctx.request_origin is not None else {}),
         )
     except Exception as exc:  # noqa: BLE001 -- telemetry never fails the reveal
         log_event("hint_reveal_telemetry_failed", practice_item_id=item.id, error=type(exc).__name__)
@@ -1307,7 +1334,21 @@ def acknowledge_practice_submission(
 @method("submit_attempt", SubmitAttemptInput)
 @host_mutation
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
+    _refuse_phone_probe_answer(ctx, params.probe_presentation_id)
     return submit_attempt_on(ctx, params, entry_surface=practice_surface(ctx.request_origin))
+
+
+def _refuse_phone_probe_answer(ctx: SidecarContext, probe_presentation_id: str | None) -> None:
+    """Mobile v2 V3 (D3): a phone answers a probe's presentation only with ``phone_probes`` on and the vault at the
+    successor's tag. Otherwise it never names one (V2, M2a's G10 by construction): refused as the host refuses it.
+    The desktop is never refused here."""
+
+    if probe_presentation_id is None or ctx.request_origin is None:
+        return
+    vault, _repository = ctx.require_vault()
+    if not phone_probes_on(ctx.request_origin, vault.config):
+        raise SidecarError("validation_error", "probe_presentation_id is not available from the phone",
+                           details={"field": "probe_presentation_id"})
 
 
 def submit_attempt_on(
@@ -1553,6 +1594,7 @@ def _schedule_hint_outcome(ctx: SidecarContext, vault, repository, attempt_id: s
 @method("submit_dont_know", DontKnowInput)
 @host_mutation
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
+    _refuse_phone_probe_answer(ctx, params.probe_presentation_id)
     return submit_dont_know_on(ctx, params, entry_surface=practice_surface(ctx.request_origin))
 
 

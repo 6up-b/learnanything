@@ -838,6 +838,21 @@ TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.51"
 # and TE2 (mvp-0.51) landed.
 LESSON_OPPORTUNITY_ALGORITHM_VERSION = "mvp-0.52"
 
+# mvp-0.53 (mobile frontend v2, stage V3: probes and cold checks on the phone;
+# owner decision D3, accepted 2026-11-06; docs/specs/spec_mobile_frontend_v2.md
+# §8's V3 row; docs/reviews/phone-v2-v3-probes.md), on top of mvp-0.52 (the
+# chain stays linear). What it changes: which items are served as measurements
+# (the 2026-10-17 rule): a phone origin now serves and answers the phone-eligible
+# diagnostic probes and FG1's generated follow-up probes it used to leave for
+# the desktop, under the probe contract (cold, no help), each generated one
+# burned at its first serve on whichever device opened it and refused on the
+# other. The desktop (a None origin) serves exactly as mvp-0.52. Its kill switch
+# is the phone host's ``phone_probes`` (mobile.toml, default true): off, or
+# below the tag, the phone is V2's exactly. Nothing recorded changes meaning and
+# replay reads nothing new. Built on main 14b2ed09ab as mvp-0.53 while TE3b
+# lands in parallel; ONE constant, renumbered at landing if TE3b lands first.
+PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.53"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -889,6 +904,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
+    PHONE_PROBES_ALGORITHM_VERSION,
 )
 
 
@@ -1136,6 +1152,11 @@ TEACHER_PROBES_VERSIONS: frozenset[str] = successors_from(TEACHER_PROBES_ALGORIT
 # ``adaptive_difficulty.lesson_opportunities``. Every later successor keeps
 # them; gates must use this set, never equality.
 LESSON_OPPORTUNITY_VERSIONS: frozenset[str] = successors_from(LESSON_OPPORTUNITY_ALGORITHM_VERSION)
+
+# Versions whose phone origin serves and answers phone-eligible probes (mobile
+# v2 V3, owner decision D3), behind the phone host's ``phone_probes``. Every
+# later successor keeps them; gates must use this set, never equality.
+PHONE_PROBES_VERSIONS: frozenset[str] = successors_from(PHONE_PROBES_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

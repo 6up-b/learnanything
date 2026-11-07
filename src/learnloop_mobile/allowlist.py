@@ -80,10 +80,12 @@ def _all(*checks: Callable[[Mapping[str, Any]], None]) -> Callable[[Mapping[str,
 #: The phone has no self-grading UI (§4.5); a stuck or answered submit is graded on
 #: the desktop's routes or fails with ``grading_fallback_required``. Photo and voice
 #: transcriptions (``answer_transcription_id``) are M2b's and its model has no field yet.
-#: A diagnostic probe is never answered on the phone in M2 (§1, §6.4), so no phone answer
-#: names a presentation, and neither of the host's workers can add a qualifying probe
-#: observation: that is how G10's cap boundary holds for them.
-_SUBMIT = _all(_submission_required, _reject("self_grade", "probe_presentation_id"))
+#: A diagnostic probe's presentation (``probe_presentation_id``) is answered on the phone from
+#: mobile v2 V3 on (owner decision D3), behind the host's ``phone_probes``: with it off the host
+#: refuses it here (:func:`check_probe_parameters`), as M2 and V2 did, and below the vault's
+#: successor tag the shared handler refuses it. G10's cap boundary then holds by the admission's
+#: transaction (``practice.get_probe_contract`` under a phone origin), not by construction.
+_SUBMIT = _all(_submission_required, _reject("self_grade"))
 
 
 @dataclass(frozen=True)
@@ -193,7 +195,33 @@ _V2 = (
     _v2_short("practice.record_hint_reveal", retry_safe=False),
 )
 
-ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2)})
+def _v3_short(name: str, *, retry_safe: bool, constraints=_no_constraint) -> MobileMethod:
+    return MobileMethod(name, "V3", "short", retry_safe, constraints)
+
+
+#: Mobile v2 stage V3 (spec §8; owner decision D3): probes and cold checks on the phone. A generated
+#: follow-up probe is opened by Next on the miss's feedback (FG1 §6.1), burned at that serve on the
+#: phone's surface and refused on the desktop; a probe's answer names its presentation (``_SUBMIT``).
+#: ``followup_next`` can write (a pending workflow's Next request, a recovery, a retirement), so it is
+#: not retried automatically. The kill switch ``phone_probes`` refuses it (``phone_probes_off``).
+_V3 = (
+    _v3_short("followup_next", retry_safe=False),
+)
+
+ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2, *_V3)})
+
+#: Mobile v2 V3: what ``phone_probes`` off refuses (``phone_probes_off``), so the phone is V2's.
+PROBE_METHODS = frozenset({"followup_next"})
+#: Mobile v2 V3: parameters only a phone that answers probes may send (refused with ``phone_probes`` off).
+_PROBE_PARAMETERS = {"submit_attempt": ("probe_presentation_id",), "submit_dont_know": ("probe_presentation_id",)}
+
+
+def check_probe_parameters(name: str, params: Mapping[str, Any], *, phone_probes: bool) -> None:
+    """With the host's ``phone_probes`` off, a submit naming a probe's presentation is refused, as V2 refused it."""
+
+    if phone_probes:
+        return
+    _reject(*_PROBE_PARAMETERS.get(name, ()))(params)
 
 #: The plan's methods (J1): the kill switch ``phone_plan`` in ``mobile.toml`` refuses them
 #: (``phone_plan_off``), and the phone's Today is M2a's queue again.

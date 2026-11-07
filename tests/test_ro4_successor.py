@@ -46,8 +46,8 @@ def test_the_successor_is_one_constant_after_ro1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.46"
     # Router objective RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51)
     # landed after it and keep it.
-    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-6] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.52"
-    assert ROUTER_OBJECTIVE_VERSIONS == frozenset({TAG, "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52"})
+    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-7] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.53"
+    assert ROUTER_OBJECTIVE_VERSIONS == frozenset({TAG, "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53"})
 
 
 def test_the_seeds_are_the_specs_and_validated():
@@ -120,8 +120,8 @@ def test_the_openers_install_this_links_completion():
     # RO6's and RO5's links, which hand this link's journal to this link's completion.
     from learnloop import router_calibration_upgrade
 
-    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.lesson_opportunity_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.router_objective_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_calibration_upgrade)
 

@@ -123,3 +123,43 @@ def test_the_desktops_keep_going_on_a_finished_plan_records_as_before(plan_world
     assert going["plan"]["kind"] == "keep_going"
     assert [(r["end_reason"], r["plan_id"]) for r in _receipts(repository)] == [
         ("offered_stop_overridden", finished["id"])]
+
+
+# -- help_assists.surface (migration 250; V2's landing ruling R5) ------------------------------------------------
+
+
+def test_an_items_own_hint_revealed_on_the_phone_records_the_phones_surface_and_the_desktops_stays_practice(
+        tmp_path, monkeypatch):
+    from starlette.testclient import TestClient
+
+    from learnloop_mobile.host import create_app
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    from tests.mobile_host_helpers import HOSTNAME, ITEM, CountingGrader, Phone, config_for, install_grader, pair, seeded_vault
+
+    paths, repository = seeded_vault(tmp_path / "vault")
+    install_grader(monkeypatch, CountingGrader())
+    vault_ctx = SidecarContext()
+    vault_ctx.load(paths.root)
+    vault, _ = vault_ctx.require_vault()
+    if not vault.practice_items[ITEM].hints:
+        pytest.skip("the seeded item has no authored hint")  # pragma: no cover
+    with TestClient(create_app(config_for(paths.root)), base_url=f"https://{HOSTNAME}") as client:
+        phone = Phone(client, pair(repository))
+        session_id = phone.start()["sessionId"]
+        params = {"sessionId": session_id, "practiceItemId": ITEM, "submissionId": "sub_hint_phone", "authoredIndex": 0,
+                  "answerMd": "a start", "revealedAt": None}
+        assert phone.rpc("practice.record_hint_reveal", params)["recorded"] is True
+        phone.rpc("end_session", {"sessionId": session_id})
+    spec = METHOD_REGISTRY["start_session"]
+    desktop_session = spec.handler(vault_ctx, spec.params_model.model_validate({"availableMinutes": 25}))["sessionId"]
+    spec = METHOD_REGISTRY["practice.record_hint_reveal"]
+    reply = spec.handler(vault_ctx, spec.params_model.model_validate(
+        {**params, "sessionId": desktop_session, "submissionId": "sub_hint_desktop"}))
+    assert reply["recorded"] is True
+    assert rows(repository, "SELECT submission_id, surface FROM help_assists ORDER BY submission_id") == [
+        {"submission_id": "sub_hint_desktop", "surface": "practice"},
+        {"submission_id": "sub_hint_phone", "surface": "phone_practice"},
+    ]
+    vault_ctx.close()

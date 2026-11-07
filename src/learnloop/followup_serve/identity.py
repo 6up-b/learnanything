@@ -264,6 +264,25 @@ def door_refusal(repository: Repository, practice_item_id: str, *, workflow_id: 
     return None
 
 
+def served_surface(repository: Repository, practice_item_id: str) -> str | None:
+    """The surface whose door burned this generated probe at its first serve, or None (unserved, or no identity).
+    Mobile v2 V3: a probe served on one device is refused on the other (the claim keys the surface), so a door, a
+    plan step or a list on the other device leaves it alone. Reads only."""
+
+    with repository.connection() as connection:
+        if not _present(connection) or store.generated_probe(connection, practice_item_id) is None:
+            return None
+        burn = store.burns_for_item(connection, practice_item_id).get(SERVED)
+    return str(burn.get("surface")) if burn else None
+
+
+def served_elsewhere(repository: Repository, practice_item_id: str, surface: str) -> bool:
+    """Burned at its first serve by another surface's door: its one administration is that device's."""
+
+    served = served_surface(repository, practice_item_id)
+    return served is not None and served != surface
+
+
 def door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]:
     """(closed, reserved): what every selector leaves out, read once.
 
@@ -300,5 +319,6 @@ __all__ = [
     "Claim", "GENERATED_PROBE_CLOSED", "GENERATED_PROBE_RESERVED", "LESSON_SOURCE", "MACHINE_REVIEWER", "RETIRED", "SERVED",
     "claim_serve",
     "closed_probe_ids", "door_refusal", "door_sets", "exclude_ids", "generated_probe_ids", "is_generated_probe", "item_revision",
-    "register", "replay_inactive_ids", "retire", "retire_unbound", "retired_probe_ids", "withdraw",
+    "register", "replay_inactive_ids", "retire", "retire_unbound", "retired_probe_ids", "served_elsewhere",
+    "served_surface", "withdraw",
 ]

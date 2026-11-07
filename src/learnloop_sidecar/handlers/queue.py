@@ -55,7 +55,7 @@ from learnloop_sidecar.handlers.teach_back import (
 )
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.request_origin import offer_surface
+from learnloop_sidecar.request_origin import offer_surface, phone_probes_on
 from learnloop_sidecar.serving import (
     device_filter,
     device_policy,
@@ -242,7 +242,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
                 {}
                 if ctx.request_origin is None
                 else {"device_deferred_count": (len(held_for_device.deferred) if held_for_device else 0)
-                      + _desktop_followups(repository)}
+                      + _desktop_followups(ctx, vault, repository)}
             ),
         }
     )
@@ -250,20 +250,29 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
 
 def _with_followup_head(ctx: SidecarContext, vault: Any, repository: Any, queue: list[ScheduledItem]) -> list[ScheduledItem]:
     """FG1 §5.1: with no plan, a ready generated probe goes to the head of the queue, and the
-    offer that lists it is the logged decision. On the desktop only; a phone never lists one."""
+    offer that lists it is the logged decision. On the desktop, and from mobile v2 V3 (D3, with
+    ``phone_probes``) on the phone too, each listing only a question it can open: none already
+    served on the other device, and on the phone none it can't show."""
 
     from learnloop.daily_plan.engine import plan_active
-    from learnloop.followup_serve.gates import generate_and_serve_on
+    from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE, generate_and_serve_on
 
-    if ctx.request_origin is not None or not generate_and_serve_on(vault.config) or plan_active(vault):
+    phone = ctx.request_origin is not None
+    if (phone and not phone_probes_on(ctx.request_origin, vault.config)) or not generate_and_serve_on(vault.config) \
+            or plan_active(vault):
         return queue
+    from learnloop.followup_serve import identity
     from learnloop.followup_serve import workflow as followup_workflow
     from learnloop.scheduling.scheduler import followup_head_item
+    from learnloop_sidecar.serving import origin_ineligibility
 
+    surface = PHONE_SURFACE if phone else SERVING_SURFACE
     heads = []
     for row in followup_workflow.session_rows(repository, ""):
         item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
-        if row["state"] == followup_workflow.READY and item is not None:
+        if (row["state"] == followup_workflow.READY and item is not None
+                and not identity.served_elsewhere(repository, item.id, surface)
+                and origin_ineligibility(ctx.request_origin, vault, item) is None):
             head = followup_head_item(vault, item, priority=max((entry.priority for entry in queue), default=0.0) + 1.0)
             if head is not None:
                 # In the offer's slate, with no candidate of its own: its pin is its measurement.
@@ -271,12 +280,26 @@ def _with_followup_head(ctx: SidecarContext, vault: Any, repository: Any, queue:
     return [*heads, *queue] if heads else queue
 
 
-def _desktop_followups(repository: Any) -> int:
-    """FG1 §10: a pending generated probe is the desktop's; it joins the phone's "waiting" line."""
+def _desktop_followups(ctx: SidecarContext, vault: Any, repository: Any) -> int:
+    """FG1 §10: a pending generated probe is the desktop's; it joins the phone's "waiting" line. From mobile v2 V3
+    (D3, with ``phone_probes``) only one the phone can't open waits there: served on the desktop, or one it can't
+    show."""
 
-    from learnloop.followup_serve.workflow import desktop_waiting_count
+    from learnloop.followup_serve.workflow import desktop_waiting_count, session_rows
 
-    return desktop_waiting_count(repository)
+    if not phone_probes_on(ctx.request_origin, vault.config):
+        return desktop_waiting_count(repository)
+    from learnloop.followup_serve import identity
+    from learnloop.followup_serve.gates import PHONE_SURFACE
+    from learnloop_sidecar.serving import origin_ineligibility
+
+    waiting = 0
+    for row in session_rows(repository, ""):
+        item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+        if item is not None and (identity.served_elsewhere(repository, item.id, PHONE_SURFACE)
+                                 or origin_ineligibility(ctx.request_origin, vault, item) is not None):
+            waiting += 1
+    return waiting
 
 
 def _wait_for_session_diagnoses(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None:
@@ -375,7 +398,8 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
         refuse_device_ineligible_item(ctx.request_origin, vault, item)
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
-        refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True)
+        refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True,
+                                    phone_probes=phone_probes_on(ctx.request_origin, vault.config))
         eligibility = revalidate_cold_check(vault, repository, item.id)
     else:
         eligibility = None

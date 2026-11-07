@@ -166,10 +166,12 @@ SUBMIT_METHODS = frozenset(capture.SUBMIT_METHODS)
 class HostRuntime:
     """The two workers and the jobs they run, for one pinned vault."""
 
-    def __init__(self, vault: Path, repo: Repository, read_repo: Repository):
+    def __init__(self, vault: Path, repo: Repository, read_repo: Repository, *, phone_probes: bool = False):
         self._vault = vault
         self._repo = repo
         self._read_repo = read_repo
+        #: Mobile v2 V3: the host's ``phone_probes``, carried on every origin it makes (never a parameter).
+        self.phone_probes = phone_probes
         self.boot_id = new_ulid()
         self._post_attempt: Any = None
         self._setup_lock = threading.Lock()
@@ -261,7 +263,8 @@ class HostRuntime:
     def _origin(self, device_id: str, *, accepted_session_id: str | None = None) -> Any:
         from learnloop_sidecar.request_origin import RequestOrigin
 
-        return RequestOrigin(device_id=device_id, accepted_session_id=accepted_session_id)
+        return RequestOrigin(device_id=device_id, accepted_session_id=accepted_session_id,
+                             phone_probes=self.phone_probes)
 
     # -- requests ----------------------------------------------------------------
 

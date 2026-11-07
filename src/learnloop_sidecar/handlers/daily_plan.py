@@ -165,20 +165,30 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
 def _step_filter(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> Any:
     """Mobile v2 §2.2: the requesting device's step filter, from the request's origin (never a
     parameter); None for the desktop. The PR-6 rules, the diagnostic check this session left for
-    the desktop, and (until V3) a generated follow-up probe, which no phone door serves."""
+    the desktop, and a generated follow-up probe the phone may not open: every one below V3 (or
+    with ``phone_probes`` off), and from V3 on (owner decision D3) one already served on the
+    desktop, whose single administration is the desktop's."""
 
     if ctx.request_origin is None:
         return None
     from learnloop.followup_serve import identity
+    from learnloop.followup_serve.gates import PHONE_SURFACE
     from learnloop.scheduling.device_eligibility import PlanStepFilter
-    from learnloop_sidecar.request_origin import plan_surface
+    from learnloop_sidecar.request_origin import phone_probes_on, plan_surface
     from learnloop_sidecar.serving import device_filter, device_policy
+
+    if phone_probes_on(ctx.request_origin, vault.config):
+        def generated_probe(practice_item_id: str) -> bool:
+            return identity.served_elsewhere(repository, practice_item_id, PHONE_SURFACE)
+    else:
+        def generated_probe(practice_item_id: str) -> bool:
+            return identity.is_generated_probe(repository, practice_item_id)
 
     return PlanStepFilter(
         device_filter=device_filter(ctx.request_origin, vault, repository, session_id),
         surface=plan_surface(ctx.request_origin),
         device_policy=device_policy(vault),
-        generated_probe=lambda practice_item_id: identity.is_generated_probe(repository, practice_item_id),
+        generated_probe=generated_probe,
     )
 
 
@@ -455,6 +465,8 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
         from learnloop.followup_run.serving import abandon
 
         abandon(env.repository, params.skip_practice_item_id)
+    if params.serve and ctx.request_origin is None:
+        _abandon_phone_served(env)
     record, step, context = advance_with_context(
         env, serve=params.serve, skip_practice_item_id=params.skip_practice_item_id
     )
@@ -465,6 +477,28 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
         bind_plan_step(env.repository, step)
         _schedule_ad(ctx, env, step=step)
     return result
+
+
+def _abandon_phone_served(env: PlanEnv) -> None:
+    """Mobile v2 V3 (owner decision D3): a generated probe this plan served on the phone, still unanswered, when the
+    desktop (which owns the session now, checked above) asks for its next step. Its one administration was the
+    phone's and the desktop's door refuses it, so the desktop's Next moves past it: it is abandoned (FG1 §4.2:
+    abandonment closes it, what its workflow held is released, its decision's outcome is ``abandoned``), and the
+    plan's reconcile then displaces it as a retired probe (``generated_probe_closed``). Only a phone's burn reaches
+    here, which no vault had before V3; nothing else is read or written for the desktop."""
+
+    from learnloop.daily_plan.engine import latest_today
+    from learnloop.followup_run.serving import abandon
+    from learnloop.followup_serve.gates import SERVING_SURFACE
+    from learnloop.followup_serve.identity import served_elsewhere
+
+    record = latest_today(env)
+    if record is None or not record.is_open:
+        return
+    for item in record.items():
+        if item.served_at is not None and not item.resolved \
+                and served_elsewhere(env.repository, item.practice_item_id, SERVING_SURFACE):
+            abandon(env.repository, item.practice_item_id, clock=env.clock)
 
 
 @method("plan_reading_ended", PlanReadingEndedInput)

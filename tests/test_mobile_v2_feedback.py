@@ -67,9 +67,8 @@ def test_j3_the_follow_up_read_and_its_ways_out_answer_without_a_workflow(answer
     reply = phone.rpc("record_hypothesis_exposure", {"attemptId": attempt_id, "surface": "marks_feedback",
                                                      "hypothesisVersionIds": [], "shownAt": None})
     assert "recorded" in reply
-    # A generated probe's own door stays closed to the phone (V3).
-    status, error = phone.error("followup_next", {"attemptId": attempt_id})
-    assert (status, error["code"]) == (403, "method_not_allowed")
+    # V3 (D3): Next on the phone asks the workflow too; with none, it goes on.
+    assert phone.rpc("followup_next", {"attemptId": attempt_id})["action"] == "continue"
 
 
 def test_j4_the_routers_explanation_is_read_only(answered):

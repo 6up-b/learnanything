@@ -12,7 +12,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.request_origin import host_mutation
+from learnloop_sidecar.request_origin import host_mutation, phone_probes_on
 
 
 class FollowupInput(ParamsModel):
@@ -56,7 +56,9 @@ def followup_status(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any
     vault = _fresh_vault(ctx, vault, repository, params.attempt_id)
     from learnloop.followup_serve.gates import generate_and_serve_on
 
-    phone = ctx.request_origin is not None  # FG1 §10: its question waits for the desktop until V3
+    # FG1 §10 as amended by mobile v2 V3 (D3): the phone's line says its question waits for the desktop only while the
+    # phone serves none (phone_probes off, or below its tag); with it, the phone reads the desktop's line.
+    phone = ctx.request_origin is not None and not phone_probes_on(ctx.request_origin, vault.config)
     current = view(vault, repository, params.attempt_id, phone=phone) if generate_and_serve_on(vault.config) else None
     if current is None:
         return versioned({"enabled": False})
@@ -72,8 +74,16 @@ def followup_next(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]:
 
     vault, repository = ctx.require_vault()
     vault = _fresh_vault(ctx, vault, repository, params.attempt_id)
+    if ctx.request_origin is not None and not phone_probes_on(ctx.request_origin, vault.config):
+        # Mobile v2 V3: a phone that serves no probe (phone_probes off, or below its tag) goes on, as V2's did; its
+        # question is the desktop's. Nothing is written for it.
+        return versioned(to_camel({"action": "continue", "line": None, "practice_item_id": None,
+                                   "presentation_id": None}))
+    from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE
+
     action = next_action(vault, repository, params.attempt_id,
-                         plan_serves=plan_will_place(vault, repository, params.attempt_id))
+                         plan_serves=plan_will_place(vault, repository, params.attempt_id),
+                         surface=SERVING_SURFACE if ctx.request_origin is None else PHONE_SURFACE)
     ctx.resume_post_attempt_jobs()
     return versioned(to_camel({
         "action": action.action, "line": action.line, "practice_item_id": action.practice_item_id,
