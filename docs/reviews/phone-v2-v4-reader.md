@@ -4,7 +4,14 @@
 
 ## Commits
 
-COMMITS_TABLE
+| Commit | What |
+|---|---|
+| `031c10cc83` | (1) The backend: `render_view`'s range; the phone's protection; the media lane and its cache; allowlist V4 rows and the `phone_reader` switch and capability; the plan's reading blocks on the phone; D6's deferred generation; §2.3's lift; tests (`test_mobile_v4_reader.py`, `test_mobile_v4_plan.py`, `test_mobile_v4_eligibility.py`) and the pins that moved |
+| `5a75873fa5` | (2) The PWA: the Read place and the Reader, the selection sheet, *as printed*, the outbox's reader intents, the page cache in the service worker, the generated contract files; vitest |
+| `85fc6e32a8` | (3) This review, the spec's "As built" note, regenerated references |
+| (this commit) | The review's commit and gate tables |
+
+Main had not moved from `ccb6573987` when the stage ended (checked before (3)), so there was nothing to merge.
 
 ## 1. What was built
 
@@ -116,7 +123,21 @@ Tests: `test_the_phone_is_never_sent_held_out_text`, `test_a_reading_exam_materi
 
 ## 5. Gate
 
-GATE_TABLE
+Owner rule 2026-10-17: the full suite, the whole durability lane and the whole vitest run are the landing gate's, on the merged tree; none was run here. Every pytest, vitest and npm command ran under `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, pytest at `-n 6` at most, vitest at `--maxWorkers=4`, the large passes behind `flock /tmp/learnloop-fullsuite.lock`.
+
+| Step | Command / files | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`; `uv pip install --offline pypdfium2==5.14.0` | done |
+| Architecture | `uv run lint-imports --no-cache` (under `env -i`, empty `HOME`/`CODEX_HOME`/`LEARNLOOP_CONFIG_DIR`) | **43 kept, 0 broken** |
+| New tests while building | `test_mobile_v4_reader.py`, `test_mobile_v4_plan.py`, `test_mobile_v4_eligibility.py`, `test_mobile_allowlist.py`, `test_mobile_meta_timing.py`, `test_mobile_phone_contract.py` | 393 passed |
+| Targeted pass 1 | 146 files: every test file `git grep` finds naming a changed module or function (`render_view`, `mark_section_progress`, `get_progress`, `log_activity`/`record_activity`, `reading_ended`/`note_reading_progress`, `device_eligibility`/`PlanStepFilter`/`DeviceFilter`/`device_policy`/`ineligibility_reason`, `get_source_library`, `as_printed`, `reader.ask`, `reader.capture`, `guide_plan`, `ask_history`, `section_generation`, `RequestOrigin`/`request_origin`, `learnloop_mobile`, `reader_section_progress`, `_step_filter`): the AD, reader, plan, mobile, data-capture, curriculum, figure, library-ask, re-read, UX Phase 1 and session-ownership files | **11842 passed, 11 skipped, 3 failed**: three pins of V3's shape (the allowlist's milestone set, the host's lane counters, the app's capability header), updated |
+| Targeted pass 2 | 77 files: every `test_mobile_*`, every `test_sidecar_reader*`, every `test_ux_phase1_*`, `test_reader_pdf_selection`, `test_daily_plan_reading`, `test_reading_request_sweep`, `test_reading_hardening_landing`, `test_reader_activity`, `test_ro0_row5_event_times`, `test_reread_safety`, `test_device_eligibility`, `test_request_origin`, `test_session_ownership`, `test_reader_ca1_as_printed`, `test_ad3_dose_arm`; the contract set (`test_cli_help_snapshot`, `test_config_refactor` (defaults snapshot), `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_architecture`, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_registry_audit`, `test_module_catalog_inventory`, `test_public_tip_guards`, `test_sqlite_file_copies`); the display-label audit (`test_sidecar_measurement`, `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`); the frozen cycles (`test_codex_lockdown_frozen`) and the process-launch allowlist (`test_codex_lockdown_round3`) | **1708 passed, 1 failed**: the phone contract's reply journey, where a long reader method passed the host's 15 s wait under load and answered 202. The journey now follows a 202 as the phone does; rerun 8 passed |
+| After the docs commit | `test_module_catalog_inventory.py`, `test_public_tip_guards.py` | 23 passed |
+| PWA | `npm install --prefer-offline`; `npm run typecheck`; `npx vitest run --maxWorkers=4 src/api src/store src/sw.test.ts src/shell src/practice src/today src/capture src/read src/desktopImports.test.ts`; `npm run build` | typecheck clean; **26 files, 313 tests passed**; build passes |
+| Desktop | no file under `apps/learnloop-tauri` changed (`git diff --stat` empty), so no desktop typecheck, vitest, build or `cargo check` | n/a |
+| References | `module_generate.py` then `module_validate.py`; `desktop_validate.py`; `validate_vault.py` | PASS (1252 notes, links 41797/41797); 323/323 + 6/6, reproducible; 2245 notes. Provenance-only churn left out (46 notes). No schema change, so no DB reference run |
+| Durability lane | no migration and no DB/connection code changed (the two repository methods are plain statements on an existing table) | not run |
+| Spend | no paid call, no live call: every ad-hoc command ran under `env -i` with empty dirs and routes off; tests use fakes (the Ask's provider is a refusal in the tests) | $0 |
 
 ## 6. Phone acceptance (the owner runs these on the iPhone; spec §7.5)
 
