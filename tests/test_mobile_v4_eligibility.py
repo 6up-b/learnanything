@@ -27,15 +27,23 @@ def _png() -> bytes:
 
 @pytest.fixture
 def store(tmp_path):
-    raw = tmp_path / "canonical-sources" / "raw"
-    raw.mkdir(parents=True)
-    image, pdf = _png(), b"%PDF-1.7\n% a stored book\n"
-    names = {}
-    for kind, data in (("image", image), ("pdf", pdf)):
-        name = "sha256-" + hashlib.sha256(data).hexdigest()
-        (raw / name).write_bytes(data)
-        names[kind] = name
-    return SimpleNamespace(root=tmp_path), names
+    """A synthetic vault with a stored image and a real three-page book its Reader covers (Codex review F10: a
+    target is lifted only when the host's page or asset endpoint serves it, so a header-only file is not)."""
+
+    pytest.importorskip("pypdfium2")
+    from learnloop.db.repositories import Repository
+    from learnloop.ingest.originals import store_original_bytes
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import create_basic_vault
+    from tests.test_mobile_v4_reader import add_book
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository(paths.sqlite_path)
+    digest = add_book(paths.root, repository, held_out=False)
+    image = _png()
+    names = {"image": "sha256-" + hashlib.sha256(image).hexdigest(), "pdf": "sha256-" + digest.split(":", 1)[1]}
+    store_original_bytes(paths.root, "sha256:" + names["image"][7:], image)
+    return load_vault(paths.root), names
 
 
 def _item(prompt: str):

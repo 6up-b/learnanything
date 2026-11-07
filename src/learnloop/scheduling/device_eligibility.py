@@ -70,7 +70,8 @@ REFERENCES_ITEM_ASSET = "references_item_asset"
 DEVICE_POLICY = "device_eligibility_v1"
 DEVICE_POLICY_OFF = "off"
 #: Mobile v2 §2.3 (V4): v1's rules with the image, page and asset reasons lifted for targets the host serves by
-#: content address (``ineligibility_reason(media=True)``), under the host's ``phone_reader``.
+#: content address (``ineligibility_reason(media=True)``), under the host's ``phone_reader``; never for a
+#: measurement (``MEASUREMENT_MODES``).
 DEVICE_POLICY_MEDIA = "device_eligibility_v2"
 
 #: What Markdown shows as text: fenced and inline code, and display and inline
@@ -209,18 +210,29 @@ def _prompt_media(prompt: str) -> tuple[tuple[str, str], ...]:
     return tuple(found)
 
 
-def _stored(vault: Any, name: str, *, pdf: bool) -> bool:
+#: Mobile v2 V4 (Codex review F12): the practice modes whose serve is a measurement (the scheduler's fresh-evidence
+#: modes, ``scheduling.frame_constraints.FRESH_EVIDENCE_MODES``, pinned equal by a test). §2.3's media lift does not
+#: reach them, so the phone's measurements are mvp-0.54's exactly (the playbook's 2026-10-17 rule: a change to which
+#: items are served as measurements is a successor). Structural, not a parameter.
+MEASUREMENT_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "probe"})
+
+
+def _repository_for(vault: Any) -> Any:
+    """The vault's database, read only, for a check asked without one; None when it can't be named (then
+    nothing is lifted: fail closed)."""
+
+    config = getattr(vault, "config", None)
     root = getattr(vault, "root", None)
-    if root is None:
-        return False
-    path = root / "canonical-sources" / "raw" / name
+    if config is None or root is None:
+        return None
     try:
-        with path.open("rb") as handle:
-            head = handle.read(12)
-    except OSError:
-        return False
-    is_pdf = head.startswith(b"%PDF-")
-    return is_pdf if pdf else (not is_pdf and image_kind(head) is not None)
+        from learnloop.db.repositories import Repository
+        from learnloop.vault.paths import VaultPaths
+
+        path = VaultPaths(root, config).sqlite_path
+        return Repository.attach(path, read_only=True) if path.exists() else None
+    except Exception:  # noqa: BLE001 - an unreadable database lifts nothing
+        return None
 
 
 def image_kind(head: bytes) -> str | None:
@@ -237,22 +249,39 @@ def image_kind(head: bytes) -> str | None:
     return None
 
 
-def media_served(vault: Any, prompt: str) -> bool:
+def media_served(vault: Any, prompt: str, repository: Any = None) -> bool:
     """Mobile v2 §2.3: every image, page and asset target of ``prompt`` is one the host serves by content address
     (a page of a stored PDF, a stored image), so the phone shows the stimulus as the desktop does. Raw HTML and
-    any other target (a path, a remote image) leaves the item for the desktop, as before."""
+    any other target (a path, a remote image) leaves the item for the desktop, as before.
+
+    "Serves" is the host's own predicate (Codex review of V4, F10: ``learnloop.reader.phone_media``, which the page
+    and asset endpoints answer with): a page some reading of its file covers, on no reading's protected passage,
+    of a book open to the Reader, with the renderer installed; a stored image of no protected book. Without the
+    vault's database nothing is lifted (fail closed)."""
 
     targets = _prompt_media(prompt)
     if not targets:
         return True
+    repository = repository if repository is not None else _repository_for(vault)
+    if repository is None:
+        return False
+    try:
+        return _all_served(vault, repository, targets)
+    except Exception:  # noqa: BLE001 - a predicate that can't be read lifts nothing (fail closed)
+        return False
+
+
+def _all_served(vault: Any, repository: Any, targets: tuple[tuple[str, str], ...]) -> bool:
+    from learnloop.reader import phone_media as PM
+
     for kind, target in targets:
         if kind == "page":
             page = llpdf_page(target)
-            if page is None or not _stored(vault, page[0], pdf=True):
+            if page is None or PM.page_refusal(vault, repository, "sha256:" + page[0][7:], page[1]) is not None:
                 return False
         elif kind in ("image", "asset"):
             name = store_name_of(target)
-            if name is None or not _stored(vault, name, pdf=False):
+            if name is None or PM.asset_refusal(vault, repository, "sha256:" + name[7:]) is not None:
                 return False
         else:
             return False
@@ -284,10 +313,12 @@ class DeviceFilter:
     #: Mobile v2 V4 (§2.3, the host's ``phone_reader``): the host serves page images and stored images by content
     #: address, so a prompt whose every image, page or asset target is one it serves is no longer the desktop's.
     media: bool = False
+    #: The vault's database, which the media lift reads (Codex review F10); None opens it read only when asked.
+    repository: Any = None
 
     def refuses(self, item: Any) -> bool:
         return item.id in self.left_for_desktop or ineligibility_reason(
-            self.vault, item, self.device_class, media=self.media) is not None
+            self.vault, item, self.device_class, media=self.media, repository=self.repository) is not None
 
     def holds_back(self, item: Any) -> bool:
         """``refuses``, for an item the build would otherwise serve."""
@@ -361,7 +392,7 @@ class PlanStepFilter:
         if item.id in self.device_filter.left_for_desktop:
             return DESKTOP_ONLY_MODE
         return ineligibility_reason(self.device_filter.vault, item, self.device_filter.device_class,
-                                    media=self.device_filter.media)
+                                    media=self.device_filter.media, repository=self.device_filter.repository)
 
     def detail(self) -> dict[str, Any]:
         """What a decision taken at a boundary under this device records (its ``device`` entry). With the phone's
@@ -378,7 +409,8 @@ class PlanStepFilter:
         return len(self.held)
 
 
-def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: bool = False) -> str | None:
+def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: bool = False,
+                         repository: Any = None) -> str | None:
     """Why ``device_class`` cannot answer ``item``, or None when it can.
 
     Only ``phone`` has reasons: a desktop request (no origin) never reaches a
@@ -389,8 +421,11 @@ def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: boo
 
     ``media`` (mobile v2 §2.3, V4, the host's ``phone_reader``): an image, page or
     asset reason is lifted when every such target is one the host serves by
-    content address (:func:`media_served`, which reads the vault's originals
-    store). Off, the reasons are PR-6's exactly.
+    content address (:func:`media_served`: the host's own page and asset
+    predicate, over ``repository`` or the vault's database read only). Never for
+    a measurement (:data:`MEASUREMENT_MODES`, Codex review F12): a probe keeps
+    its reason, so the phone's measurements stay mvp-0.54's. Off, the reasons are
+    PR-6's exactly.
     """
 
     if device_class != PHONE:
@@ -406,6 +441,7 @@ def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: boo
     if minted_for_lesson(item):
         return LESSON_CHECK
     reason = _prompt_reason(item.prompt)
-    if media and reason in (EMBEDS_IMAGE, LINKS_LLPDF, REFERENCES_ITEM_ASSET) and media_served(vault, item.prompt):
+    if (media and reason in (EMBEDS_IMAGE, LINKS_LLPDF, REFERENCES_ITEM_ASSET)
+            and item.practice_mode not in MEASUREMENT_MODES and media_served(vault, item.prompt, repository)):
         return None
     return reason

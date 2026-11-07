@@ -226,6 +226,14 @@ def _phone_save(params: Mapping[str, Any]) -> None:
     _reject("session_id")(params)
 
 
+def _phone_answer(params: Mapping[str, Any]) -> None:
+    """The dose arm's extra question, answered on the phone as the desktop's quick-check card answers it (Codex
+    review of V4, F9): ``answered`` with the learner's words. *Don't bring this back* stays on the desktop."""
+
+    if _fields(params).get("action") != "answered":
+        raise ParamRejected("action", "Only an answer is sent from the phone")
+
+
 #: Mobile v2 stage V4 (spec §8; owner decision D4): the phone Reader, text first. Each runs the desktop's handler;
 #: under a phone origin the handler withholds protected material (``learnloop_sidecar.phone_reader``) and records
 #: the surface. The three outbox intents (§5.4: progress, activity, a dose event) are ``long``: their acceptance is
@@ -243,7 +251,10 @@ _V4 = (
     # The dose arm's draw is made once per visit and boundary before anything is shown; not retried automatically.
     _v4_short("reader.dose_offer", retry_safe=False),
     _v4_long("reader.dose_offer_event"),
-    _v4_long("reader.ask", _reject("cold_active", "cold_attempt_id", "workbench_session_id")),
+    # A taken extra question is answered through the desktop's quick-check action (Codex review F9): a state set on
+    # the question's row, the same answer twice is the same row, so a retry is safe.
+    _v4_short("reader.authored_question_action", retry_safe=True, constraints=_phone_answer),
+    _v4_long("reader.ask",_reject("cold_active", "cold_attempt_id", "workbench_session_id")),
     _v4_short("reader.ask_history", retry_safe=True),
     _v4_short("reader.capture", retry_safe=True, constraints=_phone_save),
     # *As printed* after feedback (CA7): the desktop's Feedback reads the item's print through this, whose

@@ -30,6 +30,8 @@ V4_ALLOWED = frozenset({
     "reader.prompt_contract", "reader.render_view", "reader.guide_plan", "reader.get_progress", "reader.saved_place",
     "reader.mark_section_progress", "reader.log_activity", "reader.dose_offer", "reader.dose_offer_event",
     "reader.ask", "reader.ask_history", "reader.capture", "practice.as_printed", "get_source_library",
+    # Codex review F9: a taken extra question is answered as the desktop's quick-check card answers it.
+    "reader.authored_question_action",
 })
 PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED | V4_ALLOWED
 
@@ -81,6 +83,10 @@ def test_v4_constraints_and_outbox_kinds():
                    {**save, "action": "highlight", "sessionId": "x"}):
         with pytest.raises(ParamRejected):
             check_parameters(ALLOWLIST["reader.capture"], params)
+    # The extra question's answer only (*don't bring this back* stays on the desktop).
+    check_parameters(ALLOWLIST["reader.authored_question_action"], {"questionId": "q", "action": "answered"})
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["reader.authored_question_action"], {"questionId": "q", "action": "dismissed"})
 
 
 def test_v3_a_probe_answer_is_the_hosts_switch():

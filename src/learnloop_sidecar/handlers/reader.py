@@ -312,14 +312,47 @@ def reader_ask_history(ctx: SidecarContext, params: ReaderAskHistoryInput) -> di
         **({"tutor_views": True} if RTU.retrieval_enabled(vault) or RTU.offers_enabled(vault) else {}),
     )
     if ctx.request_origin is not None:
-        # Mobile v2 V4: no exchange grounded on protected material reaches the phone.
-        from learnloop_sidecar import phone_reader as PR
-
-        withheld = PR.phone_withheld(vault, repository, params.extraction_id,
-                                     [exchange.get("span_id") for exchange in exchanges])
-        exchanges = [] if withheld.whole else [
-            exchange for exchange in exchanges if not withheld.covers(exchange.get("span_id"))]
+        # Mobile v2 V4: no exchange grounded on protected material reaches the phone: its anchor, every span
+        # its selection named (whose quote it carries), every citation and the tutor's excerpt (Codex review
+        # F4), each read in the reading it names.
+        exchanges = _phone_ask_history(vault, repository, params.extraction_id, exchanges)
     return versioned({"exchanges": exchanges})
+
+
+def _exchange_locations(extraction_id: str, exchange: dict[str, Any]) -> list[tuple[str, str]]:
+    """``(reading, span)`` of everything of the source one exchange carries or quotes."""
+
+    found = [(extraction_id, str(span)) for span in [exchange.get("span_id"), *(exchange.get("selection_span_ids") or [])]
+             if span]
+    excerpt = (exchange.get("tutor") or {}).get("excerpt")
+    for cited in [*(exchange.get("citations") or []), *([excerpt] if isinstance(excerpt, dict) else [])]:
+        if not isinstance(cited, dict):
+            continue
+        span = cited.get("span_id")
+        reading = cited.get("extraction_id") or extraction_id
+        locator = str(cited.get("locator") or cited.get("href") or "")
+        if not span and locator.startswith("span:") and "/" in locator:
+            reading, span = locator[len("span:"):].split("/", 1)
+        if span:
+            found.append((str(reading), str(span)))
+    return found
+
+
+def _phone_ask_history(vault: Any, repository: Any, extraction_id: str,
+                       exchanges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from learnloop_sidecar import phone_reader as PR
+
+    located = [(exchange, _exchange_locations(extraction_id, exchange)) for exchange in exchanges]
+    by_reading: dict[str, set[str]] = {extraction_id: set()}
+    for _exchange, places in located:
+        for reading, span in places:
+            by_reading.setdefault(reading, set()).add(span)
+    withheld = {reading: PR.phone_withheld(vault, repository, reading, sorted(spans))
+                for reading, spans in by_reading.items()}
+    if withheld[extraction_id].whole:
+        return []
+    return [exchange for exchange, places in located
+            if not any(withheld[reading].covers(span) for reading, span in places)]
 
 
 class ReaderSetAnswerModeInput(ParamsModel):
@@ -2207,6 +2240,19 @@ def reader_authored_question_action(
     ctx: SidecarContext, params: ReaderAuthoredQuestionActionInput
 ) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    if ctx.request_origin is not None:
+        # Mobile v2 V4 (Codex review F9): the phone answers the dose arm's extra question here, as the desktop's
+        # card does; never one on a passage withheld from the phone.
+        import json as _json
+
+        from learnloop_sidecar.phone_reader import refuse_if_withheld
+
+        asked = repository.get_reader_authored_question(params.question_id) or {}
+        try:
+            spans = [str(span) for span in _json.loads(asked.get("span_ids_json") or "[]")]
+        except (TypeError, ValueError):
+            spans = []
+        refuse_if_withheld(ctx, _vault, repository, asked.get("extraction_id"), spans)
     try:
         row = RQC.record_action(
             repository,
@@ -2703,15 +2749,26 @@ def reader_log_activity(ctx: SidecarContext, params: ReaderLogActivityInput) -> 
     # Mobile v2 §3.4: under a phone origin each event records the device surface
     # ``phone_reader`` (from the origin, never the payload); the desktop's rows are unchanged.
     extra: dict[str, Any] = {}
-    if ctx.request_origin is not None:
-        from learnloop_sidecar.phone_reader import PHONE_READER_SURFACE
+    if ctx.request_origin is None:
+        try:
+            ids = RI.record_activity(repository, params.events, config=vault.config, **extra)
+        except RI.InquiryError as exc:
+            raise SidecarError("validation_error", str(exc)) from exc
+        return versioned({"recorded": len(ids)})
+    from learnloop_sidecar.phone_reader import PHONE_READER_SURFACE, once_per_job
 
-        extra["device_surface"] = PHONE_READER_SURFACE
-    try:
-        ids = RI.record_activity(repository, params.events, config=vault.config, **extra)
-    except RI.InquiryError as exc:
-        raise SidecarError("validation_error", str(exc)) from exc
-    return versioned({"recorded": len(ids)})
+    extra["device_surface"] = PHONE_READER_SURFACE
+
+    def record() -> dict[str, Any]:
+        try:
+            ids = RI.record_activity(repository, params.events, config=vault.config, **extra)
+        except RI.InquiryError as exc:
+            raise SidecarError("validation_error", str(exc)) from exc
+        return versioned({"recorded": len(ids)})
+
+    # Codex review F5: an outbox intent's events and its job's receipt commit together, so a restart's re-run of
+    # the job records nothing twice.
+    return once_per_job(ctx, repository, record)
 
 
 # ---------------------------------------------------------------------------

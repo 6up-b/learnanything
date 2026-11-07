@@ -10,7 +10,8 @@ Two endpoints, both ``GET`` under ``Token(app)``, both content-addressed and imm
 * ``/api/v1/assets/{sha256-<hex>}`` (§2.3): a stored image (PNG, JPEG, GIF, WebP) as itself. Never a
   PDF: a PDF leaves the host only as page images.
 
-What leaves here is decided by the same predicate as the phone's text (``learnloop_sidecar.phone_reader``):
+What leaves here is decided by the same predicate as the phone's text and its eligibility
+(``learnloop.reader.phone_media``; a page by either of its names is decided by every reading of its file):
 nothing of a reading exam material covers whole, no page that holds a passage it covers, nothing of a book
 opted out of the Reader, no page the reading does not cover, and nothing of another vault (the host is
 pinned to one, and every id resolves only in its database). The predicate is read at every request, a
@@ -47,8 +48,9 @@ MEDIA_LANE_LIMIT = 8
 MEDIA_WORKERS = 2
 #: The largest page index the endpoint parses (a guard on the path, not a book's length).
 MAX_PAGE = 99_999
-#: The largest stored image served (the upload cap of a capture, mobile spec §4.4).
-MAX_ASSET_BYTES = 20 * 1024 * 1024
+#: The largest stored image served (the upload cap of a capture, mobile spec §4.4); one definition with the
+#: phone's eligibility.
+from learnloop.reader.phone_media import MAX_ASSET_BYTES  # noqa: E402
 #: Responses here name their content, so they may be kept (§3.3, the stated exception to ``no-store``).
 IMMUTABLE = "private, max-age=31536000, immutable"
 
@@ -115,70 +117,37 @@ class MediaLane:
             self._snapshot = (str(loaded.fingerprint), loaded.vault)
         return loaded.vault
 
-    def _reader_source_ok(self, revision: dict[str, Any] | None) -> bool:
-        if revision is None:
-            return False
-        artifact = self.repo.get_source_artifact(str(revision["source_id"]))
-        return artifact is not None and bool(artifact.get("reader_enabled", 1))
-
-    def _readings_of_file(self, digest: str) -> list[str]:
-        with self.repo.connection() as connection:
-            rows = connection.execute(
-                "SELECT r.id FROM source_extraction_runs r JOIN source_revisions v ON v.id = r.revision_id "
-                "WHERE v.asset_hash = ? AND r.status = 'completed' ORDER BY r.id", (digest,),
-            ).fetchall()
-        return [str(row[0]) for row in rows]
-
-    def _refuse_protected(self, vault: Any, extraction_id: str, span_ids: list[str]) -> None:
-        from learnloop_sidecar.phone_reader import phone_withheld
-
-        withheld = phone_withheld(vault, self.repo, extraction_id, span_ids)
-        if withheld.whole or withheld.spans:
-            raise MediaRefused(403, "held_out_material", withheld.message or "This page is held out.")
+    @staticmethod
+    def _refuse(refusal: Any) -> None:
+        if refusal is not None:
+            raise MediaRefused(refusal.status, refusal.code, refusal.message)
 
     # -- the page endpoint --------------------------------------------------------------------
 
     def page(self, ref: str, page: int, width: int) -> tuple[bytes, str, str]:
-        """``(body, content type, etag)`` of one page, or :class:`MediaRefused`."""
+        """``(body, content type, etag)`` of one page, or :class:`MediaRefused`.
 
-        from learnloop.reader import reader_dialogue as RD
+        Either name resolves to the file first, and then every reading of that file decides (Codex review of V4,
+        F3): a page refused by its file's name is refused by any reading's id too. The predicate is
+        ``learnloop.reader.phone_media.page_refusal``, which the phone's eligibility reads as well (F10)."""
+
+        from learnloop.reader import phone_media as PM
 
         vault = self._vault()
-        if not RD.reader_enabled(vault):
-            raise MediaRefused(404, "not_found")
         store = _STORE_NAME.fullmatch(ref)
         if store is not None:
-            digest = f"sha256:{store.group(1)}"
-            readings = self._readings_of_file(digest)
+            digest: str | None = f"sha256:{store.group(1)}"
         elif _EXTRACTION_ID.fullmatch(ref):
-            run = self.repo.get_extraction_run(ref)
-            if run is None or run.get("status") != "completed" or not run.get("revision_id"):
-                raise MediaRefused(404, "not_found")
-            revision = self.repo.get_source_revision(str(run["revision_id"]))
-            digest = str((revision or {}).get("asset_hash") or "")
-            readings = [ref]
+            digest = PM.digest_of_reading(self.repo, ref)
         else:
+            digest = None
+        if digest is None:
             raise MediaRefused(404, "not_found")
-        if not readings or not digest.startswith("sha256:"):
-            raise MediaRefused(404, "not_found")
-        covered = False
-        for reading in readings:
-            run = self.repo.get_extraction_run(reading)
-            revision = self.repo.get_source_revision(str(run["revision_id"])) if run and run.get("revision_id") else None
-            if not self._reader_source_ok(revision):
-                raise MediaRefused(404, "not_found")
-            blocks = self.repo.document_blocks_on_pages(reading, [page])
-            # Every reading of this file: one that holds the page out (or is held out whole) withholds it.
-            self._refuse_protected(vault, reading, [block.span_id for block in blocks])
-            covered = covered or bool(blocks)
-        if not covered:
-            # Only a page some reading of the book covers: never a page nobody has read (an answer key at
-            # the back of a book read only in part is not known to be safe).
-            raise MediaRefused(404, "not_found")
-        from learnloop.ingest.originals import is_pdf_file, stored_original_path
+        self._refuse(PM.page_refusal(vault, self.repo, digest, page))
+        from learnloop.ingest.originals import stored_original_path
 
         path = stored_original_path(self.vault_root, digest)
-        if path is None or not is_pdf_file(path):
+        if path is None:
             raise MediaRefused(404, "not_found", "The original isn't on this computer.")
         hexdigest = digest.split(":", 1)[1]
         body = self._cached_render(path, hexdigest, page, width)
@@ -246,36 +215,24 @@ class MediaLane:
         """``(body, content type, etag)`` of one stored image, or :class:`MediaRefused`."""
 
         from learnloop.ingest.originals import stored_original_path
+        from learnloop.reader import phone_media as PM
         from learnloop.scheduling.device_eligibility import image_kind
 
         store = _STORE_NAME.fullmatch(name)
         if store is None:
             raise MediaRefused(404, "not_found")
         digest = f"sha256:{store.group(1)}"
+        # The phone's eligibility reads the same predicate (F10).
+        self._refuse(PM.asset_refusal(self._vault(), self.repo, digest))
         path = stored_original_path(self.vault_root, digest)
-        if path is None:
-            raise MediaRefused(404, "not_found")
         try:
-            with path.open("rb") as handle:
+            with path.open("rb") as handle:  # type: ignore[union-attr]
                 body = handle.read(MAX_ASSET_BYTES + 1)
-        except OSError:
+        except (AttributeError, OSError):
             raise MediaRefused(404, "not_found") from None
         kind = image_kind(body[:12])
         if kind is None or len(body) > MAX_ASSET_BYTES:
             raise MediaRefused(404, "not_found")
-        vault = self._vault()
-        with self.repo.connection() as connection:
-            revisions = connection.execute("SELECT id, source_id FROM source_revisions WHERE asset_hash = ?",
-                                           (digest,)).fetchall()
-        for revision_id, source_id in revisions:
-            if not self._reader_source_ok({"source_id": source_id}):
-                raise MediaRefused(404, "not_found")
-            with self.repo.connection() as connection:
-                readings = [str(row[0]) for row in connection.execute(
-                    "SELECT id FROM source_extraction_runs WHERE revision_id = ? AND status = 'completed'",
-                    (revision_id,)).fetchall()]
-            for reading in readings:
-                self._refuse_protected(vault, reading, list(self.repo.block_content_hashes(reading)))
         return body, kind, f'"{store.group(1)[:20]}"'
 
 

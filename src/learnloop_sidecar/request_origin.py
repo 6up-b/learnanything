@@ -54,6 +54,11 @@ class RequestOrigin:
     #: config, never a parameter. On, the phone's Reader takes the plan's reading blocks it can show, and the
     #: image, page and asset prompts whose targets the host serves (spec §2.3). False is V3's phone.
     phone_reader: bool = False
+    #: Mobile v2 V4 (Codex review F5): the host's job this request runs as (``mobile_jobs.id``), set only by the
+    #: host's job worker from the accepted row, never a parameter. An outbox intent's handler commits its rows and
+    #: this job's receipt in one transaction (``phone_reader.once_per_job``), so a restart's re-run writes nothing
+    #: twice. None for a short request and for the desktop.
+    job_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.device_id or not self.device_id.strip():

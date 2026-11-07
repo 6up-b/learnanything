@@ -269,16 +269,18 @@ class HostRuntime:
         return response
 
     def _origin(self, device_id: str, *, accepted_session_id: str | None = None, probes: bool = True,
-                reader: bool = False) -> Any:
+                reader: bool = False, job_id: str | None = None) -> Any:
         """``probes``: the app said it answers probes (Codex review of V3, F3; the host's ``/rpc`` reads it). A job
         keeps the switch alone: its only V3 meaning is a submit naming a presentation, which the host admitted only
         from an app that said so. ``reader`` (mobile v2 V4): the app said it has the Reader, so the plan may hand it
-        a reading step; a cached V3 app, which has none, is never handed one it can't end."""
+        a reading step; a cached V3 app, which has none, is never handed one it can't end. ``job_id`` (V4, Codex
+        review F5): the job this runs as, whose receipt an outbox intent's handler commits with its rows."""
 
         from learnloop_sidecar.request_origin import RequestOrigin
 
         return RequestOrigin(device_id=device_id, accepted_session_id=accepted_session_id,
-                             phone_probes=self.phone_probes and probes, phone_reader=self.phone_reader and reader)
+                             phone_probes=self.phone_probes and probes, phone_reader=self.phone_reader and reader,
+                             job_id=job_id)
 
     # -- requests ----------------------------------------------------------------
 
@@ -387,6 +389,7 @@ class HostRuntime:
                 accepted_session_id=str(session_id) if job["method"] in SUBMIT_METHODS and session_id else None,
                 probes=self._job_probes_for(job),
                 reader=self._job_reader_for(job),
+                job_id=job_id,
             )
             response = self._dispatch(worker, job["method"], job["params"], origin)
         except Exception:

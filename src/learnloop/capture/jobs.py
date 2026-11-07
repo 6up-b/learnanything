@@ -172,6 +172,30 @@ def finish_job(
         )
 
 
+def job_receipt(connection: Any, job_id: str) -> Any:
+    """Mobile v2 V4 (Codex review F5): the result an open job's handler already committed, or None.
+
+    An outbox intent's handler writes its rows and this receipt in one transaction (``write_job_receipt``), so a
+    job a restart re-runs (``recover_jobs`` keeps ``result_json``) answers from the receipt and writes nothing
+    again. Read in the handler's own transaction."""
+
+    row = connection.execute(
+        f"SELECT result_json FROM mobile_jobs WHERE id=? AND state IN ({','.join('?' for _ in OPEN_STATES)})",
+        (job_id, *OPEN_STATES),
+    ).fetchone()
+    return json.loads(row[0]) if row is not None and row[0] is not None else None
+
+
+def write_job_receipt(connection: Any, job_id: str, result: Any) -> None:
+    """The handler's result on its open job's row, in the handler's transaction (see :func:`job_receipt`). The job
+    stays open: the runtime still writes its end, with the same result."""
+
+    connection.execute(
+        f"UPDATE mobile_jobs SET result_json=? WHERE id=? AND state IN ({','.join('?' for _ in OPEN_STATES)})",
+        (json.dumps(result, sort_keys=True), job_id, *OPEN_STATES),
+    )
+
+
 def recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
     """What a starting host owes (§6.3): the jobs another run left open, to run again.
 

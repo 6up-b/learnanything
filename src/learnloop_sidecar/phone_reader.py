@@ -9,71 +9,23 @@ RPCs (here, at a phone origin only) and for the host's page and asset endpoints
 (``learnloop_mobile.media``), so the text, the images and the phone's caches can't
 disagree. A None origin (the desktop) never reaches anything in this module.
 
-Nothing here writes. The predicate is read at each request, so a mark the owner makes
+Nothing here writes, but an outbox intent's job receipt (:func:`once_per_job`, with the
+intent's own rows). The predicate is read at each request, so a mark the owner makes
 on the desktop withholds from the phone's next request on.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable
+
+# The predicate itself lives beside the media's (``learnloop.reader.phone_media``), so the phone's text, its
+# pages, its stored images and its eligibility read one definition (Codex review of V4, F3, F10).
+from learnloop.reader.phone_media import PhoneWithheld, phone_withheld  # noqa: F401
 
 #: The surface a reader call under a phone origin records (spec §3.4).
 PHONE_READER_SURFACE = "phone_reader"
 #: The refusal code of a phone request for protected material (the adapter's 409).
 HELD_OUT_CODE = "held_out_material"
-
-
-@dataclass(frozen=True)
-class PhoneWithheld:
-    """What of one reading the phone may not be sent."""
-
-    #: The whole reading: nothing of it reaches the phone.
-    whole: bool
-    #: The passages, when the reading is not withheld whole.
-    spans: frozenset[str]
-    #: The plain refusal the desktop's model paths give, or None.
-    message: str | None
-
-    def covers(self, span_id: str | None) -> bool:
-        return self.whole or (span_id is not None and str(span_id) in self.spans)
-
-    def any(self, span_ids: Iterable[str | None]) -> bool:
-        return self.whole or any(self.covers(span) for span in span_ids)
-
-    def as_protection(self, desktop: Mapping[str, Any] | None) -> dict[str, Any]:
-        """The ``protection`` key a phone reads: the desktop's held-out partition widened to
-        every passage withheld here, so a selection on any of them offers no model action."""
-
-        held = list((desktop or {}).get("held_out_span_ids") or [])
-        merged = list(dict.fromkeys([*held, *sorted(self.spans)]))
-        whole = self.whole or bool((desktop or {}).get("withheld"))
-        message = self.message or (desktop or {}).get("message")
-        return {"withheld": whole, "held_out_span_ids": [] if whole else merged,
-                "message": message if (whole or merged) else None}
-
-
-def phone_withheld(vault_or_sets: Any, repository: Any, extraction_id: str,
-                   span_ids: Iterable[str | None] = ()) -> PhoneWithheld:
-    """What exam material (rules 1-4, the held-out partition included) covers of
-    ``extraction_id``, among ``span_ids``. A predicate that can't be read withholds the whole
-    reading (fail closed)."""
-
-    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, exam_material, held_out_refusal
-
-    extraction = str(extraction_id)
-    try:
-        material = exam_material(vault_or_sets, repository)
-    except Exception:  # noqa: BLE001 - fail closed: an unreadable predicate sends nothing
-        import logging
-
-        logging.getLogger(__name__).exception("exam material unreadable for %s", extraction)
-        return PhoneWithheld(whole=True, spans=frozenset(), message=HELD_OUT_REFUSAL)
-    if material.covers(extraction):
-        return PhoneWithheld(whole=True, spans=frozenset(), message=held_out_refusal(material.material, extraction))
-    spans = frozenset(str(span) for span in span_ids if span and material.covers(extraction, str(span)))
-    message = held_out_refusal(material.material, extraction) if spans else None
-    return PhoneWithheld(whole=False, spans=spans, message=message)
 
 
 def redact_blocks(blocks: list[dict[str, Any]], withheld: PhoneWithheld) -> list[dict[str, Any]]:
@@ -129,6 +81,28 @@ def cold_check_open(ctx: Any, vault: Any, repository: Any) -> bool:
         logging.getLogger(__name__).exception("could not read whether a check is open")
         return True
     return False
+
+
+def once_per_job(ctx: Any, repository: Any, run: Any) -> Any:
+    """Mobile v2 V4 (Codex review F5): an outbox intent's writes, once, whatever restarts.
+
+    Run as one of the host's jobs (the origin names it), ``run()``'s rows and the job's receipt
+    (``mobile_jobs.result_json``) commit in one transaction; a job a restart re-runs finds the receipt
+    and answers it, writing nothing again. A short request and the desktop (no job) just ``run()``."""
+
+    job_id = getattr(getattr(ctx, "request_origin", None), "job_id", None)
+    if job_id is None:
+        return run()
+    from learnloop.capture.jobs import job_receipt, write_job_receipt
+
+    with repository.atomic():
+        connection = repository.connection()
+        done = job_receipt(connection, str(job_id))
+        if done is not None:
+            return done
+        result = run()
+        write_job_receipt(connection, str(job_id), result)
+    return result
 
 
 def is_phone(ctx: Any) -> bool:
