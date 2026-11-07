@@ -79,6 +79,7 @@ from learnloop_sidecar.handlers.sessions import (
     draft_plan_presentation,
     draft_self_grade_disclosure,
     patch_checkpoint,
+    phone_claim_owner,
     require_owned_session,
     settle_self_grade_disclosure,
 )
@@ -345,8 +346,10 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
     if item is None:
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
+    phone_probes = phone_probes_on(ctx.request_origin, vault.config)
     refuse_generated_probe_door(ctx.request_origin, repository, item, serve=params.session_id is not None,
-                                phone_probes=phone_probes_on(ctx.request_origin, vault.config))
+                                phone_probes=phone_probes,
+                                owned=phone_claim_owner(ctx, repository, params.session_id, phone_probes=phone_probes))
     if params.session_id is not None:
         item = _require_active_item(vault, params.practice_item_id)
         # A session serve of a dormant/resolved LO's item, or of one made from
@@ -511,14 +514,19 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # cannot show never commits one from there.
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
     phone_probes = phone_probes_on(ctx.request_origin, vault.config)
-    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True, phone_probes=phone_probes)
-    if phone_probes:
+    owned = phone_claim_owner(ctx, repository, params.session_id, phone_probes=phone_probes)
+    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True, phone_probes=phone_probes,
+                                owned=owned)
+    if owned is not None:
         # Mobile v2 V3, G10's cap boundary: the phone answers probes, and the host's two workers can act for one
         # device at once (this read on its RPC worker, a submit on its job worker). The admission (the session
         # cap's count, the session's open presentation, the commit) is one BEGIN IMMEDIATE transaction, and a
         # submit consumes its presentation and records its observation in one too (``apply_attempt``), so the
         # count an admission reads always includes every observation it could race. The desktop is serial.
+        # The same transaction checks the session is this phone's (Codex review of V3, F1): the presentation it
+        # commits is the session owner's to answer.
         with repository.atomic():
+            owned()
             reply = _probe_contract(ctx, vault, repository, item, params)
         # The phone renders and answers this one under its contract (cold, no help): what the phone reads to know
         # it may (below the tag, or with phone_probes off, an active contract still waits for the desktop, as V2's).

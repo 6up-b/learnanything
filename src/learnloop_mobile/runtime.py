@@ -181,6 +181,9 @@ class HostRuntime:
         # job id -> what its waiters wait on. Only for jobs this run holds.
         self._waiters: dict[str, Future] = {}
         self._waiters_lock = threading.Lock()
+        # job id -> whether the app that sent it said it answers probes (mobile v2 V3, F3). Only for jobs this run
+        # accepted; under _waiters_lock.
+        self._probes_said: dict[str, bool] = {}
         self._readiness: tuple[float, bool] | None = None
         self._readiness_refreshing = False
         # Terminal writes this run still owes (job id -> what the row should say). The handler's
@@ -260,11 +263,15 @@ class HostRuntime:
         assert response is not None  # every request carries an id
         return response
 
-    def _origin(self, device_id: str, *, accepted_session_id: str | None = None) -> Any:
+    def _origin(self, device_id: str, *, accepted_session_id: str | None = None, probes: bool = True) -> Any:
+        """``probes``: the app said it answers probes (Codex review of V3, F3; the host's ``/rpc`` reads it). A job
+        keeps the switch alone: its only V3 meaning is a submit naming a presentation, which the host admitted only
+        from an app that said so."""
+
         from learnloop_sidecar.request_origin import RequestOrigin
 
         return RequestOrigin(device_id=device_id, accepted_session_id=accepted_session_id,
-                             phone_probes=self.phone_probes)
+                             phone_probes=self.phone_probes and probes)
 
     # -- requests ----------------------------------------------------------------
 
@@ -284,11 +291,13 @@ class HostRuntime:
 
     def call_short(
         self, method: MobileMethod, params: Mapping[str, Any], device_id: str, *, timing: dict[str, float] | None = None,
+        probes: bool = False,
     ) -> Future:
         """``timing``, if given, gets the worker's ``started`` and ``finished`` monotonic times, for
-        ``Server-Timing`` (mobile v2 §4.5): the queue wait and the handler, measured, not guessed."""
+        ``Server-Timing`` (mobile v2 §4.5): the queue wait and the handler, measured, not guessed.
+        ``probes``: the app said it answers probes (mobile v2 V3, F3); without it the request is V2's."""
 
-        origin = self._origin(device_id)
+        origin = self._origin(device_id, probes=probes)
 
         def run(worker: _Worker) -> dict[str, Any]:
             if timing is not None:
@@ -305,9 +314,12 @@ class HostRuntime:
 
     def accept(
         self, method: MobileMethod, params: Mapping[str, Any], validated: Mapping[str, Any], *,
-        request_id: str, device_id: str,
+        request_id: str, device_id: str, probes: bool = False,
     ) -> JobView:
-        """Commit the job, or find it; then it runs whether or not the caller is still here."""
+        """Commit the job, or find it; then it runs whether or not the caller is still here.
+
+        ``probes``: the app said it answers probes (mobile v2 V3; Codex review of V3, F3). The job runs with it
+        (:meth:`_job_probes_for`), so a cached V2 app's plan Next is V2's whenever it runs."""
 
         session_id = validated.get("session_id") if method.name in SUBMIT_METHODS else None
 
@@ -324,9 +336,20 @@ class HostRuntime:
             params_sha256=canonical_hash(validated), boot_id=self.boot_id, check_new=check_new,
         )
         if enqueue:
+            with self._waiters_lock:
+                self._probes_said[job["id"]] = probes
             self._enqueue(job)
             return JobView.of(job)
         return self._current_view(job)
+
+    def _job_probes_for(self, job: Mapping[str, Any]) -> bool:
+        """What the app said when this run accepted the job. A job another run accepted (a restart's) is a submit
+        or not: a submit's only V3 meaning is naming a presentation, which the host admitted only from an app that
+        said it answers probes, so it keeps the switch; anything else runs as V2's (it never burns a probe)."""
+
+        with self._waiters_lock:
+            said = self._probes_said.pop(job["id"], None)
+        return said if said is not None else job["method"] in SUBMIT_METHODS
 
     def _enqueue(self, job: Mapping[str, Any]) -> None:
         with self._waiters_lock:
@@ -346,6 +369,7 @@ class HostRuntime:
             origin = self._origin(
                 job["device_id"],
                 accepted_session_id=str(session_id) if job["method"] in SUBMIT_METHODS and session_id else None,
+                probes=self._job_probes_for(job),
             )
             response = self._dispatch(worker, job["method"], job["params"], origin)
         except Exception:

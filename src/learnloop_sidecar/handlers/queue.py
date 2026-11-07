@@ -398,8 +398,12 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
         refuse_device_ineligible_item(ctx.request_origin, vault, item)
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
-        refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True,
-                                    phone_probes=phone_probes_on(ctx.request_origin, vault.config))
+        from learnloop_sidecar.handlers.sessions import phone_claim_owner
+
+        phone_probes = phone_probes_on(ctx.request_origin, vault.config)
+        # Sessionless: the phone's burn pins the open session (Codex review of V3, F1).
+        refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True, phone_probes=phone_probes,
+                                    owned=phone_claim_owner(ctx, repository, None, phone_probes=phone_probes))
         eligibility = revalidate_cold_check(vault, repository, item.id)
     else:
         eligibility = None

@@ -28,6 +28,7 @@ for the same device. With no request origin, the desktop, neither does anything;
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from learnloop.content.sources.exam_material import (
@@ -126,7 +127,8 @@ def refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str 
 
 
 def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: Any, item: PracticeItem,
-                                *, serve: bool, phone_probes: bool = False) -> None:
+                                *, serve: bool, phone_probes: bool = False,
+                                owned: Callable[[], None] | None = None) -> None:
     """FG1 §4.2: every serve door for a generated probe, before its text leaves.
 
     A session serve claims the one administration (keyed to surface and the item's open
@@ -141,6 +143,11 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
     same path under the phone's surface, so the claim is the phone's: a probe served on one device is
     refused on the other (``generated_probe_closed``), and each device's re-open of its own
     administration passes. Without it a phone never opens one.
+
+    ``owned`` (the phone's, with ``phone_probes``; Codex review of V3, F1): the session-ownership check, run in the
+    transaction that claims the burn, so a phone the session moved away from (or a sessionless phone door while
+    another device owns the open session) is refused ``session_moved`` before it can burn the desktop's question.
+    None for the desktop, whose claim is unchanged.
     """
 
     from learnloop.followup_serve import identity, workflow as followup_workflow
@@ -165,7 +172,7 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
         elif state is not None and state.last_attempt_at is not None:
             refusal = identity.GENERATED_PROBE_CLOSED
         elif item.id in identity.closed_probe_ids(repository):
-            refusal = _claim_refusal(repository, item.id, row, surface=surface)
+            refusal = _claim_refusal(repository, item.id, row, surface=surface, owned=owned)
         elif row is None and identity.door_refusal(repository, item.id) is not None:
             # Its workflow never bound it: an interrupted run's, which a retry retires.
             refusal = identity.GENERATED_PROBE_RESERVED
@@ -177,7 +184,7 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
             followup_workflow.retire_waiting(repository, row, reason="hypotheses_closed")
             refusal = identity.GENERATED_PROBE_CLOSED
         else:
-            refusal = _claim_refusal(repository, item.id, row, surface=surface)
+            refusal = _claim_refusal(repository, item.id, row, surface=surface, owned=owned)
     if refusal is not None:
         raise SidecarError(
             refusal,
@@ -186,12 +193,22 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
         )
 
 
-def _claim_refusal(repository: Any, practice_item_id: str, row: Any, *, surface: str) -> str | None:
+def _claim_refusal(repository: Any, practice_item_id: str, row: Any, *, surface: str,
+                   owned: Callable[[], None] | None = None) -> str | None:
     """The atomic claim, against the presentation actually open for this item, not the id a
     caller or a workflow row remembers (it may have ended, and an absent one is no wildcard).
     ``surface`` is the requesting device's (the desktop's, or the phone's from mobile v2 V3): a
-    claim another surface holds is refused."""
+    claim another surface holds is refused. ``owned``, when given, runs first in the claim's
+    transaction (raising ``session_moved``), so no adopt commits between the check and the burn."""
 
+    if owned is None:
+        return _claim(repository, practice_item_id, row, surface=surface)
+    with repository.atomic():
+        owned()
+        return _claim(repository, practice_item_id, row, surface=surface)
+
+
+def _claim(repository: Any, practice_item_id: str, row: Any, *, surface: str) -> str | None:
     from learnloop.followup_serve import identity
 
     open_presentation = repository.active_probe_presentation_for_item(practice_item_id)

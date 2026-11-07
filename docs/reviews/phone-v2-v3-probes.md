@@ -33,7 +33,7 @@
   - **burned at the first serve**: the door (`serving.refuse_generated_probe_door`) takes the desktop's path under the **phone's surface**, so `identity.claim_serve` records a `served` burn with `surface = phone`;
   - **single use across both devices**: the claim keys the surface, so a probe served on one device is refused on the other (`generated_probe_closed`) and each device's re-open of its own administration passes. `identity.served_elsewhere` says which device holds it; with it:
     - the phone's plan step **holds** a desktop-served probe for the desktop (counted, *waiting for the desktop*), the phone's list never heads with one, and `followup_next` answers `continue` to the other device and writes nothing;
-    - the desktop's **serving** Next, when the plan would resume a probe the phone served (the learner took the session to the desktop), **abandons** it (`daily_plan._abandon_phone_served`: closed, what it held released, the decision's outcome `abandoned`), and the plan's existing reconcile displaces it. Nothing is read or written there for a vault with no phone burn;
+    - the desktop's **serving** Next, when the plan would resume a probe the phone served (the learner took the session to the desktop), **abandons** it (`daily_plan._abandon_phone_served`: closed, what it held released, the decision's outcome `abandoned`), and the plan's existing reconcile displaces it. Nothing is read or written there for a vault with no phone burn. Not while the phone's answer to it is accepted and still being graded, nor once it has one (Codex review F2, `phone-v3-codex-review.md`): the plan then resumes it until the answer commits, and the learner's own Skip still abandons it;
   - **held feedback released only on the answer**: unchanged FG1 machinery; the phone's answer names the presentation and settles the workflow (`probe_answered`); before it, the bundle stays held on both devices and the answer's display is refused.
 - **G10's cap boundary.** With the phone answering probes, the host's two workers can act for one device at once (an admission on the RPC worker, a submit on the job worker). The phone's admission (the session cap's count, the session's open presentation, the commit) is one `BEGIN IMMEDIATE` transaction; a submit consumes its presentation and records its observation in one transaction (`apply_attempt`), so no answer can commit between an admission's count and its commit. The desktop's admission is unchanged (serial; no transaction added).
 - **Hint surface (migration 250):** `practice.record_hint_reveal` under a phone origin writes `help_assists.surface = 'phone_practice'`; the desktop's stays `practice`.
@@ -63,7 +63,7 @@
 ## 3. Persisted meaning and the playbook ruling
 
 - **Ruling: a successor, mvp-0.54** (`docs/algorithm-change-playbook.md`). Step 1: no stored record changes meaning and replay reads nothing new. But the recorded rule of 2026-10-17 applies: *a change to which items are served as measurements … is a successor with a kill switch even when replay is unchanged.* A phone origin now serves and answers, as measurements, the diagnostic and generated probes it used to leave for the desktop. V2's ruling (no successor) rested on the phone never serving a measurement it couldn't show; V3 removes that premise.
-- **What it is:** `PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"` after TE3b's mvp-0.53 in `SUCCESSOR_CHAIN`; `PHONE_PROBES_VERSIONS`; `learnloop.phone_probes_upgrade` (the chain's next journalled link: a projection activation, nothing recorded changes; installed by the CLI and sidecar openers; `learnloop upgrade --to mvp-0.54` and the default target); its defaults snapshot (`DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.54"]`). Below the tag, or with `phone_probes` off, the phone is V2's exactly; the desktop is the same at every version.
+- **What it is:** `PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"` after TE3b's mvp-0.53 in `SUCCESSOR_CHAIN`; `PHONE_PROBES_VERSIONS`; `learnloop.phone_probes_upgrade` (the chain's next journalled link: a projection activation, nothing recorded changes; installed by the CLI and sidecar openers; `learnloop upgrade --to mvp-0.54` and the default target); its defaults snapshot (`DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.54"]`). Below the tag, or with `phone_probes` off, the phone is V2's exactly; the desktop is the same at every version except where a phone burn exists (its serving Next abandons a phone-served probe with no answer on its way, §1.2), which only a phone at the tag can make.
 - **Renumbered at the merge of main:** TE3b landed as mvp-0.53 while this stage was built, so this is mvp-0.54: the one constant, the snapshot key (recomputed), the upgrade's `PREDECESSOR` (TE3b's) and completion hand-off, the openers, the CLI's `--to` list, and the version pins (re-applied to main's own test files after taking them, so TE3b's pins and this stage's agree).
 - **New rows:** burns with `surface = phone`; attempts on `phone_practice` naming a presentation (`attempt_type = diagnostic_probe`); `help_assists` rows on `phone_practice`. The probe answer's evidence is FG1's (admissible from the first serve, as any diagnostic probe); its surface is recorded, so reports can split it (D3's trade-off).
 
@@ -109,7 +109,7 @@ systemctl --user restart learnloop-mobile
 .venv/bin/learnloop-mobile doctor
 ```
 
-The cached V2 app offers *LearnLoop was updated. Reload* (the allowlist moved): tap it.
+The cached V2 app offers *LearnLoop was updated. Reload* (the allowlist moved): tap it. Until then it gets V2's serving (it doesn't say it answers probes).
 
 - **P6. A generated follow-up probe, on the phone.**
   1. Miss a question on purpose on the phone (an answer that is wrong in a way with two plausible causes). Feedback holds the worked answer and says *Preparing a question on this…*.
@@ -124,7 +124,8 @@ The cached V2 app offers *LearnLoop was updated. Reload* (the allowlist moved): 
 
 - **Allowlist:** one method added (`followup_next`, V3 row); every other registered method stays 403 (G3). No method that offers help (hint jobs, Ask, tutor) is reachable.
 - **Origin:** the switch comes from the host's config on the origin, never a parameter.
-- **Ownership:** every serve door and submit keeps PR-4's checks; the desktop's abandonment runs only under its owned serving Next.
+- **Ownership:** every submit keeps PR-4's checks; a phone door that burns a generated probe or commits a probe presentation checks the session's owner in that transaction (Codex review F1: before it, a phone the session had moved away from could burn the desktop's probe); the desktop's abandonment runs only under its owned serving Next.
+- **Cached apps:** the host serves probes only to an app that says it answers them (`LearnLoop-Capabilities: phone_probes`, Codex review F3); a cached V2 app keeps V2's doors and plan step until it reloads.
 - **Spend:** V3 adds no model request. The question's generation is FG1's, already paid on the desktop path (D2).
 - **Exam material:** unchanged (FG1 §8 guards are server-side and run before any phone serve).
 

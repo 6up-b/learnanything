@@ -568,6 +568,23 @@ def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None
     return still_owned
 
 
+def phone_claim_owner(ctx: SidecarContext, repository, session_id: str | None, *,
+                      phone_probes: bool) -> Callable[[], None] | None:
+    """Mobile v2 V3 (Codex review of V3, F1): what a phone door checks in the transaction that burns a generated
+    probe (``serving.refuse_generated_probe_door``'s ``owned``): the named session is this device's, or, for a
+    sessionless door, no other device owns the open session (:func:`refuse_moved_session`'s pin). A probe's one
+    administration is the session owner's, so a phone the learner has left can't take the desktop's. None for the
+    desktop and for a phone that serves no probe (whose doors never burn), so neither changes."""
+
+    if ctx.request_origin is None or not phone_probes:
+        return None
+
+    def owned() -> None:
+        refuse_moved_session(ctx, repository, session_id)
+
+    return owned
+
+
 def _merged_value(existing: dict[str, Any], params: SessionCheckpointInput, fields: set[str], name: str):
     if name in fields:
         return getattr(params, name)

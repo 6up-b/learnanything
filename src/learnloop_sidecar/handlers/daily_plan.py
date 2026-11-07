@@ -485,8 +485,15 @@ def _abandon_phone_served(env: PlanEnv) -> None:
     phone's and the desktop's door refuses it, so the desktop's Next moves past it: it is abandoned (FG1 §4.2:
     abandonment closes it, what its workflow held is released, its decision's outcome is ``abandoned``), and the
     plan's reconcile then displaces it as a retired probe (``generated_probe_closed``). Only a phone's burn reaches
-    here, which no vault had before V3; nothing else is read or written for the desktop."""
+    here, which no vault had before V3; nothing else is read or written for the desktop.
 
+    Not while the phone's answer to it is on its way (Codex review of V3, F2): one the host accepted before the
+    handoff completes after it (§6.5), and abandoning now would end the presentation it consumes and release the
+    feedback it releases, so it would record as incidental. It stays the phone's until that answer settles (the
+    plan's reconcile then marks it done); meanwhile the plan resumes it, as it resumes any item whose answer is still
+    being graded, and the learner's own Skip still abandons it. Nor once it has an answer."""
+
+    from learnloop.capture.jobs import submission_in_flight
     from learnloop.daily_plan.engine import latest_today
     from learnloop.followup_run.serving import abandon
     from learnloop.followup_serve.gates import SERVING_SURFACE
@@ -497,8 +504,20 @@ def _abandon_phone_served(env: PlanEnv) -> None:
         return
     for item in record.items():
         if item.served_at is not None and not item.resolved \
-                and served_elsewhere(env.repository, item.practice_item_id, SERVING_SURFACE):
+                and served_elsewhere(env.repository, item.practice_item_id, SERVING_SURFACE) \
+                and not _answered_since(env.repository, item.practice_item_id, item.served_at) \
+                and not submission_in_flight(env.repository, item.practice_item_id):
             abandon(env.repository, item.practice_item_id, clock=env.clock)
+
+
+def _answered_since(repository: Any, practice_item_id: str, served_at: str) -> bool:
+    """An answer committed since the plan served it (the reconcile marks it done; nothing is left to abandon)."""
+
+    with repository.connection() as connection:
+        return connection.execute(
+            "SELECT 1 FROM practice_attempts WHERE practice_item_id = ? AND created_at >= ? LIMIT 1",
+            (practice_item_id, served_at),
+        ).fetchone() is not None
 
 
 @method("plan_reading_ended", PlanReadingEndedInput)

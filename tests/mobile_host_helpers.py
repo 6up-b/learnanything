@@ -6,7 +6,7 @@ bearer token comes from the real pairing exchange.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import threading
 import time
@@ -108,10 +108,19 @@ class Phone:
 
     client: Any
     device: dict[str, Any]
+    #: What the app says it can do on every ``/rpc`` (``learnloop_mobile.host.CLIENT_CAPABILITIES_HEADER``): the
+    #: current app's, by default. A cached V2 app says nothing (:meth:`without_capabilities`).
+    capabilities: tuple[str, ...] = ("phone_probes",)
 
     @property
     def headers(self) -> dict[str, str]:
-        return bearer(self.device)
+        extra = {"LearnLoop-Capabilities": ",".join(self.capabilities)} if self.capabilities else {}
+        return {**bearer(self.device), **extra}
+
+    def without_capabilities(self) -> "Phone":
+        """The same device, as a cached app from before mobile v2 V3 talks to the host."""
+
+        return replace(self, capabilities=())
 
     def post(self, method: str, params: dict | None = None, *, request_id: str | None = None):
         body: dict[str, Any] = {"method": method, "params": params or {}}
