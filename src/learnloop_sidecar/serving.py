@@ -37,7 +37,9 @@ from learnloop.content.sources.exam_material import (
     held_out_material,
     held_out_selection_active,
 )
-from learnloop.scheduling.device_eligibility import DEVICE_POLICY, DEVICE_POLICY_OFF, DeviceFilter, ineligibility_reason
+from learnloop.scheduling.device_eligibility import (
+    DEVICE_POLICY, DEVICE_POLICY_MEDIA, DEVICE_POLICY_OFF, DeviceFilter, ineligibility_reason,
+)
 from learnloop.vault.lifecycle import (
     LEARNER_TEXT_GAP_DISABLED,
     REFERENCE_ADOPTION_DISABLED,
@@ -46,7 +48,7 @@ from learnloop.vault.lifecycle import (
 )
 from learnloop.vault.models import LoadedVault, PracticeItem
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.request_origin import RequestOrigin, device_class, phone_probes_on
+from learnloop_sidecar.request_origin import RequestOrigin, device_class, phone_probes_on, phone_reader_on
 
 DESKTOP_ONLY_ERROR_CODE = "desktop_only"
 INACTIVE_LEARNING_OBJECT_ERROR_CODE = "learning_object_inactive"
@@ -57,10 +59,13 @@ def _device_rules_on(vault: Any) -> bool:
     return bool(vault.config.practice.device_eligibility_enabled)
 
 
-def device_policy(vault: Any) -> str:
-    """The rules a phone request is served under, for the router's inputs."""
+def device_policy(vault: Any, origin: RequestOrigin | None = None) -> str:
+    """The rules a phone request is served under, for the router's inputs: a new rule set is a new name, so a
+    phone whose host has its Reader on (mobile v2 §2.3, V4) names ``device_eligibility_v2``."""
 
-    return DEVICE_POLICY if _device_rules_on(vault) else DEVICE_POLICY_OFF
+    if not _device_rules_on(vault):
+        return DEVICE_POLICY_OFF
+    return DEVICE_POLICY_MEDIA if phone_reader_on(origin) else DEVICE_POLICY
 
 
 def origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) -> str | None:
@@ -68,7 +73,7 @@ def origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) ->
 
     if origin is None or not _device_rules_on(vault):
         return None
-    return ineligibility_reason(vault, item, device_class(origin))
+    return ineligibility_reason(vault, item, device_class(origin), media=phone_reader_on(origin))
 
 
 def device_filter(
@@ -85,10 +90,10 @@ def device_filter(
     if phone_probes_on(origin, vault.config):
         # Mobile v2 V3 (D3): the phone renders the presentation it committed (a phone-eligible probe, by the rules
         # above), so nothing it committed is left for the desktop.
-        return DeviceFilter(vault, device_class(origin))
+        return DeviceFilter(vault, device_class(origin), media=phone_reader_on(origin))
     committed = repository.active_probe_presentation_for_session(session_id) if repository and session_id else None
     left = frozenset({committed.practice_item_id}) if committed is not None else frozenset()
-    return DeviceFilter(vault, device_class(origin), left_for_desktop=left)
+    return DeviceFilter(vault, device_class(origin), left_for_desktop=left, media=phone_reader_on(origin))
 
 
 def refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None:

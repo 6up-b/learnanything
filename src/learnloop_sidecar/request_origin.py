@@ -50,6 +50,10 @@ class RequestOrigin:
     #: Mobile v2 V3 (owner decision D3): the phone host's kill switch ``phone_probes`` (mobile.toml), which the
     #: host sets from its own config, never a parameter. False (an origin made without it) is V2's phone.
     phone_probes: bool = False
+    #: Mobile v2 V4: the phone host's kill switch ``phone_reader`` (mobile.toml), set by the host from its own
+    #: config, never a parameter. On, the phone's Reader takes the plan's reading blocks it can show, and the
+    #: image, page and asset prompts whose targets the host serves (spec §2.3). False is V3's phone.
+    phone_reader: bool = False
 
     def __post_init__(self) -> None:
         if not self.device_id or not self.device_id.strip():
@@ -76,6 +80,12 @@ def phone_probes_on(origin: RequestOrigin | None, config: Any) -> bool:
         return False
     version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
     return version in PHONE_PROBES_VERSIONS
+
+
+def phone_reader_on(origin: RequestOrigin | None) -> bool:
+    """Mobile v2 V4: a phone origin whose host has its Reader on (``phone_reader``). Never the desktop."""
+
+    return origin is not None and bool(origin.phone_reader)
 
 
 def practice_surface(origin: RequestOrigin | None) -> str:

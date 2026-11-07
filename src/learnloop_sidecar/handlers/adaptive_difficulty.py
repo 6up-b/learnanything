@@ -12,8 +12,10 @@
 * ``adaptive_difficulty.why_item`` -- "why this item" for a served plan item:
   the one line of the draw that chose it (§12), or none (a pure read).
 
-None of them reads a salience magnitude or writes evidence (A2, A12). Desktop
-only (pinned in tests/test_mobile_allowlist.py).
+None of them reads a salience magnitude or writes evidence (A2, A12). The two
+``reader.*`` RPCs are on the phone from mobile v2 V4 (its Reader records doses
+exactly as the desktop's: the same draw, the same rows); the other two stay the
+desktop's (pinned in tests/test_mobile_allowlist.py).
 """
 
 from __future__ import annotations

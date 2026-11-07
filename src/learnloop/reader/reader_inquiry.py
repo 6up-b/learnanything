@@ -380,8 +380,15 @@ def record_activity(
     *,
     clock: Clock | None = None,
     config: Any = None,
+    device_surface: str | None = None,
 ) -> list[str]:
     """Record a batch of Reader activity events; all-or-nothing validation.
+
+    ``device_surface`` (mobile v2 §3.4): the device surface the request came from
+    (``phone_reader``), set by the server from the request's origin and never from a
+    payload (it is not an activity field, so a client's is dropped). The payload's own
+    ``surface`` stays the Reader's view (text, pdf, watch). None (the desktop) writes no
+    key, so the desktop's rows are as before.
 
     RO0 (``config``, with ``[router_objective] receipts`` on): a visit says who initiated it and whether Ask was
     available (rows 3 and 4), and an event its client stamped keeps that time as ``occurred_at`` beside the
@@ -403,6 +410,8 @@ def record_activity(
         body = dict(payload)
         if event is not None:
             body["event"] = event
+        if device_surface is not None:
+            body["device_surface"] = str(device_surface)
         times = _event_times(entry, clock) if objective else {}
         if not objective:
             for name in OBJECTIVE_ACTIVITY_FIELDS:

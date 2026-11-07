@@ -339,8 +339,9 @@ def test_f3_the_v3_app_says_it_answers_probes_and_gets_v3s_door(plan_world):
 def test_f3_the_app_and_the_host_name_the_same_capability_header():
     from pathlib import Path
 
-    from learnloop_mobile.host import CLIENT_CAPABILITIES_HEADER, PHONE_PROBES_CAPABILITY
+    from learnloop_mobile.host import CLIENT_CAPABILITIES_HEADER, PHONE_PROBES_CAPABILITY, PHONE_READER_CAPABILITY
 
     source = (Path(__file__).resolve().parents[1] / "apps/learnloop-mobile/src/api/http.ts").read_text(encoding="utf-8")
     assert f'CLIENT_CAPABILITIES_HEADER = "{CLIENT_CAPABILITIES_HEADER}"'.lower() in source.lower()
-    assert f'CLIENT_CAPABILITIES = "{PHONE_PROBES_CAPABILITY}"' in source
+    # Mobile v2 V4: the app also says it has the Reader.
+    assert f'CLIENT_CAPABILITIES = "{PHONE_PROBES_CAPABILITY},{PHONE_READER_CAPABILITY}"' in source

@@ -35,10 +35,11 @@ def _contracts() -> dict[str, dict[str, Any]]:
 
 
 def _phone_ts_methods() -> set[str]:
-    """Every method name ``phone.ts`` passes to ``call`` or ``runLong``."""
+    """Every method name ``phone.ts`` passes to ``call``, ``runLong`` or (mobile v2 V4, an outbox intent's one
+    send) ``rpcOnce``."""
 
     source = PHONE_TS.read_text(encoding="utf-8")
-    return set(re.findall(r"\b(?:call|runLong)(?:<[^()]*?>)?\(\s*\"([a-z_.]+)\"", source))
+    return set(re.findall(r"\b(?:call|runLong|rpcOnce)(?:<[^()]*?>)?\(\s*\"([a-z_.]+)\"", source))
 
 
 # -- method names ------------------------------------------------------------------
@@ -152,6 +153,10 @@ def host_world(tmp_path, monkeypatch):
     from tests.mobile_host_helpers import CountingGrader, HOSTNAME, Phone, config_for, install_grader, pair, seeded_vault
 
     paths, repository = seeded_vault(tmp_path / "vault")
+    # Mobile v2 V4: one book for the Reader's replies (a real PDF in the store, a reading in three sections).
+    from tests.test_mobile_v4_reader import add_book
+
+    add_book(paths.root, repository)
     install_grader(monkeypatch, CountingGrader())
     # The contest's regrade finds no grader (it keeps the reason and asks for review): no model is asked.
     import learnloop_sidecar.handlers.ai_providers as providers
@@ -159,9 +164,9 @@ def host_world(tmp_path, monkeypatch):
 
     monkeypatch.setattr(providers, "ready_grading_provider", lambda vault, override=None: ("fake", DownRuntime(), None))
     first, second = pair(repository), pair(repository, label="Other phone")
-    app = create_app(config_for(paths.root))
+    app = create_app(config_for(paths.root).model_copy(update={"page_cache_dir": tmp_path / "pages"}))
     with TestClient(app, base_url=f"https://{HOSTNAME}") as client:
-        yield Phone(client, first), Phone(client, second), repository
+        yield Phone(client, first, ("phone_probes", "phone_reader")), Phone(client, second), repository
 
 
 def test_every_reply_carries_what_the_phone_reads(host_world):
@@ -172,7 +177,17 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     replies: dict[str, Any] = {}
 
     def rpc(name: str, params: dict, *, request_id: str | None = None, on: Any = phone) -> Any:
-        replies[name] = on.rpc(name, params, request_id=request_id)
+        response = on.post(name, params, request_id=request_id)
+        if response.status_code == 202:
+            # A long method past the host's 15 s wait (a loaded machine): its job's end, as the phone polls it.
+            from tests.mobile_host_helpers import poll_job
+
+            body = poll_job(on, response.json()["accepted"]["job_id"], timeout=120)
+            assert body["state"] == "completed", (name, body)
+            replies[name] = body["result"]
+            return replies[name]
+        assert response.status_code == 200, (name, response.status_code, response.text)
+        replies[name] = response.json()["result"]
         return replies[name]
 
     session = rpc("start_session", {"availableMinutes": 15})
@@ -218,6 +233,23 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     _clarify(repository, attempt_id)
     rpc("answer_grading_clarification", {"attemptId": attempt_id, "answerMd": "I meant the transpose."},
         request_id="clarify_contract_1")
+    # Mobile v2 V4: the Reader, on the vault's one book.
+    rpc("get_source_library", {})
+    rpc("reader.guide_plan", {"extractionId": "ext1"})
+    rpc("reader.render_view", {"extractionId": "ext1", "sectionId": "u1"})
+    rpc("reader.dose_offer", {"extractionId": "ext1", "sectionId": "u1", "visitId": "visit_contract"})
+    rpc("reader.ask_history", {"extractionId": "ext1"})
+    rpc("reader.capture", {"sourceId": "src1", "revisionId": "rev1", "extractionId": "ext1", "action": "highlight",
+                           "clientIdempotencyKey": "save_contract",
+                           "rawSelection": {"nodes": [{"spanId": "b2", "quote": "zero vector"}]}})
+    rpc("practice.as_printed", {"practiceItemId": first["practiceItemId"], "render": True})
+    rpc("reader.mark_section_progress", {"extractionId": "ext1", "sectionId": "u1", "spansSeen": 1, "spanCount": 3},
+        request_id="prog_contract")
+    rpc("reader.get_progress", {"extractionId": "ext1"})
+    rpc("reader.log_activity", {"events": [{"kind": "reader_view_opened", "occurredAt": "2026-11-07T08:00:00Z",
+                                            "payload": {"visitId": "v1", "extractionId": "ext1"}}]},
+        request_id="act_contract")
+    rpc("plan_reading_ended", {"outcome": "left_reader", "sessionId": session_id})
     rpc("get_practice_item", {"practiceItemId": second["practiceItemId"], "sessionId": session_id})
     rpc("skip_practice_item", {"sessionId": session_id, "practiceItemId": second["practiceItemId"]})
     rpc("end_session", {"sessionId": session_id})
@@ -226,8 +258,10 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     rpc("adopt_session", {"sessionId": taken["sessionId"], "expectedGeneration": taken.get("ownerGeneration") or 0})
 
     unchecked = {name: contract.get("replyPinnedBy") for name, contract in contracts.items() if name not in replies}
-    # Only a reply this journey cannot reach without a diagnosis model may be pinned elsewhere, by name.
-    assert set(unchecked) <= {"submit_eliciting_response", "record_hypothesis_mark"}, sorted(unchecked)
+    # Only a reply this journey cannot reach without a model (a diagnosis's, the tutor's) may be pinned elsewhere,
+    # by name; and a dose event, which needs a draw that offered an extra (``tests/test_mobile_v4_reader.py``).
+    assert set(unchecked) <= {"submit_eliciting_response", "record_hypothesis_mark", "reader.ask",
+                              "reader.dose_offer_event"}, sorted(unchecked)
     for pinned in unchecked.values():
         assert pinned and all((ROOT / path.split("::")[0]).is_file() for path in pinned), pinned
     for name, reply in replies.items():

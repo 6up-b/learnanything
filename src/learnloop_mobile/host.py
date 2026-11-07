@@ -32,10 +32,13 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.session_ownership import SessionOwnershipError
 from learnloop_mobile.adapter import error_body, status_for, translate
 from learnloop_mobile.allowlist import (
-    ALLOWLIST, API_VERSION, PLAN_METHODS, PROBE_METHODS, ParamRejected, allowlist_digest, check_parameters,
-    check_probe_parameters, validate_envelope,
+    ALLOWLIST, API_VERSION, PLAN_METHODS, PROBE_METHODS, READER_METHODS, ParamRejected, allowlist_digest,
+    check_parameters, check_probe_parameters, validate_envelope,
 )
 from learnloop_mobile.config import APP_DIR, MobileConfig, sqlite_path
+from learnloop_mobile.media import (
+    IMMUTABLE, MEDIA_LANE_LIMIT, MEDIA_WORKERS, MediaLane, MediaRefused, parse_page, snap_width,
+)
 from learnloop_mobile.runtime import HostBusy, HostRuntime, JobView, ParamsInvalid, _status_body
 
 #: What ``/api/v1/status`` and ``/api/v1/meta`` call this host.
@@ -49,8 +52,11 @@ JOB_WAIT_SECONDS = 15
 #: Requests in flight per lane. ``rpc`` holds the two queues of §4.6 plus what is
 #: running on each worker and a request being read, so the queues are what answer
 #: ``host_busy``. Status polls use ``short``, so waiting RPCs never starve them.
-LANE_LIMITS = {"capture": 2, "short": 16, "rpc": 32}
+#: ``pages`` (mobile v2 §5.1, V4): the read-only media lane's page and asset reads, on their own executor.
+LANE_LIMITS = {"capture": 2, "short": 16, "rpc": 32, "pages": MEDIA_LANE_LIMIT}
 _LOG = logging.getLogger(__name__)
+PAGE_ROUTE = "/api/v1/reader/page/{ref}/{page}"
+ASSET_ROUTE = "/api/v1/assets/{name}"
 ENDPOINT_SCOPES = {
     ("GET", "/api/v1/status"): "capture",
     ("POST", "/api/v1/capture"): "capture",
@@ -60,6 +66,8 @@ ENDPOINT_SCOPES = {
     ("GET", "/api/v1/meta"): "app",
     ("GET", "/api/v1/jobs/{job_id}"): "app",
     ("GET", "/api/v1/submissions/{submission_id}"): "app",
+    ("GET", PAGE_ROUTE): "app",
+    ("GET", ASSET_ROUTE): "app",
 }
 #: The pollable status reads with an id in their path: their route template, and how many
 #: path separators a well-formed one has.
@@ -77,6 +85,9 @@ CLIENT_TIMING_HEADER = "learnloop-client-timing"
 #: the host's ``phone_probes`` never reaches it: its doors and its plan step are V2's (no burn it can't answer).
 CLIENT_CAPABILITIES_HEADER = "learnloop-capabilities"
 PHONE_PROBES_CAPABILITY = "phone_probes"
+#: Mobile v2 V4: the app has the Reader, so the plan may hand it a reading step (a cached V3 app says nothing and
+#: keeps V3's plan: every reading waits for the desktop) and its image, page and asset prompts (§2.3).
+PHONE_READER_CAPABILITY = "phone_reader"
 _CLIENT_TIMING = re.compile(r"([a-z_.]+);status=([1-5][0-9]{2});dur=([0-9]{1,9}(?:\.[0-9]{1,3})?)"
                             r"(?:;host=([0-9]{1,9}(?:\.[0-9]{1,3})?))?")
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
@@ -99,7 +110,20 @@ def _route_of(method: str, path: str) -> tuple[str, str]:
         for prefix, template in _ID_ROUTES.items():
             if path.startswith(prefix) and path.count("/") == 4 and len(path) > len(prefix):
                 return ("GET", template)
+        if _media_parts(path) is not None:
+            return ("GET", PAGE_ROUTE if path.startswith("/api/v1/reader/page/") else ASSET_ROUTE)
     return (method, path)
+
+
+def _media_parts(path: str) -> tuple[str, ...] | None:
+    """A media path's segments after its prefix (``(ref, page)`` or ``(name,)``), or None."""
+
+    for prefix, count in (("/api/v1/reader/page/", 2), ("/api/v1/assets/", 1)):
+        if path.startswith(prefix):
+            parts = tuple(path[len(prefix):].split("/"))
+            if len(parts) == count and all(parts):
+                return parts
+    return None
 
 
 class HostError(Exception):
@@ -246,8 +270,12 @@ class MobileHost:
         self.read_repo = Repository.attach(self.repo.sqlite_path, read_only=True)
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mobile-auth")
         self.capture_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mobile-capture")
-        self.active = {"short": 0, "capture": 0, "media": 0, "rpc": 0}
-        self.runtime = HostRuntime(config.vault, self.repo, self.read_repo, phone_probes=config.phone_probes)
+        # Mobile v2 §5.1 (V4): the media lane's own threads, so a page render never queues behind an RPC.
+        self.media_executor = ThreadPoolExecutor(max_workers=MEDIA_WORKERS, thread_name_prefix="mobile-media")
+        self.active = {"short": 0, "capture": 0, "media": 0, "rpc": 0, "pages": 0}
+        self.runtime = HostRuntime(config.vault, self.repo, self.read_repo, phone_probes=config.phone_probes,
+                                   phone_reader=config.phone_reader)
+        self.media = MediaLane(config.vault, self.read_repo, config.page_cache_root())
         self.app_dir = APP_DIR
         # attach() checked the applied migrations are exactly the discovered ones, so the
         # head is the vault's schema (mobile v2 §5.2's meta).
@@ -283,6 +311,9 @@ class MobileHost:
 
     async def capture_work(self, function, *args, **kwargs):
         return await self._work(self.capture_executor, function, *args, **kwargs)
+
+    async def media_work(self, function, *args, **kwargs):
+        return await self._work(self.media_executor, function, *args, **kwargs)
 
     async def _work(self, executor, function, *args, **kwargs):
         future = asyncio.get_running_loop().run_in_executor(
@@ -347,9 +378,11 @@ class MobileHost:
             # Mobile v2 §2.2: ``phone_plan`` says whether Today is the shared plan or M2a's queue.
             # Mobile v2 V3: ``phone_probes`` says whether the phone answers probes (the host's switch; the vault's
             # tag decides too, and a phone below it is told so by the replies themselves).
+            # Mobile v2 V4: ``phone_reader`` says whether the phone's Reader is on (the host's switch).
             return JSONResponse({"host_version": HOST_VERSION, "api_version": API_VERSION,
                                  "allowlist_digest": allowlist_digest(), "schema_version": self.schema_version,
-                                 "phone_plan": self.config.phone_plan, "phone_probes": self.config.phone_probes})
+                                 "phone_plan": self.config.phone_plan, "phone_probes": self.config.phone_probes,
+                                 "phone_reader": self.config.phone_reader})
         if (method, path) == ("GET", "/api/v1/queue-revision"):
             # Read-only, never the sidecar's get_queue_revision, which can reload (§3.1).
             value = await self.work(self.read_repo.queue_revision)
@@ -367,6 +400,8 @@ class MobileHost:
             return JSONResponse(_status_body(job))
         if route == "/api/v1/submissions/{submission_id}":
             return JSONResponse(await self.work(self.runtime.submission_status, path.rsplit("/", 1)[1], device["device_id"]))
+        if route in (PAGE_ROUTE, ASSET_ROUTE):
+            return await self.media_get(scope, route, _media_parts(path) or ())
         if method in {"GET", "HEAD"} and _is_app_path(path):
             return await self.static_app(scope, path)
         if method != "POST" or path not in {"/pair", "/rpc", "/api/v1/capture"}:
@@ -388,7 +423,8 @@ class MobileHost:
                 envelope = validate_envelope(data)
             except ValueError:
                 raise HostError(400, "invalid_request") from None
-            return await self.rpc(scope, envelope, device, probes=self._client_probes(headers))
+            return await self.rpc(scope, envelope, device, probes=self._client_probes(headers),
+                                  reader=self._client_reader(headers))
         if path == "/pair":
             if set(data) - {"secret", "code", "device_label"}:
                 raise HostError(400, "invalid_request")
@@ -427,16 +463,54 @@ class MobileHost:
         scope["learnloop.static"] = True
         return response
 
+    async def media_get(self, scope, route: str, parts: tuple[str, ...]) -> Response:
+        """Mobile v2 §3.3, §2.3 (V4): a page image or a stored image, from the media lane. Immutable: the URL
+        names its content. With ``phone_reader`` off there is nothing here (404)."""
+
+        if not self.config.phone_reader:
+            raise HostError(404, "not_found")
+        from urllib.parse import parse_qs
+
+        try:
+            query = parse_qs(scope.get("query_string", b"").decode("ascii"), keep_blank_values=True,
+                             strict_parsing=False, max_num_fields=2)
+        except (UnicodeDecodeError, ValueError):
+            raise HostError(400, "invalid_request") from None
+        try:
+            if route == PAGE_ROUTE:
+                if set(query) - {"w"} or len(query.get("w", [""])) > 1:
+                    raise HostError(400, "invalid_request")
+                ref, page = parts
+                body, kind, etag = await self.media_work(
+                    self.media.page, ref, parse_page(page), snap_width(query.get("w", [None])[0]))
+            else:
+                if query:
+                    raise HostError(400, "invalid_request")
+                body, kind, etag = await self.media_work(self.media.asset, parts[0])
+        except MediaRefused as refused:
+            raise HostError(refused.status, refused.code, refused.message) from None
+        scope["learnloop.immutable"] = True
+        return Response(body, media_type=kind, headers={"ETag": etag})
+
     def _client_probes(self, headers: dict[str, str]) -> bool:
         """The host's ``phone_probes`` for this request: the switch on AND the app saying it answers probes."""
 
         said = {part.strip() for part in headers.get(CLIENT_CAPABILITIES_HEADER, "").split(",")}
         return self.config.phone_probes and PHONE_PROBES_CAPABILITY in said
 
-    async def rpc(self, scope, envelope: dict, device: dict, *, probes: bool = False) -> JSONResponse:
+    def _client_reader(self, headers: dict[str, str]) -> bool:
+        """Mobile v2 V4: the host's ``phone_reader`` for this request: the switch on AND the app saying it has
+        the Reader."""
+
+        said = {part.strip() for part in headers.get(CLIENT_CAPABILITIES_HEADER, "").split(",")}
+        return self.config.phone_reader and PHONE_READER_CAPABILITY in said
+
+    async def rpc(self, scope, envelope: dict, device: dict, *, probes: bool = False,
+                  reader: bool = False) -> JSONResponse:
         """§6.2: allowlist, constraints, then a worker; the body the desktop client normalizes.
 
-        ``probes``: the host's ``phone_probes`` for this request (:meth:`_client_probes`)."""
+        ``probes``: the host's ``phone_probes`` for this request (:meth:`_client_probes`); ``reader``: its
+        ``phone_reader`` (:meth:`_client_reader`)."""
 
         name, params = envelope["method"], envelope.get("params", {})
         method = ALLOWLIST.get(name)
@@ -450,6 +524,9 @@ class MobileHost:
             # Mobile v2 V3's kill switch, or an app that doesn't answer probes: the phone leaves every probe for the
             # desktop, as V2's did.
             return self._rpc_error("phone_probes_off", "This question is waiting for the desktop.")
+        if name in READER_METHODS and not self.config.phone_reader:
+            # Mobile v2 V4's kill switch: reading is on the desktop, and the phone is V3's.
+            return self._rpc_error("phone_reader_off", "Reading is on the desktop for now.")
         try:
             check_parameters(method, params)
             check_probe_parameters(name, params, phone_probes=probes)
@@ -462,11 +539,13 @@ class MobileHost:
             if method.kind == "long":
                 timing["job_from"] = time.monotonic()
                 try:
-                    return await self._rpc_long(method, params, validated, envelope, device, probes=probes)
+                    return await self._rpc_long(method, params, validated, envelope, device, probes=probes,
+                                                reader=reader)
                 finally:
                     timing["job_to"] = time.monotonic()
             timing["submitted"] = time.monotonic()
-            future = self.runtime.call_short(method, params, device["device_id"], timing=timing, probes=probes)
+            future = self.runtime.call_short(method, params, device["device_id"], timing=timing, probes=probes,
+                                             reader=reader)
             status, body = translate(await asyncio.wrap_future(future))
             return JSONResponse(body, status_code=status)
         except ParamsInvalid as invalid:
@@ -476,7 +555,8 @@ class MobileHost:
         except SessionOwnershipError as refused:
             return self._rpc_error(refused.code, refused.message, details=refused.details)
 
-    async def _rpc_long(self, method, params, validated, envelope, device, *, probes: bool = False) -> JSONResponse:
+    async def _rpc_long(self, method, params, validated, envelope, device, *, probes: bool = False,
+                        reader: bool = False) -> JSONResponse:
         """§6.3: commit the job, wait up to 15 s, then the final answer or 202."""
 
         request_id = envelope.get("request_id")
@@ -490,7 +570,7 @@ class MobileHost:
         try:
             job = await self.work(
                 self.runtime.accept, method, params, validated, request_id=request_id, device_id=device["device_id"],
-                probes=probes,
+                probes=probes, reader=reader,
             )
         except capture.CaptureError as refused:
             return self._rpc_error(refused.code, refused.message)
@@ -528,7 +608,8 @@ class MobileHost:
         started = time.monotonic()
         path = scope["path"]
         endpoint = (scope["method"], path)
-        lane = "capture" if endpoint == ("POST", "/api/v1/capture") else "rpc" if endpoint == ("POST", "/rpc") else "short"
+        lane = "capture" if endpoint == ("POST", "/api/v1/capture") else "rpc" if endpoint == ("POST", "/rpc") else (
+            "pages" if scope["method"] == "GET" and _media_parts(path) is not None else "short")
         admitted, log_admitted, media_admitted, device = False, False, False, None
         try:
             raw = scope.get("headers", [])
@@ -619,6 +700,9 @@ class MobileHost:
             if scope.get("learnloop.static"):
                 # The shell revalidates by its ETag; the service worker caches it (§4.6).
                 response.headers["Cache-Control"] = "no-cache"
+            if scope.get("learnloop.immutable"):
+                # Mobile v2 §3.3: the stated exception to no-store, safe because the URL names the content.
+                response.headers["Cache-Control"] = IMMUTABLE
             await response(scope, receive, send)
         finally:
             if admitted:
@@ -639,6 +723,7 @@ def create_app(config: MobileConfig):
             await asyncio.to_thread(host.runtime.stop)
             host.executor.shutdown(wait=True)
             host.capture_executor.shutdown(wait=True)
+            host.media_executor.shutdown(wait=True)
 
     app = Starlette(lifespan=lifespan)
     app.state.host = host
