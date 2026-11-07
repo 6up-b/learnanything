@@ -73,3 +73,49 @@ source file and touched nothing else (no network, no config). Every later edit u
 - Merge main before the stage ends (router speed stage 2 lands in parallel).
 - Owner: F12's narrowing (probes with images stay the desktop's on the phone) is the open question 3 of the build's
   review, answered the conservative way; the V3-style successor is the way to lift them.
+
+## Re-review
+
+**Reviewed:** `ee2d5f5c37..80674ba2bf` and the record above, by Codex (gpt-6.1-sol), static (its sandbox could not
+reach the user scope bus for `systemd-run`). Job: `~/.cache/codex-agent/jobs/20261107-072716-uA9vqY`. Verdict:
+REOPENED (F1), F2-F4 confirmed fixed, three new findings (F13-F15).
+**Fixed in:** `0fd51ab899` (F13, F14, the host), `27c7c33aa2` (F1, F15, the phone; `MarkdownMath` gains an optional
+`urlTransform`), `1137094a22` (the desktop notes for that prop). No migration, no new table or key, no successor, no
+model call, no paid call.
+
+Every finding was reproduced first: F13 and F14 by two new tests in `tests/test_mobile_v4_codex_review.py` (both
+answered 200 with the full question before the fix), F15 by three new `PhoneMarkdown.test.tsx` cases through the real
+`MarkdownMath` (inline code and a fenced example came out rewritten to `#llasset/` and `#llpage/`; an autolinked
+`llpdf:` page rendered as text, because the old rewrite produced `<#llpage/…>`, which is no autolink), F1 by three
+new `sw.test.ts` cases and one `displayCache.test.ts` case (4 failed before the fix).
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Pre-fix page copies survive a re-pairing (reopened) | fixed | `27c7c33aa2` | Cache-version migration and explicit credential association, both: the page cache is `learnloop-pages-v2` (activate keeps only the shell's and that name, so v1 goes; `purgePageImages` deletes both names, should the page run before the new worker activates); the worker keeps a copy only when the host's answer says `Vary: Authorization`, and a matched copy that does not is deleted, never served, offline or behind a 502/504/503; `saveCredential` purges every kept page image when the token changes, before anything is fetched under it. `sw.test.ts` "never keeps a page the host did not tie to its token", "offline, a copy not tied to a token is never the answer", "a new worker drops the pre-fix page cache, keeps its own and the shell"; `displayCache.test.ts` "a new token drops the page images; saving the same token again keeps them" |
+| F13 | High | The question action ignores protected anchors | fixed | `0fd51ab899` | At a phone origin `reader.authored_question_action` judges the anchors and the cited spans together (as the dose offer's `question_withheld` does) before any write or response. `test_f13_a_question_anchored_on_a_protected_passage_is_refused_even_when_it_cites_a_safe_one` (anchor on the held-out `b6`, quoted in the prompt; cites the safe `b4`): 409 `held_out_material`, the row unchanged, and the desktop (a None origin) still answers it |
+| F14 | Medium | The question action bypasses the source's Reader opt-out | fixed | `0fd51ab899` | At a phone origin the question's source (its `source_id`, else its reading's) passes `_require_source_reader` before any write or response. `test_f14_a_question_of_a_source_opted_out_of_the_reader_is_refused_on_the_phone`: `reader_disabled_for_source`, no prompt or answer in the refusal, the row unchanged. The desktop path is left as it was (the stage keeps a None origin byte-identical; the desktop never offers such a question, its Reader refuses the source) |
+| F15 | Low | Media rewriting changes literal source examples | fixed | `27c7c33aa2` | No string rewrite any more: `PhoneMarkdown` passes `phoneUrlTransform` as react-markdown's `urlTransform`, which sees parsed link and image destinations only (inline, reference-style, autolinks) and gives every other one react-markdown's default filter. `MarkdownMath`'s new prop is optional; the desktop passes none, which is react-markdown's own default, so the desktop renders as before. `PhoneMarkdown.test.tsx` "a media link written inside inline code is shown as written and fetches nothing", "a fenced code example keeps its page link, reference definition and autolink as written", "outside code a reference-style image and an autolinked page still open from the host"; `readerModel.test.ts` amended to the transform |
+
+F2, F3 and F4: confirmed fixed by the re-review; nothing changed.
+
+### Re-review gate
+
+Run on `1137094a22` (the code at `27c7c33aa2`; `1137094a22` is notes only). Every test command in `systemd-run --user
+--scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, pytest at `-n 6`, vitest at `--maxWorkers=4`, one run at a time;
+ad-hoc tools under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| Step | What ran | Result |
+|---|---|---|
+| Environment | `uv sync --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0` | done |
+| Import contracts | `uv run lint-imports --no-cache` (under `env -i`) | **43 kept, 0 broken** |
+| Targeted pytest | 67 files, `-n 6`: every `tests/test_mobile_*.py` (31) and `tests/test_sidecar_reader*.py` (5); the files exercising the question action and the Reader's handlers: `test_reader_quick_check`, `test_reader_reconnect`, `test_ad23_fix_review`, `test_ad23_contract`, `test_ad3_dose_arm`, `test_reader_inquiry_kill_switch`, `test_reader_inquiry_status`, `test_reader_rw1c_review`, `test_reader_branches`, `test_reread_safety`, `test_request_origin`; the contract set (`test_cli_help_snapshot`, `test_config_refactor`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_architecture`, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_registry_audit`, `test_module_catalog_inventory`, `test_desktop_activation_audit`, `test_public_tip_guards`, `test_sqlite_file_copies`); the display-label audit (`test_sidecar_measurement`, `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`); the frozen cycles (`test_codex_lockdown_frozen`) and the process-launch allowlist (`test_codex_lockdown_round3`) | **1783 passed, 0 failed** (5 min 19 s); after the notes commit, `test_module_catalog_inventory` and `test_desktop_activation_audit` again: **13 passed** |
+| Durable SQLite | not run: no migration, DB or connection code changed | n/a |
+| Phone app | `npm run typecheck`; `npx vitest run --maxWorkers=4` on `src/sw.test.ts`, `src/store/displayCache.test.ts`, `src/store/outbox.test.ts`, `src/read/readerCache.test.ts`, `src/read/PhoneMarkdown.test.tsx`, `src/read/readerModel.test.ts`, `src/read/Reader.test.tsx`, `src/read/SelectionSheet.test.tsx`, `src/api/contract.test.ts`, `src/api/http.test.ts`, `src/api/timing.test.ts`, `src/shell/Shell.test.tsx`, `src/shell/a11y.test.tsx`, `src/capture/Capture.test.tsx`, `src/desktopImports.test.ts`, `src/practice/Question.test.tsx`, `src/practice/Probe.v3.test.tsx`; `npm run build` | typecheck clean; **17 files, 186 passed**; built |
+| Desktop app | `npm run typecheck`; `npx vitest run --maxWorkers=4` on the `MarkdownMath` users `src/render/LiveMarkdownEditor.test.tsx`, `src/screens/FeedbackScreen.test.tsx`, `src/components/AskOverlay.reader.test.tsx`, `src/components/InspectorOverlay.phase4.test.tsx`, and `src/screens/reader/readerHooks.parity.test.tsx`; `npm run frontend:build` | typecheck clean; **5 files, 38 passed**; built. `src-tauri` untouched (no cargo check) |
+| References | `desktop_generate.py` (the `MarkdownMath` note, its area maps and the catalog), then `module_validate.py`, `desktop_validate.py`, `validate_vault.py` (all under `env -i`) | all pass. No schema change, so no DB reference run |
+
+**Process note.** One test addition (the `displayCache.test.ts` F1 case) was appended with a shell here-document
+rather than the Edit tool; it wrote that one test file and nothing else. Every source edit used the Edit tool.
+
+**Left for the landing.** Unchanged from above: merge main before the stage ends; the landing's reference regeneration
+on the merged tree.
