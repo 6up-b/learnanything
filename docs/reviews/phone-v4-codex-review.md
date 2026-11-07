@@ -119,3 +119,40 @@ rather than the Edit tool; it wrote that one test file and nothing else. Every s
 
 **Left for the landing.** Unchanged from above: merge main before the stage ends; the landing's reference regeneration
 on the merged tree.
+
+## Final verify and the landing's fix (ruling R1)
+
+**Reviewed:** `80674ba2bf..b7c01e13c1` and the record above, by Codex (gpt-6.1-sol), static. Job:
+`~/.cache/codex-agent/jobs/20261107-075017-FXvUZp`. Verdict: REOPENED. F1, F2, F3, F13, F14 and F15 CONFIRMED-FIXED;
+**F4 (High) REOPENED**; no new defect.
+
+**F4, reopened: presentation switches hid provenance from the filter.** The phone's Ask history filter read
+`reader_dialogue.ask_history`'s *projection*, which leaves out `selection_span_ids` while `reader_inquiry` is off and
+the tutor's `excerpt` while both RW1c switches (`reader_tutor.retrieval_enabled`, `offers_enabled`) are off. Codex's
+reproduction: an exchange anchored on a safe passage, selecting a protected one whose text its answer quotes and
+citing only the safe one, was sent to the phone with inquiry off; the same with the excerpt when both tutor switches
+were off. No further Codex round (the orchestrator reads the diff before landing).
+
+**Fixed in `b1b08138a6`** (the landing's R1 commit; the ruling is recorded verbatim in
+`docs/reviews/phone-v2-v4-reader.md`, "Landing onto main"). `reader_dialogue.ask_provenance` reads every
+`(reading, span)` the durable `reader_answer_submitted` event names, whatever the switches: the anchor, every span the
+selection named, every citation, the tutor's excerpt, the passages it judged explorable and the span keys it
+retrieved. The phone's `reader.ask_history` judges that and sends only the exchanges that pass, as projected under the
+switches (one the stored events don't account for is not sent). Reproduced first: both of Codex's cases are tests and
+failed on `b7c01e13c1`:
+
+* `test_f4_reopened_a_protected_selection_is_withheld_with_reader_inquiry_off`;
+* `test_f4_reopened_a_protected_excerpt_is_withheld_with_both_tutor_switches_off` (the excerpt named by its locator).
+
+**Every other phone read that filters by provenance, checked for the same ordering:**
+
+| Phone read | What it judges | Finding |
+|---|---|---|
+| `reader.ask` (the fresh answer) | the question's anchor and selection, refused before any model call | **Same class, fixed.** The answer's citations, excerpt and retrieved passages are the model's, and were sent unjudged. The fresh answer is now judged on the event the Ask stored, as its history judges it, before anything of it is sent (`held_out_material` otherwise; the desktop keeps it). On real data the case is an exam unit beside the passage, which the desktop's tutor may read (retrieval already excludes exam material through `find_sources`; the Reader's neighbour context excludes only the held-out partition). `test_f4_reopened_a_fresh_answer_is_judged_on_what_it_stored_before_the_phone_is_sent_it` failed on `b7c01e13c1` (the phone was sent the quoting answer) |
+| `reader.guide_plan` | each passage's `span_id`, each cue's `span_id`, a question's projected `span_ids` (else its section's) | **Same class for a placed question, fixed.** An owner-reviewed placement projects no span, so it was judged by its section only; it is now judged on its practice item's own source (canonical exercise and source refs) too, and an authored check on its stored row (its anchors and cited spans; section rows store no anchors today, so this changes nothing yet). A question whose row or item can't be read is not sent. `test_f4_reopened_the_guide_plans_placed_question_is_judged_by_its_items_stored_source` failed on `b7c01e13c1` |
+| `reader.render_view` | every block's own `span_id` (from the stored IR) | no projection before the filter |
+| `reader.authored_question_action`, `reader.dose_offer` | the stored row's `anchor_span_ids_json` and `span_ids_json` (F13; the material view's `question_withheld`) | stored, not projected |
+| `practice.as_printed` | the item's stored origin (`span_ids` and `located_by`) | stored |
+| `reader.capture` | the selection's nodes as sent (refused on any protected one) | the request itself |
+| `get_source_library`, the plan's reading blocks | the reading whole; the stored section's span ids | stored |
+| page and asset endpoints | `phone_media.page_refusal` / `asset_refusal`, every reading of the file (F3) | stored |
