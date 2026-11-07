@@ -134,3 +134,41 @@ Every pytest, vitest and npm command ran inside `systemd-run --user --scope --qu
 ### Left for the stage
 
 - **Merging main.** V1 has landed on main (`23ce859c16`); this fix step's rules forbid merging, so the merge of main into `phone/v2-today-plan` (with the expected `daily_plan` merge work against TE3b and the router speed stage) is the next step's, before the landing gate.
+  - Done at landing: `04c41a9454` merged main `8853cd6b74`. Only the generated module references conflicted; they were regenerated. `engine.py` and `objective_inputs` merged cleanly, and the phone contract regenerated unchanged.
+
+## Final verify and the landing fixes (R1-R3)
+
+**Reviewed range:** `60f64272f9..11897c5448` (job `20261106-205539-s9nTb2`).
+- F1-F5 and F7 were confirmed fixed.
+- F6 was reopened. F8 and F9 (Medium) are new.
+- The orchestrator ruled on all three at landing (R1-R3, recorded verbatim in `docs/reviews/phone-v2-v2-today-plan.md` under "Landing onto main"). R4: no further Codex round for V2.
+- Each fix was made after main was merged in (`04c41a9454`), reproduce-first, and each is its own commit.
+
+| Id | Severity | Title | Ruling | Commit | Test (in `tests/test_mobile_v2_landing_fixes.py`) |
+|---|---|---|---|---|---|
+| F6 | Medium | A phone's sessionless write checks its pinned generation only while that session is still the open one | R1 | `e0ad639f6b` | Reproductions: `test_r1_a_phones_sessionless_write_whose_session_was_taken_and_ended_commits_nothing` and `test_r1_a_phones_sessionless_write_whose_session_was_replaced_by_its_own_commits_nothing`. Both failed before the fix: a 200, and the budget committed. Controls: `test_r1_a_phones_sessionless_write_with_no_session_at_its_start_goes_through`, `test_r1_the_desktops_sessionless_write_still_goes_through_with_the_phones_session_open` |
+| F8 | Medium | Accepting a deferred stop is reported as an unprompted stop | R2 | `d656b22b20` | Reproduction: `test_r2_done_for_today_on_a_pending_stop_records_that_stop_accepted`. It failed before the fix: no stop response, and the end was `unprompted_stop`. Also `test_r2_keep_going_after_done_on_a_pending_stop_is_the_overridden_response` (the last response stands; passes before and after) |
+| F9 | Medium | A refused Keep going commits a false stop-override receipt | R3 | `6cc47d57c0` | Reproduction: `test_r3_a_refused_keep_going_leaves_no_override_receipt`. It failed before the fix: the `offered_stop_overridden` row survived the `session_moved` refusal. Control: `test_r3_keep_going_commits_its_override_with_the_plan_update` |
+
+### What changed
+
+- **R1 (F6)**, in `handlers/sessions.py::refuse_moved_session`.
+  - A phone's sessionless write still pins the open session it was accepted against, with that session's generation.
+  - The check repeated inside each transaction (`_require_pinned`) now revalidates that session on its own, not through the current-session lookup. The session must still exist, be open, be this device's at the pinned generation, and still be the open session.
+  - Otherwise the write is refused `session_moved` and commits nothing: when the session disappeared, ended, moved (even back) or was replaced. The details carry the open session's owner, or the pinned session's when none is open.
+  - Unchanged: a write that found no open session at its start (a session opened since is checked for its owner, as before), and the desktop (a None origin), which never enters this branch.
+- **R2 (F8)**, in `daily_plan/engine.py::stop_today`, `router_objective/sessions.py` and `router_objective/stop_coin.py`.
+  - *Done for today* from a device on a pending stop now records that stop's response as accepted: a `stop_response` row with `end_reason = offered_stop_accepted`. The row names the stop's decision, the plan and its block, with `detail_json = {"via": "done_for_today", "plan_open": true}`. It is written once while the acceptance stands.
+  - The plan stays open for the held work, as F7 left it.
+  - `record_end` derives `offered_stop_accepted` for a session that accepted the stop in force, although its plan is open. An `unprompted_stop` a client might send gives way to it.
+  - `_decision_stop_responses` reads an accepted `stop_response` as `accepted`. The last `stop_response` naming a stop is its response, so a later *Keep going* makes the stop overridden.
+  - The `session_receipts` CHECKs already allow this row, so there is no migration. No receipt written before has an accepted `stop_response`, so every existing calibration input reads as before.
+- **R3 (F9)**, in `daily_plan/engine.py::_keep_going_past_pending_stop`.
+  - The re-split (the slow part) is computed first.
+  - The override receipt and the plan update then commit in one transaction. The receipt is a savepoint of it, and under a phone's write that transaction is ownership-checked (`OwnerCheckedRepository`). A `session_moved` refusal therefore leaves no receipt.
+
+**Persisted meaning.** No table, column or migration. The only new values are a phone's accepted `stop_response` rows and the end reason they imply. Nothing the desktop serves or records at a None origin changes: the landing smoke's desktop journeys are identical to main's. The ruling stays **no successor**.
+
+**Not covered by R3: the same order on a finished plan.** *Keep going* on a finished plan (`keep_going` on a `complete` record, and `more_new{confirm}`) still writes its override receipt before `build_plan`. A phone whose session moves during that build would leave a receipt for an extension that was refused. R3 rules on the pending stop's re-split only, so this is left open in the landing record.
+
+**Gate:** see the landing record. The targeted set ran on the merged tree with R1-R3 (268 files): **5036 passed, 12 skipped, 1 failed**. The failure was `test_mobile_phone_contract.py::test_every_reply_carries_what_the_phone_reads`, and it passed 3 of 3 alone. The test reveals authored hint 0 on whichever item the Today queue lists first. In the batch, that item was `pi_svd_define_002`, which has no authored hints (422). The test predates R1-R3 (V2's `30213eb580`) and touches none of their code.
