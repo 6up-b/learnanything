@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/stop_coin.py"
 source_paths:
   - "src/learnloop/router_objective/stop_coin.py"
-source_commit: "d656b22b2021ec6fb1747725ad33a30bc6bc744d"
-source_commit_timestamp: "2026-11-06T21:12:39-05:00"
+source_commit: "a7fdc90e67184aa039990ad48c89c8b8ee222104"
+source_commit_timestamp: "2026-11-06T22:59:23-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py) |
-| Source lines | 644 |
+| Source lines | 645 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `d656b22b2021ec6fb1747725ad33a30bc6bc744d` |
-| Commit timestamp | `2026-11-06T21:12:39-05:00` |
+| Source commit | `a7fdc90e67184aa039990ad48c89c8b8ee222104` |
+| Commit timestamp | `2026-11-06T22:59:23-05:00` |
 
 ## Public API
 
@@ -76,7 +76,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `as_dict(self) -> dict[str, Any]` (line 331; public)
 - `class ReturnRow` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 337) — One randomized coin with its session's outcome, as the return model reads it (Codex review F3).
 - `fit_return_slope(rows: Sequence[ReturnRow], prior_sd: float) -> ReturnSlope` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 485) — ``b``, the log return gap per remembered session of extra minutes, identified by the randomized coin alone (Codex review F3): the coin is an instrument for where the session ends.
-- `return_rows(connection: Any, *, gap_minutes: float) -> list[ReturnRow]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 590) — Every coin drawn in a session whose return is observed: its arm's contrast, the availability frozen before its draw, and its session's final minutes and return gap (:class:`ReturnRow`).
+- `return_rows(connection: Any, *, gap_minutes: float, lessons: bool=False) -> list[ReturnRow]` ([source](../../../../../../src/learnloop/router_objective/stop_coin.py), line 590) — Every coin drawn in a session whose return is observed: its arm's contrast, the availability frozen before its draw, and its session's final minutes and return gap (:class:`ReturnRow`).
 
 ### Module constants
 
@@ -228,6 +228,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r4_a_coin_draw_superseded_by_a_waiting_follow_up_is_used_intent_to_treat`
   - `test_r7_a_planted_slope_on_supported_terms_is_recovered_beside_many_unsupported_at_the_draw`
   - `test_r7_support_removed_after_the_draw_in_one_arm_only_stays_bounded`
+- [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
+  - `test_g3_mu_recomputes_with_an_offer_in_the_support_on_every_path`
 
 ## Modification guidance
 

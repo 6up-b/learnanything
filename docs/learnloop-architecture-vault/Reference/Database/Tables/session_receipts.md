@@ -3,8 +3,8 @@ title: "session_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "931e2aa6772c1756f71ef2f2fea1c40d584c211b"
-source_commit_timestamp: "2026-11-06T21:12:53-05:00"
+source_commit: "cec9749e3a807f0bfb9f46f616e55ee766838077"
+source_commit_timestamp: "2026-11-06T23:01:07-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_receipts"
@@ -123,6 +123,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_mobile_v2_landing_fixes.py`
+- `tests/test_mobile_v2_rereview_fixes.py`
 - `tests/test_ro0_gate.py`
 - `tests/test_ro0_report.py`
 - `tests/test_ro0_rows7_8_sessions.py`

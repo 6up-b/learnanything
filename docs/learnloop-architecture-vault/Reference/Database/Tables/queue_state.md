@@ -3,8 +3,8 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "931e2aa6772c1756f71ef2f2fea1c40d584c211b"
-source_commit_timestamp: "2026-11-06T21:12:53-05:00"
+source_commit: "cec9749e3a807f0bfb9f46f616e55ee766838077"
+source_commit_timestamp: "2026-11-06T23:01:07-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_jobs.py`
 - `tests/test_mobile_rpc.py`
 - `tests/test_mobile_two_process.py`
+- `tests/test_mobile_v2_plan.py`
 - `tests/test_question_promotion_jobs.py`
 - `tests/test_vault_watcher_refresh.py`
 

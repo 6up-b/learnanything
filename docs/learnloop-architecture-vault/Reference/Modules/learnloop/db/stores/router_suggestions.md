@@ -166,6 +166,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3b_codex_review.py](../../../../../../../tests/test_te3b_codex_review.py) — direct import
 - [tests/test_te3b_offers.py](../../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`
+  - `test_a_phone_step_holds_a_drawn_offer_for_the_desktop`
   - `test_moving_on_without_an_answer_is_ignored_at_the_next_boundary`
   - `test_te1bs_daily_card_is_drawn_only_where_the_objective_does_not_serve`
 - [tests/test_teacher_te1b_landing_r2.py](../../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import

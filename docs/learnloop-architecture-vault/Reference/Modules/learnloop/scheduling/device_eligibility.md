@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "f10149a27153ac3072c69e7e09ed57fa2e286b1a"
-source_commit_timestamp: "2026-11-06T16:40:39-05:00"
+source_commit: "cec9749e3a807f0bfb9f46f616e55ee766838077"
+source_commit_timestamp: "2026-11-06T23:01:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py) |
-| Source lines | 268 |
+| Source lines | 271 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f10149a27153ac3072c69e7e09ed57fa2e286b1a` |
-| Commit timestamp | `2026-11-06T16:40:39-05:00` |
+| Source commit | `cec9749e3a807f0bfb9f46f616e55ee766838077` |
+| Commit timestamp | `2026-11-06T23:01:07-05:00` |
 
 ## Public API
 
@@ -64,10 +64,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `refuses(self, item: Any) -> bool` (line 174; public)
   - `holds_back(self, item: Any) -> bool` (line 177; public) — ``refuses``, for an item the build would otherwise serve.
 - `class PlanStepFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 198) — Mobile v2 §2.2: the phone's door into the shared plan, which filters at the step.
-  - `holds(self, item: Any) -> str | None` (line 223; public) — Why the device leaves ``item`` for the desktop, or None when it can serve it.
-  - `detail(self) -> dict[str, str]` (line 234; public) — What a decision taken at a boundary under this device records (its ``device`` entry).
-  - `held_count(self) -> int` (line 240; public)
-- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 244) — Why ``device_class`` cannot answer ``item``, or None when it can.
+  - `holds(self, item: Any) -> str | None` (line 226; public) — Why the device leaves ``item`` for the desktop, or None when it can serve it.
+  - `detail(self) -> dict[str, str]` (line 237; public) — What a decision taken at a boundary under this device records (its ``device`` entry).
+  - `held_count(self) -> int` (line 243; public)
+- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 247) — Why ``device_class`` cannot answer ``item``, or None when it can.
 
 ### Module constants
 
@@ -161,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_check_restored_from_its_checkpoint_the_next_day_stays_cold`
 - [tests/test_mobile_v2_review_fixes.py](../../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered`
+- [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
+  - `test_a_phone_step_holds_a_drawn_offer_for_the_desktop`
 
 ## Modification guidance
 

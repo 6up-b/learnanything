@@ -141,6 +141,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_or_with_the_switch_off_no_workflow_opens`
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
 
 ## Modification guidance
 

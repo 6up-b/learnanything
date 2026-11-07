@@ -350,6 +350,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
   - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
 
 ## Modification guidance
 
