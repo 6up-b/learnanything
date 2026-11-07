@@ -330,6 +330,11 @@ The cached V1 app offers *LearnLoop was updated. Reload* (the allowlist moved): 
 
 The plan's methods then answer `phone_plan_off`, meta reports `phone_plan: false`, and the phone's Today is M2a's queue. Delete the line (or set it to `true`) and restart to turn the plan back on.
 
+### Process notes
+
+- R2's two tests were appended to `tests/test_mobile_v2_landing_fixes.py` with a shell heredoc (`cat >>`), not the editor. Every other change to source and tests used the editor.
+- The smoke's scripts and outputs are in the landing's scratch directory, outside the worktree.
+
 ### Open items
 
 - **The same receipt order on a finished plan's Keep going.** `keep_going` on a `complete` plan and `more_new{confirm}` still write their override receipt before `build_plan`. A phone whose session moves during that build would leave a receipt for a refused extension. R3 ruled on the pending stop's re-split only. The smallest fix is R3's: build first, then commit the receipt inside `build_plan`'s transaction.
