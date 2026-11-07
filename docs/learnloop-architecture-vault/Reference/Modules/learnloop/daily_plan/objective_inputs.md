@@ -188,6 +188,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_two_weeks_before_and_after_the_batch`
 - [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
   - `test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool`
+  - `test_switched_off_the_job_opens_a_connection_at_every_connect`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
   - `test_a_regrade_or_hold_between_the_jobs_card_and_numeric_builds_reaches_the_numeric_policy`
   - `test_a_regrade_or_hold_inside_one_decisions_scope_is_read`

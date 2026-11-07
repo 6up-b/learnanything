@@ -302,6 +302,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
   - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_a_source_edit_committed_between_two_held_reads_of_one_map_is_read`
   - `test_the_opportunity_resolve_is_the_landing_codes_with_the_held_map`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables`

@@ -263,6 +263,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_merged_sessions_equal_the_per_block_loop`
   - `test_the_merged_path_calls_the_fsrs_update_far_fewer_times`
   - `test_the_numeric_policy_merges_only_at_the_tag_with_its_switch`
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
 - [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_baselines_and_the_gain_are_the_landing_codes_bit_for_bit`
   - `test_the_held_values_follow_the_state_bit_for_bit`

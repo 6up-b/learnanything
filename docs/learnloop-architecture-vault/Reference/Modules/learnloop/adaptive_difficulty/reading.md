@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/reading.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/reading.py"
-source_commit: "283405f0a5d78fa722adca27f66f4c6c05bff975"
-source_commit_timestamp: "2026-11-07T02:53:30-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de"
+source_commit_timestamp: "2026-11-07T03:01:14-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -50,38 +50,42 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py) |
-| Source lines | 497 |
+| Source lines | 588 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `283405f0a5d78fa722adca27f66f4c6c05bff975` |
-| Commit timestamp | `2026-11-07T02:53:30-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de` |
+| Commit timestamp | `2026-11-07T03:01:14-05:00` |
 
 ## Public API
 
 - `class VaultReadingMap` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 100) — The default map: ``reader.reader_progression``'s section/span -> LO rule, worked examples by role (``source_retrieval.corpus.role_keys``), facets by the LO's facet union.
   - `__init__(self, vault: Any, repository: Any, view: Any=None) -> None` (line 107; internal)
-  - `_document_ir(self, extraction_id: str) -> Any` (line 131; internal) — The extraction's IR through the reading chokepoint (RO2 landing ruling R6): the material view's ``document_ir`` (none for a reading the withheld material touches, or while the view is unavailable).
-  - `_held_key(self, extraction_id: str) -> tuple[Any, ...] | None` (line 145; internal) — The reading's held key (:func:`.reading_cache.base_key`), read once per map and reading.
-  - `_holdable(self, extraction_id: str, base: tuple[Any, ...] | None) -> bool` (line 163; internal) — Whether a mapping this map just computed may be held under ``base``: its key read again after the computation is still ``base``, so nothing it read (the IR this map loaded, the metadata, the vault) changed since the key was read.
-  - `_section_los(self, extraction_id: str, section_id: str) -> list[str]` (line 183; internal) — A section's LOs once the caller's withheld rule let it through: ``learning_objects_for_section_in_ir`` over the IR the reading chokepoint hands out (RO2's ruling R6), or the value held for this reading, vault, epoch and digest (router speed stage 2, item 1).
-  - `_span_section(self, extraction_id: str, span_id: str) -> str | None` (line 208; internal) — The section of the reading's IR holding a span (``section_map.section_id_in_ir``), from the reading's span → section map: once per map, and held like the sections' LOs.
-  - `los_for_section(self, extraction_id: str, section_id: str) -> list[str]` (line 232; public)
-  - `los_for_span(self, extraction_id: str, span_id: str) -> list[str]` (line 241; public)
-  - `section_spans(self, extraction_id: str, section_id: str) -> list[str]` (line 250; public)
-  - `worked_example_spans(self, extraction_id: str) -> set[str]` (line 253; public)
-  - `reading_order(self, extraction_id: str) -> dict[str, int]` (line 265; public)
-  - `withheld(self, extraction_id: str, span_id: str | None) -> bool` (line 268; public)
-  - `note_withheld(self, note_id: str) -> bool` (line 273; public) — Whether a note is withheld (a held-out source's canonical note; fix round 13, F43).
-  - `los_for_note(self, note_id: str) -> list[str]` (line 281; public)
-  - `lo_for_item(self, practice_item_id: str) -> str | None` (line 288; public)
-  - `facets_for_lo(self, learning_object_id: str) -> list[str]` (line 292; public)
-- `section_learning_objects(vault: Any, repository: Any, extraction_id: str, section_id: str, *, view: Any=None) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 301) — Router objective RO4 (landing, after RO2's ruling R6): a reading section's LOs as AD maps them, for the rollouts' reading action, so its doses land on the LOs AD's reading curve (``reading_dose``) counts: through the map's ``MaterialView.document_ir`` after the sweep's withheld…
-- `class SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 312)
-  - `as_dict(self) -> dict[str, Any]` (line 317; public)
-- `occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 342) — Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is, for AD, a receipt never written, so it occupies no slot of a daily cap.
-- `sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str='serve', sweep_ref: str | None=None, reading_map: ReadingMap | None=None, clock: Clock | None=None, view: Any=None) -> SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 404) — Record every listed opportunity written no later than ``as_of``.
+  - `_document_ir(self, extraction_id: str) -> Any` (line 141; internal) — The extraction's IR through the reading chokepoint (RO2 landing ruling R6): the material view's ``document_ir`` (none for a reading the withheld material touches, or while the view is unavailable).
+  - `_held_key(self, extraction_id: str) -> tuple[Any, ...] | None` (line 155; internal) — The reading's held key (:func:`.reading_cache.base_key`), read once per map and reading.
+  - `_still_keyed(self, extraction_id: str) -> bool` (line 176; internal) — Whether a lookup the landing code computes afresh (a section or span this map has not mapped) may be answered from the held path (Codex review F1).
+  - `_metadata_current(self, extraction_id: str, base: tuple[Any, ...]) -> bool` (line 199; internal) — Whether the reading's metadata and aliases are still ``base``'s: no commit to the database at all since they last matched (its commit version unchanged), else read again and compared.
+  - `_holdable(self, extraction_id: str, base: tuple[Any, ...] | None) -> bool` (line 218; internal) — Whether a mapping this map just computed may be held under ``base``: its key read again after the computation is still ``base``, so nothing it read (the IR this map loaded, the metadata, the vault) changed since the key was read.
+  - `_section_los(self, extraction_id: str, section_id: str) -> list[str]` (line 240; internal) — A section's LOs once the caller's withheld rule let it through: ``learning_objects_for_section_in_ir`` over the IR the reading chokepoint hands out (RO2's ruling R6), or the value held for this reading, vault, epoch and digest (router speed stage 2, item 1).
+  - `_span_section(self, extraction_id: str, span_id: str) -> str | None` (line 265; internal) — The section of the reading's IR holding a span (``section_map.section_id_in_ir``), from the reading's span → section map: once per map, and held like the sections' LOs.
+  - `_landing_section(self, extraction_id: str, section_id: str) -> list[str]` (line 289; internal) — The landing code's own mapping of a section (main ``e9ceaf8d44``), over the IR this map loads once.
+  - `_landing_span(self, extraction_id: str, span_id: str) -> list[str]` (line 301; internal) — The landing code's own mapping of a span (main ``e9ceaf8d44``), over the IR this map loads once.
+  - `los_for_section(self, extraction_id: str, section_id: str) -> list[str]` (line 313; public)
+  - `los_for_span(self, extraction_id: str, span_id: str) -> list[str]` (line 327; public)
+  - `section_spans(self, extraction_id: str, section_id: str) -> list[str]` (line 341; public)
+  - `worked_example_spans(self, extraction_id: str) -> set[str]` (line 344; public)
+  - `reading_order(self, extraction_id: str) -> dict[str, int]` (line 356; public)
+  - `withheld(self, extraction_id: str, span_id: str | None) -> bool` (line 359; public)
+  - `note_withheld(self, note_id: str) -> bool` (line 364; public) — Whether a note is withheld (a held-out source's canonical note; fix round 13, F43).
+  - `los_for_note(self, note_id: str) -> list[str]` (line 372; public)
+  - `lo_for_item(self, practice_item_id: str) -> str | None` (line 379; public)
+  - `facets_for_lo(self, learning_object_id: str) -> list[str]` (line 383; public)
+- `section_learning_objects(vault: Any, repository: Any, extraction_id: str, section_id: str, *, view: Any=None) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 392) — Router objective RO4 (landing, after RO2's ruling R6): a reading section's LOs as AD maps them, for the rollouts' reading action, so its doses land on the LOs AD's reading curve (``reading_dose``) counts: through the map's ``MaterialView.document_ir`` after the sweep's withheld…
+- `class SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 403)
+  - `as_dict(self) -> dict[str, Any]` (line 408; public)
+- `occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 433) — Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is, for AD, a receipt never written, so it occupies no slot of a daily cap.
+- `sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str='serve', sweep_ref: str | None=None, reading_map: ReadingMap | None=None, clock: Clock | None=None, view: Any=None) -> SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 495) — Record every listed opportunity written no later than ``as_of``.
 
 ### Module constants
 
@@ -113,11 +117,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_doses(reading_map: ReadingMap, lo_id: str, named: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 321)
-- `_capped(kind: str, subkind: str) -> tuple[str, int] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 332) — A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None.
-- `_keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 356) — The opportunity's key inside its cap, or None when the cap is full.
-- `_taken_offers(connection: Any, view: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 383)
-- `_offer_for(offers: Mapping[str, str], event: '_Event') -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 393)
+- `_doses(reading_map: ReadingMap, lo_id: str, named: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 412)
+- `_capped(kind: str, subkind: str) -> tuple[str, int] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 423) — A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None.
+- `_keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 447) — The opportunity's key inside its cap, or None when the cap is full.
+- `_taken_offers(connection: Any, view: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 474)
+- `_offer_for(offers: Mapping[str, str], event: '_Event') -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 484)
 
 ## Who imports or calls it
 
@@ -142,7 +146,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `material_view`; calls `material_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
 - [[Reference/Modules/learnloop/adaptive_difficulty/projection|learnloop.adaptive_difficulty.projection]] — imports `project_repository`; calls `project_repository`
-- [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]] — imports `module`; calls `base_key`, `held`, `hold`, `still_current`, `vault_digest`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]] — imports `module`; calls `base_key`, `commit_version`, `held`, `held_on`, `hold`, `still_current`, `vault_digest`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `lesson_opportunities_on`; calls `lesson_opportunities_on`
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `receipts_enabled`; calls `receipts_enabled`
 - [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] — imports `LEARNING_OPPORTUNITY_KINDS`, `LEARNING_OPPORTUNITY_SOURCES`
@@ -151,7 +155,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/ad_receipts|learnloop.db.stores.ad_receipts]] — imports `module`; calls `has_table`, `insert_reading_opportunity`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `module`; calls `has_table`
 - [[Reference/Modules/learnloop/reading_sources|learnloop.reading_sources]] — imports `EXPOSURE_CONTEXTS`, `IN_PASSAGE_STYLES`, `ListedEvent`, `ReadingMap`, `SWEEP_OVERLAP`, `TUTOR_ANSWER_MODES`, `UNKNOWN_ANSWER_MODE`, `listed_events`, `source_stamp`; calls `listed_events`, `source_stamp`
-- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `extraction_sections`, `learning_objects_for_section_in_ir`; calls `extraction_sections`, `learning_objects_for_section_in_ir`
+- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `extraction_sections`, `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`; calls `extraction_sections`, `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`
 
 ### Platform and third-party dependencies
 
@@ -205,7 +209,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
   - `test_a_failed_mapping_is_not_held`
   - `test_a_mapping_computed_across_a_source_write_is_not_held`
+  - `test_a_source_edit_committed_between_two_held_reads_of_one_map_is_read`
+  - `test_an_embedded_nul_in_a_stored_cell_is_part_of_the_held_key`
   - `test_every_ir_load_of_the_held_map_is_inside_the_chokepoint`
+  - `test_switched_off_the_map_is_mains_and_reads_nothing_of_the_hold`
   - `test_the_opportunity_resolve_is_the_landing_codes_with_the_held_map`
 - [tests/test_salience_firewall.py](../../../../../../tests/test_salience_firewall.py) — direct import
   - `test_carve_out_allowlist_is_the_sweeps_list_and_the_only_typed_value_is_the_verdict`

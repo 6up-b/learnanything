@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "246bdfc0b7d92c7c8514539af343fab875001cf8"
-source_commit_timestamp: "2026-11-06T20:35:00-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de"
+source_commit_timestamp: "2026-11-07T03:01:14-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 381 |
+| Source lines | 383 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `246bdfc0b7d92c7c8514539af343fab875001cf8` |
-| Commit timestamp | `2026-11-06T20:35:00-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de` |
+| Commit timestamp | `2026-11-07T03:01:14-05:00` |
 
 ## Public API
 
@@ -82,11 +82,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `followups_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 256) — The router objective's follow-up batch: the vault is at its successor (mvp-0.50) or later.
 - `followup_on(config: Any, key: str) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 263) — One part of the follow-up batch serves: the tag, the objective serving and its own ``[router_objective]`` switch ``key`` (default true).
 - `monotone_combiner_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 271) — The follow-up batch's landing ruling R6: the memory model's combiner is monotone in ability by construction (``memory.FORM_MONOTONE``), in its prior and its fit: the tag, the objective serving and ``[router_objective] monotone_combiner`` (a structural kill switch, default true);…
-- `followup_generator_switches(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 289) — R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None below it, so a predecessor's generator payload (and its trace) keeps its bytes.
-- `followup_switch_snapshot(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 304) — R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key keeps its predecessor's bytes).
-- `lesson_offers_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 313) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or later.
-- `lesson_offers_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 321) — Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on (``router.lesson_suggestions.enabled`` with the router and its dec…
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 337) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `followup_generator_switches(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 291) — R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None below it, so a predecessor's generator payload (and its trace) keeps its bytes.
+- `followup_switch_snapshot(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 306) — R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key keeps its predecessor's bytes).
+- `lesson_offers_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 315) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or later.
+- `lesson_offers_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 323) — Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on (``router.lesson_suggestions.enabled`` with the router and its dec…
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 339) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
@@ -98,8 +98,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `CHECKS_EMBEDDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 196)
 - `CHECKS_RATE` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 197)
 - `CHECKS_OFF` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 198)
-- `FOLLOWUP_GENERATOR_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 284)
-- `FOLLOWUP_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 301)
+- `FOLLOWUP_GENERATOR_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 286)
+- `FOLLOWUP_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 303)
 
 ### Explicit exports
 
@@ -155,6 +155,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `known_at`; statically calls `known_at`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]] — imports `followup_on`; statically calls `followup_on`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `interval_factor_removed`; statically calls `interval_factor_removed`
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `calibration_tag`, `learned_tail_tag`, `lesson_offers_tag`; statically calls `calibration_tag`, `learned_tail_tag`, `lesson_offers_tag`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
@@ -199,7 +200,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] and 22 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] and 23 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -240,6 +241,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_part_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
 - [tests/test_rofu_switch_key.py](../../../../../tests/test_rofu_switch_key.py) — direct import
   - `test_flipping_a_switch_between_prefetch_and_serve_starts_a_new_job`
+- [tests/test_rospeed2_connections.py](../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_the_pool_and_the_held_map_follow_their_switches`
 - [tests/test_rospeed_ad_link.py](../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_switch_reaches_every_rollout_from_the_config`
 - [tests/test_te3b_successor.py](../../../../../tests/test_te3b_successor.py) — direct import

@@ -807,6 +807,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
   - `test_no_lock_and_no_stale_snapshot_under_wal`
   - `test_one_connection_per_database_and_mode_serves_the_scopes_thread`
+  - `test_switched_off_the_job_opens_a_connection_at_every_connect`
+  - `test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains`
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
   - `test_the_opportunity_resolve_is_the_landing_codes_with_the_held_map`
 - [tests/test_rospeed_watcher.py](../../../../../../tests/test_rospeed_watcher.py) — direct import

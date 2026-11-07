@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/reading_cache.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/reading_cache.py"
-source_commit: "e5c7bc73864aee15147b54032d776cc85f5cdc80"
-source_commit_timestamp: "2026-11-07T02:07:26-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de"
+source_commit_timestamp: "2026-11-07T03:01:14-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -50,29 +50,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py) |
-| Source lines | 176 |
+| Source lines | 242 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `e5c7bc73864aee15147b54032d776cc85f5cdc80` |
-| Commit timestamp | `2026-11-07T02:07:26-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de` |
+| Commit timestamp | `2026-11-07T03:01:14-05:00` |
 
 ## Public API
 
-- `vault_digest(vault: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 57) — A digest of everything ``section_map.learning_objects_for_section_in_ir`` reads of ``vault``: every LO's id, status and provenance references, each facet of its blueprints' union with its canonical id and that facet's references, and every note's id and canonical source (``canon…
-- `base_key(view: Any, vault: Any, repository: Any, extraction_id: str, *, vault_key: str | None) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 86) — The key a reading's held values share in one map (see the module docstring), or None: nothing is held (the view is unavailable, the reading is withheld, or its rows or the vault cannot be digested).
-- `still_current(view: Any, vault: Any, repository: Any, extraction_id: str, base: tuple[Any, ...] | None, *, full: bool) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 104) — Whether a value just computed under ``base`` may be held: its key read again now is still ``base``.
-- `structure_key(repository: Any, digest: str | None, extraction_id: str, kind: str) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 118) — The key of a value derived from a reading's stored structure alone (``MaterialView.section_spans``: no vault, no projection), or None when the reading has no digest (withheld, unavailable or unreadable).
-- `held(key: Hashable | None, vault: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 132) — The value held under ``key`` for this vault object (None: a value no vault is read for), or None.
-- `hold(key: Hashable | None, vault: Any, value: Any) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 151) — Hold an immutable ``value`` under ``key`` for this vault object (weakly: a vault no longer loaded drops it; None: a value no vault is read for).
-- `clear() -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 169) — Drop every held mapping (tests; a held value is never stale, so production never needs it).
+- `commit_version(repository: Any) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 57) — The database's commit version as a read-only watcher sees it (``PRAGMA data_version``, which moves whenever another connection commits, and the watcher's own ``total_changes``; the pattern of ``objective_inputs.
+- `held_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 101) — ``[router_objective] held_reading_map`` at the follow-up batch's tag with the objective serving (router speed stage 2's Codex review F2): the map's values are the same either way, but held they cost less, so the objective job's input builds finish sooner and a deadline-bound ref…
+- `vault_digest(vault: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 123) — A digest of everything ``section_map.learning_objects_for_section_in_ir`` reads of ``vault``: every LO's id, status and provenance references, each facet of its blueprints' union with its canonical id and that facet's references, and every note's id and canonical source (``canon…
+- `base_key(view: Any, vault: Any, repository: Any, extraction_id: str, *, vault_key: str | None) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 152) — The key a reading's held values share in one map (see the module docstring), or None: nothing is held (the view is unavailable, the reading is withheld, or its rows or the vault cannot be digested).
+- `still_current(view: Any, vault: Any, repository: Any, extraction_id: str, base: tuple[Any, ...] | None, *, full: bool) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 170) — Whether a value just computed under ``base`` may be held: its key read again now is still ``base``.
+- `structure_key(repository: Any, digest: str | None, extraction_id: str, kind: str) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 184) — The key of a value derived from a reading's stored structure alone (``MaterialView.section_spans``: no vault, no projection), or None when the reading has no digest (withheld, unavailable or unreadable).
+- `held(key: Hashable | None, vault: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 198) — The value held under ``key`` for this vault object (None: a value no vault is read for), or None.
+- `hold(key: Hashable | None, vault: Any, value: Any) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 217) — Hold an immutable ``value`` under ``key`` for this vault object (weakly: a vault no longer loaded drops it; None: a value no vault is read for).
+- `clear() -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 235) — Drop every held mapping (tests; a held value is never stale, so production never needs it).
 
 ### Module constants
 
-- `_HELD_LIMIT` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 42)
-- `_HELD` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 43)
-- `_LOCK` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 44)
+- `_HELD_LIMIT` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 48)
+- `_HELD` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 49)
+- `_LOCK` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 50)
+- `_WATCHERS` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 53)
+- `_WATCH_LOCK` ([src/learnloop/adaptive_difficulty/reading_cache.py](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 54)
 
 ### Explicit exports
 
@@ -80,7 +84,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `base_key`
 - `clear`
+- `commit_version`
 - `held`
+- `held_on`
 - `hold`
 - `still_current`
 - `structure_key`
@@ -88,27 +94,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_extras(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 47)
-- `_dump(ref: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 52)
-- `_owner(vault: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 128)
+- `_extras(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 113)
+- `_dump(ref: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 118)
+- `_owner(vault: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading_cache.py), line 194)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `module`; statically calls `held`, `hold`, `structure_key`
-- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `module`; statically calls `base_key`, `held`, `hold`, `still_current`, `vault_digest`
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `module`; statically calls `held`, `held_on`, `hold`, `structure_key`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `module`; statically calls `base_key`, `commit_version`, `held`, `held_on`, `hold`, `still_current`, `vault_digest`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `followup_on`; calls `followup_on`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `learning_object_facet_union`; calls `learning_object_facet_union`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `hashlib`, `json`, `pathlib`, `threading`, `typing`, `weakref`
+- Standard library: `__future__`, `collections`, `hashlib`, `json`, `os`, `pathlib`, `sqlite3`, `threading`, `typing`, `weakref`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -124,8 +131,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_the_pool_and_the_held_map_follow_their_switches`
+  - `test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains`
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
   - `test_a_failed_mapping_is_not_held`
+  - `test_switched_off_the_map_is_mains_and_reads_nothing_of_the_hold`
 
 ## Modification guidance
 
