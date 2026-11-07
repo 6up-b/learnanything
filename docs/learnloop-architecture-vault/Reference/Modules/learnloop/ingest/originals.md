@@ -122,6 +122,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_publication_and_capture_purge_share_writer_reservation`
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
   - `test_concurrent_original_writers_use_independent_temporary_files`
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_a_stored_image_is_served_by_its_content_address_and_never_a_pdf`
 - [tests/test_originals_store.py](../../../../../../tests/test_originals_store.py) — direct import
   - `test_backfill_statuses`
   - `test_failed_original_write_leaves_no_temporary_file`

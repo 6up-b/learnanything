@@ -34,7 +34,7 @@ source_paths:
   - "src/learnloop/reader/span_view.py"
   - "src/learnloop/reader/workbench.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T18:31:07-05:00"
+source_commit_timestamp: "2026-11-07T06:17:58-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -79,12 +79,12 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] | [[Reference/Modules/learnloop/reader/reader_authoring#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] | [[Reference/Modules/learnloop/reader/reader_capture#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] | [[Reference/Modules/learnloop/reader/reader_cues#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
-| [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] | [[Reference/Modules/learnloop/reader/reader_dialogue#^module-purpose|purpose]] | `ACTIVE` | 17 | 24 |
-| [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] | [[Reference/Modules/learnloop/reader/reader_guidance#^module-purpose|purpose]] | `ACTIVE` | 15 | 23 |
+| [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] | [[Reference/Modules/learnloop/reader/reader_dialogue#^module-purpose|purpose]] | `ACTIVE` | 18 | 24 |
+| [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] | [[Reference/Modules/learnloop/reader/reader_guidance#^module-purpose|purpose]] | `ACTIVE` | 15 | 24 |
 | [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] | [[Reference/Modules/learnloop/reader/reader_inquiry#^module-purpose|purpose]] | `ACTIVE` | 1 | 21 |
 | [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] | [[Reference/Modules/learnloop/reader/reader_intent#^module-purpose|purpose]] | `ACTIVE` | 1 | 10 |
 | [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] | [[Reference/Modules/learnloop/reader/reader_observations#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] | [[Reference/Modules/learnloop/reader/reader_progression#^module-purpose|purpose]] | `ACTIVE` | 20 | 7 |
+| [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] | [[Reference/Modules/learnloop/reader/reader_progression#^module-purpose|purpose]] | `ACTIVE` | 20 | 8 |
 | [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] | [[Reference/Modules/learnloop/reader/reader_quick_check#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
 | [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] | [[Reference/Modules/learnloop/reader/reader_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 22 |
 | [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] | [[Reference/Modules/learnloop/reader/reader_requests#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
@@ -93,7 +93,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] | [[Reference/Modules/learnloop/reader/recap#^module-purpose|purpose]] | `ACTIVE` | 7 | 11 |
 | [[Reference/Modules/learnloop/reader/source_identity|learnloop.reader.source_identity]] | [[Reference/Modules/learnloop/reader/source_identity#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] | [[Reference/Modules/learnloop/reader/source_objects#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |
-| [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] | [[Reference/Modules/learnloop/reader/source_render_views#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] | [[Reference/Modules/learnloop/reader/source_render_views#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/reader/source_review|learnloop.reader.source_review]] | [[Reference/Modules/learnloop/reader/source_review#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] | [[Reference/Modules/learnloop/reader/source_roles#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
 | [[Reference/Modules/learnloop/reader/source_search|learnloop.reader.source_search]] | [[Reference/Modules/learnloop/reader/source_search#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
@@ -126,7 +126,7 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 48 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 49 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 27 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
@@ -160,7 +160,7 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_substrate["learnloop.substrate"]
-    n_learnloop_sidecar_handlers -->|48| center
+    n_learnloop_sidecar_handlers -->|49| center
     center -->|27| n_learnloop
     n_learnloop_source_retrieval -->|27| center
     center -->|18| n_learnloop_db

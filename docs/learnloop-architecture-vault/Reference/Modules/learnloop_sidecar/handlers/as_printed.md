@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/as_printed.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/as_printed.py"
-source_commit: "532169fac4c1e5bfd1a638e251a1b713e9028f94"
-source_commit_timestamp: "2026-10-27T04:49:13-04:00"
+source_commit: "031c10cc83242fcf014d5c0ed5e995d014bcf732"
+source_commit_timestamp: "2026-11-07T06:17:58-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,32 +53,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/as_printed.py](../../../../../../src/learnloop_sidecar/handlers/as_printed.py) |
-| Source lines | 147 |
+| Source lines | 157 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `532169fac4c1e5bfd1a638e251a1b713e9028f94` |
-| Commit timestamp | `2026-10-27T04:49:13-04:00` |
+| Source commit | `031c10cc83242fcf014d5c0ed5e995d014bcf732` |
+| Commit timestamp | `2026-11-07T06:17:58-05:00` |
 
 ## Public API
 
-- `class AsPrintedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 40)
-- `class TranscriptionReportInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 45)
-- `cold_now(vault: Any, repository: Any, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 61) — The item is administered on your own now (D46: nothing locates it): a due cold follow-up on it, an active diagnostic presentation of it, or DL2's due "Check once" served cold (F1: the first two need no commitment).
-- `practice_as_printed(ctx: SidecarContext, params: AsPrintedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 109)
-- `practice_report_transcription(ctx: SidecarContext, params: TranscriptionReportInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 130)
+- `class AsPrintedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 42)
+- `class TranscriptionReportInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 47)
+- `cold_now(vault: Any, repository: Any, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 63) — The item is administered on your own now (D46: nothing locates it): a due cold follow-up on it, an active diagnostic presentation of it, or DL2's due "Check once" served cold (F1: the first two need no commitment).
+- `practice_as_printed(ctx: SidecarContext, params: AsPrintedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 111)
+- `practice_report_transcription(ctx: SidecarContext, params: TranscriptionReportInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 140)
 
 ### Module constants
 
-- `AS_PRINTED_RPCS` ([src/learnloop_sidecar/handlers/as_printed.py](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 33)
-- `REPORT_NOTE_MAX_CHARS` ([src/learnloop_sidecar/handlers/as_printed.py](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 37)
+- `AS_PRINTED_RPCS` ([src/learnloop_sidecar/handlers/as_printed.py](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 35)
+- `REPORT_NOTE_MAX_CHARS` ([src/learnloop_sidecar/handlers/as_printed.py](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 39)
 
 ## Internal implementation anchors
 
-- `_origin(repository: Any, item: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 50) — The item's print with its solution guard's full reader (Astra batch review): every block's effective role, a solution region's body included.
-- `_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 57)
-- `_source_title(repository: Any, source_id: str | None, extraction_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 83) — The book's learner title (``add_source.learner_title``: its display title, else its file name in words), so a book imported without a title is named as the Library names it rather than "your book".
+- `_origin(repository: Any, item: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 52) — The item's print with its solution guard's full reader (Astra batch review): every block's effective role, a solution region's body included.
+- `_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 59)
+- `_source_title(repository: Any, source_id: str | None, extraction_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/as_printed.py), line 85) — The book's learner title (``add_source.learner_title``: its display title, else its file name in words), so a book imported without a title is named as the Library names it rather than "your book".
 
 ## Who imports or calls it
 
@@ -86,6 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `cold_now`; statically calls `cold_now`
 
 ## Dependencies
 
@@ -101,6 +102,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `phone_withheld`; calls `phone_withheld`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies
@@ -118,7 +120,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -126,6 +128,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_ca1_rpcs_are_all_of_them`
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_the_phones_ask_is_refused_while_its_check_on_your_own_is_open`
 - [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — direct import
   - `test_a_due_check_on_your_own_is_read_on_the_server`
 - [tests/test_reader_ca1_astra_redesign.py](../../../../../../tests/test_reader_ca1_astra_redesign.py) — direct import

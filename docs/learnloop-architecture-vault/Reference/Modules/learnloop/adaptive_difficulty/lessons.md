@@ -123,8 +123,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad_projection.py](../../../../../../tests/test_ad_projection.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
-- [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 
 ## Modification guidance
 

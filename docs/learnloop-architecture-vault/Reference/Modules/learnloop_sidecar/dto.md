@@ -199,6 +199,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_fg1d_panel_read.py](../../../../../tests/test_followup_fg1d_panel_read.py) — direct import
 - [tests/test_ingest_latency_journey.py](../../../../../tests/test_ingest_latency_journey.py) — direct import
   - `test_synthetic_markdown_import_reaches_ready_library_and_outline`
+- [tests/test_mobile_v4_reader.py](../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_render_view_without_a_range_is_todays_reply_byte_for_byte`
 - [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_f8_an_error_that_is_not_a_sidecar_error_keeps_the_offer`
   - `test_rr_f3_the_plan_status_lists_the_sessions_grants_for_a_lasting_stop`

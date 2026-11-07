@@ -143,6 +143,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_reading.py](../../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_reader_check_over_held_out_material_is_refused_before_any_model_call`
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_render_view_without_a_range_is_todays_reply_byte_for_byte`
 - [tests/test_passage_links.py](../../../../../../tests/test_passage_links.py) — direct import
   - `test_with_the_judge_stubbed_to_none_no_discovered_cue_appears`
 - [tests/test_reader_active_reading.py](../../../../../../tests/test_reader_active_reading.py) — direct import

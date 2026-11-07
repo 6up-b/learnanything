@@ -493,6 +493,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_queued_index_job_whose_worker_never_started_is_started_by_the_sweep`
   - `test_an_index_obligation_that_cannot_be_queued_fails_the_extraction_retryably`
   - `test_extraction_queues_the_index_jobs_only_while_their_switches_are_on`
+- [tests/test_mobile_v4_reader.py](../../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_once`
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_fix_l1_the_rpc_gates_of_priced_features_offer_and_honour_no_grant_their_job_would_refuse`
   - `test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant`

@@ -179,7 +179,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] | [[Reference/Modules/learnloop/router_objective_switches#^module-purpose|purpose]] | `ACTIVE` | 27 | 17 |
 | [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] | [[Reference/Modules/learnloop/router_objective_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] | [[Reference/Modules/learnloop/router_staged_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/section_map|learnloop.section_map]] | [[Reference/Modules/learnloop/section_map#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
+| [[Reference/Modules/learnloop/section_map|learnloop.section_map]] | [[Reference/Modules/learnloop/section_map#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
 | [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] | [[Reference/Modules/learnloop/serve_eligibility#^module-purpose|purpose]] | `ACTIVE` | 20 | 7 |
 | [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] | [[Reference/Modules/learnloop/sources_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] | [[Reference/Modules/learnloop/stuck_prompt_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -271,7 +271,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 79 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 67 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 49 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 51 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 47 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 46 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 44 static module edges
@@ -354,7 +354,7 @@ flowchart LR
     center -->|1| n_learnloop_cli
     n_learnloop_ops -->|21| center
     center -->|41| n_learnloop_ops
-    n_learnloop_sidecar_handlers -->|49| center
+    n_learnloop_sidecar_handlers -->|51| center
     n_learnloop_attempts -->|47| center
     center -->|1| n_learnloop_attempts
     n_learnloop_daily_plan -->|46| center

@@ -188,6 +188,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
   - `test_marking_and_release_flip_the_epoch_and_the_reading_with_it`
   - `test_probe_candidates_are_taken_in_reading_order_not_span_id_order`
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_doses_from_the_phone_are_the_desktops_draw_and_rows`
 - [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
   - `test_the_reading_map_answers_inside_the_operation_what_the_incumbent_answers_outside`
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
