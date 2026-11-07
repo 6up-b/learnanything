@@ -4,7 +4,7 @@
 // everything cached of that reading goes, its page images included.
 import type { ReaderGuidePlanDto, ReaderProgressListDto } from "@desktop/api/dto";
 import { phone, type PhoneSectionDto } from "../api/phone";
-import { dropExtraction, getLatest, getSection, purgePageImages, putLatest, putSection } from "../store/displayCache";
+import { deleteLatest, dropExtraction, getLatest, getSection, purgePageImages, putLatest, putSection } from "../store/displayCache";
 import { protectionKey } from "./readerModel";
 
 interface ReadingMeta {
@@ -22,6 +22,18 @@ export async function cachedSection(extractionId: string, sectionId: string): Pr
   return meta ? getSection<PhoneSectionDto>({ extractionId, revision: meta.revision, sectionId }).catch(() => null) : null;
 }
 
+/** Codex review F2: the host now withholds the whole reading (a mark, an exam-pool source), so nothing the phone
+ *  kept of it may open again, offline least of all: its sections, its guide and its place go, with every page
+ *  image (an image's URL may name the file, not the reading). Progress has no text and stays. */
+async function forgetIfWithheld(extractionId: string, error: unknown): Promise<void> {
+  if ((error as { code?: string } | null)?.code !== "held_out_material") return;
+  await dropExtraction(extractionId).catch(() => undefined);
+  await deleteLatest(metaName(extractionId)).catch(() => undefined);
+  await deleteLatest(guideName(extractionId)).catch(() => undefined);
+  await purgePageImages().catch(() => undefined);
+  forgetPlace(extractionId);
+}
+
 /** A section from the host, kept; or, the host away, the copy kept last time (`stale`). */
 export async function loadSection(extractionId: string, sectionId: string): Promise<{ section: PhoneSectionDto; stale: boolean }> {
   try {
@@ -29,6 +41,7 @@ export async function loadSection(extractionId: string, sectionId: string): Prom
     await keep(extractionId, sectionId, section);
     return { section, stale: false };
   } catch (error) {
+    await forgetIfWithheld(extractionId, error);
     if ((error as { code?: string }).code !== "desktop_offline") throw error;
     const meta = await getLatest<ReadingMeta>(metaName(extractionId));
     const cached = meta ? await getSection<PhoneSectionDto>({ extractionId, revision: meta.revision, sectionId }) : null;
@@ -41,8 +54,9 @@ export async function loadSection(extractionId: string, sectionId: string): Prom
 export async function prefetchSection(extractionId: string, sectionId: string): Promise<void> {
   try {
     await keep(extractionId, sectionId, await phone.section(extractionId, sectionId));
-  } catch {
-    /* the section loads when it is opened */
+  } catch (error) {
+    /* the section loads when it is opened; a reading withheld whole goes now (F2) */
+    await forgetIfWithheld(extractionId, error);
   }
 }
 
@@ -75,6 +89,7 @@ export async function loadGuide(extractionId: string): Promise<{ guide: ReaderGu
     await putLatest(guideName(extractionId), guide);
     return { guide, stale: false };
   } catch (error) {
+    await forgetIfWithheld(extractionId, error);
     if ((error as { code?: string }).code !== "desktop_offline") throw error;
     const guide = await getLatest<ReaderGuidePlanDto>(guideName(extractionId));
     if (!guide) throw error;
@@ -118,6 +133,16 @@ export function rememberPlace(place: LocalPlace): void {
     localStorage.setItem(PLACE_KEY, JSON.stringify([place, ...rest].slice(0, 5)));
   } catch {
     /* a denied write never stops reading */
+  }
+}
+
+/** One book's place on this phone goes (its reading is withheld now, F2). */
+export function forgetPlace(extractionId: string): void {
+  try {
+    const rest = readPlaces().filter((one) => one.extractionId !== extractionId);
+    localStorage.setItem(PLACE_KEY, JSON.stringify(rest));
+  } catch {
+    /* nothing to forget */
   }
 }
 

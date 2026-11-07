@@ -16,7 +16,7 @@ import { markReachable } from "../shell/connection";
 import { deleteCredential, readCredential } from "./credential";
 import { clearDisplayCache } from "./displayCache";
 import { clearSessionCache } from "./sessionCache";
-import { INTENT_STORE, OUTBOX_STORE, txRequest } from "./db";
+import { INTENT_STORE, openDb, OUTBOX_STORE, txRequest } from "./db";
 
 export interface OutboxRecord {
   readonly clientCaptureId: string;
@@ -103,10 +103,12 @@ export const CAPTURE_INTENT: IntentKind<OutboxRecord> = {
 };
 
 // ── Mobile v2 V4 (§3.4, §5.4): the Reader's intents. ──
-// Each meets the three rules: reading progress is a monotonic upsert on the host (the latest per section wins
-// here, so only one is queued); activity events carry their own `occurredAt`, so a late send keeps their time;
-// a dose event names its draw. Each is a job on the host keyed by the intent's id (`mobile_jobs`): a replay after
-// a lost reply is coalesced, never recorded twice, and the job's acceptance (200 or 202) is its delivery.
+// Each meets the three rules: reading progress is a monotonic upsert on the host (queued reports of a section are
+// merged into one, their larger counts and any completion, Codex review F6); activity events carry their own
+// `occurredAt`, so a late send keeps their time; a dose event names its draw. Each is a job on the host keyed by the
+// intent's id (`mobile_jobs`): a replay after a lost reply is coalesced, never recorded twice (its rows and the job's
+// receipt commit together, F5), and the job's end (a 200) is its delivery: an accepted job (202) is asked again
+// under its key until it ends (F7).
 
 export type ReaderIntentMethod = "reader.mark_section_progress" | "reader.log_activity" | "reader.dose_offer_event";
 
@@ -124,13 +126,47 @@ export function listReaderIntents(): Promise<ReaderIntentRecord[]> {
   return txRequest<ReaderIntentRecord[]>(INTENT_STORE, "readonly", (objects) => objects.getAll());
 }
 
-/** Queue one reader intent. A progress report replaces the unsent one for its section (the server takes the max). */
-export async function addReaderIntent(record: ReaderIntentRecord): Promise<void> {
-  if (record.coalesce) {
-    const older = (await listReaderIntents()).filter((one) => one.coalesce === record.coalesce && !one.problem);
-    for (const one of older) await removeReaderIntent(one.id);
+/** Progress is monotonic (§3.4): two reports of one section are their larger counts, and a completion or a reveal
+ *  either of them carried (Codex review F6: a later, smaller report never erases a queued completion). */
+function mergeProgress(older: Record<string, unknown>, newer: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...older, ...newer };
+  for (const count of ["spansSeen", "spanCount"]) {
+    const values = [older[count], newer[count]].filter((value): value is number => typeof value === "number");
+    if (values.length) merged[count] = Math.max(...values);
   }
-  await txRequest(INTENT_STORE, "readwrite", (objects) => objects.put(record));
+  for (const flag of ["completed", "revealed"]) {
+    if (older[flag] === true || newer[flag] === true) merged[flag] = true;
+  }
+  return merged;
+}
+
+/** Queue one reader intent. A progress report takes the place of the unsent ones for its section, merged into it
+ *  monotonically, in one IndexedDB transaction (so a flush never finds the section's report missing). */
+export async function addReaderIntent(record: ReaderIntentRecord): Promise<void> {
+  if (!record.coalesce) {
+    await txRequest(INTENT_STORE, "readwrite", (objects) => objects.put(record));
+    return;
+  }
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(INTENT_STORE, "readwrite");
+    const objects = transaction.objectStore(INTENT_STORE);
+    const listed = objects.getAll();
+    listed.onsuccess = () => {
+      const older = (listed.result as ReaderIntentRecord[])
+        .filter((one) => one.coalesce === record.coalesce && !one.problem)
+        .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      let params = record.params;
+      for (const one of older) {
+        params = mergeProgress(one.params, params);
+        objects.delete(one.id);
+      }
+      objects.put({ ...record, params });
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB write was aborted."));
+  });
 }
 
 export async function removeReaderIntent(id: string): Promise<void> {
@@ -151,10 +187,14 @@ export const READER_INTENT: IntentKind<ReaderIntentRecord> = {
   send: async (record) => {
     const params = record.params as Record<string, never>;
     try {
-      if (record.method === "reader.mark_section_progress") await phone.markProgress(record.params as unknown as ProgressInput, record.id);
-      else if (record.method === "reader.log_activity") await phone.logActivity(params.events, record.id);
-      else await phone.doseOfferEvent(params.drawId, params.event, record.id);
-      return new Response(null, { status: 200 });
+      const outcome = record.method === "reader.mark_section_progress"
+        ? await phone.markProgress(record.params as unknown as ProgressInput, record.id)
+        : record.method === "reader.log_activity"
+          ? await phone.logActivity(params.events, record.id)
+          : await phone.doseOfferEvent(params.drawId, params.event, record.id);
+      // Codex review F7: a job accepted (202) is not yet recorded (a busy database can still fail it), so the
+      // intent stays and goes again under its key: the host answers the job's end, or runs a retryable failure again.
+      return new Response(null, { status: outcome?.kind === "accepted" ? 202 : 200 });
     } catch (error) {
       const command = error as { code?: string; message?: string };
       // No answer at all: the desktop is away (the flush stops and tries again later).
@@ -178,10 +218,13 @@ export const INTENT_KINDS: readonly IntentKind<never>[] = [
 ];
 
 /** §7's response classes, for every intent: what one answer means for the record and the flush. */
-export type ResponseClass = "sent" | "stop_offline" | "stop_unpaired" | "stop_forbidden" | "conflict" | "refused";
+export type ResponseClass = "sent" | "accepted" | "stop_offline" | "stop_unpaired" | "stop_forbidden" | "conflict" | "refused";
 
 export function responseClass(status: number): ResponseClass {
   if (status === 200 || status === 201) return "sent";
+  // Mobile v2 V4 (Codex review F7): a job the host accepted and has not ended. The desktop is there; the record
+  // waits for the job's end, which the next flush asks for under the same key.
+  if (status === 202) return "accepted";
   if (status === 429 || status >= 500) return "stop_offline";
   if (status === 401) return "stop_unpaired";
   if (status === 403) return "stop_forbidden";
@@ -247,6 +290,9 @@ async function runFlush(kinds: readonly IntentKind<never>[]): Promise<FlushStop>
       case "sent":
         markReachable();
         await kind.remove(record);
+        continue;
+      case "accepted":
+        markReachable();
         continue;
       case "stop_offline":
         return { reason: "offline" };

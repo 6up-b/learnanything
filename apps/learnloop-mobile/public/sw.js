@@ -4,7 +4,8 @@
 // the second lock.
 //
 // One stated exception (mobile v2 §3.3, V4): the page and stored images the media lane serves.
-// Their URLs name their content and the host says `immutable`, so a copy is the thing itself.
+// Their URLs name their content and the host says `immutable`, so a copy is the thing itself; it is
+// shown only when the desktop can't be asked (`mediaResponse`).
 "use strict";
 
 // The build's hash, written in by the build (src/shell/swBuild.ts), so every build is a new worker
@@ -65,17 +66,42 @@ async function trimPages(cache) {
   for (const key of keys.slice(0, Math.max(0, keys.length - PAGE_CACHE_ENTRIES))) await cache.delete(key);
 }
 
-// Cache first: an image named by its content never changes. Only a 200 the host marked immutable
-// is kept, so a refusal (a held-out page's 403, a revoked token's 401) is never stored or served.
+// Network first, revalidated (Codex review of V4, F1): an image's bytes never change, but whether this phone may
+// see it does (a mark made on the desktop, a revoked token), so while the desktop answers every view asks it again
+// (`no-cache`: past the browser's own cache too; the host answers a matching copy with a bodiless 304 after its
+// checks). Only a 200 the host marked immutable is kept, and the copy is only the offline fallback: no answer at
+// all, or Serve's 502/504 for a host that is down, or the host busy. A refusal is the answer, and the copy goes.
+const GATEWAY_DOWN = [502, 504];
+
+async function hostCode(response) {
+  try {
+    const body = await response.clone().json();
+    return body && body.error ? body.error.code : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function mediaResponse(request) {
   const cache = await caches.open(PAGE_CACHE);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-  const response = await fetch(request);
+  let response;
+  try {
+    response = await fetch(request, { cache: "no-cache" });
+  } catch (error) {
+    return (await cache.match(request)) || Response.error();
+  }
   if (response.status === 200 && (response.headers.get("Cache-Control") || "").includes("immutable")) {
     await cache.put(request, response.clone());
     await trimPages(cache);
+    return response;
   }
+  if (GATEWAY_DOWN.includes(response.status)) return (await cache.match(request)) || response;
+  if (response.status === 503) {
+    // The host is up and says why. Its vault changing under it may be a mark being made: no copy then.
+    if ((await hostCode(response)) === "vault_unsettled") return response;
+    return (await cache.match(request)) || response;
+  }
+  if (response.status >= 400 && response.status < 500) await cache.delete(request);
   return response;
 }
 

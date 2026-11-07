@@ -193,7 +193,7 @@ describe("the Reader's intents (mobile v2 V4, §3.4, §5.4)", () => {
     expect((await listReaderIntents()).map((one) => one.id).sort()).toEqual(["01B", "01C"]);
   });
 
-  it("each is one /rpc under its own key; a 200 or a 202 (the job accepted) delivers it", async () => {
+  it("each is one /rpc under its own key; the job's end (a 200) delivers it, its acceptance (a 202) does not", async () => {
     await addReaderIntent(progress("01A", 2));
     await addReaderIntent({ id: "01B", method: "reader.dose_offer_event", params: { drawId: "d1", event: "delivered" } });
     fetchMock
@@ -204,7 +204,31 @@ describe("the Reader's intents (mobile v2 V4, §3.4, §5.4)", () => {
       { method: "reader.mark_section_progress", params: { extractionId: "ext1", sectionId: "u1", spansSeen: 2, spanCount: 3 }, request_id: "01A" },
       { method: "reader.dose_offer_event", params: { drawId: "d1", event: "delivered" }, request_id: "01B" }
     ]);
-    await expect(listReaderIntents()).resolves.toEqual([]);
+    // Codex review F7: the accepted job may still fail (a busy database), so its intent stays, unflagged.
+    expect((await listReaderIntents()).map((one) => [one.id, one.problem ?? null])).toEqual([["01B", null]]);
+  });
+
+  it("an accepted intent is sent again under its key until the host answers its end (F7)", async () => {
+    await addReaderIntent({ id: "01B", method: "reader.dose_offer_event", params: { drawId: "d1", event: "taken" } });
+    const accepted = () => new Response(JSON.stringify({ ok: true, accepted: { job_id: "j", request_id: "01B", state: "running" } }), { status: 202 });
+    fetchMock.mockResolvedValueOnce(accepted());
+    await flushOutbox();
+    // The job failed for a busy database: the same key runs it again on the host (a retryable failure), and
+    // this time it ends.
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, result: { recorded: true } }), { status: 200 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    expect(sentBodies().map((body) => body.request_id)).toEqual(["01B", "01B"]);
+    expect(await listReaderIntents()).toEqual([]);
+  });
+
+  it("a queued completion survives a later, smaller report for its section (F6): counts are the max, flags stick", async () => {
+    await addReaderIntent({ ...progress("01A", 3), params: { extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, completed: true } });
+    await addReaderIntent(progress("01C", 1));
+    const queued = await listReaderIntents();
+    expect(queued).toHaveLength(1);
+    expect(queued[0].params).toEqual({ extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, completed: true });
+    // The newest report's key: an accepted older one may still be running, and its replay is its own.
+    expect(queued[0].id).toBe("01C");
   });
 
   it("no answer keeps it and sends it again under the same key (the host coalesces the replay)", async () => {

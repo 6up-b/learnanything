@@ -242,6 +242,15 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     rpc("reader.capture", {"sourceId": "src1", "revisionId": "rev1", "extractionId": "ext1", "action": "highlight",
                            "clientIdempotencyKey": "save_contract",
                            "rawSelection": {"nodes": [{"spanId": "b2", "quote": "zero vector"}]}})
+    # Codex review of V4, F9: a taken extra question's answer (the dose arm draws such a question; one is made here).
+    question_id = repository.insert_reader_authored_question(fields={
+        "extraction_id": "ext1", "section_id": "u2", "source_id": "src1", "question_md": "What is a span?",
+        "expected_answer_md": "All linear combinations.", "span_ids": ["b4"], "prompt_version": "qc-v1",
+        "scope_kind": "inquiry", "question_style": "recall", "anchor_span_ids": ["b4"],
+        "inquiry_root_event_id": "root-contract",
+    })
+    rpc("reader.authored_question_action", {"questionId": question_id, "action": "answered",
+                                            "response": "All the linear combinations."})
     rpc("practice.as_printed", {"practiceItemId": first["practiceItemId"], "render": True})
     rpc("reader.mark_section_progress", {"extractionId": "ext1", "sectionId": "u1", "spansSeen": 1, "spanCount": 3},
         request_id="prog_contract")

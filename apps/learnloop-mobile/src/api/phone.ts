@@ -245,14 +245,17 @@ export const phone = {
   /** The plan's reading block, ended as the desktop's banner and skip end it (DL1 §6.10). */
   planReadingEnded: (outcome: "left_reader" | "skipped", sessionId: string | null) =>
     call<PhonePlanDto>("plan_reading_ended", { outcome, sessionId }),
-  // §5.4's reader intents, sent once by the outbox (`store/outbox.ts`, `READER_INTENT`) under the intent's own key:
-  // a job's acceptance is the delivery, so nothing here waits for its end.
+  // §5.4's reader intents, sent by the outbox (`store/outbox.ts`, `READER_INTENT`) under the intent's own key, once
+  // per flush: an accepted job (202) is sent again under its key until the host answers its end (Codex review F7).
   markProgress: (input: ProgressInput, requestId: string): Promise<RpcOutcome<unknown>> =>
     rpcOnce("reader.mark_section_progress", input, requestId),
   logActivity: (events: ReadonlyArray<Record<string, unknown>>, requestId: string): Promise<RpcOutcome<unknown>> =>
     rpcOnce("reader.log_activity", { events }, requestId),
   doseOfferEvent: (drawId: string, event: ReaderDoseOfferEvent, requestId: string): Promise<RpcOutcome<unknown>> =>
     rpcOnce("reader.dose_offer_event", { drawId, event }, requestId),
+  /** A taken extra question's answer, as the desktop's quick-check card sends it (Codex review F9). */
+  authoredQuestionAction: (questionId: string, response: string) =>
+    call<{ question: unknown }>("reader.authored_question_action", { questionId, action: "answered", response }),
   queueRevision: () => getJson<{ revision: number }>("/api/v1/queue-revision"),
   submissionStatus: (submissionId: string) =>
     getJson<JobState<AttemptResultDto>>(`/api/v1/submissions/${encodeURIComponent(submissionId)}`)

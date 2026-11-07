@@ -5,11 +5,10 @@
 // Ask (the desktop's rule), and the host refuses it anyway, as it refuses an Ask during a check on your own.
 import { useRef, useState } from "react";
 import type { CommandError, ReaderAnswerDto } from "@desktop/api/dto";
-import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { phone, type PhoneSectionDto } from "../api/phone";
 import { Sheet } from "../shell/Sheet";
 import { newUlid } from "../util/ulid";
-import { PhoneMedia } from "./PageImage";
+import { PhoneMarkdown } from "./PageImage";
 
 export interface PhoneSelection {
   readonly spanIds: string[];
@@ -119,7 +118,7 @@ export function SelectionSheet({
         <div key={index} className="turn">
           <p className="voice-you"><span aria-hidden="true">› </span>{turn.question}</p>
           {turn.answer ? (
-            <div className="voice-model markdown"><span aria-hidden="true">◇ </span><MarkdownMath value={turn.answer.answerMd} components={PhoneMedia} /></div>
+            <div className="voice-model markdown"><span aria-hidden="true">◇ </span><PhoneMarkdown value={turn.answer.answerMd} /></div>
           ) : null}
         </div>
       ))}

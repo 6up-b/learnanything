@@ -7,11 +7,11 @@
 // and a selection on it offers no Ask, by the desktop's own rule.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommandError, ReaderDoseOfferDto, ReaderGuidePlanDto, ReaderProgressListDto } from "@desktop/api/dto";
-import { MarkdownMath } from "@desktop/render/MarkdownMath";
+import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
 import { addReaderIntent, flushOutbox } from "../store/outbox";
 import { newUlid } from "../util/ulid";
-import { PageImage, PhoneMedia } from "./PageImage";
+import { PageImage, PhoneMarkdown } from "./PageImage";
 import { cachedGuide, cachedSection, loadGuide, loadProgress, loadSection, prefetchSection, rememberPlace } from "./readerCache";
 import { nextSectionId, resumeSection, selectionProtected } from "./readerModel";
 import { SectionList } from "./SectionList";
@@ -66,13 +66,33 @@ export function ReaderScreen({
   const activity = useCallback((kind: string, payload: Record<string, unknown>) => {
     void addReaderIntent({
       id: newUlid(), method: "reader.log_activity",
-      params: { events: [{ kind, occurredAt: new Date().toISOString(), payload: { visitId, extractionId, surface: "text", ...payload } }] }
+      params: { events: [{ kind, occurredAt: new Date().toISOString(), payload: { visitId, extractionId, ...payload } }] }
     }).then(() => flushOutbox()).catch(() => undefined);
   }, [extractionId, visitId]);
 
+  // The visit, as the desktop's Reader records it (`useReaderVisit`; Codex review F8): opened with its surface, its
+  // book, whether Ask is there and who sent the learner here (RO0 rows 3, 4), and closed with its active and idle
+  // seconds on the desktop's own clock (`visitClock`), which the router's activity clock reads.
+  const clock = useRef<VisitClock | null>(null);
+  const touch = useCallback(() => {
+    if (clock.current) accrueVisit(clock.current, Date.now());
+  }, []);
+  const initiator = target.plan ? "plan" : "learner";
   useEffect(() => {
-    activity("reader_view_opened", {});
-    return () => activity("reader_view_closed", {});
+    const visit: VisitClock = { lastActive: Date.now(), active: 0, idle: 0 };
+    clock.current = visit;
+    activity("reader_view_opened", {
+      surface: "text", sourceId: target.sourceId, initiator,
+      askAvailable: typeof navigator === "undefined" || navigator.onLine !== false
+    });
+    return () => {
+      accrueVisit(visit, Date.now());
+      const seconds = visitSeconds(visit);
+      activity("reader_view_closed", { activeSeconds: seconds.active_seconds, idleSeconds: seconds.idle_seconds });
+      if (clock.current === visit) clock.current = null;
+    };
+    // One visit per opened book (its visit id); the book's source and who opened it don't start another.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activity]);
 
   // The section list and the shared reading history: where *Continue reading* lands.
@@ -200,6 +220,7 @@ export function ReaderScreen({
     const root = body.current;
     if (!root || !section || typeof IntersectionObserver === "undefined") return undefined;
     const observer = new IntersectionObserver((entries) => {
+      touch();
       for (const entry of entries) {
         const span = (entry.target as HTMLElement).dataset.span;
         if (entry.isIntersecting && span && readable.has(span)) seen.current.add(span);
@@ -212,7 +233,7 @@ export function ReaderScreen({
       observer.disconnect();
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [section, readable, report]);
+  }, [section, readable, report, touch]);
 
   /** The foot of a section: it is finished, the dose arm draws (the server's, before anything shows), then on. */
   async function finishSection() {
@@ -273,6 +294,7 @@ export function ReaderScreen({
   }
 
   function onSelectEnd() {
+    touch();
     const picked = readSelection(body.current);
     if (picked) setSelection(picked);
   }
@@ -299,7 +321,7 @@ export function ReaderScreen({
       {problem ? <p className="dim" role="status">{problem}</p> : null}
       {!section && !problem ? <p className="dim" role="status">Opening the section…</p> : null}
       {section ? (
-        <div className="book" ref={body} onMouseUp={onSelectEnd} onTouchEnd={onSelectEnd}>
+        <div className="book" ref={body} onMouseUp={onSelectEnd} onTouchEnd={onSelectEnd} onScroll={touch}>
           {section.blocks.map((block) => (
             <Block key={block.displayNodeId} block={block} extractionId={extractionId}
               pageOpen={pageOf === block.displayNodeId} onPage={() => setPageOf((open) => open === block.displayNodeId ? null : block.displayNodeId)} />
@@ -308,7 +330,7 @@ export function ReaderScreen({
       ) : null}
       {dose ? (
         <DoseOffer offer={dose} onTake={() => takeDose(dose)} onDismiss={() => { doseEvent(dose.drawId, "dismissed"); goOn(); }}
-          onDone={goOn} />
+          onDone={goOn} onError={onError} />
       ) : section ? (
         <div className="actions">
           <button className="primary block" type="button" onClick={() => void finishSection()}>
@@ -328,33 +350,84 @@ export function ReaderScreen({
   );
 }
 
-/** §3.4: the dose arm's offer, as the desktop words it, with its glass-box line. Help, never evidence. */
-function DoseOffer({ offer, onTake, onDismiss, onDone }: {
-  offer: NonNullable<ReaderDoseOfferDto["offer"]>;
+type DoseOfferContent = NonNullable<ReaderDoseOfferDto["offer"]>;
+type OfferedQuestion = NonNullable<DoseOfferContent["question"]>;
+
+/** §3.4: the dose arm's offer, as the desktop words it, with its glass-box line. Help, never evidence. The offer
+ *  comes first and shows nothing of the extra; a taken question is then the desktop's quick check (Codex review F9:
+ *  `DoseOffer` opens `AuthoredQuestionCard`), answered in the learner's words before the intended answer shows. */
+function DoseOffer({ offer, onTake, onDismiss, onDone, onError }: {
+  offer: DoseOfferContent;
   onTake: () => void;
   onDismiss: () => void;
   onDone: () => void;
+  onError: (error: unknown) => void;
 }) {
-  const [tried, setTried] = useState(false);
+  const [taken, setTaken] = useState(false);
   const question = offer.variant === "extra_question" ? offer.question ?? null : null;
+  if (taken && question) return <ExtraQuestion question={question} onDone={onDone} onError={onError} />;
   return (
     <div className="banner dose" role="status">
       <p>{offer.text}</p>
       <p className="dim">{offer.why}</p>
-      {question ? <div className="markdown"><MarkdownMath value={question.prompt} components={PhoneMedia} /></div> : null}
-      {tried && question ? (
+      <div className="row">
+        <button className="primary" type="button" onClick={() => { onTake(); if (question) setTaken(true); }}>
+          {question ? "Try it" : "Show me"}
+        </button>
+        <button className="plain" type="button" onClick={onDismiss}>Not now</button>
+      </div>
+    </div>
+  );
+}
+
+/** The desktop's quick-check card for the extra question the draw chose: optional, a self-check, never a grade.
+ *  *Compare with the source* records the learner's answer on the question (`reader.authored_question_action`,
+ *  `answered`) and only then shows the intended one beside it; *Skip* records nothing, as the desktop's does. */
+function ExtraQuestion({ question, onDone, onError }: {
+  question: OfferedQuestion;
+  onDone: () => void;
+  onError: (error: unknown) => void;
+}) {
+  const [response, setResponse] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  async function compare() {
+    const words = response.trim();
+    if (!words || busy) return;
+    setBusy(true);
+    try {
+      await phone.authoredQuestionAction(question.questionId, words);
+      setSubmitted(true);
+    } catch (error) {
+      onError(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="banner dose" role="group" aria-label="Quick check">
+      <p className="dim">Quick check · optional, a self-check, never a grade</p>
+      <p className="dim">One more question on this section, offered at random.</p>
+      <div className="markdown"><PhoneMarkdown value={question.prompt} /></div>
+      {!submitted ? (
         <>
-          <p className="dim">One way to answer it:</p>
-          <div className="markdown"><MarkdownMath value={question.expectedAnswer} components={PhoneMedia} /></div>
-          <div className="actions"><button className="primary block" type="button" onClick={onDone}>Go on</button></div>
+          <textarea aria-label="Your answer" value={response} placeholder="Answer in your own words…"
+            onChange={(event) => setResponse(event.target.value)} />
+          <div className="row">
+            <button className="primary" type="button" disabled={busy || !response.trim()} onClick={() => void compare()}>
+              Compare with the source
+            </button>
+            <button className="plain" type="button" disabled={busy} onClick={onDone}>Skip</button>
+          </div>
         </>
       ) : (
-        <div className="row">
-          <button className="primary" type="button" onClick={() => { onTake(); if (question) setTried(true); }}>
-            {question ? "Show the answer" : "Show me"}
-          </button>
-          <button className="plain" type="button" onClick={onDismiss}>Not now</button>
-        </div>
+        <>
+          <p className="dim">› your answer</p>
+          <p className="learner-words">{response.trim()}</p>
+          <p className="dim">◇ the intended answer · compare, don't grade</p>
+          <div className="markdown"><PhoneMarkdown value={question.expectedAnswer} /></div>
+          <div className="actions"><button className="primary block" type="button" onClick={onDone}>Done for now</button></div>
+        </>
       )}
     </div>
   );
@@ -382,7 +455,7 @@ function Block({ block, extractionId, pageOpen, onPage }: {
   }
   return (
     <div className="block" data-span={block.spanId ?? undefined}>
-      <div className="markdown book-text"><MarkdownMath value={block.markdown} components={PhoneMedia} /></div>
+      <div className="markdown book-text"><PhoneMarkdown value={block.markdown} /></div>
       {page !== null ? (
         <button className="link quiet" type="button" aria-expanded={pageOpen} onClick={onPage}>
           {view === "warn_link" ? "This text may not read well · View the page" : "View the page"}

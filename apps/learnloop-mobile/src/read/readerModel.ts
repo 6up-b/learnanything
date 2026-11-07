@@ -61,7 +61,6 @@ export function selectionProtected(protection: ReaderProtectionDto | null | unde
 }
 
 const STORE_NAME = /sha256-[0-9a-f]{64}/;
-const LLPDF_TARGET = /\(\s*<?(llpdf:[^)\s>]+)>?\s*\)|<(llpdf:[^>\s]+)>/gi;
 
 /** `llpdf://…/sha256-<hex>[#page=N]` as the store name and its zero-based page, or null (§2.3). */
 export function llpdfPage(target: string): { name: string; page: number } | null {
@@ -78,22 +77,55 @@ export function storeNameOf(target: string | undefined | null): string | null {
   return STORE_NAME.test(tail) && tail.length === 71 ? tail : null;
 }
 
-/** The fragment a page link becomes (react-markdown keeps fragments; it drops an unknown scheme). */
+/** The fragments a page link and a stored file become (react-markdown keeps fragments; its URL filter empties an
+ *  unknown scheme such as `llpdf:` or `asset:`, so the targets are rewritten before it runs, Codex review F11). */
 export const PAGE_LINK = "#llpage/";
+export const ASSET_LINK = "#llasset/";
 
-/** A prompt's `llpdf:` page links, rewritten so they survive the renderer and open the host's page image. */
-export function withPageLinks(markdown: string): string {
-  return markdown.replace(LLPDF_TARGET, (whole, inParens?: string, angled?: string) => {
-    const target = inParens ?? angled ?? "";
-    const page = llpdfPage(target);
-    if (!page) return whole;
-    const link = `${PAGE_LINK}${page.name}/${page.page}`;
-    return inParens ? `(${link})` : `<${link}>`;
-  });
+/** The phone's own reference for one image or link target the host serves (§2.3), or null to leave it alone:
+ *  an `llpdf:` page of a stored file, or any target ending in a stored file's name (`asset://…`, a vault path),
+ *  as `scheduling.device_eligibility` reads them. */
+export function phoneMediaTarget(target: string): string | null {
+  const page = llpdfPage(target);
+  if (page) return `${PAGE_LINK}${page.name}/${page.page}`;
+  if (/^llpdf:/i.test(target.trim())) return null;
+  const name = storeNameOf(target);
+  return name ? `${ASSET_LINK}${name}` : null;
 }
+
+/** An inline link or image target (`](target "title")`), a reference definition (`[x]: target`), an autolink. */
+const LINK_TARGET = /\]\(\s*(<)?([^)\s>]+)>?((?:\s+"[^"]*")?)\s*\)/g;
+const REFERENCE_TARGET = /^( {0,3}\[[^\]\n]+\]:[ \t]*)<?([^\s>]+)>?/gm;
+const AUTOLINK_TARGET = /<((?:llpdf|asset):[^>\s]+)>/gi;
+
+/** A prompt's page links and stored images, rewritten so they survive the renderer and open from the host. */
+export function withPhoneMedia(markdown: string): string {
+  return markdown
+    .replace(LINK_TARGET, (whole, _angle: string | undefined, target: string, title: string) => {
+      const mapped = phoneMediaTarget(target);
+      return mapped ? `](${mapped}${title ?? ""})` : whole;
+    })
+    .replace(REFERENCE_TARGET, (whole, head: string, target: string) => {
+      const mapped = phoneMediaTarget(target);
+      return mapped ? `${head}${mapped}` : whole;
+    })
+    .replace(AUTOLINK_TARGET, (whole, target: string) => {
+      const mapped = phoneMediaTarget(target);
+      return mapped ? `<${mapped}>` : whole;
+    });
+}
+
+/** The name `withPhoneMedia` had when it rewrote page links only. */
+export const withPageLinks = withPhoneMedia;
 
 export function pageLinkTarget(href: string | undefined | null): { name: string; page: number } | null {
   if (!href || !href.startsWith(PAGE_LINK)) return null;
   const [name, page] = href.slice(PAGE_LINK.length).split("/");
   return STORE_NAME.test(name ?? "") && /^[0-9]+$/.test(page ?? "") ? { name, page: Number(page) } : null;
+}
+
+export function assetLinkTarget(href: string | undefined | null): string | null {
+  if (!href || !href.startsWith(ASSET_LINK)) return null;
+  const name = href.slice(ASSET_LINK.length);
+  return STORE_NAME.test(name) && name.length === 71 ? name : null;
 }

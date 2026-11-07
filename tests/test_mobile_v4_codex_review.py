@@ -21,10 +21,9 @@ pytest.importorskip("starlette")
 pytest.importorskip("pypdfium2")
 from starlette.testclient import TestClient
 
-from learnloop.db.repositories import Repository
 from learnloop.scheduling import device_eligibility as DE
-from tests.helpers import create_basic_vault
 from tests.mobile_host_helpers import HOSTNAME, Phone, pair, poll_job, rows
+from tests.test_reread_safety import _made_on
 from tests.test_mobile_v4_reader import (  # noqa: F401 - the fixture
     EXTRACTION, READER_APP, add_book, call, desktop, host, job, world,
 )
@@ -43,6 +42,30 @@ def _exam_role(root, source_id: str) -> None:
         "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",
         "members": [{"source_id": source_id, "revision_id": f"rev_{source_id[4:]}", "default_role": "exam"}],
     })
+
+
+# -- F1's host half: a revalidation checks the token and the protection again ----------------------------------
+
+
+def test_f1_a_revalidated_page_is_checked_again_and_a_match_is_a_bodiless_304(world):
+    from tests.mobile_host_helpers import bearer, identity
+
+    phone, client = world["phone"], world["client"]
+    first = phone.get(f"/api/v1/reader/page/{EXTRACTION}/1")
+    assert first.status_code == 200 and first.headers["vary"] == "Authorization"
+    etag = first.headers["etag"]
+    again = client.get(f"/api/v1/reader/page/{EXTRACTION}/1", headers={**phone.headers, "If-None-Match": etag})
+    assert again.status_code == 304 and again.content == b"" and again.headers["etag"] == etag
+    # The same validator from no token, or after a mark, is refused: a kept copy is never the host's yes.
+    assert client.get(f"/api/v1/reader/page/{EXTRACTION}/1",
+                      headers={**identity(), "If-None-Match": etag}).status_code == 401
+    world["repo"].upsert_unit_selection(extraction_id=EXTRACTION, source_id="src1", revision_id="rev1",
+                                        selected_unit_ids=["u1", "u2", "u3"],
+                                        exam_use_modes={"u2": "held_out_evaluation", "u3": "held_out_evaluation"},
+                                        exam_paper_metadata=_made_on(EXTRACTION, "rev1"))
+    refused = client.get(f"/api/v1/reader/page/{EXTRACTION}/1", headers={**bearer(world["device"]),
+                                                                          "If-None-Match": etag})
+    assert refused.status_code == 403
 
 
 # -- F3: either name of a page is decided by every reading of its file ------------------------------------------

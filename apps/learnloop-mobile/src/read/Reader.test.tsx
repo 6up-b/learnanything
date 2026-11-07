@@ -125,6 +125,68 @@ describe("the phone Reader (mobile v2 §3)", () => {
   });
 });
 
+describe("the Codex review of V4 (docs/reviews/phone-v4-codex-review.md)", () => {
+  const extraQuestion = {
+    version: 1, eligible: true, reason: null, drawId: "draw_q",
+    offer: {
+      drawId: "draw_q", variant: "extra_question", text: "One quick question on this?", why: "Offered at random, to learn how much of this helps you",
+      content: { extractionId: "ext1", questionId: "aq_1" },
+      question: { questionId: "aq_1", sectionId: "u1", prompt: "What does addition do with order?", expectedAnswer: "It commutes.", spanIds: ["b1"] }
+    }
+  };
+
+  it("F8: a visit closes with its active and idle seconds, on the desktop's clock", async () => {
+    const real = Date.now.bind(Date);
+    let offset = 0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => real() + offset);
+    try {
+      await openBook();
+      const opened = (called("reader.log_activity")[0].params.events as Array<Record<string, any>>)[0];
+      expect(opened.payload).toMatchObject({ surface: "text", sourceId: "src1", initiator: "learner", askAvailable: true });
+      offset = 45_000;
+      fireEvent.click(screen.getByRole("button", { name: "Back to your books" }));
+      await waitFor(() => expect(called("reader.log_activity").some((call) =>
+        (call.params.events as Array<Record<string, any>>)[0].kind === "reader_view_closed")).toBe(true));
+      const closed = called("reader.log_activity").map((call) => (call.params.events as Array<Record<string, any>>)[0])
+        .find((event) => event.kind === "reader_view_closed")!;
+      expect(closed.payload).toEqual({ visitId: opened.payload.visitId, extractionId: "ext1", activeSeconds: 45, idleSeconds: 0 });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("F9: an extra question is offered first, and declining it shows nothing of it", async () => {
+    answers["reader.dose_offer"] = extraQuestion;
+    answers["reader.dose_offer_event"] = { recorded: true };
+    await openBook();
+    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    expect(await screen.findByText("One quick question on this?")).toBeTruthy();
+    expect(screen.queryByText("What does addition do with order?")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    await waitFor(() => expect(called("reader.dose_offer_event").map((call) => call.params.event)).toEqual(["delivered", "dismissed"]));
+    expect(screen.queryByText("What does addition do with order?")).toBeNull();
+    expect(called("reader.authored_question_action")).toEqual([]);
+  });
+
+  it("F9: a taken extra question is answered in the learner's words, recorded as the desktop's card records it", async () => {
+    answers["reader.dose_offer"] = extraQuestion;
+    answers["reader.dose_offer_event"] = { recorded: true };
+    answers["reader.authored_question_action"] = { question: { questionId: "aq_1", status: "answered" } };
+    await openBook();
+    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Try it" }));
+    expect(await screen.findByText("What does addition do with order?")).toBeTruthy();
+    expect(screen.queryByText("It commutes.")).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: "Your answer" }), { target: { value: "Order doesn't matter." } });
+    fireEvent.click(screen.getByRole("button", { name: "Compare with the source" }));
+    expect(await screen.findByText("It commutes.")).toBeTruthy();
+    expect(called("reader.authored_question_action").map((call) => call.params)).toEqual([
+      { questionId: "aq_1", action: "answered", response: "Order doesn't matter." }
+    ]);
+    await waitFor(() => expect(called("reader.dose_offer_event").map((call) => call.params.event)).toEqual(["delivered", "taken"]));
+  });
+});
+
 const readingBlock = {
   id: "blk1", ordinal: 1, lane: "new", action: "read", subtype: null, chosenBy: "lane_quota", why: "Read on.", whyKind: null, whyDetails: null,
   fallback: false, estMinutes: 8, status: "current", startedAt: null, endedAt: null, outcome: null, learningObjectTitles: [], displacedCount: 0,

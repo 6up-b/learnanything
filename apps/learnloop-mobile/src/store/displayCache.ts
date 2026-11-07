@@ -106,6 +106,11 @@ export async function getLatest<T>(name: string): Promise<T | null> {
   return entry ? (entry.value as T) : null;
 }
 
+/** Drop one "latest" copy (a reading the host now withholds whole: its guide, Codex review of V4, F2). */
+export async function deleteLatest(name: string): Promise<void> {
+  await writeAll([latestKey(name)], null);
+}
+
 /** Mobile v2 V4: the page images' cache in the service worker (`public/sw.js`), which the page can clear too. */
 export const PAGE_CACHE = "learnloop-pages-v1";
 

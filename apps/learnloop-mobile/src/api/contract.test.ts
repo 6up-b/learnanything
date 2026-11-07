@@ -114,7 +114,9 @@ const EXAMPLES: Record<Exclude<Wrapper, (typeof NOT_RPC)[number]>, ReadonlyArray
   logActivity: [
     () => phone.logActivity([{ kind: "reader_view_opened", occurredAt: "2026-11-07T08:00:00.000Z", payload: { visitId: "v1", extractionId: "ext1", surface: "text" } }], "act_1")
   ],
-  doseOfferEvent: [() => phone.doseOfferEvent("draw_1", "delivered", "dose_1")]
+  doseOfferEvent: [() => phone.doseOfferEvent("draw_1", "delivered", "dose_1")],
+  // Codex review F9: a taken extra question, answered as the desktop's quick-check card answers it.
+  authoredQuestionAction: [() => phone.authoredQuestionAction("aq_1", "All the linear combinations.")]
 };
 
 /**
@@ -178,7 +180,8 @@ const READS: Record<string, readonly string[]> = {
   plan_reading_ended: ["enabled"],
   "reader.mark_section_progress": [],
   "reader.log_activity": [],
-  "reader.dose_offer_event": []
+  "reader.dose_offer_event": [],
+  "reader.authored_question_action": ["question"]
 };
 
 /** A reply the host journey cannot reach without a diagnosis model, pinned by these tests instead. */

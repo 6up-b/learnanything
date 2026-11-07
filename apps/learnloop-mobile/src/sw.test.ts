@@ -129,14 +129,42 @@ describe("the page images (mobile v2 §3.3, V4): the one stated exception", () =
 
   const PAGE = "https://desktop.tail.ts.net/api/v1/reader/page/ext1/1?w=720";
 
-  it("keeps an immutable page and answers it from the cache after", async () => {
-    const { stored, opened, network } = workerFor(() =>
-      new Response("png", { status: 200, headers: { "Cache-Control": "private, max-age=31536000, immutable" } }));
+  const IMMUTABLE = { "Cache-Control": "private, max-age=31536000, immutable" };
+
+  it("keeps an immutable page, and asks the host again at every view while it answers (Codex review F1)", async () => {
+    const { stored, opened, network } = workerFor(() => new Response("png", { status: 200, headers: IMMUTABLE }));
     expect((await get(PAGE)).status).toBe(200);
     expect(stored.has(PAGE)).toBe(true);
     expect(opened).toEqual(["learnloop-pages-v1"]);
     await get(PAGE);
-    expect(network).toHaveBeenCalledTimes(1);
+    expect(network).toHaveBeenCalledTimes(2);
+    // Past the browser's own cache too: every view revalidates the token and the protection with the host.
+    expect(network.mock.calls.every((call) => ((call as unknown[])[1] as RequestInit | undefined)?.cache === "no-cache")).toBe(true);
+  });
+
+  it.each([401, 403, 404])("a kept page the host now refuses (%i) is that refusal, and the copy goes (F1)", async (status) => {
+    let answer = new Response("png", { status: 200, headers: IMMUTABLE });
+    const { stored } = workerFor(() => answer);
+    await get(PAGE);
+    expect(stored.has(PAGE)).toBe(true);
+    answer = new Response(JSON.stringify({ ok: false, error: { code: "held_out_material" } }), { status });
+    expect((await get(PAGE)).status).toBe(status);
+    expect(stored.has(PAGE)).toBe(false);
+  });
+
+  it("with the desktop away (no answer, or Serve's 502/504) the kept copy answers", async () => {
+    let answer: () => Response = () => new Response("png", { status: 200, headers: IMMUTABLE });
+    const { stored } = workerFor(() => answer());
+    await get(PAGE);
+    const kept = stored.get(PAGE);
+    answer = () => { throw new TypeError("offline"); };
+    expect(await get(PAGE)).toBe(kept);
+    answer = () => new Response("down", { status: 502 });
+    expect(await get(PAGE)).toBe(kept);
+    // The host itself saying its vault is changing is no reason to show a copy it may be about to withhold.
+    answer = () => new Response(JSON.stringify({ ok: false, error: { code: "vault_unsettled" } }), { status: 503 });
+    expect((await get(PAGE)).status).toBe(503);
+    expect(stored.has(PAGE)).toBe(true);
   });
 
   it.each([401, 403, 404, 503])("never keeps a %i (a refusal is not the page)", async (status) => {

@@ -490,7 +490,17 @@ class MobileHost:
         except MediaRefused as refused:
             raise HostError(refused.status, refused.code, refused.message) from None
         scope["learnloop.immutable"] = True
-        return Response(body, media_type=kind, headers={"ETag": etag})
+        # Codex review of V4, F1: the phone revalidates every image it shows while the desktop answers, so the
+        # token and the protection are checked again (above) and a copy kept on the phone is only ever its offline
+        # fallback. A match is the same bytes, so the answer is a bodiless 304.
+        wanted = next((value.decode("latin1") for key, value in scope.get("headers", [])
+                       if key.lower() == b"if-none-match"), "")
+        # A copy is one token's: the service worker's cache matches on it (``Vary``), so a re-paired phone never
+        # reads another pairing's copy.
+        headers = {"ETag": etag, "Vary": "Authorization"}
+        if etag in {part.strip() for part in wanted.split(",")}:
+            return Response(status_code=304, headers=headers)
+        return Response(body, media_type=kind, headers=headers)
 
     def _client_probes(self, headers: dict[str, str]) -> bool:
         """The host's ``phone_probes`` for this request: the switch on AND the app saying it answers probes."""
