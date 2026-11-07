@@ -226,7 +226,9 @@ def kappa_posterior(seed: float, log_sd: float, offers: Sequence[Offer]) -> dict
 
 def _decision_stop_responses(connection: Any) -> dict[str, str]:
     """Each stop decision's response: ``overridden`` (a stop_response naming it) or ``accepted`` (an end naming
-    it, the offered stop taken). A stop with neither is still open."""
+    it, the offered stop taken). A stop with neither is still open. A stop_response may itself be an acceptance (a
+    device's stop taken while the plan stays open for held work, mobile v2 landing ruling R2); the last
+    stop_response naming a stop is its response."""
 
     try:
         rows = connection.execute(
@@ -237,7 +239,7 @@ def _decision_stop_responses(connection: Any) -> dict[str, str]:
     out: dict[str, str] = {}
     for decision_id, kind, reason in rows:
         if kind == "stop_response":
-            out[str(decision_id)] = "overridden"
+            out[str(decision_id)] = "accepted" if reason == "offered_stop_accepted" else "overridden"
         elif reason == "offered_stop_accepted" and str(decision_id) not in out:
             out[str(decision_id)] = "accepted"
     return out

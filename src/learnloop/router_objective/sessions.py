@@ -8,6 +8,8 @@ gone afterward. A later stop decision reads the row plus its own snapshot.
 **The end** (row 7) holds the plan, block and stop decision in force, marked ``explicit`` or ``inferred``. A process
 can't report its own crash, so a session that ended with no report is inferred at recovery (:func:`sweep_unreported`,
 when the next session starts). An offered stop the learner overrode is a ``stop_response`` row: the session goes on.
+A stop a device drew past work held for the desktop, taken while the plan stays open, is a ``stop_response`` row too,
+accepted (mobile v2 landing ruling R2), and the session's end is that accepted stop.
 
 Never raises: a receipt never blocks a session.
 """
@@ -133,12 +135,25 @@ def record_availability(vault: Any, repository: Any, session_id: str, *, availab
         return False
 
 
-def _derived_reason(plan: dict[str, Any] | None) -> str:
-    """The plan's own state, when no client said: a finished plan had offered the stop the learner took."""
+def _derived_reason(plan: dict[str, Any] | None, *, stop_accepted: bool = False) -> str:
+    """The plan's own state, when no client said: a finished plan had offered the stop the learner took,
+    and so had an open one whose pending stop this session accepted (``stop_accepted``)."""
 
-    if plan is not None and plan.get("status") == "complete":
+    if stop_accepted or (plan is not None and plan.get("status") == "complete"):
         return OFFERED_STOP_ACCEPTED
     return UNPROMPTED_STOP
+
+
+def _accepted_here(connection: Any, session_id: str, stop_decision_id: str | None) -> bool:
+    """This session accepted the stop in force (a ``stop_response`` naming it, accepted) and nothing
+    overrode it since."""
+
+    if not stop_decision_id:
+        return False
+    last = connection.execute(
+        "SELECT session_id, end_reason FROM session_receipts WHERE kind = ? AND stop_decision_id = ? "
+        "ORDER BY created_at DESC, id DESC LIMIT 1", (STOP_RESPONSE, stop_decision_id)).fetchone()
+    return last is not None and last[0] == session_id and last[1] == OFFERED_STOP_ACCEPTED
 
 
 def record_end(vault: Any, repository: Any, session_id: str, *, reason: str | None = None, ended_at: str | None = None,
@@ -151,10 +166,16 @@ def record_end(vault: Any, repository: Any, session_id: str, *, reason: str | No
                 return False
             plan = _session_plan(connection, session_id, clock)
             stated = reason if reason in CLIENT_END_REASONS else None
+            in_force = _in_force(connection, plan)
+            # Landing ruling R2 (mobile v2, F8): a session that accepted its plan's pending stop (Done for
+            # today on a stop drawn past held work) ended on that stop, although the plan stays open.
+            accepted = _accepted_here(connection, session_id, in_force["stop_decision_id"])
+            if accepted and stated == UNPROMPTED_STOP:
+                stated = None
             return store.insert_session_receipt(connection, {
                 **_base(session_id=session_id, kind=END, at=utc_now_iso(clock)),
-                "end_reason": stated or _derived_reason(plan), "end_basis": EXPLICIT, "ended_at": ended_at,
-                **_in_force(connection, plan),
+                "end_reason": stated or _derived_reason(plan, stop_accepted=accepted), "end_basis": EXPLICIT,
+                "ended_at": ended_at, **in_force,
                 "detail_json": _dumps({"stated_by": "client" if stated else "server",
                                        **({"plan_status": plan["status"], "plan_stop_reason": plan["stop_reason"]}
                                           if plan is not None else {})}),
@@ -181,6 +202,34 @@ def record_stop_override(vault: Any, repository: Any, *, session_id: str | None,
             })
     except Exception:  # noqa: BLE001 - a receipt never blocks a session
         logger.warning("router objective: a stop override of plan %s was not recorded", plan_id, exc_info=True)
+        return False
+
+
+def record_stop_acceptance(vault: Any, repository: Any, *, session_id: str | None, plan_id: str,
+                           stop_decision_id: str, via: str, clock: Clock | None = None) -> bool:
+    """Landing ruling R2 (mobile v2, F8): the learner took a stop a device was offered while the plan stays open
+    for work held for the desktop (*Done for today* on a pending stop). The response names that stop's decision;
+    the session's end, when it comes, is the accepted stop. Once per stop while it stands accepted."""
+
+    try:
+        with repository.atomic(), repository.connection() as connection:
+            if not _ready(vault, connection):
+                return False
+            last = connection.execute(
+                "SELECT end_reason FROM session_receipts WHERE kind = ? AND stop_decision_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1", (STOP_RESPONSE, stop_decision_id)).fetchone()
+            if last is not None and last[0] == OFFERED_STOP_ACCEPTED:
+                return False
+            plan = connection.execute(
+                "SELECT id, status, stop_reason FROM daily_plans WHERE id = ?", (plan_id,)).fetchone()
+            block = _in_force(connection, dict(plan) if plan else None)["block_id"]
+            return store.insert_session_receipt(connection, {
+                **_base(session_id=session_id, kind=STOP_RESPONSE, at=utc_now_iso(clock)),
+                "end_reason": OFFERED_STOP_ACCEPTED, "end_basis": EXPLICIT, "plan_id": plan_id, "block_id": block,
+                "stop_decision_id": stop_decision_id, "detail_json": _dumps({"via": via, "plan_open": True}),
+            })
+    except Exception:  # noqa: BLE001 - a receipt never blocks a session
+        logger.warning("router objective: the acceptance of stop %s was not recorded", stop_decision_id, exc_info=True)
         return False
 
 
@@ -218,5 +267,6 @@ def sweep_unreported(vault: Any, repository: Any, *, trigger: str, clock: Clock 
 __all__ = [
     "APP_CLOSED", "AVAILABILITY", "CLIENT_END_REASONS", "END", "EXPLICIT", "EXTERNAL_INTERRUPTION", "FOREGROUND_LOST",
     "INFERRED", "MISSING", "OFFERED_STOP_ACCEPTED", "OFFERED_STOP_OVERRIDDEN", "RECEIPT_VERSION", "RULE", "STOP_RESPONSE",
-    "UNKNOWN", "UNPROMPTED_STOP", "record_availability", "record_end", "record_stop_override", "sweep_unreported",
+    "UNKNOWN", "UNPROMPTED_STOP", "record_availability", "record_end", "record_stop_acceptance", "record_stop_override",
+    "sweep_unreported",
 ]

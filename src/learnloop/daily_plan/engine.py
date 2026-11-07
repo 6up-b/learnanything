@@ -5787,7 +5787,13 @@ def stop_today(env: PlanEnv) -> PlanRecord | None:
     if env.device is not None and _stop_pending(record) is not None:
         # Mobile v2 J5 (Codex re-review of V2, F7): *Done for today* on a stop a device was offered
         # past work held for the desktop takes that stop. It stands as drawn: the plan closes on it
-        # once the held work is done on the desktop, which is never left stranded.
+        # once the held work is done on the desktop, which is never left stranded. Landing ruling R2
+        # (F8): the taking is that stop's response, accepted, so the session ends on it.
+        decision = record.stops()[-1].decision_ref
+        if decision:
+            session_receipts.record_stop_acceptance(env.vault, env.repository, session_id=env.session_id,
+                                                    plan_id=record.id, stop_decision_id=str(decision),
+                                                    via="done_for_today", clock=env.clock)
         return record
     if record.is_open:
         _close(env, record, status="stopped", reason="learner_stopped")

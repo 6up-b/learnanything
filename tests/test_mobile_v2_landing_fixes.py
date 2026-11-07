@@ -91,3 +91,53 @@ def test_r1_the_desktops_sessionless_write_still_goes_through_with_the_phones_se
     phone, _host, _repository, paths = plan_world
     phone.start()
     assert _call(_desktop(paths.root), "set_plan_minutes", {"minutes": 45})["enabled"] is True
+
+
+# -- R2 (F8) ----------------------------------------------------------------------------------------
+
+
+def _receipts(repository, kind: str):
+    return rows(repository, "SELECT session_id, end_reason, end_basis, stop_decision_id, plan_id, detail_json "
+                            f"FROM session_receipts WHERE kind = '{kind}' ORDER BY created_at, id")
+
+
+def test_r2_done_for_today_on_a_pending_stop_records_that_stop_accepted(plan_world, monkeypatch):
+    phone, _host, repository, _paths = plan_world
+    drawn = _stop_past_held_work(monkeypatch)
+    session_id = phone.start()["sessionId"]
+    _phone_to_pending_stop(phone, session_id, drawn)
+    record = _record(repository)
+    decision = record.stops()[-1].decision_ref
+    assert decision and engine._stop_pending(record) is not None
+    phone.rpc("plan_keep_going", {"sessionId": session_id, "stop": True})
+    # The plan stays open for the held work, its stop still pending.
+    after = _record(repository)
+    assert after.id == record.id and after.is_open and engine._stop_pending(after) is not None
+    # That stop's response: accepted, by this session, for this plan.
+    responses = _receipts(repository, "stop_response")
+    assert [(r["session_id"], r["end_reason"], r["stop_decision_id"], r["plan_id"]) for r in responses] == [
+        (session_id, "offered_stop_accepted", decision, record.id)]
+    # Done again records nothing more.
+    phone.rpc("plan_keep_going", {"sessionId": session_id, "stop": True})
+    assert len(_receipts(repository, "stop_response")) == 1
+    # The phone ends the session without a reason: the end is the accepted stop, never unprompted.
+    phone.rpc("end_session", {"sessionId": session_id})
+    ends = _receipts(repository, "end")
+    assert [(r["session_id"], r["end_reason"], r["stop_decision_id"]) for r in ends] == [
+        (session_id, "offered_stop_accepted", decision)]
+    with repository.connection() as connection:
+        assert stop_coin._decision_stop_responses(connection) == {decision: "accepted"}
+
+
+def test_r2_keep_going_after_done_on_a_pending_stop_is_the_overridden_response(plan_world, monkeypatch):
+    """The last response to a stop is its response: a Keep going after Done overrides it."""
+
+    phone, _host, repository, _paths = plan_world
+    drawn = _stop_past_held_work(monkeypatch)
+    session_id = phone.start()["sessionId"]
+    _phone_to_pending_stop(phone, session_id, drawn)
+    decision = _record(repository).stops()[-1].decision_ref
+    phone.rpc("plan_keep_going", {"sessionId": session_id, "stop": True})
+    phone.rpc("plan_keep_going", {"sessionId": session_id, "stop": False})
+    with repository.connection() as connection:
+        assert stop_coin._decision_stop_responses(connection) == {decision: "overridden"}
