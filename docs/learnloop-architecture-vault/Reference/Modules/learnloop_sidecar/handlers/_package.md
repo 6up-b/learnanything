@@ -84,7 +84,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/workbench_help.py"
   - "src/learnloop_sidecar/handlers/workbench_rw2c.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T01:07:18-05:00"
+source_commit_timestamp: "2026-11-07T03:05:01-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -191,7 +191,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/review|learnloop_sidecar.handlers.review]] | [[Reference/Modules/learnloop_sidecar/handlers/review#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] | [[Reference/Modules/learnloop_sidecar/handlers/router_objective#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] | [[Reference/Modules/learnloop_sidecar/handlers/serializers#^module-purpose|purpose]] | `ACTIVE` | 8 | 17 |
-| [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] | [[Reference/Modules/learnloop_sidecar/handlers/sessions#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
+| [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] | [[Reference/Modules/learnloop_sidecar/handlers/sessions#^module-purpose|purpose]] | `ACTIVE` | 11 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] | [[Reference/Modules/learnloop_sidecar/handlers/settings#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/side_by_side|learnloop_sidecar.handlers.side_by_side]] | [[Reference/Modules/learnloop_sidecar/handlers/side_by_side#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop_sidecar/handlers/source_service|learnloop_sidecar.handlers.source_service]] | [[Reference/Modules/learnloop_sidecar/handlers/source_service#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -239,12 +239,12 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 8 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 8 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
+- [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
-- [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 5 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 4 static module edges

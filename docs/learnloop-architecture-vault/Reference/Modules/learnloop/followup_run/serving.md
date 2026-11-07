@@ -171,6 +171,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+  - `test_f2_the_desktops_next_keeps_a_phone_probe_whose_answer_is_being_graded`
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
   - `test_the_phone_opens_its_question_burns_it_as_the_phones_and_the_desktop_is_refused`
   - `test_without_phone_probes_the_phone_is_v2s`

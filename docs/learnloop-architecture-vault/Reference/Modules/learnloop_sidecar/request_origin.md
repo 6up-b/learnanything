@@ -138,6 +138,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_followup.py](../../../../../tests/test_mobile_v2_followup.py) — direct import
 - [tests/test_mobile_v2_review_fixes.py](../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f6_the_check_is_a_phone_origins_too`
+- [tests/test_mobile_v3_codex_review.py](../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+  - `test_f2_the_desktops_next_keeps_a_phone_probe_whose_answer_is_being_graded`
 - [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
   - `test_the_gate_is_the_switch_and_the_tag_and_never_the_desktop`

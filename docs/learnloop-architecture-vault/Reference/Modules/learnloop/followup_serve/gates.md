@@ -142,6 +142,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_or_with_the_switch_off_no_workflow_opens`
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+  - `test_f1_a_phone_that_doesnt_own_the_session_never_burns_the_desktops_ready_probe`
+  - `test_f1_the_owning_phone_still_burns_it_as_its_own`
+  - `test_f3_the_v3_app_says_it_answers_probes_and_gets_v3s_door`
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
   - `test_a_question_the_desktop_served_is_refused_on_the_phone_and_the_phones_next_goes_on`
   - `test_the_desktops_serving_next_moves_past_a_probe_the_phone_served_and_abandons_it`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/jobs.py"
 source_paths:
   - "src/learnloop/capture/jobs.py"
-source_commit: "cf6a6b0afb12d56a8d5211a920dacac4b1969743"
-source_commit_timestamp: "2026-11-03T14:38:28-05:00"
+source_commit: "0b1619dcdd2e52f031e2494b89ce4d6d2e99d8b1"
+source_commit_timestamp: "2026-11-07T02:45:31-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py) |
-| Source lines | 208 |
+| Source lines | 227 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cf6a6b0afb12d56a8d5211a920dacac4b1969743` |
-| Commit timestamp | `2026-11-03T14:38:28-05:00` |
+| Source commit | `0b1619dcdd2e52f031e2494b89ce4d6d2e99d8b1` |
+| Commit timestamp | `2026-11-07T02:45:31-05:00` |
 
 ## Public API
 
@@ -64,9 +64,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `get_job(repo: Repository, job_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 54)
 - `job_for_request(repo: Repository, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 60) — The newest job for a request id, whichever device made it (reads are unrestricted, §6.5).
 - `accept_job(repo: Repository, *, device_id: str, request_id: str, method: str, params: dict[str, Any], params_sha256: str, boot_id: str, check_new: Callable[[], None] | None=None, now: datetime | None=None) -> tuple[dict[str, Any], bool]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 71) — ``(job, enqueue)``, committed before the host answers (§6.3).
-- `start_job(repo: Repository, job_id: str, *, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 128)
-- `finish_job(repo: Repository, job_id: str, *, result: Any=None, error: dict[str, Any] | None=None, state: str | None=None, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 136) — ``state`` is only for :data:`RECORDED`, which carries an error and is no failure.
-- `recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 156) — What a starting host owes (§6.3): the jobs another run left open, to run again.
+- `submission_in_flight(repo: Repository, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop/capture/jobs.py), line 128) — A phone's answer to ``practice_item_id`` accepted and not yet finished (mobile v2 V3; Codex review of V3, F2).
+- `start_job(repo: Repository, job_id: str, *, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 147)
+- `finish_job(repo: Repository, job_id: str, *, result: Any=None, error: dict[str, Any] | None=None, state: str | None=None, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 155) — ``state`` is only for :data:`RECORDED`, which carries an error and is no failure.
+- `recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 175) — What a starting host owes (§6.3): the jobs another run left open, to run again.
 
 ### Module constants
 
@@ -87,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] — imports `ACCEPTED`, `COMPLETED`, `FAILED`, `MAX_BOOTS`, `RECORDED`, `RUNNING`, `SUBMISSION_COMMITTED`, `SUBMIT_METHODS`, `accept_job`, `finish_job`, `get_job`, `job_for_request`, `recorded_error`, `recover_jobs`, `start_job`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `submission_in_flight`; statically calls `submission_in_flight`
 
 ## Dependencies
 
@@ -109,7 +111,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]].
+Static participation evidence comes from [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]], [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

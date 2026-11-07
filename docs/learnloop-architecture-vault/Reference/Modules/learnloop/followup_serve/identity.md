@@ -233,6 +233,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_generated_probe_attempt_opens_no_workflow`
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+  - `test_f1_a_phone_that_doesnt_own_the_session_never_burns_the_desktops_ready_probe`
+  - `test_f1_reopened_a_handoff_and_back_between_the_check_and_the_claim_refuses_the_named_burn`
+  - `test_f1_reopened_a_sessionless_phone_door_keeps_the_session_it_started_against`
+  - `test_f1_the_owning_phone_still_burns_it_as_its_own`
+  - `test_f2_the_desktops_next_keeps_a_phone_probe_whose_answer_is_being_graded`
+  - `test_f2_with_no_answer_on_its_way_the_desktops_next_still_moves_past_the_phones_probe`
+  - `test_f3_a_v2_app_gets_v2s_doors_from_a_v3_host_and_burns_nothing`
+  - `test_f3_a_v2_apps_plan_step_holds_a_generated_probe_for_the_desktop`
+  - `test_f3_the_v3_app_says_it_answers_probes_and_gets_v3s_door`
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
   - `test_a_desktop_serving_next_with_no_phone_burn_abandons_nothing`
   - `test_a_question_the_desktop_served_is_refused_on_the_phone_and_the_phones_next_goes_on`

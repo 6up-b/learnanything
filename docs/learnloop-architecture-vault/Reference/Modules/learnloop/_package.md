@@ -80,7 +80,7 @@ source_paths:
   - "src/learnloop/voi_stopping_upgrade.py"
   - "src/learnloop/workbench_field_signals_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit_timestamp: "2026-11-07T02:14:36-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -129,7 +129,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 8 | 1 |
 | [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] | [[Reference/Modules/learnloop/claim_fixes_upgrade#^module-purpose|purpose]] | `ACTIVE` | 22 | 3 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 444 | 547 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 444 | 548 |
 | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] | [[Reference/Modules/learnloop/confidence_events#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] | [[Reference/Modules/learnloop/daily_plan_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |

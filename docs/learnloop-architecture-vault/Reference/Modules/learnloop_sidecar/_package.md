@@ -21,7 +21,7 @@ source_paths:
   - "src/learnloop_sidecar/serving.py"
   - "src/learnloop_sidecar/source_identity.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit_timestamp: "2026-11-07T02:45:31-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar"
@@ -72,9 +72,9 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] | [[Reference/Modules/learnloop_sidecar/post_attempt_worker#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] | [[Reference/Modules/learnloop_sidecar/prefetch_runtime#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 75 | 136 |
-| [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] | [[Reference/Modules/learnloop_sidecar/request_origin#^module-purpose|purpose]] | `ACTIVE` | 8 | 8 |
+| [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] | [[Reference/Modules/learnloop_sidecar/request_origin#^module-purpose|purpose]] | `ACTIVE` | 8 | 9 |
 | [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] | [[Reference/Modules/learnloop_sidecar/server#^module-purpose|purpose]] | `ACTIVE` | 1 | 45 |
-| [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] | [[Reference/Modules/learnloop_sidecar/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
+| [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] | [[Reference/Modules/learnloop_sidecar/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] | [[Reference/Modules/learnloop_sidecar/source_identity#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 
 ## Child package maps

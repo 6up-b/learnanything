@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/engine.py"
 source_paths:
   - "src/learnloop/daily_plan/engine.py"
-source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
-source_worktree_state: "modified"
+source_commit: "00d25c2f8d7411d48174672756ffefee49564220"
+source_commit_timestamp: "2026-11-07T02:14:36-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
-| Commit timestamp | `2026-11-07T01:13:16-05:00` |
+| Worktree state | `clean` |
+| Source commit | `00d25c2f8d7411d48174672756ffefee49564220` |
+| Commit timestamp | `2026-11-07T02:14:36-05:00` |
 
 ## Public API
 
@@ -715,6 +715,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_desktop_step_whose_session_moved_during_its_work_commits_nothing`
   - `test_f6_the_check_is_a_phone_origins_too`
 - [tests/test_mobile_v3_carried.py](../../../../../../tests/test_mobile_v3_carried.py) — direct import
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
 - [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import
   - `test_new_vaults_start_at_the_latest_version`
 - [tests/test_mvp014_upgrade.py](../../../../../../tests/test_mvp014_upgrade.py) — direct import

@@ -350,6 +350,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
   - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+  - `test_f2_the_desktops_next_keeps_a_phone_probe_whose_answer_is_being_graded`
+  - `test_f2_with_no_answer_on_its_way_the_desktops_next_still_moves_past_the_phones_probe`
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
   - `test_a_question_the_desktop_served_is_refused_on_the_phone_and_the_phones_next_goes_on`
   - `test_the_phone_opens_its_question_burns_it_as_the_phones_and_the_desktop_is_refused`
