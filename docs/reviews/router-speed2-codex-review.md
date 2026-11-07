@@ -214,3 +214,73 @@ material_view}.py`, `src/learnloop/config/{schema,template}.py`, `src/learnloop/
   snapshots and the prose leaf counts need recomputing if phone V3 adds keys too.
 - The landing gate's smoke should time the pinned linear_algebra week on the copies (unchanged from the stage
   record).
+
+## The scoped verify and the landing rulings R1-R4
+
+Codex's scoped verify of the fixes (job `20261107-055534-pCJUwT`, at `8d1e02e12e`) reopened F1, the protection
+qualification, F2 and F3, and raised a new N1 (pooled pragma state). The orchestrator ruled R1-R6 (verbatim in
+`router-speed2.md`, "Landing onto main"). Main (`ccb6573987`, phone V3) was merged first (`ec158e8c36`). Each ruling is
+its own commit, reproduce-first: every new test below failed on the commit before its fix.
+
+| Ruling | Codex's item | Commit | What changed | Tests (failed before the fix) |
+|---|---|---|---|---|
+| R1 | F1 (mid-walk vault edits, edit-and-undo contamination, the deferred IR load), the protection qualification | `2716ba9ea3` | The held map lives only within one objective job's `decision_reads` scope (`reading_cache.job_scope`), a snapshot as of the job's first read, discarded at its end. The job loads a reading's IR once and computes every mapping over it. Every memo return (the job's hold, the map's own section and span memos, the view's `section_spans` memo) is preceded by the withheld rule asked of the view fresh. A different epoch within the job drops what the job held. The digests, the commit-version watcher, the key re-reads and the process-wide bound are gone. | `test_rospeed2_section_map.py::test_r1_*` (6 cases) |
+| R2 | F2 (the false switch entries move the numeric seed) | `bc1ceab278` | `objective_chooser.numeric_seed`: the numeric seed comes from the boundary identity less `SEED_NEUTRAL_SWITCHES` (`held_reading_map`, `pooled_connections`) at the block boundary, the follow-up interrupt and the objective follow-up. Both stay in the key, the generator payload and `serving_switches`. | `test_rospeed2_connections.py::test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches[off, on]` |
+| R3 | F3 (REAL `-0.0` and `0.0` digest alike) | none | **Not built: superseded by R1.** R1 removed the stored-row digest (`_table_rows_digest`, `MaterialView.reading_structure_digest`), so no held value is keyed by an encoding of stored cells. A changed cell, `-0.0` included, is read by the next job because nothing outlives a job. | `test_an_edit_behind_an_embedded_nul_is_read_by_the_next_job` (F3's mapping-level case, re-scoped) |
+| R4 | N1 (`query_only` / `reverse_unordered_selects` leak to the next user) | `a24216bed3` | Pooled connections are `_PooledSqlite`. Every authorizer a checkout installs is wrapped. A PRAGMA with an argument (`SQLITE_PRAGMA` with one) or any statement other than a read marks the connection, and so does an API call or attribute that changes its own state. A marked connection is closed at release. The release no longer restores pragmas. | `test_rospeed2_connections.py::test_r4_*` (3 cases) |
+
+### R1: what it reproduced and what it costs
+
+- **Reproduced** (Codex's three F1 cases and the protection one, as tests):
+  - an in-place vault edit made and undone within one map reached a later walk;
+  - an LO unlinked mid-walk of the next job got the earlier job's held `[lo_m0, lo_m1]` where main gave `[lo_m1]`;
+  - an IR rewrite after a held hit gave the branch the rewritten mapping and main the snapshot's (same job and
+    earlier job);
+  - a reading withheld from the same view still returned `['lo_m0', 'lo_m5']` from the memos;
+  - a new job held everything from the last one (12 mappings computed once across two jobs).
+- **The within-job residual R1 accepts.** Within one job a section is computed once, at its first read. A reading's
+  run, revision, source or alias edited between two of a job's lookups reaches the lookups computed after it and
+  not the held ones. The IR is the job's snapshot throughout. The next job reads all of it.
+- **Cost against the cross-call cache** (the stage's `measure.py`, the synthetic copy-shaped vaults, three journey
+  days, dwell 0, median per objective job in ms, behind `/tmp/learnloop-fullsuite.lock`; `ec158e8c36` is the
+  merged tip with the cross-call cache, `a24216bed3` is R1-R4):
+
+  | Shape | Code | Job (p90) | Numeric ready | Builds | Join (alone) | `los_for_section` / `los_for_span` | SQLite opens a job |
+  |---|---|---:|---:|---:|---:|---:|---:|
+  | `la` | cross-call cache `ec158e8c36` | 1444 (1573) | 1169 | 332 | 166 (119) | 14 / 4 | 5 |
+  | | **R1-R4 `a24216bed3`** | **1501** (1706) | 1225 | 400 | 223 (1711) | 30 / 9 | 17 |
+  | `ax` | cross-call cache | 1257 (1329) | 998 | 311 | 140 (171) | 24 / 5 | 5 |
+  | | **R1-R4** | **1284** (1373) | 1037 | 318 | 145 (750) | 7 / 4 | 17 |
+
+  Holding only within a job costs about 4% of a job on `la` (+57 ms) and 2% on `ax` (+28 ms). Each job now
+  computes the mapping of its readings once, at the first build, instead of reading what an earlier job held. Main's
+  job was 4775 and 2764 ms. Load average 1.3-1.9.
+
+  R4 adds the opens in the last column: the repositories' `PRAGMA table_info` column checks and the job's
+  model-call receipt writes now close their connections. "Join alone" is the join outside any job. Nothing is held
+  there now, so it is main's cost; inside a job the second build still reads the job's hold.
+
+### R2
+
+With both switches off at the tag, the boundary identity differed from main's only by the two `false` entries in its
+switch snapshot, so the numeric seed differed. On the journey's prefetch job before the fix, main's seed chose
+`maintain:6664b3b0ed770a23` at eight draws and the branch's chose `repair:1c3060a44b67ba3c`: Codex's "main `a`,
+branch `b`". After the fix every job's seed is main's (main's switch list is frozen in the test), and its eight-draw
+evaluation equals main's bit for bit, with both off and with both on. The mixture's own draw (`mix.seed_for(key,
+decision_id)`) still names the full key, as the stop coin does. They are keyed by the decision id, so neither
+replays across processes; R2 names the numeric policy's seed only.
+
+### R4
+
+- **Reproduced.** Checkout A set `query_only = ON` and `reverse_unordered_selects = ON` and gave the connection back.
+  Checkout B read `query_only = 1` (writable and read-only alike). An `INSERT` checkout's connection was pooled again.
+- **Detection.** The authorizer slot is the AD guard's (it installs and re-installs its own hook on the raw
+  connection), so the pool cannot hold that slot itself. Its connections are a `sqlite3.Connection` subclass whose
+  `set_authorizer` wraps whatever is installed with a watcher. The watcher records any action outside the reads
+  (`SELECT`, `READ`, `FUNCTION`, `RECURSIVE`, transaction control and savepoints, which the release rolls back), and
+  any `SQLITE_PRAGMA` carrying an argument. The checkout's own `set_authorizer` expires every statement prepared
+  before it, so each statement of the checkout is prepared again and seen. The pool's resets and the connection
+  hook's install run unwatched.
+- **The fast test lane.** `tests/conftest.py` applies `synchronous = OFF` and the journal mode once per pooled
+  connection, unwatched, as part of its open. Otherwise every writable pooled connection would close at its first
+  release in the fast lane. Production and the durability lane apply no pragma after the open.
