@@ -27,7 +27,7 @@ on a synthetic vault under the worktree's `fixtures-local/rospeed2/`, run under 
 |---|---|
 | `e5c7bc7386` | 1: AD's section → LO map (and the span → section map, and the view's section spans) held across calls |
 | `8685acc889` | 4: SQLite connections reused within one objective job |
-| (this record) | the review file, the regenerated references, a small follow-up to item 1 (held maps made read-only proxies) |
+| `283405f0a5`, `6dc3a82c6e` and this record | the review file and a follow-up to item 1 (held maps made read-only proxies); the regenerated references |
 
 Items 2 and 3 were not built as written (why, and what stands in for them, below). Item 5 was not built.
 
@@ -266,7 +266,40 @@ What item 1 adds to the protection layer, for review:
   read (the alias authority computes aliases only between readings of one source; `span_aliases`' own memo, per
   epoch, is main's and unchanged)?
 
-GATE_PLACEHOLDER
+## The gate (this step)
+
+The full suite, the whole durability lane and the whole vitest run belong to the landing gate. No frontend or
+`src-tauri` file changed (no npm, vitest or cargo step), and no schema changed. DB/connection code changed
+(`db/connection.py`), so its durability-marked tests ran.
+
+| Step | What ran | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` (under `env -i`), after each item | 43 kept, 0 broken |
+| Item 1, iterating | the 32 test files naming the reading map, the reading sources or the material view, plus `test_rospeed2_section_map` and `test_ad_guard_reachable_reads`, `-n 6` | 9022 passed, 3 skipped |
+| Item 4, iterating | `test_repository_scopes`, `test_sqlite_test_mode`, `test_sqlite_wal_lifecycle`, `test_sqlite_wal`, `test_sqlite_file_copies`, `test_rospeed_watcher`, `test_rospeed_join`, `test_ad_guard` | 181 passed, 1 skipped |
+| Durability (`-m durability`) | `test_repository_scopes`, `test_sqlite_test_mode`, `test_sqlite_wal_lifecycle`, `test_sqlite_wal`, `test_rospeed_watcher`, `test_rospeed2_connections` (on the final tree) | 47 passed, 1 skipped |
+| Targeted set | 102 files, `-n 6`, behind `flock /tmp/learnloop-fullsuite.lock` (list below) | **10486 passed, 5 skipped, 1 failed**: `test_module_catalog_inventory` (the new module's note not yet tracked, before the references were regenerated) |
+| After the references | `test_module_catalog_inventory`, `test_public_tip_guards`, `test_rospeed2_section_map`, `test_rospeed2_connections` | all passed |
+| References | `module_generate` / `module_validate` (PASS), `db_generate_reference` / `db_validate_reference` (errors []), `desktop_generate` / `desktop_validate` (passed), `validate_vault` (passed) | ok |
+
+The targeted set: every test file naming a changed module or function (`VaultReadingMap`, `adaptive_difficulty.
+reading`, `section_learning_objects`, `los_for_section`/`los_for_span`, `reading_sources`, `MaterialView`/
+`material_view`, `reading_cache`, `reused_connections`, `objective_chooser`, `objective_inputs`, `_objective_job`,
+`decision_reads`, `section_spans`); every `test_ro4_*`, `test_ro5_*`, `test_ro6_*`, `test_rofu_*` (but the weeks) and
+`test_rospeed*`; the contract and audit set (`test_config_refactor`, `test_cli_help_snapshot`,
+`test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_architecture` with the
+frozen cycles, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`,
+`test_registry_audit`, `test_module_catalog_inventory`, `test_public_tip_guards`, `test_sqlite_file_copies`); the
+display-label audit (`test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`,
+`test_rw5c_labels`); the process-launch allowlist (`test_codex_lockdown_round3`, `test_ai_tool_isolation`,
+`test_e0_isolation`, `test_codex_tool_lockdown`); the connection tests above; `test_ro2_ad_raw_document_reads`.
+
+- Every test ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, at most `-n 6`, one run at
+  a time. Every script outside pytest (the vault builder, the measurements, lint-imports, the reference scripts) ran
+  under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `TMPDIR` outside the worktree.
+- The "before" timings ran `git archive`s of main `e9ceaf8d44` and of each commit in the scratch directory, on this
+  worktree's venv.
 
 ## Files added or changed (for the landing gate)
 
