@@ -39,6 +39,7 @@ from typing import Any
 
 from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_VERSIONS,
+    LESSON_OFFERS_VERSIONS,
     ROUTER_CALIBRATION_VERSIONS,
     ROUTER_FOLLOWUPS_VERSIONS,
     ROUTER_LEARNED_TAIL_VERSIONS,
@@ -309,6 +310,30 @@ def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
     return {key: followup_on(config, key) for key in FOLLOWUP_SWITCHES}
 
 
+def lesson_offers_tag(config: Any) -> bool:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or
+    later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in LESSON_OFFERS_VERSIONS
+
+
+def lesson_offers_on(config: Any) -> bool:
+    """Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and
+    LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on
+    (``router.lesson_suggestions.enabled`` with the router and its decision log, lessons able to open) and
+    ``router.lesson_suggestions.in_objective``. Off, or below the tag, mvp-0.52 exactly."""
+
+    if not (lesson_offers_tag(config) and objective_on(config)):
+        return False
+    router = getattr(config, "router", None)
+    suggestions = getattr(router, "lesson_suggestions", None)
+    teacher = getattr(config, "teacher", None)
+    return bool(getattr(suggestions, "enabled", False) and getattr(suggestions, "in_objective", False)
+                and getattr(router, "enabled", False) and getattr(router, "log_decisions", False)
+                and getattr(teacher, "enabled", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -336,6 +361,8 @@ __all__ = [
     "followup_generator_switches",
     "followup_switch_snapshot",
     "followup_on",
+    "lesson_offers_on",
+    "lesson_offers_tag",
     "monotone_combiner_on",
     "followups_tag",
     "interval_factor_removed",

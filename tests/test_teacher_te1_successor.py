@@ -44,10 +44,10 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
     # Follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-14:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", LATEST_ALGORITHM_VERSION) == (
-        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53")
+    assert SUCCESSOR_CHAIN[-15:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", LATEST_ALGORITHM_VERSION) == (
+        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54")
     assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53"})
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54"})
 
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
@@ -95,6 +95,7 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
         from tests.test_te3a_successor import drop_te3a_keys
 
         drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
+        # (teacher TE3b's in_objective is in [router.lesson_suggestions], popped with TE1b's section)
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/runtime.py"
 source_paths:
   - "src/learnloop/cli/runtime.py"
-source_commit: "d7ea71a54ada901931c101597697c88de081126d"
-source_commit_timestamp: "2026-11-07T01:07:18-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `d7ea71a54ada901931c101597697c88de081126d` |
-| Commit timestamp | `2026-11-07T01:07:18-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
@@ -233,6 +233,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
+- [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`

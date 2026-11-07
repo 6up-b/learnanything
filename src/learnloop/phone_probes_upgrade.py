@@ -2,7 +2,7 @@
 
 Mobile v2 V3 (owner decision D3, accepted 2026-11-06; ``docs/specs/spec_mobile_frontend_v2.md`` §8's V3 row,
 ``docs/reviews/phone-v2-v3-probes.md``). It is the next link of the linear chain: everything the predecessor (teacher
-TE3a's mvp-0.52) means PLUS this:
+TE3b's mvp-0.53) means PLUS this:
 
 * **a phone origin serves and answers phone-eligible probes** (the phone host's ``phone_probes`` in ``mobile.toml``,
   default true): a routine diagnostic probe's active contract and FG1's generated follow-up probe are rendered and
@@ -17,7 +17,7 @@ transaction under the vault mutation lock with the publication LAST; a death bet
 completed by the next guarded open, which installs :func:`complete_interrupted_activation`, the chain's latest; a
 journal naming an earlier link is handed to the predecessor's completion).
 
-``phone_probes = false`` on the phone host serves mvp-0.52's phone exactly; rolling the version back is restore-only.
+``phone_probes = false`` on the phone host serves mvp-0.53's phone exactly; rolling the version back is restore-only.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from learnloop import activation_journal
 from learnloop.algorithm_versions import (
     PHONE_PROBES_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
-    LESSON_OPPORTUNITY_ALGORITHM_VERSION,
+    LESSON_OFFERS_ALGORITHM_VERSION,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
 from learnloop.clock import Clock
@@ -38,16 +38,16 @@ from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
 from learnloop.substrate.p0_projection import activate_p0_projection
-from learnloop.lesson_opportunity_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.lesson_opportunity_upgrade import upgrade_to_lesson_opportunity
+from learnloop.lesson_offers_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.lesson_offers_upgrade import upgrade_to_lesson_offers
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = LESSON_OPPORTUNITY_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_lesson_opportunity
+PREDECESSOR = LESSON_OFFERS_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_lesson_offers
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/trace.py"
 source_paths:
   - "src/learnloop/router_objective/trace.py"
-source_commit: "3de3827e582054ca88c97de7e818933e91f14c8c"
-source_commit_timestamp: "2026-11-05T15:45:01-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,19 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/trace.py](../../../../../../src/learnloop/router_objective/trace.py) |
-| Source lines | 186 |
+| Source lines | 195 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `3de3827e582054ca88c97de7e818933e91f14c8c` |
-| Commit timestamp | `2026-11-05T15:45:01-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
 - `assemble(trace: Mapping[str, Any], *, decision_id: str, decision_kind: str, decision_state_id: str | None, algorithm_version: str, local_date: str, session_id: str | None, created_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 50) — The ``router_objective_traces`` row for one decision's trace dict.
 - `explain(row: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 96) — The trace in plain words, for the learner who asks how a block was chosen (glass box on request).
-- `record(connection: Any, *, decision_id: str, decision_kind: str, router_record: Mapping[str, Any] | None, config: Any, local_date: str, session_id: str | None, at: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 168) — Write the decision's trace beside it, in its transaction (its own savepoint).
+- `record(connection: Any, *, decision_id: str, decision_kind: str, router_record: Mapping[str, Any] | None, config: Any, local_date: str, session_id: str | None, at: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/trace.py), line 177) — Write the decision's trace beside it, in its transaction (its own savepoint).
 
 ### Module constants
 

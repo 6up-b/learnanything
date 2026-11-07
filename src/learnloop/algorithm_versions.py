@@ -838,20 +838,37 @@ TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.51"
 # and TE2 (mvp-0.51) landed.
 LESSON_OPPORTUNITY_ALGORITHM_VERSION = "mvp-0.52"
 
-# mvp-0.53 (mobile frontend v2, stage V3: probes and cold checks on the phone;
+# mvp-0.53 (teacher TE3b, a router successor; owner decisions 2026-11-05,
+# docs/specs/spec_teacher_v1.md rev 5 §15.1a, §23.1 items 1 and 5, §24), on top
+# of mvp-0.52 (the chain stays linear). Lesson offers are candidates of the
+# router objective: at a reversible plan_block boundary where the objective
+# serves, TE1b's best lesson candidate joins the support (one offer a decision,
+# under the ceiling), valued by RO4's offer branches with TE1b's acceptance
+# model as a sensor and TE3a's lesson curve, shown to the LLM policy as one more
+# option of its existing request, drawn from the logged mix and answered on that
+# decision; lesson minutes count on the objective's clock; LOs with a pending
+# lesson delayed check join its population (an objective-definition change
+# point); RO6's features gain a lesson indicator (a features-version change
+# point); TE1b's Today-open card is drawn only where the objective does not
+# serve. Kill switch ``router.lesson_suggestions.in_objective`` (off, or below
+# the tag: TE1b's daily card and RO4's support exactly, mvp-0.52 byte for
+# byte). No migration. Expected mvp-0.53 at landing (one constant).
+LESSON_OFFERS_ALGORITHM_VERSION = "mvp-0.53"
+
+# mvp-0.54 (mobile frontend v2, stage V3: probes and cold checks on the phone;
 # owner decision D3, accepted 2026-11-06; docs/specs/spec_mobile_frontend_v2.md
-# §8's V3 row; docs/reviews/phone-v2-v3-probes.md), on top of mvp-0.52 (the
+# §8's V3 row; docs/reviews/phone-v2-v3-probes.md), on top of TE3b's mvp-0.53 (the
 # chain stays linear). What it changes: which items are served as measurements
 # (the 2026-10-17 rule): a phone origin now serves and answers the phone-eligible
 # diagnostic probes and FG1's generated follow-up probes it used to leave for
 # the desktop, under the probe contract (cold, no help), each generated one
 # burned at its first serve on whichever device opened it and refused on the
-# other. The desktop (a None origin) serves exactly as mvp-0.52. Its kill switch
+# other. The desktop (a None origin) serves exactly as mvp-0.53. Its kill switch
 # is the phone host's ``phone_probes`` (mobile.toml, default true): off, or
 # below the tag, the phone is V2's exactly. Nothing recorded changes meaning and
-# replay reads nothing new. Built on main 14b2ed09ab as mvp-0.53 while TE3b
-# lands in parallel; ONE constant, renumbered at landing if TE3b lands first.
-PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.53"
+# replay reads nothing new. Built on main 14b2ed09ab as mvp-0.53 and renumbered
+# mvp-0.54 when main (TE3b's mvp-0.53) was merged in; ONE constant.
+PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -904,6 +921,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
+    LESSON_OFFERS_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
 )
 
@@ -1153,6 +1171,11 @@ TEACHER_PROBES_VERSIONS: frozenset[str] = successors_from(TEACHER_PROBES_ALGORIT
 # them; gates must use this set, never equality.
 LESSON_OPPORTUNITY_VERSIONS: frozenset[str] = successors_from(LESSON_OPPORTUNITY_ALGORITHM_VERSION)
 
+# Versions whose router objective offers lessons as plan blocks, counts lesson
+# minutes on its clock and holds LOs with a pending lesson check in its
+# population (teacher TE3b), behind ``router.lesson_suggestions.in_objective``.
+# Every later successor keeps them; gates must use this set, never equality.
+LESSON_OFFERS_VERSIONS: frozenset[str] = successors_from(LESSON_OFFERS_ALGORITHM_VERSION)
 # Versions whose phone origin serves and answers phone-eligible probes (mobile
 # v2 V3, owner decision D3), behind the phone host's ``phone_probes``. Every
 # later successor keeps them; gates must use this set, never equality.

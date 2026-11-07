@@ -28,6 +28,35 @@ from typing import Any
 BINDING_VERSION = "ro4-policy-forecast-binding-v1"
 FORECASTER = "router_llm_choice_v3"
 STOP = "stop_for_today"
+#: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a drawn lesson offer's forecast is bound, when the learner accepted
+#: it, to the target's first qualifying cold outcome after the lesson closed; declined, ignored, an alternative
+#: chosen or a lesson that never opened is censored, as a decision that served nothing is. A new binding version.
+OFFER_BINDING_VERSION = "te3b-lesson-offer-forecast-binding-v1"
+OFFER_PREFIX = "lesson_offer:"
+
+
+def _offer_anchor(connection: Any, decision_id: str) -> tuple[dict[str, Any] | None, str]:
+    """An accepted offer's lesson and the moment it closed, or why the forecast is censored."""
+
+    present = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'router_suggestion_responses'").fetchone()
+    if present is None:
+        return None, "offer_unanswered"
+    response = connection.execute(
+        "SELECT response, lesson_id FROM router_suggestion_responses WHERE decision_id = ? AND response IN "
+        "('accepted', 'chose_alternative', 'declined', 'ignored')", (decision_id,)).fetchone()
+    if response is None:
+        return None, "offer_unanswered"
+    if response[0] != "accepted":
+        return None, {"declined": "offer_declined", "ignored": "offer_ignored",
+                      "chose_alternative": "offer_alternative_chosen"}[str(response[0])]
+    lesson = connection.execute("SELECT closed_at FROM lessons WHERE id = ?", (response[1],)).fetchone() \
+        if response[1] else None
+    if lesson is None:
+        return None, "offer_lesson_not_opened"
+    if lesson[0] is None:
+        return None, "offer_lesson_open"
+    return {"anchor_at": str(lesson[0]), "lesson_id": str(response[1])}, ""
 
 
 def groups(connection: Any) -> tuple[list[dict[str, Any]], dict[str, int]]:
@@ -57,6 +86,20 @@ def groups(connection: Any) -> tuple[list[dict[str, Any]], dict[str, int]]:
         lo = entry.get("main_lo")
         if not lo or any(value is None for value in curve.values()):
             censored["no_forecast_or_topic"] = censored.get("no_forecast_or_topic", 0) + 1
+            continue
+        if chosen.startswith(OFFER_PREFIX):
+            # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a drawn lesson offer's forecast, under its own binding.
+            bound, reason = _offer_anchor(connection, str(row["decision_id"]))
+            if bound is None:
+                censored[reason] = censored.get(reason, 0) + 1
+                continue
+            policy = (trace.get("policies") or {}).get("llm") or {}
+            found.append({"anchor_at": bound["anchor_at"], "lesson_id": bound["lesson_id"], "forecaster": FORECASTER,
+                          "learning_object_id": str(lo), "curve": curve, "receipt_ids": [str(row["id"])],
+                          "decision_id": str(row["decision_id"]), "model": policy.get("model"),
+                          "prompt_version": (trace.get("versions") or {}).get("llm_schema"),
+                          "card": (trace.get("versions") or {}).get("card"), "rung": None,
+                          "binding_version": OFFER_BINDING_VERSION})
             continue
         served = connection.execute(
             "SELECT id FROM plan_presentations WHERE router_decision_id = ? ORDER BY served_at, id LIMIT 1",
@@ -129,4 +172,4 @@ def summary(resolved: Mapping[str, Any] | None) -> dict[str, Any]:
                                        if row.get("status") == "scored" and row.get("attempt_id")})}
 
 
-__all__ = ["BINDING_VERSION", "FORECASTER", "groups", "resolve", "summary"]
+__all__ = ["BINDING_VERSION", "FORECASTER", "OFFER_BINDING_VERSION", "groups", "resolve", "summary"]

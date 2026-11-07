@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/tail_data.py"
 source_paths:
   - "src/learnloop/router_objective/tail_data.py"
-source_commit: "0767b917bdd252dd972833a9d9c16c5e2e11215d"
-source_commit_timestamp: "2026-11-06T00:22:38-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/tail_data.py](../../../../../../src/learnloop/router_objective/tail_data.py) |
-| Source lines | 908 |
+| Source lines | 929 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `0767b917bdd252dd972833a9d9c16c5e2e11215d` |
-| Commit timestamp | `2026-11-06T00:22:38-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
@@ -65,26 +65,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `objective_hash(goals: Mapping[str, Any] | None, horizon_days: Any, population: Mapping[str, Any] | None=None, *, scope_extension: bool=False) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 165) — The hash of :func:`objective_definition`.
 - `scope_extension_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 172) — The follow-up batch's item 5: the objective's definition reads the retention scope by its density (its tag and ``[router_objective] scope_extension``); off, or below the tag, RO6's definition exactly.
 - `trace_objective_hash(trace: Mapping[str, Any], *, scope_extension: bool=False) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 183) — The objective a logged decision valued, from its trace: its frozen goals, horizon and population densities (``evaluation.uses.topics``).
-- `served_features_version(trace: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 194) — The features version a decision's residual served with (Codex re-review F7): its record's, else its fit's (an earlier RO6 build's trace), else ``unversioned``; a decision with no applied residual never read features, so this build's version stands for it (its features are rebuil…
-- `generator_key(payload: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 206)
-- `generator(trace: Mapping[str, Any], algorithm_version: str, *, scope_extension: bool=False) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 211) — A logged decision's generator version (module docstring).
-- `class Logged` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 230)
-- `nearest_goal_days(trace: Mapping[str, Any]) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 305) — Days to the nearest active dated goal the decision valued (RO5's ``goal_dates``, else the window's uses).
-- `rebuilt_features(trace: Mapping[str, Any], receipt: Mapping[str, Any] | None) -> dict[str, tuple[float, ...]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 315) — Each candidate's features from the trace's frozen belief numbers and RO0's decision-time snapshot.
-- `snapshot_mastery(snapshot: Mapping[str, Any], los: Sequence[str]) -> list[tuple[float, float]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 335) — RO0 row 9's mastery numbers of ``los`` (logit mean, logit variance), those it holds.
-- `use_moment(trace: Mapping[str, Any], created: datetime, use: Mapping[str, Any]) -> datetime` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 369) — The moment a frozen dated use falls at (Codex review of RO6, F2): the goal's ``due_at`` as the rollouts parse it (``clock.parse_utc``, the use's own or the goal's frozen in the trace), else the decision's moment plus the use's exact delay.
-- `logged(connection: Any, config: Any, *, at: str) -> list[Logged]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 520) — Every ``plan_block`` trace known at ``at``, oldest first (module docstring).
-- `carried_in_prefetch_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 557) — The follow-up batch's item 4: deferred carried valuations are run, recorded and read (its tag and ``[router_objective] carried_in_prefetch``); off, or below the tag, RO6's rulings R12 and R3 exactly.
-- `class Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 598)
-- `transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 605) — Every logged decision's step to the next one, with its reward (module docstring).
-- `class Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 729)
-  - `for_serving(self, generator_now: str) -> tuple[LT.Fit | None, str]` (line 735; public) — The current version's own fit; with none of its transitions yet, the latest earlier version's ("version k+1 uses the result"); else none.
-- `fits(connection: Any, config: Any, *, at: str, rows: Sequence[Logged] | None=None) -> Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 747) — One fit per generator version from its own transitions as of ``at`` (frozen-logger evaluation).
-- `contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> tuple[list[LT.Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 780) — Every stop-coin decision with a frozen residual whose window closed before ``at``: its realized contrast (the coin's, times the window's observed return) and its frozen predicted ones (tail and residual).
-- `improvement_ratio(row: Logged) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 834) — The improvement step's probability of the served action over the logger's: the mix with the numeric policy's argmax taken on ``Q_tail + ρ`` (the frozen residual at full weight), under the same coin.
-- `cross_check(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 854) — The partial-history weights' estimate of the improvement step, beside the fit (report only).
-- `predicted_improvement(rows: Sequence[Logged]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 879) — The fit's own forecast of the same step: ``Σ_a (μ_new − μ)(a)·(Q_tail + ρ)(a)``, the mean over decisions with a frozen residual (a projection, labelled; on the cutoff's horizon, not the window's).
-- `is_finite(value: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 898)
+- `features_version(config: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 194) — The features version this build serves and fits with: teacher TE3b's (the ``lesson`` indicator) at its tag with its switch on, else RO6's (``router_objective_switches.lesson_offers_on``).
+- `served_features_version(trace: Mapping[str, Any], active: str=LT.FEATURES_VERSION) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 203) — The features version a decision's residual served with (Codex re-review F7): its record's, else its fit's (an earlier RO6 build's trace), else ``unversioned``; a decision with no applied residual never read features, so this build's version (``active``, :func:`features_version`)…
+- `generator_key(payload: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 216)
+- `generator(trace: Mapping[str, Any], algorithm_version: str, *, scope_extension: bool=False, active: str=LT.FEATURES_VERSION) -> str` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 221) — A logged decision's generator version (module docstring).
+- `class Logged` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 242)
+- `nearest_goal_days(trace: Mapping[str, Any]) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 317) — Days to the nearest active dated goal the decision valued (RO5's ``goal_dates``, else the window's uses).
+- `rebuilt_features(trace: Mapping[str, Any], receipt: Mapping[str, Any] | None, *, features_version: str=LT.FEATURES_VERSION) -> dict[str, tuple[float, ...]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 327) — Each candidate's features from the trace's frozen belief numbers and RO0's decision-time snapshot, by ``features_version``'s function.
+- `snapshot_mastery(snapshot: Mapping[str, Any], los: Sequence[str]) -> list[tuple[float, float]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 349) — RO0 row 9's mastery numbers of ``los`` (logit mean, logit variance), those it holds.
+- `use_moment(trace: Mapping[str, Any], created: datetime, use: Mapping[str, Any]) -> datetime` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 383) — The moment a frozen dated use falls at (Codex review of RO6, F2): the goal's ``due_at`` as the rollouts parse it (``clock.parse_utc``, the use's own or the goal's frozen in the trace), else the decision's moment plus the use's exact delay.
+- `logged(connection: Any, config: Any, *, at: str) -> list[Logged]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 538) — Every ``plan_block`` trace known at ``at``, oldest first (module docstring).
+- `carried_in_prefetch_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 575) — The follow-up batch's item 4: deferred carried valuations are run, recorded and read (its tag and ``[router_objective] carried_in_prefetch``); off, or below the tag, RO6's rulings R12 and R3 exactly.
+- `class Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 616)
+- `transitions(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> Steps` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 623) — Every logged decision's step to the next one, with its reward (module docstring).
+- `class Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 748)
+  - `for_serving(self, generator_now: str) -> tuple[LT.Fit | None, str]` (line 754; public) — The current version's own fit; with none of its transitions yet, the latest earlier version's ("version k+1 uses the result"); else none.
+- `fits(connection: Any, config: Any, *, at: str, rows: Sequence[Logged] | None=None) -> Fits` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 766) — One fit per generator version from its own transitions as of ``at`` (frozen-logger evaluation).
+- `contrasts(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> tuple[list[LT.Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 801) — Every stop-coin decision with a frozen residual whose window closed before ``at``: its realized contrast (the coin's, times the window's observed return) and its frozen predicted ones (tail and residual).
+- `improvement_ratio(row: Logged) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 855) — The improvement step's probability of the served action over the logger's: the mix with the numeric policy's argmax taken on ``Q_tail + ρ`` (the frozen residual at full weight), under the same coin.
+- `cross_check(connection: Any, config: Any, rows: Sequence[Logged], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 875) — The partial-history weights' estimate of the improvement step, beside the fit (report only).
+- `predicted_improvement(rows: Sequence[Logged]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 900) — The fit's own forecast of the same step: ``Σ_a (μ_new − μ)(a)·(Q_tail + ρ)(a)``, the mean over decisions with a frozen residual (a projection, labelled; on the cutoff's horizon, not the window's).
+- `is_finite(value: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 919)
 
 ### Module constants
 
@@ -103,7 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_CACHE_LIMIT` ([src/learnloop/router_objective/tail_data.py](../../../../../../src/learnloop/router_objective/tail_data.py), line 80)
 - `OBJECTIVE_DEFINITION_VERSION` ([src/learnloop/router_objective/tail_data.py](../../../../../../src/learnloop/router_objective/tail_data.py), line 114)
 - `OBJECTIVE_DEFINITION_EXTENSION_VERSION` ([src/learnloop/router_objective/tail_data.py](../../../../../../src/learnloop/router_objective/tail_data.py), line 118)
-- `_LATE_STATUSES` ([src/learnloop/router_objective/tail_data.py](../../../../../../src/learnloop/router_objective/tail_data.py), line 492)
+- `_LATE_STATUSES` ([src/learnloop/router_objective/tail_data.py](../../../../../../src/learnloop/router_objective/tail_data.py), line 509)
 
 ### Explicit exports
 
@@ -143,27 +144,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 83)
 - `_round(value: Any) -> Any` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 87)
-- `_topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 279) — A candidate's topics as its trace froze them (its sensors: the value's ``Topic`` numbers), by LO.
-- `_topics(entry: Mapping[str, Any]) -> tuple[LT.TopicNumbers, ...]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 293)
-- `_candidate_topics(candidates: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 297)
-- `_served(trace: Mapping[str, Any]) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 342)
-- `_receipt(connection: Any, decision_id: str, config: Any, at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 351) — RO0's decision-time snapshot of one decision, if it was known at ``at`` (the availability predicate).
-- `_logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], config: Any, at: str, receipts: bool) -> Logged` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 388)
-- `_carried_values(previous: Mapping[str, Any] | None, support: Sequence[str], current: bool) -> tuple[dict[str, float] | None, dict[str, tuple[float, ...]] | None]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 469) — The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the evaluation run at it and the features taken at its span, both for every candidate of the support, at this build's features version; anything less leaves the transition into this…
-- `_with_late_carried(rows: list['Logged']) -> list['Logged']` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 495) — The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation existed (or decided on the no-model branch) has that valuation run in a later boundary's prefetch, off the serving path, and recorded in a later decision's trace (``carried_fo…
-- `_next_links(connection: Any, logged_ids: set[str]) -> tuple[dict[str, str | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 571) — §4 row 12's links: from each logged decision, the next logged decision along the ledger's next-decision chain (None: censored, no later one), and the return's censoring for the report.
-- `_exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 589) — A dated use's ``Y``: the results imported for the goal's date, known by ``at`` (THE availability predicate; the one reader the contrasts' returns share, ``scores.exam_result_known``), and admitted through RO5's closure at ``at`` on its occurrence and received time (RO6's landing…
-- `_frozen_residual(row: Logged) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 764)
-- `_with_traces(connection: Any, rows: Sequence[Logged]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 771)
+- `_topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 291) — A candidate's topics as its trace froze them (its sensors: the value's ``Topic`` numbers), by LO.
+- `_topics(entry: Mapping[str, Any]) -> tuple[LT.TopicNumbers, ...]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 305)
+- `_candidate_topics(candidates: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 309)
+- `_served(trace: Mapping[str, Any]) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 356)
+- `_receipt(connection: Any, decision_id: str, config: Any, at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 365) — RO0's decision-time snapshot of one decision, if it was known at ``at`` (the availability predicate).
+- `_logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], config: Any, at: str, receipts: bool) -> Logged` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 402)
+- `_carried_values(previous: Mapping[str, Any] | None, support: Sequence[str], current: bool, width: int=len(LT.NAMES)) -> tuple[dict[str, float] | None, dict[str, tuple[float, ...]] | None]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 485) — The candidates' value and features at the earlier decision's carried cutoff (Codex re-review F3): the evaluation run at it and the features taken at its span, both for every candidate of the support, at this build's features version (``width`` its length); anything less leaves t…
+- `_with_late_carried(rows: list['Logged']) -> list['Logged']` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 512) — The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation existed (or decided on the no-model branch) has that valuation run in a later boundary's prefetch, off the serving path, and recorded in a later decision's trace (``carried_fo…
+- `_next_links(connection: Any, logged_ids: set[str]) -> tuple[dict[str, str | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 589) — §4 row 12's links: from each logged decision, the next logged decision along the ledger's next-decision chain (None: censored, no later one), and the return's censoring for the report.
+- `_exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 607) — A dated use's ``Y``: the results imported for the goal's date, known by ``at`` (THE availability predicate; the one reader the contrasts' returns share, ``scores.exam_result_known``), and admitted through RO5's closure at ``at`` on its occurrence and received time (RO6's landing…
+- `_frozen_residual(row: Logged) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 785)
+- `_with_traces(connection: Any, rows: Sequence[Logged]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/tail_data.py), line 792)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `carried_in_prefetch_on`, `generator_key`, `generator_payload`, `objective_hash`, `scope_extension_on`
-- [[Reference/Modules/learnloop/router_objective/tail_report|learnloop.router_objective.tail_report]] — imports `module`; statically calls `contrasts`, `cross_check`, `fits`, `logged`, `predicted_improvement`
-- [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; statically calls `_parse`, `contrasts`, `fits`, `logged`, `snapshot_mastery`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `carried_in_prefetch_on`, `features_version`, `generator_key`, `generator_payload`, `objective_hash`, `scope_extension_on`
+- [[Reference/Modules/learnloop/router_objective/tail_report|learnloop.router_objective.tail_report]] — imports `module`; statically calls `contrasts`, `cross_check`, `features_version`, `fits`, `logged`, `predicted_improvement`
+- [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] — imports `module`; statically calls `_parse`, `contrasts`, `features_version`, `fits`, `logged`, `snapshot_mastery`
 
 ## Dependencies
 
@@ -172,12 +173,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; calls `Ledger`, `administered`
-- [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`; calls `ActionView`, `CoinDraw`, `Ratio`, `TopicNumbers`, `Transition`, `WeightedRow`, `belief`, `coin_contrasts`, `fit`, `partial_history`, `predicted_contrast`, `vector`
-- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; calls `Bounded`, `_day_prices`, `_price_rows`, `dated_use_date`, `exam_result_known`, `observed_returns`, `window_cost`
+- [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`; calls `ActionView`, `CoinDraw`, `Ratio`, `TopicNumbers`, `Transition`, `WeightedRow`, `belief`, `coin_contrasts`, `fit`, `names_for`, `partial_history`, `predicted_contrast`, `vector`
+- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; calls `Bounded`, `_day_prices`, `_lessons_on`, `_price_rows`, `dated_use_date`, `exam_result_known`, `observed_returns`, `window_cost`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; calls `served_distribution`
 - [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] — imports `module`; calls `_round`
 - [[Reference/Modules/learnloop/router_objective/trajectory|learnloop.router_objective.trajectory]] — imports `module`; calls `rows`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `followup_on`, `known_at`; calls `followup_on`, `known_at`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `followup_on`, `known_at`, `lesson_offers_on`; calls `followup_on`, `known_at`, `lesson_offers_on`
 
 ### Platform and third-party dependencies
 
@@ -245,6 +246,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_flipping_a_switch_between_prefetch_and_serve_starts_a_new_job`
 - [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
+- [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
+  - `test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_point`
+- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+  - `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`
+  - `test_the_population_change_moves_the_objectives_definition_once`
 
 ## Modification guidance
 

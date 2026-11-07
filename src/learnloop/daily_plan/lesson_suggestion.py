@@ -78,8 +78,9 @@ class SuggestionError(ValueError):
         self.code = code
 
 
-def suggestions_active(vault: Any) -> bool:
-    """Today may suggest a lesson: the successor's tag, its switch, the router and its log, and lessons."""
+def suggestions_enabled(vault: Any) -> bool:
+    """TE1b's suggestions are on: the successor's tag, its switch, the router and its log, and lessons. A card's or
+    an offer's response, and a Start whose lesson never opened, are honoured whenever this holds."""
 
     config = vault.config
     if config.algorithms.algorithm_version not in LESSON_SUGGESTIONS_VERSIONS:
@@ -89,6 +90,23 @@ def suggestions_active(vault: Any) -> bool:
     # Lessons may open (``teacher.service.lessons_active``, read here without importing the teacher, a
     # composition layer nothing below imports; a test pins the two equal).
     return config.algorithms.algorithm_version in TEACHER_VERSIONS and bool(config.teacher.enabled)
+
+
+def offers_in_objective(vault: Any) -> bool:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the objective serves the day's offers as plan blocks, so
+    Today's open draws no card (``lesson_offer.offers_on``)."""
+
+    from learnloop.daily_plan.lesson_offer import offers_on
+
+    return offers_on(vault)
+
+
+def suggestions_active(vault: Any) -> bool:
+    """Today may draw a suggestion card at its open: TE1b's suggestions on (:func:`suggestions_enabled`), and,
+    from TE3b's tag with its switch on, only where the objective does not serve the plan (§15.1a: TE1b exactly
+    there). Below TE3b's tag, or with ``in_objective`` off, TE1b's gate exactly."""
+
+    return suggestions_enabled(vault) and not offers_in_objective(vault)
 
 
 # =============================================================================
@@ -206,8 +224,14 @@ def _shown(decision: Mapping[str, Any]) -> bool:
     return bool((decision.get("detail") or {}).get("shown"))
 
 
-def _model(connection: Any) -> tuple[LS.AcceptanceState, list[dict[str, Any]], list[dict[str, Any]]]:
-    decisions = store.decisions(connection)
+def _model(connection: Any, *, with_offers: bool) -> tuple[LS.AcceptanceState, list[dict[str, Any]],
+                                                           list[dict[str, Any]]]:
+    """The daily draw's acceptance model, its decisions and responses. TE3b: with lesson offers on (``with_offers``:
+    ``router_objective_switches.lesson_offers_on``) the drawn offers are shown suggestions too, one model for both;
+    off, or below the tag, TE1b's own decisions exactly (Codex review F3), whatever offers the vault drew while the
+    switch was on (a Start on one that never opened is still honoured: :func:`_recovered` reads them)."""
+
+    decisions = store.all_decisions(connection) if with_offers else store.decisions(connection)
     responses = store.responses(connection)
     details = {str(d["id"]): d["detail"] for d in decisions}
     return LS.replay(LS.observations(details, responses)), decisions, responses
@@ -240,6 +264,10 @@ def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, t
     written = 0
     for decision in decisions:
         if not _shown(decision) or decision["day"] >= today or store.response_for(connection, decision["id"]):
+            continue
+        if store.release_for(connection, decision["id"]) is not None:
+            # TE3b: an offer the plan took back unanswered (``lesson_offer.withdraw``) is not ignored by the learner.
+            # A daily card has a release only after its Start, so TE1b's sweep is unchanged.
             continue
         primary = ((decision["detail"].get("card") or {}).get("candidates") or [{}])[0]
         written += int(store.insert_response(
@@ -299,7 +327,9 @@ def _pending_from_earlier_day(connection: Any, decisions: Sequence[Mapping[str, 
     draw is logged while the learner is shown this one instead."""
 
     for decision in reversed(decisions):
-        if decision["day"] >= today:
+        # TE3b: a plan offer's Start whose lesson never opened waits on Today's card from its own day on (the plan
+        # block it was answered on has ended); a daily card's own day reads it through its decision.
+        if decision["day"] >= today and not (decision.get("detail") or {}).get("plan_offer"):
             continue
         view = card_view(connection, decision)
         if view is not None and view.get("pending_lesson") is not None:
@@ -364,12 +394,13 @@ def _recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tupl
             connection = repository.connection()
             if not store.tables_present(connection):
                 return True, None
-            _sweep_ignored(connection, store.decisions(connection), today=today, now_iso=now_iso)
+            # TE3b: with the day's drawn offers (none ever drawn: TE1b's decisions exactly).
+            _sweep_ignored(connection, store.all_decisions(connection), today=today, now_iso=now_iso)
             existing = store.decision_for_day(connection, today)
             if existing is not None:
                 view = card_view(connection, existing)
             else:
-                view = _pending_from_earlier_day(connection, store.decisions(connection), today=today)
+                view = _pending_from_earlier_day(connection, store.all_decisions(connection), today=today)
         if view is None or view.get("pending_lesson") is None:
             return existing is not None, view
         problem = reservation_problem(vault, repository, view)
@@ -400,15 +431,20 @@ def _target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.T
 
 def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
                      session_id: str | None = None) -> dict[str, Any] | None:
-    """Today's suggestion card, drawing the day's decision on the first call; None when there is none."""
+    """Today's suggestion card, drawing the day's decision on the first call; None when there is none.
 
-    if not suggestions_active(vault):
+    Teacher TE3b (§15.1a): where the objective serves the day's offers as plan blocks, no card is drawn here; a
+    Start whose lesson never opened (a card's or an offer's) is still honoured on this card (TE1b ruling R2)."""
+
+    if not suggestions_enabled(vault):
         return None
     env = PlanEnv(vault, repository, clock=clock, session_id=session_id)
     today, now_iso = env.today(), env.now_iso()
     settled, view = _recovered(vault, repository, today=today, now_iso=now_iso)
     if settled:
         return view
+    if not suggestions_active(vault):
+        return None
     candidates, excluded = build_candidates(vault, repository, now_iso=now_iso)
     if not candidates:
         return None
@@ -421,9 +457,12 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
         ad_fields=lambda los: decision_state_fields(vault, repository, list(los)))
     with repository.atomic():
         connection = repository.connection()
-        state, decisions, responses = _model(connection)
+        from learnloop.router_objective_switches import lesson_offers_on
+
+        state, decisions, responses = _model(connection, with_offers=lesson_offers_on(vault.config))
+        # A Start that never opened, a card's or an offer's, whatever the switch (TE1b ruling R2; as ``_recovered``).
         raced = (store.decision_for_day(connection, today) is not None
-                 or _pending_from_earlier_day(connection, decisions, today=today) is not None)
+                 or _pending_from_earlier_day(connection, store.all_decisions(connection), today=today) is not None)
         if not raced:
             context = _context(env, decisions)
             details = {str(d["id"]): d["detail"] for d in decisions}
@@ -510,9 +549,13 @@ def respond(vault: Any, repository: Any, *, decision_id: str, response: str, can
     """Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
 
     ``released`` is "Not now" on a pending card (a Start whose lesson never opened; landing ruling R2):
-    the reservation is let go with one more row on the decision, the Start staying recorded."""
+    the reservation is let go with one more row on the decision, the Start staying recorded.
 
-    if not suggestions_active(vault):
+    Teacher TE3b (§15.1a): a lesson offer drawn at a plan block boundary is answered here too, on its own
+    ``plan_block`` decision (one response a decision), and its block ends with the answer, so the plan goes on at
+    the next boundary (a Start: when the lesson closes; "Not now": at once, to the block the plan would serve)."""
+
+    if not suggestions_enabled(vault):
         raise SuggestionError("suggestions_disabled", "Lesson suggestions are switched off.")
     if response not in ("accepted", "chose_alternative", "declined", "released"):
         raise SuggestionError("validation_error", f"unknown response {response!r}")
@@ -521,8 +564,18 @@ def respond(vault: Any, repository: Any, *, decision_id: str, response: str, can
     with repository.atomic():
         connection = repository.connection()
         decision = store.decision(connection, decision_id)
+        if decision is None:
+            decision = store.offer_decision(connection, decision_id)
         if decision is None or not _shown(decision):
             raise SuggestionError("not_found", "That suggestion isn't on your Today card.")
+        if (decision["detail"] or {}).get("plan_offer") and response != "released" \
+                and store.response_for(connection, decision_id) is None:
+            # TE3b (Codex review F1, F2): an unanswered offer the plan took back (a question came first, or offers
+            # were switched off) takes no answer; with offers off, none is answered before the plan takes it back.
+            from learnloop.daily_plan import lesson_offer as LO
+
+            if LO.withdrawn(connection, decision_id) is not None or not LO.offers_on(vault):
+                raise SuggestionError("not_found", "That suggestion is no longer in your plan.")
         if response == "released":
             return _release(connection, decision, session_id=session_id, now_iso=now_iso)
         entries = (decision["detail"].get("card") or {}).get("candidates") or []
@@ -539,11 +592,32 @@ def respond(vault: Any, repository: Any, *, decision_id: str, response: str, can
                 raise SuggestionError("already_answered", "You already answered this suggestion.")
             return _response_view(existing, chosen)
         lesson_id = f"les_{new_ulid().lower()}" if response in ("accepted", "chose_alternative") else None
+        offer_block = (decision["detail"] or {}).get("block_id") if (decision["detail"] or {}).get("plan_offer") else None
         store.insert_response(
             connection, decision_id=decision_id, response=response, candidate_ref=str(chosen["ref"]),
             learning_object_ids=list(chosen["learning_object_ids"]), responded_at=now_iso, lesson_id=lesson_id,
-            session_id=session_id, detail={"card_hash": decision.get("card_hash")})
+            session_id=session_id, detail={"card_hash": decision.get("card_hash"),
+                                           **({"plan_offer": True, "block_id": offer_block} if offer_block else {})})
+        if offer_block:
+            from learnloop.daily_plan.lesson_offer import end_block
+
+            end_block(connection, offer_block, response, at=now_iso)
         return _response_view(store.response_for(connection, decision_id), chosen)
+
+
+def offer_card_view(block: Any) -> dict[str, Any]:
+    """Teacher TE3b: a plan block's offer card (the step's and the plan view's), from the card its decision drew:
+    "Learn *X* now? (about N min)" with the reason in plain words, Start, up to two alternatives and "Not now"."""
+
+    record = dict((getattr(block, "chosen", None) or {}).get("lesson_offer") or {})
+    entries = list((record.get("card") or {}).get("candidates") or [])
+    if not entries:
+        return {}
+    minutes = max(1, int(round(float(getattr(block, "budget_minutes", LS.CARD_MINUTES) or LS.CARD_MINUTES))))
+    return {"decision_id": getattr(block, "decision_ref", None), "block_id": getattr(block, "id", None),
+            "day": None, "minutes": minutes, "why_label": WHY_LABEL,
+            "suggestion": _card_entry(entries[0]), "alternatives": [_card_entry(e) for e in entries[1:]],
+            "pending_lesson": None, "answered": getattr(block, "outcome", None)}
 
 
 def _release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None,
@@ -585,8 +659,11 @@ __all__ = [
     "WHY_LABEL",
     "build_candidates",
     "card_view",
+    "offer_card_view",
+    "offers_in_objective",
     "reservation_problem",
     "respond",
     "suggestions_active",
+    "suggestions_enabled",
     "today_suggestion",
 ]

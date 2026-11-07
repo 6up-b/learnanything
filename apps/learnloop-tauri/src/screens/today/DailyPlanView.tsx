@@ -11,6 +11,8 @@ import { COLOR, FONT_MONO, KeyBar } from "../../components/term";
 import { aboutMinutes, minutesPerDay, waitingLine, waitingMinutes, wholeMinutes } from "../../app/dailyPlan";
 import { screenLeavesKey } from "../../app/keymap";
 import { api } from "../../api/client";
+import type { LessonEntry } from "../LessonScreen";
+import { LessonOfferBlock } from "./LessonOfferBlock";
 
 const LANE_COLOR: Record<PlanLane, string> = {
   repair: COLOR.red,
@@ -208,6 +210,12 @@ export interface DailyPlanViewProps {
   onSkip?: (practiceItemId: string) => void;
   /** Skip a current reading block from the block line (§6.10). */
   onSkipReading?: () => void;
+  /** Teacher TE3b: a lesson offer's block. Its session, the lesson it opens on Start, and the plan's re-read
+   *  once it is answered (absent: the block is shown without its card's buttons). */
+  sessionId?: string | null;
+  onStartLesson?: (entry: LessonEntry) => void;
+  onOfferAnswered?: () => void;
+  onError?: (message: string) => void;
 }
 
 /** Today, during the plan and when it is done (§6.5, §6.7). */
@@ -223,7 +231,11 @@ export function DailyPlanView({
   moreNewPreview = null,
   onShowList,
   onSkip,
-  onSkipReading
+  onSkipReading,
+  sessionId = null,
+  onStartLesson,
+  onOfferAnswered,
+  onError
 }: DailyPlanViewProps) {
   const plan = data.plan;
   const done = plan ? plan.status !== "open" : false;
@@ -314,7 +326,12 @@ export function DailyPlanView({
         ) : current ? (
           <div style={{ border: `1px solid ${COLOR.border}`, padding: "10px 14px" }}>
             <PlanBlockLine plan={plan} block={current} />
-            {current.reading ? (
+            {current.lessonOffer && onOfferAnswered ? (
+              <div style={{ marginTop: 6 }}>
+                <LessonOfferBlock offer={current.lessonOffer} sessionId={sessionId} onStartLesson={onStartLesson}
+                                  onAnswered={onOfferAnswered} onError={onError ?? (() => undefined)} />
+              </div>
+            ) : current.reading ? (
               <div style={{ fontSize: 13, marginTop: 6, color: COLOR.text }}>
                 Continue {current.reading.sectionTitle} · {aboutMinutes(current.estMinutes)}
                 {current.reading.partial && current.reading.fullMinutes ? ` (of ${aboutMinutes(current.reading.fullMinutes)})` : ""}
@@ -331,7 +348,7 @@ export function DailyPlanView({
               <button type="button" style={actionButton(true)} onClick={onContinue} disabled={busy}>
                 {busy ? "opening…" : current.startedAt ? "continue ↵" : "begin ↵"}
               </button>
-              {onSkip && !current.reading ? (
+              {onSkip && !current.reading && !current.lessonOffer ? (
                 <button
                   type="button"
                   style={actionButton()}

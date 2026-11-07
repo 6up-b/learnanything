@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/price.py"
 source_paths:
   - "src/learnloop/router_objective/price.py"
-source_commit: "054b8a0652045fad6cf66e7b53909f395070095d"
-source_commit_timestamp: "2026-11-05T10:30:41-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,25 +50,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/price.py](../../../../../../src/learnloop/router_objective/price.py) |
-| Source lines | 214 |
+| Source lines | 264 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `054b8a0652045fad6cf66e7b53909f395070095d` |
-| Commit timestamp | `2026-11-05T10:30:41-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
-- `activity_spans(connection: Any, *, since: str, until: str) -> list[tuple[datetime, datetime, float]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 55) — The objective's activity clock: ``(began, finished, active seconds)`` for each attempt (at its completion, with its latency) and each Reader visit (over its interval, its active seconds), finished in ``[since, until]``.
-- `session_components(spans: Sequence[tuple[datetime, datetime, float]], *, gap_minutes: float) -> list[list[int]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 84) — The objective's sessions over ``spans``: the connected components of activity, two spans in one session when less than ``gap_minutes`` lie between them (a Reader interval spanning two attempts joins them).
-- `session_active_minutes(connection: Any, *, now: str, gap_minutes: float) -> tuple[float, str | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 105) — The active minutes of the current objective session: activity (attempts at their completion with their latency, Reader visits over their interval) in the session holding ``now`` (:func:`session_components`: less than ``gap_minutes`` from its last activity).
-- `guard_minutes(config: Any, remembered: float) -> float` ([source](../../../../../../src/learnloop/router_objective/price.py), line 135)
-- `class Seeded` ([source](../../../../../../src/learnloop/router_objective/price.py), line 142)
-  - `as_dict(self) -> dict[str, Any]` (line 152; public)
-- `seed_from_gain(gain: Mapping[float, float], *, remembered: float, block_minutes: float, last_positive: float | None) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 164) — ``κ0`` from the day's gain curve: the marginal gain per minute at ``m̄``, floored at the last positive value; with none ever and no positive marginal, the tail's average marginal gain per minute.
-- `choice_log_likelihood(kappa0: float, observations: Iterable[Mapping[str, float]]) -> float` ([source](../../../../../../src/learnloop/router_objective/price.py), line 180) — The stated likelihood: ``P(continue) = σ(gain − price)`` per frontier choice, the price at that choice's session minutes (``κ0·x/m̄`` over the block); a stop says only that the forecast gain was below the price.
-- `grid_posterior(seed: float, observations: Sequence[Mapping[str, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 194) — The grid posterior over ``κ0``: a log-uniform grid around the seed, prior uniform on it.
+- `lesson_spans(connection: Any, *, since: str, until: str, received_by: str | None=None) -> list[tuple[datetime, datetime, float]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 55) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): one span per lesson from TE2-log's ``lesson_activity_intervals`` whose intervals finished in ``[since, until]``: from its first interval's start to its last interval's end, with the union of its foreground intervals as its active seco…
+- `activity_spans(connection: Any, *, since: str, until: str, lessons: bool=False, received_by: str | None=None) -> list[tuple[datetime, datetime, float]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 95) — The objective's activity clock: ``(began, finished, active seconds)`` for each attempt (at its completion, with its latency) and each Reader visit (over its interval, its active seconds), finished in ``[since, until]``.
+- `session_components(spans: Sequence[tuple[datetime, datetime, float]], *, gap_minutes: float) -> list[list[int]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 129) — The objective's sessions over ``spans``: the connected components of activity, two spans in one session when less than ``gap_minutes`` lie between them (a Reader interval spanning two attempts joins them).
+- `session_active_minutes(connection: Any, *, now: str, gap_minutes: float, lessons: bool=False) -> tuple[float, str | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 150) — The active minutes of the current objective session: activity (attempts at their completion with their latency, Reader visits over their interval) in the session holding ``now`` (:func:`session_components`: less than ``gap_minutes`` from its last activity).
+- `guard_minutes(config: Any, remembered: float) -> float` ([source](../../../../../../src/learnloop/router_objective/price.py), line 185)
+- `class Seeded` ([source](../../../../../../src/learnloop/router_objective/price.py), line 192)
+  - `as_dict(self) -> dict[str, Any]` (line 202; public)
+- `seed_from_gain(gain: Mapping[float, float], *, remembered: float, block_minutes: float, last_positive: float | None) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 214) — ``κ0`` from the day's gain curve: the marginal gain per minute at ``m̄``, floored at the last positive value; with none ever and no positive marginal, the tail's average marginal gain per minute.
+- `choice_log_likelihood(kappa0: float, observations: Iterable[Mapping[str, float]]) -> float` ([source](../../../../../../src/learnloop/router_objective/price.py), line 230) — The stated likelihood: ``P(continue) = σ(gain − price)`` per frontier choice, the price at that choice's session minutes (``κ0·x/m̄`` over the block); a stop says only that the forecast gain was below the price.
+- `grid_posterior(seed: float, observations: Sequence[Mapping[str, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/price.py), line 244) — The grid posterior over ``κ0``: a log-uniform grid around the seed, prior uniform on it.
 
 ### Module constants
 
@@ -103,6 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `guard_minutes`
 - `seed_from_gain`
 - `activity_spans`
+- `lesson_spans`
 - `session_active_minutes`
 - `session_components`
 
@@ -155,6 +157,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_the_shared_construction_serves_ro4s_session_minutes_exactly`
 - [tests/test_rofu_review_draw.py](../../../../../../tests/test_rofu_review_draw.py) — direct import
   - `test_the_probe_after_the_fix_pins_its_numbers_and_the_seed`
+- [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
+- [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
+  - `test_kappa_counts_a_lessons_active_minutes_only_with_lessons_on`
+  - `test_the_serving_clock_reads_only_lesson_intervals_received_by_now`
+- [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
+- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+- [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import
 
 ## Modification guidance
 

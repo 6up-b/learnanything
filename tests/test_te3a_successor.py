@@ -45,9 +45,9 @@ def drop_te3a_keys(dumped: dict) -> dict:
 
 def test_the_successor_is_one_constant_after_te2_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.51"
-    # Phone V3's successor (mvp-0.53) follows it and keeps it.
-    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.53"
-    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53"})
+    # Teacher TE3b's router successor (mvp-0.53) landed after it and keeps it.
+    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
+    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53", "mvp-0.54"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -69,6 +69,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
         mode="json", exclude_none=False)
     for key in TE3A_KEYS:
         dumped["adaptive_difficulty"].pop(key)
+    from tests.test_te3b_successor import drop_te3b_keys
+
+    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
     assert dumped["router_objective"].pop("held_ad_link") is True
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "94291ed4789a10800d9b6174d87ae1ccf82a36e1d103d8c89fc98735e5d1d150"
@@ -102,7 +105,6 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    # Phone V3's link (mvp-0.53) is the chain's latest since; its completion hands this link's journal here.
     assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to TE2's completion, which hands it on in turn.
@@ -145,7 +147,7 @@ def test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name(tmp_path):
     set_algorithm_version(paths, OLD)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    # The default target is the chain's latest (phone V3's mvp-0.53 since), through this link.
+    # The default target is the chain's latest (teacher TE3b's mvp-0.53 since its build), through this link.
     assert f"{OLD} -> {LATEST_ALGORITHM_VERSION}" in result.output
     named = create_basic_vault(tmp_path / "named")
     set_algorithm_version(named, OLD)

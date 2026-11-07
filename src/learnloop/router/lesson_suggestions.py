@@ -379,10 +379,16 @@ def declines_by_learning_object(decisions: Mapping[str, Mapping[str, Any]],
     """Per LO, the time of its latest "Not now" not followed by an acceptance of a lesson on it.
 
     A ``released`` row (the learner's "Not now" on a pending card, letting a Start's unopened lesson go)
-    is a "Not now" on its LOs too; an ``expired`` one (the lesson could no longer open) is not."""
+    is a "Not now" on its LOs too; an ``expired`` one (the lesson could no longer open) is not.
+
+    Only the rows of ``decisions`` count, as in :func:`observations` (TE3b, Codex re-review F3: with lesson offers off,
+    the daily draw passes TE1b's own decisions, so an offer's "Not now" never dates a switch-off candidate; every
+    response below TE3b is on a daily decision, so its ledger reads as before)."""
 
     latest: dict[str, str] = {}
     for response in sorted(responses, key=lambda row: (str(row["responded_at"]), str(row["id"]))):
+        if str(response["decision_id"]) not in decisions:
+            continue
         los = json.loads(response.get("learning_object_ids_json") or "[]") if isinstance(
             response.get("learning_object_ids_json"), str) else list(response.get("learning_object_ids") or ())
         kind = str(response["response"])

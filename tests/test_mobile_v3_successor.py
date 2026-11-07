@@ -1,9 +1,9 @@
-"""Phone V3's successor (mvp-0.53; one constant, renumbered at landing if TE3b's lands first): the chain, its defaults,
+"""Phone V3's successor (mvp-0.54; built as mvp-0.53, renumbered after TE3b's mvp-0.53 landed): the chain, its defaults,
 its gate, and its upgrade.
 
 The 2026-10-17 rule (docs/algorithm-change-playbook.md): a change to which items are served as measurements is a
 successor with a kill switch even when replay is unchanged. From V3 a phone origin serves and answers the probes it
-used to leave for the desktop. The upgrade is the chain's next journalled link: from TE3a's mvp-0.52 (or mvp-0.9 onwards
+used to leave for the desktop. The upgrade is the chain's next journalled link: from TE3b's mvp-0.53 (or mvp-0.9 onwards
 through the chain), one transaction with the projection's activation under the tag and the config's publication last.
 Nothing already recorded changes. The kill switch is the phone host's ``phone_probes`` (mobile.toml), so no vault key
 moves any snapshot. Fakes only; no model call.
@@ -16,7 +16,7 @@ import tomllib
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
-    LESSON_OPPORTUNITY_ALGORITHM_VERSION,
+    LESSON_OFFERS_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
     PHONE_PROBES_VERSIONS,
     SUCCESSOR_CHAIN,
@@ -31,12 +31,12 @@ from learnloop_sidecar.request_origin import RequestOrigin, phone_probes_on
 from tests.helpers import create_basic_vault, set_algorithm_version
 
 TAG = PHONE_PROBES_ALGORITHM_VERSION
-OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
+OLD = LESSON_OFFERS_ALGORITHM_VERSION
 
 
-def test_the_successor_is_one_constant_after_te3a_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.52"
-    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
+def test_the_successor_is_one_constant_after_te3b_and_the_latest():
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.53"
+    assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
     assert PHONE_PROBES_VERSIONS == frozenset({TAG})
 
 
@@ -78,8 +78,8 @@ def test_the_openers_install_this_links_completion():
 
     assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    # It hands an earlier link's journal to TE3a's completion, which hands it on in turn.
-    assert "learnloop.lesson_opportunity_upgrade import complete_interrupted_activation" in inspect.getsource(
+    # It hands an earlier link's journal to TE3b's completion, which hands it on in turn.
+    assert "learnloop.lesson_offers_upgrade import complete_interrupted_activation" in inspect.getsource(
         phone_probes_upgrade)
 
 

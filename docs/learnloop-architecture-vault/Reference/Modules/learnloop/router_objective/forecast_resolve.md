@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/forecast_resolve.py"
 source_paths:
   - "src/learnloop/router_objective/forecast_resolve.py"
-source_commit: "96ba40f55c3587f2e716522918d4ae4d06b172ea"
-source_commit_timestamp: "2026-11-05T05:31:58-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -49,25 +49,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/forecast_resolve.py](../../../../../../src/learnloop/router_objective/forecast_resolve.py) |
-| Source lines | 132 |
+| Source lines | 175 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `96ba40f55c3587f2e716522918d4ae4d06b172ea` |
-| Commit timestamp | `2026-11-05T05:31:58-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
-- `groups(connection: Any) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 33) — The resolvable curves (one per served decision whose drawn option the LLM policy forecast) and the counts of those censored at birth, by reason.
-- `resolve(connection: Any, vault: Any, repository: Any, *, now: str, resolve_curves: Callable[..., list[dict[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 76) — The bound forecasts resolved by RO2's resolver, and the censored-at-birth counts (pure reads).
-- `summary(resolved: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 87) — Counts and scores per binding and comparator (model, prompt, card): scored, pending, censored by reason, mean log loss and Brier score, and observed against forecast (calibration in the large).
+- `groups(connection: Any) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 62) — The resolvable curves (one per served decision whose drawn option the LLM policy forecast) and the counts of those censored at birth, by reason.
+- `resolve(connection: Any, vault: Any, repository: Any, *, now: str, resolve_curves: Callable[..., list[dict[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 119) — The bound forecasts resolved by RO2's resolver, and the censored-at-birth counts (pure reads).
+- `summary(resolved: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 130) — Counts and scores per binding and comparator (model, prompt, card): scored, pending, censored by reason, mean log loss and Brier score, and observed against forecast (calibration in the large).
 
 ### Module constants
 
 - `BINDING_VERSION` ([src/learnloop/router_objective/forecast_resolve.py](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 28)
 - `FORECASTER` ([src/learnloop/router_objective/forecast_resolve.py](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 29)
 - `STOP` ([src/learnloop/router_objective/forecast_resolve.py](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 30)
+- `OFFER_BINDING_VERSION` ([src/learnloop/router_objective/forecast_resolve.py](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 34)
+- `OFFER_PREFIX` ([src/learnloop/router_objective/forecast_resolve.py](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 35)
 
 ### Explicit exports
 
@@ -75,13 +77,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `BINDING_VERSION`
 - `FORECASTER`
+- `OFFER_BINDING_VERSION`
 - `groups`
 - `resolve`
 - `summary`
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_offer_anchor(connection: Any, decision_id: str) -> tuple[dict[str, Any] | None, str]` ([source](../../../../../../src/learnloop/router_objective/forecast_resolve.py), line 38) — An accepted offer's lesson and the moment it closed, or why the forecast is censored.
 
 ## Who imports or calls it
 
@@ -116,6 +119,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
+- [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
+  - `test_an_offers_forecast_is_bound_after_the_lesson_or_censored`
 
 ## Modification guidance
 

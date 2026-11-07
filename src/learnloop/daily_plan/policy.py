@@ -126,6 +126,7 @@ def policy_for(
             projection_chooser=LaneQuotaChooser(),
             restraint=objective_restraint,
             soft_budget=True,
+            lesson_offer=_lesson_offer_builder(vault, repository),
         )
     restraint = None
     if bool(getattr(vault.config.router, "restraint", False)):
@@ -142,6 +143,32 @@ def policy_for(
         projection_chooser=LaneQuotaChooser(),
         restraint=restraint,
     )
+
+
+def _lesson_offer_builder(vault: Any, repository: Any) -> Any:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on
+    (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise. Each
+    boundary first records ``ignored`` on a drawn offer whose boundary passed with no answer."""
+
+    from learnloop.router_objective_switches import lesson_offers_on
+
+    if not lesson_offers_on(vault.config):
+        return None
+
+    def build(*, env: Any, record: Any, forced: bool) -> Any:
+        from learnloop.daily_plan import lesson_offer as LO
+        from learnloop.db.stores import router_suggestions as suggestions
+
+        today, now_iso = env.today(), env.now_iso()
+        with repository.atomic(), repository.connection() as connection:
+            if suggestions.tables_present(connection):
+                LO.sweep_ignored(connection, today=today, now_iso=now_iso)
+        local = env.now().astimezone()
+        minutes_left = float(record.minutes_left()) if record is not None and record.is_open else None
+        return LO.build(vault, repository, today=today, now_iso=now_iso, local_hour=local.hour + local.minute / 60.0,
+                        minutes_left=minutes_left, reentry=bool(env.gap().due), forced=forced)
+
+    return build
 
 
 __all__ = ["bridge_active", "mixture_active", "objective_active", "policy_for", "router_active"]

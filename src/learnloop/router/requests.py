@@ -110,6 +110,19 @@ def option_description(
     return text if len(text) <= OPTION_LIMIT else text[: OPTION_LIMIT - 1].rstrip() + "…"
 
 
+def lesson_offer_description(*, topic: str, why: str, est_minutes: float, p_accept: float | None) -> str:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the LLM policy's row for a lesson offer, one more option of its
+    existing request (no new request): the target, the reason, the minutes and ``P(accept)``. "Offer a lesson on
+    Eigenvectors (about 15 min): your last two cold answers on it missed. The learner may decline (then the next
+    block); predicted chance they start it: 42%." """
+
+    chance = f" predicted chance they start it: {round(100 * float(p_accept))}%." if p_accept is not None else ""
+    body = (f"Offer a lesson on {topic} (about {max(1, round(est_minutes))} min): {why} The learner may decline "
+            f"(then the next block);{chance}")
+    text = " ".join(body.split())
+    return text if len(text) <= OPTION_LIMIT else text[: OPTION_LIMIT - 1].rstrip() + "…"
+
+
 STOP_DESCRIPTION = "Stop for today: today's useful time is nearly used."
 #: Router objective RO4 (§8.2): stop at a boundary with work left is an offer; the plan's minutes are a suggestion.
 STOP_OFFER_DESCRIPTION = ("Stop for today: end the session here (the plan's minutes are a suggestion; the learner "
@@ -677,6 +690,7 @@ __all__ = [
     "WILL_PASS_NEXT",
     "evidence_from_card",
     "llm_result_model",
+    "lesson_offer_description",
     "option_description",
     "parse_decider_choice",
     "parse_decider_restraint",

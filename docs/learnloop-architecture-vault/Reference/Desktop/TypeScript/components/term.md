@@ -288,6 +288,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/startBackdrops/glyphAtlas|src/screens/startBackdrops/glyphAtlas.ts]] — import-or-re-export: `FONT_MONO`; references `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/today/ContinueLessonCard|src/screens/today/ContinueLessonCard.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|src/screens/today/DailyPlanView.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `KeyBar`; references `COLOR`, `FONT_MONO`, `KeyBar`
+- [[Reference/Desktop/TypeScript/screens/today/LessonOfferBlock|src/screens/today/LessonOfferBlock.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/today/LessonSuggestionCard|src/screens/today/LessonSuggestionCard.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/workbench/CheckColumn|src/screens/workbench/CheckColumn.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`

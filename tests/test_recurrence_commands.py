@@ -171,6 +171,7 @@ def test_successor_vocabulary():
         "mvp-0.51",
         "mvp-0.52",
         "mvp-0.53",
+        "mvp-0.54",
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -201,7 +202,7 @@ def test_successor_vocabulary():
     assert TEACHER_ALGORITHM_VERSION == "mvp-0.41"
     # Teacher TE1b (mvp-0.43, after follow-ups Nov 2's mvp-0.42; renumbered at its landing), then data capture.
     assert LESSON_SUGGESTIONS_ALGORITHM_VERSION == "mvp-0.43"
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.53"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.54"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

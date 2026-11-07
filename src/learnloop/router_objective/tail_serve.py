@@ -88,7 +88,8 @@ def measurable(frozen: Mapping[str, Any] | None, inputs: Any, *, now_iso: str) -
 
 
 def features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any],
-             cutoff_days: float | None = None) -> tuple[dict[str, tuple[float, ...]], dict[str, Any]]:
+             cutoff_days: float | None = None,
+             features_version: str = LT.FEATURES_VERSION) -> tuple[dict[str, tuple[float, ...]], dict[str, Any]]:
     """Each candidate's features at serve time (the module docstring's step 1), from the decision's ``frozen``
     :func:`snapshot` and its frozen inputs only: nothing here reads the vault. ``cutoff_days``: the cutoff the
     features are taken at (None: the decision's own; an earlier decision's carried cutoff for its backup)."""
@@ -113,7 +114,7 @@ def features(inputs: Any, actions: Sequence[Any], *, frozen: Mapping[str, Any],
         own = tuple(numbers[lo] for lo in dict.fromkeys(action.item_los) if lo in numbers)
         out[action.ref] = LT.vector(belief, LT.ActionView(ref=action.ref, kind=action.kind,
                                                           minutes=float(action.minutes or 0.0), topics=own),
-                                    remembered=remembered)
+                                    remembered=remembered, features_version=features_version)
     return out, {"pending_reports": total, "candidate_los": len(los),
                  "mastery_recorded": len(TD.snapshot_mastery(snapshot, los)), "belief": belief.as_tuple()}
 
@@ -129,7 +130,9 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
         return {"status": "no_snapshot", "version": VERSION,
                 "error": "no decision-time snapshot of the residual's inputs", "elapsed_ms": 0}
     try:
-        phi, basis = features(inputs, actions, frozen=frozen)
+        # Teacher TE3b: this build's features version (its ``lesson`` indicator at its tag with its switch on).
+        active = TD.features_version(config)
+        phi, basis = features(inputs, actions, frozen=frozen, features_version=active)
         basis["snapshot"] = {"version": frozen.get("version"), "at": frozen.get("at")}
         with repository.connection() as connection:
             rows = TD.logged(connection, config, at=now_iso)
@@ -138,7 +141,8 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
             contrasts, weight, summary = calibration(connection, config, rows, at=now_iso)
         model, basis_of_fit = fitted.for_serving(generator_now)
         if model is None:
-            model = LT.prior_fit(float(config.router_objective.residual_prior_sd), generator_now)
+            model = LT.prior_fit(float(config.router_objective.residual_prior_sd), generator_now,
+                                 features_version=active)
         values = {ref: model.value(vector) for ref, vector in phi.items()}
         fit_record = model.as_dict()
         for key in ("mean", "sd", "coef"):
@@ -146,10 +150,11 @@ def residual(repository: Any, config: Any, *, inputs: Any, actions: Sequence[Any
         previous = previous_cutoff(rows, inputs, now_iso=now_iso)
         if previous is not None and previous["status"] == CARRIED:
             # The next state's features at the carried cutoff (Codex re-review F3), the same function.
-            at_previous, _ = features(inputs, actions, frozen=frozen, cutoff_days=float(previous["cutoff_days"]))
+            at_previous, _ = features(inputs, actions, frozen=frozen, cutoff_days=float(previous["cutoff_days"]),
+                                      features_version=active)
             previous["features"] = {ref: [_exact(v) for v in vector] for ref, vector in at_previous.items()}
         return {
-            "status": "applied", "version": VERSION, "features_version": LT.FEATURES_VERSION,
+            "status": "applied", "version": VERSION, "features_version": active,
             "w_hat": weight.w_hat, "weight": weight.as_dict(), "previous": previous,
             # Landing ruling R9: the calibration's summary and the hash of its inputs, never the per-window bounds
             # (they recompute from the ledger as of ``contrasts.at``: :func:`calibration`).

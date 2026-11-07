@@ -8602,6 +8602,31 @@ export interface PlanBlockDto {
   learningObjectTitles: string[];
   items: PlanItemDto[];
   displacedCount: number;
+  /** Teacher TE3b: a lesson offer's card, on its block only (absent on every other block). */
+  lessonOffer?: PlanLessonOfferDto | null;
+}
+
+/** Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, a block of the plan: "Learn X now? (about N min)"
+ *  with the reason, Start, up to two alternatives and "Not now" (answered through `lesson.suggestion_respond`). */
+export interface PlanLessonOfferDto {
+  decisionId: string | null;
+  blockId: string | null;
+  minutes: number;
+  whyLabel: string;
+  suggestion: LessonSuggestionEntryDto;
+  alternatives: LessonSuggestionEntryDto[];
+  /** The block's outcome once answered (accepted, chose_alternative, declined, ignored), else null. */
+  answered: string | null;
+}
+
+export interface PlanLessonOfferStepDto {
+  kind: "lesson_offer";
+  planId: string;
+  blockId: string;
+  blockOrdinal: number;
+  offer: PlanLessonOfferDto;
+  estMinutes: number;
+  boundary: boolean;
 }
 
 export interface PlanProjectedBlockDto {
@@ -8670,7 +8695,12 @@ export interface PlanWaitingDto {
   learningObjectTitle: string | null;
 }
 
-export type PlanStepDto = PlanItemStepDto | PlanReadingStepDto | PlanDoneStepDto | PlanWaitingStepDto;
+export type PlanStepDto =
+  | PlanItemStepDto
+  | PlanReadingStepDto
+  | PlanDoneStepDto
+  | PlanWaitingStepDto
+  | PlanLessonOfferStepDto;
 
 export interface PlanTotalsDto {
   plannedMinutes: number;

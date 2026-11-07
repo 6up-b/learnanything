@@ -3,8 +3,8 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0cc1e5ab5436f13e72c0cd2bf84543dccd7ff3f2"
-source_commit_timestamp: "2026-11-07T01:07:25-05:00"
+source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
+  - "src/learnloop/daily_plan/lesson_offer.py"
   - "src/learnloop/daily_plan/records.py"
   - "src/learnloop/daily_plan_upgrade.py"
-  - "src/learnloop/db/stores/daily_plans.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -103,6 +103,7 @@ None found by exact static reference scan.
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
+- `src/learnloop/daily_plan/lesson_offer.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router_objective/exposure.py`

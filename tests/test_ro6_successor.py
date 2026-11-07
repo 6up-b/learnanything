@@ -39,8 +39,8 @@ RO6_KEYS = {"learned_tail": True, "residual_prior_sd": 0.01, "residual_weight_pr
 def test_the_successor_is_one_constant_after_ro5_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.48"
     # The follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51) landed after it and keep it.
-    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.53"
-    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG, "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53"})
+    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-6] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
+    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG, "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54"})
 
 
 def test_the_seeds_are_labelled_and_validated():
@@ -71,6 +71,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_te3a_successor import drop_te3a_keys
 
     drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
+    from tests.test_te3b_successor import drop_te3b_keys
+
+    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "dc39796ffa66ee54c1877cba358f697f24fe449020fba6b2e3a1f14ec521a2b1"
 

@@ -28,7 +28,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import LESSON_OPPORTUNITY_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_run.serving import PHONE_HANDOFF_LINE, is_holding
 from learnloop.followup_serve import identity, workflow as wf
@@ -268,7 +268,7 @@ def test_the_contract_on_the_phone_forbids_help_and_the_server_refuses_a_hint_du
 @pytest.mark.parametrize("case", ["switch_off", "below_the_tag"])
 def test_without_phone_probes_the_phone_is_v2s(tmp_path, monkeypatch, case):
     origin = V2_PHONE if case == "switch_off" else PHONE
-    version = TAG if case == "switch_off" else LESSON_OPPORTUNITY_ALGORITHM_VERSION
+    version = TAG if case == "switch_off" else LESSON_OFFERS_ALGORITHM_VERSION
     world = _world(tmp_path, monkeypatch, version=version, owner=origin)
     attempt_id, row, repository = _ready(world, origin)
     item_id = row["practice_item_id"]

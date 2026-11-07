@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_question_the_desktop_served_is_refused_on_the_phone_and_the_phones_next_goes_on`
   - `test_the_desktops_serving_next_moves_past_a_probe_the_phone_served_and_abandons_it`
   - `test_the_phone_opens_its_question_burns_it_as_the_phones_and_the_desktop_is_refused`
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
 
 ## Modification guidance
 

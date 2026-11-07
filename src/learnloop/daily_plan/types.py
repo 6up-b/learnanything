@@ -46,6 +46,12 @@ WhyKind = Literal["computed", "model_written", "model_no_rationale"]
 CONTINUE_CURRENT = "continue_current"  # offered while a block is in progress
 STOP_FOR_TODAY = "stop_for_today"  # offered when minutes_left < 5 or nothing feasible
 
+#: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, a plan block of
+#: its own (no items, no reading) whose card the learner answers; its candidate
+#: id is ``lesson_offer:<LO>``. Only at TE3b's tag with its switch on.
+LESSON_OFFER_SUBTYPE = "lesson_offer"
+LESSON_OFFER_PREFIX = "lesson_offer:"
+
 #: §6.8 rule 4: STOP_FOR_TODAY is offered below this many minutes left.
 STOP_OFFER_MINUTES = 5.0
 #: §6.1: a block aims for 5-15 estimated minutes (the staged policy's bounds).
@@ -221,6 +227,8 @@ __all__ = [
     "IntentView",
     "LANES",
     "LANE_ACTIONS",
+    "LESSON_OFFER_PREFIX",
+    "LESSON_OFFER_SUBTYPE",
     "Lane",
     "PICK_DEDUCTION_ORDER",
     "PlanKind",

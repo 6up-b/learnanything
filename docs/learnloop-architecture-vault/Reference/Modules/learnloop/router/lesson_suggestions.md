@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router/lesson_suggestions.py"
 source_paths:
   - "src/learnloop/router/lesson_suggestions.py"
-source_commit: "6e6bd6afe66bdfe4b5aa19c8e19cb4e05d849b2d"
-source_commit_timestamp: "2026-11-02T08:47:44-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/lesson_suggestions.py](../../../../../../src/learnloop/router/lesson_suggestions.py) |
-| Source lines | 624 |
+| Source lines | 630 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `6e6bd6afe66bdfe4b5aa19c8e19cb4e05d849b2d` |
-| Commit timestamp | `2026-11-02T08:47:44-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
@@ -79,19 +79,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `observations(decisions: Mapping[str, Mapping[str, Any]], responses: Iterable[Mapping[str, Any]]) -> list[Observation]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 337) — The acceptance observations of a response ledger, in response order.
 - `replay(observed: Iterable[Observation]) -> AcceptanceState` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 370)
 - `declines_by_learning_object(decisions: Mapping[str, Mapping[str, Any]], responses: Iterable[Mapping[str, Any]]) -> dict[str, str]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 377) — Per LO, the time of its latest "Not now" not followed by an acceptance of a lesson on it.
-- `class ScoredCandidate` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 403)
-  - `as_dict(self) -> dict[str, Any]` (line 410; public)
-- `class Target` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 416) — The drawn target: the router's design, its exact distribution over the scored candidates (0 off the support) and what it logs (``record``: enough to recompute ``pi``).
-- `mixture_target(scored: Sequence[ScoredCandidate], *, weights: Mapping[str, float], epsilon: float, seed: str) -> Target` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 426) — ``router.mode = "mixture"``: the router's ``model_mixture`` over ``scored`` (the top ``k``).
-- `tiebreak_target(scored: Sequence[ScoredCandidate], *, chosen_ref: str, tied: Sequence[str], margin: float) -> Target` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 456) — ``router.mode = "staged"``: the randomization layer's ``epsilon_tiebreak`` (the shell runs it).
-- `class Draw` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 477) — The day's draw.
-  - `arm_propensity(self) -> float` (line 499; public) — The arm's probability given the drawn target (1 when the ceiling binds).
-  - `chosen_ref(self) -> str` (line 507; public)
-- `score(state: AcceptanceState, context: Context, candidates: Sequence[Candidate], *, k: int) -> list[ScoredCandidate]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 511) — Each candidate's ``P(accept)``, room and value; the top ``k`` by value (ties by ref).
-- `seed_for(day: str, snapshot_hash: str) -> str` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 524)
-- `draw(scored: Sequence[ScoredCandidate], *, target: Target, seed: str, ceiling_bound: bool=False) -> Draw` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 540) — The day's draw over ``scored`` (non-empty): the drawn ``target`` (its ``π``), then the show coin.
-- `canonical_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 574)
-- `days_between(later: Any, earlier: Any) -> float` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 579) — Days between two aware datetimes (never negative).
+- `class ScoredCandidate` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 409)
+  - `as_dict(self) -> dict[str, Any]` (line 416; public)
+- `class Target` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 422) — The drawn target: the router's design, its exact distribution over the scored candidates (0 off the support) and what it logs (``record``: enough to recompute ``pi``).
+- `mixture_target(scored: Sequence[ScoredCandidate], *, weights: Mapping[str, float], epsilon: float, seed: str) -> Target` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 432) — ``router.mode = "mixture"``: the router's ``model_mixture`` over ``scored`` (the top ``k``).
+- `tiebreak_target(scored: Sequence[ScoredCandidate], *, chosen_ref: str, tied: Sequence[str], margin: float) -> Target` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 462) — ``router.mode = "staged"``: the randomization layer's ``epsilon_tiebreak`` (the shell runs it).
+- `class Draw` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 483) — The day's draw.
+  - `arm_propensity(self) -> float` (line 505; public) — The arm's probability given the drawn target (1 when the ceiling binds).
+  - `chosen_ref(self) -> str` (line 513; public)
+- `score(state: AcceptanceState, context: Context, candidates: Sequence[Candidate], *, k: int) -> list[ScoredCandidate]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 517) — Each candidate's ``P(accept)``, room and value; the top ``k`` by value (ties by ref).
+- `seed_for(day: str, snapshot_hash: str) -> str` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 530)
+- `draw(scored: Sequence[ScoredCandidate], *, target: Target, seed: str, ceiling_bound: bool=False) -> Draw` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 546) — The day's draw over ``scored`` (non-empty): the drawn ``target`` (its ``π``), then the show coin.
+- `canonical_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 580)
+- `days_between(later: Any, earlier: Any) -> float` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 585) — Days between two aware datetimes (never negative).
 
 ### Module constants
 
@@ -167,14 +167,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_centre_for(target: float, variance: float) -> float` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 130) — The logit centre ``m`` with ``E[σ(N(m, variance))] = target`` (bisection; numerical resolution).
 - `_prior_mean() -> np.ndarray` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 143) — The seeded centres: the prior predictive reproduces the legacy targets at the reference context.
 - `class _Bank` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 161) — One recovery grid point's Gaussian over the effects.
-- `_uniforms(seed: str) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 528) — The draw's three uniforms from its seed: the mixture's two stages, then the show coin.
-- `_propensity(p: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 534)
+- `_uniforms(seed: str) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 534) — The draw's three uniforms from its seed: the mixture's two stages, then the show coin.
+- `_propensity(p: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router/lesson_suggestions.py), line 540)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `Context`, `days_between`, `declines_by_learning_object`, `design_vector`, `observations`, `replay`, `score`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `module`; statically calls `Candidate`, `Context`, `canonical_hash`, `days_between`, `declines_by_learning_object`, `draw`, `lesson_ref`, `mixture_target`, `observations`, `replay`, `score`, `seed_for`, `tiebreak_target`
 
 ## Dependencies
@@ -196,7 +197,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -208,6 +209,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_router_report_prints_the_split_from_the_ledgers_read_only`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction`
+- [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
+- [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
+- [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
+  - `test_f3_reopened_switch_off_decline_recovery_never_reads_an_offer_response`
+  - `test_f3_with_the_switch_off_the_daily_draw_never_learns_from_offer_responses`
+- [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
+- [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
+  - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`
+- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+- [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import
+  - `test_the_acceptance_posterior_is_moment_matched_to_a_beta`
 - [tests/test_teacher_te1b_landing_r2.py](../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import
   - `test_not_now_on_a_pending_card_releases_the_reservation`
 - [tests/test_teacher_te1b_rereview_fixes.py](../../../../../../tests/test_teacher_te1b_rereview_fixes.py) — direct import

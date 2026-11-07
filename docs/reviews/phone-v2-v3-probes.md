@@ -1,6 +1,6 @@
 # Phone v2, stage V3: probes and cold checks on the phone
 
-**Spec:** `docs/specs/spec_mobile_frontend_v2.md` §8's V3 row (detail in §2.1 J3/J6/J11, §2.3, §7; owner decision **D3**, accepted 2026-11-06: diagnostic probes, FG1's follow-up probes and lesson probes answered on the phone, behind a kill switch). Plus V2's carried items: the `help_assists.surface` widening (V2 landing ruling R5) and the F9 class on a finished plan (V2 landing record, "Open items"). **Branch:** `phone/v3-probes`, from main `14b2ed09ab`. **Successor:** mvp-0.53 (one constant, `PHONE_PROBES_ALGORITHM_VERSION`; renumbered at landing if TE3b's mvp-0.53 lands first). **Migration:** 250 (renumbered at landing if another lands first). **No model call of its own, no new dependency.**
+**Spec:** `docs/specs/spec_mobile_frontend_v2.md` §8's V3 row (detail in §2.1 J3/J6/J11, §2.3, §7; owner decision **D3**, accepted 2026-11-06: diagnostic probes, FG1's follow-up probes and lesson probes answered on the phone, behind a kill switch). Plus V2's carried items: the `help_assists.surface` widening (V2 landing ruling R5) and the F9 class on a finished plan (V2 landing record, "Open items"). **Branch:** `phone/v3-probes`, from main `14b2ed09ab`. **Successor:** mvp-0.54 (one constant, `PHONE_PROBES_ALGORITHM_VERSION`; built as mvp-0.53 and renumbered when main, with TE3b's mvp-0.53, was merged in at the end of the stage). **Migration:** 250 (renumbered at landing if another lands first). **No model call of its own, no new dependency.**
 
 ## Commits
 
@@ -8,8 +8,8 @@
 |---|---|
 | `e64f19daf3` | (1) The F9 class on a finished plan: *Keep going* on a `complete` plan and `plan_more_new{confirm}` commit their stop-override receipt with the extension, reproduce-first |
 | `3e98c165d5` | (2) Migration 250: `help_assists.surface` gains `phone_practice`; head fixture rebuilt and renamed `migration_head_250`; every head path and version pin |
-| (3) | The successor mvp-0.53 and its upgrade; the host's `phone_probes` switch on the request origin; the sidecar's V3 serving (doors, filter, Next, the contract, G10's admission transaction); the phone's hint reveal records `phone_practice`; tests |
-| (4) | The PWA: the probe rendered cold and answered with its presentation; Next on a miss asks its workflow; the generated contract files |
+| `d7ea71a54a` | (3) The successor (built as mvp-0.53) and its upgrade; the host's `phone_probes` switch on the request origin; the sidecar's V3 serving (doors, filter, Next, the contract, G10's admission transaction); the phone's hint reveal records `phone_practice`; tests |
+| `0cc1e5ab54` | (4) The PWA: the probe rendered cold and answered with its presentation; Next on a miss asks its workflow; the generated contract files |
 | (5) | This review, the spec's "As built" note, FG1 §4.2's Phone row and §10 amended, regenerated references |
 
 ## 1. What was built
@@ -19,7 +19,7 @@
 - **Kill switch `phone_probes`** in `mobile.toml` (`MobileConfig.phone_probes`, default **true**, as D3's "behind a kill switch" with the owner's frictionless defaults; the same file and shape as V2's `phone_plan`). The host carries it on every `RequestOrigin` it makes (`RequestOrigin.phone_probes`, set by `HostRuntime._origin`, never a parameter). An origin made without it (`False`) is V2's phone, which keeps every V2 test meaning what it meant.
 - **The gate** is `request_origin.phone_probes_on(origin, config)`: a phone origin with the switch AND the vault at `PHONE_PROBES_VERSIONS`. Never true for the desktop (a None origin).
 - **Host:** off, `followup_next` answers `409 phone_probes_off` and a submit naming `probe_presentation_id` answers `422 validation_error` (`allowlist.check_probe_parameters`), exactly V2's refusal. `GET /api/v1/meta` says `phone_probes`.
-- **Sidecar, below the tag** (switch on, vault at mvp-0.52 or lower): every phone door refuses as in V2, `followup_next` answers `continue` and writes nothing, and a phone submit naming a presentation is refused `validation_error` (`practice._refuse_phone_probe_answer`).
+- **Sidecar, below the tag** (switch on, vault below mvp-0.54): every phone door refuses as in V2, `followup_next` answers `continue` and writes nothing, and a phone submit naming a presentation is refused `validation_error` (`practice._refuse_phone_probe_answer`).
 
 ### 1.2 What the phone does with it (the sidecar)
 
@@ -55,14 +55,14 @@
 2. **Asymmetry at the handoff.** A probe the desktop served is *held* on the phone (the desktop can resume it); one the phone served is *abandoned* by the desktop's serving Next (the desktop can't open it, and a resumed plan step would strand it). Smallest alternative if the owner prefers symmetry: hold it on the desktop too, which needs a desktop step filter, i.e. a change to the desktop's serving at a None origin.
 3. **The desktop reopening a checkpoint that names a phone-served probe** (after an adopt) gets `generated_probe_closed` from its door, as for any closed probe. How the desktop's PracticeScreen words that error was not checked in this stage (no desktop file changed; its serving Next past it is item 2's). No new desktop UI line was added (the desktop must stay as it is at a None origin). Smallest finish: a typed line on the desktop for `generated_probe_closed`.
 4. **No in-suite byte-identity test against the base commit.** As V2 did, the desktop journey was compared against `14b2ed09ab`'s code out of the suite (§4); in the suite, the desktop's paths are pinned by FG1's and the plan's own tests, which pass unchanged, plus `test_a_desktop_serving_next_with_no_phone_burn_abandons_nothing` and `test_the_desktops_keep_going_on_a_finished_plan_records_as_before`.
-5. **`phone_probes` is a host switch, not a vault key.** As V2's `phone_plan` (its review §2 item 9): the host's door, in `mobile.toml`, not a decision parameter, so `parameter_registry.py` is unchanged and no defaults snapshot moves by a key (mvp-0.53's differs from mvp-0.52's by the tag alone).
+5. **`phone_probes` is a host switch, not a vault key.** As V2's `phone_plan` (its review §2 item 9): the host's door, in `mobile.toml`, not a decision parameter, so `parameter_registry.py` is unchanged and no defaults snapshot moves by a key (mvp-0.54's differs from mvp-0.53's by the tag alone).
 6. **Answer confidence (the desktop's optional 1-5 tap on a probe)** is not on the phone: it is logged-only and optional. Smallest finish: five chips under the editor sending `answerConfidence`.
 
 ## 3. Persisted meaning and the playbook ruling
 
-- **Ruling: a successor, mvp-0.53** (`docs/algorithm-change-playbook.md`). Step 1: no stored record changes meaning and replay reads nothing new. But the recorded rule of 2026-10-17 applies: *a change to which items are served as measurements … is a successor with a kill switch even when replay is unchanged.* A phone origin now serves and answers, as measurements, the diagnostic and generated probes it used to leave for the desktop. V2's ruling (no successor) rested on the phone never serving a measurement it couldn't show; V3 removes that premise.
-- **What it is:** `PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.53"` after TE3a's mvp-0.52 in `SUCCESSOR_CHAIN`; `PHONE_PROBES_VERSIONS`; `learnloop.phone_probes_upgrade` (the chain's next journalled link: a projection activation, nothing recorded changes; installed by the CLI and sidecar openers; `learnloop upgrade --to mvp-0.53` and the default target); its defaults snapshot (`DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.53"]`). Below the tag, or with `phone_probes` off, the phone is V2's exactly; the desktop is the same at every version.
-- **Renumbering at landing:** if TE3b lands first as mvp-0.53, this becomes mvp-0.54 (the one constant, the snapshot key, the upgrade's `PREDECESSOR` and completion hand-off, the openers, and the version pins the commit moved, as TE3a's landing did).
+- **Ruling: a successor, mvp-0.54** (`docs/algorithm-change-playbook.md`). Step 1: no stored record changes meaning and replay reads nothing new. But the recorded rule of 2026-10-17 applies: *a change to which items are served as measurements … is a successor with a kill switch even when replay is unchanged.* A phone origin now serves and answers, as measurements, the diagnostic and generated probes it used to leave for the desktop. V2's ruling (no successor) rested on the phone never serving a measurement it couldn't show; V3 removes that premise.
+- **What it is:** `PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"` after TE3b's mvp-0.53 in `SUCCESSOR_CHAIN`; `PHONE_PROBES_VERSIONS`; `learnloop.phone_probes_upgrade` (the chain's next journalled link: a projection activation, nothing recorded changes; installed by the CLI and sidecar openers; `learnloop upgrade --to mvp-0.54` and the default target); its defaults snapshot (`DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.54"]`). Below the tag, or with `phone_probes` off, the phone is V2's exactly; the desktop is the same at every version.
+- **Renumbered at the merge of main:** TE3b landed as mvp-0.53 while this stage was built, so this is mvp-0.54: the one constant, the snapshot key (recomputed), the upgrade's `PREDECESSOR` (TE3b's) and completion hand-off, the openers, the CLI's `--to` list, and the version pins (re-applied to main's own test files after taking them, so TE3b's pins and this stage's agree).
 - **New rows:** burns with `surface = phone`; attempts on `phone_practice` naming a presentation (`attempt_type = diagnostic_probe`); `help_assists` rows on `phone_practice`. The probe answer's evidence is FG1's (admissible from the first serve, as any diagnostic probe); its surface is recorded, so reports can split it (D3's trade-off).
 
 ## 4. The desktop at a None origin
@@ -79,7 +79,7 @@ GATE_PLACEHOLDER
 
 Nothing below has been run on a device.
 
-On carson, after landing. V3 adds migration 250 (applied when the desktop app opens the vault) and the successor mvp-0.53 (or mvp-0.54 if renumbered):
+On carson, after landing. V3 adds migration 250 (applied when the desktop app opens the vault) and the successor mvp-0.54 (after TE3b's mvp-0.53):
 
 ```bash
 cd ~/Documents/thinking/learnanything
@@ -119,4 +119,4 @@ The cached V2 app offers *LearnLoop was updated. Reload* (the allowlist moved): 
 
 1. Item 2 of §2: abandon on the desktop's Next (built), or hold for the phone (a desktop step filter)?
 2. Should the phone offer *Teach me instead* during a probe (`stop_probe_diagnosing` is desktop-only today), or is Skip enough?
-3. The successor's number: mvp-0.53 here; mvp-0.54 if TE3b lands first.
+3. Main merged in at the stage's end (TE3b, mvp-0.53): the successor is mvp-0.54 and the migration stays 250 (TE3b added none); both are rechecked at landing.

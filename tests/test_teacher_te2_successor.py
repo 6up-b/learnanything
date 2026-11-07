@@ -48,8 +48,8 @@ def drop_te2_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_the_router_followups_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.50"
     # Teacher TE3a's AD successor (mvp-0.52) landed after it and keeps it.
-    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.53"
-    assert TEACHER_PROBES_VERSIONS == frozenset({TAG, "mvp-0.52", "mvp-0.53"})
+    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
+    assert TEACHER_PROBES_VERSIONS == frozenset({TAG, "mvp-0.52", "mvp-0.53", "mvp-0.54"})
 
 
 def test_the_switch_and_the_keep_bound_and_their_validation():
@@ -75,6 +75,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_te3a_successor import drop_te3a_keys
 
     drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
+    from tests.test_te3b_successor import drop_te3b_keys
+
+    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "780d5afa78fc92eae0911c381a364428f126dabd594125f7d63f423a4638ae59"
 

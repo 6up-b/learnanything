@@ -102,16 +102,18 @@ class WindowSession:
     minutes: float
 
 
-def _sessions(connection: Any, *, start: str, end: str, gap_minutes: float) -> list[WindowSession]:
+def _sessions(connection: Any, *, start: str, end: str, gap_minutes: float,
+              lessons: bool = False) -> list[WindowSession]:
     """The window's sessions on the objective's own clock (Codex review F4): the activity the serving price reads
     (``price.activity_spans``: attempts and Reader visits), split into sessions by the serving clock's own
     construction (``price.session_components``, Codex re-review F4: a Reader interval spanning two attempts makes one
     session here as it does there), read from the serving clock's lookback before ``start`` so a session in progress
     at the decision carries the minutes it had then. Activity finished at or before ``start`` is carried, after it
-    (through ``end``) is the window's; a session's date is its first activity's."""
+    (through ``end``) is the window's; a session's date is its first activity's. ``lessons`` (teacher TE3b): the
+    lessons' active minutes too, as the serving clock reads them."""
 
     since = (_parse(start) - timedelta(days=P.LOOKBACK_DAYS)).strftime(_STAMP)
-    spans = P.activity_spans(connection, since=since, until=end)
+    spans = P.activity_spans(connection, since=since, until=end, lessons=lessons)
     opened = _parse(start)
     out: list[WindowSession] = []
     for members in P.session_components(spans, gap_minutes=gap_minutes):
@@ -124,13 +126,13 @@ def _sessions(connection: Any, *, start: str, end: str, gap_minutes: float) -> l
 
 
 def window_cost(connection: Any, *, start: str, end: str, gap_minutes: float,
-                prices: Mapping[str, tuple[float, float]], own: tuple[float, float]) -> float:
+                prices: Mapping[str, tuple[float, float]], own: tuple[float, float], lessons: bool = False) -> float:
     """``C_i``: the attention cost the objective charges (§8.6) over ``(start, end]``, integrated from each
     session's minutes at the window's start, ``κ0·((m + d)² − m²)/(2m̄)``, at the ``(κ0, m̄)`` in force on the
     session's day (``own``, the decision's, on a day with no trace)."""
 
     cost = 0.0
-    for session in _sessions(connection, start=start, end=end, gap_minutes=gap_minutes):
+    for session in _sessions(connection, start=start, end=end, gap_minutes=gap_minutes, lessons=lessons):
         kappa0, mbar = prices.get(session.local_date, own)
         total = session.carried + session.minutes
         cost += kappa0 * (total * total - session.carried * session.carried) / (2.0 * mbar)
@@ -226,7 +228,7 @@ def exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str,
 def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
                    resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None,
                    r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]],
-                   gap_minutes: float, closure: C.Closure | None = None) -> Detail:
+                   gap_minutes: float, closure: C.Closure | None = None, lessons: bool = False) -> Detail:
     """``D̂_i`` for one decision whose window has closed, or why it carries none. ``resolved``, the completion
     rate and ``r_lookup`` stand as of ``closure`` (:func:`scores` forms them through it), which also admits the
     dated uses' imported results."""
@@ -255,7 +257,8 @@ def score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, 
         return Detail(scored=W.Scored(**base, value=None, reason=reason), **counts)
     if not mu_taken:
         return Detail(scored=W.Scored(**base, value=None, reason="no_logged_probability"), **counts)
-    cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
+    cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes,
+                                         lessons=lessons)
     value = W.score(d_taken=d.get(taken, 0.0), mu_taken=float(mu_taken), uses=uses, cost=cost, cost_baseline=c0)
     return Detail(scored=W.Scored(**base, value=value), cost=cost, cost_baseline=c0, **counts)
 
@@ -401,7 +404,8 @@ def window_uses(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any
 
 
 def _window_cost_and_baseline(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *,
-                              prices: Mapping[str, tuple[float, float]], gap_minutes: float) -> tuple[float, float]:
+                              prices: Mapping[str, tuple[float, float]], gap_minutes: float,
+                              lessons: bool = False) -> tuple[float, float]:
     """``C_i`` over the decision's window and its frozen ``C⁰_i``."""
 
     evaluation = trace.get("evaluation") or {}
@@ -409,7 +413,7 @@ def _window_cost_and_baseline(connection: Any, row: Mapping[str, Any], trace: Ma
     end = (_parse(str(row["created_at"])) + timedelta(days=window)).strftime(_STAMP)
     own = (float(row.get("kappa0") or 0.0), max(float(row.get("remembered_minutes") or 1.0), 1e-9))
     cost = window_cost(connection, start=str(row["created_at"]), end=end, gap_minutes=gap_minutes, prices=prices,
-                       own=own)
+                       own=own, lessons=lessons)
     return cost, float(evaluation.get("c0") or 0.0)
 
 
@@ -420,7 +424,8 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
                     exam_result: Callable[[Any, str, str], float | None] | None = None,
                     complete: bool = False,
                     support: Mapping[str, float] | None = None,
-                    drawn: Callable[[str], bool] | None = None) -> tuple[float | None, str | None] | Bounded:
+                    drawn: Callable[[str], bool] | None = None,
+                    lessons: bool = False) -> tuple[float | None, str | None] | Bounded:
     """RO6 (§10): §8.7's bracket alone for one closed window, ``Σ_u v·(R/r)·(Y − m⁰) − (C − C⁰)``, with no action
     contrast: the observed return a randomized contrast multiplies (the stop coin's, or an importance ratio's).
     ``(None, reason)`` when a dated use has no result or no use has ``r > 0`` (effort alone is no return).
@@ -455,11 +460,13 @@ def observed_return(connection: Any, row: Mapping[str, Any], trace: Mapping[str,
         uses, _assessments = found_uses
         if not any(use.r > 0 for use in uses):
             return None, W.NO_RANDOMIZED_USE
-        cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
+        cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes,
+                                             lessons=lessons)
         return W.score(d_taken=1.0, mu_taken=1.0, uses=uses, cost=cost, cost_baseline=c0), None
     terms = classify_window(connection, row, trace, resolved=resolved, r_lookup=r_lookup, exam_result=exam_result,
                             support=support, drawn=drawn)
-    cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes)
+    cost, c0 = _window_cost_and_baseline(connection, row, trace, prices=prices, gap_minutes=gap_minutes,
+                                         lessons=lessons)
     value = -(cost - c0)
     for term in terms:
         if term.kind == OBSERVED and term.outcome is not None and (term.dated or term.r > 0):
@@ -565,6 +572,7 @@ def observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Ma
     as_of = _context(connection, at=at)
     support_at = getattr(as_of, "support_at", None)
     gap = float(config.router_objective.session_gap_minutes)
+    lessons = _lessons_on(config)
     out: dict[str, Any] = {}
     for row in closed:
         found = as_of(str(row["window_closes_at"]))
@@ -580,8 +588,17 @@ def observed_returns(connection: Any, config: Any, *, at: str, rows: Sequence[Ma
         out[str(row["decision_id"])] = observed_return(
             connection, row, row["trace"], resolved=found.resolved, completion_rate=found.rate,
             r_lookup=found.r_lookup, prices=found.prices, gap_minutes=gap, exam_result=known, complete=complete,
-            support=support, drawn=found.drawn)
+            support=support, drawn=found.drawn, lessons=lessons)
     return out
+
+
+def _lessons_on(config: Any) -> bool:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the objective's clock counts lessons' active minutes (its tag and
+    switch: ``router_objective_switches.lesson_offers_on``); off, or below the tag, the predecessor's clock."""
+
+    from learnloop.router_objective_switches import lesson_offers_on
+
+    return lesson_offers_on(config)
 
 
 def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
@@ -599,6 +616,7 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
     # one read of the price-source traces); the activity they price stays on occurrence time (R10).
     as_of = _context(connection)
     gap = float(config.router_objective.session_gap_minutes)
+    lessons = _lessons_on(config)
     out: list[Detail] = []
     for row in connection.execute(
             "SELECT decision_id, created_at, window_closes_at, local_date, llm_status, numeric_status, kappa0, "
@@ -609,7 +627,7 @@ def scores(connection: Any, config: Any, *, at: str) -> list[Detail]:
         found = as_of(str(record["window_closes_at"]))
         out.append(score_decision(connection, record, trace, resolved=found.resolved, completion_rate=found.rate,
                                   r_lookup=found.r_lookup, prices=found.prices, gap_minutes=gap,
-                                  closure=found.closure))
+                                  closure=found.closure, lessons=lessons))
     return out
 
 

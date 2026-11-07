@@ -171,6 +171,37 @@ def receipt(connection: sqlite3.Connection, lesson_id: str) -> dict[str, Any] | 
     return json.loads(row[0]) if row is not None else None
 
 
+def pending_delayed_checks(connection: sqlite3.Connection, *, at: str, config: Any = None) -> list[dict[str, Any]]:
+    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a, owner decision 5): every lesson delayed check committed by a
+    receipt written by ``at`` and not yet answered as of ``at`` (no attempt on its item after the lesson closed, known
+    at or before ``at``: RO1's availability predicate, a decision-time read), oldest receipt first: ``{lesson_id,
+    learning_object_id, item_id, purpose, due}``. None before migration 234. Ids, dates and purposes only."""
+
+    from learnloop.router_objective_switches import attempt_time_sql
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'lesson_receipts'"
+                          ).fetchone() is None:
+        return []
+    known = attempt_time_sql(config, connection)
+    out: list[dict[str, Any]] = []
+    for lesson_id, raw, written, closed in connection.execute(
+            "SELECT r.lesson_id, r.receipt_json, r.created_at, l.closed_at FROM lesson_receipts r "
+            "JOIN lessons l ON l.id = r.lesson_id WHERE r.created_at <= ? ORDER BY r.created_at, r.lesson_id", (at,)):
+        after = str(closed or written)
+        for entry in (json.loads(raw or "{}").get("delayed_checks") or ()):
+            item = entry.get("item_id")
+            lo = entry.get("learning_object_id")
+            if not entry.get("commitment_id") or not item or not lo:
+                continue
+            answered = connection.execute(
+                f"SELECT 1 FROM practice_attempts WHERE practice_item_id = ? AND created_at > ? AND {known} <= ? "
+                "LIMIT 1", (item, after, at)).fetchone()
+            if answered is None:
+                out.append({"lesson_id": str(lesson_id), "learning_object_id": str(lo), "item_id": str(item),
+                            "purpose": entry.get("purpose"), "due": entry.get("due")})
+    return out
+
+
 # --- Teacher TE2-log (migration 247): the episode log and the lesson screen's intervals -------------------
 
 #: An episode's columns set at its opening (everything but the closing fields).
@@ -273,6 +304,7 @@ __all__ = [
     "insert_receipt",
     "lesson",
     "lessons_on",
+    "pending_delayed_checks",
     "payload_hash",
     "plans",
     "receipt",

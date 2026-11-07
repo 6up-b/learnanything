@@ -96,6 +96,19 @@ ACTION_FEATURES: tuple[str, ...] = ("stop", "reading", "probe", "minutes", "topi
                                     "minutes_x_load")
 NAMES: tuple[str, ...] = (*STATE_FEATURES, *ACTION_FEATURES)
 
+#: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): at its tag with its switch on, the candidate features gain a ``lesson``
+#: indicator (a lesson offer), the features' own version, so RO6's generator version (and its fit) changes there once:
+#: a change point. Off, or below the tag, :data:`FEATURES_VERSION` and :data:`NAMES` exactly.
+FEATURES_VERSION_LESSON = "ro6_belief_features_v3_lesson"
+LESSON_KIND = "lesson"
+NAMES_LESSON: tuple[str, ...] = (*NAMES, LESSON_KIND)
+
+
+def names_for(features_version: str | None) -> tuple[str, ...]:
+    """The feature names a features version reads (:data:`NAMES_LESSON` at TE3b's, else :data:`NAMES`)."""
+
+    return NAMES_LESSON if features_version == FEATURES_VERSION_LESSON else NAMES
+
 #: The noise variance's refinement (numerical resolution, not a judgement): passes and relative tolerance.
 _FIT_PASSES = 25
 _FIT_TOLERANCE = 1e-6
@@ -193,8 +206,9 @@ def kind_group(kind: str | None) -> str:
     return "practice"
 
 
-def vector(state: Belief, action: ActionView, *, remembered: float | None) -> tuple[float, ...]:
-    """φ(x, a) in :data:`NAMES` order."""
+def vector(state: Belief, action: ActionView, *, remembered: float | None,
+           features_version: str = FEATURES_VERSION) -> tuple[float, ...]:
+    """φ(x, a) in :func:`names_for` order (``features_version``: TE3b's adds the ``lesson`` indicator last)."""
 
     mbar = max(float(remembered or 0.0), 1.0)
     group = kind_group(action.kind)
@@ -205,8 +219,11 @@ def vector(state: Belief, action: ActionView, *, remembered: float | None) -> tu
     practiced = [topic for topic in topics if topic.practiced and topic.stability > 0]
     lag = (sum(math.log1p(max(topic.elapsed_days, 0.0) / topic.stability) for topic in practiced) / len(practiced)
            if practiced else 0.0)
-    return (*state.as_tuple(), stop, 1.0 if group == READING_KIND else 0.0, 1.0 if group == PROBE_KIND else 0.0,
+    base = (*state.as_tuple(), stop, 1.0 if group == READING_KIND else 0.0, 1.0 if group == PROBE_KIND else 0.0,
             minutes, topic_p, lag, stop * state.session_load, minutes * state.session_load)
+    if features_version == FEATURES_VERSION_LESSON:
+        return (*base, 1.0 if action.kind == LESSON_KIND else 0.0)
+    return base
 
 
 # -- the fitted Q evaluation ------------------------------------------------------------------------------
@@ -276,20 +293,23 @@ class Fit:
                    features_version=str(data.get("features_version") or FEATURES_VERSION))
 
 
-def prior_fit(prior_sd: float, generator: str | None = None) -> Fit:
+def prior_fit(prior_sd: float, generator: str | None = None, *, features_version: str = FEATURES_VERSION) -> Fit:
     """No transition: the prior, a residual of zero."""
 
-    width = len(NAMES)
-    return Fit(generator=generator, names=NAMES, mean=(0.0,) * width, sd=(1.0,) * width, coef=(0.0,) * width, n=0,
-               prior_sd=float(prior_sd), source="prior: no transition of this version")
+    names = names_for(features_version)
+    width = len(names)
+    return Fit(generator=generator, names=names, mean=(0.0,) * width, sd=(1.0,) * width, coef=(0.0,) * width, n=0,
+               prior_sd=float(prior_sd), source="prior: no transition of this version",
+               features_version=features_version)
 
 
-def fit(transitions: Sequence[Transition], *, prior_sd: float, generator: str | None = None) -> Fit:
+def fit(transitions: Sequence[Transition], *, prior_sd: float, generator: str | None = None,
+        features_version: str = FEATURES_VERSION) -> Fit:
     """FQE's fixed point for one frozen logger version under the labelled Gaussian prior (module docstring)."""
 
     rows = list(transitions)
     if not rows:
-        return prior_fit(prior_sd, generator)
+        return prior_fit(prior_sd, generator, features_version=features_version)
     phi = np.asarray([row.phi for row in rows], dtype=np.float64)
     nxt = np.asarray([row.next_phi for row in rows], dtype=np.float64)
     b = np.asarray([row.target for row in rows], dtype=np.float64)
@@ -321,10 +341,11 @@ def fit(transitions: Sequence[Transition], *, prior_sd: float, generator: str | 
             break
     lam = max(sigma2, _TINY) / (float(prior_sd) ** 2)
     condition = float(np.linalg.cond(a0 + lam * np.eye(width)))
-    return Fit(generator=generator, names=NAMES, mean=tuple(float(v) for v in mean), sd=tuple(float(v) for v in sd),
+    return Fit(generator=generator, names=names_for(features_version), mean=tuple(float(v) for v in mean),
+               sd=tuple(float(v) for v in sd),
                coef=tuple(float(v) for v in theta), n=len(rows), prior_sd=float(prior_sd), sigma2=sigma2,
                condition=condition if math.isfinite(condition) else None, passes=passes,
-               source="fqe_fixed_point_with_prior")
+               source="fqe_fixed_point_with_prior", features_version=features_version)
 
 
 # -- the residual's learned weight ------------------------------------------------------------------------
@@ -759,7 +780,8 @@ def partial_history(rows: Sequence[WeightedRow], *, window_days: int,
 
 __all__ = [
     "ACTION_FEATURES", "ActionView", "Belief", "CROSS_CHECK_VERSION", "CoinDraw", "Contrast", "FEATURES_VERSION",
-    "FIT_VERSION", "Fit", "INCOMPLETE_HISTORY", "NAMES", "OFFER_STOP", "PRESENT_NEXT", "Ratio", "STATE_FEATURES",
+    "FEATURES_VERSION_LESSON", "FIT_VERSION", "Fit", "INCOMPLETE_HISTORY", "LESSON_KIND", "NAMES", "NAMES_LESSON",
+    "names_for", "OFFER_STOP", "PRESENT_NEXT", "Ratio", "STATE_FEATURES",
     "TopicNumbers", "Transition", "UNIDENTIFIED", "WEIGHT_VERSION", "WeightFit", "WeightedRow", "coin_contrasts",
     "belief", "coin_contrast", "fit", "kind_group", "partial_history", "predicted_contrast", "prior_fit",
     "residual_weight", "spearman", "vector",

@@ -3,8 +3,8 @@ title: "router_suggestion_responses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0cc1e5ab5436f13e72c0cd2bf84543dccd7ff3f2"
-source_commit_timestamp: "2026-11-07T01:07:25-05:00"
+source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_suggestion_responses"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "src/learnloop/daily_plan/lesson_suggestion.py"
   - "src/learnloop/db/stores/router_suggestions.py"
+  - "src/learnloop/lesson_offers_upgrade.py"
   - "src/learnloop/lesson_suggestions_upgrade.py"
   - "src/learnloop/router/lesson_suggestions.py"
-  - "src/learnloop/router/outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -97,6 +97,8 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router_objective/forecast_resolve.py`
+- `src/learnloop/router_objective/offer_report.py`
 
 ### Direct SQL writers
 
@@ -112,6 +114,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_followups_batch6_te1b_card.py`
+- `tests/test_te3b_binding.py`
+- `tests/test_te3b_offers.py`
 - `tests/test_teacher_te1b_landing_r2.py`
 - `tests/test_teacher_te1b_migration.py`
 - `tests/test_teacher_te1b_suggestions.py`

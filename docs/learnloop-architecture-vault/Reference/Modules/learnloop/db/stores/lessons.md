@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/lessons.py"
 source_paths:
   - "src/learnloop/db/stores/lessons.py"
-source_commit: "a21f088b16f700d0b88634b19f64720fc58016ff"
-source_commit_timestamp: "2026-11-06T03:32:49-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py) |
-| Source lines | 280 |
+| Source lines | 312 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a21f088b16f700d0b88634b19f64720fc58016ff` |
-| Commit timestamp | `2026-11-06T03:32:49-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
@@ -75,17 +75,18 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `checks(connection: sqlite3.Connection, lesson_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 152)
 - `insert_receipt(connection: sqlite3.Connection, *, lesson_id: str, version: str, close_reason: str, receipt: Mapping[str, Any], created_at: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 162)
 - `receipt(connection: sqlite3.Connection, lesson_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 169)
-- `episode_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 195)
-- `insert_episode(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 201) — One episode at its opening; False when its opening action already has one (a recovered action).
-- `close_episode(connection: sqlite3.Connection, episode_id: str, fields: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 215) — Set an open episode's closing fields once; False when it was already closed.
-- `episodes(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 227)
-- `insert_interval(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 239) — One activity interval; False when its (lesson, screen session, seq) is already recorded (a resend).
-- `intervals(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 251)
+- `pending_delayed_checks(connection: sqlite3.Connection, *, at: str, config: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 174) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a, owner decision 5): every lesson delayed check committed by a receipt written by ``at`` and not yet answered as of ``at`` (no attempt on its item after the lesson closed, known at or before ``at``: RO1's availability predicate, a decisi…
+- `episode_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 226)
+- `insert_episode(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 232) — One episode at its opening; False when its opening action already has one (a recovered action).
+- `close_episode(connection: sqlite3.Connection, episode_id: str, fields: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 246) — Set an open episode's closing fields once; False when it was already closed.
+- `episodes(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 258)
+- `insert_interval(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 270) — One activity interval; False when its (lesson, screen session, seq) is already recorded (a resend).
+- `intervals(connection: sqlite3.Connection, lesson_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/lessons.py), line 282)
 
 ### Module constants
 
-- `EPISODE_OPEN_COLUMNS` ([src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py), line 177)
-- `EPISODE_CLOSE_COLUMNS` ([src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py), line 186)
+- `EPISODE_OPEN_COLUMNS` ([src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py), line 208)
+- `EPISODE_CLOSE_COLUMNS` ([src/learnloop/db/stores/lessons.py](../../../../../../../src/learnloop/db/stores/lessons.py), line 217)
 
 ### Explicit exports
 
@@ -108,6 +109,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `insert_receipt`
 - `lesson`
 - `lessons_on`
+- `pending_delayed_checks`
 - `payload_hash`
 - `plans`
 - `receipt`
@@ -123,6 +125,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `pending_delayed_checks`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `module`; statically calls `lesson`, `turns`
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `module`; statically calls `receipt`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `checks`, `lessons_on`, `receipt`, `turns`
@@ -138,6 +141,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 
 ### Platform and third-party dependencies
 
@@ -151,7 +155,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]], [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -159,6 +163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed`
+- [tests/test_te3b_population.py](../../../../../../../tests/test_te3b_population.py) — direct import
+  - `test_the_population_holds_los_with_a_pending_lesson_check`
 - [tests/test_teacher_te2_probes.py](../../../../../../../tests/test_teacher_te2_probes.py) — direct import
   - `test_a_reserved_question_match_gives_no_probe`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import

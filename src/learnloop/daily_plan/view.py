@@ -139,7 +139,29 @@ def _block_row(env: PlanEnv, record: PlanRecord, block: PlannedBlock, current_id
         # objective's frame, so the predecessor's rows are unchanged).
         **({"objective_decision_id": block.chosen.get("decision_ref")}
            if getattr(env.policy, "soft_budget", False) and block.chosen.get("decision_ref") else {}),
+        # Teacher TE3b (spec §15.1a): a lesson offer's card on its block (only on such a block: every other row's bytes
+        # are the predecessor's).
+        **({"lesson_offer": _lesson_offer_row(block)} if _offer_card_shown(env, block) else {}),
     }
+
+
+def _offer_card_shown(env: PlanEnv, block: PlannedBlock) -> bool:
+    """An offer block's card is on its row once it has ended (what was answered), and while it waits only with
+    offers serving (Codex review F2): off, the next step takes it back, and no card is answerable meanwhile."""
+
+    if not block.is_lesson_offer:
+        return False
+    if block.finished:
+        return True
+    from learnloop.daily_plan.lesson_offer import offers_on
+
+    return offers_on(env.vault)
+
+
+def _lesson_offer_row(block: PlannedBlock) -> dict[str, Any]:
+    from learnloop.daily_plan.lesson_suggestion import offer_card_view
+
+    return offer_card_view(block)
 
 
 def _actual_minutes(records: list[PlanRecord]) -> float:

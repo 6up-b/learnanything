@@ -51,6 +51,8 @@ SENTENCES: Mapping[str, str] = {
     "stop_nothing_fits": "Nothing else worth doing fits today.",
     # Router objective RO4 (§8.2): a drawn stop is an offer; the learner can keep going.
     "stop_offer": "A good place to stop for today. You can keep going if you like.",
+    # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, a plan block of its own; the learner opts in.
+    "lesson_offer": "A short lesson on {topic} might help now, if you'd like one.",
 }
 
 #: The ``details`` line of a block the plan's rule chose (no model asked).

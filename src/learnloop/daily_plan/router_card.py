@@ -365,10 +365,11 @@ class CardGatherer:
         learner did take the suggestion first. An ``expired`` reservation (set aside by the app when
         its lesson could no longer open) is not the learner's answer and is not shown."""
 
-        from learnloop.daily_plan.lesson_suggestion import suggestions_active
+        from learnloop.daily_plan.lesson_suggestion import suggestions_enabled
         from learnloop.db.stores import router_suggestions
 
-        if not suggestions_active(self.vault):
+        # TE3b: the offers' answers too (the objective's plan blocks); below its tag the same gate as TE1b's.
+        if not suggestions_enabled(self.vault):
             return []
         now = parse_utc(now_iso)
         if now is None:
@@ -378,7 +379,7 @@ class CardGatherer:
             if not router_suggestions.tables_present(connection):
                 return []
             primaries = {}
-            for decision in router_suggestions.decisions(connection):
+            for decision in router_suggestions.all_decisions(connection):
                 entries = ((decision["detail"].get("card") or {}).get("candidates") or [])
                 if entries:
                     primaries[decision["id"]] = entries[0]

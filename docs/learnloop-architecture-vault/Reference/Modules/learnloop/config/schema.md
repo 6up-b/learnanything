@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/config/schema.py"
 source_paths:
   - "src/learnloop/config/schema.py"
-source_commit: "1ccf60fe9ae5f6e641ea94b82864f44ec98c38e6"
-source_commit_timestamp: "2026-11-06T12:47:04-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.config"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py) |
-| Source lines | 5119 |
+| Source lines | 5132 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `1ccf60fe9ae5f6e641ea94b82864f44ec98c38e6` |
-| Commit timestamp | `2026-11-06T12:47:04-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
@@ -199,40 +199,40 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `class RouterWeights(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4017) — The model mixture's component weights (D1: one third each).
   - `validate_total(self) -> 'RouterWeights'` (line 4029; public)
 - `class RouterLessonSuggestionsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4035) — Teacher TE1b: the router suggests a lesson, the learner opts in (spec_teacher_v1 §15.1, §18.4; ``learnloop.daily_plan.lesson_suggestion``).
-- `class RouterConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4061) — Action router (spec_action_router_v1).
-  - `validate_floor(self) -> 'RouterConfig'` (line 4135; public)
-- `class DataCaptureConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4141) — What later offline evaluation needs, recorded now (owner, 2026-11-02; docs/reviews/data-capture-a1-a6.md).
-- `class RouterObjectiveConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4159) — The router objective (docs/specs/spec_router_objective_v1.md).
-  - `_mins_leave_room(self) -> 'RouterObjectiveConfig'` (line 4314; internal)
-- `class FollowupServeConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4327) — Follow-up generate and serve (FG1; ``docs/specs/spec_followup_generate_serve_v1.md``).
-- `class VoiStoppingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4346) — mvp-0.21 Part 1: four count caps lifted onto value of information.
-- `class DeciderRoutesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4402) — Tier 1 (owner decision 2026-10-13): small judgments the Decider decides, the LLM its fallback.
-- `class UiConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4445) — How the desktop app presents learner surfaces (``docs/specs/ux_learnloop_v1.md`` §10).
-- `class TeacherWeightConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4472) — The lesson-check weight's switches (spec_teacher_v1 §12.1, §12.2): operational only.
-- `class TeacherBriefConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4479) — What the lesson brief holds (§8.1): the prerequisite depth (``keep``) and curriculum C4's switch.
-- `class TeacherContextConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4486) — The teacher's context budget (§9.2): the goal's sections whole up to this many tokens (``keep``).
-- `class TeacherDelayedConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4492) — Delayed retention and transfer checks (§13).
-- `class TeacherPlacementConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4501) — Teacher TE2 (rev 5 §11.3, §18.4): ``max_probes`` (8, ``keep``), the generated probes one lesson may ask for: a burden guardrail; the teacher decides when to stop, this only bounds it.
-- `class TeacherConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4508) — Teacher (spec_teacher_v1).
-- `class EligibilityConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4592) — One serve/administration eligibility decision (``mvp-0.27``; ``learnloop.serve_eligibility``, ``docs/reviews/serve-eligibility-decision.md``).
-- `class ReplayConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4611) — How replay reads the attempt ledger (rebuild equivalence, ``mvp-0.34``; ``REPLAY_LEDGER_ALGORITHM_VERSION``, ``docs/reviews/rebuild-equivalence-fix.md``).
-- `class AskConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4626) — One Ask (Reader CA2; ``docs/specs/ux_reader_compare_ask_v1.md`` §7, ``docs/reviews/reader-ca2-one-ask.md``).
-- `class AdaptiveDifficultyConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4659) — Adaptive difficulty (``docs/specs/spec_adaptive_difficulty_v1.md`` §11.4).
-  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4790; internal)
-  - `_forecasters_switch(cls, value: Any) -> Any` (line 4798; internal)
-  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4808; internal)
-- `class LearnLoopConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4813)
-  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4902; internal) — Keep direct model validation compatible; implementation lives in compat.
-  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4910; internal)
-  - `codex(self) -> CodexConfig` (line 4999; public) — Non-serialized compatibility view of ``ai.providers.codex``.
-- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5007) — Return the modeled canonical Codex profile used when none is explicit.
-- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5034) — The code-default ChatGPT-plan profile (plan-first transport T1).
-- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5047)
-- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5059)
-- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5072) — Claude Haiku through OpenRouter, for cheap metered judges.
-- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5083)
-- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5094) — The template's embedding profile, for vaults whose config predates it.
-- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5110) — Perplexity Decider v1.1 through OpenRouter (router spec D4, owner).
+- `class RouterConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4074) — Action router (spec_action_router_v1).
+  - `validate_floor(self) -> 'RouterConfig'` (line 4148; public)
+- `class DataCaptureConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4154) — What later offline evaluation needs, recorded now (owner, 2026-11-02; docs/reviews/data-capture-a1-a6.md).
+- `class RouterObjectiveConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4172) — The router objective (docs/specs/spec_router_objective_v1.md).
+  - `_mins_leave_room(self) -> 'RouterObjectiveConfig'` (line 4327; internal)
+- `class FollowupServeConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4340) — Follow-up generate and serve (FG1; ``docs/specs/spec_followup_generate_serve_v1.md``).
+- `class VoiStoppingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4359) — mvp-0.21 Part 1: four count caps lifted onto value of information.
+- `class DeciderRoutesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4415) — Tier 1 (owner decision 2026-10-13): small judgments the Decider decides, the LLM its fallback.
+- `class UiConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4458) — How the desktop app presents learner surfaces (``docs/specs/ux_learnloop_v1.md`` §10).
+- `class TeacherWeightConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4485) — The lesson-check weight's switches (spec_teacher_v1 §12.1, §12.2): operational only.
+- `class TeacherBriefConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4492) — What the lesson brief holds (§8.1): the prerequisite depth (``keep``) and curriculum C4's switch.
+- `class TeacherContextConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4499) — The teacher's context budget (§9.2): the goal's sections whole up to this many tokens (``keep``).
+- `class TeacherDelayedConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4505) — Delayed retention and transfer checks (§13).
+- `class TeacherPlacementConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4514) — Teacher TE2 (rev 5 §11.3, §18.4): ``max_probes`` (8, ``keep``), the generated probes one lesson may ask for: a burden guardrail; the teacher decides when to stop, this only bounds it.
+- `class TeacherConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4521) — Teacher (spec_teacher_v1).
+- `class EligibilityConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4605) — One serve/administration eligibility decision (``mvp-0.27``; ``learnloop.serve_eligibility``, ``docs/reviews/serve-eligibility-decision.md``).
+- `class ReplayConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4624) — How replay reads the attempt ledger (rebuild equivalence, ``mvp-0.34``; ``REPLAY_LEDGER_ALGORITHM_VERSION``, ``docs/reviews/rebuild-equivalence-fix.md``).
+- `class AskConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4639) — One Ask (Reader CA2; ``docs/specs/ux_reader_compare_ask_v1.md`` §7, ``docs/reviews/reader-ca2-one-ask.md``).
+- `class AdaptiveDifficultyConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4672) — Adaptive difficulty (``docs/specs/spec_adaptive_difficulty_v1.md`` §11.4).
+  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4803; internal)
+  - `_forecasters_switch(cls, value: Any) -> Any` (line 4811; internal)
+  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4821; internal)
+- `class LearnLoopConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4826)
+  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4915; internal) — Keep direct model validation compatible; implementation lives in compat.
+  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4923; internal)
+  - `codex(self) -> CodexConfig` (line 5012; public) — Non-serialized compatibility view of ``ai.providers.codex``.
+- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5020) — Return the modeled canonical Codex profile used when none is explicit.
+- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5047) — The code-default ChatGPT-plan profile (plan-first transport T1).
+- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5060)
+- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5072)
+- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5085) — Claude Haiku through OpenRouter, for cheap metered judges.
+- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5096)
+- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5107) — The template's embedding profile, for vaults whose config predates it.
+- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 5123) — Perplexity Decider v1.1 through OpenRouter (router spec D4, owner).
 
 ### Module constants
 
@@ -273,7 +273,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `LEGACY_CODEX_TASK_ROUTES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1733)
 - `CODEX_TO_PLAN_PROFILE` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1752)
 - `DEFAULT_RECALL_TARGETS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 3962)
-- `AD_OUTSIDE_FORECASTERS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 4656)
+- `AD_OUTSIDE_FORECASTERS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 4669)
 
 ## Internal implementation anchors
 
@@ -573,6 +573,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
   - `test_a_route_override_cannot_exceed_the_profile_maximum`
 - [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
+  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key`
+  - `test_the_switch_defaults_on_and_is_classified`
+- [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
   - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key`
   - `test_the_switch_defaults_on_and_is_classified`
 - [tests/test_teacher_te0_review_fixes.py](../../../../../../tests/test_teacher_te0_review_fixes.py) — direct import

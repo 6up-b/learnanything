@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/calibration_report.py"
 source_paths:
   - "src/learnloop/router_objective/calibration_report.py"
-source_commit: "d309ea5cbc6940c4347638b1049d66e7abeb6cd0"
-source_commit_timestamp: "2026-11-05T09:46:02-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/calibration_report.py](../../../../../../src/learnloop/router_objective/calibration_report.py) |
-| Source lines | 212 |
+| Source lines | 213 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `d309ea5cbc6940c4347638b1049d66e7abeb6cd0` |
-| Commit timestamp | `2026-11-05T09:46:02-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
@@ -64,7 +64,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `checks_section(connection: Any, *, through: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 75)
 - `floor_section(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 109) — §9 item 5: the probe-versus-continue contrast read from FG1's ``no_intervention`` floor.
 - `build(connection: Any, vault: Any, *, now: str, weight: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 149)
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 185)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/calibration_report.py), line 186)
 
 ### Module constants
 
@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; calls `administered`, `completion`, `resolve`
 - [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]] — imports `module`; calls `read`
 - [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `module`
-- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; calls `scores`
+- [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; calls `_lessons_on`, `scores`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; calls `_decision_stop_responses`, `fit_return_slope`, `handed_over`, `return_rows`
 - [[Reference/Modules/learnloop/router_objective/weight|learnloop.router_objective.weight]] — imports `module`; calls `posterior`, `unique_assessments`, `weight`
 

@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `upgrade_to_lesson_opportunity`; statically calls `upgrade_to_lesson_opportunity`
-- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_lesson_opportunity`; statically calls `complete_interrupted_activation`
+- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_lesson_opportunity`; statically calls `complete_interrupted_activation`
 
 ## Dependencies
 
@@ -122,7 +122,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

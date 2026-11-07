@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/tail_report.py"
 source_paths:
   - "src/learnloop/router_objective/tail_report.py"
-source_commit: "a8f3a88c1e6554f05ecb8b9ff085af9ee9e44f0d"
-source_commit_timestamp: "2026-11-05T17:45:17-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,18 +50,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/tail_report.py](../../../../../../src/learnloop/router_objective/tail_report.py) |
-| Source lines | 198 |
+| Source lines | 199 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a8f3a88c1e6554f05ecb8b9ff085af9ee9e44f0d` |
-| Commit timestamp | `2026-11-05T17:45:17-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
 - `build(connection: Any, vault: Any, *, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/tail_report.py), line 114) — The section (module docstring), as of ``now``.
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/tail_report.py), line 160)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/tail_report.py), line 161)
 
 ### Module constants
 
@@ -94,8 +94,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`; calls `residual_weight`
-- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; calls `contrasts`, `cross_check`, `fits`, `logged`, `predicted_improvement`
+- [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`; calls `names_for`, `residual_weight`
+- [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; calls `contrasts`, `cross_check`, `features_version`, `fits`, `logged`, `predicted_improvement`
 
 ### Platform and third-party dependencies
 

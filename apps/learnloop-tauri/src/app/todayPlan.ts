@@ -108,6 +108,9 @@ function chosenRow(block: PlanBlockDto, current: boolean): TodayRow {
   let text: string;
   if (block.reading) {
     text = `${readingStarted(block) ? "Continue" : "Read"} ${readingTitle(block.reading.sectionTitle)}`;
+  } else if (block.lessonOffer) {
+    // Teacher TE3b: a lesson offer's block (answered on its card).
+    text = `A lesson you could take · ${block.lessonOffer.suggestion.title}`;
   } else if (block.chosenBy === "learner_pick") {
     text = `Your pick · ${titles(block.learningObjectTitles) || "a question"}`;
   } else {
@@ -155,7 +158,8 @@ export function todayRows(plan: Plan): TodayRow[] {
   return rows;
 }
 
-function sentencePhrase(row: { reading: string | null; started: boolean; lane: PlanLane | null; items: number; titles: readonly string[]; pick: boolean }): string {
+function sentencePhrase(row: { reading: string | null; started: boolean; lane: PlanLane | null; items: number; titles: readonly string[]; pick: boolean; offer?: string | null }): string {
+  if (row.offer) return `a lesson on ${row.offer} if you'd like one`;
   if (row.reading !== null) return `${row.started ? "finish" : "read"} ${readingTitle(row.reading)}`;
   if (row.pick) return `your pick, ${titles(row.titles) || "a question"}`;
   return lanePhrase(row.lane, row.items, row.titles);
@@ -184,7 +188,8 @@ export function planSentence(plan: Plan): string | null {
         lane: block.lane,
         items: block.items.filter((item) => item.state === "planned" || item.state === "served").length || block.items.length,
         titles: block.learningObjectTitles,
-        pick: block.chosenBy === "learner_pick"
+        pick: block.chosenBy === "learner_pick",
+        offer: block.lessonOffer ? block.lessonOffer.suggestion.title : null
       })
     );
   }

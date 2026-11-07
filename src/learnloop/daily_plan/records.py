@@ -13,7 +13,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.daily_plan.types import LANES, ReadingTarget
+from learnloop.daily_plan.types import LANES, LESSON_OFFER_SUBTYPE, ReadingTarget
 
 _EPS = 1e-9
 
@@ -154,6 +154,13 @@ class PlannedBlock:
         return self.reading is not None
 
     @property
+    def is_lesson_offer(self) -> bool:
+        """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the block is a lesson offer's card (no items, no reading);
+        it ends with the learner's answer (or ``ignored``)."""
+
+        return self.subtype == LESSON_OFFER_SUBTYPE and self.reading is None
+
+    @property
     def withdrawn_path_reading(self) -> bool:
         """A path reading taken back unread (RW7b F1): a path switch turned off, or
         curriculum C1's fresh choice moved the plan's reading, before it was read. It
@@ -185,13 +192,17 @@ class PlannedBlock:
             return 0.0
         if self.is_reading:
             return float(self.budget_minutes)
+        if self.is_lesson_offer:
+            # TE3b: a started lesson's estimate counts toward the plan's minutes; a card not taken counts none (the
+            # lesson's active minutes count on the objective's clock either way).
+            return float(self.budget_minutes) if self.outcome in ("accepted", "chose_alternative") else 0.0
         return sum(item.est_minutes for item in self.items if not item.displaced)
 
     @property
     def finished(self) -> bool:
         if self.ended_at is not None:
             return True
-        if self.is_reading:
+        if self.is_reading or self.is_lesson_offer:
             return False
         return all(item.resolved for item in self.items)
 

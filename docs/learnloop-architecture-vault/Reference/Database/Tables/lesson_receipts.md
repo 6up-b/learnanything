@@ -3,8 +3,8 @@ title: "lesson_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0cc1e5ab5436f13e72c0cd2bf84543dccd7ff3f2"
-source_commit_timestamp: "2026-11-07T01:07:25-05:00"
+source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_receipts"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/db/stores/lessons.py"
+  - "src/learnloop/router_objective/offer_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -87,6 +88,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/lessons.py`
+- `src/learnloop/router_objective/offer_report.py`
 
 ### Direct SQL writers
 
@@ -106,6 +108,7 @@ None found by exact static reference scan.
 - `tests/test_salience_firewall.py`
 - `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_te3a_migration.py`
+- `tests/test_te3b_population.py`
 - `tests/test_teacher_exam_question_guard.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/phone_probes_upgrade.py"
 source_paths:
   - "src/learnloop/phone_probes_upgrade.py"
-source_commit: "d7ea71a54ada901931c101597697c88de081126d"
-source_commit_timestamp: "2026-11-07T01:07:18-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
+source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `d7ea71a54ada901931c101597697c88de081126d` |
-| Commit timestamp | `2026-11-07T01:07:18-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
+| Commit timestamp | `2026-11-07T01:13:16-05:00` |
 
 ## Public API
 
@@ -99,10 +99,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] — imports `module`; calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LESSON_OPPORTUNITY_ALGORITHM_VERSION`, `PHONE_PROBES_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LESSON_OFFERS_ALGORITHM_VERSION`, `PHONE_PROBES_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `write_activation_journal`; calls `write_activation_journal`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_lesson_opportunity`; calls `complete_interrupted_activation`
+- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_lesson_offers`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `UpgradeResult`; calls `UpgradeResult`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `module`; calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `publish_algorithm_version`; calls `publish_algorithm_version`
@@ -131,7 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
-  - `test_the_successor_is_one_constant_after_te3a_and_the_latest`
+  - `test_the_successor_is_one_constant_after_te3b_and_the_latest`
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`

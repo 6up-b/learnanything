@@ -43,6 +43,7 @@ import { targetForDialogue } from "../../components/QuestionQueue";
 import type { AskTarget } from "../../components/AskOverlay";
 import { INTERACTIVE_SELECTOR, screenLeavesKey } from "../../app/keymap";
 import { algoConfig } from "../../app/algoConfig";
+import { LessonOfferBlock } from "./LessonOfferBlock";
 import { LessonSuggestionCard } from "./LessonSuggestionCard";
 import type { LessonEntry } from "../LessonScreen";
 import { todayQueueInput } from "../../app/autoAdvance";
@@ -821,6 +822,11 @@ export function TodayPlace({
           </button>
         </div>
         {why ? <PlanWhy data={data} /> : null}
+        {current?.lessonOffer ? (
+          <LessonOfferBlock offer={current.lessonOffer} sessionId={session?.sessionId ?? null}
+                            onStartLesson={onStartLesson} onAnswered={() => void refetchPlan().catch(() => undefined)}
+                            onError={onError} />
+        ) : null}
         {rows.length ? (
           <div data-testid="today-blocks" style={{ border: `1px solid ${COLOR.border}`, padding: "8px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
             {rows.map((row) => (

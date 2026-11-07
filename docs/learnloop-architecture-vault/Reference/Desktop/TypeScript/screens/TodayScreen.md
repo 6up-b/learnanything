@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/TodayScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/TodayScreen.tsx"
-source_commit: "a46bf6f6332ca86b1596e26dbd9622aac983b503"
-source_commit_timestamp: "2026-11-06T04:43:21-05:00"
+source_commit: "0394abccde203a1e4bd7d479ffe28c7035d61f2f"
+source_commit_timestamp: "2026-11-06T14:55:42-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/TodayScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/TodayScreen.tsx) |
-| Source lines | 1943 |
+| Source lines | 1947 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a46bf6f6332ca86b1596e26dbd9622aac983b503` |
-| Commit timestamp | `2026-11-06T04:43:21-05:00` |
+| Source commit | `0394abccde203a1e4bd7d479ffe28c7035d61f2f` |
+| Commit timestamp | `2026-11-06T14:55:42-05:00` |
 
 ## Activation and status evidence
 
@@ -181,66 +181,66 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const suggestion = onStartLesson && algoConfig().lessonSuggestions ? <LessonSuggestionCard sessionId=` — const, line 723
 - `const continueCard = onStartLesson && algoConfig().lessonGoals ? <ContinueLessonCard onStartLesson=` — const, line 727
 - `const suggestionCard = continueCard ? <>` — const, line 730
-- `const first = items[0]` — const, line 814
-- `const first = items.find((item)` — const, line 819
-- `function TodayHero(` — function, line 1024
-- `const remainingMinutes = remainingSessionMinutes(rawSession, now)` — const, line 1053
-- `const session = rawSession && remainingMinutes != null ?` — const, line 1054
-- `const stats: Array<` — const, line 1055
-- `const sep = <span style=` — const, line 1061
-- `const Stat = (` — const, line 1062
-- `function QueueSectionGroup(` — function, line 1161
-- `const isProbe = /probe/i.test(section.title)` — const, line 1176
-- `const isDue = /due|now|overdue/i.test(section.title)` — const, line 1177
-- `const color = isProbe ? COLOR.pink : isDue ? COLOR.amber : COLOR.textDim` — const, line 1178
-- `const mark = isProbe ? "◆" : "▸"` — const, line 1179
-- `function QueueRow(` — function, line 1208
-- `const dueOffset = relativeDue(item, now)` — const, line 1223
-- `const overdue = dueOffset.includes("ago")` — const, line 1224
-- `const mastery = item.mastery` — const, line 1225
-- `const borderLeft = focused || item.isFollowup ? COLOR.amber : item.isProbe ? COLOR.pink : "transparent"` — const, line 1226
-- `function SurpriseInsertionBanner(` — function, line 1310
-- `const coldProbe = followup.followupKind === "certification_cold_probe"` — const, line 1325
-- `const coldRetry = followup.followupKind === "cold_retry"` — const, line 1332
-- `const heading = coldProbe ? "validity check - held-out cold probe inserted" : coldRetry ? "unassisted check - answer this one cold" : "intervention gate - diagnostic follow-up inserted"` — const, line 1333
-- `const noun = coldProbe ? "cold probe" : coldRetry ? "unassisted check" : "follow-up"` — const, line 1338
-- `const WHY_ROWS: Array<` — const, line 1434
-- `function WhyRow(` — function, line 1441
-- `function QueueDetail(` — function, line 1453
-- `const components = detail?.scheduler?.components ?? item.components` — const, line 1496
-- `const variance = detail?.mastery?.variance ?? item.masteryVariance ?? 0.1` — const, line 1497
-- `const mastery = detail?.mastery?.mean ?? item.mastery` — const, line 1498
-- `const evidenceFacetButtonStyle: CSSProperties =` — const, line 1651
-- `function QueueRankingStrip(` — function, line 1658
-- `function scheduleChoiceClaim(item: ScheduledItemDto, producerVersion: string): ClaimCandidateDto` — function, line 1680
-- `function OverconfidenceList(` — function, line 1696
-- `const key = `$` — const, line 1727
-- `const done = started.has(key)` — const, line 1728
-- `function ReentryPanel(` — function, line 1754
-- `const named = summary.slippedTop.map((f)` — const, line 1755
-- `const sessionLine = reentryRefresherLine(refreshers)` — const, line 1756
-- `function NoGoalFallback(` — function, line 1786
-- `const action = (label: string, onClick: ()` — const, line 1799
-- `const dismiss = ( <button type="button" onClick=` — const, line 1815
-- `const dismissBannerButtonStyle: CSSProperties =` — const, line 1873
-- `function unique(values: string[]): string[]` — function, line 1884
-- `function queueItems(snapshot: QueueSnapshot | null): ScheduledItemDto[]` — function, line 1888
-- `function firstGoalFrontierItem(snapshot: QueueSnapshot | null): ScheduledItemDto | null` — function, line 1892
-- `function useNowMinute(): Date` — function, line 1896
-- `const id = window.setInterval(()` — const, line 1899
-- `function remainingSessionMinutes(session: SessionSnapshot | null, now: Date): number | null` — function, line 1905
-- `const startedAt = new Date(session.startedAt).getTime()` — const, line 1907
-- `const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - startedAt) / 60_000))` — const, line 1909
-- `function formatHeroTime(date: Date): string` — function, line 1913
-- `function formatSessionNumber(sessionId: string): string` — function, line 1917
-- `const matches = sessionId.match(/\d+/g)` — const, line 1918
-- `const digits = matches ? matches[matches.length - 1] : undefined` — const, line 1919
-- `function relativeDue(item: ScheduledItemDto, now: Date): string` — function, line 1925
-- `const due = new Date(item.dueAt).getTime()` — const, line 1928
-- `const diffMs = due - now.getTime()` — const, line 1930
-- `const past = diffMs < 0` — const, line 1931
-- `const minutes = Math.round(Math.abs(diffMs) / 60_000)` — const, line 1932
-- `const span = minutes < 1 ? "now" : minutes < 60 ? `$` — const, line 1933
+- `const first = items[0]` — const, line 818
+- `const first = items.find((item)` — const, line 823
+- `function TodayHero(` — function, line 1028
+- `const remainingMinutes = remainingSessionMinutes(rawSession, now)` — const, line 1057
+- `const session = rawSession && remainingMinutes != null ?` — const, line 1058
+- `const stats: Array<` — const, line 1059
+- `const sep = <span style=` — const, line 1065
+- `const Stat = (` — const, line 1066
+- `function QueueSectionGroup(` — function, line 1165
+- `const isProbe = /probe/i.test(section.title)` — const, line 1180
+- `const isDue = /due|now|overdue/i.test(section.title)` — const, line 1181
+- `const color = isProbe ? COLOR.pink : isDue ? COLOR.amber : COLOR.textDim` — const, line 1182
+- `const mark = isProbe ? "◆" : "▸"` — const, line 1183
+- `function QueueRow(` — function, line 1212
+- `const dueOffset = relativeDue(item, now)` — const, line 1227
+- `const overdue = dueOffset.includes("ago")` — const, line 1228
+- `const mastery = item.mastery` — const, line 1229
+- `const borderLeft = focused || item.isFollowup ? COLOR.amber : item.isProbe ? COLOR.pink : "transparent"` — const, line 1230
+- `function SurpriseInsertionBanner(` — function, line 1314
+- `const coldProbe = followup.followupKind === "certification_cold_probe"` — const, line 1329
+- `const coldRetry = followup.followupKind === "cold_retry"` — const, line 1336
+- `const heading = coldProbe ? "validity check - held-out cold probe inserted" : coldRetry ? "unassisted check - answer this one cold" : "intervention gate - diagnostic follow-up inserted"` — const, line 1337
+- `const noun = coldProbe ? "cold probe" : coldRetry ? "unassisted check" : "follow-up"` — const, line 1342
+- `const WHY_ROWS: Array<` — const, line 1438
+- `function WhyRow(` — function, line 1445
+- `function QueueDetail(` — function, line 1457
+- `const components = detail?.scheduler?.components ?? item.components` — const, line 1500
+- `const variance = detail?.mastery?.variance ?? item.masteryVariance ?? 0.1` — const, line 1501
+- `const mastery = detail?.mastery?.mean ?? item.mastery` — const, line 1502
+- `const evidenceFacetButtonStyle: CSSProperties =` — const, line 1655
+- `function QueueRankingStrip(` — function, line 1662
+- `function scheduleChoiceClaim(item: ScheduledItemDto, producerVersion: string): ClaimCandidateDto` — function, line 1684
+- `function OverconfidenceList(` — function, line 1700
+- `const key = `$` — const, line 1731
+- `const done = started.has(key)` — const, line 1732
+- `function ReentryPanel(` — function, line 1758
+- `const named = summary.slippedTop.map((f)` — const, line 1759
+- `const sessionLine = reentryRefresherLine(refreshers)` — const, line 1760
+- `function NoGoalFallback(` — function, line 1790
+- `const action = (label: string, onClick: ()` — const, line 1803
+- `const dismiss = ( <button type="button" onClick=` — const, line 1819
+- `const dismissBannerButtonStyle: CSSProperties =` — const, line 1877
+- `function unique(values: string[]): string[]` — function, line 1888
+- `function queueItems(snapshot: QueueSnapshot | null): ScheduledItemDto[]` — function, line 1892
+- `function firstGoalFrontierItem(snapshot: QueueSnapshot | null): ScheduledItemDto | null` — function, line 1896
+- `function useNowMinute(): Date` — function, line 1900
+- `const id = window.setInterval(()` — const, line 1903
+- `function remainingSessionMinutes(session: SessionSnapshot | null, now: Date): number | null` — function, line 1909
+- `const startedAt = new Date(session.startedAt).getTime()` — const, line 1911
+- `const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - startedAt) / 60_000))` — const, line 1913
+- `function formatHeroTime(date: Date): string` — function, line 1917
+- `function formatSessionNumber(sessionId: string): string` — function, line 1921
+- `const matches = sessionId.match(/\d+/g)` — const, line 1922
+- `const digits = matches ? matches[matches.length - 1] : undefined` — const, line 1923
+- `function relativeDue(item: ScheduledItemDto, now: Date): string` — function, line 1929
+- `const due = new Date(item.dueAt).getTime()` — const, line 1932
+- `const diffMs = due - now.getTime()` — const, line 1934
+- `const past = diffMs < 0` — const, line 1935
+- `const minutes = Math.round(Math.abs(diffMs) / 60_000)` — const, line 1936
+- `const span = minutes < 1 ? "now" : minutes < 60 ? `$` — const, line 1937
 
 ## Who imports or calls it
 
