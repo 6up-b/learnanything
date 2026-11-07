@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 import sqlite3
+import threading
 from functools import cache
 from pathlib import Path
+from typing import Any
+import weakref
 
 # WAL itself needs SQLite 3.7.0.  A read-only connection can open a WAL
 # database whose ``-shm`` it cannot write, or that has no ``-shm`` yet in a
@@ -97,17 +103,182 @@ def connect(sqlite_path: Path, *, read_only: bool = False) -> sqlite3.Connection
 
     require_supported_sqlite()
     sqlite_path = Path(sqlite_path)
+    pool = _REUSED.get()
+    if pool is not None and pool.thread == threading.get_ident():
+        reused = pool.connect(sqlite_path, read_only=read_only)
+        if reused is not None:
+            return reused  # type: ignore[return-value]
     if read_only:
         from learnloop.db.scopes import apply_connection_hook
 
         return apply_connection_hook(_open_read_only(sqlite_path), sqlite_path)
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(sqlite_path)
-    _configure(connection)
-    connection.execute("PRAGMA synchronous = FULL")
+    connection = _open_writable(sqlite_path)
     from learnloop.db.scopes import guarded_connection
 
     return guarded_connection(connection, sqlite_path)
+
+
+def _open_writable(sqlite_path: Path) -> sqlite3.Connection:
+    connection = sqlite3.connect(sqlite_path)
+    _configure(connection)
+    connection.execute("PRAGMA synchronous = FULL")
+    return connection
+
+
+# -- Router speed stage 2, item 4: connections reused within one objective job -------------------------------------
+
+#: The open scope's pool (:func:`reused_connections`); None outside one.
+_REUSED: ContextVar["_ConnectionPool | None"] = ContextVar("learnloop_reused_connections", default=None)
+
+
+@contextmanager
+def reused_connections() -> Iterator[None]:
+    """Router speed stage 2, item 4: inside, every :func:`connect` made **on the thread that opened the scope** hands
+    out a connection of this scope's pool instead of opening one (SQLite parses the whole schema at a connection's
+    first statement: about 2 ms here, hundreds of times in one objective job). Other threads (the job's model calls,
+    which copy its context) open their own as before, so no connection ever crosses a thread.
+
+    A connection given back (``close()``, or the end of a repository's ``with`` block, which closes it) is returned
+    exactly as a fresh one would be next: its cursors closed (their statements finalized, so no read snapshot
+    outlives its user), any transaction its user left open rolled back (as closing discards it: no write lock is
+    ever kept), the AD guard's authorizer and trace hook removed (the next user's operation installs its own, through
+    the connection hook, as at an open) and its settings restored (row factory, isolation level, ``foreign_keys``,
+    ``busy_timeout``, and ``synchronous = FULL`` for a writable one). Each user holds its own: a connection in use is
+    never handed out again until given back. An ingest job's guarded connections are never pooled. Every idle
+    connection is closed when the scope ends. Nothing a reader computes changes: each statement reads what a fresh
+    connection would."""
+
+    pool = _ConnectionPool()
+    token = _REUSED.set(pool)
+    try:
+        yield
+    finally:
+        _REUSED.reset(token)
+        pool.close()
+
+
+class _ConnectionPool:
+    """One scope's idle connections, by database and mode, for its own thread only."""
+
+    def __init__(self) -> None:
+        self.thread = threading.get_ident()
+        self.idle: dict[tuple[str, bool], list[sqlite3.Connection]] = {}
+        self.opened = 0
+        self.handed = 0
+        self.closed = False
+
+    def connect(self, sqlite_path: Path, *, read_only: bool) -> "_ReusedConnection | None":
+        from learnloop.db.scopes import apply_connection_hook, current_ingest_job_id
+
+        if self.closed or (not read_only and current_ingest_job_id(sqlite_path) is not None):
+            return None  # an ingest job's writes are fenced by its own guarded connection
+        key = (str(sqlite_path.resolve()), bool(read_only))
+        idle = self.idle.get(key)
+        if idle:
+            raw = idle.pop()
+        else:
+            if read_only:
+                raw = _open_read_only(sqlite_path)
+            else:
+                sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+                raw = _open_writable(sqlite_path)
+            self.opened += 1
+        self.handed += 1
+        # As at an open: no authorizer but the current operation's (installed by the hook, which expires every
+        # statement prepared before, so nothing prepared outside it runs unchecked inside it).
+        raw.set_authorizer(None)
+        raw.set_trace_callback(None)
+        apply_connection_hook(raw, sqlite_path)
+        return _ReusedConnection(raw, self, key)
+
+    def give(self, key: tuple[str, bool], raw: sqlite3.Connection) -> None:
+        if self.closed or self.thread != threading.get_ident():
+            raw.close()
+            return
+        self.idle.setdefault(key, []).append(raw)
+
+    def close(self) -> None:
+        self.closed = True
+        for connections in self.idle.values():
+            for raw in connections:
+                try:
+                    raw.close()
+                except sqlite3.Error:  # pragma: no cover - closing never fails the scope
+                    pass
+        self.idle.clear()
+
+
+class _ReusedConnection:
+    """A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the
+    pool reset (:func:`reused_connections`). The cursors it hands out are tracked so that giving it back finalizes
+    them, as closing a connection does."""
+
+    __slots__ = ("_connection", "_pool", "_key", "_cursors", "_released")
+
+    def __init__(self, connection: sqlite3.Connection, pool: _ConnectionPool, key: tuple[str, bool]) -> None:
+        object.__setattr__(self, "_connection", connection)
+        object.__setattr__(self, "_pool", pool)
+        object.__setattr__(self, "_key", key)
+        object.__setattr__(self, "_cursors", weakref.WeakSet())
+        object.__setattr__(self, "_released", False)
+
+    def _raw(self) -> sqlite3.Connection:
+        if self._released:
+            raise sqlite3.ProgrammingError("Cannot operate on a closed database.")
+        return self._connection
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._raw(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        setattr(self._raw(), name, value)
+
+    def _track(self, cursor: sqlite3.Cursor) -> sqlite3.Cursor:
+        self._cursors.add(cursor)
+        return cursor
+
+    def cursor(self, *args: Any, **kwargs: Any) -> sqlite3.Cursor:
+        return self._track(self._raw().cursor(*args, **kwargs))
+
+    def execute(self, sql: str, parameters: Any = ()) -> sqlite3.Cursor:
+        return self._track(self._raw().execute(sql, parameters))
+
+    def executemany(self, sql: str, parameters: Any) -> sqlite3.Cursor:
+        return self._track(self._raw().executemany(sql, parameters))
+
+    def executescript(self, script: str) -> sqlite3.Cursor:
+        return self._track(self._raw().executescript(script))
+
+    def __enter__(self) -> "_ReusedConnection":
+        self._raw().__enter__()
+        return self
+
+    def __exit__(self, *exc: Any) -> Any:
+        return self._raw().__exit__(*exc)
+
+    def close(self) -> None:
+        if self._released:
+            return
+        object.__setattr__(self, "_released", True)
+        raw = self._connection
+        try:
+            for cursor in list(self._cursors):
+                cursor.close()
+            if raw.in_transaction:
+                raw.rollback()  # what closing does to a transaction its user left open
+            raw.set_authorizer(None)
+            raw.set_trace_callback(None)
+            raw.isolation_level = ""
+            raw.row_factory = sqlite3.Row
+            raw.text_factory = str
+            _configure(raw)
+            if not self._key[1]:
+                raw.execute("PRAGMA synchronous = FULL")
+        except sqlite3.Error:
+            raw.close()  # anything that cannot be reset is closed, never handed out again
+            return
+        self._pool.give(self._key, raw)
 
 
 def _configure(connection: sqlite3.Connection) -> None:

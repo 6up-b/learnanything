@@ -635,8 +635,13 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
     repository = Repository.attach(sqlite_path)
     config = vault.config
     # Router speed, item 2: the card's build and the numeric policy's share one read of the combiner's fit while no
-    # write is committed between them (OI.decision_reads; Codex review F2).
-    with runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER, owner_id=entry.key), OI.decision_reads():
+    # write is committed between them (OI.decision_reads; Codex review F2). Router speed stage 2, item 4: the job's
+    # own thread reuses its SQLite connections (db.connection.reused_connections: each given back reset, never shared
+    # across threads, never kept in a transaction); the model calls' threads open their own.
+    from learnloop.db.connection import reused_connections
+
+    with reused_connections(), runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER,
+                                                     owner_id=entry.key), OI.decision_reads():
         threads: list[threading.Thread] = []
 
         def run(name: str, request: Any, parse: Any) -> None:
