@@ -141,3 +141,53 @@ def test_r2_keep_going_after_done_on_a_pending_stop_is_the_overridden_response(p
     phone.rpc("plan_keep_going", {"sessionId": session_id, "stop": False})
     with repository.connection() as connection:
         assert stop_coin._decision_stop_responses(connection) == {decision: "overridden"}
+
+
+# -- R3 (F9) ----------------------------------------------------------------------------------------
+
+
+def test_r3_a_refused_keep_going_leaves_no_override_receipt(plan_world, monkeypatch):
+    """Codex's reproduction: Keep going on a pending stop; during the re-split's slow work the desktop
+    adopts the session and the phone adopts it back; the plan update is refused ``session_moved``."""
+
+    phone, _host, repository, _paths = plan_world
+    drawn = _stop_past_held_work(monkeypatch)
+    session_id = phone.start()["sessionId"]
+    phone_device = phone.device["device_id"]
+    _phone_to_pending_stop(phone, session_id, drawn)
+    real = engine._resplit
+    moved: list[bool] = []
+
+    def away_and_back(env, record, budget, now, **kwargs):
+        if not moved:
+            moved.append(True)
+            generation = int(repository.fetch_session(session_id).get("owner_generation") or 0)
+            repository.adopt_session(session_id, None, generation)
+            repository.adopt_session(session_id, phone_device, generation + 1)
+        return real(env, record, budget, now, **kwargs)
+
+    monkeypatch.setattr(engine, "_resplit", away_and_back)
+    before = rows(repository, _PLANS)
+    responses = _receipts(repository, "stop_response")
+    status, error = phone.error("plan_keep_going", {"sessionId": session_id, "stop": False})
+    assert moved and (status, error["code"]) == (409, "session_moved")
+    # Nothing committed: no override receipt, the plan and its pending stop as they were.
+    assert _receipts(repository, "stop_response") == responses == []
+    assert rows(repository, _PLANS) == before
+    assert engine._stop_pending(_record(repository)) is not None
+
+
+def test_r3_keep_going_commits_its_override_with_the_plan_update(plan_world, monkeypatch):
+    phone, _host, repository, _paths = plan_world
+    drawn = _stop_past_held_work(monkeypatch)
+    session_id = phone.start()["sessionId"]
+    _phone_to_pending_stop(phone, session_id, drawn)
+    record = _record(repository)
+    decision = record.stops()[-1].decision_ref
+    phone.rpc("plan_keep_going", {"sessionId": session_id, "stop": False})
+    after = _record(repository)
+    assert engine._stop_pending(after) is None and after.budget > record.budget
+    responses = _receipts(repository, "stop_response")
+    assert [(r["session_id"], r["end_reason"], r["stop_decision_id"]) for r in responses] == [
+        (session_id, "offered_stop_overridden", decision)]
+    assert '"keep_going"' in responses[0]["detail_json"]

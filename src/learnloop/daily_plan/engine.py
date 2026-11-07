@@ -5642,14 +5642,18 @@ def _keep_going_past_pending_stop(env: PlanEnv, record: PlanRecord) -> PlanRecor
     new plan, which would leave the held blocks behind: the stop's receipt stays as it was logged,
     the override is recorded as the desktop's (RO0 row 7), and the plan gains the desktop's *Keep
     going* minutes past what it holds. The re-plan lets the pending stop lapse, so the next boundary
-    decides afresh, and the held work stays the desktop's next Next."""
+    decides afresh, and the held work stays the desktop's next Next.
 
-    session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
-                                          via="keep_going", clock=env.clock)
+    Landing ruling R3 (F9): the re-split (slow) is computed first; the override receipt and the plan
+    update then commit together in one transaction, which a device's write checks ownership at, so
+    a ``session_moved`` refusal leaves no receipt."""
+
     now = env.now_iso()
     budget = max(record.budget, record.minutes_planned()) + float(env.plan_config.keep_going_minutes)
     updated = _resplit(env, record, budget, now, via="keep_going")
     with env.repository.atomic(), env.repository.connection() as connection:
+        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id,
+                                              plan_id=record.id, via="keep_going", clock=env.clock)
         store.update_plan(connection, record.id, minutes_budget=budget, split_json=updated, updated_at=now)
     return _reload(env, record.id)
 
