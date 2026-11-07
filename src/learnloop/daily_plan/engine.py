@@ -4600,6 +4600,10 @@ def _device_block(env: PlanEnv, record: PlanRecord) -> tuple[PlannedBlock | None
         if block.is_reading:
             env.device.held_readings.add(block.id)
             continue
+        if block.is_lesson_offer:
+            # Teacher TE3b: a lesson offer waits for the desktop like a reading block (the phone's lessons are V6's).
+            env.device.held_lesson_offers.add(block.id)
+            continue
         item = _device_item(env, block)
         if item is not None:
             return block, item
@@ -4686,6 +4690,8 @@ def _held_step(env: PlanEnv, record: PlanRecord) -> dict[str, Any]:
                   if not item.resolved and item.practice_item_id in env.device.held), None)
     step = {"kind": DEVICE_HELD_STEP, "plan_id": record.id, "held_count": env.device.held_count,
             "held_readings": len(env.device.held_readings), "first_held_item_id": first}
+    if env.device.held_lesson_offers:
+        step["held_lesson_offers"] = len(env.device.held_lesson_offers)  # teacher TE3b (absent: none held)
     pending = _stop_pending(record)
     if pending is not None:
         # Mobile v2 J5 (Codex re-review of V2, F7): the stop drawn past this held work is offered as
@@ -4788,6 +4794,10 @@ def advance_with_context(
             # One boundary per step: a block the device can't show waits for the desktop.
             if block.is_reading:
                 env.device.held_readings.add(block.id)
+                return record, _held_step(env, record), context
+            if block.is_lesson_offer:
+                # Teacher TE3b: a drawn offer waits for the desktop, unshown and unanswered (V6 brings lessons).
+                env.device.held_lesson_offers.add(block.id)
                 return record, _held_step(env, record), context
             device_item = _device_item(env, block)
             if device_item is None:

@@ -224,6 +224,33 @@ def test_moving_on_without_an_answer_is_ignored_at_the_next_boundary(tmp_path, o
     assert json.loads(response["detail_json"])["recorded"] == "moved_on_without_an_answer"
 
 
+def test_a_phone_step_holds_a_drawn_offer_for_the_desktop(tmp_path, offerable, offer_drawn):
+    """Phone V2 (mobile v2 §2.2) before V6: a phone's Next never serves a lesson offer. An offer drawn at a boundary
+    the phone crossed waits for the desktop like a reading block (the held step counts it), unshown and unanswered;
+    the desktop's Next then shows its card on the same decision."""
+
+    from learnloop.daily_plan import engine
+    from learnloop.scheduling.device_eligibility import PlanStepFilter
+
+    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=TAG)
+    env.device = PlanStepFilter(device_filter=None)
+    record, step = _first_decision(env)
+    row = _objective_rows(env)[0]
+    assert row["chosen_ref"] == OFFER
+    assert step["kind"] == engine.DEVICE_HELD_STEP and step["held_lesson_offers"] == 1
+    block = next(b for b in record.blocks if b.is_lesson_offer)
+    assert block.started_at is None and not block.finished  # never shown on the phone
+    with env.repository.connection() as connection:
+        assert suggestions.response_for(connection, row["id"]) is None  # no ignored: the phone never showed it
+    # A phone read of the plan (no serve) still holds it.
+    _record, again = advance(env, serve=False)
+    assert again["kind"] == engine.DEVICE_HELD_STEP and again["held_lesson_offers"] == 1
+    # The desktop's Next shows the card on the same decision.
+    env.device = None
+    _record, desktop = advance(env, serve=True)
+    assert desktop["kind"] == "lesson_offer" and desktop["offer"]["decision_id"] == row["id"]
+
+
 def test_the_ceiling_binds_across_the_days_offers_and_is_logged(tmp_path, offerable):
     env = mixture_env(tmp_path, fake_runtime(), version=TAG,
                       toml="[router.lesson_suggestions]\nceiling_per_day = 0\n")

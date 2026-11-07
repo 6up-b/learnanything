@@ -219,6 +219,9 @@ class PlanStepFilter:
     held: dict[str, str] = field(default_factory=dict)
     #: Reading blocks this step passed over (the phone's Reader is V4's).
     held_readings: set[str] = field(default_factory=set)
+    #: Teacher TE3b: lesson offer blocks this step passed over (the phone's lessons are V6's): held for the desktop
+    #: like a reading block, unanswered, so the desktop shows the card.
+    held_lesson_offers: set[str] = field(default_factory=set)
 
     def holds(self, item: Any) -> str | None:
         """Why the device leaves ``item`` for the desktop, or None when it can serve it."""
