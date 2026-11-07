@@ -141,3 +141,131 @@ The cached V2 app offers *LearnLoop was updated. Reload* (the allowlist moved): 
 1. Item 2 of §2: abandon on the desktop's Next (built), or hold for the phone (a desktop step filter)?
 2. Should the phone offer *Teach me instead* during a probe (`stop_probe_diagnosing` is desktop-only today), or is Skip enough?
 3. Main merged in at the stage's end (TE3b, mvp-0.53): the successor is mvp-0.54 and the migration stays 250 (TE3b added none); both are rechecked at landing.
+
+## Landing onto main
+
+**Branch tip before this record:** `315f250c7d` (the regenerated references), on `12698bf8b8` (the Codex re-review record). Main was `e9ceaf8d44` (TE3b's landing record) throughout and is an ancestor of the tip. It was already merged in at `00d25c2f8d`, and it did not move during the landing, so no further merge was needed. Router speed stage 2 had not landed. The numbers stand: **mvp-0.54** (after TE3b's mvp-0.53) and **migration 250**. The kill switch is `phone_probes` in `mobile.toml`.
+
+### Rulings (verbatim)
+
+- R1: "The final verify is clean; no further Codex round."
+- R2: "Open questions, decided: (a) a probe the phone served is abandoned by the desktop's serving Next when the learner moves to the desktop, and a desktop-served probe is held on the phone: kept as built, since holding a phone-served probe on the desktop needs a desktop step filter that changes desktop serving; (b) 'Teach me instead' (stop_probe_diagnosing) on the phone goes to V6 with lessons (Skip stays meanwhile); (c) lesson probes on the phone wait for V6, as built: acceptable under D3; (d) the numbers are mvp-0.54 and migration 250 unless main moved (recheck after any merge)."
+- R3: "Owner, Nov 5: the old item difficulty scalar is to be retired in the refactor. V3 adds no new reader or writer of it; the landing checks this with a grep of the diff against main and records the result."
+
+**R3's grep.** `git diff main...HEAD` was run over `src`, `apps`, `migrations` and `scripts`, keeping only added and removed lines, and searched for `difficulty` (any case): **no line**. Over `tests` the search finds 2 lines. They are the `ADAPTIVE_DIFFICULTY_VERSIONS` version-pin set (the adaptive-difficulty successor set, gaining `mvp-0.54`), not the item's difficulty scalar. V3 adds no reader or writer of the scalar.
+
+### Gate
+
+Every pytest, vitest and npm run went through `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`. The full suite used 10G behind `flock /tmp/learnloop-fullsuite.lock`. Every Python or CLI run went through an `env -i` wrapper: `PATH`, plus empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, with `TMPDIR` outside the worktree.
+
+| Lane | On | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` | **43 kept, 0 broken** |
+| Targeted set (step 2) | `12698bf8b8`, 291 files, `-n 6` (behind the lock). It covers: <br>• every `test_mobile_*`, `test_followup_*` and `test_te3b_*`, every `test_probe_*` and `test_diagnostic_probe_*`, `test_sidecar_probe` and `test_certification_cold_probe`; <br>• every file naming the FG1 claim or door (`claim_serve`, `followup_serve`, `generated_probe_closed`, `single_use`, `refuse_generated_probe_door`, `served_elsewhere`); <br>• every test file the branch changed (the version and head pins); <br>• every file naming `migration_head_250` or `discover_migrations`; <br>• `test_migrations`, `test_coordinated_migrations`, `test_tracked_fixture_databases`; <br>• the display-label audit (`test_sidecar_measurement`, `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`); <br>• `test_cli_help_snapshot`, `test_architecture`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_config_refactor`, `test_table_roles`, `test_public_tip_guards`, `test_sqlite_file_copies`, `test_mobile_allowlist`, `test_session_ownership`, `test_codex_lockdown_round3`, `test_codex_lockdown_frozen`, `test_registry_audit`, `test_module_catalog_inventory`, `test_hypothesis_marks`; <br>• the review's own 260-file set (`merged.txt`). | **5070 passed, 28 skipped, 6 xfailed, 0 failed** (30 min) |
+| `--durable-sqlite` | the five `test_mobile_v3_*` files | **44 passed** |
+| References (step 3) | `db_generate_reference.py` / `db_validate_reference.py`; `module_generate` / `module_validate`; `desktop_generate` / `desktop_validate`; `validate_vault.py` | All pass: `errors: []`; module catalog 1251 notes, links 41730/41730; desktop 323/323 plus 6/6 Rust, reproducible; vault 2244 notes. Committed in `315f250c7d`: the module notes for the Codex re-review's tests and changed docstrings, the `practice_attempts` / `probe_presentations` table notes, and the `practice` configuration note (30 files). Provenance-only churn was left out (521 notes). The validators were rerun on the committed tree and pass. |
+| Config fingerprints | every `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry against `defaults_fingerprint_for_version` | **45 of 45** equal; mvp-0.54 present |
+| Full suite | `315f250c7d` (this record's commit adds only its text), `-n 8 --dist worksteal`, behind `flock /tmp/learnloop-fullsuite.lock`, 10G scope | **30152 passed, 90 skipped, 47 xfailed, 0 failed** (57 min 2 s) |
+| Durability lane | `-m durability`, `-n 6` | **408 passed, 1 skipped** |
+| Owner lane | fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035` in gitignored `fixtures-local/landing-phone-v3/`, `LEARNLOOP_OWNER_VAULTS`, `-m owner_vaults` | **83 passed, 4 skipped, 2 failed**: the two known (`test_activity_backfill.py::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies.py::...[arxiv_v2]`); `owner-copies-mvp035` untouched |
+| Phone app (`apps/learnloop-mobile`) | `npm run typecheck`; the whole `npx vitest run --maxWorkers=4`; `npm run build` | clean; **24 files, 289 passed**; built (run at step 2 and again on `315f250c7d`) |
+| Desktop app (`apps/learnloop-tauri`) | `npm run typecheck`; the whole `npx vitest run --maxWorkers=4` (5G scope); `npm run frontend:build` | clean; **275 files, 2778 passed**; built. `src-tauri` is unchanged (as is everything under the desktop app), so no `cargo check`. |
+
+No unexpected failure in any lane, so no rerun was needed. The known flakes did not occur.
+
+### Smoke
+
+**The copies.** Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` went under gitignored `fixtures-local/landing-phone-v3-smoke/`. These are the owner's three vaults at mvp-0.43: `linear_algebra`, `probability` and `arxiv_v2`. Every `*base_url` in each copy's `learnloop.toml` was set to `http://127.0.0.1:9`. The copies were then upgraded in two steps:
+- on main's code (`git archive` of `e9ceaf8d44` with its `migrations/`) to **mvp-0.53**, migration 249;
+- a further copy of each on the branch's code to **mvp-0.54**, with migration 250 applied on open (`Upgraded vault: mvp-0.53 -> mvp-0.54`, `schema_migrations` max 250).
+
+Every journey ran on its own further fresh copy.
+
+**The harness** is in-process and adapted from phone V2's landing scripts:
+- The phone used the real ASGI app (`learnloop_mobile.host.create_app`) through Starlette's `TestClient`, which binds no socket. It was paired by the real pairing exchange and sent the Serve identity header and `LearnLoop-Capabilities: phone_probes`.
+- The desktop was a `SidecarContext` on the same database (a None origin). It reloads after the generated question is published, as the desktop app's watcher does.
+- The fakes:
+  - the router LLM and the Decider: `tests/router_model_fakes.py`, inline, with the seeds pinned by order;
+  - the grader: the FG1 tests' `BlindRivalClient`, also used as the split diagnoser (as FG1's tests pair them);
+  - FG1's probe author: `AuthorFake`, through `resolve_author_client`.
+- Every other AI route stayed at 127.0.0.1:9, and no key was in the environment.
+- The clock was frozen at `2026-11-07T09:00Z`, with deterministic ULIDs.
+- An audit hook refused every inet `connect`, `bind` and `getaddrinfo`, and any Codex process. Its self-test refused both.
+
+**The desktop at a None origin, main against the branch.** V2's journey ran on each mvp-0.53 copy, on main's code and on the branch's, with AD's background threads not scheduled on either tree. The journey: `get_daily_plan`, `start_session`, then `next_plan_item{serve}` with *I don't know* through the plan; *Keep going* once on the finished plan, then *Done for today*, then `end_session`. Every reply was compared, and every new row of nine tables, with ids renamed by first appearance and stamps normalized. The masks were V2's: `router_decisions.snapshot_hash`, `latency_ms` and `waited_ms`.
+
+| | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| main against main | identical | identical | identical |
+| main against the branch, as built | differs from the extension's first decision on: hash fields, the numeric arm's argmax, the logged propensities (the chosen block and the items served the same) | differs (14 fields) | differs (73 fields) |
+| main against the branch, with the finished plan's stop-override receipt drawn where main draws it (before the build) | **identical** | **identical** | **identical** |
+
+Why the as-built run differs, and why this is not a serving change:
+- **The one code path behind the difference** is V3's commit 1 (`e64f19daf3`, the F9 class on a finished plan). *Keep going* on a `complete` plan now writes its stop-override receipt inside the transaction that inserts the extension, after `_prepare_plan`, where main wrote it before. The receipt is the same row. What moves is when its ULID is drawn: after the plan's id instead of before it.
+- **Main's router is sensitive to that sequence.** Main's own code, with one extra id drawn before the journey, diverges from main on the same copy as much as the branch does (it serves different items).
+- **The decision reads the receipt either way.** The decision's inputs that read stop receipts are the stop-accept prior (`objective_inputs._stop_accept`) and the stop coin. They are read at the first block's boundary (`_boundary`), after the insert commits, on both trees. `_prepare_plan` (classify, admit, split) reads no `session_receipts`.
+- **Lining up the sequence closes the gap.** With the id sequence lined up and the branch's ordering kept, `linear_algebra` is identical except one block's `content_hash`. The two other copies keep differing only through the receipt's own id value, which orders the `stop_response` rows under the frozen clock (`ORDER BY created_at, id`).
+
+So the desktop serves as main at a None origin, up to id-sequence noise. Real ULIDs are random, so two runs of main differ in the same way.
+
+**At the tag, on each mvp-0.54 copy (branch).** Six journeys, each on a fresh copy: probe, held, abandon, cap, off, and below the tag. On all three copies:
+
+| Check | Result (each copy) |
+|---|---|
+| The miss | A wrong answer on the phone, through the host's submit job. The diagnosis and FG1 generation ran on the host's shared post-attempt worker: one author call. The workflow was `ready`, lane `probe`, `surface = phone`. The question is a new `pi_gen_minimal_recall_*` item. |
+| Before the serve | `followup_status`: the desktop's line, not V2's hand-off, and `held: true`. `get_feedback` held on both devices (no `feedbackMd`, no repairs). `record_answer_display` refused `followup_feedback_held`. |
+| F1's race | The phone owns the session at the door's start, and the desktop adopts it before the claim (between `phone_claim_owner`'s pin and `_claim_refusal`). The door was refused **`session_moved`, nothing burned**. |
+| Ownership, both directions | **The phone, not owning:** `get_practice_item`, `get_probe_contract`, `open_queue_item` and `next_plan_item` all `session_moved`, no burn. **The desktop, not owning:** `next_plan_item`, `submit_attempt` and `submit_dont_know` all `session_moved`, 0 attempts written, no burn. |
+| Next opens it | The phone's `followup_next` answered `open` with the question. No burn before the serve. The serve burned it **as the phone's** (`generated_probe_burns`: `served`, `phone`, its presentation). |
+| Cold on the phone | The contract: `active`, `phoneAnswers: true`, `forcedAttemptType: diagnostic_probe`, `followupWhy`, and every restriction on (hints, Ask/tutor, worked example, answer reveal, feedback deferred). A hint reveal was refused (the generated item has no authored hints: 422 `authoredIndex`; the in-suite test covers `diagnostic_block`), with 0 `help_assists` rows on the probe. The allowlist answered **403 for all 460 methods outside it**, including all 20 help methods: Ask, tutor, hint jobs, teach-back, `stop_probe_diagnosing`. |
+| A second open | The phone's own re-open passes (the same administration). The desktop's `open_queue_item` was refused `generated_probe_closed`. Still held after the serve. |
+| The answer | `submit_attempt` `diagnostic_probe` with its presentation: the workflow `settled`, `probe_answered`. The attempt is on `phone_practice`, naming the presentation. Feedback was released on both devices, the display is now allowed, and the answer's feedback points back at the miss (`heldFeedbackAttemptId`). |
+| Never again | Refused `generated_probe_closed` on: the phone's `get_practice_item`, `open_queue_item` and `get_probe_contract`, and the desktop's `open_queue_item`. The phone's `followup_next` answered `continue`. Not listed on the phone. One `served` burn. |
+| Cap boundary (copy with `session_qualifying_observation_cap = 1` and VOI stopping off) | The shared gate (`probe_serving_block_reason`) for the phone's session: open (`None`) before the phone's answer. After it: 1 qualifying observation and `session_cap_reached`. The owner's copies have no executable instrument, so a routine episode could not be entered and the phone's routine admission was not driven there. G10's in-transaction admission is pinned in the suite (`test_g10_*`, durable lane included). |
+| Hint surface | A phone hint reveal on an ordinary item: `recorded`, `help_assists.surface = phone_practice`. |
+| Held on the phone | A desktop miss, generated, and served on the desktop (`served`, `desktop`). The phone, after adopting: every door refused `generated_probe_closed`, `followup_next` answered `continue`, not listed, `deviceDeferredCount` ≥ 1. The phone's plan steps never served it. The desktop took the session back and answered it: `settled`. |
+| Abandoned by the desktop | The phone's plan Next placed the question (R12), and the phone served it (`phone` burn) and left. The desktop adopted, and its serving Next went to the next item, not the probe. The probe: `retired`, the workflow `skipped`, reason `abandoned`, released (`continue_without_it`), feedback no longer held. The desktop's day then ran on to `done`. These workflows carried no router decision id, so no decision-outcome binding applied; the binding path is pinned in the suite. |
+| `phone_probes` off (at the tag) | `meta` `phone_probes: false`. The status line is V2's hand-off. `followup_next` answered **409 `phone_probes_off`**, with `next_requested_at` unset and 0 workflow events. Every door refused `generated_probe_reserved`. A submit naming the presentation got 422. Nothing closed, not listed. The desktop still opened and burned it as its own. |
+| Below the tag (mvp-0.53 copy, switch on, branch code) | `followup_next` answered `continue` and wrote nothing (0 events). Every door refused `generated_probe_reserved`. A submit naming the presentation was refused `validation_error`. Nothing closed. The desktop still served it. |
+| Spend and processes | **0 receipts from a real model** (every new receipt is `fake` / `fake-frontier` / `fake_decider` / `fake_llm`). **No socket call. No Codex process.** The only processes were `git rev-parse HEAD` (data capture's stamp) and `powerprofilesctl get`. |
+
+**Rebuild and sync** (each copy, after the probe journey):
+- **`rebuild --shadow`, before the journey (a fresh mvp-0.54 copy):** mastery 21 / 18 / 34, facet 0, schedule 0. Every change is the `algorithm_version` stamp (mvp-0.46 to mvp-0.54): the known stamp-only rows.
+- **After the journey:** 20 / 17 / 33, every one the same stamp only. The journey's LO was restamped live. Facet 0, schedule 0, 0 unaccounted attempts, live database unchanged.
+- **Then `rebuild-derived-state` and a state sync (`sync_vault_state`):** the new rows are all identical before and after:
+  - the `phone` burn;
+  - the `phone_practice` `diagnostic_probe` attempt naming its presentation;
+  - the `help_assists` row on `phone_practice`;
+  - the settled workflow on `phone`;
+  - the probe observation.
+- **`rebuild --shadow` after that:** **0 / 0 / 0**.
+
+### What the owner does
+
+On carson, after the fast-forward. Vaults below mvp-0.53 climb the chain through `learnloop upgrade`.
+
+```bash
+cd ~/Documents/thinking/learnanything
+.venv/bin/learnloop upgrade --vault ~/learnloop-vaults/<vault>        # each vault; default target mvp-0.54
+# migration 250 (help_assists.surface gains phone_practice) applies when the vault opens
+(cd apps/learnloop-mobile && npm install && npm run build)            # rebuild the PWA
+systemctl --user restart learnloop-mobile                             # restart the phone host
+.venv/bin/learnloop-mobile doctor
+```
+
+Rebuild the desktop app as for every landing. On the iPhone, tap *LearnLoop was updated. Reload*, then run **P6** (§6 above). **To turn it off:** add `phone_probes = false` to `~/.config/learnloop/mobile.toml` and restart `learnloop-mobile`. The phone then leaves every probe for the desktop, as in V2.
+
+### Open items
+
+1. **A desktop request naming a phone-owned session can claim the phone's ready question.** The desktop's doors check no session ownership on a read, unchanged from main. So a stale desktop practice screen that opens the item with the phone's session id burns it as the desktop's. It then behaves as a desktop-served probe: held on the phone, never served twice. The real desktop app shows the session as the phone's and offers to take it, so it doesn't send this. Smallest finish, if wanted: an ownership check on the desktop's generated-probe claim. That changes the desktop at a None origin, so it is the owner's call.
+2. **A submit is not re-checked against the door.** The smoke's own harness sent a phone submit for a generated question whose door had refused it (no presentation; the PWA never sends this). It was accepted as a `diagnostic_probe` attempt and settled its workflow `probe_answered`. The submit path is unchanged by V3, but this was not reproduced on main's code. Smallest finish: refuse a submit on a generated probe served on another surface, or one with no open presentation.
+3. **The finished plan's receipt now draws its id after the plan's.** The decision sees the same receipt (§ Smoke), so nothing changes in meaning. A byte-identity comparison against main needs the receipt's id lined up, or a mask.
+4. **The routine probe's cap was not driven on the owner's copies,** which have no executable instrument. The shared gate and the in-suite G10 tests cover it.
+5. **Carried from the stage:** §2 items 1, 3 and 6 (lesson probes and *Teach me instead* go to V6, per R2), and V2's `test_every_reply_carries_what_the_phone_reads` dependence on the queue's first row.
+
+### Process notes
+
+- **Patches.** No source or test file was patched at the landing. The only tracked change is the regenerated references (`315f250c7d`) and this record.
+- **Copies.** The fixtures-local copies were made with `learnloop.db.copies` (backup API). The copies and the archived main code were deleted at the end.
+- **The scratch scripts** (the smoke harness, comparisons and outputs) are in `/tmp/claude-1000/-home-saturn-Documents-thinking-learnanything/a22010cc-5149-4947-a2b8-247f18b8f1a0/scratchpad/phone-v3-landing/`, outside the worktree.
