@@ -262,6 +262,50 @@ def test_f9_the_phone_answers_an_extra_question_through_the_desktops_question_ac
     assert (status, error["code"]) == (409, "held_out_material")
 
 
+# -- Codex re-review F13, F14: the question action is judged by its anchors and its source's Reader switch -------
+
+
+def test_f13_a_question_anchored_on_a_protected_passage_is_refused_even_when_it_cites_a_safe_one(world):
+    repository = world["repo"]
+    # Anchored on b6 (the held-out section's problem, quoted in the prompt), citing b4 (safe) as its answer.
+    question_id = repository.insert_reader_authored_question(fields={
+        "extraction_id": EXTRACTION, "section_id": "u2", "source_id": "src1",
+        "question_md": "Exam problem: prove that the zero vector is unique. What comes next?",
+        "expected_answer_md": "The span of a list.", "span_ids": ["b4"], "prompt_version": "qc-v1",
+        "scope_kind": "inquiry", "question_style": "next_step", "anchor_span_ids": ["b6"],
+        "inquiry_root_event_id": "root-13",
+    })
+    status, error = world["phone"].error("reader.authored_question_action",
+                                         {"questionId": question_id, "action": "answered", "response": "x"})
+    assert (status, error["code"]) == (409, "held_out_material")
+    assert "zero vector is unique" not in json.dumps(error)
+    row = repository.get_reader_authored_question(question_id)
+    assert row["status"] != "answered" and row.get("response_md") in (None, "")
+    # The desktop (a None origin) is unchanged: its own card answers it as before.
+    answered = call(desktop(world["root"]), "reader.authored_question_action",
+                    {"question_id": question_id, "action": "answered", "response": "desktop words"})
+    assert answered["question"]["status"] == "answered"
+
+
+def test_f14_a_question_of_a_source_opted_out_of_the_reader_is_refused_on_the_phone(world):
+    repository = world["repo"]
+    question_id = repository.insert_reader_authored_question(fields={
+        "extraction_id": EXTRACTION, "section_id": "u2", "source_id": "src1", "question_md": "What is a span?",
+        "expected_answer_md": "All linear combinations.", "span_ids": ["b4"], "prompt_version": "qc-v1",
+        "scope_kind": "inquiry", "question_style": "recall", "anchor_span_ids": ["b4"],
+        "inquiry_root_event_id": "root-14",
+    })
+    with repository.connection() as connection:
+        connection.execute("UPDATE source_artifacts SET reader_enabled = 0 WHERE id = 'src1'")
+        connection.commit()
+    status, error = world["phone"].error("reader.authored_question_action",
+                                         {"questionId": question_id, "action": "answered", "response": "x"})
+    assert error["code"] == "reader_disabled_for_source", (status, error)
+    assert "All linear combinations" not in json.dumps(error)
+    row = repository.get_reader_authored_question(question_id)
+    assert row["status"] != "answered" and row.get("response_md") in (None, "")
+
+
 # -- F10, F12: eligibility is the media endpoint's own predicate, and admits no new measurement -----------------
 
 

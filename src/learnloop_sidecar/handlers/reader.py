@@ -2248,11 +2248,21 @@ def reader_authored_question_action(
         from learnloop_sidecar.phone_reader import refuse_if_withheld
 
         asked = repository.get_reader_authored_question(params.question_id) or {}
-        try:
-            spans = [str(span) for span in _json.loads(asked.get("span_ids_json") or "[]")]
-        except (TypeError, ValueError):
-            spans = []
-        refuse_if_withheld(ctx, _vault, repository, asked.get("extraction_id"), spans)
+        # Codex re-review F14: the source's own Reader switch (an exam opted out at ingest) holds here too.
+        extraction = asked.get("extraction_id")
+        source_id = asked.get("source_id") or (_source_id_for_extraction(repository, str(extraction))
+                                               if extraction else None)
+        if source_id is not None:
+            _require_source_reader(repository, str(source_id))
+        # Codex re-review F13: the anchors as well as the cited spans, as the dose offer judges them (F23): a
+        # prompt quotes its anchor.
+        spans: list[str] = []
+        for column in ("anchor_span_ids_json", "span_ids_json"):
+            try:
+                spans += [str(span) for span in _json.loads(asked.get(column) or "[]")]
+            except (TypeError, ValueError):
+                continue
+        refuse_if_withheld(ctx, _vault, repository, extraction, spans)
     try:
         row = RQC.record_action(
             repository,
