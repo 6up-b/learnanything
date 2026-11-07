@@ -211,6 +211,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_j6_the_check_waits_for_the_desktop_is_recorded_once_and_never_redrawn`
   - `test_j6_the_engine_and_the_resolver_name_one_event`
   - `test_j6_the_learner_may_skip_it_from_the_phone_as_from_the_desktops_skip_link`
+- [tests/test_mobile_v2_rereview_fixes.py](../../../../../../tests/test_mobile_v2_rereview_fixes.py) — direct import
+  - `test_f5_a_check_restored_from_its_checkpoint_the_next_day_stays_cold`
 - [tests/test_mobile_v2_review_fixes.py](../../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import

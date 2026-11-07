@@ -96,8 +96,11 @@ export function PlanToday({
     }
   }
 
-  if (plan.status !== "open") {
+  const held = step?.kind === "held_for_desktop" ? step : null;
+  if (plan.status !== "open" || held?.stopOffer) {
     // J5: the stop offer, in both directions. "Keep going" is the primary action; the stop is the engine's.
+    // A stop drawn while work waits for the desktop is offered the same way: the plan stays open for
+    // that work, and Keep going overrides the stop in place (Codex re-review of V2, F7).
     return (
       <div className="screen">
         <h1>Today</h1>
@@ -115,7 +118,6 @@ export function PlanToday({
   }
 
   const why = currentWhy(plan);
-  const held = step?.kind === "held_for_desktop" ? step : null;
   const sentence = planSentence(plan);
   return (
     <div className="screen">

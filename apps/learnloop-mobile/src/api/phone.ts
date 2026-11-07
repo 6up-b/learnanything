@@ -29,6 +29,8 @@ export interface HeldStepDto {
   readonly heldCount: number;
   readonly heldReadings: number;
   readonly firstHeldItemId: string | null;
+  /** J5: a stop drawn past this held work, offered as a done step's (the plan stays open for that work). */
+  readonly stopOffer?: { readonly stopReason: string | null } | null;
 }
 
 export type PhoneStepDto = PlanStepDto | HeldStepDto;

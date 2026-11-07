@@ -157,6 +157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
 - [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import
   - `test_j6_a_check_the_phone_can_show_is_served_on_the_phone_as_an_ordinary_item`
+- [tests/test_mobile_v2_rereview_fixes.py](../../../../../../tests/test_mobile_v2_rereview_fixes.py) — direct import
+  - `test_f5_a_check_restored_from_its_checkpoint_the_next_day_stays_cold`
 - [tests/test_mobile_v2_review_fixes.py](../../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered`
 

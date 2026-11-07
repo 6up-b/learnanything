@@ -336,6 +336,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_jobs.py](../../../../../tests/test_mobile_jobs.py) — direct import
   - `test_a_job_of_this_run_is_never_recovered_by_itself`
 - [tests/test_mobile_phone_contract.py](../../../../../tests/test_mobile_phone_contract.py) — direct import
+- [tests/test_mobile_v2_rereview_fixes.py](../../../../../tests/test_mobile_v2_rereview_fixes.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_r6_review_f2_a_clock_correction_and_restart_never_blocks_later_refreshes`

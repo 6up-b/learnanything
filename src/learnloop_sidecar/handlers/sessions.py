@@ -495,12 +495,20 @@ def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None
         if origin is None:
             return None
         device_id = ctx.origin_device_id
+        # Codex re-review of V2, F6: the open session this write was accepted against is pinned with
+        # its generation, so a handoff during the step's slow work (even one adopted back) refuses
+        # the commit, as a named session's does. A session opened since is checked for its owner.
+        accepted = repository.most_recent_open_session()
+        pinned = (str(accepted["id"]), int(accepted.get("owner_generation") or 0)) if accepted is not None else None
 
         def no_session_elsewhere() -> None:
             current = repository.most_recent_open_session()
-            if current is not None:
-                with owned_session_errors():
-                    repository.require_session_owner(str(current["id"]), device_id, require_open=False)
+            if current is None:
+                return
+            expected = pinned[1] if pinned is not None and str(current["id"]) == pinned[0] else None
+            with owned_session_errors():
+                repository.require_session_owner(str(current["id"]), device_id, require_open=False,
+                                                 expected_generation=expected)
 
         no_session_elsewhere()
         return no_session_elsewhere
@@ -760,6 +768,18 @@ def draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_
         return None
     value = practice.get("planPresentationId")
     return value if isinstance(value, str) and value.strip() else None
+
+
+def checkpoint_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> str | None:
+    """The presentation the checkpoint's saved draft of ``practice_item_id`` answers, under the
+    draft's own retry key, or None (mobile v2 J6; Codex re-review of V2, F5)."""
+
+    focus = (checkpoint or {}).get("focus_block_state")
+    practice = focus.get("practice") if isinstance(focus, dict) else None
+    key = (practice.get("submissionId") or practice.get("submission_id")) if isinstance(practice, dict) else None
+    if not isinstance(key, str):
+        return None
+    return draft_plan_presentation(checkpoint, practice_item_id=practice_item_id, submission_id=key)
 
 
 def _with_submission_id(focus: dict[str, Any] | None, submission_id: str | None) -> dict[str, Any]:

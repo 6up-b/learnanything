@@ -228,7 +228,8 @@ def test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered(tmp_pat
 def test_f5_the_phones_serve_of_the_check_says_no_help_and_the_desktops_is_unchanged(plan_world, monkeypatch):
     phone, _host, _repository, paths = plan_world
     session_id = phone.start()["sessionId"]
-    monkeypatch.setattr(engine, "open_randomized_check", lambda env, practice_item_id: practice_item_id == "pi_b1")
+    monkeypatch.setattr(engine, "open_randomized_check",
+                        lambda env, practice_item_id, **_kwargs: practice_item_id == "pi_b1")
     served = phone.rpc("get_practice_item", {"practiceItemId": "pi_b1", "sessionId": session_id})
     assert served["noHelp"] is True
     assert "noHelp" not in phone.rpc("get_practice_item", {"practiceItemId": "pi_b2", "sessionId": session_id})

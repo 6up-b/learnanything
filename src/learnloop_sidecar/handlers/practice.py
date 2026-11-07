@@ -404,9 +404,14 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         # Mobile v2 J6 (Codex review of V2, F5): the day's randomized check is answered cold. The
         # server says so on the serve itself, so a question restored from a checkpoint (a reload,
         # another device) offers no help either, as the step that opened it didn't. Never a label.
+        # The checkpoint's draft names the presentation it answers, so a check restored on a later
+        # day (no longer in today's plan) is still cold (Codex re-review of V2, F5).
         from learnloop.daily_plan.engine import PlanEnv, open_randomized_check
+        from learnloop_sidecar.handlers.sessions import checkpoint_plan_presentation
 
-        if open_randomized_check(PlanEnv(vault=vault, repository=repository), item.id):
+        restored = checkpoint_plan_presentation(repository.fetch_session_checkpoint(params.session_id),
+                                                practice_item_id=item.id)
+        if open_randomized_check(PlanEnv(vault=vault, repository=repository), item.id, presentation_id=restored):
             detail["noHelp"] = True
     detail["elicitation"] = (
         None

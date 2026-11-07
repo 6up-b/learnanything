@@ -89,3 +89,48 @@ Every pytest, vitest and npm command ran inside `systemd-run --user --scope --qu
 
 1. **Phone misses hold feedback before V3.** FG1 §10 said "the phone's feedback doesn't hold what it can't follow with a probe"; spec_mobile_frontend_v2's V2 row (accepted Nov 6) lists the held feedback, *Continue without it* and *Show anyway* for V2, and this fix follows the newer spec. Until V3, a phone miss's question is answered on the desktop (or the learner taps *Show anyway* / *Continue without it*). If the owner prefers FG1 §10's line until V3, the smallest change is `followup_surface` answering None for a phone origin again; the hold on desktop misses read from the phone (the leak) stays fixed either way.
 2. **A sessionless phone write while the desktop holds a stale open session** is now `session_moved` (the phone offers the handoff). That includes the pre-session minutes chip while the desktop app has a session open.
+
+## Re-review
+
+**Reviewed range:** `373bcd0202..60f64272f9` (gpt-6.1-sol; job `20261106-195557-AuEuMp`). F1-F4 were confirmed fixed; F5 and F6 were reopened, and F7 is new (introduced by F4's fix). Each was reproduced first: `tests/test_mobile_v2_rereview_fixes.py` run on `60f64272f9`'s `src` and `migrations` (from `git archive`, `-o pythonpath=` to them) failed **6 of 7** (the seventh is the "nothing changes" control), each for the finding's reason (F5: `KeyError: 'noHelp'` on the next day's serve, and the engine had no way to name the checkpoint's presentation; F6: the phone's write answered 200 after the session went to the desktop and back; F7: `KeyError: 'stopOffer'`, `plan_keep_going` returned the unchanged plan with the stop still pending, and *Done for today* closed the plan with the held item unresolved). All 7 pass on the fix.
+
+### Findings
+
+| Id | Severity | Title | Verdict | Commit | Test (fails on `60f64272f9`, passes on the fix) |
+|---|---|---|---|---|---|
+| F5 | Medium | A randomized check restored on a later day offers hints (coldness read from today's plan only) | **Fixed** | this commit | `test_f5_a_check_restored_from_its_checkpoint_the_next_day_stays_cold` (engine, a real RO5 check, the clock a day on), `test_f5_the_phones_serve_of_a_check_restored_the_next_day_says_no_help` (host) |
+| F6 | Medium | A phone's sessionless plan write does not pin the open session's generation | **Fixed** | this commit | `test_f6_a_phones_sessionless_write_whose_session_moved_and_came_back_commits_nothing`; control `test_f6_a_phones_sessionless_write_with_its_session_where_it_was_goes_through` |
+| F7 | Medium | A stop drawn past held work removes the phone's stop offer and *Keep going* | **Fixed** | this commit | `test_f7_the_stop_drawn_past_held_work_is_offered_on_the_phone`, `test_f7_keep_going_overrides_the_pending_stop_in_place_and_keeps_the_held_work`, `test_f7_done_for_today_on_the_pending_stop_leaves_the_held_work_for_the_desktop`; vitest `src/today/Today.plan.test.tsx` "a stop drawn while work waits for the desktop is offered too, and Keep going overrides it" (fails with the `PlanToday` condition reverted: 1 failed, 13 passed) |
+
+No finding was rejected.
+
+### What changed
+
+- **F5** (`daily_plan/engine.py::open_randomized_check`, `handlers/sessions.py::checkpoint_plan_presentation`, `handlers/practice.py`). A phone's session serve reads the presentation the checkpoint's draft answers (the draft's own retry key, its item) and asks `open_randomized_check(..., presentation_id=)`: a presentation of this item whose origin is RO5's check and that no attempt has answered (`bindable_presentation`) is cold whatever its day or plan. Today's lookup stays for a question opened without a draft. The desktop's serve is unchanged (the branch is a phone origin's).
+- **F6** (`handlers/sessions.py::refuse_moved_session`). The sessionless phone branch pins the open session it was accepted against and its generation; the check at each transaction requires that generation while that session is still the open one (a session opened since is checked for its owner, as before). A None origin never enters the branch.
+- **F7** (`daily_plan/engine.py`; PWA `today/PlanToday.tsx`, `api/phone.ts`).
+  - The held step carries `stop_offer: {stop_reason}` while a stop drawn past held work is pending (only then; the boundary that draws it answers with the reloaded record, so the offer comes with the draw). The phone shows it as the done step's stop offer: the done line, the count of what waits for the desktop, *Keep going* and *Done for today*.
+  - *Keep going* (`keep_going` on an open plan with a pending stop) overrides it **in place**: the override is recorded as the desktop's (RO0 row 7, `via: keep_going`), and the plan gains the desktop's *Keep going* minutes (`plan.keep_going_minutes`, the existing setting) past what it holds, through the same re-split a minutes tap makes (`_resplit`, extracted from `set_minutes` unchanged; its re-plan entry says `via: keep_going`). The re-plan lets the pending stop lapse, so the next boundary decides afresh; the stop's receipt, its probability and the held blocks stay as they were.
+  - *Done for today* from a device on a pending stop takes that stop: the plan stays open for the held work and closes on the stop after it (F4), instead of closing as `learner_stopped` with the held work stranded. The desktop's *Done* is unchanged.
+
+**Persisted meaning.** No table, column or migration. New values only on a phone's records: `split_json.replans[].via = "keep_going"` (an override in place) and a `session_receipts` stop override for an open plan; `daily_plans` is a workflow table replay never reads. The ruling stays **no successor**: nothing the desktop serves, primes or records at a None origin changed (`set_minutes`' re-split is the same code, moved).
+
+### Gate (this step; the full suite runs once in the landing gate)
+
+Every pytest, vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, pytest at `-n 6`, vitest at `--maxWorkers=4`, one test run at a time. The targeted run did not take `flock /tmp/learnloop-fullsuite.lock`: another stage's landing held it for the full suite, and this step's gate names targeted runs as needing no lock (the 5G cap holds). Every Python CLI ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+- **Setup:** `uv sync --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0`; `npm install --prefer-offline` in `apps/learnloop-mobile`.
+- **`lint-imports --no-cache`:** **43 kept, 0 broken**.
+- **Reproduction on the base:** above (6 of 7 failed; the vitest fails with the fix's condition reverted).
+- **Targeted pytest:** the 192 files below (`-n 6`): **4807 passed, 23 skipped, 0 failed** in 43 min 46 s. Then, after the module reference was regenerated, the new file, the four RO5 files the first list missed (`test_ro5_calibration.py`, `test_ro5_codex_review.py`, `test_ro5_picks.py`, `test_ro5_successor.py`) and the contract tests that read the references or the CLI (`test_module_catalog_inventory.py`, `test_public_tip_guards.py`, `test_sidecar_measurement.py`, `test_cli_help_snapshot.py`, `test_codex_lockdown_frozen.py`, `test_codex_lockdown_round3.py`): **101 passed**.
+- **`apps/learnloop-mobile`:** `npm run typecheck` clean; `npx vitest run --maxWorkers=4 src/practice src/today`: **6 files, 110 passed**; `npm run build`: built. Nothing under `apps/learnloop-tauri` changed (no desktop vitest, build or `cargo check`).
+- **References:** `module_generate.py` then `module_validate.py`: **PASS** (41463/41463 links); `desktop_validate.py`: **passed** (322/322, reproducible byte-for-byte). No schema change, so no DB reference run.
+- **No paid or live call.**
+
+**Test files run:** the 192 files of the targeted run (every test file naming `set_minutes`, `set_plan_minutes`, `keep_going`, `plan_keep_going`, `stop_today`, `open_randomized_check`, `refuse_moved_session`, `draft_plan_presentation`, `DEVICE_HELD_STEP`, `_stop_pending`, `most_recent_open_session`, `get_practice_item` or `session_moved`, every file importing `daily_plan.engine` or naming `next_plan_item` / `get_daily_plan`, and the contract set: `test_mobile_allowlist.py`, `test_desktop_rpc_contract.py`, `test_sidecar_serializer_snapshot.py`, `test_cli_help_snapshot.py`, `test_sidecar_measurement.py` (display-label audit), `test_codex_lockdown_round3.py` (process-launch allowlist), `test_codex_lockdown_frozen.py` (frozen cycles), `test_architecture.py`, `test_table_roles.py`, `test_coordinated_migrations.py`, `test_tracked_fixture_databases.py`, `test_config_refactor.py`, `test_public_tip_guards.py`, `test_sqlite_file_copies.py`, `test_module_catalog_inventory.py`, `test_session_ownership.py`, `test_mobile_handoff.py`, `test_mobile_two_process.py`, every tracked `test_mobile_v2_*.py`, `test_ro5_checks.py`, `test_ro5_stop_coin.py`), the second batch above, and the vitest files in `apps/learnloop-mobile/src/today` and `src/practice`. New: `tests/test_mobile_v2_rereview_fixes.py` (7). Changed: `tests/test_mobile_v2_review_fixes.py` (F5's fake takes the new keyword), `src/today/Today.plan.test.tsx` (one test).
+
+**Process note.** One `python3 -c "print(1)"` ran outside `env -i` (no import, no file read); every other Python and CLI call ran isolated.
+
+### Left for the stage
+
+- **Merging main.** V1 has landed on main (`23ce859c16`); this fix step's rules forbid merging, so the merge of main into `phone/v2-today-plan` (with the expected `daily_plan` merge work against TE3b and the router speed stage) is the next step's, before the landing gate.

@@ -2950,6 +2950,8 @@ def _boundary(
                     prefilter=context.prefilter, frozen=frozen, decision_state=state_receipt,
                     after_held=True,
                 )
+                # Its offer rides on the held step (Codex re-review of V2, F7).
+                raise PlanWaiting(_held_step(env, _reload(env, record.id)))
             # Nothing more is feasible: no draw was made, and nothing is decided.
             raise PlanWaiting(_held_step(env, record))
         _close(
@@ -4582,19 +4584,34 @@ def _close_on_pending_stop(env: PlanEnv, record: PlanRecord, stop: Mapping[str, 
     return _reload(env, record.id)
 
 
-def open_randomized_check(env: PlanEnv, practice_item_id: str) -> bool:
-    """Today's plan holds ``practice_item_id`` as its open randomized check (RO5): answered cold, so
-    a device offers no help on it, whichever step or restored checkpoint opened it (mobile v2 J6;
-    Codex review of V2, F5). Read only; False with the plan off or no plan today."""
+def open_randomized_check(env: PlanEnv, practice_item_id: str, *, presentation_id: str | None = None) -> bool:
+    """``practice_item_id`` is an open randomized check (RO5): answered cold, so a device offers no
+    help on it, whichever step or restored checkpoint opened it (mobile v2 J6; Codex review of V2, F5).
+
+    Either today's plan holds it open, or ``presentation_id`` (the presentation a restored
+    checkpoint's draft answers) is a check's presentation of this item that no attempt has answered
+    yet, whatever its day or plan (Codex re-review of V2, F5: a check left half answered overnight
+    is still that check). Read only; False with the plan off."""
 
     if not plan_active(env.vault):
         return False
+    origin = ro5_check_origin()
+    if presentation_id and _check_presentation_open(env, presentation_id, practice_item_id, origin):
+        return True
     record = latest_today(env)
     if record is None:
         return False
-    origin = ro5_check_origin()
     return any(item.practice_item_id == practice_item_id and item.origin == origin and not item.resolved
                for item in record.items())
+
+
+def _check_presentation_open(env: PlanEnv, presentation_id: str, practice_item_id: str, origin: str) -> bool:
+    from learnloop.db.stores import plan_presentations as presentations
+
+    with env.repository.connection() as connection:
+        bound, _why = presentations.bindable_presentation(connection, presentation_id, practice_item_id=practice_item_id)
+        row = presentations.presentation_by_id(connection, bound) if bound is not None else None
+    return row is not None and row.get("origin") == origin
 
 
 def _check_held(env: PlanEnv, record: PlanRecord) -> bool:
@@ -4611,8 +4628,14 @@ def _held_step(env: PlanEnv, record: PlanRecord) -> dict[str, Any]:
 
     first = next((item.practice_item_id for item in record.items()
                   if not item.resolved and item.practice_item_id in env.device.held), None)
-    return {"kind": DEVICE_HELD_STEP, "plan_id": record.id, "held_count": env.device.held_count,
+    step = {"kind": DEVICE_HELD_STEP, "plan_id": record.id, "held_count": env.device.held_count,
             "held_readings": len(env.device.held_readings), "first_held_item_id": first}
+    pending = _stop_pending(record)
+    if pending is not None:
+        # Mobile v2 J5 (Codex re-review of V2, F7): the stop drawn past this held work is offered as
+        # the desktop's done step offers its stop: *Keep going* overrides it, *Done* takes it.
+        step["stop_offer"] = {"stop_reason": pending.get("stop_reason")}
+    return step
 
 
 def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None) -> tuple[PlanRecord, dict[str, Any]]:
@@ -5501,6 +5524,47 @@ def picked_under(env: PlanEnv, idempotency_key: str,
 # -- minutes, keep going, more new, reading ----------------------------------------
 
 
+def _resplit(env: PlanEnv, record: PlanRecord, budget: float, now: str, *, via: str | None = None) -> dict[str, Any]:
+    """The plan's split re-sized to ``budget`` from now on, with the re-plan recorded (``via``: what
+    re-planned it, when not a minutes tap)."""
+
+    split = record.split
+    # The pool the new split is sized from; due project probes are valued
+    # against the minutes the NEW budget leaves (final verify F10).
+    context, built = _live_context(env, record, minutes_left=max(budget - record.minutes_planned(), 0.0))
+    allotment, spent = record.ledger()
+    pool_loads = {lane: 0.0 for lane in LANES}
+    for item in context.pool:
+        if item.lane in pool_loads and item.lane != "new":
+            pool_loads[item.lane] += item.est_minutes
+    loads = {lane: spent[lane] + pool_loads[lane] for lane in LANES}
+    admitted_new = float(split.get("admitted_new_minutes") or 0.0)
+    loads["new"] = admitted_new
+    requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in _forced_rows(split))
+    new_split = split_v1(
+        budget=budget,
+        requested_minutes=requested_minutes,
+        loads=loads,
+        admitted_new_minutes=admitted_new,
+        push_candidates=any(item.lane == "push" for item in context.pool),
+        repair_max_share=float(env.plan_config.repair_max_share),
+        maintain_max_share=float(env.plan_config.maintain_max_share),
+        lanes_allowed=record.lanes_allowed,
+    )
+    replans = list(split.get("replans") or [])
+    replan = {"at": now, "from_budget": record.budget, "to_budget": budget, "previous_lanes": split.get("lanes"), "epoch_ordinal": record.next_ordinal()}
+    if via is not None:
+        replan["via"] = via
+    replans.append(replan)
+    return {
+        **split,
+        **new_split.as_dict(),
+        "epoch_ordinal": record.next_ordinal(),
+        "epoch_at": now,
+        "replans": replans,
+    }
+
+
 def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
     """A chip tap (§6.6): sets the remembered budget and re-plans the rest.
 
@@ -5524,39 +5588,8 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
     else:
         budget = float(minutes)
     now = env.now_iso()
-    split = record.split
     if abs(budget - record.budget) > _EPS and record.status in ("open", "complete"):
-        # The pool the new split is sized from; due project probes are valued
-        # against the minutes the NEW budget leaves (final verify F10).
-        context, built = _live_context(env, record, minutes_left=max(budget - record.minutes_planned(), 0.0))
-        allotment, spent = record.ledger()
-        pool_loads = {lane: 0.0 for lane in LANES}
-        for item in context.pool:
-            if item.lane in pool_loads and item.lane != "new":
-                pool_loads[item.lane] += item.est_minutes
-        loads = {lane: spent[lane] + pool_loads[lane] for lane in LANES}
-        admitted_new = float(split.get("admitted_new_minutes") or 0.0)
-        loads["new"] = admitted_new
-        requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in _forced_rows(split))
-        new_split = split_v1(
-            budget=budget,
-            requested_minutes=requested_minutes,
-            loads=loads,
-            admitted_new_minutes=admitted_new,
-            push_candidates=any(item.lane == "push" for item in context.pool),
-            repair_max_share=float(env.plan_config.repair_max_share),
-            maintain_max_share=float(env.plan_config.maintain_max_share),
-            lanes_allowed=record.lanes_allowed,
-        )
-        replans = list(split.get("replans") or [])
-        replans.append({"at": now, "from_budget": record.budget, "to_budget": budget, "previous_lanes": split.get("lanes"), "epoch_ordinal": record.next_ordinal()})
-        updated = {
-            **split,
-            **new_split.as_dict(),
-            "epoch_ordinal": record.next_ordinal(),
-            "epoch_at": now,
-            "replans": replans,
-        }
+        updated = _resplit(env, record, budget, now)
         with env.repository.atomic(), env.repository.connection() as connection:
             status = record.status
             if budget < record.minutes_planned() - _EPS:
@@ -5589,7 +5622,8 @@ def keep_going(env: PlanEnv) -> PlanRecord:
     assert record is not None
     record = reconcile(env, record)
     if record.is_open:
-        return record
+        pending = _stop_pending(record)
+        return record if pending is None else _keep_going_past_pending_stop(env, record)
     if record.status == "complete":
         # RO0 row 7: the finished plan had offered the stop; the learner went on.
         session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
@@ -5600,6 +5634,24 @@ def keep_going(env: PlanEnv) -> PlanRecord:
         if remaining >= 1.0:
             return build_plan(env, kind="normal", budget=float(round(remaining, 2)), remembered=remembered, minutes_source="generated", parent_plan_id=record.id)
     return build_plan(env, kind="keep_going", budget=float(env.plan_config.keep_going_minutes), remembered=remembered, minutes_source="generated", parent_plan_id=record.id)
+
+
+def _keep_going_past_pending_stop(env: PlanEnv, record: PlanRecord) -> PlanRecord:
+    """*Keep going* on a stop a device drew past work held for the desktop (mobile v2 J5; Codex
+    re-review of V2, F7). The plan is still open, so the override is made in place rather than as a
+    new plan, which would leave the held blocks behind: the stop's receipt stays as it was logged,
+    the override is recorded as the desktop's (RO0 row 7), and the plan gains the desktop's *Keep
+    going* minutes past what it holds. The re-plan lets the pending stop lapse, so the next boundary
+    decides afresh, and the held work stays the desktop's next Next."""
+
+    session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
+                                          via="keep_going", clock=env.clock)
+    now = env.now_iso()
+    budget = max(record.budget, record.minutes_planned()) + float(env.plan_config.keep_going_minutes)
+    updated = _resplit(env, record, budget, now, via="keep_going")
+    with env.repository.atomic(), env.repository.connection() as connection:
+        store.update_plan(connection, record.id, minutes_budget=budget, split_json=updated, updated_at=now)
+    return _reload(env, record.id)
 
 
 class PlanStillOpenError(RuntimeError):
@@ -5732,6 +5784,11 @@ def stop_today(env: PlanEnv) -> PlanRecord | None:
     record = latest_today(env)
     if record is None:
         return None
+    if env.device is not None and _stop_pending(record) is not None:
+        # Mobile v2 J5 (Codex re-review of V2, F7): *Done for today* on a stop a device was offered
+        # past work held for the desktop takes that stop. It stands as drawn: the plan closes on it
+        # once the held work is done on the desktop, which is never left stranded.
+        return record
     if record.is_open:
         _close(env, record, status="stopped", reason="learner_stopped")
     return _reload(env, record.id)

@@ -138,6 +138,25 @@ describe("the stop offer (J5)", () => {
     await waitFor(() => expect(called("end_session").length).toBe(1));
     expect(called("plan_keep_going")[0].params).toEqual({ sessionId: "s1", stop: true });
   });
+
+  it("a stop drawn while work waits for the desktop is offered too, and Keep going overrides it", async () => {
+    // Codex re-review of V2, F7: the plan stays open for the held work; its held step carries the stop.
+    const waitingDevice = { device: { surface: "phone_plan", deferredCount: 1, readingsWaiting: 0 } };
+    answers.get_daily_plan = reply();
+    answers.next_plan_item = reply({}, { step: { ...held(1), stopOffer: { stopReason: "A good place to stop." } }, ...waitingDevice });
+    answers.plan_keep_going = reply({ minutesBudget: 35 }, { step: held(1), ...waitingDevice });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Begin" }));
+    expect(await screen.findByText("Done for today.")).toBeTruthy();
+    expect(screen.getByText("1 question is waiting for the desktop.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Done for today" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Keep going" }));
+    await waitFor(() => expect(called("plan_keep_going").length).toBe(1));
+    expect(called("plan_keep_going")[0].params).toEqual({ sessionId: "s1" });
+    // Overridden: the plan's Next is the primary action again, and nothing ended the session.
+    expect(await screen.findByRole("button", { name: "Next" })).toBeTruthy();
+    expect(called("end_session")).toEqual([]);
+  });
 });
 
 describe("the router's visible decisions (J4)", () => {
