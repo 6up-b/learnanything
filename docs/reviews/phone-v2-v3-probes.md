@@ -10,7 +10,9 @@
 | `3e98c165d5` | (2) Migration 250: `help_assists.surface` gains `phone_practice`; head fixture rebuilt and renamed `migration_head_250`; every head path and version pin |
 | `d7ea71a54a` | (3) The successor (built as mvp-0.53) and its upgrade; the host's `phone_probes` switch on the request origin; the sidecar's V3 serving (doors, filter, Next, the contract, G10's admission transaction); the phone's hint reveal records `phone_practice`; tests |
 | `0cc1e5ab54` | (4) The PWA: the probe rendered cold and answered with its presentation; Next on a miss asks its workflow; the generated contract files |
-| (5) | This review, the spec's "As built" note, FG1 §4.2's Phone row and §10 amended, regenerated references |
+| `bc9eadcc88` | (5) This review, the spec's "As built" note, FG1 §4.2's Phone row and §10 amended, regenerated references |
+| `00d25c2f8d` | Merge main (`e9ceaf8d44`, TE3b landed as mvp-0.53): the successor renumbered **mvp-0.54**; references regenerated on the merged tree |
+| (this commit) | The review's gate and the landing notes |
 
 ## 1. What was built
 
@@ -73,7 +75,25 @@
 
 ## 5. Gate (this step; the full suite runs once in the landing gate)
 
-GATE_PLACEHOLDER
+Run in the worktree. Every pytest, vitest and npm run went through `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`; pytest at `-n 6` at most, vitest at `--maxWorkers=4`; every Python or CLI call under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `TMPDIR` outside the worktree. No paid or live call: every model is a fake.
+
+| Lane | On | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0`; `npm install --prefer-offline` in both apps | ok |
+| Import contracts | `lint-imports --no-cache` (before the first commit, after commit 3, after the merge) | **43 kept, 0 broken** |
+| F9 class (commit 1) | `test_mobile_v3_carried.py` (both reproductions failed before the fix), then `test_mobile_v2_landing_fixes.py`, `test_mobile_v2_plan.py`, and every test file naming `keep_going`/`more_new` (16 files) | 25 passed; 291 passed, 3 skipped |
+| Migration (commit 2) | every test file naming the head fixture or `discover_migrations`, plus table roles, coordinated migrations, tracked fixture databases, public-tip guards, SQLite copies, hint telemetry, CLI snapshot (89 files) | 1090 passed, 4 skipped, 2 failed (test_ad23's 218-without-214 path, which sees 250's table change, and the CLI snapshot: both fixed, and both in every later run) |
+| Successor pins (commit 3) | the 50 files whose version pins moved, plus the successor tests | 919 passed, 12 skipped, 3 xfailed, 6 failed (sets built with `LATEST_ALGORITHM_VERSION` at their end, and TE3a's CLI default target: fixed; the six files then 98 passed, 6 skipped, 1 xfailed) |
+| Targeted set (commit 3) | 193 files: every `test_mobile_*`, every `test_followup*`, every test file naming the changed doors, the queue, the probe contract, Next, the claim, the plan's Keep going and More new, `RequestOrigin`, the hint reveal; the successor-pin files; the contract set (`test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_architecture`, `test_table_roles`, `test_config_refactor` (defaults snapshot), `test_cli_help_snapshot`, the display-label audit (`test_sidecar_measurement`, `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), the process-launch allowlist (`test_codex_lockdown_round3`), the frozen cycles (`test_codex_lockdown_frozen`), `test_registry_audit`, `test_module_catalog_inventory`, `test_public_tip_guards`, `test_sqlite_file_copies`, `test_tracked_fixture_databases`, `test_coordinated_migrations`, `test_session_ownership`, `test_probe_orchestration_remainder`, `test_hypothesis_marks`) | **4032 passed, 27 skipped, 3 xfailed, 2 failed** (the allowlist's milestone set and the phone contract's reply journey, which now reach V3's row: fixed; the two files then 82 passed) |
+| **After the merge of main** | 260 files: the targeted set above, the version-pin files, every `test_te3b_*`, every V3 file, every head-pinning file (behind `flock /tmp/learnloop-fullsuite.lock`) | **4767 passed, 28 skipped, 3 xfailed, 0 failed** (47 min) |
+| Durability (after the merge) | `-m durability` on `test_mobile_v3_migration`, `test_mobile_two_process`, `test_help_assist_figures_migration`, `test_help_assist_work_md_migration`, `test_migrations`, `test_tracked_fixture_databases`; and `--durable-sqlite` on the four V3 files (WAL, FULL: G10's lock test included) | 4 passed; 28 passed |
+| Phone app (`apps/learnloop-mobile`), after the merge | `npm run typecheck`; every vitest file (`npx vitest run --maxWorkers=4 src public`); `npm run build` | clean; **24 files, 288 passed**; built |
+| Desktop app | no file under `apps/learnloop-tauri` changed (main's `dto.ts` came with the merge; the phone's typecheck reads it) | no desktop vitest, build or `cargo check` needed |
+| Phone contract files | `LEARNLOOP_UPDATE_PHONE_CONTRACT=1` (pytest for `phoneMethods.ts`, vitest for `contract/*.json`) | regenerated: `followup_next` added, the digest moved; `contract/followup_next.json`, a probe submit in `contract/submit_attempt.json` |
+| References (after the merge) | `db_generate_reference.py` then `db_validate_reference.py` (schema changed: `SCHEMA_HEAD` 250); `module_generate.py` then `module_validate.py`; `desktop_validate.py`; `validate_vault.py` | `errors: []`; PASS (1:1 coverage); passed, 323/323, reproducible; passed (2244 notes). Provenance-only churn left out (81 notes) |
+| Desktop byte-identity (§4) | scratch scripts, base `14b2ed09ab` against the branch, twice each | identical up to the fields two runs of one tree differ in |
+
+**Test files run, for reading the landing gate against:** `merged.txt` in the stage's scratch directory (`/tmp/claude-1000/-home-saturn-Documents-thinking-learnanything/a22010cc-5149-4947-a2b8-247f18b8f1a0/scratchpad/phone-v3/`) (260 files; reproducible as: every `tests/test_mobile_*.py`, `tests/test_followup*.py`, `tests/test_te3b_*.py`, the files named in the targeted-set row, every test file this stage changed, and every file naming `migration_head_250` or `discover_migrations`); the durability files above; every vitest file in `apps/learnloop-mobile/src` and `public`.
 
 ## 6. What the owner runs on the iPhone (P6)
 
