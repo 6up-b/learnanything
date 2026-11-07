@@ -186,18 +186,39 @@ def test_a_phones_change_reaches_the_token_without_the_desktop_rebuilding(world)
     assert rows(repository, "SELECT COUNT(*) AS n FROM scheduler_offer_receipts")[0]["n"] == offers
 
 
-def test_no_phone_answer_can_name_a_probe_presentation_so_neither_worker_can_pass_the_cap(world):
-    """G10's cap boundary: the cap counts qualifying observations, and a qualifying observation is
-    an answer naming a presentation. The phone never answers one in M2 (§1, §6.4), so the host's
-    two workers add none, however they interleave; the desktop's are serial."""
+def test_with_phone_probes_off_no_phone_answer_can_name_a_probe_presentation(tmp_path, monkeypatch):
+    """G10's cap boundary as M2 and V2 had it: the cap counts qualifying observations, and a qualifying
+    observation is an answer naming a presentation. With the host's ``phone_probes`` off (mobile v2 V3's
+    kill switch) the phone never answers one, so the host's two workers add none, however they interleave.
+    With it on, the admission's transaction holds the boundary (``tests/test_mobile_v3_probes.py``)."""
+
+    paths, repository = seeded_vault(tmp_path / "vault")
+    install_grader(monkeypatch, CountingGrader())
+    config = config_for(paths.root).model_copy(update={"phone_probes": False})
+    with TestClient(create_app(config), base_url=f"https://{HOSTNAME}") as client:
+        phone = Phone(client, pair(repository))
+        session = phone.start()
+        status, error = phone.error("submit_attempt", {
+            "sessionId": session["sessionId"], "practiceItemId": ITEM, "answerMd": "x",
+            "attemptType": "diagnostic_probe", "submissionId": "s", "probePresentationId": "p",
+        }, request_id="s")
+        assert (status, error["code"], error["details"]) == (422, "validation_error", {"field": "probe_presentation_id"})
+        status, error = phone.error("followup_next", {"attemptId": "a"})
+        assert (status, error["code"]) == (409, "phone_probes_off")
+        assert phone.get("/api/v1/meta").json()["phone_probes"] is False
+    assert repository.qualifying_probe_observation_count_for_session(session["sessionId"]) == 0
+
+
+def test_a_phone_answer_naming_no_valid_presentation_qualifies_nothing(world):
+    """V3, the switch on: a submit may name a presentation, and one that is not this item's committed presentation
+    is no qualifying observation (the shared submit path's own validation)."""
 
     phone, _desktop_ctx, repository, *_ = world
     session = phone.start()
-    status, error = phone.error("submit_attempt", {
+    phone.post("submit_attempt", {
         "sessionId": session["sessionId"], "practiceItemId": ITEM, "answerMd": "x",
         "attemptType": "diagnostic_probe", "submissionId": "s", "probePresentationId": "p",
     }, request_id="s")
-    assert (status, error["code"]) == (422, "validation_error")
     assert repository.qualifying_probe_observation_count_for_session(session["sessionId"]) == 0
 
 

@@ -501,11 +501,11 @@ def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
 
     # Reader workbench RW7b's mvp-0.32, LP-min (a)'s mvp-0.33, rebuild equivalence's mvp-0.34 and Reader
     # CA2's mvp-0.35, the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) follow it and keep it.
-    assert TAG == SUCCESSOR_CHAIN[21] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.53"
+    assert TAG == SUCCESSOR_CHAIN[21] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.54"
     # Landed after adaptive difficulty AD2+AD3: its mvp-0.30 is the predecessor (the landing renumber).
     assert UPGRADE_PREDECESSOR == PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert TAG == "mvp-0.31"
-    assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG, "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53"})
+    assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG, "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 

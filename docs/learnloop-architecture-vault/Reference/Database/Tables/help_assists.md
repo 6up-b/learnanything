@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a95e354cf34338a9ddf45cbeb79e5cf3451229de"
-source_commit_timestamp: "2026-11-07T03:01:14-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 249
+schema_head: 250
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`, `232_help_assist_figures.sql`, `248_teacher_te2_sources.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`, `232_help_assist_figures.sql`, `248_teacher_te2_sources.sql`, `250_help_assists_phone_surface.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -186,6 +186,7 @@ None found by exact static reference scan.
 
 - `tests/hint_fakes.py`
 - `tests/rw2c_base_sequence.py`
+- `tests/test_ad23_migration.py`
 - `tests/test_approach_map_replay.py`
 - `tests/test_approach_maps.py`
 - `tests/test_architecture.py`
@@ -203,7 +204,6 @@ None found by exact static reference scan.
 - `tests/test_hint_h2a_review_round3.py`
 - `tests/test_hint_h2b_rereview.py`
 - `tests/test_hint_report.py`
-- `tests/test_hint_telemetry.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -222,7 +222,9 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 ```sql
 CREATE TABLE "help_assists" (
   id TEXT PRIMARY KEY,
-  surface TEXT NOT NULL CHECK (surface IN ('practice', 'workbench', 'guided_redo', 'tutor')),
+  -- Mobile v2 V3 (migration 250) adds 'phone_practice': an item's own hint revealed on the phone
+  -- (practice.record_hint_reveal under a phone origin). The desktop's rows stay 'practice'.
+  surface TEXT NOT NULL CHECK (surface IN ('practice', 'workbench', 'guided_redo', 'tutor', 'phone_practice')),
   -- The Reader's assist kind (its §5.7). Outside the workbench the hint
   -- service writes 'hint' and, for an answer to a discriminating question,
   -- 'discriminate_answer' (hints spec §16.4 item 1); 'bridge', 'example' and

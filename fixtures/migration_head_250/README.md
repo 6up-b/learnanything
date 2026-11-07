@@ -37,6 +37,18 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Phone V3 (migration 250), `phone/v3-probes`, 2026-11-07
+
+Renamed from `migration_head_249` on phone V3's branch (base: main at `14b2ed09ab`, head 249). Numbered 250 while TE3b
+lands in parallel; renumbered at landing if another migration lands first. `250_help_assists_phone_surface.sql`
+(`help_assists` rebuilt temp-then-rename with the surface CHECK widened by `'phone_practice'`; the same 63 columns,
+CHECKs, six indexes and two append-only triggers; the table is empty here) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked, sanitized `migration_head_249/state.sqlite`
+outside the checkout, under the scratch-copy upgrade allowance, which applied `[250]` only; `wal_checkpoint(TRUNCATE)`
+(0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; written into
+place from a backup-API copy in rollback mode, with no companion files. No row changes (only `schema_migrations` gains
+250); the only object whose definition changed is the `help_assists` table. The head holds 229 through 250.
+
 ## Teacher TE3a (migration 249), `ad/te3a-lesson-opportunity`, 2026-11-06
 
 Renamed from `migration_head_248` at TE3a's landing (main at `23182034c6`, TE2 landed with migration 248; TE3a was

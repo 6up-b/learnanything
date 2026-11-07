@@ -28,6 +28,7 @@ for the same device. With no request origin, the desktop, neither does anything;
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from learnloop.content.sources.exam_material import (
@@ -45,7 +46,7 @@ from learnloop.vault.lifecycle import (
 )
 from learnloop.vault.models import LoadedVault, PracticeItem
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.request_origin import RequestOrigin, device_class
+from learnloop_sidecar.request_origin import RequestOrigin, device_class, phone_probes_on
 
 DESKTOP_ONLY_ERROR_CODE = "desktop_only"
 INACTIVE_LEARNING_OBJECT_ERROR_CODE = "learning_object_inactive"
@@ -81,6 +82,10 @@ def device_filter(
 
     if origin is None or not _device_rules_on(vault):
         return None
+    if phone_probes_on(origin, vault.config):
+        # Mobile v2 V3 (D3): the phone renders the presentation it committed (a phone-eligible probe, by the rules
+        # above), so nothing it committed is left for the desktop.
+        return DeviceFilter(vault, device_class(origin))
     committed = repository.active_probe_presentation_for_session(session_id) if repository and session_id else None
     left = frozenset({committed.practice_item_id}) if committed is not None else frozenset()
     return DeviceFilter(vault, device_class(origin), left_for_desktop=left)
@@ -122,19 +127,31 @@ def refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str 
 
 
 def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: Any, item: PracticeItem,
-                                *, serve: bool) -> None:
+                                *, serve: bool, phone_probes: bool = False,
+                                owned: Callable[[], None] | None = None) -> None:
     """FG1 §4.2: every serve door for a generated probe, before its text leaves.
 
     A session serve claims the one administration (keyed to surface and the item's open
     presentation), atomically; a re-open of that same administration passes. Reserved for its
     workflow until then, and closed afterwards. One not yet admitted is not served at all: a
     publication a crash interrupted stays parked. A read with no session (feedback, the inspector)
-    never burns, and sees it only once it has been served. A phone never opens one (§10).
-    An item with no identity passes, and the ledger is read whatever the switch says:
-    burns persist after a rollback.
+    never burns, and sees it only once it has been served. An item with no identity passes, and the
+    ledger is read whatever the switch says: burns persist after a rollback.
+
+    The phone (FG1 §10 as amended by mobile v2 V3, owner decision D3): with ``phone_probes``
+    (:func:`~learnloop_sidecar.request_origin.phone_probes_on`) a phone's session serve takes the
+    same path under the phone's surface, so the claim is the phone's: a probe served on one device is
+    refused on the other (``generated_probe_closed``), and each device's re-open of its own
+    administration passes. Without it a phone never opens one.
+
+    ``owned`` (the phone's, with ``phone_probes``; Codex review of V3, F1): the session-ownership check, run in the
+    transaction that claims the burn, so a phone the session moved away from (or a sessionless phone door while
+    another device owns the open session) is refused ``session_moved`` before it can burn the desktop's question.
+    None for the desktop, whose claim is unchanged.
     """
 
     from learnloop.followup_serve import identity, workflow as followup_workflow
+    from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE
 
     if not identity.is_generated_probe(repository, item.id):
         return
@@ -142,9 +159,10 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
     if not serve:
         if identity.door_refusal(repository, item.id) == identity.GENERATED_PROBE_RESERVED:
             refusal = identity.GENERATED_PROBE_RESERVED
-    elif ctx_origin is not None:
+    elif ctx_origin is not None and not phone_probes:
         refusal = identity.GENERATED_PROBE_RESERVED
     else:
+        surface = SERVING_SURFACE if ctx_origin is None else PHONE_SURFACE
         row = followup_workflow.workflow_of_item(repository, item.id)
         state = repository.practice_item_state(item.id)
         if row is not None and row["state"] != followup_workflow.READY:
@@ -154,7 +172,7 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
         elif state is not None and state.last_attempt_at is not None:
             refusal = identity.GENERATED_PROBE_CLOSED
         elif item.id in identity.closed_probe_ids(repository):
-            refusal = _claim_refusal(repository, item.id, row)
+            refusal = _claim_refusal(repository, item.id, row, surface=surface, owned=owned)
         elif row is None and identity.door_refusal(repository, item.id) is not None:
             # Its workflow never bound it: an interrupted run's, which a retry retires.
             refusal = identity.GENERATED_PROBE_RESERVED
@@ -166,7 +184,7 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
             followup_workflow.retire_waiting(repository, row, reason="hypotheses_closed")
             refusal = identity.GENERATED_PROBE_CLOSED
         else:
-            refusal = _claim_refusal(repository, item.id, row)
+            refusal = _claim_refusal(repository, item.id, row, surface=surface, owned=owned)
     if refusal is not None:
         raise SidecarError(
             refusal,
@@ -175,16 +193,27 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
         )
 
 
-def _claim_refusal(repository: Any, practice_item_id: str, row: Any) -> str | None:
+def _claim_refusal(repository: Any, practice_item_id: str, row: Any, *, surface: str,
+                   owned: Callable[[], None] | None = None) -> str | None:
     """The atomic claim, against the presentation actually open for this item, not the id a
-    caller or a workflow row remembers (it may have ended, and an absent one is no wildcard)."""
+    caller or a workflow row remembers (it may have ended, and an absent one is no wildcard).
+    ``surface`` is the requesting device's (the desktop's, or the phone's from mobile v2 V3): a
+    claim another surface holds is refused. ``owned``, when given, runs first in the claim's
+    transaction (raising ``session_moved``), so no adopt commits between the check and the burn."""
 
+    if owned is None:
+        return _claim(repository, practice_item_id, row, surface=surface)
+    with repository.atomic():
+        owned()
+        return _claim(repository, practice_item_id, row, surface=surface)
+
+
+def _claim(repository: Any, practice_item_id: str, row: Any, *, surface: str) -> str | None:
     from learnloop.followup_serve import identity
-    from learnloop.followup_serve.gates import SERVING_SURFACE
 
     open_presentation = repository.active_probe_presentation_for_item(practice_item_id)
     claim = identity.claim_serve(
-        repository, practice_item_id, surface=SERVING_SURFACE,
+        repository, practice_item_id, surface=surface,
         presentation_id=open_presentation.id if open_presentation is not None else None,
         workflow_id=(row or {}).get("id"),
     )

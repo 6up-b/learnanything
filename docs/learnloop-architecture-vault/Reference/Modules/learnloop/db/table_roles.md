@@ -199,6 +199,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_head_fixture_predecessor_to_successor_path`
 - [tests/test_mobile_jobs_migration.py](../../../../../../tests/test_mobile_jobs_migration.py) — direct import
   - `test_239_is_named_and_the_table_is_classified`
+- [tests/test_mobile_v3_migration.py](../../../../../../tests/test_mobile_v3_migration.py) — direct import
+  - `test_250_is_the_head_and_help_assists_stays_a_raw_ledger`
 - [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
 - [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import

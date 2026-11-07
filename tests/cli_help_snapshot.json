@@ -773,7 +773,7 @@
   },
   "hints report": {
     "bytes": 1789,
-    "sha256": "75619db99a7408be41b9752c5b63addf6fe46476391908f0dee5b5688640f394"
+    "sha256": "bfeff88918d11898452f43e5bf46b5f8cda2effe4b5a5d6740f066459ffcc744"
   },
   "import": {
     "bytes": 2169,
@@ -1392,8 +1392,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 14531,
-    "sha256": "b5bf81ba0a520796bc7bba4d06bad10095eec7485f3856555e1dec04b173a64c"
+    "bytes": 14616,
+    "sha256": "efe8b5f9be00d7cde6479afeb1c9c3057deacd0888b1ff98161c1d9de52ccd87"
   },
   "usage": {
     "bytes": 1546,

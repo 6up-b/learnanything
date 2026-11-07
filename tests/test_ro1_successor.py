@@ -53,8 +53,8 @@ def test_the_successor_is_one_constant_after_fg1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.45"
     # Router objective RO4 (mvp-0.47), RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2
     # (mvp-0.51) landed after it and keep it.
-    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-8] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.53"
-    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53"})
+    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
+    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54"})
 
 
 def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
@@ -123,8 +123,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval(tmp_path):

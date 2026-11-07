@@ -19,7 +19,12 @@ eligible.
 
 * A diagnostic probe is served on the phone only as far as its contract (§6.4, M2):
   an active contract is not rendered there, which is the client's rule, because the
-  contract is per serve, not per item.
+  contract is per serve, not per item. Mobile v2 V3 (owner decision D3, behind the host's
+  ``phone_probes``): the phone renders and answers it. Which probes it may is decided by
+  the reasons below and nothing else, structurally: a probe whose item embeds an image,
+  links a page or an asset (image-dependent), or is a dialogue microprobe, a teach-back,
+  an error hunt, a laddered stem or a lesson's own check (desktop tools) stays the
+  desktop's; every other probe is phone-eligible, as any other item is.
 * A workbench problem is a way of answering, not a kind of item. Its item is
   ordinary text, its open problem stays on the desktop, and an answer from the
   phone counts its carried help as any other surface does.
@@ -186,8 +191,8 @@ class DeviceFilter:
 #: Mobile v2 §2.2: a plan step held back because the phone has no Reader yet (V4 lifts it:
 #: "a reading block is never ineligible, because the phone has a Reader").
 READING_BEFORE_PHONE_READER = "reading_before_phone_reader"
-#: Mobile v2 V3 (D3): a generated follow-up probe is answered on the phone from V3 on; until then
-#: it waits for the desktop, as FG1 §10 says.
+#: A generated follow-up probe the phone may not open: every one before V3 (or with the host's
+#: ``phone_probes`` off), as FG1 §10 said; from V3 (D3) only one already served on the desktop.
 GENERATED_PROBE = "generated_probe"
 #: The plan surface of a phone step (mobile v2 §2.2), beside PR-5's ``phone_queue`` and
 #: ``phone_practice``: what a decision taken at a boundary under a phone origin records.
@@ -213,7 +218,8 @@ class PlanStepFilter:
     #: force (``device_eligibility_v1`` or ``off``), named in each decision's inputs.
     surface: str = PHONE_PLAN
     device_policy: str = DEVICE_POLICY
-    #: ``practice_item_id -> bool``: a generated FG1 probe, which the phone serves from V3 on.
+    #: ``practice_item_id -> bool``: a generated FG1 probe the phone may not open (all of them below V3 or
+    #: with ``phone_probes`` off; from V3 one the desktop already served).
     generated_probe: Any = None
     #: What this step passed over, by item id, with its reason.
     held: dict[str, str] = field(default_factory=dict)

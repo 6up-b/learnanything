@@ -22,27 +22,42 @@ V2_ALLOWED = frozenset({
     "followup_continue_without", "followup_show_anyway", "record_hypothesis_exposure", "record_hypothesis_mark",
     "practice.record_hint_reveal",
 })
-PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED
+#: Mobile v2 §8's V3 row (owner decision D3): a generated follow-up probe opened by Next on the phone.
+V3_ALLOWED = frozenset({"followup_next"})
+PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED
 
 
-def test_the_allowlist_is_the_m2_and_v2_rows_and_frozen():
+def test_the_allowlist_is_the_m2_v2_and_v3_rows_and_frozen():
     assert set(ALLOWLIST) == PHONE_ALLOWED
     assert {name for name, entry in ALLOWLIST.items() if entry.milestone == "V2"} == V2_ALLOWED
+    assert {name for name, entry in ALLOWLIST.items() if entry.milestone == "V3"} == V3_ALLOWED
     with pytest.raises(TypeError):
         ALLOWLIST["run_cli_command"] = object()
 
 
-def test_v2_holds_back_what_v3_and_later_open():
-    """A generated probe is never served or answered on the phone in V2 (§8, D3), and the adaptive
-    hint jobs are in-memory threads of one sidecar, not the host's durable jobs."""
+def test_v3_holds_back_what_later_stages_open():
+    """No help is reachable from the phone during a probe: the adaptive hint jobs (in-memory threads of
+    one sidecar, not the host's durable jobs), Ask and the tutor are not allowlisted at all, nor are the
+    desktop's probe tools (Teach me instead, the block peek)."""
 
-    for name in ("followup_next", "practice.request_hint", "practice.hint_job", "practice.cancel_hint",
-                 "lesson.turn", "reader.ask", "ask_tutor_question"):
+    for name in ("practice.request_hint", "practice.hint_job", "practice.cancel_hint", "lesson.turn",
+                 "reader.ask", "ask_tutor_question", "stop_probe_diagnosing", "get_next_probe_item"):
         assert name not in ALLOWLIST, name
-    from learnloop_mobile.allowlist import ParamRejected, check_parameters
 
-    with pytest.raises(ParamRejected):
-        check_parameters(ALLOWLIST["submit_attempt"], {"submissionId": "s", "probePresentationId": "p"})
+
+def test_v3_a_probe_answer_is_the_hosts_switch():
+    """V3 (D3): a submit may name a probe's presentation; the host's ``phone_probes`` off refuses it, as V2 did."""
+
+    from learnloop_mobile.allowlist import PROBE_METHODS, ParamRejected, check_parameters, check_probe_parameters
+
+    probe = {"submissionId": "s", "probePresentationId": "p"}
+    check_parameters(ALLOWLIST["submit_attempt"], probe)
+    check_probe_parameters("submit_attempt", probe, phone_probes=True)
+    for name in ("submit_attempt", "submit_dont_know"):
+        with pytest.raises(ParamRejected):
+            check_probe_parameters(name, probe, phone_probes=False)
+    check_probe_parameters("submit_attempt", {"submissionId": "s"}, phone_probes=False)
+    assert PROBE_METHODS == V3_ALLOWED and not ALLOWLIST["followup_next"].retry_safe
 
 
 def test_v2_constraints():

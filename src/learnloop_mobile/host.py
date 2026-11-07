@@ -32,7 +32,8 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.session_ownership import SessionOwnershipError
 from learnloop_mobile.adapter import error_body, status_for, translate
 from learnloop_mobile.allowlist import (
-    ALLOWLIST, API_VERSION, PLAN_METHODS, ParamRejected, allowlist_digest, check_parameters, validate_envelope,
+    ALLOWLIST, API_VERSION, PLAN_METHODS, PROBE_METHODS, ParamRejected, allowlist_digest, check_parameters,
+    check_probe_parameters, validate_envelope,
 )
 from learnloop_mobile.config import APP_DIR, MobileConfig, sqlite_path
 from learnloop_mobile.runtime import HostBusy, HostRuntime, JobView, ParamsInvalid, _status_body
@@ -71,6 +72,11 @@ _ID_ROUTES = {
 #: one: ``<method>;status=<code>;dur=<ms>[;host=<ms>]``, ``host`` being the ``Server-Timing``
 #: total it read. One sample a request, so nothing here buffers or batches.
 CLIENT_TIMING_HEADER = "learnloop-client-timing"
+#: What the app says it can do, on every ``/rpc`` (mobile v2 V3; Codex review of V3, F3): a comma-separated list.
+#: ``phone_probes``: it renders and answers a probe under its contract. A cached app from before V3 says nothing, so
+#: the host's ``phone_probes`` never reaches it: its doors and its plan step are V2's (no burn it can't answer).
+CLIENT_CAPABILITIES_HEADER = "learnloop-capabilities"
+PHONE_PROBES_CAPABILITY = "phone_probes"
 _CLIENT_TIMING = re.compile(r"([a-z_.]+);status=([1-5][0-9]{2});dur=([0-9]{1,9}(?:\.[0-9]{1,3})?)"
                             r"(?:;host=([0-9]{1,9}(?:\.[0-9]{1,3})?))?")
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
@@ -241,7 +247,7 @@ class MobileHost:
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mobile-auth")
         self.capture_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mobile-capture")
         self.active = {"short": 0, "capture": 0, "media": 0, "rpc": 0}
-        self.runtime = HostRuntime(config.vault, self.repo, self.read_repo)
+        self.runtime = HostRuntime(config.vault, self.repo, self.read_repo, phone_probes=config.phone_probes)
         self.app_dir = APP_DIR
         # attach() checked the applied migrations are exactly the discovered ones, so the
         # head is the vault's schema (mobile v2 §5.2's meta).
@@ -339,9 +345,11 @@ class MobileHost:
         if (method, path) == ("GET", "/api/v1/meta"):
             # Mobile v2 §5.2: a cached app built against another allowlist offers a reload.
             # Mobile v2 §2.2: ``phone_plan`` says whether Today is the shared plan or M2a's queue.
+            # Mobile v2 V3: ``phone_probes`` says whether the phone answers probes (the host's switch; the vault's
+            # tag decides too, and a phone below it is told so by the replies themselves).
             return JSONResponse({"host_version": HOST_VERSION, "api_version": API_VERSION,
                                  "allowlist_digest": allowlist_digest(), "schema_version": self.schema_version,
-                                 "phone_plan": self.config.phone_plan})
+                                 "phone_plan": self.config.phone_plan, "phone_probes": self.config.phone_probes})
         if (method, path) == ("GET", "/api/v1/queue-revision"):
             # Read-only, never the sidecar's get_queue_revision, which can reload (§3.1).
             value = await self.work(self.read_repo.queue_revision)
@@ -380,7 +388,7 @@ class MobileHost:
                 envelope = validate_envelope(data)
             except ValueError:
                 raise HostError(400, "invalid_request") from None
-            return await self.rpc(scope, envelope, device)
+            return await self.rpc(scope, envelope, device, probes=self._client_probes(headers))
         if path == "/pair":
             if set(data) - {"secret", "code", "device_label"}:
                 raise HostError(400, "invalid_request")
@@ -419,8 +427,16 @@ class MobileHost:
         scope["learnloop.static"] = True
         return response
 
-    async def rpc(self, scope, envelope: dict, device: dict) -> JSONResponse:
-        """§6.2: allowlist, constraints, then a worker; the body the desktop client normalizes."""
+    def _client_probes(self, headers: dict[str, str]) -> bool:
+        """The host's ``phone_probes`` for this request: the switch on AND the app saying it answers probes."""
+
+        said = {part.strip() for part in headers.get(CLIENT_CAPABILITIES_HEADER, "").split(",")}
+        return self.config.phone_probes and PHONE_PROBES_CAPABILITY in said
+
+    async def rpc(self, scope, envelope: dict, device: dict, *, probes: bool = False) -> JSONResponse:
+        """§6.2: allowlist, constraints, then a worker; the body the desktop client normalizes.
+
+        ``probes``: the host's ``phone_probes`` for this request (:meth:`_client_probes`)."""
 
         name, params = envelope["method"], envelope.get("params", {})
         method = ALLOWLIST.get(name)
@@ -430,8 +446,13 @@ class MobileHost:
         if name in PLAN_METHODS and not self.config.phone_plan:
             # Mobile v2 §2.2's kill switch: Today is M2a's queue, and the plan is the desktop's.
             return self._rpc_error("phone_plan_off", "Today's plan is on the desktop; the phone shows today's list.")
+        if name in PROBE_METHODS and not probes:
+            # Mobile v2 V3's kill switch, or an app that doesn't answer probes: the phone leaves every probe for the
+            # desktop, as V2's did.
+            return self._rpc_error("phone_probes_off", "This question is waiting for the desktop.")
         try:
             check_parameters(method, params)
+            check_probe_parameters(name, params, phone_probes=probes)
         except ParamRejected as rejected:
             return self._rpc_error("validation_error", rejected.message, details={"field": rejected.field})
         timing: dict[str, float] = {}
@@ -441,11 +462,11 @@ class MobileHost:
             if method.kind == "long":
                 timing["job_from"] = time.monotonic()
                 try:
-                    return await self._rpc_long(method, params, validated, envelope, device)
+                    return await self._rpc_long(method, params, validated, envelope, device, probes=probes)
                 finally:
                     timing["job_to"] = time.monotonic()
             timing["submitted"] = time.monotonic()
-            future = self.runtime.call_short(method, params, device["device_id"], timing=timing)
+            future = self.runtime.call_short(method, params, device["device_id"], timing=timing, probes=probes)
             status, body = translate(await asyncio.wrap_future(future))
             return JSONResponse(body, status_code=status)
         except ParamsInvalid as invalid:
@@ -455,7 +476,7 @@ class MobileHost:
         except SessionOwnershipError as refused:
             return self._rpc_error(refused.code, refused.message, details=refused.details)
 
-    async def _rpc_long(self, method, params, validated, envelope, device) -> JSONResponse:
+    async def _rpc_long(self, method, params, validated, envelope, device, *, probes: bool = False) -> JSONResponse:
         """§6.3: commit the job, wait up to 15 s, then the final answer or 202."""
 
         request_id = envelope.get("request_id")
@@ -468,7 +489,8 @@ class MobileHost:
             return self._rpc_error("validation_error", "A contest's request_id is its contest id.")
         try:
             job = await self.work(
-                self.runtime.accept, method, params, validated, request_id=request_id, device_id=device["device_id"]
+                self.runtime.accept, method, params, validated, request_id=request_id, device_id=device["device_id"],
+                probes=probes,
             )
         except capture.CaptureError as refused:
             return self._rpc_error(refused.code, refused.message)

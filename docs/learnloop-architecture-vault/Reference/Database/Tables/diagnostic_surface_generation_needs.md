@@ -3,13 +3,13 @@ title: "diagnostic_surface_generation_needs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a95e354cf34338a9ddf45cbeb79e5cf3451229de"
-source_commit_timestamp: "2026-11-07T03:01:14-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_surface_generation_needs"
   - "table diagnostic_surface_generation_needs"
-schema_head: 249
+schema_head: 250
 table_name: "diagnostic_surface_generation_needs"
 table_role: "workflow"
 functionality_status: "active"

@@ -47,6 +47,9 @@ class RequestOrigin:
     #: transaction that committed the job, and a handoff since does not refuse it (§6.5).
     #: Only the host's job worker sets it, from the accepted row; never a parameter.
     accepted_session_id: str | None = None
+    #: Mobile v2 V3 (owner decision D3): the phone host's kill switch ``phone_probes`` (mobile.toml), which the
+    #: host sets from its own config, never a parameter. False (an origin made without it) is V2's phone.
+    phone_probes: bool = False
 
     def __post_init__(self) -> None:
         if not self.device_id or not self.device_id.strip():
@@ -59,6 +62,20 @@ def device_class(origin: RequestOrigin | None) -> str:
     """The class the eligibility module asks about (§6.4); None is the desktop."""
 
     return DESKTOP if origin is None else origin.surface
+
+
+def phone_probes_on(origin: RequestOrigin | None, config: Any) -> bool:
+    """Mobile v2 V3 (owner decision D3): a phone origin serves and answers phone-eligible probes, diagnostic and
+    FG1's generated ones, under the probe contract. The host's switch (``phone_probes``) AND the vault at the
+    successor's tag (``PHONE_PROBES_VERSIONS``); below it, or switched off, the phone is V2's exactly. Never true for
+    the desktop, whose serving doesn't change."""
+
+    from learnloop.algorithm_versions import PHONE_PROBES_VERSIONS
+
+    if origin is None or not origin.phone_probes:
+        return False
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    return version in PHONE_PROBES_VERSIONS
 
 
 def practice_surface(origin: RequestOrigin | None) -> str:

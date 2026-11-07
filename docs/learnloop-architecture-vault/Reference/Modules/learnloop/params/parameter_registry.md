@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/params/parameter_registry.py"
 source_paths:
   - "src/learnloop/params/parameter_registry.py"
-source_commit: "workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de"
-source_commit_timestamp: "2026-11-07T03:01:14-05:00"
-source_worktree_state: "modified"
+source_commit: "e820e0798856930f39b48cfeeeda9aa79f4ba8d2"
+source_commit_timestamp: "2026-11-07T05:01:30-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.params"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 | Owning package | [[Reference/Modules/learnloop/params/_package|learnloop.params]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de` |
-| Commit timestamp | `2026-11-07T03:01:14-05:00` |
+| Worktree state | `clean` |
+| Source commit | `e820e0798856930f39b48cfeeeda9aa79f4ba8d2` |
+| Commit timestamp | `2026-11-07T05:01:30-05:00` |
 
 ## Public API
 
@@ -139,6 +139,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `REGISTRY`, `module`; statically calls `set_promotion_evidence_id`
+- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
@@ -184,7 +185,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] and 41 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] and 42 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

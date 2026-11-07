@@ -125,6 +125,25 @@ def accept_job(
     return _row(row), True
 
 
+def submission_in_flight(repo: Repository, practice_item_id: str) -> bool:
+    """A phone's answer to ``practice_item_id`` accepted and not yet finished (mobile v2 V3; Codex review of V3, F2).
+
+    Its acceptance checked the session's owner, and it completes after a handoff (§6.5): until then, whatever its
+    answer consumes (a probe's presentation, the feedback it releases) is still the answer's. Reads only."""
+
+    with repo.connection() as conn:
+        rows = conn.execute(
+            f"SELECT params_json FROM mobile_jobs WHERE state IN ({','.join('?' for _ in OPEN_STATES)}) "
+            f"AND method IN ({','.join('?' for _ in SUBMIT_METHODS)})",
+            (*OPEN_STATES, *SUBMIT_METHODS),
+        ).fetchall()
+    for row in rows:
+        params = json.loads(row["params_json"])
+        if (params.get("practice_item_id") or params.get("practiceItemId")) == practice_item_id:
+            return True
+    return False
+
+
 def start_job(repo: Repository, job_id: str, *, now: datetime | None = None) -> None:
     with repo.atomic(), repo.connection() as conn:
         conn.execute(

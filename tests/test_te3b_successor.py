@@ -45,8 +45,9 @@ def drop_te3b_keys(dumped: dict) -> dict:
 
 def test_the_successor_is_one_constant_after_te3a_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.52"
-    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
-    assert LESSON_OFFERS_VERSIONS == frozenset({TAG})
+    # Phone V3's successor (mvp-0.54) follows it and keeps it.
+    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
+    assert LESSON_OFFERS_VERSIONS == frozenset({TAG, "mvp-0.54"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -109,8 +110,9 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    # Phone V3's link (mvp-0.54) is the chain's latest since; its completion hands this link's journal here.
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to TE3a's completion, which hands it on in turn.
     assert "learnloop.lesson_opportunity_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_offers_upgrade)
@@ -151,7 +153,8 @@ def test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name(tmp_path):
     set_algorithm_version(paths, OLD)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"{OLD} -> {TAG}" in result.output
+    # The default target is the chain's latest (phone V3's mvp-0.54 since), through this link.
+    assert f"{OLD} -> {LATEST_ALGORITHM_VERSION}" in result.output
     named = create_basic_vault(tmp_path / "named")
     set_algorithm_version(named, OLD)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(named.root), "--to", TAG])

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readCredential, saveCredential, pickUpFragmentToken } from "../store/credential";
 import { cacheSessionId, cachedSessionId } from "../store/sessionCache";
 import { addToOutbox, listOutbox } from "../store/outbox";
-import { call, isRetrySafe, OFFLINE, pollJob, rpcOnce, rpcOutcome, runLong } from "./http";
+import { call, CLIENT_CAPABILITIES_HEADER, isRetrySafe, OFFLINE, pollJob, rpcOnce, rpcOutcome, runLong } from "./http";
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -25,6 +25,13 @@ describe("call", () => {
     expect(JSON.parse(init?.body as string)).toEqual({ method: "get_session", params: { sessionId: "s" } });
     expect(init?.credentials).toBe("omit");
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+  });
+
+  it("says on every /rpc that this app answers probes (mobile v2 V3; Codex review of V3, F3)", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { ok: true, result: { sessionId: "s" } }));
+    await call("get_session", { sessionId: "s" });
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init?.headers as Record<string, string>)[CLIENT_CAPABILITIES_HEADER]).toBe("phone_probes");
   });
 
   it("turns the host's error body into the desktop's CommandError", async () => {

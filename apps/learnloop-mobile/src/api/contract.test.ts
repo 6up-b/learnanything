@@ -50,6 +50,11 @@ const EXAMPLES: Record<Exclude<Wrapper, (typeof NOT_RPC)[number]>, ReadonlyArray
       phone.submitAttempt({
         ...SUBMIT, answerMd: "", attemptType: "hinted_attempt", schedulerCandidateId: null, hintsUsed: 2, authoredHints: 1, bookCounted: true,
         planPresentationId: "pp1", firstHintProgress: "no_draft", declaredStuck: true
+      }),
+    // Mobile v2 V3: a probe's answer names its presentation, with no help.
+    () =>
+      phone.submitAttempt({
+        ...SUBMIT, attemptType: "diagnostic_probe", schedulerCandidateId: null, probePresentationId: "pres_1", planPresentationId: "pp1"
       })
   ],
   acknowledge: [() => phone.acknowledge("s1", "i1", "k1")],
@@ -70,6 +75,8 @@ const EXAMPLES: Record<Exclude<Wrapper, (typeof NOT_RPC)[number]>, ReadonlyArray
   followupStatus: [() => phone.followupStatus("a1")],
   followupContinueWithout: [() => phone.followupContinueWithout("a1")],
   followupShowAnyway: [() => phone.followupShowAnyway("a1")],
+  // Mobile v2 V3.
+  followupNext: [() => phone.followupNext("a1")],
   recordHypothesisExposure: [
     () => phone.recordHypothesisExposure({ attemptId: "a1", surface: "marks_feedback", hypothesisVersionIds: ["h1", "h2"], shownAt: "2026-11-06T12:00:00.000Z" })
   ],
@@ -126,6 +133,7 @@ const READS: Record<string, readonly string[]> = {
   followup_status: ["enabled"],
   followup_continue_without: ["continued"],
   followup_show_anyway: ["released"],
+  followup_next: ["action", "line", "practiceItemId", "presentationId"],
   record_hypothesis_exposure: ["recorded"],
   record_hypothesis_mark: ["recorded", "marks"],
   "practice.record_hint_reveal": ["recorded"]

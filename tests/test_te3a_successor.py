@@ -46,8 +46,8 @@ def drop_te3a_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_te2_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.51"
     # Teacher TE3b's router successor (mvp-0.53) landed after it and keeps it.
-    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.53"
-    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53"})
+    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
+    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53", "mvp-0.54"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -108,8 +108,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.lesson_offers_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to TE2's completion, which hands it on in turn.
     assert "learnloop.teacher_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_opportunity_upgrade)

@@ -3,7 +3,7 @@
 // file under LEARNLOOP_UPDATE_PHONE_CONTRACT=1.
 
 /** What `GET /api/v1/meta` answers when this build and the host agree (spec §5.2). */
-export const ALLOWLIST_DIGEST = "1c5abd28efaf86a67adcf13472acfc20fde1b2ab05967a8e02eaa11a81af120c";
+export const ALLOWLIST_DIGEST = "434e1ffc0efdaa6aa1bb45957ddb3defc4ad6d87a5f86ae197212d3bc3dcdcb0";
 
 /** Every method the host lets the phone call. Anything else is a 403. */
 export const PHONE_METHODS = [
@@ -14,6 +14,7 @@ export const PHONE_METHODS = [
   "diagnosis_status",
   "end_session",
   "followup_continue_without",
+  "followup_next",
   "followup_show_anyway",
   "followup_status",
   "get_attempt",

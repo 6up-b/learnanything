@@ -76,13 +76,19 @@ function FollowUpQuestions({ attemptId, feedback }: { attemptId: string; feedbac
 export function FeedbackScreen({
   attemptId,
   choosing = false,
+  waitLine = null,
   onNext,
+  onOpenFeedback,
   onError
 }: {
   attemptId: string;
   /** Next is with the host (a plan decision can take a while, mobile v2 §2.2). */
   choosing?: boolean;
+  /** Mobile v2 V3: Next waits while this miss's question is being written, and says so (FG1 §6.1). */
+  waitLine?: string | null;
   onNext: () => void;
+  /** Mobile v2 V3: a probe's answer points back at the miss whose feedback it released (FG1 §3 step 8). */
+  onOpenFeedback?: (attemptId: string) => void;
   onError: (error: unknown) => void;
 }) {
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
@@ -180,6 +186,8 @@ export function FeedbackScreen({
     );
   }
   if (!feedback) return <div className="screen"><p className="dim">Reading your feedback…</p></div>;
+  // FG1 §3 step 8: this answered a generated probe, so what the earlier miss held appears there now.
+  const heldFrom = feedback.heldFeedbackAttemptId ?? null;
   return (
     <div className="screen">
       <h1>{feedback.learningObjectTitle}</h1>
@@ -227,6 +235,12 @@ export function FeedbackScreen({
         </div>
       ) : null}
       {note ? <p className="dim" role="status">{note}</p> : null}
+      {heldFrom && onOpenFeedback ? (
+        <div className="row">
+          <button className="plain" type="button" onClick={() => onOpenFeedback(heldFrom)}>See the feedback on your earlier answer</button>
+        </div>
+      ) : null}
+      {waitLine && !choosing ? <p className="dim" role="status" data-testid="followup-wait">{waitLine}</p> : null}
       {choosing ? <p className="dim" role="status">Choosing what's next…</p> : null}
       <div className="actions">
         <button className="primary block" type="button" disabled={choosing} onClick={onNext}>Next</button>

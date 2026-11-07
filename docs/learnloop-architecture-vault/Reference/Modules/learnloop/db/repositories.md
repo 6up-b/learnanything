@@ -2661,6 +2661,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_plan.py](../../../../../../tests/test_mobile_v2_plan.py) — direct import
   - `test_a_none_origin_never_enters_the_device_branch`
   - `test_the_kill_switch_refuses_the_plan_and_meta_says_so`
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+- [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
   - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`
   - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`

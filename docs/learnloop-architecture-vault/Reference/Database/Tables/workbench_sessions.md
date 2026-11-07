@@ -3,13 +3,13 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a95e354cf34338a9ddf45cbeb79e5cf3451229de"
-source_commit_timestamp: "2026-11-07T03:01:14-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
   - "table workbench_sessions"
-schema_head: 249
+schema_head: 250
 table_name: "workbench_sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/207_workbench.sql`.
-- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`, `219_field_signal_receipts.sql`, `223_workbench_earlier_opened.sql`, `232_help_assist_figures.sql`.
+- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`, `219_field_signal_receipts.sql`, `223_workbench_earlier_opened.sql`, `232_help_assist_figures.sql`, `250_help_assists_phone_surface.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

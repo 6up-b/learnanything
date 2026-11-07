@@ -314,6 +314,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_head_fixture_is_at_head_in_rollback_mode_with_an_empty_table`
 - [tests/test_mobile_meta_timing.py](../../../../../../tests/test_mobile_meta_timing.py) — direct import
   - `test_meta_names_the_allowlist_the_host_enforces`
+- [tests/test_mobile_v3_migration.py](../../../../../../tests/test_mobile_v3_migration.py) — direct import
+  - `test_250_is_the_head_and_help_assists_stays_a_raw_ledger`
+  - `test_250_widens_the_surface_and_keeps_every_row_index_and_trigger`
+  - `test_the_head_fixture_holds_250_in_rollback_mode`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_persistence_open.py](../../../../../../tests/test_persistence_open.py) — direct import

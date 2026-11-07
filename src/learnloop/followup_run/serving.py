@@ -16,13 +16,15 @@ from learnloop.db.repositories import Repository
 from learnloop.followup_run import decision_view as dv
 from learnloop.followup_run import lanes
 from learnloop.followup_serve import identity, workflow as wf
+from learnloop.followup_serve.gates import SERVING_SURFACE
 
 PREPARING = "Preparing a question on this…"
 FAILED_LINE = "Couldn't prepare a question on this. It's noted for later."
 NO_PLAN_LINE = "This question comes first."
 READY_LINE = "Your next question is ready."
 #: FG1 §10, mobile v2 V2: the phone reads the workflow, and its question is the desktop's to serve
-#: until V3, so a ready or waiting one says where it is.
+#: while the phone serves no probe (below V3's tag, or ``phone_probes`` off), so a ready or waiting one
+#: says where it is.
 PHONE_HANDOFF_LINE = "Your next question on this is waiting for the desktop."
 
 #: Exactly what §6.0 holds in the feedback bundle: the worked answer, the diagnosis
@@ -146,12 +148,19 @@ def plan_will_place(vault: Any, repository: Repository, attempt_id: str, *, cloc
 
 
 def next_action(
-    vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None = None
+    vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None = None,
+    surface: str = SERVING_SURFACE,
 ) -> NextAction:
-    """§6.1: what Next does. It waits only while a question may still come, and it says so."""
+    """§6.1: what Next does. It waits only while a question may still come, and it says so.
+
+    ``surface``: the asking device's (mobile v2 V3). A question already served on the other device is that
+    device's one administration: Next goes on here, and writes nothing about it."""
 
     row = wf.attempt_workflow(repository, attempt_id)
     if row is None or row["state"] not in {wf.PENDING, wf.READY}:
+        return NextAction("continue")
+    if row["state"] == wf.READY and identity.served_elsewhere(repository, str(row.get("practice_item_id") or ""),
+                                                             surface):
         return NextAction("continue")
     if row["state"] == wf.READY and not _served(repository, row) and not wf.waiting_still_valid(repository, row):
         # §4.2: retired while unused, if its hypotheses closed first.
@@ -172,7 +181,7 @@ def next_action(
         recover_workflow(vault, repository, row, clock=clock)
         row = wf.get(repository, str(row["id"])) or row
         if row["state"] != wf.PENDING:
-            return next_action(vault, repository, attempt_id, plan_serves=plan_serves, clock=clock)
+            return next_action(vault, repository, attempt_id, plan_serves=plan_serves, clock=clock, surface=surface)
         now = utc_now_iso(clock)
         if not row.get("next_requested_at"):
             wf.set_fields(repository, str(row["id"]), next_requested_at=now, clock=clock)

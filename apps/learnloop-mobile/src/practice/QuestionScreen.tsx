@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AttemptResultDto, CommandError, PracticeItemDetail, SessionSnapshot } from "@desktop/api/dto";
+import type { AttemptResultDto, CommandError, PracticeItemDetail, ProbeContractDto, SessionSnapshot } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { MathLiveEditor } from "@desktop/render/MathLiveEditor";
 import { committedAttempt, staleRefusal } from "../api/http";
@@ -35,6 +35,34 @@ export interface QuestionTarget {
 
 /** The phone's serve of a plan question also says when it is the day's randomized check (`noHelp`). */
 type PhoneItemDetail = PracticeItemDetail & { readonly noHelp?: boolean };
+
+/** Mobile v2 V3 (D3): the host says the phone answers this probe itself (`phoneAnswers`); otherwise an active
+ *  contract waits for the desktop, as in V2. */
+type PhoneProbeContract = ProbeContractDto & { readonly phoneAnswers?: boolean };
+
+/** The desktop's runtime guard (`PracticeScreen.activeProbeContract`): a malformed or incomplete contract never
+ *  enables help or an ordinary submit during a probe. */
+export function phoneProbe(contract: PhoneProbeContract | null): PhoneProbeContract | null {
+  if (!contract || !contract.active || !contract.phoneAnswers) return null;
+  const restrictions = contract.restrictions;
+  if (
+    typeof contract.presentationId !== "string" ||
+    !contract.presentationId.trim() ||
+    contract.forcedAttemptType !== "diagnostic_probe" ||
+    !restrictions ||
+    restrictions.hintsDisabled !== true ||
+    restrictions.askTutorDisabled !== true ||
+    restrictions.workedExampleDisabled !== true ||
+    restrictions.answerRevealDisabled !== true ||
+    restrictions.feedbackDeferred !== true
+  ) {
+    throw { code: "probe_contract_incomplete", message: "This check's rules didn't come through. Try again before answering.", retryable: true };
+  }
+  return contract;
+}
+
+/** The probe's cold line on the phone: the desktop's own words (`PracticeScreen`, simple shell). */
+export const PROBE_LINE = "Feedback comes when this short check ends · hints are off for now";
 
 /** Into the focused editor at the caret; at the end of the answer if it isn't focused. */
 function insertSymbol(symbol: string, append: (text: string) => void): void {
@@ -134,6 +162,8 @@ export function QuestionScreen({
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [probeActive, setProbeActive] = useState(false);
+  // Mobile v2 V3: the active contract the phone answers itself (cold: no hints, no Ask, no tutor).
+  const [probe, setProbe] = useState<PhoneProbeContract | null>(null);
   const [loadRevision, setLoadRevision] = useState(0);
   const [answer, setAnswer] = useState(opened.answer);
   const [stuck, setStuck] = useState(opened.stuck);
@@ -154,7 +184,9 @@ export function QuestionScreen({
   // another item since. A request already sent settles that at the submit.
   const dirty = useRef(opened.own && !opened.sentInput);
   const latest = useRef({ answer, stuck, frozen, ready: false });
-  latest.current = { answer, stuck, frozen, ready: item !== null && !probeActive };
+  // A probe the phone answers keeps its draft as any question does; one waiting for the desktop writes nothing.
+  const waitsForDesktop = probeActive && probe === null;
+  latest.current = { answer, stuck, frozen, ready: item !== null && !waitsForDesktop };
 
   const busy = submitting || skipping;
   useEffect(() => {
@@ -188,13 +220,17 @@ export function QuestionScreen({
     Promise.all([phone.getPracticeItem(practiceItemId, sessionId), phone.getProbeContract(practiceItemId, sessionId)])
       .then(([detail, contract]) => {
         if (cancelled) return;
+        const answered = phoneProbe(contract as PhoneProbeContract);
         setItem(detail);
         setProbeActive(Boolean(contract.active));
+        setProbe(answered);
         shownAt.current = Date.now();
       })
       .catch((error: CommandError) => {
         if (cancelled) return;
-        if (error.code === "desktop_only") {
+        // Mobile v2 V3: a single-use question served on the desktop (or not yet the phone's to open) is the
+        // desktop's, as an item the phone can't show is: Next goes on past it.
+        if (error.code === "desktop_only" || error.code === "generated_probe_closed" || error.code === "generated_probe_reserved") {
           onDesktopOnly(practiceItemId);
           return;
         }
@@ -235,11 +271,11 @@ export function QuestionScreen({
   }, [practiceItemId, sessionId]);
 
   useEffect(() => {
-    if (!item || probeActive) return undefined;
+    if (!item || waitsForDesktop) return undefined;
     const timer = window.setTimeout(() => void saveWhenSettled().catch(onError), DRAFT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answer, stuck, assist, item, probeActive, saveDraft]);
+  }, [answer, stuck, assist, item, waitsForDesktop, saveDraft]);
 
   // Leaving the screen is no reason to lose the last 800 ms of typing.
   const flushOnLeave = useRef(() => undefined as void);
@@ -360,6 +396,25 @@ export function QuestionScreen({
     // counts itself (its own hints, an earlier attempt's help) stays out of it.
     const assist = assistRef.current;
     const hints = assist.hintsUsed + (assist.pageSeen ? 1 : 0);
+    if (probe) {
+      // Mobile v2 V3: a probe's answer consumes its presentation, with no help (the contract offered none).
+      return {
+        sessionId,
+        practiceItemId,
+        answerMd: latest.current.answer,
+        attemptType: "diagnostic_probe",
+        submissionId: key,
+        latencySeconds: Math.round((Date.now() - shownAt.current) / 1000),
+        schedulerCandidateId: schedulerCandidateId.current,
+        assessmentContractVersionId: currentItem.assessmentContractVersionId,
+        hintsUsed: 0,
+        authoredHints: 0,
+        bookCounted: false,
+        probePresentationId: probe.presentationId ?? null,
+        ...(assist.planPresentationId ? { planPresentationId: assist.planPresentationId } : {}),
+        ...(latest.current.stuck ? { declaredStuck: true } : {})
+      };
+    }
     return {
       sessionId,
       practiceItemId,
@@ -494,8 +549,9 @@ export function QuestionScreen({
   if (!item) return <div className="screen"><p className="dim">Opening…</p></div>;
   // A serve's honest label when its cold check could not be taken (`queue.eligibility_dto`).
   const eligibilityMessage = (item as unknown as { eligibility?: { message?: string | null } }).eligibility?.message;
-  if (probeActive) {
-    // §6.4: the serve is committed and the check waits on the desktop; no skip is recorded.
+  if (waitsForDesktop) {
+    // §6.4: the serve is committed and the check waits on the desktop; no skip is recorded. Mobile v2 V3: only
+    // while the phone answers no probe (the host's phone_probes off, or the vault below V3's tag).
     return (
       <div className="screen">
         <h1>{item.learningObjectTitle}</h1>
@@ -511,15 +567,24 @@ export function QuestionScreen({
   // serve itself says so for the randomized check (`noHelp`), so a question restored from a checkpoint
   // (a reload, another device) is as cold as the step that opened it (Codex review of V2, F5).
   const ownHints = item.hints ?? [];
-  const cold = Boolean(target.noHelp) || Boolean((item as PhoneItemDetail).noHelp);
+  // Mobile v2 V3 (D3): a probe answered here is cold too. Its contract disables hints, Ask, worked examples and the
+  // answer; the phone offers none of them (it has no Ask or tutor at all), and the server refuses a hint during it.
+  const cold = Boolean(target.noHelp) || Boolean((item as PhoneItemDetail).noHelp) || probe !== null;
   const helpOffered = !cold && !item.intentCheck && !item.activeFollowupKind && ownHints.length > 0;
   const revealed = helpOffered ? ownHints.slice(0, Math.min(assist.hintsUsed, ownHints.length)) : [];
+  const checkBanner = (probe?.intentCheck ?? item.intentCheck)?.banner;
   // Mobile v2 §4.3: the symbol bar and Submit sit together in the thumb zone, kept above the
   // keyboard by the shell's visual-viewport inset; the secondary actions wrap beneath.
   return (
     <div className="screen">
       <h1>{item.learningObjectTitle}</h1>
-      {item.intentCheck?.banner ? <p className="banner">{item.intentCheck.banner}</p> : null}
+      {probe ? (
+        <p className="banner" role="status" data-testid="probe-line">
+          {PROBE_LINE}
+          {probe.followupWhy ? <span className="dim"> · {probe.followupWhy}</span> : null}
+        </p>
+      ) : null}
+      {checkBanner ? <p className="banner">{checkBanner}</p> : null}
       {eligibilityMessage ? <p className="dim">{eligibilityMessage}</p> : null}
       {item.presentation.blocks.map((block, index) => (
         <div key={`${block.kind}:${index}`}>

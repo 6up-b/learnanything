@@ -25,6 +25,7 @@ from learnloop.algorithm_versions import (
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
+    PHONE_PROBES_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
@@ -124,8 +125,8 @@ def upgrade(
                 f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, "
                 f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
                 f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
-                f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION} or "
-                f"{LESSON_OFFERS_ALGORITHM_VERSION}); "
+                f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
+                f"{LESSON_OFFERS_ALGORITHM_VERSION} or {PHONE_PROBES_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -472,6 +473,10 @@ def upgrade(
         from learnloop.lesson_offers_upgrade import upgrade_to_lesson_offers
 
         result = upgrade_to_lesson_offers(_root(vault))
+    elif to == PHONE_PROBES_ALGORITHM_VERSION:
+        from learnloop.phone_probes_upgrade import upgrade_to_phone_probes
+
+        result = upgrade_to_phone_probes(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -487,8 +492,8 @@ def upgrade(
             f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, "
             f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
             f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
-            f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION} or "
-            f"{LESSON_OFFERS_ALGORITHM_VERSION}."
+            f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
+            f"{LESSON_OFFERS_ALGORITHM_VERSION} or {PHONE_PROBES_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

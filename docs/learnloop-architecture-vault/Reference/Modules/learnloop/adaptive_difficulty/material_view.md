@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/material_view.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
-source_commit: "workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de"
-source_commit_timestamp: "2026-11-07T03:01:14-05:00"
-source_worktree_state: "modified"
+source_commit: "e820e0798856930f39b48cfeeeda9aa79f4ba8d2"
+source_commit_timestamp: "2026-11-07T05:01:30-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de` |
-| Commit timestamp | `2026-11-07T03:01:14-05:00` |
+| Worktree state | `clean` |
+| Source commit | `e820e0798856930f39b48cfeeeda9aa79f4ba8d2` |
+| Commit timestamp | `2026-11-07T05:01:30-05:00` |
 
 ## Public API
 

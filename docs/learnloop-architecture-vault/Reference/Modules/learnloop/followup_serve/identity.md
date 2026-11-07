@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/identity.py"
 source_paths:
   - "src/learnloop/followup_serve/identity.py"
-source_commit: "dc5302d98cfcd397c2bb3678cdb2bf12f232164a"
-source_commit_timestamp: "2026-11-06T04:43:14-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_serve/identity.py](../../../../../../src/learnloop/followup_serve/identity.py) |
-| Source lines | 304 |
+| Source lines | 324 |
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `dc5302d98cfcd397c2bb3678cdb2bf12f232164a` |
-| Commit timestamp | `2026-11-06T04:43:14-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 8d1e02e12e427b95bf7957b96682fa15110bf543` |
+| Commit timestamp | `2026-11-07T05:54:41-05:00` |
 
 ## Public API
 
@@ -72,9 +72,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `withdraw(repository: Repository, practice_item_id: str, *, reason: str, workflow_id: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 198) — Everything that could still serve a generated probe, closed in one commit: it retires, its open presentations end, and its candidate stops being one, since serving accepts any ``active`` candidate and a live one blocks its factor's next question (``duplicate_instrument_class``).
 - `retire_unbound(repository: Repository, workflow_id: str, *, reason: str='publication_interrupted', keep: str | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 227) — What an interrupted run of this workflow published and never bound is withdrawn, unused, before the retry writes its own question or the workflow ends.
 - `door_refusal(repository: Repository, practice_item_id: str, *, workflow_id: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 242) — Why a door may not open this generated probe now, or None.
-- `door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 267) — (closed, reserved): what every selector leaves out, read once.
-- `exclude_ids(repository: Repository, item_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 286) — The ones in ``item_ids`` that carry the identity.
-- `replay_inactive_ids(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 293) — Rebuild replay: an item the ledger closed stays closed, attempt or no attempt.
+- `served_surface(repository: Repository, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 267) — The surface whose door burned this generated probe at its first serve, or None (unserved, or no identity).
+- `served_elsewhere(repository: Repository, practice_item_id: str, surface: str) -> bool` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 279) — Burned at its first serve by another surface's door: its one administration is that device's.
+- `door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 286) — (closed, reserved): what every selector leaves out, read once.
+- `exclude_ids(repository: Repository, item_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 305) — The ones in ``item_ids`` that carry the identity.
+- `replay_inactive_ids(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 312) — Rebuild replay: an item the ledger closed stays closed, attempt or no attempt.
 
 ### Module constants
 
@@ -109,6 +111,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `retire`
 - `retire_unbound`
 - `retired_probe_ids`
+- `served_elsewhere`
+- `served_surface`
 - `withdraw`
 
 ## Internal implementation anchors
@@ -127,7 +131,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `is_generated_probe`; statically calls `is_generated_probe`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `module`; statically calls `item_revision`, `register`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `retire_unbound`, `withdraw`
-- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `closed_probe_ids`, `is_generated_probe`, `withdraw`
+- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `closed_probe_ids`, `is_generated_probe`, `served_elsewhere`, `withdraw`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `is_generated_probe`, `retire_unbound`, `withdraw`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `generated_probe_ids`; statically calls `generated_probe_ids`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `generated_probe_ids`; statically calls `generated_probe_ids`
@@ -136,7 +140,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `closed_probe_ids`; statically calls `closed_probe_ids`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `generated_probe_ids`; statically calls `generated_probe_ids`
 - [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; statically calls `claim_serve`, `retire`
-- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `GENERATED_PROBE_RESERVED`, `module`; statically calls `is_generated_probe`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `GENERATED_PROBE_RESERVED`, `module`, `served_elsewhere`; statically calls `is_generated_probe`, `served_elsewhere`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `served_elsewhere`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `module`; statically calls `claim_serve`, `closed_probe_ids`, `door_refusal`, `is_generated_probe`
 
 ## Dependencies
@@ -159,7 +164,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -228,6 +233,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_generated_probe_attempt_opens_no_workflow`
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+  - `test_f1_a_phone_that_doesnt_own_the_session_never_burns_the_desktops_ready_probe`
+  - `test_f1_reopened_a_handoff_and_back_between_the_check_and_the_claim_refuses_the_named_burn`
+  - `test_f1_reopened_a_sessionless_phone_door_keeps_the_session_it_started_against`
+  - `test_f1_the_owning_phone_still_burns_it_as_its_own`
+  - `test_f2_the_desktops_next_keeps_a_phone_probe_whose_answer_is_being_graded`
+  - `test_f2_with_no_answer_on_its_way_the_desktops_next_still_moves_past_the_phones_probe`
+  - `test_f3_a_v2_app_gets_v2s_doors_from_a_v3_host_and_burns_nothing`
+  - `test_f3_a_v2_apps_plan_step_holds_a_generated_probe_for_the_desktop`
+  - `test_f3_the_v3_app_says_it_answers_probes_and_gets_v3s_door`
+- [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
+  - `test_a_desktop_serving_next_with_no_phone_burn_abandons_nothing`
+  - `test_a_question_the_desktop_served_is_refused_on_the_phone_and_the_phones_next_goes_on`
+  - `test_the_desktops_serving_next_moves_past_a_probe_the_phone_served_and_abandons_it`
+  - `test_the_phone_opens_its_question_burns_it_as_the_phones_and_the_desktop_is_refused`
+  - `test_the_phones_answer_releases_the_held_feedback_and_the_question_is_never_served_again`
+  - `test_without_phone_probes_the_phone_is_v2s`
 - [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
   - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 - [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import

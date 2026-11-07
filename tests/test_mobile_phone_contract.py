@@ -199,6 +199,8 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     # Mobile v2 V2: feedback parity, the plan (off on this vault: each reply says so) and the router's account.
     rpc("record_answer_display", {"attemptId": attempt_id, "displayId": "display_contract_1"})
     rpc("followup_status", {"attemptId": attempt_id})
+    # Mobile v2 V3: Next on a miss asks its workflow (none here: it goes on).
+    rpc("followup_next", {"attemptId": attempt_id})
     rpc("followup_continue_without", {"attemptId": attempt_id})
     rpc("followup_show_anyway", {"attemptId": attempt_id})
     rpc("record_hypothesis_exposure", {"attemptId": attempt_id, "surface": "marks_feedback", "hypothesisVersionIds": [],

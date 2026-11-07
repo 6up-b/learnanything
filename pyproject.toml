@@ -651,6 +651,7 @@ source_modules = [
     "learnloop.teacher_probes_upgrade",
     "learnloop.lesson_opportunity_upgrade",
     "learnloop.lesson_offers_upgrade",
+    "learnloop.phone_probes_upgrade",
     "learnloop.route_rules_upgrade",
     "learnloop.scheduling",
     "learnloop.serve_eligibility",

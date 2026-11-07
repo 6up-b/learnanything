@@ -4134,9 +4134,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # where the objective does not serve. Its key ([router.lesson_suggestions] in_objective, default true) is a
     # modelled default, in every snapshot and inert below the tag (all of them recomputed). in_objective = false
     # serves mvp-0.52 exactly. Existing vaults reach it by `learnloop upgrade` (default target) from mvp-0.52, or
-    # from mvp-0.9 onwards through the chain. New vaults start here. ONE constant (LESSON_OFFERS_ALGORITHM_VERSION),
+    # from mvp-0.9 onwards through the chain. ONE constant (LESSON_OFFERS_ALGORITHM_VERSION),
     # renumbered at landing if another successor lands first.
     "mvp-0.53": "6c9080c6e11e3d4978342a72359a1792c2f012d3cd5ad9fb69c1c0f92af02724",
+    # mvp-0.54 (mobile v2 stage V3, probes and cold checks on the phone; owner decision D3;
+    # docs/specs/spec_mobile_frontend_v2.md §8's V3 row; docs/reviews/phone-v2-v3-probes.md): mvp-0.53 plus a phone
+    # origin serving and answering phone-eligible probes (diagnostic and FG1's generated ones) under the probe contract,
+    # a generated one single use across both devices. No vault key: the kill switch is the phone host's phone_probes
+    # (mobile.toml, default true), so no other snapshot moves; this one differs from mvp-0.53's by the tag alone.
+    # phone_probes = false serves mvp-0.53's phone exactly. Existing vaults reach it by `learnloop upgrade` (default
+    # target) from mvp-0.53, or from mvp-0.9 onwards through the chain. New vaults start here. ONE constant
+    # (PHONE_PROBES_ALGORITHM_VERSION), built as mvp-0.53 and renumbered after TE3b's mvp-0.53 landed.
+    "mvp-0.54": "ab31ac7633e02198be660c29cbc363d0e4c70e8a9a30c9c34c9d6565b8950e6a",
 }
 
 

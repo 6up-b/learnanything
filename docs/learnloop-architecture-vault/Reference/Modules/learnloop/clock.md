@@ -346,6 +346,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `Clock`
 - [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `Clock`
+- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `FrozenClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `parse_utc`, `utc_now_iso`
@@ -544,7 +545,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 438 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 439 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1408,6 +1409,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_kill_switch_refuses_the_plan_and_meta_says_so`
 - [tests/test_mobile_v2_rereview_fixes.py](../../../../../tests/test_mobile_v2_rereview_fixes.py) — direct import
   - `test_f5_the_phones_serve_of_a_check_restored_the_next_day_says_no_help`
+- [tests/test_mobile_v3_codex_review.py](../../../../../tests/test_mobile_v3_codex_review.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_mvp010_upgrade.py](../../../../../tests/test_mvp010_upgrade.py) — direct import
   - `test_upgrade_flips_rebuilds_and_preserves_raw_history`

@@ -18,7 +18,7 @@ from learnloop.adaptive_difficulty.protected_tables import PROTECTED, ROLES
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_249" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_250" / "state.sqlite"
 TABLE = "ad_reading_opportunities"
 #: What 249 alters (its table's text: the kind list): earlier migrations' "alters nothing else" diffs read this.
 TE3A_ALTERED_TABLES = frozenset({TABLE})
@@ -36,7 +36,7 @@ _ROW = ("INSERT INTO ad_reading_opportunities(id, opportunity_key, kind, subkind
 
 def test_249_is_the_head_and_the_table_stays_a_receipt_ad_reads_by_its_rules():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[249] == "249_ad_lesson_opportunities.sql" and max(names) == 249
+    assert names[249] == "249_ad_lesson_opportunities.sql" and max(names) == 250
     assert names[248] == "248_teacher_te2_sources.sql"  # TE2's, landed first
     assert TABLE_ROLES[TABLE] is TableRole.RECEIPT
     assert ROLES[TABLE] == PROTECTED
@@ -44,7 +44,7 @@ def test_249_is_the_head_and_the_table_stays_a_receipt_ad_reads_by_its_rules():
 
 def test_the_head_fixture_holds_249_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 249
+    assert max(applied_versions(HEAD)) == 250
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         sql = connection.execute("SELECT sql FROM sqlite_master WHERE name = ?", (TABLE,)).fetchone()[0]
         assert "'in_passage_question', 'lesson'" in sql

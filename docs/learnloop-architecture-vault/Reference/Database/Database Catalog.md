@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a95e354cf34338a9ddf45cbeb79e5cf3451229de"
-source_commit_timestamp: "2026-11-07T03:01:14-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 249
+schema_head: 250
 table_count: 395
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_249/state.sqlite"
+  - "fixtures/migration_head_250/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-249"
+  - "learnloop/database/schema-head-250"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 395 user tables at migration head 249. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 395 user tables at migration head 250. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].

@@ -50,6 +50,8 @@ def test_meta_names_the_allowlist_the_host_enforces(world):
         "schema_version": max(migration.version for migration in discover_migrations()),
         # Mobile v2 V2: whether Today is the shared plan (the host's kill switch, mobile.toml).
         "phone_plan": True,
+        # Mobile v2 V3: whether the phone answers probes (the host's kill switch, mobile.toml).
+        "phone_probes": True,
     }
     assert host.schema_version == response.json()["schema_version"]
 

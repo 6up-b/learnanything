@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/config/schema.py"
 source_paths:
   - "src/learnloop/config/schema.py"
-source_commit: "workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de"
-source_commit_timestamp: "2026-11-07T03:01:14-05:00"
-source_worktree_state: "modified"
+source_commit: "e820e0798856930f39b48cfeeeda9aa79f4ba8d2"
+source_commit_timestamp: "2026-11-07T05:01:30-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.config"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD a95e354cf34338a9ddf45cbeb79e5cf3451229de` |
-| Commit timestamp | `2026-11-07T03:01:14-05:00` |
+| Worktree state | `clean` |
+| Source commit | `e820e0798856930f39b48cfeeeda9aa79f4ba8d2` |
+| Commit timestamp | `2026-11-07T05:01:30-05:00` |
 
 ## Public API
 
@@ -453,6 +453,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tier1_disclosure_names_the_statement_judgment`
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
   - `test_defaults_fingerprint_is_recorded_for_the_successor`
+- [tests/test_mobile_v3_successor.py](../../../../../../tests/test_mobile_v3_successor.py) — direct import
+  - `test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone`
 - [tests/test_mvp013_upgrade.py](../../../../../../tests/test_mvp013_upgrade.py) — direct import
   - `test_defaults_fingerprint_is_recorded_for_the_successor`
 - [tests/test_mvp014_upgrade.py](../../../../../../tests/test_mvp014_upgrade.py) — direct import

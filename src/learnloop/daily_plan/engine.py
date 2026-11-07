@@ -2083,8 +2083,14 @@ def build_plan(
     minutes_source: str,
     parent_plan_id: str | None = None,
     override: str | None = None,
+    with_insert: Callable[[], None] | None = None,
 ) -> PlanRecord:
-    """Build one plan: classify, admit, split, then choose its first block."""
+    """Build one plan: classify, admit, split, then choose its first block.
+
+    ``with_insert`` (mobile v2 V3, the F9 class; landing ruling R3's rule): a write that belongs to this plan's
+    making (a finished plan's stop-override receipt), committed in the transaction that inserts it, after the slow
+    build, so an ownership refusal at that commit leaves neither. When the empty extension already made is
+    returned instead of a new one, it commits on its own, as it did before the build."""
 
     prepared = _prepare_plan(
         env,
@@ -2106,6 +2112,9 @@ def build_plan(
             and not latest.blocks
             and _empty_extension(env, prepared)
         ):
+            if with_insert is not None:
+                with env.repository.atomic():
+                    with_insert()
             return latest
     plan_id = new_ulid()
     today = prepared.row["local_date"]
@@ -2116,6 +2125,8 @@ def build_plan(
             existing = store.plans_for_date(connection, today)
             if existing:
                 return _reload(env, str(existing[-1]["id"]))
+        if with_insert is not None:
+            with_insert()
         store.insert_plan(connection, {"id": plan_id, **prepared.row})
     record = _reload(env, plan_id)
     context = _context_from_build(env, record, prepared.built)
@@ -5724,16 +5735,25 @@ def keep_going(env: PlanEnv) -> PlanRecord:
     if record.is_open:
         pending = _stop_pending(record)
         return record if pending is None else _keep_going_past_pending_stop(env, record)
-    if record.status == "complete":
-        # RO0 row 7: the finished plan had offered the stop; the learner went on.
-        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
-                                              via="keep_going", clock=env.clock)
+    # RO0 row 7: the finished plan had offered the stop; the learner went on. Committed with the extension it made
+    # (mobile v2 V3, the F9 class), so a refused build leaves no override.
+    override = _stop_override(env, record, via="keep_going") if record.status == "complete" else None
     remembered = int(record.row["remembered_minutes"])
     if record.kind == "reentry":
         remaining = remembered - record.minutes_planned()
         if remaining >= 1.0:
-            return build_plan(env, kind="normal", budget=float(round(remaining, 2)), remembered=remembered, minutes_source="generated", parent_plan_id=record.id)
-    return build_plan(env, kind="keep_going", budget=float(env.plan_config.keep_going_minutes), remembered=remembered, minutes_source="generated", parent_plan_id=record.id)
+            return build_plan(env, kind="normal", budget=float(round(remaining, 2)), remembered=remembered, minutes_source="generated", parent_plan_id=record.id, with_insert=override)
+    return build_plan(env, kind="keep_going", budget=float(env.plan_config.keep_going_minutes), remembered=remembered, minutes_source="generated", parent_plan_id=record.id, with_insert=override)
+
+
+def _stop_override(env: PlanEnv, record: PlanRecord, *, via: str) -> Callable[[], None]:
+    """The finished plan's stop-override receipt (RO0 row 7), for ``build_plan`` to commit with what it builds."""
+
+    def record_override() -> None:
+        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
+                                              via=via, clock=env.clock)
+
+    return record_override
 
 
 def _keep_going_past_pending_stop(env: PlanEnv, record: PlanRecord) -> PlanRecord:
@@ -5808,10 +5828,6 @@ def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[st
         return record, preview
     if record.is_open:
         raise PlanStillOpenError("today's plan is still open; more new material is offered when it is done")
-    if record.status == "complete":
-        # RO0 row 7: as ``keep_going``.
-        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
-                                              via="more_new", clock=env.clock)
     plan = build_plan(
         env,
         kind="keep_going",
@@ -5820,6 +5836,8 @@ def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[st
         minutes_source="generated",
         parent_plan_id=record.id,
         override="more_new",
+        # RO0 row 7: as ``keep_going``, committed with the extension (mobile v2 V3, the F9 class).
+        with_insert=_stop_override(env, record, via="more_new") if record.status == "complete" else None,
     )
     return plan, preview
 

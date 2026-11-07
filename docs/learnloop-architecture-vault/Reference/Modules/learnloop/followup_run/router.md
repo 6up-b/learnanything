@@ -190,6 +190,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_decision_row_is_itemless_and_names_the_workflow`
   - `test_the_value_checks_are_on_the_record_and_decide_nothing`
   - `test_with_no_binding_a_decision_has_no_action_to_follow`
+- [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f4_a_binding_outcome_is_read_and_only_a_skip_or_abandonment_is_a_rejection`
   - `test_f4_a_generated_probes_attempt_is_uptake_counted_once_through_every_binding`

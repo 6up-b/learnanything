@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/runtime.py"
 source_paths:
   - "src/learnloop/cli/runtime.py"
-source_commit: "8d0cf22296d907bd58068ba46f62c4d144a9adb1"
-source_commit_timestamp: "2026-11-06T13:38:45-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `8d0cf22296d907bd58068ba46f62c4d144a9adb1` |
-| Commit timestamp | `2026-11-06T13:38:45-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 8d1e02e12e427b95bf7957b96682fa15110bf543` |
+| Commit timestamp | `2026-11-07T05:54:41-05:00` |
 
 ## Public API
 
@@ -170,10 +170,10 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`
 - [[Reference/Modules/learnloop/learner/hypothesis_claims|learnloop.learner.hypothesis_claims]] — imports `export_claim_events`, `purge_claim_events`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `assert_recall_calibration_bands`, `format_recall_calibration_table`, `run_recall_calibration_harness`
-- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] — imports `DebugAdvanceError`, `advance_vault_days`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `run_doctor`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`
+- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `build_due_queue`, `explain_practice_item`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `coerce_override_value`, `prepare_run_vault`; calls `coerce_override_value`, `prepare_run_vault`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_all_derived_state`, `rebuild_live_derived_state`
@@ -213,6 +213,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
 - [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
+- [tests/test_mobile_v3_successor.py](../../../../../../tests/test_mobile_v3_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import

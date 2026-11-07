@@ -47,6 +47,11 @@ const GRADING_METHODS = new Set<string>(["submit_attempt", "submit_dont_know", "
 
 /** The header the host reads a round trip from (`learnloop_mobile.host.CLIENT_TIMING_HEADER`). */
 export const CLIENT_TIMING_HEADER = "LearnLoop-Client-Timing";
+/** What this app can do, on every `/rpc` (`learnloop_mobile.host.CLIENT_CAPABILITIES_HEADER`; mobile v2 V3): it
+ * answers a probe under its contract. A host serves probes only to an app that says so, so an app cached from
+ * before V3 keeps V2's doors and never burns a question it can't answer. */
+export const CLIENT_CAPABILITIES_HEADER = "LearnLoop-Capabilities";
+export const CLIENT_CAPABILITIES = "phone_probes";
 
 interface TimingSample {
   readonly method: string;
@@ -145,7 +150,11 @@ export async function rpcOnce<T>(method: PhoneMethod, params: unknown, requestId
   const started = now();
   const response = await authorizedFetch("/rpc", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(sample ? { [CLIENT_TIMING_HEADER]: sampleHeader(sample) } : {}) },
+    headers: {
+      "Content-Type": "application/json",
+      [CLIENT_CAPABILITIES_HEADER]: CLIENT_CAPABILITIES,
+      ...(sample ? { [CLIENT_TIMING_HEADER]: sampleHeader(sample) } : {})
+    },
     body: JSON.stringify({ method, params: params ?? {}, ...(requestId ? { request_id: requestId } : {}) })
   });
   pendingSample = { method, status: response.status, ms: now() - started, hostMs: serverTimingTotal(response.headers.get("Server-Timing")) };

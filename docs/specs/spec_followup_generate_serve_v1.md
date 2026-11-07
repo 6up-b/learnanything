@@ -89,7 +89,7 @@ A generated probe is served once and never again. It never becomes a practice it
 | Teacher | Brief probe headers list unattempted items without checking active state or mode (`teacher/brief.py:419`); exclude FG1 items |
 | AD | Limited to the plan's admitted pool (`daily_plan/ad_slot.py:21`); FG1 items never become new-material candidates |
 | Exams | Reservations don't exclude `diagnostic_probe` (`goals/exam_pool.py:423`); exclude FG1 items at reservation and on frozen pools |
-| Phone | Submit rejects `probe_presentation_id` (`learnloop_mobile/allowlist.py:81`); see §10 |
+| Phone | *Amended Nov 7, 2026 (mobile v2 stage V3, owner decision D3; `docs/reviews/phone-v2-v3-probes.md`):* the phone's serve doors take the desktop's path under the phone's surface (`serving.refuse_generated_probe_door`, `phone_probes`), so the atomic claim is the phone's: burned at its first serve on whichever device opened it, refused on the other (`generated_probe_closed`), each device's re-open of its own administration passing. Its answer names its presentation. The phone's plan step holds one the desktop served; the desktop's serving Next moves past one the phone served (displaced, abandoned). With the host's `phone_probes` off, or below mvp-0.54, every phone door refuses as before (*was:* submit rejects `probe_presentation_id`); see §10 |
 | MCP | Read-only with no question text (`remote/views.py:141, 189`); keep it |
 | Follow-up tasks | `cold_retry` may reuse an administered diagnostic item (`scheduler.py:1550, 2353`); FG1 identity overrides that |
 | Rebuild replay | Replay reproduces attempt-time deactivation only (`substrate/replay.py:327`); add burn-ledger replay, and no generation during rebuild |
@@ -227,6 +227,13 @@ The learner reads the possible causes and marks them. It's an imperfect sensor, 
 **Queue position:** as soon as possible, per the owner: ahead of the TE2/TE3 re-spec. A7 was planned next, and its probe arm would have reused this path. Owner decision, Nov 4 2026: A7 is dropped as a separate stage ("I agree with you reccomendation to drop it"). Its probe-versus-continue contrast is read from the router's logged `no_intervention` floor (§5, §11). If that proves too thin, a higher no-probe share is a possible RO5 arm (`spec_router_objective_v1.md` §9).
 
 **Phone.** Phone submit rejects `probe_presentation_id`, so a generated probe can't be answered there yet. A miss on the phone follows the existing behaviour for what it can serve, and a pending probe is handed to the desktop with a line saying so. The phone's feedback doesn't hold what it can't follow with a probe. Phone probe answers are a follow-up. Phone files are in the owner's working tree at the time of writing, so the build merges whatever lands.
+
+*Amended Nov 7, 2026 (mobile v2 stage V3, owner decision D3 accepted Nov 6; `spec_mobile_frontend_v2.md` §8's V3 row; `docs/reviews/phone-v2-v3-probes.md`):* that follow-up is built. Mobile v2 V2 had already given the phone the held feedback, *Continue without it* and *Show anyway*, and opened a phone miss's workflow under the phone's surface. From V3, with the phone host's kill switch `phone_probes` (mobile.toml, default true) at the successor mvp-0.54 (`PHONE_PROBES_ALGORITHM_VERSION`):
+- the phone's Next on a miss calls `followup_next`, as the desktop's does: it waits with the same line, opens the question, or goes on; on a plan, the plan's next step places and serves it (R12), and the phone's step filter no longer holds a generated probe;
+- the phone renders the active contract cold (the desktop's line, no hints, no Ask, no tutor; the server refuses a hint during it) and answers it naming its presentation, so the held feedback is released by that answer and by nothing earlier;
+- single use across both devices (§4.2's Phone row): the claim keys the surface, so a probe served on one device is refused on the other; the phone holds a desktop-served one for the desktop, and the desktop's serving Next abandons a phone-served one it can't open;
+- the phone's admission and its cap count are one transaction, so the host's two workers can't pass the session cap between them (G10).
+Off, or below the tag, the phone is V2's: its line says the question waits for the desktop, its Next goes on writing nothing, and its doors refuse.
 
 **Tests.** Fakes only, plus a smoke on fresh copies of the owner's vaults:
 

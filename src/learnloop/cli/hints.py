@@ -29,7 +29,7 @@ maps_app = typer.Typer(no_args_is_help=True, help="Approach maps (H1): build the
 hints_app.add_typer(maps_app, name="maps")
 
 _RELATIVE = re.compile(r"^(\d+)([dh])$")
-_SURFACES = ("practice", "workbench", "guided_redo", "tutor")
+_SURFACES = ("practice", "workbench", "guided_redo", "tutor", "phone_practice")
 
 
 def _since(value: str | None, now: datetime) -> str | None:
@@ -51,7 +51,7 @@ def hints_report(
     ] = None,
     surface: Annotated[
         str | None,
-        typer.Option("--surface", help="Only one surface: practice, workbench, guided_redo or tutor."),
+        typer.Option("--surface", help="Only one surface: practice, workbench, guided_redo, tutor or phone_practice."),
     ] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:

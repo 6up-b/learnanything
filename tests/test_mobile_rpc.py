@@ -57,7 +57,7 @@ def test_the_allowlist_is_the_m2_row_and_every_name_is_a_registered_method():
     assert {entry.name for entry in ALLOWLIST.values() if entry.kind == "long" and entry.milestone == "M2"} == {
         "submit_attempt", "submit_dont_know", "answer_grading_clarification",
     }
-    assert {entry.milestone for entry in ALLOWLIST.values()} == {"M2", "V2"}
+    assert {entry.milestone for entry in ALLOWLIST.values()} == {"M2", "V2", "V3"}
     with pytest.raises(TypeError):
         ALLOWLIST["run_cli_command"] = object()  # type: ignore[index]
 
@@ -71,7 +71,7 @@ def test_every_other_registered_method_answers_403(world):
     phone, *_ = world
     denied = sorted(set(METHOD_REGISTRY) - set(ALLOWLIST))
     assert len(denied) > 300
-    assert {"get_queue_revision", "recover_practice_submission", "run_cli_command", "followup_next",
+    assert {"get_queue_revision", "recover_practice_submission", "run_cli_command",
             "stop_probe_diagnosing", "get_next_probe_item", "start_overconfidence_probe"} <= set(denied)
     for name in denied:
         status, error = phone.error(name)
@@ -103,8 +103,6 @@ def test_a_malformed_envelope_is_400(world, body):
     ("submit_attempt", {"submissionId": "   "}, "submission_id"),
     ("submit_attempt", {}, "submission_id"),
     ("submit_dont_know", {}, "submission_id"),
-    ("submit_attempt", {"submissionId": "s", "probePresentationId": "p"}, "probe_presentation_id"),
-    ("submit_dont_know", {"submissionId": "s", "probePresentationId": "p"}, "probe_presentation_id"),
     ("submit_dont_know", {"submissionId": "s", "selfGrade": {"criterionPoints": {}, "confidence": 3}}, "self_grade"),
 ])
 def test_each_constraint_is_a_422_before_dispatch(world, method, params, field):
