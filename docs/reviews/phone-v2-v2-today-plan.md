@@ -166,3 +166,173 @@ The cached V1 app offers *LearnLoop was updated. Reload* (the allowlist moved): 
 1. A drawn stop at a phone boundary can close the plan while ordinary items (not the day's check) wait for the desktop; they stay unresolved in the closed plan, as after a desktop *Done for today*. Should the phone's boundary instead wait whenever anything is held (the phone would then often stop at "waiting for the desktop")? V2 lets the drawn stop stand, so no decision is discarded by its outcome.
 2. The phone's *Skip it* on a held item skips something the learner has not seen (as the desktop's Today skip link does). Keep it, or offer the skip only for the randomized check's wait?
 3. Hints' surface: take the small migration (§2, item 5) in V3, or leave the device recoverable through the attempt only?
+
+## Landing onto main
+
+**Branch tip before landing:** ``2e9169983b` (this record's commit follows it)`. Main `8853cd6b74` (router speed stage, on top of phone V1's `23ce859c16`) was merged in at `04c41a9454`. Only the generated module references conflicted, and they were regenerated. `daily_plan/engine.py` and `objective_inputs` merged cleanly. The phone contract (`phoneMethods.ts`, `retryPolicy.json`) regenerated unchanged under `LEARNLOOP_UPDATE_PHONE_CONTRACT=1`. Main had not moved when this record was committed (TE3b had not landed). No migration, no successor. The kill switch is `phone_plan` in `mobile.toml`.
+
+### Rulings (verbatim)
+
+- R1: "F6: a phone write's ownership check revalidates the session and generation it pinned when it started, independently of the current-session lookup: if that session disappeared, ended, or was replaced (another open session, or the same id at a new generation), the write is refused session_moved and commits nothing. Codex's reproduction (a sessionless minutes write while the phone owns A; during the slow pool build the desktop adopts and ends A; the write resumes with no open session, or after the phone starts B) is a test for both endings."
+- R2: "F8: Done for today on a pending stop records acceptance of that specific stop (its decision's stop response), while the plan stays open for the held work; the session's end reason is the accepted stop, never unprompted_stop; _decision_stop_responses includes it. Codex's reproduction is a test."
+- R3: "F9: Keep going computes the re-split first, then commits the stop-override receipt and the plan update together in one ownership-checked transaction; a session_moved refusal leaves no receipt. Codex's reproduction is a test."
+- R4: "No further Codex round for V2; I read the R1-R3 diffs before landing, so keep each in its own commit."
+- R5: "Open questions, decided: a stop drawn at a phone boundary stands even with items held for the desktop (no decision is discarded for its outcome; the held items stay as after a desktop Done); 'Skip it' on a held item stays, as on the desktop's Today; the help_assists.surface CHECK widening for phone_practice goes into V3 with V3's other changes (the device stays recoverable from the attempt until then)."
+
+### The fixes, one commit each (R4)
+
+| Ruling | Commit | Change | Tests (`tests/test_mobile_v2_landing_fixes.py`) |
+|---|---|---|---|
+| R1 (F6) | `e0ad639f6b` | `handlers/sessions.py`: `_require_pinned` revalidates the pinned session on its own: it must still exist, be open, be this device's at the pinned generation, and still be the open session. Otherwise `session_moved`, with nothing committed. | Both of Codex's endings (taken and ended; replaced by the phone's own B) failed before the fix (200, budget committed). Two controls: the desktop's sessionless write, and a phone write with no session at its start. |
+| R2 (F8) | `d656b22b20` | `stop_today` on a pending stop records an accepted `stop_response` naming the stop's decision. `record_end` derives `offered_stop_accepted` for that session. `_decision_stop_responses` reads it as accepted, and the last response stands. | Failed before the fix: no response, and the end was `unprompted_stop`. A Keep going after Done reads as overridden. |
+| R3 (F9) | `6cc47d57c0` | `_keep_going_past_pending_stop`: the re-split comes first; the receipt (a savepoint) and the plan update are one ownership-checked transaction. | The away-and-back reproduction failed before the fix (the receipt survived `session_moved`). A control: the accepted Keep going records its override with the update. |
+
+Detail is in `docs/reviews/phone-v2-codex-review.md`, "Final verify and the landing fixes". Other commits: `891688009a` (module references regenerated on the merged tree with R1-R3), `2e9169983b` (the Codex record's section), and this record.
+
+### Gate
+
+Every pytest, vitest and npm run went through `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`; the full suite used 10G. Every Python or CLI run went through `env -i PATH HOME=<empty> CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>` (a wrapper script), with `TMPDIR` outside the worktree.
+
+| Lane | On | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
+| Post-merge check | `04c41a9454`: every `test_mobile_v2_*`, `test_rospeed_*`, `test_rofu_*` (22 files, `-n 6`) | 283 passed (`test_rofu_carried`'s early-publication test included, as the speed stage fixed it) |
+| Targeted set (step 1) | `891688009a`: every `test_mobile_*`, `test_ro0_*`, `test_ro4_*`, `test_ro5_*`, `test_ro6_*`, `test_rofu_*`, `test_rospeed_*`, `test_followup_*`; every test file naming `daily_plan` or `session` in its name or importing `learnloop.daily_plan` / `router_objective.sessions`; `test_hypothesis_marks`; the defaults snapshot (`test_config_refactor`); the display-label audit (`test_sidecar_measurement`, `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`); `test_cli_help_snapshot`, `test_architecture`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_mobile_allowlist`, `test_table_roles`, `test_registry_audit`, `test_module_catalog_inventory`, `test_public_tip_guards`, `test_sqlite_file_copies`, `test_tracked_fixture_databases`, `test_coordinated_migrations`, `test_session_ownership`, `test_codex_lockdown_round3`, `test_codex_lockdown_frozen` (268 files, `-n 6`) | **5036 passed, 12 skipped, 1 failed** (44 min) |
+| | the failure alone, 3 times | 3 of 3 passed (below) |
+| Full suite | `891688009a` (R1-R3 and the regenerated references; `2e9169983b` after it adds only the Codex record's text), `-n 8 --dist worksteal`, behind `flock /tmp/learnloop-fullsuite.lock`, 10G scope | **30048 passed, 90 skipped, 47 xfailed, 0 failed** (57 min 45 s) |
+| Durability lane | `-m durability`, `-n 6` (the two-process mobile tests included) | **408 passed, 1 skipped** |
+| Owner lane | fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035` in gitignored `fixtures-local/landing-phone-v2/`, `LEARNLOOP_OWNER_VAULTS`, `-m owner_vaults` | **83 passed, 4 skipped, 2 failed**: the two known (`test_activity_backfill.py::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies.py::...[arxiv_v2]`) |
+| Phone app (`apps/learnloop-mobile`) | `npm run typecheck`; the whole `npx vitest run --maxWorkers=4`; `npm run build` | clean; **23 files, 279 passed**; built |
+| Desktop app (`apps/learnloop-tauri`) | V2's only desktop files are `screens/feedback/answerExposure.ts` and `answerExposureGate.ts`. Vitest on their tests; then the whole app: `npm run typecheck`, `npx vitest run --maxWorkers=4` (5G scope), `npm run frontend:build` | `answerExposure.test.ts` and `answerExposure.shell.test.tsx`: **2 files, 30 passed**; typecheck clean; the whole vitest **274 files, 2772 passed**; built. No `src-tauri` change, so no `cargo check`. |
+| References | `module_generate` / `module_validate`, `desktop_generate` / `desktop_validate`, `validate_vault.py` | all pass (module catalog 1247 notes; desktop 322/322, reproducible byte-for-byte; vault 2239 notes). No schema change, so no DB reference run. |
+
+**The one targeted failure** was `tests/test_mobile_phone_contract.py::test_every_reply_carries_what_the_phone_reads`. The test reveals authored hint 0 on whichever item the Today queue lists first. In the batch, that item was `pi_svd_define_002`, which has no authored hints (422 `validation_error`). Alone it passed 3 of 3. It predates R1-R3 (V2's `30213eb580`) and touches none of their code. It is listed under open items.
+
+The full suite passed it as well (no failure at all).
+
+### Smoke
+
+**The copies.** Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (the owner's three vaults at mvp-0.43) went under gitignored `fixtures-local/landing-phone-v2-smoke/`, with every `*base_url` in each copy's `learnloop.toml` set to `http://127.0.0.1:9`. Each was upgraded on main's code (`git archive` of `8853cd6b74`, with its `migrations/`) to main's latest tag, **mvp-0.52** (migration 249). Every journey then ran on a further fresh copy.
+
+**The harness** is in-process and adapted from phone V1's landing scripts:
+- The phone used the real ASGI app (`learnloop_mobile.host.create_app`) through Starlette's `TestClient`, which binds no socket. It was paired by the real pairing exchange and sent the Serve identity header.
+- The desktop was a `SidecarContext` on the same database (a None origin).
+- The fakes were the router LLM and the Decider (`tests/router_model_fakes.py`, inline, decisions seeded by their order) and the grader (the tests' `CountingGrader`). Every other AI route stayed at 127.0.0.1:9, and no key was in the environment.
+- The wall clock was frozen at `2026-11-07T09:00Z`, and ULIDs were deterministic.
+- An audit hook refused every inet `connect`, `bind` and `getaddrinfo`, and any Codex process. Its self-test refused both.
+
+**The desktop at a None origin, main against the branch.** On each copy, main's code and the branch's ran the same seeded day:
+- `get_daily_plan`, `start_session`, then `next_plan_item{serve}` with *I don't know* on each item through the plan;
+- *Keep going* once, then *Done for today*, then `end_session`.
+
+Every reply was compared, plus every new row of `router_decisions`, `attention_block_events`, `attention_blocks`, `daily_plans`, `plan_presentations`, `practice_attempts`, `policy_experiment_assignments`, `session_receipts` and `sessions`. Ids were renamed in order of first appearance and ISO stamps were normalized.
+
+| | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| main vs branch | **identical**: 25 replies, 6 decisions, 29 block events, 5 attempts | **identical**: 20, 6, 26, 4 | **identical**: 26, 7, 35, 6 |
+
+The day's randomized check was the first block on each copy, and the journey also covers a model-mixture stop.
+
+What was masked:
+- `router_decisions.snapshot_hash`, the mask V2's record names (it hashes inputs that carry random ids).
+- Wall-time measurements: `latency_ms` and `waited_ms`, in the rows and inside their JSON.
+
+What was held equal on both trees: AD's background preparation and forecasts were not scheduled (`_schedule_ad` a no-op; `LEARNLOOP_AD_MODELS=off`). Main against itself was not reproducible without this. The threads write what the next decision reads, at times they choose, so two runs of main's own code drew different blocks. With them off, main against main was identical.
+
+**The phone (branch), on each copy.** Five journeys, each on its own fresh copy: *Keep going*, *Done for today*, the check deferred, two devices, and `phone_plan` off.
+
+| Check | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| `GET /api/v1/meta` | `phone_plan: true` | the same | the same |
+| Before a session | the plan read; the minutes chip refused `session_moved` (the backup holds the desktop's open session; V2's F1); *Start here instead* replaced it | the same | the minutes chip `ok` (no open session) |
+| Today is the plan: Begin, then Next across boundaries | 11 served, 2 plans (one *Keep going*), the last step a reading held for the desktop | 9 served, 2 plans | 11 served, 2 plans |
+| Every served step against the device filter (`ineligibility_reason(..., phone)`) | none excluded | none | none |
+| Stop offer: *Keep going* once | override receipt; the next plan open | the same | the same |
+| Stop offer: *Done for today* (other copy) | plan `complete`; end `offered_stop_accepted` naming the stop | the same | the same |
+| Router line, why and details | `routerDecision` on the reply; `router_objective_explain` available (15 lines) on a mixture block; *usual rule* on the lane-quota block | the same (11 lines) | the same (11 lines) |
+| Follow-up panel without probes | held (`pending`, *Preparing…*); *Show anyway* released it and the bundle re-read; *Continue without it* went on | the same | the same |
+| Hints with the *with help* notice | hint 0 revealed, recorded; the attempt has `hints_used = 1` | no served item had authored hints | no served item had authored hints |
+| Reveal (`record_answer_display`) | recorded once | the same | the same |
+| Contest (`trigger_regrade`) | recorded, regraded by the fake, review requested; the retry under the same key answered the same contest | the same | the same |
+| Diagnosis card | `pending`, `cardEnabled` (the diagnoser is 127.0.0.1:9) | the same | the same |
+| Eliciting answer | the vault's open factor: `admissibleAsIndependent` true | the same | no open factor in the vault; on the smoke's own attempt, `invalid_eliciting_response` (no factor), as on V1 |
+| Randomized check deferred when the phone can't show it | held (the phone's Next stops at it, `deferredCount` 1); `item_device_deferred` once; day end `not_answered:device_deferred`; logged probabilities untouched | the same | the same |
+| Logged probabilities across each journey | unchanged | unchanged | unchanged |
+| No stranded Next | the desktop then finished the plan (its Next served the held reading's day to `done`) | the desktop's Next reached `done` | the same |
+| Methods outside the allowlist | 461 of 461 refused 403 | the same | the same |
+
+For the deferred check, the device filter was made to hold the day's administered check (`PlanStepFilter.holds`), as `test_mobile_v2_checks.py` does. None of these copies has a check item that a phone can't really show.
+
+**Two devices on one plan** (the branch, each copy):
+
+| Check | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| Alternating steps, three rounds | phone item, desktop item, phone item, desktop item, then `done` on both | phone item, desktop item, then `done` | phone item, desktop item, phone item, then `done` |
+| The non-owner's Next | the desktop refused `session_moved` 3 of 3; the phone refused `session_moved` 3 of 3; each adopt then served | the same | the same |
+| R1's race | the phone's sessionless minutes write; during its slow work the desktop adopts and ends the session: refused `session_moved`, `daily_plans` unchanged | the same | the same |
+| No stranded Next | after the race, the desktop's new session and then the phone's new session each answered a step (`done`) | the same | the same |
+
+**`phone_plan` off** (`MobileConfig(phone_plan=False)`), each copy:
+- `get_daily_plan`, `set_plan_minutes`, `next_plan_item`, `plan_keep_going` and `get_today_headline` were each refused 409 `phone_plan_off`.
+- `GET /api/v1/meta` reported `phone_plan: false`.
+
+**Network, processes and spend**, every run:
+- 0 new `model_call_receipts` from a real model. The new ones were all fakes: `fake`/`blind_grading` and its `fake_turn`, `fake_decider`/`router_decision`, `fake_llm`/`router_decision` and `chat_request`.
+- No socket call at all.
+- The only processes: `git rev-parse HEAD` (data capture's version stamp) and `powerprofilesctl get`.
+- No Codex process.
+
+**What the smoke did not reach:** R2's path itself. A real stop drawn at a phone boundary while ordinary items wait for the desktop did not happen on these copies: their held work was a reading, and the deferred check stops the phone before any draw. R2 and R3 are covered by their reproductions in the gate. A real phone, Serve and iOS are P3-P5 below.
+
+**Stop conditions: none met.**
+- The desktop at a None origin serves as main does.
+- No phone step served what the device filter excludes.
+- No logged probability changed.
+- No Next stranded on either device.
+- Every ownership check held in both directions, R1's race included.
+- No method outside the allowlist was reachable.
+- No real model call was delivered.
+- The one failure passed 3 of 3 alone.
+
+Every copy was deleted afterwards: the smoke's base and runs, main's archive and the owner lane. The live phone host and its units were not touched.
+
+### What the owner does
+
+On carson, after landing. V2 adds no Python dependency and no migration. Rebuild the PWA, restart the phone host, and run the doctor:
+
+```bash
+cd ~/Documents/thinking/learnanything
+(cd apps/learnloop-mobile && npm install && npm run build)
+systemctl --user restart learnloop-mobile
+.venv/bin/learnloop-mobile doctor
+```
+
+The cached V1 app offers *LearnLoop was updated. Reload* (the allowlist moved): tap it. Then on the iPhone (from §7):
+
+- **P3. Today is the plan.**
+  1. Open the app. Today shows one sentence ("25 minutes today: …"), `why?`, and Begin. With the desktop app open on Today, both show the same plan.
+  2. Tap Begin. The question opened is the one the desktop's Today names as its next block (the desktop's Today, Begin, would show the same item; don't answer it there).
+  3. Answer it. Within about 3 s the desktop's Today moves (the item done, the next block named).
+  4. If an item has a picture or a page link, the phone skips it and Today says *1 question is waiting for the desktop.* Open the desktop: its next Next serves that item (take the session back there when asked).
+- **P4. A miss, held feedback, a hint.**
+  1. Miss a question on purpose. Feedback says *Preparing a question on this…* and holds the full answer and the causes (*…come after the question…*), with the router's line beneath when the router decided.
+  2. Tap *Show anyway*: the full answer is offered (*Show the full answer*) and the causes appear. On another miss, tap *Continue without it* instead: Next goes on with the plan. The question itself waits for the desktop (V3).
+  3. On a question with hints, tap *Hint*: the sheet says the answer will count as answered with help. Tap *Show a hint*: it appears under *◌ with help*. Submit: the answer is recorded with one hint used (a hinted attempt, where the item allows one).
+- **P5. The stop offer.**
+  1. Keep answering past the plan's minutes. When the plan stops, Today says *Done for today · N minutes.* with *Keep going* and *Done for today*.
+  2. Tap *Keep going*: a short extension's Next appears. Answer one.
+  3. When it stops again, tap *Done for today*: the session ends (*Session finished: …*).
+
+**To turn the phone's plan off:**
+1. Add `phone_plan = false` to `~/.config/learnloop/mobile.toml` (beside `enabled` and `vault`).
+2. Run `systemctl --user restart learnloop-mobile`.
+
+The plan's methods then answer `phone_plan_off`, meta reports `phone_plan: false`, and the phone's Today is M2a's queue. Delete the line (or set it to `true`) and restart to turn the plan back on.
+
+### Open items
+
+- **The same receipt order on a finished plan's Keep going.** `keep_going` on a `complete` plan and `more_new{confirm}` still write their override receipt before `build_plan`. A phone whose session moves during that build would leave a receipt for a refused extension. R3 ruled on the pending stop's re-split only. The smallest fix is R3's: build first, then commit the receipt inside `build_plan`'s transaction.
+- **`test_every_reply_carries_what_the_phone_reads` depends on the queue's first row.** It reveals authored hint 0 on whichever item comes first, and in one batch that item had none. Pin the hint item (the seeded vault's `ITEM`), or pick the first row that has hints.
+- **The `help_assists.surface` widening** for `phone_practice` goes into V3 (R5).
+- From §2, unchanged: readings wait for the desktop until V4's Reader; AD's slot draw is not asked under a device; the adaptive hint jobs are not allowlisted; a feedback reopened from the fragment is not reopened.
