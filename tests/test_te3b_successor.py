@@ -62,9 +62,11 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.52's value on main at TE3b's base (8b0738499d), frozen here: dropping TE3b's key reproduces it.
+    # mvp-0.52's value on main at TE3b's base (8b0738499d), frozen here: dropping TE3b's key reproduces it (and the
+    # router speed stage's [router_objective] held_ad_link, in every snapshot, which landed after the base).
     dumped = drop_te3b_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False))
+    assert dumped["router_objective"].pop("held_ad_link") is True
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP052_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
