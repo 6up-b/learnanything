@@ -3,8 +3,8 @@ title: "lesson_activity_intervals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd1bcd9c9518905e38a4c507b834318e9ce6b8f2"
-source_commit_timestamp: "2026-11-06T18:38:09-05:00"
+source_commit: "b1693676a83a561b40dd2333d6b480e71f6ad59f"
+source_commit_timestamp: "2026-11-06T18:53:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_activity_intervals"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/config/schema.py"
-  - "src/learnloop/daily_plan/lesson_offer.py"
   - "src/learnloop/db/stores/lessons.py"
   - "src/learnloop/params/parameter_registry.py"
-  - "src/learnloop/router_objective/price.py"
+  - "src/learnloop/teacher/episodes.py"
+  - "src/learnloop_sidecar/handlers/lesson.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -95,9 +95,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/daily_plan/lesson_offer.py`
 - `src/learnloop/db/stores/lessons.py`
-- `src/learnloop/router_objective/price.py`
 
 ### Direct SQL writers
 
@@ -112,8 +110,6 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_te3b_population.py`
-- `tests/test_te3b_value.py`
 - `tests/test_teacher_te2log_activity.py`
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/test_teacher_te2log_migration.py`

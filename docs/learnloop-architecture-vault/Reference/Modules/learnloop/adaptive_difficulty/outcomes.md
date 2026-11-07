@@ -144,6 +144,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_i_dont_know_answer_still_fails_whatever_its_grade`
 - [tests/test_ad2_model.py](../../../../../../tests/test_ad2_model.py) — direct import
   - `test_unknown_hint_timing_never_read_as_after_work`
+- [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
 
 ## Modification guidance
 

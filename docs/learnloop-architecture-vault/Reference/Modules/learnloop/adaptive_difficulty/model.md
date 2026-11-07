@@ -222,6 +222,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_ad_stable.py](../../../../../../tests/test_rofu_ad_stable.py) — direct import
   - `test_codexs_case_gives_one_outcome_on_every_path_all_at_f`
   - `test_the_logit_is_stable_and_its_slope_matches_the_transformation`
+- [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on`
   - `test_the_prior_is_centred_and_spread_on_ro4s_placeholder_with_ads_shape`

@@ -31,7 +31,9 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
 from datetime import datetime
+import hashlib
 import json
+import threading
 from typing import Any
 
 from learnloop.clock import parse_utc
@@ -48,6 +50,49 @@ def _days(later: datetime, earlier: datetime) -> float:
     return max((later - earlier).total_seconds() / 86400.0, 0.0)
 
 
+#: Router speed, item 2: each trace's untouched topics and their frozen sensors, parsed once per trace content
+#: (:func:`_untouched`), keyed by a digest of the drawn option and the trace's whole JSON text, so a trace rewritten in
+#: any byte is parsed again. Its bound is a keep bound (memory only: past it the oldest entry is parsed again on its
+#: next read, never a different value).
+_PARSED: dict[bytes, tuple[tuple[str, dict[str, Any]], ...]] = {}
+_PARSED_LOCK = threading.Lock()
+_PARSED_LIMIT = 4096
+
+
+def _untouched(chosen: str, trace_json: str) -> tuple[tuple[str, dict[str, Any]], ...]:
+    """The trace's topics with sensors frozen, except the drawn option's own, in id order with their sensor values
+    (``eta``, ``stability``, ``elapsed``, ``practiced``): a pure function of the drawn option and the trace's text,
+    held per content digest (router speed, item 2: the join parsed every plan-block trace's 13-31 KB at every call,
+    about 2.4 calls a decision). The outcome side (presentations, resolution, received time, regrades, holds) is never
+    held: :func:`groups` and :func:`rows` read it at every call."""
+
+    key = hashlib.blake2b(f"{len(chosen)}:{chosen}:".encode("utf-8") + trace_json.encode("utf-8"),
+                          digest_size=20).digest()
+    with _PARSED_LOCK:
+        held = _PARSED.get(key)
+    if held is not None:
+        return held
+    candidates = json.loads(trace_json).get("candidates") or {}
+    drawn = set(((candidates.get(chosen) or {}).get("sensors") or {}))
+    sensors: dict[str, Mapping[str, Any]] = {}
+    for entry in candidates.values():
+        for lo, values in ((entry or {}).get("sensors") or {}).items():
+            if lo == "llm_forecast" or lo in drawn or not isinstance(values, Mapping):
+                continue
+            if values.get("ad_eta") is None:
+                continue
+            sensors.setdefault(str(lo), values)
+    parsed = tuple((lo, {"eta": float(values["ad_eta"]), "stability": float(values.get("fsrs_stability") or 0.0),
+                         "elapsed": float(values.get("fsrs_elapsed_days") or 0.0),
+                         "practiced": bool(values.get("practiced"))})
+                   for lo, values in sorted(sensors.items()))
+    with _PARSED_LOCK:
+        while len(_PARSED) >= _PARSED_LIMIT:
+            _PARSED.pop(next(iter(_PARSED)))
+        _PARSED[key] = parsed
+    return parsed
+
+
 def groups(connection: Any, *, now: str) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """One resolvable group per (decision, untouched topic) as of ``now``, and the decisions joined nothing, by
     reason."""
@@ -58,38 +103,28 @@ def groups(connection: Any, *, now: str) -> tuple[list[dict[str, Any]], dict[str
         return [], {}
     skipped: dict[str, int] = {}
     found: list[dict[str, Any]] = []
+    # Router speed, item 2: each decision's first presentation served by ``now`` in one read (it was one query per
+    # trace): the first row per decision in (served_at, id) order, as each query's ORDER BY ... LIMIT 1 took it.
+    first_served: dict[str, str] = {}
+    for served in connection.execute(
+            "SELECT router_decision_id, id FROM plan_presentations WHERE router_decision_id IS NOT NULL "
+            "AND served_at <= ? ORDER BY served_at, id", (now,)):
+        first_served.setdefault(str(served[0]), str(served[1]))
     for row in connection.execute(
             "SELECT decision_id, chosen_ref, trace_json, created_at FROM router_objective_traces "
             "WHERE decision_kind = 'plan_block' AND created_at <= ? ORDER BY created_at, id", (now,)):
-        chosen = str(row["chosen_ref"])
-        trace = json.loads(row["trace_json"])
-        candidates = trace.get("candidates") or {}
-        served = connection.execute(
-            "SELECT id FROM plan_presentations WHERE router_decision_id = ? AND served_at <= ? "
-            "ORDER BY served_at, id LIMIT 1", (row["decision_id"], now)).fetchone()
-        if served is None:
+        untouched = _untouched(str(row["chosen_ref"]), str(row["trace_json"]))
+        served_id = first_served.get(str(row["decision_id"]))
+        if served_id is None:
             skipped["no_block_served"] = skipped.get("no_block_served", 0) + 1
             continue
-        drawn = set(((candidates.get(chosen) or {}).get("sensors") or {}))
-        sensors: dict[str, Mapping[str, Any]] = {}
-        for entry in candidates.values():
-            for lo, values in ((entry or {}).get("sensors") or {}).items():
-                if lo == "llm_forecast" or lo in drawn or not isinstance(values, Mapping):
-                    continue
-                if values.get("ad_eta") is None:
-                    continue
-                sensors.setdefault(str(lo), values)
-        if not sensors:
+        if not untouched:
             skipped["no_untouched_topic"] = skipped.get("no_untouched_topic", 0) + 1
             continue
-        for lo, values in sorted(sensors.items()):
-            found.append({"plan_presentation_id": str(served[0]), "learning_object_id": lo, "forecaster": FORECASTER,
+        for lo, values in untouched:
+            found.append({"plan_presentation_id": served_id, "learning_object_id": lo, "forecaster": FORECASTER,
                           "curve": dict(_FLAT_CURVE), "decision_id": str(row["decision_id"]),
-                          "decided_at": str(row["created_at"]),
-                          "sensors": {"eta": float(values["ad_eta"]), "stability": float(values.get("fsrs_stability")
-                                                                                         or 0.0),
-                                      "elapsed": float(values.get("fsrs_elapsed_days") or 0.0),
-                                      "practiced": bool(values.get("practiced"))}})
+                          "decided_at": str(row["created_at"]), "sensors": dict(values)})
     return found, skipped
 
 

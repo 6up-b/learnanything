@@ -3,8 +3,8 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd1bcd9c9518905e38a4c507b834318e9ce6b8f2"
-source_commit_timestamp: "2026-11-06T18:38:09-05:00"
+source_commit: "b1693676a83a561b40dd2333d6b480e71f6ad59f"
+source_commit_timestamp: "2026-11-06T18:53:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
@@ -81,9 +81,9 @@ Every one of the 1182 effective leaves has a semantic Function, a runtime/refact
 | [[Config - practice_index|`practice_index`]] | 14 | Runtime configuration |
 | [[Config - source_service|`source_service`]] | 19 | Runtime configuration |
 | [[Config - placement|`placement`]] | 8 | Runtime configuration |
-| [[Config - router|`router`]] | 25 | Runtime configuration |
+| [[Config - router|`router`]] | 24 | Runtime configuration |
 | [[Config - data_capture|`data_capture`]] | 2 | Runtime configuration |
-| [[Config - router_objective|`router_objective`]] | 40 | Runtime configuration |
+| [[Config - router_objective|`router_objective`]] | 41 | Runtime configuration |
 | [[Config - followup|`followup`]] | 2 | Runtime configuration |
 | [[Config - pf|`pf`]] | 14 | Runtime configuration |
 | [[Config - plan|`plan`]] | 22 | Runtime configuration |

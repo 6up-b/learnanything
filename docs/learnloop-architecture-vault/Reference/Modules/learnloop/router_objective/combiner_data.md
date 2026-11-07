@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/combiner_data.py"
 source_paths:
   - "src/learnloop/router_objective/combiner_data.py"
-source_commit: "122e47603b2d8bc310d318f2f15a2d4e4e05d995"
-source_commit_timestamp: "2026-11-05T21:51:28-05:00"
+source_commit: "139500ed92d2c4bb492dbf3ada9c3d5a6fc5e205"
+source_commit_timestamp: "2026-11-06T06:27:10-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,25 +50,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py) |
-| Source lines | 153 |
+| Source lines | 188 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `122e47603b2d8bc310d318f2f15a2d4e4e05d995` |
-| Commit timestamp | `2026-11-05T21:51:28-05:00` |
+| Source commit | `139500ed92d2c4bb492dbf3ada9c3d5a6fc5e205` |
+| Commit timestamp | `2026-11-06T06:27:10-05:00` |
 
 ## Public API
 
-- `groups(connection: Any, *, now: str) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/combiner_data.py), line 51) — One resolvable group per (decision, untouched topic) as of ``now``, and the decisions joined nothing, by reason.
-- `rows(connection: Any, resolved: Sequence[Mapping[str, Any]], *, now: str, known_at: Callable[[Mapping[str, Any]], Any], retrievability: Callable[[float, float], float], exclude: Collection[str]=()) -> tuple[list[tuple[float, float | None, int]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/combiner_data.py), line 96) — The combiner's ``(η, R or None, y)`` rows from the resolver's rows (``resolved``), as of ``now``; ``exclude``: attempt ids already counted (a randomized check's).
+- `groups(connection: Any, *, now: str) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/combiner_data.py), line 96) — One resolvable group per (decision, untouched topic) as of ``now``, and the decisions joined nothing, by reason.
+- `rows(connection: Any, resolved: Sequence[Mapping[str, Any]], *, now: str, known_at: Callable[[Mapping[str, Any]], Any], retrievability: Callable[[float, float], float], exclude: Collection[str]=()) -> tuple[list[tuple[float, float | None, int]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/combiner_data.py), line 131) — The combiner's ``(η, R or None, y)`` rows from the resolver's rows (``resolved``), as of ``now``; ``exclude``: attempt ids already counted (a randomized check's).
 
 ### Module constants
 
-- `JOIN_VERSION` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 40)
-- `FORECASTER` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 41)
-- `_PER_PROTOCOL` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 42)
-- `_FLAT_CURVE` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 44)
+- `JOIN_VERSION` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 42)
+- `FORECASTER` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 43)
+- `_PER_PROTOCOL` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 44)
+- `_FLAT_CURVE` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 46)
+- `_PARSED` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 57)
+- `_PARSED_LOCK` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 58)
+- `_PARSED_LIMIT` ([src/learnloop/router_objective/combiner_data.py](../../../../../../src/learnloop/router_objective/combiner_data.py), line 59)
 
 ### Explicit exports
 
@@ -81,7 +84,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_days(later: datetime, earlier: datetime) -> float` ([source](../../../../../../src/learnloop/router_objective/combiner_data.py), line 47)
+- `_days(later: datetime, earlier: datetime) -> float` ([source](../../../../../../src/learnloop/router_objective/combiner_data.py), line 49)
+- `_untouched(chosen: str, trace_json: str) -> tuple[tuple[str, dict[str, Any]], ...]` ([source](../../../../../../src/learnloop/router_objective/combiner_data.py), line 62) — The trace's topics with sensors frozen, except the drawn option's own, in id order with their sensor values (``eta``, ``stability``, ``elapsed``, ``practiced``): a pure function of the drawn option and the trace's text, held per content digest (router speed, item 2: the join par…
 
 ## Who imports or calls it
 
@@ -99,7 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `datetime`, `json`, `typing`
+- Standard library: `__future__`, `collections`, `datetime`, `hashlib`, `json`, `threading`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -119,6 +123,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
   - `test_the_join_rows_count_one_outcome_once_per_protocol_and_only_when_known`
   - `test_the_join_takes_the_drawn_blocks_untouched_topics_as_of_the_moment`
+- [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
+  - `test_a_rewritten_trace_is_parsed_again`
+  - `test_the_groups_are_the_landing_codes`
+  - `test_the_parsed_traces_are_bounded`
 
 ## Modification guidance
 

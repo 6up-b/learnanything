@@ -1800,6 +1800,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro2_history_resolve.py](../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_the_permuted_run_sends_another_presentations_history`
 - [tests/test_ro5_picks.py](../../../../../tests/test_ro5_picks.py) — direct import
+- [tests/test_rospeed_join.py](../../../../../tests/test_rospeed_join.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f1_live_an_incomplete_regrade_keeps_an_existing_hold`
   - `test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals`

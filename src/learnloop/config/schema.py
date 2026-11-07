@@ -4205,7 +4205,8 @@ class RouterObjectiveConfig(BaseModel):
 
     The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
     ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
-    switch (off, or below the tag, mvp-0.49 exactly).
+    switch (off, or below the tag, mvp-0.49 exactly). Router speed (at the same tag): ``held_ad_link`` (off, the
+    batch's landing code exactly).
     """
 
     receipts: bool = True
@@ -4317,6 +4318,10 @@ class RouterObjectiveConfig(BaseModel):
     #: RO6 R11: a topic entering the retention scope at its configured default density extends the objective's
     #: scope instead of changing it, for transitions whose earlier value never valued the topic.
     scope_extension: bool = True
+    #: Router speed, item 1 (Codex review F1): R9's link evaluated once per array in the rollouts, its values held
+    #: and recomputed only where the state changed; the same values per draw, but faster, so a deadline admits more
+    #: draws (part of RO6's generator payload). Off: the batch's landing code, a quadrature per read.
+    held_ad_link: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

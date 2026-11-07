@@ -42,6 +42,8 @@ FOLLOWUP_KEYS: dict[str, object] = {
     "ad_predictive_link": True,
     "carried_in_prefetch": True,
     "scope_extension": True,
+    # router speed, item 1 (its Codex review F1): a kill switch at the same tag
+    "held_ad_link": True,
 }
 
 

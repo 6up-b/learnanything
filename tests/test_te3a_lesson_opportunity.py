@@ -677,21 +677,35 @@ def _lesson_q(learning: V.Learning) -> tuple[float, tuple[float, ...]]:
     return _lesson_q_at(learning)
 
 
-def _lesson_q_at(learning: V.Learning, *, followups: bool = False) -> tuple[float, tuple[float, ...]]:
+def _lesson_q_at(learning: V.Learning, *, followups: bool = False,
+                 held: bool = False) -> tuple[float, tuple[float, ...]]:
     lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a", "lo_b"), minutes=15.0,
                       mass=P.LESSON_CHECK_MASS_PRIOR)
     block = V.Action(ref="practice", kind=V.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
     out = V.evaluate(_inputs(learning, followups=followups), [lesson, block], draws=64, seed="te3a",
-                     merged_sessions=followups, consistent_review_draw=followups).by_ref()
+                     merged_sessions=followups, consistent_review_draw=followups, held_ad_link=held).by_ref()
     return out["lesson"].q, out["lesson"].q_draws
 
 
-@pytest.mark.parametrize("followups", FOLLOWUPS.values(), ids=FOLLOWUPS.keys())
-def test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder(followups):
-    """With every router follow-up switch off (TE3a's own read on ``logit p̄``) and on (the lesson curve read
-    through AD's link on AD's latent ``η``, the monotone combiner, merged sessions, the consistent review draw)."""
+#: Router speed's ``held_ad_link`` (R9's link values held per role; landing at router speed's merge of TE3a): off,
+#: the follow-up batch's landing code (a quadrature per read); on, the held values. It acts only with the link.
+HELD: dict[str, bool] = {"held_off": False, "held_on": True}
 
-    _lesson_q = functools.partial(_lesson_q_at, followups=followups)
+
+@pytest.mark.parametrize("held", HELD.values(), ids=HELD.keys())
+@pytest.mark.parametrize("followups", FOLLOWUPS.values(), ids=FOLLOWUPS.keys())
+def test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder(followups, held):
+    """With every router follow-up switch off (TE3a's own read on ``logit p̄``) and on (the lesson curve read
+    through AD's link on AD's latent ``η``, the monotone combiner, merged sessions, the consistent review draw), with
+    router speed's held link off and on (at a fixed number of draws the same values, bit for bit)."""
+
+    _lesson_q = functools.partial(_lesson_q_at, followups=followups, held=held)
+    if held:
+        for learning in (V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2])),
+                         V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
+                             {"lo_a": 1.0}, mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))):
+            on, off = _lesson_q(learning), _lesson_q_at(learning, followups=followups, held=False)
+            assert on[0] == off[0] and np.array_equal(on[1], off[1])
     placeholder = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]))
     curved = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve())
     q_placeholder, draws_placeholder = _lesson_q(placeholder)
@@ -710,6 +724,28 @@ def test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder(followups)
     far_larger = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
         {"lo_a": 3.0, "lo_b": 3.0}, mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
     assert q_placeholder < _lesson_q(far_larger)[0] < q_larger
+
+
+def test_a_probe_closes_the_lesson_window_on_the_held_link_too():
+    """Router speed's landing merge of TE3a: with the follow-up batch's AD link on, a probe's observation closes the
+    topic's lesson window (TE3a, Codex review F3) on the held link's path as on the landing code's, so a lesson, a
+    probe and a lesson on one topic value the same, bit for bit, with ``held_ad_link`` on and off. Off the prior, so
+    the window's place moves the second lesson's learned shift."""
+
+    learning = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
+        {"lo_a": 0.0}, mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
+    lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a",), minutes=5.0, mass=P.LESSON_CHECK_MASS_PRIOR)
+    probe = V.Action(ref="probe", kind=V.PROBE, item_los=("lo_a",), minutes=3.0)
+    sequence = V.Action(ref="seq", kind=V.SEQUENCE, steps=(replace(lesson, ref="s1"), replace(probe, ref="s2"),
+                                                          replace(lesson, ref="s3")))
+    block = V.Action(ref="practice", kind=V.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
+    values = {}
+    for held in (False, True):
+        out = V.evaluate(_inputs(learning, followups=True), [sequence, block], draws=64, seed="te3a-window",
+                         merged_sessions=True, consistent_review_draw=True, held_ad_link=held).by_ref()
+        values[held] = (out["seq"].q, out["seq"].q_draws)
+    assert values[True][0] == values[False][0]
+    assert np.array_equal(values[True][1], values[False][1])
 
 
 def _f2_choice(learning: V.Learning, *, mass: float) -> tuple[dict[str, V.Valued], str]:

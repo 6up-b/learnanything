@@ -158,6 +158,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ro2_history_resolve.py](../../../../../tests/test_ro2_history_resolve.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
 - [tests/test_ro4_codex_review.py](../../../../../tests/test_ro4_codex_review.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
 - [tests/test_rofu_learning.py](../../../../../tests/test_rofu_learning.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
+- [tests/test_rospeed_join.py](../../../../../tests/test_rospeed_join.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
 - [tests/test_ad1_fix_round4.py](../../../../../tests/test_ad1_fix_round4.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad1_reading_opportunities.py](../../../../../tests/test_ad1_reading_opportunities.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad23_contract.py](../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
@@ -166,7 +167,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad3_dose_arm.py](../../../../../tests/test_ad3_dose_arm.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad_epoch.py](../../../../../tests/test_ad_epoch.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad_guard.py](../../../../../tests/test_ad_guard.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
-- [tests/test_ad_projection.py](../../../../../tests/test_ad_projection.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 
 ## Modification guidance
 

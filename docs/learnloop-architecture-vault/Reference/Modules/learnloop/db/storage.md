@@ -134,6 +134,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_production_lane_and_live_backup_preserve_committed_state`
+- [tests/test_rospeed_watcher.py](../../../../../../tests/test_rospeed_watcher.py) — direct import
+  - `test_a_rollback_header_database_is_watched_without_blocking_a_writer`
+  - `test_a_writer_closing_before_the_watcher_leaves_only_its_own_frames`
+  - `test_a_writer_commits_while_the_watcher_is_open_and_the_watcher_never_writes`
 - [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
   - `test_a_long_read_transaction_delays_checkpoints_only_until_it_ends`
   - `test_affected_sqlite_leaves_databases_in_rollback_mode_and_doctor_says_why`

@@ -3,8 +3,8 @@ title: "router_objective_traces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd1bcd9c9518905e38a4c507b834318e9ce6b8f2"
-source_commit_timestamp: "2026-11-06T18:38:09-05:00"
+source_commit: "b1693676a83a561b40dd2333d6b480e71f6ad59f"
+source_commit_timestamp: "2026-11-06T18:53:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_objective_traces"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/daily_plan/objective_chooser.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/db/stores/router_objective.py"
-  - "src/learnloop/lesson_offers_upgrade.py"
   - "src/learnloop/router_objective/calibration_report.py"
   - "src/learnloop/router_objective/combiner_data.py"
   - "src/learnloop/router_objective/forecast_resolve.py"
+  - "src/learnloop/router_objective/goal_read.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -117,7 +117,6 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/forecast_resolve.py`
 - `src/learnloop/router_objective/goal_read.py`
 - `src/learnloop/router_objective/objective_report.py`
-- `src/learnloop/router_objective/offer_report.py`
 - `src/learnloop/router_objective/scores.py`
 - `src/learnloop/router_objective/stop_coin.py`
 - `src/learnloop/router_objective/tail_data.py`
@@ -143,7 +142,7 @@ None found by exact static reference scan.
 - `tests/test_ro5_codex_review.py`
 - `tests/test_ro5_landing.py`
 - `tests/test_rofu_learning.py`
-- `tests/test_te3b_binding.py`
+- `tests/test_rospeed_join.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

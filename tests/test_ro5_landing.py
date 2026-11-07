@@ -487,11 +487,14 @@ def test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_interventio
     from learnloop.followup_run import router
     from learnloop.followup_serve import identity
 
-    from tests.router_model_fakes import FakeLLM
+    from tests.router_model_fakes import FakeLLM, block_drawing_seed
     from tests.test_followup_router import _row, _workflow
     from tests.test_ro4_objective_serving import policy_answer
 
-    env, _llm = _fg1_env(tmp_path, llm=FakeLLM(answer=policy_answer))
+    # Router speed, item 4 (RO6's landing ruling R14, as the R5 (1) test above): a seed pinned to serve a block first.
+    # Unpinned, the plan's first draw was a stop about one run in six, so no block was open (``'done' == 'item'`` at
+    # the fixture's first advance; 4 in 22 runs alone, below the follow-up batch's tag).
+    env, _llm = _fg1_env(tmp_path, llm=FakeLLM(answer=policy_answer), seed=block_drawing_seed())
     runtime = env.policy.restraint.runtime
     row = {**_row(), "session_id": env.session_id}
     _env, record, gate = router._plan_context(env.vault, env.repository, row,
