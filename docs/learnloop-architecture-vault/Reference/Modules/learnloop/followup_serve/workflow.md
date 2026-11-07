@@ -174,7 +174,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `attempt_workflow`, `set_fields`; statically calls `attempt_workflow`, `set_fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `attempt_workflow`; statically calls `attempt_workflow`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `workflow_of_item`; statically calls `workflow_of_item`
-- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `desktop_waiting_count`, `module`; statically calls `desktop_waiting_count`, `session_rows`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `desktop_waiting_count`, `module`, `session_rows`; statically calls `desktop_waiting_count`, `session_rows`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `module`; statically calls `retire_waiting`, `waiting_still_valid`, `workflow_of_item`
 
 ## Dependencies
@@ -350,6 +350,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
   - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
+- [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
+  - `test_a_question_the_desktop_served_is_refused_on_the_phone_and_the_phones_next_goes_on`
+  - `test_the_phone_opens_its_question_burns_it_as_the_phones_and_the_desktop_is_refused`
+  - `test_the_phones_answer_releases_the_held_feedback_and_the_question_is_never_served_again`
+  - `test_without_phone_probes_the_phone_is_v2s`
 
 ## Modification guidance
 

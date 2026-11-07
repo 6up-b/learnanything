@@ -93,15 +93,16 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `hypothesis_marks_on`; statically calls `hypothesis_marks_on`
+- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `SERVING_SURFACE`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `RIVAL_CAUSES_FACTOR_VERSION`, `WORKFLOW_SURFACES`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `hypothesis_marks_on`; statically calls `hypothesis_marks_on`
-- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `PHONE_SURFACE`, `SERVING_SURFACE`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `SERVING_SURFACE`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `generate_and_serve_on`, `hypothesis_marks_on`; statically calls `generate_and_serve_on`, `hypothesis_marks_on`
-- [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `PHONE_SURFACE`, `SERVING_SURFACE`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `PHONE_SURFACE`, `SERVING_SURFACE`
-- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
-- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `SERVING_SURFACE`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `PHONE_SURFACE`, `SERVING_SURFACE`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `PHONE_SURFACE`, `SERVING_SURFACE`
 
 ## Dependencies
 
@@ -121,7 +122,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 17 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 18 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -141,6 +142,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_or_with_the_switch_off_no_workflow_opens`
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
+- [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
+  - `test_a_question_the_desktop_served_is_refused_on_the_phone_and_the_phones_next_goes_on`
+  - `test_the_desktops_serving_next_moves_past_a_probe_the_phone_served_and_abandons_it`
+  - `test_the_phone_opens_its_question_burns_it_as_the_phones_and_the_desktop_is_refused`
 
 ## Modification guidance
 

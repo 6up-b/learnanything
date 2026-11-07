@@ -398,6 +398,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_review_fixes.py](../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f6_a_desktop_step_whose_session_moved_during_its_work_commits_nothing`
   - `test_f6_the_check_is_a_phone_origins_too`
+- [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_a_learner_links_a_note_by_hand_from_the_reader`
   - `test_meaning_search_is_refused_while_embeddings_are_off`

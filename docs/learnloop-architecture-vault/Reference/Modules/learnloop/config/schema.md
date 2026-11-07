@@ -453,6 +453,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tier1_disclosure_names_the_statement_judgment`
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
   - `test_defaults_fingerprint_is_recorded_for_the_successor`
+- [tests/test_mobile_v3_successor.py](../../../../../../tests/test_mobile_v3_successor.py) — direct import
+  - `test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone`
 - [tests/test_mvp013_upgrade.py](../../../../../../tests/test_mvp013_upgrade.py) — direct import
   - `test_defaults_fingerprint_is_recorded_for_the_successor`
 - [tests/test_mvp014_upgrade.py](../../../../../../tests/test_mvp014_upgrade.py) — direct import

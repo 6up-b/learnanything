@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/hints.py"
 source_paths:
   - "src/learnloop/cli/hints.py"
-source_commit: "4ae737c4f829e3080b203fca75dc4f594765d558"
-source_commit_timestamp: "2026-10-18T21:02:29-04:00"
+source_commit: "3e98c165d53a3ded31844c9970bb462d0c71404e"
+source_commit_timestamp: "2026-11-06T23:32:44-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,12 +54,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4ae737c4f829e3080b203fca75dc4f594765d558` |
-| Commit timestamp | `2026-10-18T21:02:29-04:00` |
+| Source commit | `3e98c165d53a3ded31844c9970bb462d0c71404e` |
+| Commit timestamp | `2026-11-06T23:32:44-05:00` |
 
 ## Public API
 
-- `hints_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], since: Annotated[str | None, typer.Option('--since', help='Only hints shown at or after this ISO time, or a span such as 7d or 24h.')]=None, surface: Annotated[str | None, typer.Option('--surface', help='Only one surface: practice, workbench, guided_redo or tutor.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/hints.py), line 46) — Hints by surface, kind and level (authored hints are the baseline): shown, items, sessions, timing, more help, the attempt's outcome and later independent success; "doesn't connect" by shortcut, outcome placements, the expertise-reversal split, help abuse and avoidance counts, a…
+- `hints_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], since: Annotated[str | None, typer.Option('--since', help='Only hints shown at or after this ISO time, or a span such as 7d or 24h.')]=None, surface: Annotated[str | None, typer.Option('--surface', help='Only one surface: practice, workbench, guided_redo, tutor or phone_practice.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/hints.py), line 46) — Hints by surface, kind and level (authored hints are the baseline): shown, items, sessions, timing, more help, the attempt's outcome and later independent success; "doesn't connect" by shortcut, outcome placements, the expertise-reversal split, help abuse and avoidance counts, a…
 - `maps_build(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], item: Annotated[str | None, typer.Option('--item', help='Only this practice item.')]=None, family: Annotated[str | None, typer.Option('--family', help='Only the items of this practice family.')]=None, lo: Annotated[str | None, typer.Option('--lo', help='Only the items of this learning object.')]=None, limit: Annotated[int | None, typer.Option('--limit', min=1, help='Build at most this many maps in this run.')]=None, dry_run: Annotated[bool, typer.Option('--dry-run', help='Print the plan and the estimate; retrieve, call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/hints.py), line 99) — Build approach maps for active items that have none for their current revision (all items, or one --item, --family or --lo).
 
 ### Module constants

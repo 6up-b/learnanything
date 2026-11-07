@@ -292,6 +292,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_selection_offers_both_instruments`
 - [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
   - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
+- [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import

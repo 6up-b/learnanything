@@ -285,6 +285,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_held_grade_evidence.py](../../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_f1_live_a_blank_criterion_id_keeps_no_shortfall_and_queues_no_diagnosis`
   - `test_f2_a_regrade_that_validates_nothing_keeps_the_hold`
+- [tests/test_mobile_v3_probes.py](../../../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_pfc_unverified_unassessed.py](../../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
   - `test_a_complement_route_is_graded_on_its_assessed_criteria_only`
   - `test_a_regrade_applies_the_same_rule`

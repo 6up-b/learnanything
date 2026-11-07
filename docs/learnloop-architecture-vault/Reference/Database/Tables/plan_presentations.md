@@ -3,13 +3,13 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b1693676a83a561b40dd2333d6b480e71f6ad59f"
-source_commit_timestamp: "2026-11-06T18:53:04-05:00"
+source_commit: "0cc1e5ab5436f13e72c0cd2bf84543dccd7ff3f2"
+source_commit_timestamp: "2026-11-07T01:07:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
   - "table plan_presentations"
-schema_head: 249
+schema_head: 250
 table_name: "plan_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -140,6 +140,7 @@ None found by exact static reference scan.
 - `tests/test_data_capture_codex_rereview.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_mobile_v2_rereview_fixes.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_reader_rw3a_landing.py`
 - `tests/test_reader_rw4b_admission_idempotency.py`
@@ -148,7 +149,6 @@ None found by exact static reference scan.
 - `tests/test_ro0_codex_verify.py`
 - `tests/test_ro0_gate.py`
 - `tests/test_ro0_question_state.py`
-- `tests/test_ro0_row12_trajectory.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
