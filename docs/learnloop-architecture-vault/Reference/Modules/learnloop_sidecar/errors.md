@@ -389,6 +389,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_a_desktop_start_over_a_phone_session_asks_and_replace_is_its_answer`
   - `test_writes_from_the_device_that_lost_it_are_session_moved`
+- [tests/test_mobile_v2_followup.py](../../../../../tests/test_mobile_v2_followup.py) — direct import
+  - `test_f3_a_held_desktop_miss_reopened_on_the_phone_stays_held`
+  - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
+- [tests/test_mobile_v2_plan.py](../../../../../tests/test_mobile_v2_plan.py) — direct import
+  - `test_s5_6_plan_writes_refuse_the_device_that_does_not_own_the_session`
+  - `test_s5_6_tutor_and_lesson_writes_bound_to_a_moved_session_are_refused`
+- [tests/test_mobile_v2_review_fixes.py](../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
+  - `test_f6_a_desktop_step_whose_session_moved_during_its_work_commits_nothing`
+  - `test_f6_the_check_is_a_phone_origins_too`
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_a_learner_links_a_note_by_hand_from_the_reader`
   - `test_meaning_search_is_refused_while_embeddings_are_off`

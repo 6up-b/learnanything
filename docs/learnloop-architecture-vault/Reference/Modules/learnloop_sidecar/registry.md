@@ -301,6 +301,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_desktops_offer_under_a_plan_is_still_full_list`
 - [tests/test_mobile_two_process.py](../../../../../tests/test_mobile_two_process.py) — direct import
   - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
+  - `test_the_phone_and_the_desktop_take_turns_on_one_plan`
+- [tests/test_mobile_v2_followup.py](../../../../../tests/test_mobile_v2_followup.py) — direct import
+- [tests/test_mobile_v2_plan.py](../../../../../tests/test_mobile_v2_plan.py) — direct import
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import

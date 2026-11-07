@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/workflow.py"
 source_paths:
   - "src/learnloop/followup_serve/workflow.py"
-source_commit: "e352671bc5acc2a4286028b9bff1f8847e74351c"
-source_commit_timestamp: "2026-11-04T11:32:15-05:00"
+source_commit: "98ecc0dca01b7a869e5544bec341618560243ba1"
+source_commit_timestamp: "2026-11-06T19:52:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e352671bc5acc2a4286028b9bff1f8847e74351c` |
-| Commit timestamp | `2026-11-04T11:32:15-05:00` |
+| Source commit | `98ecc0dca01b7a869e5544bec341618560243ba1` |
+| Commit timestamp | `2026-11-06T19:52:14-05:00` |
 
 ## Public API
 
@@ -185,7 +185,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `append_binding`, `cancel_generation_jobs`, `episodes_pinned_by_workflow`, `insert_event`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_events`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `exposures_of_causes`, `link_probe_answer`, `present`
-- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `RIVAL_CAUSES_FACTOR_VERSION`, `SERVING_SURFACE`, `generate_and_serve_on`; calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `RIVAL_CAUSES_FACTOR_VERSION`, `WORKFLOW_SURFACES`, `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `is_generated_probe`, `retire_unbound`, `withdraw`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_workflow`; calls `enqueue_workflow`
 
@@ -347,6 +347,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
   - `test_with_no_probe_the_list_is_on_the_feedback_screen`
 - [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+- [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
+  - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
+  - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`
 
 ## Modification guidance
 

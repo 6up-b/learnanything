@@ -133,6 +133,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_committed_refusal_bumps_and_any_other_refusal_does_not`
   - `test_bump_for_host_is_the_desktops_no_op`
   - `test_two_vaults_owe_separately_and_a_failed_retry_stays_owed`
+- [tests/test_mobile_v2_followup.py](../../../../../tests/test_mobile_v2_followup.py) — direct import
+- [tests/test_mobile_v2_review_fixes.py](../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
+  - `test_f6_the_check_is_a_phone_origins_too`
 - [tests/test_request_origin.py](../../../../../tests/test_request_origin.py) — direct import
   - `test_an_origin_names_a_device_and_a_known_surface`
   - `test_another_paired_device_is_refused_on_the_phones_session`

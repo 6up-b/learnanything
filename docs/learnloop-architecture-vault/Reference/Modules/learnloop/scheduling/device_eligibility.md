@@ -110,7 +110,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `DeviceFilter`
-- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `PlanStepFilter`; statically calls `PlanStepFilter`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `GENERATED_PROBE`, `PlanStepFilter`; statically calls `PlanStepFilter`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `DESKTOP`, `PHONE`, `PHONE_PLAN`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `DEVICE_POLICY`, `DEVICE_POLICY_OFF`, `DeviceFilter`, `ineligibility_reason`; statically calls `DeviceFilter`, `ineligibility_reason`
 
@@ -157,6 +157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
 - [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import
   - `test_j6_a_check_the_phone_can_show_is_served_on_the_phone_as_an_ordinary_item`
+- [tests/test_mobile_v2_review_fixes.py](../../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
+  - `test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered`
 
 ## Modification guidance
 

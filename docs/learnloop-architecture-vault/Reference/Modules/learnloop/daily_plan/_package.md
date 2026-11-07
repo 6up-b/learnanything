@@ -39,7 +39,7 @@ source_paths:
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/daily_plan/view.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T16:40:39-05:00"
+source_commit_timestamp: "2026-11-06T19:52:14-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -80,7 +80,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] | [[Reference/Modules/learnloop/daily_plan/ad_slot#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/daily_plan/admission|learnloop.daily_plan.admission]] | [[Reference/Modules/learnloop/daily_plan/admission#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] | [[Reference/Modules/learnloop/daily_plan/chooser#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
-| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 15 | 125 |
+| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 16 | 126 |
 | [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] | [[Reference/Modules/learnloop/daily_plan/estimates#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] | [[Reference/Modules/learnloop/daily_plan/headline#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] | [[Reference/Modules/learnloop/daily_plan/intent_cost#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -143,7 +143,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 15 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 16 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 7 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 7 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 4 static module edges
@@ -173,7 +173,7 @@ flowchart LR
     center -->|22| n_learnloop_router_objective
     center -->|20| n_learnloop_adaptive_difficulty
     center -->|16| n_learnloop_router
-    n_learnloop_sidecar_handlers -->|15| center
+    n_learnloop_sidecar_handlers -->|16| center
     center -->|13| n_learnloop_db_stores
     center -->|13| n_learnloop_scheduling
     center -->|11| n_learnloop_ai

@@ -1401,6 +1401,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_host_coexistence.py](../../../../../tests/test_mobile_host_coexistence.py) — direct import
   - `test_capture_host_coexists_without_primary_startup_work`
 - [tests/test_mobile_phone_contract.py](../../../../../tests/test_mobile_phone_contract.py) — direct import
+- [tests/test_mobile_v2_plan.py](../../../../../tests/test_mobile_v2_plan.py) — direct import
+  - `test_a_none_origin_never_enters_the_device_branch`
+  - `test_the_kill_switch_refuses_the_plan_and_meta_says_so`
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_mvp010_upgrade.py](../../../../../tests/test_mvp010_upgrade.py) — direct import
   - `test_upgrade_flips_rebuilds_and_preserves_raw_history`
