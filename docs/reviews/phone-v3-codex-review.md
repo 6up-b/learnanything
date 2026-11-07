@@ -56,3 +56,44 @@ Run in the worktree. Every pytest, vitest and npm run went through `systemd-run 
 - Every source edit used the editor. One test (`test_f3_the_app_and_the_host_name_the_same_capability_header`) was appended to the new test file with a shell heredoc.
 - The reproduction against `2e91909c72` ran the new test file with that commit's `src` (`git archive` into the stage's scratch directory, outside the worktree) first on the import path. One `python -c` that only printed a module's path (to confirm the base `src` was the one imported) ran outside `env -i`; it imported nothing that makes a call.
 - Left for later, smallest way to finish: during the seconds a phone answer is being graded after a handoff, the desktop's PracticeScreen shows the door's generic refusal for that resumed step (`generated_probe_closed`; stage record §2 item 3). A typed desktop line for it, or a desktop step filter (stage record §9 question 1), would remove that window.
+
+## Re-review
+
+**Reviewed tip:** `4bf66282ef` (gpt-6.1-sol; job `20261107-024610-sP8ZIo`), verdict REOPENED on F1. As before, the reviewer traced source only (its user bus refused `systemd-run`, and a read-only filesystem stopped `uv`). F2 and F3 were confirmed fixed, with no new defects in the fix commits. The reopened F1 was reproduced here first: the new tests ran against `4bf66282ef`'s code in the worktree before the fix, and all six failed with no refusal (`DID NOT RAISE`).
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened) | High | `phone_claim_owner` discards the pin and generation `refuse_moved_session` returns, and a stale phone serve naming a session the desktop ended takes the sessionless fallback and burns the probe | **Fixed** | `fc0eb0cb95` | `tests/test_mobile_v3_codex_review.py`: `test_f1_reopened_a_stale_phone_serve_naming_a_session_the_desktop_ended_burns_nothing[get_practice_item, get_probe_contract]`, `test_f1_reopened_a_session_the_phone_ended_itself_is_refused_too`, `test_f1_reopened_a_handoff_and_back_between_the_check_and_the_claim_refuses_the_named_burn` (generation change), `test_f1_reopened_an_end_between_the_check_and_the_claim_refuses_the_named_burn`, `test_f1_reopened_a_sessionless_phone_door_keeps_the_session_it_started_against` (on `4bf66282ef`, each one burned the probe under `surface = phone` with no refusal) |
+| F2 | High | Desktop Next destroys an accepted phone answer's presentation | Confirmed fixed by the reviewer | `0b1619dcdd` | no change |
+| F3 | Medium | Cached V2 clients get V3 serving | Confirmed fixed by the reviewer | `0b1619dcdd` | no change |
+
+No finding was rejected.
+
+### What changed (`learnloop_sidecar/handlers/sessions.py`)
+
+- `phone_claim_owner` pins what it will check when the door starts, and the claim's transaction (`serving._claim_refusal`) and the phone's probe admission (`get_probe_contract`) run that pin. It no longer calls `refuse_moved_session` again inside the transaction. The pin is only run where a burn or an admission commits, so a phone door that burns nothing (an ordinary item) is refused nothing new.
+- **A named session** is pinned with its owner's generation and checked with `require_session_owner(require_open=True, expected_generation=pinned)`. If it ended since (the desktop adopted and ended it: `session_moved`; the phone ended it itself: the ended-session `validation_error` the desktop has always received), or if it moved, even to the desktop and back to the phone, it is refused and nothing is claimed. A named session never takes the sessionless fallback any more. A job accepted for the session (`accepted_session_id`) is checked against the owner its acceptance checked, as in `refuse_moved_session`.
+- **A sessionless door** (`open_queue_item`) pins the open session it started against through `_pin_open_session`, which was factored out of `refuse_moved_session`'s sessionless branch with no change in behaviour (V2 landing ruling R1). A handoff and back before the claim now refuses the burn. Before, a fresh lookup at claim time found the phone's own session again and burned the probe.
+- The desktop (a None origin) and a phone without `phone_probes` still get `None`: no check and no transaction, so both are unchanged. `refuse_moved_session` returns what it did before, for every caller.
+
+### Gate (this step; the full suite runs once in the landing gate)
+
+The rules were the same as above: every pytest run inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at `-n 6`; `lint-imports` under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`; `TMPDIR` outside the worktree. No paid or live call was made, and every model was a fake.
+
+| Lane | On | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` | **43 kept, 0 broken** |
+| Reproduction on the base | the six new tests on `4bf66282ef`'s `src` (the worktree before the fix) | **6 failed** (`DID NOT RAISE`: each door burned the probe), 4 passed (the earlier F1 tests and the positive control) |
+| The fix | `tests/test_mobile_v3_codex_review.py` | **16 passed** |
+| Targeted set | 101 files, the first round's set plus every test file naming `phone_claim_owner` or `session_moved`: every `tests/test_mobile_*.py` and `tests/test_followup*.py`; every test file naming `refuse_generated_probe_door`, `_claim_refusal`, `refuse_moved_session`, `phone_claim_owner`, `_abandon_phone_served`, `accept_job`, `start_job`, `mobile_jobs`, `call_short`, `HostRuntime`, `mobile_host_helpers`, `capture.jobs`, `RequestOrigin(` or `session_moved`; the contract set (`test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_architecture`, `test_cli_help_snapshot`, `test_config_refactor` (defaults snapshot), `test_table_roles`, `test_registry_audit`, `test_module_catalog_inventory`, `test_public_tip_guards`), the display-label audit (`test_sidecar_measurement`, `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), the process-launch allowlist (`test_codex_lockdown_round3`), the frozen cycles (`test_codex_lockdown_frozen`), `test_session_ownership`, `test_probe_orchestration_remainder` | **1982 passed, 0 failed** (7 min 57 s) |
+| Durability | `--durable-sqlite` on `test_mobile_v3_codex_review.py`, `test_mobile_v3_probes.py` and `test_session_ownership.py` (WAL, FULL: the claim's and the admission's transactions) | **54 passed** |
+| Phone and desktop apps | no frontend file changed | no npm, vitest, build or `cargo check` needed |
+| References | no schema change, no new module | none needed |
+
+**Test files run, for reading the landing gate against:** `/tmp/claude-1000/-home-saturn-Documents-thinking-learnanything/a22010cc-5149-4947-a2b8-247f18b8f1a0/scratchpad/phone-v3/rereview_fix_set.txt`, which can be rebuilt from the targeted-set row above.
+
+### Process notes
+
+- Every edit to source and tests used the editor. The first version of one new test re-armed its injected handoff on the desktop's later open. That was a test bug, fixed by making the injection run once, and the code under test did not change.
+- Nothing is left open from this round.
