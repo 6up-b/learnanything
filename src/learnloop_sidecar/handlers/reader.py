@@ -221,6 +221,13 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             f"{provider_label(provider_name)} is unavailable for reader Ask.",
             retryable=True,
         ) from exc
+    if ctx.request_origin is not None and not _phone_ask_history(
+            vault, repository, params.extraction_id, [{"event_id": str(result["reader_answer_event_id"])}]):
+        # Mobile v2 V4 landing (ruling R1): the answer as the Ask stored it (its citations, excerpt and what the
+        # tutor retrieved, which the model chose) is judged as its history will judge it, before anything of it
+        # is sent; one naming material withheld from the phone is not sent (the desktop still has it).
+        raise SidecarError(PR.HELD_OUT_CODE, "This answer drew on material held out from the phone. "
+                                             "It's in your history on the desktop.")
     response = {
         "event_id": result["event_id"],
         "reader_answer_event_id": result["reader_answer_event_id"],
@@ -313,46 +320,31 @@ def reader_ask_history(ctx: SidecarContext, params: ReaderAskHistoryInput) -> di
     )
     if ctx.request_origin is not None:
         # Mobile v2 V4: no exchange grounded on protected material reaches the phone: its anchor, every span
-        # its selection named (whose quote it carries), every citation and the tutor's excerpt (Codex review
-        # F4), each read in the reading it names.
+        # its selection named (whose quote it carries), every citation, the tutor's excerpt and what it
+        # retrieved (Codex review F4), each read in the reading it names. Judged on the stored event, before
+        # the projection above dropped anything under a presentation switch (landing ruling R1); only an
+        # exchange that passes is sent, as projected.
         exchanges = _phone_ask_history(vault, repository, params.extraction_id, exchanges)
     return versioned({"exchanges": exchanges})
-
-
-def _exchange_locations(extraction_id: str, exchange: dict[str, Any]) -> list[tuple[str, str]]:
-    """``(reading, span)`` of everything of the source one exchange carries or quotes."""
-
-    found = [(extraction_id, str(span)) for span in [exchange.get("span_id"), *(exchange.get("selection_span_ids") or [])]
-             if span]
-    excerpt = (exchange.get("tutor") or {}).get("excerpt")
-    for cited in [*(exchange.get("citations") or []), *([excerpt] if isinstance(excerpt, dict) else [])]:
-        if not isinstance(cited, dict):
-            continue
-        span = cited.get("span_id")
-        reading = cited.get("extraction_id") or extraction_id
-        locator = str(cited.get("locator") or cited.get("href") or "")
-        if not span and locator.startswith("span:") and "/" in locator:
-            reading, span = locator[len("span:"):].split("/", 1)
-        if span:
-            found.append((str(reading), str(span)))
-    return found
 
 
 def _phone_ask_history(vault: Any, repository: Any, extraction_id: str,
                        exchanges: list[dict[str, Any]]) -> list[dict[str, Any]]:
     from learnloop_sidecar import phone_reader as PR
 
-    located = [(exchange, _exchange_locations(extraction_id, exchange)) for exchange in exchanges]
+    provenance = RD.ask_provenance(repository, extraction_id=extraction_id)
     by_reading: dict[str, set[str]] = {extraction_id: set()}
-    for _exchange, places in located:
+    for places in provenance.values():
         for reading, span in places:
             by_reading.setdefault(reading, set()).add(span)
     withheld = {reading: PR.phone_withheld(vault, repository, reading, sorted(spans))
                 for reading, spans in by_reading.items()}
     if withheld[extraction_id].whole:
         return []
-    return [exchange for exchange, places in located
-            if not any(withheld[reading].covers(span) for reading, span in places)]
+    passed = {event_id for event_id, places in provenance.items()
+              if not any(withheld[reading].covers(span) for reading, span in places)}
+    # An exchange the stored events don't account for is not sent (fail closed).
+    return [exchange for exchange in exchanges if exchange.get("event_id") in passed]
 
 
 class ReaderSetAnswerModeInput(ParamsModel):
@@ -858,22 +850,75 @@ def _phone_guide_plan(vault: Any, repository: Any, extraction_id: str, plan: dic
 
     sections = plan.get("sections") or []
     every = [span for section in sections for span in section.get("span_ids") or []]
-    withheld = PR.phone_withheld(vault, repository, extraction_id, every)
-    if not withheld.spans:
+    # Landing ruling R1: a question is judged on what it is stored with (an authored check's anchors as well as
+    # the spans it cites; a placed item's own source), not only on what the plan projects of it.
+    stored = [_stored_question_places(vault, repository, extraction_id, section.get("question"))
+              for section in sections]
+    by_reading: dict[str, set[str]] = {extraction_id: set(every)}
+    for places in stored:
+        for reading, span in (places or (set(), set()))[0]:
+            by_reading.setdefault(reading, set()).add(span)
+        for reading in (places or (set(), set()))[1]:
+            by_reading.setdefault(reading, set())
+    readings = {reading: PR.phone_withheld(vault, repository, reading, sorted(spans))
+                for reading, spans in by_reading.items()}
+    withheld = readings[extraction_id]
+
+    def question_withheld(section: dict[str, Any], places: Any) -> bool:
+        question = section.get("question")
+        if question is None:
+            return False
+        if places is None:  # its stored row or item can't be read (fail closed)
+            return True
+        keys, whole = places
+        return (withheld.any(spans_of(question) or section.get("span_ids") or [])
+                or any(readings[reading].covers(span) for reading, span in keys)
+                or any(readings[reading].whole for reading in whole))
+
+    dropped = [question_withheld(section, places) for section, places in zip(sections, stored)]
+    if not withheld.spans and not any(dropped):
         return plan
     out = dict(plan)
     out["sections"] = []
-    for section in sections:
+    for section, drop in zip(sections, dropped):
         section = dict(section)
         section["suggested_passages"] = [passage for passage in section.get("suggested_passages") or []
                                          if not withheld.any(spans_of(passage))]
-        question = section.get("question")
-        if question is not None and withheld.any(spans_of(question) or section.get("span_ids") or []):
+        if drop:
             section["question"] = None
         out["sections"].append(section)
     if isinstance(out.get("cues"), list):
         out["cues"] = [cue for cue in out["cues"] if not withheld.any(spans_of(cue))]
     return out
+
+
+def _stored_question_places(vault: Any, repository: Any, extraction_id: str,
+                            question: Any) -> tuple[set[tuple[str, str]], set[str]] | None:
+    """Every ``(reading, span)`` and whole reading a guide question is stored with, or None when it can't be
+    read: an authored check's row (its anchors and its cited spans, as the dose offer judges them), or a placed
+    question's practice item (its canonical exercise and source refs)."""
+
+    import json as _json
+
+    from learnloop.content.sources.exam_material import item_source_keys, reference_keys
+
+    if not isinstance(question, dict):
+        return set(), set()
+    if question.get("authored_question_id"):
+        row = repository.get_reader_authored_question(str(question["authored_question_id"]))
+        if row is None:
+            return None
+        spans: list[str] = []
+        for column in ("anchor_span_ids_json", "span_ids_json"):
+            try:
+                spans += [str(span) for span in _json.loads(row.get(column) or "[]") if span]
+            except (TypeError, ValueError):
+                return None
+        return reference_keys({"extraction_id": str(row.get("extraction_id") or extraction_id), "span_ids": spans})
+    if question.get("practice_item_id"):
+        item = vault.practice_items.get(str(question["practice_item_id"]))
+        return item_source_keys(item) if item is not None else None
+    return set(), set()
 
 
 class ReaderBlockHealthInput(ParamsModel):

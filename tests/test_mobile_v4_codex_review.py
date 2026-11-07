@@ -118,6 +118,156 @@ def test_f4_ask_history_withholds_an_exchange_whose_selection_or_citation_is_pro
     assert len(call(desktop(world["root"]), "reader.ask_history", {"extractionId": EXTRACTION})["exchanges"]) == 4
 
 
+def _phone_under(world, fragment: str) -> Phone:
+    """The world's phone on a host started after ``fragment`` was added to the vault's configuration."""
+
+    from tests.helpers import append_config_toml
+
+    append_config_toml(world["root"], fragment)
+    client = TestClient(host(world["root"], world["cache"]), base_url=f"https://{HOSTNAME}")
+    client.__enter__()
+    world.setdefault("_clients", []).append(client)
+    return Phone(client, world["device"], capabilities=READER_APP)
+
+
+def _close(world) -> None:
+    for client in world.pop("_clients", []):
+        client.__exit__(None, None, None)
+
+
+def test_f4_reopened_a_protected_selection_is_withheld_with_reader_inquiry_off(world):
+    """Landing ruling R1, Codex's first reproduction: anchored on the safe ``b4``, the selection names the held-out
+    ``b6`` and the answer quotes it; the citations name only ``b4``. With ``reader_inquiry`` off the projection has no
+    ``selection_span_ids``, and the filter must still see them (it reads the stored provenance, not the projection)."""
+
+    repository = world["repo"]
+    payload = {
+        "extraction_id": EXTRACTION, "span_id": "b4", "answer_md": "As the exam problem says: prove it.",
+        "citations": [{"extraction_id": EXTRACTION, "span_id": "b4", "label": "x"}],
+        "manifest": {"question_md": "why?", "selection": {"span_ids": ["b4", "b6"],
+                                                          "quote_md": "The span of a list. Exam problem: prove it."}},
+    }
+    repository.append_interaction_event(kind="reader_answer_submitted", origin="learner", subject_type="reader_span",
+                                        subject_id=f"span:{EXTRACTION}/b4", payload_json=json.dumps(payload))
+    _exchange(repository, span="b4", selection=["b4"], quote="The span of a list")
+    try:
+        phone = _phone_under(world, "[reader_inquiry]\nenabled = false\n")
+        history = phone.rpc("reader.ask_history", {"extractionId": EXTRACTION})["exchanges"]
+        assert [exchange["answerMd"] for exchange in history] == ["An answer about b4."]
+        assert "selectionSpanIds" not in history[0]  # the projection is still the switch's
+        assert "exam problem" not in json.dumps(history).lower()
+    finally:
+        _close(world)
+    # The desktop's projection is unchanged: both exchanges, flat.
+    flat = call(desktop(world["root"]), "reader.ask_history", {"extractionId": EXTRACTION})["exchanges"]
+    assert len(flat) == 2 and all("selectionSpanIds" not in exchange for exchange in flat)
+
+
+def test_f4_reopened_a_protected_excerpt_is_withheld_with_both_tutor_switches_off(world):
+    """Landing ruling R1, Codex's second reproduction: the tutor's excerpt is the held-out ``b5`` (named by its
+    locator); with both tutor presentation switches off the projection has no ``tutor``, and the filter must still
+    see the excerpt."""
+
+    repository = world["repo"]
+    payload = {
+        "extraction_id": EXTRACTION, "span_id": "b2", "answer_md": "From the review: 3 Exam review.",
+        "citations": [],
+        "manifest": {"question_md": "why?", "selection": {"span_ids": ["b2"], "quote_md": "Every vector space"}},
+        "tutor": {"excerpt": {"locator": f"span:{EXTRACTION}/b5", "text": "3 Exam review"}},
+    }
+    repository.append_interaction_event(kind="reader_answer_submitted", origin="learner", subject_type="reader_span",
+                                        subject_id=f"span:{EXTRACTION}/b2", payload_json=json.dumps(payload))
+    _exchange(repository, span="b4", selection=["b4"], quote="The span of a list")
+    try:
+        phone = _phone_under(world, "[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n")
+        history = phone.rpc("reader.ask_history", {"extractionId": EXTRACTION})["exchanges"]
+        assert [exchange["spanId"] for exchange in history] == ["b4"]
+        assert "tutor" not in history[0]  # the projection is still the switches'
+        assert "Exam review" not in json.dumps(history)
+    finally:
+        _close(world)
+    assert len(call(desktop(world["root"]), "reader.ask_history", {"extractionId": EXTRACTION})["exchanges"]) == 2
+
+
+def test_f4_reopened_a_fresh_answer_is_judged_on_what_it_stored_before_the_phone_is_sent_it(world, monkeypatch):
+    """Landing ruling R1's sweep, the live Ask: the question is refused up front on its anchor and selection, but
+    the answer's citations and excerpt come from the model. One that names a passage withheld from the phone (here
+    the held-out ``b6``; on real data an exam unit next to the passage, which the desktop's tutor may read) is
+    judged on the event the Ask stored, as its history judges it, and is not sent. The desktop is sent it."""
+
+    import learnloop.reader.reader_dialogue as dialogue
+    import learnloop_sidecar.handlers.reader as reader_handlers
+
+    def fake_ask(vault, repository, client, **kwargs):
+        payload = {"extraction_id": EXTRACTION, "span_id": kwargs["span_id"], "answer_md": "Exam problem: prove it.",
+                   "citations": [{"extraction_id": EXTRACTION, "span_id": "b6", "label": "x"}],
+                   "manifest": {"question_md": kwargs["question_md"], "selection": {"span_ids": [kwargs["span_id"]]}}}
+        repository.append_interaction_event(kind="reader_answer_submitted", origin="learner",
+                                            subject_type="reader_span",
+                                            subject_id=f"span:{EXTRACTION}/{kwargs['span_id']}",
+                                            payload_json=json.dumps(payload))
+        event_id = [event["id"] for event in repository.reader_interaction_events(kind="reader_answer_submitted")][-1]
+        return {"event_id": "qe_fake", "reader_answer_event_id": event_id, "answer_md": payload["answer_md"],
+                "answer_mode": "explain", "citations": payload["citations"], "manifest": payload["manifest"],
+                "warmed_surface_ids": [], "burned_surface_ids": [], "hint_equivalent": False, "remaining": 9}
+
+    monkeypatch.setattr(reader_handlers, "ready_tutor_qa_provider",
+                        lambda vault: ("fake", SimpleNamespace(ready=True), object()))
+    monkeypatch.setattr(dialogue, "ask", fake_ask)
+    response = world["phone"].post("reader.ask", {"extractionId": EXTRACTION, "spanId": "b4", "question": "why?"},
+                                   request_id="ask_cites_held")
+    body = response.json()
+    if response.status_code == 202:
+        body = poll_job(world["phone"], body["accepted"]["job_id"])
+    assert "Exam problem" not in json.dumps(body)
+    assert (body.get("error") or {}).get("code") == "held_out_material", body
+    # The desktop (a None origin) is sent the answer, as before.
+    answered = call(desktop(world["root"]), "reader.ask", {"extractionId": EXTRACTION, "spanId": "b4",
+                                                           "question": "why?"})
+    assert "Exam problem: prove it." in json.dumps(answered, default=str)
+
+
+class _VaultWith:
+    """The world's vault with other practice items (the rest is the real vault's)."""
+
+    def __init__(self, real: Any, items: dict[str, Any]) -> None:
+        self._real, self.practice_items = real, items
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._real, name)
+
+
+def _placed(item_id: str, prompt: str) -> dict[str, Any]:
+    return {"practice_item_id": item_id, "prompt": prompt, "placement": "owner_reviewed"}
+
+
+def test_f4_reopened_the_guide_plans_placed_question_is_judged_by_its_items_stored_source(world):
+    """Landing ruling R1's sweep of the other phone reads: a placed (owner-reviewed) guide question projects no
+    span at all, so the phone judged it by its section only. Its item's own source (canonical exercise, source
+    refs) is what it is stored with: a placement of an item cut from the held-out ``b6`` into the safe section
+    ``u2`` is not sent; one cut from ``b1`` is; one whose item can't be read is not (fail closed)."""
+
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.handlers.reader import _phone_guide_plan
+
+    def item(span: str) -> Any:
+        ref = SimpleNamespace(extraction_id=EXTRACTION, span_ids=[span], locator=None)
+        return SimpleNamespace(canonical_exercise=None, provenance=SimpleNamespace(source_refs=[ref]))
+
+    vault = _VaultWith(load_vault(world["root"]), {"pi_exam": item("b6"), "pi_safe": item("b1")})
+    plan = {"sections": [
+        {"id": "u1", "span_ids": ["b0", "b1", "b2"], "question": _placed("pi_safe", "What is a vector space?"),
+         "suggested_passages": []},
+        {"id": "u2", "span_ids": ["b3", "b4"], "question": _placed("pi_exam", "Exam problem: prove it."),
+         "suggested_passages": []},
+        {"id": "u2b", "span_ids": ["b3"], "question": _placed("pi_gone", "Gone."), "suggested_passages": []},
+    ]}
+    phone = _phone_guide_plan(vault, world["repo"], EXTRACTION, plan)
+    assert [section["question"] and section["question"]["practice_item_id"] for section in phone["sections"]] == [
+        "pi_safe", None, None]
+    assert "Exam problem" not in json.dumps(phone)
+
+
 # -- F5: a committed intent is not recorded again after a restart -----------------------------------------------
 
 
