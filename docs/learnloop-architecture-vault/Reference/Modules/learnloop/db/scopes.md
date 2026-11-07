@@ -115,7 +115,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `connection_hook`; statically calls `connection_hook`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `JobOwnershipLost`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `JobOwnershipLost`, `guard_ingest_writes`; statically calls `JobOwnershipLost`, `guard_ingest_writes`
-- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `apply_connection_hook`, `guarded_connection`; statically calls `apply_connection_hook`, `guarded_connection`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `apply_connection_hook`, `current_ingest_job_id`, `guarded_connection`; statically calls `apply_connection_hook`, `current_ingest_job_id`, `guarded_connection`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `AtomicConnection`, `OwnedConnection`; statically calls `AtomicConnection`, `OwnedConnection`
 - [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] — imports `allow_late_model_records`; statically calls `allow_late_model_records`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `pinned_repository_call`

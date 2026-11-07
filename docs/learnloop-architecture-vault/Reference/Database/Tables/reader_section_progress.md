@@ -3,8 +3,8 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cec9749e3a807f0bfb9f46f616e55ee766838077"
-source_commit_timestamp: "2026-11-06T23:01:07-05:00"
+source_commit: "283405f0a5d78fa722adca27f66f4c6c05bff975"
+source_commit_timestamp: "2026-11-07T02:53:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
@@ -139,11 +139,11 @@ Indexes and uniqueness:
 - `tests/test_followups_batch6_prefetch_decided_once.py`
 - `tests/test_reader_ca5_also_in_books.py`
 - `tests/test_ro4_codex_review.py`
+- `tests/test_rospeed2_section_map.py`
 - `tests/test_router_reader_activity.py`
 - `tests/test_salience_firewall.py`
 - `tests/test_te3a_migration.py`
 - `tests/test_curriculum_c1_fix_round2.py`
-- `tests/test_curriculum_c1_plan_follows_path.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

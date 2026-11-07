@@ -299,6 +299,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_budget_trims_oldest_first_within_each_rung_and_says_so`
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
+- [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_the_opportunity_resolve_is_the_landing_codes_with_the_held_map`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_the_guard_refuses_raw_and_unclassified_reads_of_lesson_tables`
 

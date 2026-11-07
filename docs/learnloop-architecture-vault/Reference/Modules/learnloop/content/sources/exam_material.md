@@ -456,6 +456,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_reread_keeps_the_page_scope_and_carries_the_selection`
 - [tests/test_reread_safety_landing.py](../../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`
+- [tests/test_rospeed2_section_map.py](../../../../../../../tests/test_rospeed2_section_map.py) — direct import
 - [tests/test_router_card.py](../../../../../../../tests/test_router_card.py) — direct import
   - `test_the_exam_predicate_failing_withholds_every_question_and_answer`
 - [tests/test_router_card_reading_gaps.py](../../../../../../../tests/test_router_card_reading_gaps.py) — direct import

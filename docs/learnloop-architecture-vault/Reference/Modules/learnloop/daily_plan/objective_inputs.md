@@ -186,6 +186,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
 - [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
   - `test_a_regrade_or_hold_between_the_jobs_card_and_numeric_builds_reaches_the_numeric_policy`
   - `test_a_regrade_or_hold_inside_one_decisions_scope_is_read`

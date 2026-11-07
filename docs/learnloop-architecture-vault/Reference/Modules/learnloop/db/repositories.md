@@ -3171,6 +3171,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_contract_is_copied_at_confirmation_at_the_tag_and_adjustable`
 - [tests/test_ro5_picks.py](../../../../../../tests/test_ro5_picks.py) — direct import
   - `test_a_retry_reuses_the_factors_assignment`
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
+- [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_a_mapping_computed_across_a_source_write_is_not_held`
+  - `test_every_ir_load_of_the_held_map_is_inside_the_chokepoint`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import

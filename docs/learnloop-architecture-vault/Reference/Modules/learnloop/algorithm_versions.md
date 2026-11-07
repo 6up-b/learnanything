@@ -569,6 +569,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_the_key_names_no_switch`
 - [tests/test_rofu_weeks.py](../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
+- [tests/test_rospeed2_connections.py](../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
+- [tests/test_rospeed2_section_map.py](../../../../../tests/test_rospeed2_section_map.py) — direct import
 - [tests/test_rospeed_ad_link.py](../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_switch_reaches_every_rollout_from_the_config`
 - [tests/test_rospeed_join.py](../../../../../tests/test_rospeed_join.py) — direct import
