@@ -8,13 +8,15 @@
 //   3. nothing waits on its reply.
 // Each kind of intent says how it is listed, sent and settled (`IntentKind`); the response classes
 // of §7 are shared by all of them. V1 registers one kind, the capture, exactly as M1/M2a built it:
-// its store, its request and its key are unchanged. Reading progress, activity, dose events, a
-// kept comparison's take and hypothesis marks join in their own stages.
+// its store, its request and its key are unchanged. V4 adds the Reader's (`READER_INTENT`): reading
+// progress, activity and dose events. A kept comparison's take and hypothesis marks join in their own
+// stages.
+import { phone, type ProgressInput } from "../api/phone";
 import { markReachable } from "../shell/connection";
 import { deleteCredential, readCredential } from "./credential";
 import { clearDisplayCache } from "./displayCache";
 import { clearSessionCache } from "./sessionCache";
-import { OUTBOX_STORE, txRequest } from "./db";
+import { INTENT_STORE, OUTBOX_STORE, txRequest } from "./db";
 
 export interface OutboxRecord {
   readonly clientCaptureId: string;
@@ -100,8 +102,80 @@ export const CAPTURE_INTENT: IntentKind<OutboxRecord> = {
   keepWithProblem: (record, problem) => addToOutbox({ ...record, problem })
 };
 
+// ── Mobile v2 V4 (§3.4, §5.4): the Reader's intents. ──
+// Each meets the three rules: reading progress is a monotonic upsert on the host (the latest per section wins
+// here, so only one is queued); activity events carry their own `occurredAt`, so a late send keeps their time;
+// a dose event names its draw. Each is a job on the host keyed by the intent's id (`mobile_jobs`): a replay after
+// a lost reply is coalesced, never recorded twice, and the job's acceptance (200 or 202) is its delivery.
+
+export type ReaderIntentMethod = "reader.mark_section_progress" | "reader.log_activity" | "reader.dose_offer_event";
+
+export interface ReaderIntentRecord {
+  /** A ULID: the request id the host dedupes on, and the outbox's order. */
+  readonly id: string;
+  readonly method: ReaderIntentMethod;
+  readonly params: Record<string, unknown>;
+  /** Progress only: `extraction:section`, so a newer report replaces an unsent older one. */
+  readonly coalesce?: string | null;
+  readonly problem?: OutboxProblem | null;
+}
+
+export function listReaderIntents(): Promise<ReaderIntentRecord[]> {
+  return txRequest<ReaderIntentRecord[]>(INTENT_STORE, "readonly", (objects) => objects.getAll());
+}
+
+/** Queue one reader intent. A progress report replaces the unsent one for its section (the server takes the max). */
+export async function addReaderIntent(record: ReaderIntentRecord): Promise<void> {
+  if (record.coalesce) {
+    const older = (await listReaderIntents()).filter((one) => one.coalesce === record.coalesce && !one.problem);
+    for (const one of older) await removeReaderIntent(one.id);
+  }
+  await txRequest(INTENT_STORE, "readwrite", (objects) => objects.put(record));
+}
+
+export async function removeReaderIntent(id: string): Promise<void> {
+  await txRequest(INTENT_STORE, "readwrite", (objects) => objects.delete(id));
+}
+
+/** A CommandError's code as the HTTP class the host answers it with, for §7's table. */
+const STATUS_BY_CODE: Record<string, number> = {
+  unauthorized: 401, method_not_allowed: 403, submission_conflict: 409, validation_error: 422, invalid_request: 422,
+  host_busy: 503, database_busy: 503, vault_unsettled: 503, schema_mismatch: 503, internal: 500
+};
+
+export const READER_INTENT: IntentKind<ReaderIntentRecord> = {
+  name: "reader",
+  list: listReaderIntents,
+  clientId: (record) => record.id,
+  problem: (record) => record.problem,
+  send: async (record) => {
+    const params = record.params as Record<string, never>;
+    try {
+      if (record.method === "reader.mark_section_progress") await phone.markProgress(record.params as unknown as ProgressInput, record.id);
+      else if (record.method === "reader.log_activity") await phone.logActivity(params.events, record.id);
+      else await phone.doseOfferEvent(params.drawId, params.event, record.id);
+      return new Response(null, { status: 200 });
+    } catch (error) {
+      const command = error as { code?: string; message?: string };
+      // No answer at all: the desktop is away (the flush stops and tries again later).
+      if (!command || typeof command.code !== "string" || command.code === "desktop_offline") throw error;
+      // The reader's switch off: kept, and sent again later (a 5xx stops the flush).
+      const status = command.code === "phone_reader_off" ? 503 : STATUS_BY_CODE[command.code] ?? 409;
+      return new Response(JSON.stringify({ ok: false, error: { code: command.code, message: command.message ?? command.code } }), {
+        status
+      });
+    }
+  },
+  remove: (record) => removeReaderIntent(record.id),
+  keepWithProblem: (record, problem) =>
+    txRequest(INTENT_STORE, "readwrite", (objects) => objects.put({ ...record, problem })).then(() => undefined)
+};
+
 /** Every kind the outbox flushes. A kind is added here only if it meets the three rules above. */
-export const INTENT_KINDS: readonly IntentKind<never>[] = [CAPTURE_INTENT as IntentKind<never>];
+export const INTENT_KINDS: readonly IntentKind<never>[] = [
+  CAPTURE_INTENT as IntentKind<never>,
+  READER_INTENT as unknown as IntentKind<never>
+];
 
 /** §7's response classes, for every intent: what one answer means for the record and the flush. */
 export type ResponseClass = "sent" | "stop_offline" | "stop_unpaired" | "stop_forbidden" | "conflict" | "refused";
@@ -132,14 +206,26 @@ export async function pendingIntents(kinds: readonly IntentKind<never>[] = INTEN
 }
 
 let flushing: Promise<FlushStop> | null = null;
+/** A flush asked for while one ran: what was queued meanwhile goes in another pass, not the next minute's. */
+let again = false;
 
-/** One pass over the outbox, oldest first, under §7's table. Only one pass runs at a time. */
+/** One pass over the outbox, oldest first, under §7's table. Only one pass runs at a time; one asked for during
+ *  it runs right after it (mobile v2 V4: the Reader queues its intents as it goes), while the desktop answers. */
 export function flushOutbox(kinds: readonly IntentKind<never>[] = INTENT_KINDS): Promise<FlushStop> {
-  if (!flushing) {
-    flushing = runFlush(kinds).finally(() => {
-      flushing = null;
-    });
+  if (flushing) {
+    again = true;
+    return flushing;
   }
+  flushing = (async () => {
+    let stop: FlushStop;
+    do {
+      again = false;
+      stop = await runFlush(kinds);
+    } while (again && stop.reason === "drained");
+    return stop;
+  })().finally(() => {
+    flushing = null;
+  });
   return flushing;
 }
 

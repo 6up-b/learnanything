@@ -151,12 +151,13 @@ describe("an upgrade another tab holds up (Codex review of V1, F2)", () => {
   it("this build closes its own connection when a newer build asks for the database", async () => {
     await putLatest("plan", { step: 1 });
     const newer = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("learnloop-phone", 3);
+      // V4's build is version 3 (the intents store), so a newer one asks for 4.
+      const request = indexedDB.open("learnloop-phone", 4);
       request.onblocked = () => reject(new Error("blocked by this build's open connection"));
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    expect(newer.version).toBe(3);
+    expect(newer.version).toBe(4);
     newer.close();
   });
 });

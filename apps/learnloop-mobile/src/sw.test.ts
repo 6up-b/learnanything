@@ -97,3 +97,57 @@ describe("a host that is down behind a reachable Serve (Codex review F6)", () =>
     expect((await navigate()).status).toBe(502);
   });
 });
+
+describe("the page images (mobile v2 §3.3, V4): the one stated exception", () => {
+  function workerFor(answer: () => Response) {
+    const stored = new Map<string, Response>();
+    const opened: string[] = [];
+    const self = { location: { origin: "https://desktop.tail.ts.net" }, addEventListener: (name: string, handler: (event: unknown) => void) => { handlers[name] = handler; }, skipWaiting: vi.fn(), clients: { claim: vi.fn() } };
+    const caches = {
+      open: async (name: string) => {
+        opened.push(name);
+        return {
+          put: async (request: { url: string }, response: Response) => { stored.set(request.url, response); },
+          match: async (request: { url: string }) => stored.get(request.url),
+          keys: async () => [...stored.keys()].map((url) => ({ url })),
+          delete: async (request: { url: string }) => stored.delete(request.url)
+        };
+      },
+      match: async () => undefined, keys: async () => [], delete: async () => true
+    };
+    const network = vi.fn(async () => answer());
+    new Function("self", "caches", "fetch", "Response", source)(self, caches, network, Response);
+    return { stored, opened, network };
+  }
+
+  async function get(url: string): Promise<Response> {
+    let answered: Promise<Response> | undefined;
+    handlers.fetch({ request: { url, method: "GET", mode: "cors" }, respondWith: (response: Promise<Response>) => { answered = response; }, waitUntil: vi.fn() });
+    expect(answered).toBeDefined();
+    return answered as Promise<Response>;
+  }
+
+  const PAGE = "https://desktop.tail.ts.net/api/v1/reader/page/ext1/1?w=720";
+
+  it("keeps an immutable page and answers it from the cache after", async () => {
+    const { stored, opened, network } = workerFor(() =>
+      new Response("png", { status: 200, headers: { "Cache-Control": "private, max-age=31536000, immutable" } }));
+    expect((await get(PAGE)).status).toBe(200);
+    expect(stored.has(PAGE)).toBe(true);
+    expect(opened).toEqual(["learnloop-pages-v1"]);
+    await get(PAGE);
+    expect(network).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([401, 403, 404, 503])("never keeps a %i (a refusal is not the page)", async (status) => {
+    const { stored } = workerFor(() => new Response("{}", { status }));
+    expect((await get(PAGE)).status).toBe(status);
+    expect(stored.size).toBe(0);
+  });
+
+  it("never keeps a 200 the host did not mark immutable", async () => {
+    const { stored } = workerFor(() => new Response("png", { status: 200, headers: { "Cache-Control": "no-store" } }));
+    await get(PAGE);
+    expect(stored.size).toBe(0);
+  });
+});

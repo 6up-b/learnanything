@@ -16,6 +16,8 @@ import {
   type SubmitOutcome
 } from "../store/sessionCache";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
+import { PhoneMedia } from "../read/PageImage";
+import { withPageLinks } from "../read/readerModel";
 import { Sheet } from "../shell/Sheet";
 
 /** §3.4: plain LaTeX entry with a small bar of common commands; a real math keyboard is later. */
@@ -589,7 +591,8 @@ export function QuestionScreen({
       {item.presentation.blocks.map((block, index) => (
         <div key={`${block.kind}:${index}`}>
           {block.label ? <div className="dim">{block.label}</div> : null}
-          <div className="markdown"><MarkdownMath value={block.markdown} components={RemoteImageAsLink} /></div>
+          {/* Mobile v2 §2.3 (V4): a stored image and a page link render from the host; a remote image stays a link. */}
+          <div className="markdown"><MarkdownMath value={withPageLinks(block.markdown)} components={PhoneMedia} /></div>
         </div>
       ))}
       {revealed.length ? (

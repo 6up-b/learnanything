@@ -106,9 +106,19 @@ export async function getLatest<T>(name: string): Promise<T | null> {
   return entry ? (entry.value as T) : null;
 }
 
-/** §1: revocation deletes the display cache with the token; the outbox stays. */
+/** Mobile v2 V4: the page images' cache in the service worker (`public/sw.js`), which the page can clear too. */
+export const PAGE_CACHE = "learnloop-pages-v1";
+
+/** Drop every cached page and stored image (all readings: an image's URL may name the file, not the reading). */
+export async function purgePageImages(): Promise<void> {
+  if (typeof caches === "undefined") return;
+  await caches.delete(PAGE_CACHE).catch(() => false);
+}
+
+/** §1: revocation deletes the display cache with the token, page images included; the outbox stays. */
 export async function clearDisplayCache(): Promise<void> {
   await txRequest(DISPLAY_STORE, "readwrite", (objects) => objects.clear());
+  await purgePageImages();
 }
 
 /** Bytes held in sections, for tests and a future Display sheet line. */

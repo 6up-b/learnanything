@@ -1,0 +1,33 @@
+{
+  "method": "reader.mark_section_progress",
+  "requests": [
+    {
+      "wrapper": "markProgress",
+      "envelope": {
+        "method": "reader.mark_section_progress",
+        "params": {
+          "extractionId": "ext1",
+          "sectionId": "u1",
+          "spansSeen": 2,
+          "spanCount": 3
+        },
+        "request_id": "prog_1"
+      }
+    },
+    {
+      "wrapper": "markProgress",
+      "envelope": {
+        "method": "reader.mark_section_progress",
+        "params": {
+          "extractionId": "ext1",
+          "sectionId": "u1",
+          "spansSeen": 3,
+          "spanCount": 3,
+          "completed": true
+        },
+        "request_id": "prog_2"
+      }
+    }
+  ],
+  "reads": []
+}

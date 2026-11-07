@@ -1,0 +1,17 @@
+{
+  "method": "get_source_library",
+  "requests": [
+    {
+      "wrapper": "library",
+      "envelope": {
+        "method": "get_source_library",
+        "params": {}
+      }
+    }
+  ],
+  "reads": [
+    "sources[].sourceId",
+    "sources[].title",
+    "sources[].extractionId"
+  ]
+}
