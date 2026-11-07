@@ -73,7 +73,19 @@ def origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) ->
 
     if origin is None or not _device_rules_on(vault):
         return None
-    return ineligibility_reason(vault, item, device_class(origin), media=phone_reader_on(origin))
+    return ineligibility_reason(vault, item, device_class(origin), media=phone_reader_on(origin),
+                                served=_media_served(origin, vault))
+
+
+def _media_served(origin: RequestOrigin | None, vault: Any, repository: Any = None) -> Any:
+    """Mobile v2 V4 (Codex review F10): the host's own page and asset predicate, which the phone's media lift asks,
+    so an item is admitted only with a stimulus the host then serves. Only with the phone's Reader on."""
+
+    if not phone_reader_on(origin):
+        return None
+    from learnloop.reader.phone_media import media_predicate
+
+    return media_predicate(vault, repository)
 
 
 def device_filter(
@@ -90,11 +102,12 @@ def device_filter(
     if phone_probes_on(origin, vault.config):
         # Mobile v2 V3 (D3): the phone renders the presentation it committed (a phone-eligible probe, by the rules
         # above), so nothing it committed is left for the desktop.
-        return DeviceFilter(vault, device_class(origin), media=phone_reader_on(origin), repository=repository)
+        return DeviceFilter(vault, device_class(origin), media=phone_reader_on(origin),
+                            served=_media_served(origin, vault, repository))
     committed = repository.active_probe_presentation_for_session(session_id) if repository and session_id else None
     left = frozenset({committed.practice_item_id}) if committed is not None else frozenset()
     return DeviceFilter(vault, device_class(origin), left_for_desktop=left, media=phone_reader_on(origin),
-                        repository=repository)
+                        served=_media_served(origin, vault, repository))
 
 
 def refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None:

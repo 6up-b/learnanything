@@ -270,11 +270,16 @@ def _item(prompt: str, *, mode: str = "short_answer"):
                            laddered_stem=None, prompt=prompt, provenance=None, lesson_id=None, lifecycle=None)
 
 
-def _reason(vault, repository, prompt: str, *, mode: str = "short_answer") -> str | None:
+def _reason(vault, repository, prompt: str, *, mode: str = "short_answer", served: Any = "host") -> str | None:
+    """The phone's reason, with the host's own predicate injected as the sidecar injects it."""
+
     from unittest import mock
 
+    from learnloop.reader.phone_media import media_predicate
+
+    predicate = media_predicate(vault, repository) if served == "host" else served
     with mock.patch.object(DE, "minted_for_lesson", lambda item: False):
-        return DE.ineligibility_reason(vault, _item(prompt, mode=mode), DE.PHONE, media=True, repository=repository)
+        return DE.ineligibility_reason(vault, _item(prompt, mode=mode), DE.PHONE, media=True, served=predicate)
 
 
 def test_f10_a_page_is_phone_eligible_exactly_when_the_page_endpoint_serves_it(world):
@@ -286,10 +291,21 @@ def test_f10_a_page_is_phone_eligible_exactly_when_the_page_endpoint_serves_it(w
         status = phone.get(f"/api/v1/reader/page/{name}/{page}").status_code
         assert (status == 200) is served, (page, status)
         assert (_reason(vault, repository, prompt) is None) is served, page
-    # Asked without a repository, the vault's database is read (the sidecar's by-id doors); not knowing it is
-    # never a lift (fail closed).
-    assert _reason(vault, None, f"[p](llpdf://localhost/{name}#page=1)") is None
-    assert _reason(SimpleNamespace(root=world["root"]), None, f"[p](llpdf://localhost/{name}#page=1)") == DE.LINKS_LLPDF
+    # Asked without a repository, the vault's database is read (the sidecar's by-id doors); not knowing it, or no
+    # predicate at all, is never a lift (fail closed).
+    link = f"[p](llpdf://localhost/{name}#page=1)"
+    assert _reason(vault, None, link) is None
+    assert _reason(SimpleNamespace(root=world["root"]), None, link) == DE.LINKS_LLPDF
+    assert _reason(vault, repository, link, served=None) == DE.LINKS_LLPDF
+    # The sidecar's by-id door injects the same predicate (an item a stale list names).
+    from learnloop_sidecar.request_origin import RequestOrigin
+    from learnloop_sidecar.serving import origin_ineligibility
+    from unittest import mock
+
+    origin = RequestOrigin(device_id="dev", phone_reader=True)
+    with mock.patch.object(DE, "minted_for_lesson", lambda item: False):
+        assert origin_ineligibility(origin, vault, _item(link)) is None
+        assert origin_ineligibility(origin, vault, _item(f"[p](llpdf://localhost/{name}#page=3)")) == DE.LINKS_LLPDF
 
 
 def test_f10_a_stored_image_of_an_exam_source_is_not_phone_eligible(world):

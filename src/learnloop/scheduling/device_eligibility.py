@@ -36,7 +36,7 @@ eligible.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
@@ -217,22 +217,11 @@ def _prompt_media(prompt: str) -> tuple[tuple[str, str], ...]:
 MEASUREMENT_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "probe"})
 
 
-def _repository_for(vault: Any) -> Any:
-    """The vault's database, read only, for a check asked without one; None when it can't be named (then
-    nothing is lifted: fail closed)."""
-
-    config = getattr(vault, "config", None)
-    root = getattr(vault, "root", None)
-    if config is None or root is None:
-        return None
-    try:
-        from learnloop.db.repositories import Repository
-        from learnloop.vault.paths import VaultPaths
-
-        path = VaultPaths(root, config).sqlite_path
-        return Repository.attach(path, read_only=True) if path.exists() else None
-    except Exception:  # noqa: BLE001 - an unreadable database lifts nothing
-        return None
+#: Mobile v2 V4 (Codex review F10): whether the host serves one target, ``(kind, digest, page) -> bool`` with
+#: ``kind`` ``"page"`` (``page`` zero-based) or ``"asset"`` (``page`` None) and ``digest`` ``sha256:<hex>``. The
+#: sidecar injects the host's own predicate (``learnloop.reader.phone_media.media_predicate``); scheduling never
+#: imports the Reader.
+MediaPredicate = Callable[[str, str, int | None], bool]
 
 
 def image_kind(head: bytes) -> str | None:
@@ -249,42 +238,35 @@ def image_kind(head: bytes) -> str | None:
     return None
 
 
-def media_served(vault: Any, prompt: str, repository: Any = None) -> bool:
+def media_served(prompt: str, served: MediaPredicate | None) -> bool:
     """Mobile v2 §2.3: every image, page and asset target of ``prompt`` is one the host serves by content address
     (a page of a stored PDF, a stored image), so the phone shows the stimulus as the desktop does. Raw HTML and
     any other target (a path, a remote image) leaves the item for the desktop, as before.
 
-    "Serves" is the host's own predicate (Codex review of V4, F10: ``learnloop.reader.phone_media``, which the page
-    and asset endpoints answer with): a page some reading of its file covers, on no reading's protected passage,
-    of a book open to the Reader, with the renderer installed; a stored image of no protected book. Without the
-    vault's database nothing is lifted (fail closed)."""
+    "Serves" is the host's own predicate, ``served`` (Codex review of V4, F10: the page and asset endpoints answer
+    with the same one): a page some reading of its file covers, on no reading's protected passage, of a book open
+    to the Reader, with the renderer installed; a stored image of no protected book. Without it, or when it can't
+    be read, nothing is lifted (fail closed)."""
 
     targets = _prompt_media(prompt)
     if not targets:
         return True
-    repository = repository if repository is not None else _repository_for(vault)
-    if repository is None:
+    if served is None:
         return False
     try:
-        return _all_served(vault, repository, targets)
+        for kind, target in targets:
+            if kind == "page":
+                page = llpdf_page(target)
+                if page is None or not served("page", "sha256:" + page[0][7:], page[1]):
+                    return False
+            elif kind in ("image", "asset"):
+                name = store_name_of(target)
+                if name is None or not served("asset", "sha256:" + name[7:], None):
+                    return False
+            else:
+                return False
     except Exception:  # noqa: BLE001 - a predicate that can't be read lifts nothing (fail closed)
         return False
-
-
-def _all_served(vault: Any, repository: Any, targets: tuple[tuple[str, str], ...]) -> bool:
-    from learnloop.reader import phone_media as PM
-
-    for kind, target in targets:
-        if kind == "page":
-            page = llpdf_page(target)
-            if page is None or PM.page_refusal(vault, repository, "sha256:" + page[0][7:], page[1]) is not None:
-                return False
-        elif kind in ("image", "asset"):
-            name = store_name_of(target)
-            if name is None or PM.asset_refusal(vault, repository, "sha256:" + name[7:]) is not None:
-                return False
-        else:
-            return False
     return True
 
 
@@ -313,12 +295,13 @@ class DeviceFilter:
     #: Mobile v2 V4 (§2.3, the host's ``phone_reader``): the host serves page images and stored images by content
     #: address, so a prompt whose every image, page or asset target is one it serves is no longer the desktop's.
     media: bool = False
-    #: The vault's database, which the media lift reads (Codex review F10); None opens it read only when asked.
-    repository: Any = None
+    #: The host's own "is this target served" (Codex review F10, :data:`MediaPredicate`), which the media lift asks;
+    #: None lifts nothing.
+    served: MediaPredicate | None = None
 
     def refuses(self, item: Any) -> bool:
         return item.id in self.left_for_desktop or ineligibility_reason(
-            self.vault, item, self.device_class, media=self.media, repository=self.repository) is not None
+            self.vault, item, self.device_class, media=self.media, served=self.served) is not None
 
     def holds_back(self, item: Any) -> bool:
         """``refuses``, for an item the build would otherwise serve."""
@@ -392,7 +375,7 @@ class PlanStepFilter:
         if item.id in self.device_filter.left_for_desktop:
             return DESKTOP_ONLY_MODE
         return ineligibility_reason(self.device_filter.vault, item, self.device_filter.device_class,
-                                    media=self.device_filter.media, repository=self.device_filter.repository)
+                                    media=self.device_filter.media, served=self.device_filter.served)
 
     def detail(self) -> dict[str, Any]:
         """What a decision taken at a boundary under this device records (its ``device`` entry). With the phone's
@@ -410,7 +393,7 @@ class PlanStepFilter:
 
 
 def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: bool = False,
-                         repository: Any = None) -> str | None:
+                         served: MediaPredicate | None = None) -> str | None:
     """Why ``device_class`` cannot answer ``item``, or None when it can.
 
     Only ``phone`` has reasons: a desktop request (no origin) never reaches a
@@ -421,8 +404,8 @@ def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: boo
 
     ``media`` (mobile v2 §2.3, V4, the host's ``phone_reader``): an image, page or
     asset reason is lifted when every such target is one the host serves by
-    content address (:func:`media_served`: the host's own page and asset
-    predicate, over ``repository`` or the vault's database read only). Never for
+    content address (:func:`media_served` over ``served``, the host's own page
+    and asset predicate, which the sidecar injects; None lifts nothing). Never for
     a measurement (:data:`MEASUREMENT_MODES`, Codex review F12): a probe keeps
     its reason, so the phone's measurements stay mvp-0.54's. Off, the reasons are
     PR-6's exactly.
@@ -442,6 +425,6 @@ def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: boo
         return LESSON_CHECK
     reason = _prompt_reason(item.prompt)
     if (media and reason in (EMBEDS_IMAGE, LINKS_LLPDF, REFERENCES_ITEM_ASSET)
-            and item.practice_mode not in MEASUREMENT_MODES and media_served(vault, item.prompt, repository)):
+            and item.practice_mode not in MEASUREMENT_MODES and media_served(item.prompt, served)):
         return None
     return reason

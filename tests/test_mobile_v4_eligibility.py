@@ -52,10 +52,14 @@ def _item(prompt: str):
 
 
 def _reason(vault, prompt: str, *, media: bool) -> str | None:
+    """The phone's reason, with the host's own media predicate injected as the sidecar injects it (F10)."""
+
     from unittest import mock
 
+    from learnloop.reader.phone_media import media_predicate
+
     with mock.patch.object(DE, "minted_for_lesson", lambda item: False):
-        return DE.ineligibility_reason(vault, _item(prompt), DE.PHONE, media=media)
+        return DE.ineligibility_reason(vault, _item(prompt), DE.PHONE, media=media, served=media_predicate(vault))
 
 
 def test_served_targets_lift_the_reason_only_with_the_reader_on(store):

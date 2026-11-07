@@ -197,8 +197,47 @@ def asset_refusal(vault: Any, repository: Any, digest: str) -> MediaRefusal | No
     return None
 
 
+def _repository_for(vault: Any) -> Any:
+    """The vault's database, read only, for a check asked without one; None when it can't be named."""
+
+    config = getattr(vault, "config", None)
+    root = getattr(vault, "root", None)
+    if config is None or root is None:
+        return None
+    try:
+        from learnloop.db.repositories import Repository
+        from learnloop.vault.paths import VaultPaths
+
+        path = VaultPaths(root, config).sqlite_path
+        return Repository.attach(path, read_only=True) if path.exists() else None
+    except Exception:  # noqa: BLE001 - an unreadable database serves nothing
+        return None
+
+
+def media_predicate(vault: Any, repository: Any = None) -> Any:
+    """The phone eligibility's "does the host serve this target" (``scheduling.device_eligibility.MediaPredicate``):
+    exactly the page and asset endpoints' refusals, over ``repository`` (or the vault's database, opened read only
+    at the first question). Without a database nothing is served (fail closed)."""
+
+    held: dict[str, Any] = {"repository": repository}
+
+    def served(kind: str, digest: str, page: int | None) -> bool:
+        if held["repository"] is None:
+            held["repository"] = _repository_for(vault)
+            if held["repository"] is None:
+                return False
+        if kind == "page":
+            return page is not None and page_refusal(vault, held["repository"], digest, int(page)) is None
+        if kind == "asset":
+            return asset_refusal(vault, held["repository"], digest) is None
+        return False
+
+    return served
+
+
 __all__ = [
     "MAX_ASSET_BYTES",
+    "media_predicate",
     "MediaRefusal",
     "PhoneWithheld",
     "asset_refusal",
