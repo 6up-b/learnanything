@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/engine.py"
 source_paths:
   - "src/learnloop/daily_plan/engine.py"
-source_commit: "bc80387a844200d4ae4851ea20cf6c3544a5a321"
-source_commit_timestamp: "2026-11-06T20:55:00-05:00"
+source_commit: "6cc47d57c0c04a9d243a7a7cc7d0cf1ae2709c6e"
+source_commit_timestamp: "2026-11-06T21:13:38-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py) |
-| Source lines | 5849 |
+| Source lines | 5859 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bc80387a844200d4ae4851ea20cf6c3544a5a321` |
-| Commit timestamp | `2026-11-06T20:55:00-05:00` |
+| Source commit | `6cc47d57c0c04a9d243a7a7cc7d0cf1ae2709c6e` |
+| Commit timestamp | `2026-11-06T21:13:38-05:00` |
 
 ## Public API
 
@@ -113,11 +113,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `picked_under(env: PlanEnv, idempotency_key: str, practice_item_id: str) -> tuple[PlanRecord | None, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5475) — The learner pick already made under ``idempotency_key``, as :func:`learner_pick` returned it: its ORIGINAL block, candidate and presentation, found by its keyed receipt (``PICK_KEYED``) under any plan (today's, or one replaced since).
 - `set_minutes(env: PlanEnv, minutes: int) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5568) — A chip tap (§6.6): sets the remembered budget and re-plans the rest.
 - `keep_going(env: PlanEnv) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5618) — §6.5: one extension.
-- `class PlanStillOpenError(RuntimeError)` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5657) — "More new material" is offered on the done screen: today's plan is still open.
-- `more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5661) — §6.3: "more new material" bypasses the ceiling and the cap once.
-- `reading_ended(env: PlanEnv, outcome: str) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5726) — §6.10: end the current reading block; its estimate counts as used.
-- `note_reading_progress(env: PlanEnv, *, extraction_id: str, section_id: str, spans_seen: int | None, span_count: int | None, completed: bool) -> bool` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5741) — ``reader.mark_section_progress`` while a reading block is current (§6.10).
-- `stop_today(env: PlanEnv) -> PlanRecord | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5781) — The learner stops for today ("Done" mid-plan).
+- `class PlanStillOpenError(RuntimeError)` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5661) — "More new material" is offered on the done screen: today's plan is still open.
+- `more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5665) — §6.3: "more new material" bypasses the ceiling and the cap once.
+- `reading_ended(env: PlanEnv, outcome: str) -> PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5730) — §6.10: end the current reading block; its estimate counts as used.
+- `note_reading_progress(env: PlanEnv, *, extraction_id: str, section_id: str, spans_seen: int | None, span_count: int | None, completed: bool) -> bool` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5745) — ``reader.mark_section_progress`` while a reading block is current (§6.10).
+- `stop_today(env: PlanEnv) -> PlanRecord | None` ([source](../../../../../../src/learnloop/daily_plan/engine.py), line 5785) — The learner stops for today ("Done" mid-plan).
 
 ### Module constants
 
@@ -150,7 +150,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_AD_UNAVAILABLE` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4794)
 - `_AD_LOG` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 4798)
 - `PICK_KEYED` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 5175)
-- `READING_OUTCOMES` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 5723)
+- `READING_OUTCOMES` ([src/learnloop/daily_plan/engine.py](../../../../../../src/learnloop/daily_plan/engine.py), line 5727)
 
 ### Explicit exports
 
@@ -398,7 +398,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] — imports `module`; calls `record_pending`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `ORIGIN`, `module`; calls `append`, `draw_day`, `place`, `setdefault`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `candidate_ids`, `prepare`, `record`
-- [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `module`; calls `record_stop_override`
+- [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `module`; calls `record_stop_acceptance`, `record_stop_override`
 - [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] — imports `module`; calls `record`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `CHECKS_OFF`, `check_mode`; calls `check_mode`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`
@@ -688,6 +688,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_j6_the_check_waits_for_the_desktop_is_recorded_once_and_never_redrawn`
   - `test_j6_the_engine_and_the_resolver_name_one_event`
   - `test_j6_the_learner_may_skip_it_from_the_phone_as_from_the_desktops_skip_link`
+- [tests/test_mobile_v2_landing_fixes.py](../../../../../../tests/test_mobile_v2_landing_fixes.py) — direct import
+  - `test_r2_done_for_today_on_a_pending_stop_records_that_stop_accepted`
+  - `test_r3_a_refused_keep_going_leaves_no_override_receipt`
+  - `test_r3_keep_going_commits_its_override_with_the_plan_update`
 - [tests/test_mobile_v2_plan.py](../../../../../../tests/test_mobile_v2_plan.py) — direct import
   - `test_a_none_origin_never_enters_the_device_branch`
   - `test_j1_a_read_never_crosses_past_held_work_and_next_does_once`

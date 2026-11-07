@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `SessionOwnershipStoreMixin`
-- [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] — imports `SessionOwnershipError`
+- [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] — imports `SessionOwnershipError`; statically calls `SessionOwnershipError`
 
 ## Dependencies
 

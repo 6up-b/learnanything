@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "workspace/uncommitted @ HEAD 11897c544894f22682a9078db79768b2bfc435a3"
-source_commit_timestamp: "2026-11-06T20:55:08-05:00"
-source_worktree_state: "modified"
+source_commit: "e66f62e6f15ef1402f451cf6b22ed472ba5b1aba"
+source_commit_timestamp: "2026-11-06T09:45:38-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 11897c544894f22682a9078db79768b2bfc435a3` |
-| Commit timestamp | `2026-11-06T20:55:08-05:00` |
+| Worktree state | `clean` |
+| Source commit | `e66f62e6f15ef1402f451cf6b22ed472ba5b1aba` |
+| Commit timestamp | `2026-11-06T09:45:38-05:00` |
 
 ## Public API
 

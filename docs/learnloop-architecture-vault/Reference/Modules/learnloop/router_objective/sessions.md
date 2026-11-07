@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/sessions.py"
 source_paths:
   - "src/learnloop/router_objective/sessions.py"
-source_commit: "456d79e0f3792841807d94d257f8b8f581e9c559"
-source_commit_timestamp: "2026-11-04T09:19:40-05:00"
+source_commit: "d656b22b2021ec6fb1747725ad33a30bc6bc744d"
+source_commit_timestamp: "2026-11-06T21:12:39-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,40 +50,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py) |
-| Source lines | 222 |
+| Source lines | 272 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `456d79e0f3792841807d94d257f8b8f581e9c559` |
-| Commit timestamp | `2026-11-04T09:19:40-05:00` |
+| Source commit | `d656b22b2021ec6fb1747725ad33a30bc6bc744d` |
+| Commit timestamp | `2026-11-06T21:12:39-05:00` |
 
 ## Public API
 
-- `record_availability(vault: Any, repository: Any, session_id: str, *, available_minutes: float | None=None, device: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 105) — Row 8, stamped at the session's start, before its first block is served.
-- `record_end(vault: Any, repository: Any, session_id: str, *, reason: str | None=None, ended_at: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 144) — Row 7, explicit: the learner's own ending.
-- `record_stop_override(vault: Any, repository: Any, *, session_id: str | None, plan_id: str, via: str, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 167) — The learner went on past a finished plan: the offered stop, overridden.
-- `sweep_unreported(vault: Any, repository: Any, *, trigger: str, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 187) — Recovery: every session with an availability row that has ended with no end row gets one, inferred.
+- `record_availability(vault: Any, repository: Any, session_id: str, *, available_minutes: float | None=None, device: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 107) — Row 8, stamped at the session's start, before its first block is served.
+- `record_end(vault: Any, repository: Any, session_id: str, *, reason: str | None=None, ended_at: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 159) — Row 7, explicit: the learner's own ending.
+- `record_stop_override(vault: Any, repository: Any, *, session_id: str | None, plan_id: str, via: str, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 188) — The learner went on past a finished plan: the offered stop, overridden.
+- `record_stop_acceptance(vault: Any, repository: Any, *, session_id: str | None, plan_id: str, stop_decision_id: str, via: str, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 208) — Landing ruling R2 (mobile v2, F8): the learner took a stop a device was offered while the plan stays open for work held for the desktop (*Done for today* on a pending stop).
+- `sweep_unreported(vault: Any, repository: Any, *, trigger: str, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 236) — Recovery: every session with an availability row that has ended with no end row gets one, inferred.
 
 ### Module constants
 
-- `RECEIPT_VERSION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 28)
-- `AVAILABILITY` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 29)
-- `END` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 30)
-- `STOP_RESPONSE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 31)
-- `EXPLICIT` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 32)
-- `INFERRED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 33)
-- `OFFERED_STOP_ACCEPTED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 34)
-- `OFFERED_STOP_OVERRIDDEN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 35)
-- `UNPROMPTED_STOP` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 36)
-- `APP_CLOSED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 37)
-- `FOREGROUND_LOST` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 38)
-- `EXTERNAL_INTERRUPTION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 39)
-- `RULE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 40)
-- `UNKNOWN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 41)
-- `CLIENT_END_REASONS` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 43)
-- `MISSING` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 46)
-- `_STOP_ACTION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 48)
+- `RECEIPT_VERSION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 30)
+- `AVAILABILITY` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 31)
+- `END` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 32)
+- `STOP_RESPONSE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 33)
+- `EXPLICIT` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 34)
+- `INFERRED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 35)
+- `OFFERED_STOP_ACCEPTED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 36)
+- `OFFERED_STOP_OVERRIDDEN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 37)
+- `UNPROMPTED_STOP` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 38)
+- `APP_CLOSED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 39)
+- `FOREGROUND_LOST` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 40)
+- `EXTERNAL_INTERRUPTION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 41)
+- `RULE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 42)
+- `UNKNOWN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 43)
+- `CLIENT_END_REASONS` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 45)
+- `MISSING` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 48)
+- `_STOP_ACTION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 50)
 
 ### Explicit exports
 
@@ -107,26 +108,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `UNPROMPTED_STOP`
 - `record_availability`
 - `record_end`
+- `record_stop_acceptance`
 - `record_stop_override`
 - `sweep_unreported`
 
 ## Internal implementation anchors
 
-- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 51)
-- `_base(*, session_id: str | None, kind: str, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 55)
-- `_today(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 60)
-- `_todays_plan(connection: Any, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 64)
-- `_session_plan(connection: Any, session_id: str | None, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 73) — The plan this session's newest block belongs to, else today's.
-- `_in_force(connection: Any, plan: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 86) — The plan, its newest numbered block and its newest stop decision.
-- `_ready(vault: Any, connection: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 101)
-- `_derived_reason(plan: dict[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 136) — The plan's own state, when no client said: a finished plan had offered the stop the learner took.
+- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 53)
+- `_base(*, session_id: str | None, kind: str, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 57)
+- `_today(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 62)
+- `_todays_plan(connection: Any, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 66)
+- `_session_plan(connection: Any, session_id: str | None, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 75) — The plan this session's newest block belongs to, else today's.
+- `_in_force(connection: Any, plan: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 88) — The plan, its newest numbered block and its newest stop decision.
+- `_ready(vault: Any, connection: Any) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 103)
+- `_derived_reason(plan: dict[str, Any] | None, *, stop_accepted: bool=False) -> str` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 138) — The plan's own state, when no client said: a finished plan had offered the stop the learner took, and so had an open one whose pending stop this session accepted (``stop_accepted``).
+- `_accepted_here(connection: Any, session_id: str, stop_decision_id: str | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/sessions.py), line 147) — This session accepted the stop in force (a ``stop_response`` naming it, accepted) and nothing overrode it since.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `record_stop_override`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `record_stop_acceptance`, `record_stop_override`
 - [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] — imports `module`; statically calls `record_availability`, `record_end`, `sweep_unreported`
 
 ## Dependencies

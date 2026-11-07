@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/combiner_data.py"
 source_paths:
   - "src/learnloop/router_objective/combiner_data.py"
-source_commit: "workspace/uncommitted @ HEAD 11897c544894f22682a9078db79768b2bfc435a3"
-source_commit_timestamp: "2026-11-06T20:55:08-05:00"
-source_worktree_state: "modified"
+source_commit: "139500ed92d2c4bb492dbf3ada9c3d5a6fc5e205"
+source_commit_timestamp: "2026-11-06T06:27:10-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 11897c544894f22682a9078db79768b2bfc435a3` |
-| Commit timestamp | `2026-11-06T20:55:08-05:00` |
+| Worktree state | `clean` |
+| Source commit | `139500ed92d2c4bb492dbf3ada9c3d5a6fc5e205` |
+| Commit timestamp | `2026-11-06T06:27:10-05:00` |
 
 ## Public API
 
