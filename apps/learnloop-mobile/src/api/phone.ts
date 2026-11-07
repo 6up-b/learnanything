@@ -67,6 +67,17 @@ export interface SubmitInput {
   readonly bookCounted?: boolean;
   readonly planPresentationId?: string | null;
   readonly firstHintProgress?: FirstHintProgress | null;
+  /** Mobile v2 V3 (D3): a probe's answer consumes its committed presentation. */
+  readonly probePresentationId?: string | null;
+}
+
+/** FG1 §6.1: what Next on a miss's feedback does: wait for its question, open it, or go on. */
+export interface FollowupNextDto {
+  readonly version: number;
+  readonly action: "wait" | "open" | "continue";
+  readonly line: string | null;
+  readonly practiceItemId: string | null;
+  readonly presentationId: string | null;
 }
 
 export const phone = {
@@ -141,6 +152,8 @@ export const phone = {
   followupStatus: (attemptId: string) => call<FollowupStatusDto>("followup_status", { attemptId }),
   followupContinueWithout: (attemptId: string) => call<{ continued: boolean }>("followup_continue_without", { attemptId }),
   followupShowAnyway: (attemptId: string) => call<{ released: boolean }>("followup_show_anyway", { attemptId }),
+  // ── V3 (D3): the miss's question, opened by Next and answered here. Not retried: it can write. ──
+  followupNext: (attemptId: string) => call<FollowupNextDto>("followup_next", { attemptId }),
   recordHypothesisExposure: (input: { attemptId: string; surface: string; hypothesisVersionIds: string[]; shownAt: string }) =>
     call<{ recorded: boolean }>("record_hypothesis_exposure", input),
   recordHypothesisMark: (input: {

@@ -43,6 +43,28 @@
         },
         "request_id": "k1"
       }
+    },
+    {
+      "wrapper": "submitAttempt",
+      "envelope": {
+        "method": "submit_attempt",
+        "params": {
+          "sessionId": "s1",
+          "practiceItemId": "i1",
+          "answerMd": "My answer",
+          "attemptType": "diagnostic_probe",
+          "submissionId": "k1",
+          "latencySeconds": 42,
+          "schedulerCandidateId": null,
+          "assessmentContractVersionId": "acv",
+          "hintsUsed": 0,
+          "authoredHints": 0,
+          "bookCounted": false,
+          "probePresentationId": "pres_1",
+          "planPresentationId": "pp1"
+        },
+        "request_id": "k1"
+      }
     }
   ],
   "reads": [

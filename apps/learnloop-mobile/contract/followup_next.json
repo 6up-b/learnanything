@@ -1,0 +1,20 @@
+{
+  "method": "followup_next",
+  "requests": [
+    {
+      "wrapper": "followupNext",
+      "envelope": {
+        "method": "followup_next",
+        "params": {
+          "attemptId": "a1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "action",
+    "line",
+    "practiceItemId",
+    "presentationId"
+  ]
+}

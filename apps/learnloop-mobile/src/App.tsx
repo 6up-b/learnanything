@@ -92,7 +92,7 @@ type View =
   | { name: "today" }
   | { name: "question"; target: QuestionTarget }
   | { name: "waiting"; submissionId: string; practiceItemId: string }
-  | { name: "feedback"; attemptId: string; practiceItemId: string };
+  | { name: "feedback"; attemptId: string; practiceItemId: string | null };
 
 interface Moved {
   readonly sessionId: string;
@@ -162,6 +162,10 @@ function Phone({ credential }: { credential: Credential }) {
   planModeRef.current = planMode;
   // The plan's Next is with the host: a decision at a boundary can take a while ("Choosing what's next…").
   const [choosing, setChoosing] = useState(false);
+  // Mobile v2 V3 (D3): the phone answers probes, until the host says it doesn't (`phone_probes_off`).
+  const probesOnPhone = useRef(true);
+  // Next on a miss's feedback waits while its question is being written (FG1 §6.1): the line it says.
+  const [followupWait, setFollowupWait] = useState<string | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const deviceId = credential.deviceId;
@@ -532,6 +536,41 @@ function Phone({ credential }: { credential: Credential }) {
     }
   }
 
+  /**
+   * Mobile v2 V3 (owner decision D3; FG1 §6.1): Next on a miss's feedback first asks its follow-up workflow. Its
+   * question opens here (burned at that serve as the phone's); while it is being written Next waits on Feedback,
+   * whose panel says so and offers *Continue without it*; otherwise the plan or the list goes on. A host that
+   * answers no probe (`phone_probes_off`, or an older host) is the plan's or the list's Next, as in V2.
+   */
+  async function feedbackNext(attemptId: string) {
+    setFollowupWait(null);
+    if (probesOnPhone.current && sessionRef.current) {
+      setChoosing(true);
+      try {
+        const step = await phone.followupNext(attemptId);
+        if (step.action === "open" && step.practiceItemId) {
+          setView({ name: "question", target: { practiceItemId: step.practiceItemId, schedulerCandidateId: null } });
+          return;
+        }
+        if (step.action === "wait") {
+          setFollowupWait(step.line ?? "Preparing a question on this…");
+          return;
+        }
+      } catch (error) {
+        const code = (error as CommandError).code;
+        if (code === "phone_probes_off" || code === "method_not_allowed") probesOnPhone.current = false;
+        else if (code === "session_moved" || code === "desktop_offline") {
+          reportError(error);
+          return;
+        }
+        // Anything else: Next never strands the learner (FG1 §6.2); the plan or the list goes on.
+      } finally {
+        setChoosing(false);
+      }
+    }
+    await nextAfter(null);
+  }
+
   async function nextAfter(practiceItemId: string | null) {
     if ((await learnPlanMode()) === "plan") {
       await planNext();
@@ -721,7 +760,9 @@ function Phone({ credential }: { credential: Credential }) {
               key={view.attemptId}
               attemptId={view.attemptId}
               choosing={choosing}
-              onNext={() => void nextAfter(null)}
+              waitLine={followupWait}
+              onNext={() => void feedbackNext(view.attemptId)}
+              onOpenFeedback={(attemptId) => { setFollowupWait(null); setView({ name: "feedback", attemptId, practiceItemId: null }); }}
               onError={reportError}
             />
           ) : planMode !== "queue" ? (
