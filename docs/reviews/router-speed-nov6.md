@@ -321,3 +321,288 @@ difficulty columns, `mastery.irt.difficulty_from_prior` or surprise's `b`.
 - **Item 3's caches** (smallest finish above).
 - **The copies' own numbers.** The copy-shaped timings above are on synthetic vaults with no Reader sources. The
   landing gate's smoke on the owner's copies is where the join's readings show. Rerun its "Time" table there.
+
+## Landing onto main
+
+Prepared on `router/ro-speed` for the orchestrator's fast-forward. Main was merged three times:
+- `b1c67e1f52`: main `64f7d1dc86` (TE2 as mvp-0.51, migration 248; the teacher exam-question guard);
+- `1ccf60fe9a`: main `8b0738499d` (TE3a as mvp-0.52, migration 249). TE3a's lesson-window reset now also runs on the
+  held link's path, with a test;
+- `7514676e5c` and `b1693676a8`: main `1c12763372` (the phone frontend v2 spec and the owner's phone follow-ups) and
+  `23ce859c16` (phone V1). These are phone app, host and docs only: no router change, no successor, no migration. The
+  module reference's provenance conflicts were taken from main and regenerated (`ae87b5fd8d`).
+
+**Still no successor and no migration.** The tip runs at main's mvp-0.52, head 249. `held_ad_link` stays on by
+default.
+
+### Time (ruling R5): the journey pinned on all three codes
+
+**How it was measured.**
+- Copies: fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy`, two sets:
+  - mvp-0.49 copies, upgraded on `e7a7d7734f`'s code;
+  - mvp-0.52 copies, upgraded on main `8b0738499d`'s code.
+- Network: every AI route points at 127.0.0.1:9. The router LLM and the Decider are in-process fakes, and the follow-up
+  probe is written by the tests' AuthorFake.
+- Pinning: `SMOKE_PIN_SEED=1` and `SMOKE_PIN_KEY=1` on all three codes. The rollout seed is the decision id, and the
+  boundary key's version string and switch snapshot are dropped.
+- Codes: git archives (with `migrations/`) of mvp-0.49's `e7a7d7734f`, main `8b0738499d` and the branch `1ccf60fe9a`.
+  - Main's later commits (`1c12763372`, `23ce859c16`) change no router file.
+  - Since `1ccf60fe9a`, the branch changes only `src/learnloop/capture/` and `src/learnloop_mobile/` (both from main).
+- Each day run: one simulated day per copy. The second served item is answered wrong (FG1's follow-up), and the first
+  offered stop is declined. Next is pressed at once ("dwell 0") or after a 3 s sleep. Fresh copies for every run.
+- The week: linear_algebra, 7 days, day 3 skipped, a seeded learner who is about 70% correct, offered stops kept or
+  accepted at random (seeded), Next at once.
+- Conditions: every run held `/tmp/learnloop-fullsuite.lock`, one run at a time (load average 1-3). The driver records
+  every span with its thread and attributes each Next to the spans that overlapped it.
+
+**The served journeys.**
+- Main and the branch serve the same items in the same order in every run, the week included (106 items).
+- mvp-0.49 matches them on probability only.
+  - On arxiv_v2 and linear_algebra it diverges after the second item. Its policy is a different algorithm, so the
+    pinned seed fixes the draws, not the choices.
+  - Its week serves 125 items.
+- So mvp-0.49's column is the same journey shape on the same copy, not item for item.
+
+**"Next after feedback"** is a block-boundary Next that serves an item and immediately follows an answered item: its
+feedback, then the app's prefetch call, then the dwell. These are excluded:
+- the first Next of a day;
+- the probe opened by `followup_next`;
+- a Next right after a declined stop (reported separately below).
+
+The Next column gives median / p90 (nearest rank) / the count above 2 s, in ms. The day runs have only 1-3 such Nexts
+per cell; the week is the distribution to read.
+
+| Copy | Code | Numeric policy per decision, ms: median (p90, n) | Next after feedback, dwell 0 | Next after a 3 s dwell | Follow-up gate, ms, median (n): objective-decided / no room to wait |
+|---|---|---|---|---|---|
+| arxiv_v2 | mvp-0.49 (`e7a7d7734f`) | 1324 (1462, 12) | 2310 / 2310 / 1 of 1 | 568 / 568 / 0 of 1 | 763 (2) / - |
+| | main (`8b0738499d`) | 2221 (2285, 10) | 3399 / 3469 / 2 of 3 | 677 / 708 / 0 of 3 | - / 206 (2) |
+| | **branch** | **1932** (2009, 10) | **2892** / 3112 / 2 of 3 | 530 / 546 / 0 of 3 | - / 198 (2) |
+| linear_algebra | mvp-0.49 | 673 (995, 10) | 1975 / 2401 / 1 of 3 | 673 / 697 / 0 of 3 | - / 195 (2) |
+| | main | 1509 (2183, 10) | 2422 / 3564 / 2 of 3 | 615 / 688 / 0 of 3 | - / 201 (2) |
+| | **branch** | **1369** (1941, 10) | **2359** / 3394 / 2 of 3 | 674 / 704 / 0 of 3 | - / 199 (2) |
+| probability | mvp-0.49 | 181 (209, 10) | 1179 / 1204 / 0 of 3 | 662 / 699 / 0 of 3 | - / 205 (2) |
+| | main | 615 (624, 10) | 2026 / 2045 / 2 of 3 | 669 / 702 / 0 of 3 | - / 177 (2) |
+| | **branch** | **600** (664, 10) | **2035** / 2061 / 2 of 3 | 731 / 782 / 0 of 3 | - / 176 (2) |
+| linear_algebra, a week | mvp-0.49 | 741 (994, 60) | 2221 / 2724 / 25 of 30 | - | 796 (9) / 228 (19) |
+| | main | 1434 (2042, 60) | 3404 / 4008 / 26 of 27 | - | 1314 (11) / 233 (13) |
+| | **branch** | **1348** (1922, 60) | **3403** / 3815 / 26 of 27 | - | 1298 (11) / 236 (13) |
+
+**Next right after a declined stop.** There is no prefetch and no dwell before it. Pooled over every run of a code
+(n 8): mvp-0.49 1832 / 2208 / 3 of 8; main 2922 / 3918 / 6 of 8; the branch 2757 / 3525 / 6 of 8.
+
+**What the table says.**
+- **Branch against main.** The numeric policy is 2-13% faster per decision (arxiv_v2 -13%, linear_algebra -9%,
+  probability -2%, the week -6%).
+  - Next after feedback is 15% faster on arxiv_v2. It is unchanged on linear_algebra and probability: the week's
+    median is 3403 against 3404 ms, and its p90 3815 against 4008 ms.
+  - The objective-decided gate is unchanged (1298 against 1314 ms).
+- **Branch against mvp-0.49.** The branch is still slower everywhere.
+  - Numeric per decision: +46% on arxiv_v2, +103% on linear_algebra, +230% on probability, +82% on the week.
+  - Next after feedback in the week: +53% (3403 against 2221 ms).
+  - The objective-decided gate: +63% (1298 against 796 ms). The no-room path is unchanged at about 230 ms.
+- **The owner's regression is mostly not closed by this branch** on the Reader-heavy copies. Why is next.
+
+**Why Next is bimodal** (from the per-Next span overlap and the profile below):
+- After feedback, the app's prefetch call starts the next decision's objective job on a router thread. A boundary Next
+  that comes before the job is done waits for it.
+- With dwell 0, every boundary Next after feedback waited on that job (began before Next, overlapping it), so Next is
+  the job's remaining time.
+  - The week's job takes 3302 ms median on the branch (p90 4237), 3391 ms on main and 2053 ms on mvp-0.49.
+  - 26 of 27 such Nexts are above 2 s.
+  - The one fast Next per week (1.6 s) is the one whose job found the combiner's join already current (26 ms
+    instead of about 1.1 s).
+- With a 3 s dwell, the job is done when Next is pressed, so Next is the serve alone: 0.5-0.8 s on every copy and
+  code.
+- So the two modes are "the job finished" (about 0.6 s) and "Next waits for the job" (the job's length). Which
+  component puts a waiting Next above 2 s depends on the copy.
+  - **linear_algebra and probability: the combiner's join**, inside the input build. In the branch's week, over the
+    26 slow Nexts (median overlaps, nested):
+    - input build 1510 ms, of which the join is 1145 ms;
+    - inside the join, RO2's `resolve_curves` 1128 ms, its `_opportunities` 954 ms, and AD's section-to-LO map
+      912 ms;
+    - the numeric policy 1348 ms, of which the rollouts are 1214 ms;
+    - the decision card about 400 ms, running alongside.
+    - AD's section map was called 3,794 times in the pinned week (11 ms median, main and branch alike). The unpinned
+      held-on week below called it 5,004 times. mvp-0.49 called it 1,899 times at 1 ms (no join).
+    - On probability's day runs, the two slow Nexts spend 1.1 s in the join (0.95 s of it AD's section map) and only
+      0.63 s in the numeric policy.
+  - **arxiv_v2: the rollouts.** The numeric policy is about 2.0 s per decision (rollouts 1.85-2.3 s), and the join is
+    only about 0.16 s.
+- The join runs about twice per decision: 109 joins over 49 jobs in the week, and in the profile 98 builds and 98
+  joins over 49 jobs. That matches the decision scope's commit-version check (F2, accepted in R2) dropping the shared
+  fit when a receipt commits between the card's build and the numeric policy's. Every decision here makes a router
+  LLM request, which writes a receipt. So item 2's per-job saving is mostly lost on these copies, as R2 foresaw. The
+  cause was not traced call by call.
+
+**Profile: the branch, linear_algebra, the pinned week.** This is a separate run under cProfile (49 objective jobs,
+4.25 s median per job under the profiler, against 3.30 s without), merged over every job. Cumulative per job:
+- `objective_inputs.build` (2 calls) 1.69 s:
+  - `_combiner` 1.40 s;
+  - `_combiner_with_traces` (the join) 1.18 s;
+  - `history_resolve.resolve_curves` 1.18 s, with `_opportunities` 0.96 s;
+  - `adaptive_difficulty.reading.los_for_section` (AD's section map; 56 calls a job) 1.25 s;
+  - `reading_sources.listed_events` 0.88 s.
+- `objective_chooser.run_numeric` 1.71 s:
+  - `value._session` 2.14 s, a sum across threads that includes calls outside `run_numeric`;
+  - `run_tail` 1.07 s;
+  - `evaluate` 1.01 s;
+  - `_practice_batch` 1.32 s, of which `_graded_linked` is 0.54 s and the AD link's `quadrature` 0.12 s.
+- SQLite: `execute` 1.16 s of internal time a job. Connection open and close: 462 `connect` calls a job, 0.82 s
+  cumulative, of which `close` alone is 0.32 s. They come through `Repository.connection` (683 calls a job). The
+  profile kept no caller table, so which readers open them is not measured; AD's `material_view` reader and
+  `operation.scoped` are the largest cumulative entries around them.
+
+What remains, in order:
+1. The join's AD section map and RO2's opportunity resolve: R3's follow-up, about 0.9-1.2 s a job here, larger than
+   R3's 0.4 s.
+2. The rollouts: R1/R9's own work, about 1.2-1.4 s.
+3. Connection churn: about 0.8 s.
+4. The second join a decision (see above).
+
+**Unpinned runs (context only).** The earlier unpinned runs (the scratch directory's `out/unpinned/`, a less quiet
+machine) served a different journey per code (on linear_algebra, 11 numeric decisions on main against 4 on the branch). Their medians mix
+journey and speed. For example, linear_algebra's numeric policy ran 1403 ms on the branch against 1305 ms on main, but
+arxiv_v2's 1729 against 2384. They are not compared here.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "F1 is versioned by the held_ad_link switch in the generator payload, trace and prefetch key, as the follow-up
+  batch's merged_sessions was; no separate tag. With it off the landing code's quadratures run element for element and
+  a deadline-bound decision is the landing code's draw for draw (the test stays)."
+- R2: "F2's database commit-version check is accepted, including losing most of item 2's per-job saving when an LLM
+  request's receipt commits between the builds. The watcher is a read-only connection that never writes; confirm under
+  the durability lane that it leaves no -wal frames, no journal header change and no lock that blocks a writer (a test:
+  a writer commits while the watcher is open)."
+- R3: "The remaining join cost on Reader-heavy vaults (AD's section-to-LO map rebuilt per call, about 0.4 s) goes to
+  the follow-up batch, with a reviewer of AD's protection layer; this landing measures it on the copies."
+- R4: "The watcher finding is accepted: a writer that commits and closes while the read-only watcher is open leaves
+  its own frames in the -wal until the next read-write connection closes, which is generic SQLite behaviour shared by
+  the app's existing read-only watchers (reading_choice, canonical_projection_rollout); no frame comes from the watcher,
+  nothing is lost, and the stop condition 'the watcher leaves WAL frames' is not met. The test documents it."
+- R5: "The time table is measured with the journey pinned (SMOKE_PIN_SEED=1 and SMOKE_PIN_KEY=1 on all three codes:
+  mvp-0.49's e7a7d7734f, main 8b0738499d and the branch), so all three serve the same items in the same order; report,
+  per copy, the numeric policy per decision, Next at a block boundary right after feedback and after a 3 s dwell (as
+  distributions: median, p90, and the share above 2 s, since Next is bimodal), and the follow-up gate. Explain the
+  bimodality from the profile (which component puts a Next above 2 s: the prefetch not done, the join, AD's section
+  map at about 4,400-5,000 calls a week, the rollouts). The unpinned runs are reported only as context. Run the timing
+  when no full suite holds the lock, so the machine is as quiet as the queue allows."
+
+R5's premise that all three serve the same items holds for main and the branch, and for mvp-0.49 on probability only
+(see "The served journeys").
+
+### Identity: held_ad_link = false against main
+
+Main `8b0738499d` against the branch with `[router_objective] held_ad_link = false`, both at mvp-0.52 on fresh copies
+of the mvp-0.52 set. One day per copy: the second served item missed (FG1's follow-up, AuthorFake's probe), the first
+stop declined, `SMOKE_PIN_SEED=1` and `SMOKE_PIN_KEY=1` on both sides.
+
+**IDENTICAL on all three copies** (arxiv_v2, linear_algebra, probability):
+- LLM requests (5 each), Decider requests (5 each) and the follow-up gate (1 each);
+- the 5 traces each, every prompt, and every written and removed row;
+- every trace at 8 draws.
+
+Set aside, on both sides alike:
+- `held_ad_link` wherever it is recorded: a receipt's config record, and the trace's `versions.serving_switches`;
+- RO6's `generator` key, which names the version and the switch record;
+- the boundary key's version string and `objective.followup_switches` (`SMOKE_PIN_KEY`);
+- ids (ULIDs and hex digests), wall-clock stamps, latencies, and a compressed receipt's `stored_bytes`;
+- version strings, normalized.
+
+`receipts_real` counts the copies' own older receipts (42 on probability, equal on both sides). Every new receipt on
+both sides is a fake (below).
+
+### Watcher (R2, R4)
+
+`tests/test_rospeed_watcher.py` runs under the durability lane (WAL, `synchronous=FULL`, a freshly initialised
+vault):
+- A writer commits (`BEGIN IMMEDIATE` and `BEGIN EXCLUSIVE`, no busy wait) and a `TRUNCATE` checkpoint completes while
+  the decision scope's watcher is open. The watcher never writes, leaves no -wal frames of its own and no journal
+  header change.
+- A writer that closes before the watcher leaves only its own frames (R4).
+- A rollback-header database is watched without blocking a writer.
+
+It passed in the targeted sets and in the durability lane (below).
+
+### Gate
+
+| Lane | On | Result |
+|---|---|---|
+| Setup | `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Import contracts | `lint-imports --no-cache` | 43 kept, 0 broken |
+| Full suite | `1ccf60fe9a`, `-n 8 --dist worksteal`, behind `flock /tmp/learnloop-fullsuite.lock`, 10G scope | **29955 passed, 91 skipped, 47 xfailed, 1 failed** (57 min 47 s) |
+| | the failure alone, 3 times | 3 of 3 passed |
+| Durability lane | `1ccf60fe9a`, `-m durability`, `-n 6` | 407 passed, 1 skipped |
+| Owner lane | `1ccf60fe9a`, fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-rospeed/`, `-m owner_vaults` | 83 passed, 4 skipped, 2 failed: the two known (`test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`) |
+| Targeted set, after the `1c12763372` merge | `7514676e5c`: step 1's 142 files plus `test_mobile_allowlist`, `test_mobile_rpc`, `test_mobile_shortcuts`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot` (147 files), `-n 6` | 2882 passed, 12 skipped, 3 xfailed |
+| Targeted set, after the `23ce859c16` merge | `ae87b5fd8d`: the same plus every `test_mobile_*` (159 files), `-n 6` | 3109 passed, 12 skipped, 3 xfailed |
+| References | `db_generate_reference` / `db_validate_reference` (errors []), `desktop_generate` / `desktop_validate`, `module_generate` / `module_validate`, `validate_vault` | all pass; provenance and the test inventory only |
+
+The full-suite failure was `tests/test_ro0_rows9_13_decision_state.py::test_receipts_hold_ids_and_numbers`. It asserts
+that a learning object's title (`M2`) is absent from a receipt's serialized state, and a random ULID in that state
+contained `M2` (`...S6NMV11D83M2VGNAKBXANP`). This is a test flake, unrelated to this branch.
+
+What did not rerun:
+- No full suite after the two phone merges (`1c12763372` and `23ce859c16`), as the orchestrator ruled: they change no
+  router file.
+- No vitest or cargo: the branch changes no frontend or `src-tauri` file. The phone app's files come from main as
+  they are.
+
+### Smoke
+
+**held_ad_link on (the default, unpinned, as served).** The branch ran on fresh copies of the mvp-0.52 set: one day
+on each copy (a generated follow-up, the first stop declined) and the linear_algebra week. Then, on each run:
+
+| Run | Decisions | RO6 trace terms recomputed | RO5 logged probabilities | Generated probes served, then refused | rebuild --shadow | Survival |
+|---|---|---|---|---|---|---|
+| arxiv_v2 day | 8 | v_residual 35, v_tilde 35, calibration 8: 0 problems | 8 coins, 1 check day: 0 problems | 1, refused (`generated_probe_closed`) | 26 mastery rows, stamp only; live unchanged | assignments and traces identical across `rebuild-derived-state` and a state sync |
+| linear_algebra day | 4 | 24, 24, 4: 0 problems | 4 coins: 0 problems | 1, refused | 18 rows, stamp only | identical |
+| probability day | 5 | 19, 19, 5: 0 problems | 5 coins: 0 problems | 1, refused | 16 rows, stamp only | identical |
+| linear_algebra week | 50 | 259, 259, 50: 0 problems | 50 coins, 6 check days: 0 problems | 30, each refused | 14 rows, stamp only | identical |
+
+- "Stamp only" means `algorithm_version` from mvp-0.47 to mvp-0.52 on rows with no evidence, the known case. No
+  facet or schedule changes.
+- The protection scan of both cards showed nothing protected shown. The objective report as of each run's end exited
+  0.
+
+**Network and processes.**
+- New `model_call_receipts`: the four held-on runs wrote 29, 17, 20 and 440, all fakes (`fake_llm`/`fake-router-llm`,
+  `fake_decider`, `fake`/`fake-model`, `fake`/`fake-frontier`). Zero from a real model.
+- The socket and subprocess watch (`sitecustomize` on every smoke run) logged no connect, no non-loopback address
+  and no name resolution.
+- The only subprocesses were `powerprofilesctl get` and `git rev-parse HEAD` on the archived trees' `data_capture`
+  directory. No Codex process.
+
+**Stop conditions: none met.**
+- Serving with `held_ad_link` off is main's.
+- Every trace term recomputes.
+- The watcher neither writes nor locks a writer out, and leaves no frames of its own (R4).
+- No work moved onto the serving path.
+- The shadow shows stamps only.
+- No real model call.
+- The one failure passed 3 times alone.
+
+### What the owner does
+
+- **Nothing beyond restarting the desktop app and the phone host** after the fast-forward. No version moves, no
+  migration, nothing to upgrade or rebuild.
+- **To turn the held link off**, set `held_ad_link = false` under `[router_objective]` in the vault's
+  `learnloop.toml`, then restart the app and the phone host. Serving is then the follow-up batch's landing code, draw
+  for draw (R1). The traces and the prefetch key record the switch.
+
+### Open items
+
+- **The speed target is not met on the Reader-heavy copies.**
+  - linear_algebra's Next after feedback is unchanged against main (3.4 s median in the week) and still 53% slower
+    than mvp-0.49.
+  - Its objective-decided gate is still 63% slower than mvp-0.49.
+  - The cost is the join, as R3 expects, but larger than R3's 0.4 s:
+    - AD's section map is about 0.9 s a decision;
+    - RO2's opportunity resolve is about 1.0 s;
+    - the join runs twice a decision, consistent with F2's check.
+  - R3's follow-up should take the section map and the opportunity resolve together. It should also look at the
+    462 connection opens a job in AD's readers.
+- **The rollouts** are still +82% per decision against mvp-0.49 in the week. They are R1/R9's own work, the larger
+  share on arxiv_v2.
+- **Test flake**: `test_ro0_rows9_13_decision_state::test_receipts_hold_ids_and_numbers` checks a two-character title
+  (`M2`) as a substring of a state that holds random ULIDs. The assertion should match whole tokens, or the title
+  should not be a valid ULID substring.
