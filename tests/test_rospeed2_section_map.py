@@ -1,16 +1,19 @@
-"""Router speed stage 2, item 1: AD's section → LO map held across calls (``adaptive_difficulty.reading_cache``).
+"""Router speed stage 2, item 1: AD's section → LO map held within one objective job
+(``adaptive_difficulty.reading_cache``; landing ruling R1: a snapshot as of the job's first read, nothing held across
+jobs).
 
-No successor: every value is the landing code's. The landing's ``VaultReadingMap.los_for_section`` and
-``los_for_span`` (main ``e9ceaf8d44``) are copied here verbatim and run beside the held map, inside a real AD
-operation in the guard's deny mode, on a textbook and a re-read of it, through every change the held map must see:
+The landing's ``VaultReadingMap.los_for_section`` and ``los_for_span`` (main ``e9ceaf8d44``) are copied here verbatim
+and run beside the held map, inside a real AD operation in the guard's deny mode, on a textbook and a re-read of it,
+through every change the next job must see:
 
 * protection: a held-out span (the reading withheld), a withheld re-read, an exam reservation, each released again;
 * the source: an edited block (the IR rewritten in place), a new reading of the book, a manual alias onto it;
 * the vault: an LO's references edited and reloaded, and the same edit made in place on the loaded vault.
 
-Each state is compared twice (the second time from what was held), and the held path is shown to compute nothing.
-The guard denies nothing and every IR load is inside ``MaterialView.document_ir``; RO2's opportunity resolve over the
-same vault gives the landing code's rows. Fakes only; no model call.
+Each state is compared twice in one job (the second time from what the job held), and the held path is shown to
+compute nothing. The guard denies nothing and every IR load is inside ``MaterialView.document_ir``; RO2's opportunity
+resolve over the same vault gives the landing code's rows. The R1 tests at the end are Codex's verify reproductions.
+Fakes only; no model call.
 """
 
 from __future__ import annotations
@@ -161,9 +164,7 @@ def observed(monkeypatch):
     seen: list[O.Operation] = []
     monkeypatch.setattr(O, "OBSERVERS", [seen.append])
     monkeypatch.setitem(O._MODE, "mode", "deny")
-    reading_cache.clear()
-    yield seen
-    reading_cache.clear()
+    return seen
 
 
 def _maps(vault, repository, sections, cls) -> dict[str, Any]:
@@ -183,12 +184,12 @@ def _maps(vault, repository, sections, cls) -> dict[str, Any]:
 
 
 def _compare(vault, repository, sections, monkeypatch, observed) -> tuple[dict[str, Any], int]:
-    """The landing map's values, the held map's (twice), and how many mappings the second held pass computed."""
+    """The landing map's values, the held map's (twice, in one objective job: landing ruling R1), and how many
+    mappings the second held pass computed."""
 
     import learnloop.section_map as SM
 
     old = _maps(vault, repository, sections, _LandingMap)
-    new = _maps(vault, repository, sections, ADR.VaultReadingMap)
     computed = []
     real = SM.learning_objects_for_section_in_ir
 
@@ -196,9 +197,11 @@ def _compare(vault, repository, sections, monkeypatch, observed) -> tuple[dict[s
         computed.append(kwargs.get("section_id"))
         return real(*args, **kwargs)
 
-    with monkeypatch.context() as patch:
-        patch.setattr(SM, "learning_objects_for_section_in_ir", counted)
-        again = _maps(vault, repository, sections, ADR.VaultReadingMap)
+    with _job():
+        new = _maps(vault, repository, sections, ADR.VaultReadingMap)
+        with monkeypatch.context() as patch:
+            patch.setattr(SM, "learning_objects_for_section_in_ir", counted)
+            again = _maps(vault, repository, sections, ADR.VaultReadingMap)
     assert new == old, {key: (new[key], old[key]) for key in old if new.get(key) != old[key]}
     assert again == old
     assert [denial for op in observed for denial in op.guard.denials] == []
@@ -223,11 +226,14 @@ def test_the_held_map_is_the_landing_codes_through_protection_source_and_vault_c
     states: dict[str, dict[str, Any]] = {}
 
     def state(name: str, current_vault=None) -> int:
+        # Each state in its own objective job (landing ruling R1: nothing held across jobs); within it the second
+        # held pass computes nothing.
         values, computed = _compare(current_vault or vault, repository, sections, monkeypatch, observed)
         states[name] = values
+        assert computed == 0, name
         return computed
 
-    # Nothing withheld: the second held pass computes nothing.
+    # Nothing withheld.
     assert state("open") == 0
     mapped = {key: value for key, value in states["open"].items() if key != "epoch" and value}
     assert len(mapped) >= 12, mapped  # locators, the re-read's aliases and the quote all map
@@ -238,7 +244,7 @@ def test_the_held_map_is_the_landing_codes_through_protection_source_and_vault_c
     assert states["held_out_span"]["epoch"] != states["open"]["epoch"]
     assert all(not value for key, value in states["held_out_span"].items() if key.startswith("ext_m1"))
     assert states["held_out_span"] != states["open"]
-    # Released: the earlier values again, from what was held.
+    # Released: the earlier values again (computed again by the next job).
     protected.spans = set()
     assert state("released") == 0
     assert states["released"] == states["open"]
@@ -306,11 +312,15 @@ def test_every_ir_load_of_the_held_map_is_inside_the_chokepoint(tmp_path, monkey
     monkeypatch.setattr(MaterialView, "document_ir", counted_chokepoint)
     vault = _load(paths)
     sections = _sections(repository)
-    first = _maps(vault, repository, sections, ADR.VaultReadingMap)
-    assert loads and all(loads), loads
-    loads.clear()
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == first
-    assert loads == []  # held: no IR is loaded at all
+    with _job():
+        first = _maps(vault, repository, sections, ADR.VaultReadingMap)
+        assert loads and all(loads), loads
+        loads.clear()
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == first
+        assert loads == []  # held within the job: no IR is loaded at all
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == first
+    assert loads and all(loads), loads  # the next job loads its own snapshot, through the chokepoint
     assert [denial for op in observed for denial in op.guard.denials] == []
 
 
@@ -321,25 +331,23 @@ def test_a_failed_mapping_is_not_held(tmp_path, monkeypatch, protected, observed
     vault = _load(paths)
     sections = _sections(repository)
     good = _maps(vault, repository, sections, ADR.VaultReadingMap)
-    reading_cache.clear()
 
     def broken(*_args, **_kwargs):
         raise RuntimeError("unreadable")
 
-    with monkeypatch.context() as patch:
-        patch.setattr(SM, "learning_objects_for_section_in_ir", broken)
-        failed = _maps(vault, repository, sections, ADR.VaultReadingMap)
-    assert all(not value for key, value in failed.items() if key != "epoch")
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == good
+    with _job():
+        with monkeypatch.context() as patch:
+            patch.setattr(SM, "learning_objects_for_section_in_ir", broken)
+            failed = _maps(vault, repository, sections, ADR.VaultReadingMap)
+        assert all(not value for key, value in failed.items() if key != "epoch")
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == good  # the same job computes it again
 
 
 @pytest.mark.parametrize("change", ["structure", "metadata"])
 def test_a_mapping_computed_across_a_source_write_is_not_held(tmp_path, monkeypatch, protected, observed, change):
-    """A source write committed while a map computes, after it read its key: what the map computed from the new
-    rows is not held under the earlier key. The write is then undone, so the earlier key is current again: a value
-    wrongly held under it would be read now, and every value is still the landing code's. ``structure``: the IR
-    rewritten before the map loads it; ``metadata``: a manual alias onto the reading recorded during its third
-    mapping (after the map verified the IR)."""
+    """A source write committed while a job's map computes: the write is then undone, and the next job's map is the
+    landing code's (nothing the first job held outlives it: landing ruling R1). ``structure``: the IR rewritten before
+    the map loads it; ``metadata``: a manual alias onto the reading recorded during its third mapping."""
 
     import learnloop.section_map as SM
 
@@ -378,14 +386,15 @@ def test_a_mapping_computed_across_a_source_write_is_not_held(tmp_path, monkeypa
                 match_kind="manual", confidence=1.0))
         return real_map(*args, **kwargs)
 
-    with monkeypatch.context() as patch:
-        patch.setattr(ADR.VaultReadingMap, "_document_ir", ir_after_a_write)
-        patch.setattr(SM, "learning_objects_for_section_in_ir", mapping_after_a_write)
-        during = _maps(vault, repository, sections, ADR.VaultReadingMap)
+    with _job():
+        with monkeypatch.context() as patch:
+            patch.setattr(ADR.VaultReadingMap, "_document_ir", ir_after_a_write)
+            patch.setattr(SM, "learning_objects_for_section_in_ir", mapping_after_a_write)
+            during = _maps(vault, repository, sections, ADR.VaultReadingMap)
     changed = _maps(vault, repository, sections, _LandingMap)
     assert changed != original  # the write changed what the landing code maps
     assert during != original
-    # Undone: the earlier rows (and so the earlier key) again.
+    # Undone: the earlier rows again, which the next job reads.
     if change == "structure":
         repository.persist_document_ir("ext_m1", before)
     else:
@@ -393,7 +402,8 @@ def test_a_mapping_computed_across_a_source_write_is_not_held(tmp_path, monkeypa
             connection.execute("DELETE FROM source_span_reanchors WHERE match_kind = 'manual'")
             connection.commit()
     assert _maps(vault, repository, sections, _LandingMap) == original
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original
     assert [denial for op in observed for denial in op.guard.denials] == []
 
 
@@ -453,11 +463,11 @@ def _no_manual_alias(repository) -> None:
 @pytest.mark.parametrize("change", ["canonical_uri", "alias"])
 def test_a_source_edit_committed_between_two_held_reads_of_one_map_is_read(
         tmp_path, monkeypatch, protected, observed, change):
-    """Codex review F1: with every mapping already held, a map reads one section, a source metadata edit commits
-    elsewhere (the source's canonical URI, or a manual alias onto the reading), and the map reads the rest. The
-    landing code re-reads the reading's run, revision, source and aliases at every mapping (only the IR once a map),
-    so each later read sees the edit; the held map must too, and must hold nothing from the edited rows under the
-    earlier key (the edit is undone after each walk, so a wrongly held value would be read next)."""
+    """Codex review F1: every mapping is held by one job; the next job's map reads one section, a source metadata
+    edit commits elsewhere (the source's canonical URI, or a manual alias onto the reading), and the map reads the
+    rest. The landing code re-reads the reading's run, revision, source and aliases at every mapping (only the IR once
+    a map), so each later read sees the edit; so does the held map, which holds nothing across jobs (landing ruling
+    R1: the edit is undone after each walk, and the next job is the landing code's)."""
 
     from learnloop.adaptive_difficulty.operation import ad_operation
 
@@ -469,10 +479,11 @@ def test_a_source_edit_committed_between_two_held_reads_of_one_map_is_read(
     vault = _load(paths)
     sections = _sections(repository)
     original = _maps(vault, repository, sections, _LandingMap)
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original  # every mapping is held now
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original  # every mapping held by a job
 
     def walk(cls) -> dict[str, Any]:
-        with ad_operation(vault, repository, read_only=True) as op:
+        with _job(), ad_operation(vault, repository, read_only=True) as op:
             mapping = cls(op.vault, repository, op.view)
             out = {"ext_m1/u0": mapping.los_for_section("ext_m1", "u0")}
             _elsewhere(edit)
@@ -489,42 +500,35 @@ def test_a_source_edit_committed_between_two_held_reads_of_one_map_is_read(
     if change == "canonical_uri":
         assert "lo_m5" in landing["ext_m1/u4"] and "lo_m5" not in original["ext_m1/u4"]
     assert held == landing, {key: (held[key], landing[key]) for key in landing if held.get(key) != landing[key]}
-    # Undone: the earlier key is current again, and nothing computed from the edited rows was held under it.
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original
-    # Committed for good: a fresh map reads it (warmed under the new key, then from what it held).
+    # Undone: the next job is the landing code's.
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == original
+    # Committed for good: the next job reads it (computed, then held within that job).
     edit()
     after = _maps(vault, repository, sections, _LandingMap)
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
     assert [denial for op in observed for denial in op.guard.denials] == []
 
 
-def test_an_embedded_nul_in_a_stored_cell_is_part_of_the_held_key(tmp_path, monkeypatch, protected, observed):
+def test_an_edit_behind_an_embedded_nul_is_read_by_the_next_job(tmp_path, monkeypatch, protected, observed):
     """Codex review F3: SQLite's ``quote()`` stops a TEXT value at its first U+0000, so ``book\\0old`` and
-    ``book\\0new`` quoted alike and the held map served the old mapping after the edit. Every TEXT cell is now
-    encoded by its full bytes."""
-
-    from learnloop.adaptive_difficulty.material_view import _table_rows_digest
-
-    with closing(sqlite3.connect(":memory:")) as connection:
-        connection.execute("CREATE TABLE t(v)")
-        digests = []
-        for value in ("book\0old", "book\0new", "book", b"book\0old", "X'626F6F6B'", 7, 7.0, None):
-            connection.execute("DELETE FROM t")
-            connection.execute("INSERT INTO t(v) VALUES (?)", (value,))
-            digests.append(_table_rows_digest(connection, "t", "1"))
-        assert len(set(digests)) == len(digests)
+    ``book\\0new`` keyed alike and the held map served the old mapping after the edit. Landing ruling R1 keys no held
+    value by a digest of stored rows: the next job reads the edit."""
 
     paths, repository = _note_vault(tmp_path, note_uri="book\0new", artifact_uri="book\0old")
     vault = _load(paths)
     assert vault.notes["note_book"].model_extra["canonical_source"]["canonical_uri"] == "book\0new"
     sections = _sections(repository)
     before = _maps(vault, repository, sections, _LandingMap)
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == before  # held under "book\0old"
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == before  # held by the job, "book\0old"
     _set_uri(repository, "book\0new")
     after = _maps(vault, repository, sections, _LandingMap)
     assert "lo_m5" in after["ext_m1/u4"] and "lo_m5" not in before["ext_m1/u4"]
-    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == after
     assert [denial for op in observed for denial in op.guard.denials] == []
 
 
@@ -553,15 +557,15 @@ def test_switched_off_the_map_is_mains_and_reads_nothing_of_the_hold(tmp_path, m
         computed.append(kwargs.get("section_id"))
         return real(*args, **kwargs)
 
-    with monkeypatch.context() as patch:
-        for name in ("held", "hold", "base_key", "still_current", "vault_digest", "structure_key"):
-            patch.setattr(reading_cache, name, untouched)
-        patch.setattr(MaterialView, "reading_structure_digest", untouched)
+    with monkeypatch.context() as patch, _job():
+        patch.setattr(reading_cache, "job_hold", untouched)
+        for name in ("get", "put", "document_ir"):
+            patch.setattr(reading_cache.HeldReads, name, untouched)
         patch.setattr(SM, "learning_objects_for_section_in_ir", counted)
         assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
         first = len(computed)
         assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
-    assert first > 0 and len(computed) == 2 * first  # computed afresh at every map, as main
+    assert first > 0 and len(computed) == 2 * first  # computed afresh at every map, as main, even inside a job
     assert [denial for op in observed for denial in op.guard.denials] == []
 
 
@@ -603,7 +607,206 @@ def test_the_opportunity_resolve_is_the_landing_codes_with_the_held_map(tmp_path
     old = rows(_LandingMap)
     assert len(old) >= 10, old
     assert rows(ADR.VaultReadingMap) == old
-    assert rows(ADR.VaultReadingMap) == old
-    protected.spans = {("ext_m2", "t2")}
-    assert rows(ADR.VaultReadingMap) == rows(_LandingMap) != old
+    with _job():  # both of a job's resolves, then a protection change within it
+        assert rows(ADR.VaultReadingMap) == old
+        assert rows(ADR.VaultReadingMap) == old
+        protected.spans = {("ext_m2", "t2")}
+        assert rows(ADR.VaultReadingMap) == rows(_LandingMap) != old
     assert [denial for op in observed for denial in op.guard.denials] == []
+
+
+# -- landing ruling R1: held only within one objective job, as a snapshot of its first read -----------------------
+
+
+def _job():
+    """One objective job's scope (``objective_inputs.decision_reads``, which ``_objective_job`` opens)."""
+
+    from learnloop.daily_plan.objective_inputs import decision_reads
+
+    return decision_reads()
+
+
+def _walk(vault, repository, keys, cls, *, between=None, at: int = 1) -> dict[str, Any]:
+    """One map of ``cls`` in one read-only AD operation reading ``keys`` (``ext/section`` or ``ext#span``) in order;
+    ``between`` runs after the ``at``-th read (a write elsewhere, or an in-place edit)."""
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    out: dict[str, Any] = {}
+    with ad_operation(vault, repository, read_only=True) as op:
+        mapping = cls(op.vault, repository, op.view)
+        for index, key in enumerate(keys):
+            if "#" in key:
+                extraction, span = key.split("#")
+                out[key] = mapping.los_for_span(extraction, span)
+            else:
+                extraction, section = key.split("/")
+                out[key] = mapping.los_for_section(extraction, section)
+            if between is not None and index + 1 == at:
+                between()
+    return out
+
+
+def test_r1_an_in_place_vault_edit_made_and_undone_within_one_map_never_reaches_a_later_job(
+        tmp_path, monkeypatch, protected, observed):
+    """Codex's verify, F1 (the contamination): a map reads u0, the loaded vault is edited in place so ``lo_m1`` cites
+    u4 too, the same map reads u4, and the edit is undone. The next job's walk is main's: nothing the first job read
+    is held past it."""
+
+    from learnloop.vault.models import SourceRef
+
+    paths, repository = _vault(tmp_path)
+    vault = _load(paths)
+    keys = ["ext_m1/u0", "ext_m1/u4", "ext_m1#t26"]
+    baseline = _walk(vault, repository, keys, _LandingMap)
+    assert "lo_m1" not in baseline["ext_m1/u4"]
+    lo = vault.learning_objects["lo_m1"]
+
+    def edit() -> None:
+        lo.provenance.source_refs.append(SourceRef.model_validate(_refs(4)[0]))
+
+    with _job():
+        during = _walk(vault, repository, keys, ADR.VaultReadingMap, between=edit)
+    assert "lo_m1" in during["ext_m1/u4"]  # the edit was read where the map computed after it
+    lo.provenance.source_refs.pop()
+    with _job():
+        assert _walk(vault, repository, keys, ADR.VaultReadingMap) == baseline
+    assert _walk(vault, repository, keys, ADR.VaultReadingMap) == baseline  # outside a job: main's per-map memo
+    assert [denial for op in observed for denial in op.guard.denials] == []
+
+
+def test_r1_an_lo_unlinked_after_one_job_is_read_by_the_next(tmp_path, monkeypatch, protected, observed):
+    """Codex's verify, F1 (the stale hit): one job warms two sections; the next job's walk reads the first, the LO's
+    citation of the second is dropped in place on the loaded vault (Codex deactivated its LO; the operation's
+    projected vault shares the references, not the status), and the second is main's (nothing held across jobs)."""
+
+    paths, repository = _vault(tmp_path)
+    vault = _load(paths)
+    keys = ["ext_m1/u0", "ext_m1/u1"]
+    with _job():
+        warm = _walk(vault, repository, keys, ADR.VaultReadingMap)
+    assert "lo_m0" in warm["ext_m1/u1"]
+    refs = vault.learning_objects["lo_m0"].provenance.source_refs
+    kept = list(refs)
+
+    def unlink() -> None:
+        refs[:] = [ref for ref in kept if not getattr(ref, "quote", None)]  # its one citation of u1
+
+    landing = _walk(vault, repository, keys, _LandingMap, between=unlink)
+    refs[:] = kept
+    with _job():
+        held = _walk(vault, repository, keys, ADR.VaultReadingMap, between=unlink)
+    assert "lo_m0" not in landing["ext_m1/u1"]
+    assert held == landing
+    assert [denial for op in observed for denial in op.guard.denials] == []
+
+
+@pytest.mark.parametrize("warmed", ["same_job", "earlier_job"])
+def test_r1_an_ir_rewrite_mid_job_gives_the_snapshots_mapping_across_hits_and_misses(
+        tmp_path, monkeypatch, protected, observed, warmed):
+    """Codex's verify, F1 (the IR rewrite): u0 is warmed, a walk reads u0, a block-text rewrite of u1 commits
+    elsewhere, and the walk reads u1. Main's walk loads its IR at u0, before the rewrite, so u1 is the snapshot's;
+    the held walk's u0 (a hit in the same job) must not defer its IR load past the rewrite. ``earlier_job``: the
+    warm-up is another job's, so nothing of it is held and the walk loads the IR itself."""
+
+    from contextlib import ExitStack
+
+    paths, repository = _vault(tmp_path)
+    vault = _load(paths)
+    before = repository.load_document_ir("ext_m1")
+    u1 = set(next(unit.span_ids for unit in before.units if unit.unit_id == "u1"))
+    edited = before.model_copy(update={"blocks": [
+        block.model_copy(update={"text": block.text.replace("about matrices", "about kernels")})
+        if block.span_id in u1 else block for block in before.blocks]})
+
+    def rewrite() -> None:
+        _elsewhere(lambda: Repository(repository.sqlite_path).persist_document_ir("ext_m1", edited))
+
+    keys = ["ext_m1/u0", "ext_m1/u1"]
+    landing = _walk(vault, repository, keys, _LandingMap, between=rewrite)
+    after = _walk(vault, repository, keys, _LandingMap)
+    assert landing["ext_m1/u1"] != after["ext_m1/u1"]  # the rewrite changes u1, and main's walk read the snapshot
+    repository.persist_document_ir("ext_m1", before)
+    with ExitStack() as stack:
+        stack.enter_context(_job())
+        _walk(vault, repository, ["ext_m1/u0"], ADR.VaultReadingMap)
+        if warmed == "earlier_job":
+            stack.close()
+            stack.enter_context(_job())
+        held = _walk(vault, repository, keys, ADR.VaultReadingMap, between=rewrite)
+    assert held == landing
+    with _job():
+        assert _walk(vault, repository, keys, ADR.VaultReadingMap) == after  # the next job reads the rewrite
+    assert [denial for op in observed for denial in op.guard.denials] == []
+
+
+def test_r1_a_reading_withheld_mid_job_returns_nothing_from_any_memo(tmp_path, monkeypatch, protected, observed):
+    """Codex's verify, the protection qualification: a reading withheld while a job runs maps to nothing from every
+    memo (the map's sections and spans, the view's section spans), and a protection change within the job (a new
+    operation with a new epoch) invalidates what the job held."""
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    paths, repository = _vault(tmp_path)
+    vault = _load(paths)
+    sections = _sections(repository)
+    with _job():
+        with ad_operation(vault, repository, read_only=True) as op:
+            mapping = ADR.VaultReadingMap(op.vault, repository, op.view)
+            view = op.view
+            for extraction, section, section_spans in sections:
+                mapping.los_for_section(extraction, section)
+                view.section_spans(extraction, section)
+                for span in section_spans:
+                    mapping.los_for_span(extraction, span)
+            assert mapping.los_for_section("ext_m1", "u0") and view.section_spans("ext_m1", "u0")
+            # The view withholds ext_m1 from now on (Codex's fake: the same view, its predicate changed).
+            view.reading_withheld = lambda extraction_id: str(extraction_id) == "ext_m1"
+            try:
+                for extraction, section, section_spans in sections:
+                    if extraction != "ext_m1":
+                        continue
+                    assert mapping.los_for_section(extraction, section) == []
+                    assert view.section_spans(extraction, section) == []
+                    assert all(mapping.los_for_span(extraction, span) == [] for span in section_spans)
+            finally:
+                del view.reading_withheld
+        # A protection change within the job: a held-out span (a new epoch) withholds ext_m1 for the next operation.
+        protected.spans = {("ext_m1", "t3")}
+        landing = _maps(vault, repository, sections, _LandingMap)
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
+        assert all(not value for key, value in landing.items() if key.startswith("ext_m1"))
+        protected.spans = set()
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == _maps(vault, repository, sections, _LandingMap)
+    assert [denial for op in observed for denial in op.guard.denials] == []
+
+
+def test_r1_nothing_is_held_outside_or_across_jobs(tmp_path, monkeypatch, protected, observed):
+    """Within one job the second walk computes nothing; a new job and a walk outside any job compute every mapping
+    again (main's per-map memo)."""
+
+    import learnloop.section_map as SM
+
+    paths, repository = _vault(tmp_path)
+    vault = _load(paths)
+    sections = _sections(repository)
+    landing = _maps(vault, repository, sections, _LandingMap)
+    computed: list[str] = []
+    real = SM.learning_objects_for_section_in_ir
+
+    def counted(*args, **kwargs):
+        computed.append(kwargs.get("section_id"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(SM, "learning_objects_for_section_in_ir", counted)
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
+        first = len(computed)
+        assert first > 0
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
+        assert len(computed) == first  # within the job: held
+    with _job():
+        assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
+    assert len(computed) == 2 * first  # a new job computes again
+    assert _maps(vault, repository, sections, ADR.VaultReadingMap) == landing
+    assert len(computed) > 2 * first  # outside any job: nothing held across maps

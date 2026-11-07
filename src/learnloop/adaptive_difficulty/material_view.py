@@ -83,29 +83,6 @@ def _rows(connection: Any, sql: str, args: Iterable[Any] = ()) -> list[dict[str,
     return [dict(zip(names, raw)) for raw in cursor.fetchall()]
 
 
-def _table_rows_digest(connection: Any, table: str, where: str, args: Iterable[Any] = ()) -> bytes:
-    """A digest of every row of ``table`` matching ``where``, every column, in rowid order (router speed stage 2,
-    item 1). Each cell is typed and complete: a TEXT value as ``t`` and the hex of all its bytes (Codex review F3:
-    ``quote`` stops a TEXT value at its first U+0000, so ``'a\\0b'`` and ``'a\\0c'`` quoted alike), a real as ``r`` and
-    17 significant digits (``quote`` keeps 15; 17 round-trip every double), anything else as SQLite's ``quote`` of it
-    (NULL, an integer, ``X'blob'``, each complete). Cells and rows are joined by separators no encoded cell contains,
-    so the encoding is injective: two different row sets never share it. Concatenated in SQLite, hashed once here. A
-    caller inside an AD operation runs it in the rules' derivation scope (:meth:`MaterialView.reading_structure_digest`)."""
-
-    import hashlib
-
-    columns = [column[0] for column in connection.execute(f"/* ad-rules */ SELECT * FROM {table} LIMIT 0").description]
-    cells = " || ',' || ".join(
-        f"CASE typeof(\"{column}\") WHEN 'text' THEN 't' || hex(CAST(\"{column}\" AS BLOB)) "
-        f"WHEN 'real' THEN 'r' || printf('%!.17g', \"{column}\") "
-        f"ELSE quote(\"{column}\") END" for column in columns)
-    row = connection.execute(
-        f"/* ad-rules */ SELECT count(*), group_concat(cell, ';') FROM (SELECT {cells} AS cell FROM {table} "
-        f"WHERE {where} ORDER BY rowid)", tuple(args)).fetchone()
-    return hashlib.blake2b(f"{len(columns)}:{','.join(columns)}:{row[0]}:".encode()
-                           + str(row[1] or "").encode("utf-8", "surrogatepass"), digest_size=20).digest()
-
-
 def _json(raw: Any, default: Any) -> Any:
     if not isinstance(raw, str):
         return raw if raw is not None else default
@@ -1497,74 +1474,6 @@ class MaterialView:
 
         return scoped(Scope.DERIVE, lambda: repository.load_document_ir(extraction_id))
 
-    def reading_structure_digest(self, extraction_id: str, *, structure: bool = True) -> str | None:
-        """Router speed stage 2, item 1: a digest of every stored row AD's section mapping of one reading can read,
-        as this view lets AD read it (:mod:`~learnloop.adaptive_difficulty.reading_cache` keys the held map by it):
-
-        * every reading's, revision's and source's metadata (``source_extraction_runs``, ``source_revisions``,
-          ``source_artifacts``: the reading's run, its source, and what the alias authority asks of any other
-          reading a reference names);
-        * the stored structure (units, blocks, assets) of every reading of the reading's own source that the
-          withheld material does not touch, the reading included: its IR, and the readings its span aliases are
-          computed from (``span_aliases``: only readings of one source alias each other);
-        * the span aliases recorded onto the reading (``source_span_reanchors``: an owner's manual alias).
-
-        None, never a digest to trust, while the view is unavailable, when the reading itself is withheld (nothing
-        is mapped then) or when any of it cannot be read. Every row is encoded injectively
-        (:func:`_table_rows_digest`), so two different row sets never share a digest, and all are read in one read
-        transaction (one snapshot). Read in the derivation scope, as :meth:`document_ir` reads the structure; no row
-        of a withheld reading's structure is read. Read afresh at every call: a held value is read under the digest
-        its reader takes at its first use (where the landing code loaded the IR), and a computed value is held only
-        if a digest read after its computation is still its key's.
-
-        Two parts, ``<metadata>/<structure>``: the first covers the metadata and the aliases (small tables), the
-        second the stored structure. ``structure=False`` returns the first part alone, which the held map
-        re-verifies after each further mapping it computes from an IR it already verified."""
-
-        if not self.available or self.reading_withheld(extraction_id):
-            return None
-        from contextlib import closing
-
-        from learnloop.adaptive_difficulty.operation import Scope, scoped
-        from learnloop.db.connection import connect
-
-        def digest() -> str:
-            import hashlib
-
-            out = hashlib.blake2b(digest_size=20)
-            body = hashlib.blake2b(digest_size=20)
-            with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
-                connection.execute("/* ad-rules */ BEGIN")
-                run = connection.execute("/* ad-rules */ SELECT revision_id FROM source_extraction_runs WHERE id = ?",
-                                         (str(extraction_id),)).fetchone()
-                source = None if run is None else connection.execute(
-                    "/* ad-rules */ SELECT source_id FROM source_revisions WHERE id = ?", (run[0],)).fetchone()
-                readings = [str(extraction_id)] if source is None else [str(row[0]) for row in connection.execute(
-                    "/* ad-rules */ SELECT r.id FROM source_extraction_runs r JOIN source_revisions v "
-                    "ON v.id = r.revision_id WHERE v.source_id = ? ORDER BY r.id", (source[0],))]
-                if str(extraction_id) not in readings:
-                    readings.append(str(extraction_id))
-                for table, where, args in (
-                        ("source_extraction_runs", "1", ()), ("source_revisions", "1", ()), ("source_artifacts", "1", ()),
-                        ("source_span_reanchors", "to_extraction_id = ?", (str(extraction_id),))):
-                    out.update(f"{table}:{where}:{len(args)}:{args!r};".encode())
-                    out.update(_table_rows_digest(connection, table, where, args))
-                for reading in readings if structure else ():
-                    if reading != str(extraction_id) and self.reading_withheld(reading):
-                        # Its structure is, for AD, as if never extracted (no alias is computed from it).
-                        body.update(f"withheld:{len(reading)}:{reading};".encode())
-                        continue
-                    for table in ("source_document_units", "source_document_blocks", "source_document_assets"):
-                        body.update(f"{table}:{len(reading)}:{reading};".encode())
-                        body.update(_table_rows_digest(connection, table, "extraction_id = ?", (reading,)))
-                connection.execute("/* ad-rules */ ROLLBACK")
-            return f"{out.hexdigest()}/{body.hexdigest()}" if structure else out.hexdigest()
-
-        try:
-            return scoped(Scope.DERIVE, digest)
-        except Exception:  # noqa: BLE001 - an unreadable structure is never held: the map computes afresh
-            return None
-
     def projected_vault(self) -> Any:
         """The vault an AD operation hands its readers (``op.vault``; the AD23 redesign, step 4):
         only the visible current items and notes (:meth:`vault_view`), no facet only withheld
@@ -1677,31 +1586,39 @@ class MaterialView:
         """A Reader section's spans, read only through :meth:`document_ir` (round 8, F3): none for
         a reading the withheld material touches."""
 
+        # Router speed stage 2, landing ruling R1: the withheld rule first, fresh at every call and before the memo is
+        # read (a reading withheld since the memo was filled maps to nothing; main's memo held its spans).
+        if not self.available or self.reading_withheld(extraction_id):
+            return []
         if extraction_id not in self._section_spans:
             from learnloop.adaptive_difficulty import reading_cache
             from learnloop.reader.reader_guidance import extraction_sections
 
-            # Router speed stage 2, item 1: the sections are the IR's alone, so they are held across views under the
-            # reading's structure digest, which a withheld reading has none of (it maps to nothing, as before). Only
-            # with [router_objective] held_reading_map (its Codex review F2); off, main's read, nothing held.
-            on = reading_cache.held_on(getattr(self.vault, "config", None))
-            digest = self.reading_structure_digest(extraction_id) if on else None
-            key = reading_cache.structure_key(self.repository, digest, extraction_id, "section_spans") if on else None
-            held = reading_cache.held(key, None) if on else None
+            # Router speed stage 2, item 1: inside an objective job with [router_objective] held_reading_map, the
+            # sections are the job's (computed once over the job's snapshot of the IR: reading_cache, R1); off or
+            # outside a job, main's read.
+            job = None
+            if reading_cache.held_on(getattr(self.vault, "config", None)):
+                try:
+                    job = reading_cache.job_hold(self, self.repository)
+                except Exception:  # noqa: BLE001 - nothing held: main's read
+                    job = None
+            held = None if job is None else job.get(None, "section_spans", str(extraction_id))
             sections: dict[str, list[str]] = {}
             if held is not None:
                 sections = {section: list(spans) for section, spans in held.items()}
             else:
                 try:
-                    ir = self.document_ir(self.repository, extraction_id)
+                    ir = (self.document_ir(self.repository, extraction_id) if job is None
+                          else job.document_ir(self, self.repository, extraction_id))
                     if ir is not None:
                         rows, _blocks, _map = extraction_sections(ir)
                         sections = {str(row["id"]): [str(span) for span in row["span_ids"]] for row in rows}
-                        if key is not None and self.reading_structure_digest(extraction_id) == digest:
+                        if job is not None:
                             from types import MappingProxyType
 
-                            reading_cache.hold(key, None, MappingProxyType(
-                                {section: tuple(spans) for section, spans in sections.items()}))
+                            job.put(None, MappingProxyType({section: tuple(spans) for section, spans in sections.items()}),
+                                    "section_spans", str(extraction_id))
                 except Exception:  # noqa: BLE001 - an unreadable extraction has no spans
                     sections = {}
             self._section_spans[extraction_id] = sections

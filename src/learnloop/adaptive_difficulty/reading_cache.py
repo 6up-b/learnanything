@@ -1,101 +1,42 @@
-"""Router speed stage 2, item 1: AD's section → LO map held across calls (no successor: every value is the map's).
+"""Router speed stage 2, item 1: AD's section → LO map held within ONE objective job (no successor).
 
 AD's reading map (:class:`~learnloop.adaptive_difficulty.reading.VaultReadingMap`) maps a completed section, a viewed
 span or a question's anchors to the LOs whose provenance cites them (``section_map.learning_objects_for_section_in_ir``
 through ``MaterialView.document_ir``). The map was built afresh at every call of the combiner's join (RO2's opportunity
-resolve), of the sweep and of the rollouts' reading action, and each section's mapping re-read the reading's run,
-revision and source and walked every LO's references over the section's blocks: the landing's profile measured it at
-11 ms a call, 3,794 calls in a week on the owner's linear_algebra copy.
+resolve, twice a job), of the sweep and of the rollouts' reading action, and each section's mapping re-read the
+reading's run, revision and source and walked every LO's references over the section's blocks: the landing's profile
+measured it at 11 ms a call, 3,794 calls in a week on the owner's linear_algebra copy.
 
-Here a section's LOs, and a reading's span → section map, are held process-wide, keyed by:
+**Landing ruling R1** (structural): the held map lives only within one objective job's ``decision_reads`` scope
+(:func:`job_scope`, which ``objective_inputs.decision_reads`` opens), as a **snapshot as of that job's first read**, and
+is discarded when the job ends. Nothing is held across jobs, or across walks of different jobs, so a vault or database
+edit is always seen by the next decision; outside a job the map is main's (its per-map memo alone). Within the job:
 
-* the database (its resolved path) and **the vault object** the map reads (the raw vault an AD operation projects,
-  held weakly: a reloaded vault is another object, so a vault edit is a new key);
-* the operation's **protection epoch** (``MaterialView.epoch``: a digest of everything the view withholds; equal
-  epochs mean equal projections, so an exam reservation, a held-out span or a withheld reading is a new key);
-* a **digest of the vault's content the mapping reads** (each LO's id, status and references, its facets' canonical
-  ids and references, each note's canonical source), so an in-place change is a new key too;
-* a **digest of every stored row the mapping reads** (``MaterialView.reading_structure_digest``: the readings'
-  metadata, the structure of the reading and of every visible reading of its source, the aliases recorded onto it),
-  read at every map, so a new or edited source, a re-read or a new alias is a new key;
-* the reading and the section (or span map).
+* a reading's IR is loaded once, at the job's first read of it (through ``MaterialView.document_ir``, the reading
+  chokepoint), and every section and span mapping the job computes is computed over that IR, so held hits and
+  misses give the snapshot's mapping alike (an IR rewritten mid-job is read by the next job);
+* each section's LOs (per vault object), each reading's span → section map and the view's section → spans map are
+  held, keyed by the database, the operation's **protection epoch** (``MaterialView.epoch``), the vault object (held
+  weakly) and the reading;
+* every memo return (these held values and the map's and the view's own memos) is preceded by the withheld rule,
+  asked of the caller's view fresh at that call; a different epoch within the job (a protection change: an exam
+  reservation, a held-out span, a withheld reading) drops everything the job held for that database.
 
-Within one map the landing code loads a reading's IR once but reads its metadata and aliases at every mapping, so the
-held map re-reads that part of the key before every lookup the landing code would compute (Codex review F1): once it
-changed, the reading is mapped by the landing code's own calls for the rest of the map and nothing more of it is
-held. Every stored cell is encoded by its complete bytes (Codex review F3). Behind ``[router_objective]
-held_reading_map`` (:func:`held_on`; Codex review F2): off, nothing here is read.
-
-What is never held: the withheld rule. The map asks it of its own operation's view at every call, before any held
-value is read (a withheld reading or span maps to nothing, as before), and a reading the view withholds has no
-digest, so nothing of it is held or read. A mapping that failed (no IR, an unreadable extraction, a guard refusal) is
-not held: the next map computes it again. Pure in-process memory; nothing is written. Its bound is a keep bound.
+A vault edit landing in the middle of one ~1 s job is read as of the job's snapshot, which the ruling accepts (the
+decision is as of its inputs). A mapping that failed (no IR, an unreadable extraction, a guard refusal) is not held.
+Behind ``[router_objective] held_reading_map`` (:func:`held_on`; Codex review F2): off, nothing here is read. Pure
+in-process memory, bounded by the job's own readings; nothing is written.
 """
 
 from __future__ import annotations
 
-from collections import OrderedDict
-from collections.abc import Hashable
-import hashlib
-import json
+from collections.abc import Hashable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 import threading
 from typing import Any
 import weakref
-
-#: ``keep`` (resource bound): the mappings held per process; past it the oldest is computed again on its next read,
-#: never a different value.
-_HELD_LIMIT = 4096
-_HELD: OrderedDict[Hashable, tuple[Any, Any]] = OrderedDict()
-_LOCK = threading.Lock()
-
-
-_WATCHERS: dict[str, tuple[tuple[int, int], Any]] = {}
-_WATCH_LOCK = threading.Lock()
-
-
-def commit_version(repository: Any) -> tuple[Any, ...] | None:
-    """The database's commit version as a read-only watcher sees it (``PRAGMA data_version``, which moves whenever
-    another connection commits, and the watcher's own ``total_changes``; the pattern of ``objective_inputs.
-    _DecisionReads.version`` and ``reading_choice.fingerprint``), with the file's identity; None, never trusted, when
-    it cannot be watched. Codex review F1: a map compares it before re-reading a reading's metadata at a lookup, so a
-    lookup after no commit at all needs no read. The watcher runs no statement but the pragma and holds no lock or
-    snapshot (autocommit); one per database, shared under a lock, so no thread ever uses it unlocked."""
-
-    import os
-    import sqlite3
-
-    raw_repository = getattr(repository, "_ad_raw_repository", repository)
-    path = getattr(raw_repository, "sqlite_path", None)
-    if path is None:
-        return None
-    database = str(Path(path).resolve())
-
-    def identity() -> tuple[int, int] | None:
-        try:
-            status = os.stat(database)
-        except OSError:
-            return None
-        return (status.st_dev, status.st_ino)
-
-    try:
-        with _WATCH_LOCK:
-            found = identity()
-            if found is None:
-                return None
-            watched = _WATCHERS.get(database)
-            if watched is None or watched[0] != found:
-                if watched is not None:
-                    watched[1].close()
-                watcher = sqlite3.connect(f"{Path(database).as_uri()}?mode=ro", uri=True, check_same_thread=False)
-                _WATCHERS[database] = watched = (found, watcher)
-            version = int(watched[1].execute("PRAGMA data_version").fetchone()[0])
-            changes = int(watched[1].total_changes)
-            if identity() != found:  # replaced while it was read: never trusted
-                return None
-    except sqlite3.Error:
-        return None
-    return (database, found, version, changes)
 
 
 def held_on(config: Any) -> bool:
@@ -110,133 +51,132 @@ def held_on(config: Any) -> bool:
     return config is not None and followup_on(config, "held_reading_map")
 
 
-def _extras(value: Any) -> dict[str, Any]:
-    extra = getattr(value, "model_extra", None)
-    return extra if isinstance(extra, dict) else {}
+class JobHold:
+    """One objective job's held reading map (:func:`job_scope`): values per database, each under the protection epoch
+    it was computed at. The job's threads share it (the job copies its context), hence the lock; values are immutable
+    (tuples, read-only mappings, the IR the chokepoint handed out, which the mapping only reads)."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._values: dict[Hashable, tuple[Any, Any]] = {}
+        self._epochs: dict[str, str] = {}
+
+    def at_epoch(self, database: str, epoch: str) -> None:
+        """Landing ruling R1: a protection change within the job (another epoch for this database than the one the
+        job holds values at) drops everything the job held for the database."""
+
+        with self._lock:
+            if self._epochs.get(database) == epoch:
+                return
+            if database in self._epochs:
+                for key in [key for key in self._values if key[0] == database]:
+                    del self._values[key]
+            self._epochs[database] = epoch
+
+    def get(self, key: Hashable, vault: Any) -> Any:
+        with self._lock:
+            entry = self._values.get(key)
+        if entry is None:
+            return None
+        owner, value = entry
+        raw_vault = _owner(vault)
+        if (owner is None) != (raw_vault is None) or (owner is not None and owner() is not raw_vault):
+            return None  # another vault object at a reused address: never this one's
+        return value
+
+    def put(self, key: Hashable, vault: Any, value: Any) -> None:
+        raw_vault = _owner(vault)
+        try:
+            owner = None if raw_vault is None else weakref.ref(raw_vault)
+        except TypeError:  # an object that cannot be referenced weakly is never held
+            return
+        with self._lock:
+            if self._epochs.get(key[0]) == key[1]:  # dropped by a protection change meanwhile: not held
+                self._values[key] = (owner, value)
+
+    def discard(self) -> None:
+        with self._lock:
+            self._values.clear()
+            self._epochs.clear()
 
 
-def _dump(ref: Any) -> Any:
-    dump = getattr(ref, "model_dump", None)
-    return dump(mode="json") if callable(dump) else repr(ref)
+#: The objective job's hold (:func:`job_scope`); None outside one, where nothing is held across maps.
+_JOB: ContextVar[JobHold | None] = ContextVar("learnloop_ad_reading_job_hold", default=None)
 
 
-def vault_digest(vault: Any) -> str:
-    """A digest of everything ``section_map.learning_objects_for_section_in_ir`` reads of ``vault``: every LO's id,
-    status and provenance references, each facet of its blueprints' union with its canonical id and that facet's
-    references, and every note's id and canonical source (``canonical_note_ids``). Raises when the vault cannot be
-    read so (the caller then holds nothing)."""
+@contextmanager
+def job_scope() -> Iterator[None]:
+    """One objective job's hold (landing ruling R1), opened by ``objective_inputs.decision_reads``: what AD's reading
+    map holds inside lives until the scope ends and is discarded then. A scope inside another is the outer one."""
 
-    from learnloop.vault.models import learning_object_facet_union
-
-    out = hashlib.blake2b(digest_size=20)
-
-    def put(value: Any) -> None:
-        text = json.dumps(value, sort_keys=True, separators=(",", ":"), default=repr)
-        out.update(f"{len(text)}:".encode())
-        out.update(text.encode("utf-8", "surrogatepass"))
-
-    facets = getattr(vault, "evidence_facets", {}) or {}
-    for key, lo in (getattr(vault, "learning_objects", {}) or {}).items():
-        union = []
-        for facet_id in learning_object_facet_union(lo):
-            canonical = vault.canonical_facet_id(str(facet_id))
-            facet = facets.get(canonical)
-            union.append([str(facet_id), canonical,
-                          None if facet is None else [_dump(ref) for ref in facet.provenance.source_refs]])
-        put(["lo", str(key), lo.id, lo.status, [_dump(ref) for ref in lo.provenance.source_refs], union])
-    for key, note in (getattr(vault, "notes", {}) or {}).items():
-        put(["note", str(key), note.id, _extras(note).get("canonical_source")])
-    return out.hexdigest()
-
-
-def base_key(view: Any, vault: Any, repository: Any, extraction_id: str, *, vault_key: str | None) -> tuple[Any, ...] | None:
-    """The key a reading's held values share in one map (see the module docstring), or None: nothing is held (the
-    view is unavailable, the reading is withheld, or its rows or the vault cannot be digested)."""
-
-    if vault_key is None or not getattr(view, "available", False):
-        return None
-    epoch = view.epoch
-    if epoch is None:
-        return None
-    structure = view.reading_structure_digest(extraction_id)
-    if structure is None:
-        return None
-    raw_repository = getattr(repository, "_ad_raw_repository", repository)
-    raw_vault = getattr(vault, "_ad_raw_vault", vault)
-    return (str(Path(raw_repository.sqlite_path).resolve()), id(raw_vault), hasattr(vault, "_ad_raw_vault"),
-            str(epoch), vault_key, structure, str(extraction_id))
-
-
-def still_current(view: Any, vault: Any, repository: Any, extraction_id: str, base: tuple[Any, ...] | None, *,
-                  full: bool) -> bool:
-    """Whether a value just computed under ``base`` may be held: its key read again now is still ``base``. ``full``:
-    the whole key (the vault digest and the stored structure too); else the metadata and aliases part alone (the
-    map's further mappings from an IR whose structure it verified, each re-reading the metadata)."""
-
-    if base is None:
-        return False
-    if full:
-        return base_key(view, vault, repository, extraction_id, vault_key=vault_digest(vault)) == base
-    found = view.reading_structure_digest(extraction_id, structure=False)
-    return found is not None and str(base[5]).split("/", 1)[0] == found
-
-
-def structure_key(repository: Any, digest: str | None, extraction_id: str, kind: str) -> tuple[Any, ...] | None:
-    """The key of a value derived from a reading's stored structure alone (``MaterialView.section_spans``: no vault,
-    no projection), or None when the reading has no digest (withheld, unavailable or unreadable)."""
-
-    if digest is None:
-        return None
-    raw_repository = getattr(repository, "_ad_raw_repository", repository)
-    return (str(Path(raw_repository.sqlite_path).resolve()), "structure", digest, str(extraction_id), kind)
+    if _JOB.get() is not None:
+        yield
+        return
+    hold = JobHold()
+    token = _JOB.set(hold)
+    try:
+        yield
+    finally:
+        _JOB.reset(token)
+        hold.discard()
 
 
 def _owner(vault: Any) -> Any:
     return None if vault is None else getattr(vault, "_ad_raw_vault", vault)
 
 
-def held(key: Hashable | None, vault: Any) -> Any:
-    """The value held under ``key`` for this vault object (None: a value no vault is read for), or None."""
+class HeldReads:
+    """What one view may read of the job's hold: keys carry the database, the view's epoch and, for a vault-derived
+    value, the raw vault object (with whether the map reads the operation's projection of it)."""
 
-    if key is None:
+    def __init__(self, hold: JobHold, database: str, epoch: str) -> None:
+        self._hold = hold
+        self._database = database
+        self._epoch = epoch
+
+    def _key(self, vault: Any, parts: tuple[Any, ...]) -> tuple[Any, ...]:
+        owner = _owner(vault)
+        return (self._database, self._epoch, None if owner is None else id(owner),
+                vault is not None and hasattr(vault, "_ad_raw_vault"), *parts)
+
+    def get(self, vault: Any, *parts: Any) -> Any:
+        """The value the job holds for ``parts`` (and this vault object; None: a value no vault is read for)."""
+
+        return self._hold.get(self._key(vault, parts), vault)
+
+    def put(self, vault: Any, value: Any, *parts: Any) -> None:
+        self._hold.put(self._key(vault, parts), vault, value)
+
+    def document_ir(self, view: Any, repository: Any, extraction_id: str) -> Any:
+        """The reading's IR as of the job's first read of it (``view.document_ir``, the chokepoint), the withheld rule
+        asked of ``view`` fresh before a held IR is returned; None (never held) for a withheld or unreadable one."""
+
+        if not getattr(view, "available", False) or view.reading_withheld(extraction_id):
+            return None
+        found = self.get(None, "ir", str(extraction_id))
+        if found is None:
+            found = view.document_ir(repository, extraction_id)
+            if found is not None:
+                self.put(None, found, "ir", str(extraction_id))
+        return found
+
+
+def job_hold(view: Any, repository: Any) -> HeldReads | None:
+    """The objective job's hold as ``view`` reads it, or None: outside a job, while the view is unavailable or has no
+    epoch, or with no database to key by. The view's epoch is checked against the job's for the database at every
+    call (a different one drops what the job held: landing ruling R1)."""
+
+    hold = _JOB.get()
+    if hold is None or not getattr(view, "available", False):
         return None
-    raw_vault = _owner(vault)
-    with _LOCK:
-        entry = _HELD.get(key)
-        if entry is None:
-            return None
-        owner, value = entry
-        if (owner is None) != (raw_vault is None) or (owner is not None and owner() is not raw_vault):
-            # Another vault object at a reused address: never this one's.
-            _HELD.pop(key, None)
-            return None
-        _HELD.move_to_end(key)
-        return value
+    epoch = view.epoch
+    raw_repository = getattr(repository, "_ad_raw_repository", repository)
+    path = getattr(raw_repository, "sqlite_path", None)
+    if epoch is None or path is None:
+        return None
+    database = str(Path(path).resolve())
+    hold.at_epoch(database, str(epoch))
+    return HeldReads(hold, database, str(epoch))
 
 
-def hold(key: Hashable | None, vault: Any, value: Any) -> None:
-    """Hold an immutable ``value`` under ``key`` for this vault object (weakly: a vault no longer loaded drops it;
-    None: a value no vault is read for)."""
-
-    if key is None:
-        return
-    raw_vault = _owner(vault)
-    try:
-        owner = None if raw_vault is None else weakref.ref(raw_vault)
-    except TypeError:  # an object that cannot be referenced weakly is never held
-        return
-    with _LOCK:
-        _HELD[key] = (owner, value)
-        _HELD.move_to_end(key)
-        while len(_HELD) > _HELD_LIMIT:
-            _HELD.popitem(last=False)
-
-
-def clear() -> None:
-    """Drop every held mapping (tests; a held value is never stale, so production never needs it)."""
-
-    with _LOCK:
-        _HELD.clear()
-
-
-__all__ = ["base_key", "clear", "commit_version", "held", "held_on", "hold", "still_current", "structure_key", "vault_digest"]
+__all__ = ["HeldReads", "JobHold", "held_on", "job_hold", "job_scope"]

@@ -1623,10 +1623,6 @@ _reg_const("router_objective_combiner_data:_FLAT_CURVE", "numerical", kind="stru
            owner="router_objective_combiner_data",
            rationale="structural (the follow-up batch's item 2): the curve handed to RO2's resolver, which the join "
            "reads only for the outcome and its lag; its values reach no row.")
-_reg_const("ad_reading_cache:_HELD_LIMIT", "constraint", kind="structural", owner="ad_reading_cache",
-           rationale="keep (resource bound, router speed stage 2 item 1): AD's section mappings held per process, "
-           "keyed by the vault, the protection epoch and digests of everything they read; past it the oldest is "
-           "computed again on its next read, never a different value.")
 _reg_const("router_objective_tail_data:_SAME_CUTOFF_SECONDS", "numerical", kind="structural",
            owner="router_objective_tail_data",
            rationale="numerical (Codex review F3): two cutoffs this close are one; the trace keeps cutoff_days to six "
@@ -2006,8 +2002,8 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "draw; more draws within a deadline; in RO6's generator payload); off, the batch's landing code."),
     _ConfigRule(_exact("router_objective.held_reading_map"), "structural", "operational",
         "kill switch at the follow-up batch's successor mvp-0.50 (router speed stage 2 item 1, its Codex review F2): "
-        "AD's section -> LO map held across calls under digests of everything it reads (the same values; faster "
-        "builds, so more draws within a deadline; in RO6's generator payload); off, main e9ceaf8d44's map."),
+        "AD's section -> LO map held within one objective job, a snapshot as of its first read (landing ruling R1; "
+        "faster builds, so more draws within a deadline; in RO6's generator payload); off, main e9ceaf8d44's map."),
     _ConfigRule(_exact("router_objective.pooled_connections"), "structural", "operational",
         "kill switch at the follow-up batch's successor mvp-0.50 (router speed stage 2 item 4, its Codex review F2): "
         "the objective job's thread reuses its SQLite connections (the same values; faster builds, so more draws "

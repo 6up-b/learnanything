@@ -94,7 +94,6 @@ TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
 #: The carve-out's allowlist: (kind, subkind, source table). One list, the
 #: firewall's (AD2+AD3 moved it there; G-AD3-13).
 SOURCES: tuple[tuple[str, str, str], ...] = LEARNING_OPPORTUNITY_SOURCES
-_UNREAD = object()
 
 
 class VaultReadingMap:
@@ -114,23 +113,13 @@ class VaultReadingMap:
         self._spans: dict[tuple[str, str], list[str]] = {}
         self._examples: dict[str, set[str]] = {}
         self._irs: dict[str, Any] = {}
-        # Router speed stage 2, item 1 (:mod:`.reading_cache`): each section's LOs and each reading's span → section
-        # map once per map, and across maps under the held key (read once per map and reading).
-        self._mapped: dict[tuple[str, str], list[str]] = {}
-        self._span_sections: dict[str, Mapping[str, str] | None] = {}
-        self._held_keys: dict[str, tuple[Any, ...] | None] = {}
-        self._verified: dict[str, bool] = {}
-        # Codex review F1: the readings whose key was read for the lookup now running (nothing to re-read yet), and
-        # those whose metadata or aliases changed after their key was read (main's mapping from then on, this map).
-        self._key_just_read: set[str] = set()
-        self._moved: set[str] = set()
-        #: each reading's database commit version as of the last read of its metadata that matched its key
-        self._seen: dict[str, tuple[Any, ...] | None] = {}
-        # Codex review F2: the held path only with [router_objective] held_reading_map (off: main's map exactly).
+        # Router speed stage 2, item 1 (:mod:`.reading_cache`; landing ruling R1): inside one objective job, each
+        # section's LOs, each reading's span → section map and its IR are held for the job, a snapshot as of the job's
+        # first read; outside a job, main's per-map memo alone. Only with [router_objective] held_reading_map (Codex
+        # review F2; off: main's map exactly).
         from learnloop.adaptive_difficulty import reading_cache
 
         self._held_on = reading_cache.held_on(getattr(vault, "config", None))
-        self._vault_key: Any = _UNREAD
         # What the section mapping is handed besides the IR (RO2 landing ruling R6): the operation's
         # projected repository, so the span translator's re-read aliases load each reading's IR through
         # the view too, whichever repository this map was built with.
@@ -142,149 +131,71 @@ class VaultReadingMap:
         """The extraction's IR through the reading chokepoint (RO2 landing ruling R6): the material view's
         ``document_ir`` (none for a reading the withheld material touches, or while the view is
         unavailable). The incumbent's mapping loads the IR raw, which AD's guard refuses inside an
-        operation, poisoning it and rolling back every AD write of the serve. Cached per map."""
+        operation, poisoning it and rolling back every AD write of the serve. Cached per map; inside an objective job
+        with the held map on, the job's snapshot (landing ruling R1: loaded at the job's first read of the reading)."""
 
         if extraction_id not in self._irs:
             try:
                 raw = getattr(self.repository, "_ad_raw_repository", self.repository)
-                self._irs[extraction_id] = self.view.document_ir(raw, extraction_id)
+                job = self._job()
+                self._irs[extraction_id] = (self.view.document_ir(raw, extraction_id) if job is None
+                                            else job.document_ir(self.view, raw, extraction_id))
             except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
                 self._irs[extraction_id] = None
         return self._irs[extraction_id]
 
-    def _held_key(self, extraction_id: str) -> tuple[Any, ...] | None:
-        """The reading's held key (:func:`.reading_cache.base_key`), read once per map and reading."""
+    def _job(self) -> Any:
+        """The objective job's hold as this map's view reads it (:func:`.reading_cache.job_hold`: the view's epoch
+        checked against the job's, a protection change dropping what the job held), or None: switched off (main's
+        map exactly), outside a job, or no epoch to key by. Asked at every lookup this map computes."""
 
+        if not self._held_on:
+            return None
         from learnloop.adaptive_difficulty import reading_cache
 
-        if extraction_id not in self._held_keys:
-            if self._vault_key is _UNREAD:
-                try:
-                    self._vault_key = reading_cache.vault_digest(self.vault)
-                except Exception:  # noqa: BLE001 - a vault that cannot be digested is never held
-                    self._vault_key = None
-            # The commit version first: a commit landing while the key is read moves it.
-            self._seen[extraction_id] = reading_cache.commit_version(self.repository)
-            try:
-                self._held_keys[extraction_id] = reading_cache.base_key(self.view, self.vault, self.repository,
-                                                                        extraction_id, vault_key=self._vault_key)
-            except Exception:  # noqa: BLE001 - nothing held: the map computes as it always did
-                self._held_keys[extraction_id] = None
-            self._key_just_read.add(extraction_id)
-        return self._held_keys[extraction_id]
-
-    def _still_keyed(self, extraction_id: str) -> bool:
-        """Whether a lookup the landing code computes afresh (a section or span this map has not mapped) may be
-        answered from the held path (Codex review F1). The landing code loads a reading's IR once a map but reads its
-        run, revision, source and the aliases onto it at every mapping, so a metadata edit committed between two
-        lookups of one map reaches the second. So: the reading's key was read for this very lookup, or its metadata
-        and aliases read now are still the key's. Once they are not, the reading is mapped by the landing code's
-        own calls for the rest of this map (over the IR this map loads once), and nothing more of it is held."""
-
-        from learnloop.adaptive_difficulty import reading_cache
-
-        if not self._held_on or extraction_id in self._moved:
-            return False  # switched off: nothing of the held path is read (main's work exactly)
-        base = self._held_key(extraction_id)
-        if base is None:
-            return False
-        if extraction_id in self._key_just_read:
-            self._key_just_read.discard(extraction_id)
-            return True
-        current = self._metadata_current(extraction_id, base)
-        if not current:
-            self._moved.add(extraction_id)
-        return current
-
-    def _metadata_current(self, extraction_id: str, base: tuple[Any, ...]) -> bool:
-        """Whether the reading's metadata and aliases are still ``base``'s: no commit to the database at all since
-        they last matched (its commit version unchanged), else read again and compared. The version is read before
-        the metadata, so a commit landing during the read moves it for the next lookup."""
-
-        from learnloop.adaptive_difficulty import reading_cache
-
-        now = reading_cache.commit_version(self.repository)
-        if now is not None and now == self._seen.get(extraction_id):
-            return True
         try:
-            current = reading_cache.still_current(self.view, self.vault, self.repository, extraction_id, base,
-                                                  full=False)
-        except Exception:  # noqa: BLE001 - not verified: not current
-            return False
-        if current:
-            self._seen[extraction_id] = now
-        return current
+            return reading_cache.job_hold(self.view, self.repository)
+        except Exception:  # noqa: BLE001 - nothing held: the map computes as main does
+            return None
 
-    def _holdable(self, extraction_id: str, base: tuple[Any, ...] | None) -> bool:
-        """Whether a mapping this map just computed may be held under ``base``: its key read again after the
-        computation is still ``base``, so nothing it read (the IR this map loaded, the metadata, the vault) changed
-        since the key was read. In full after the reading's first computation in this map (the IR is loaded once per
-        map); after that, its metadata and aliases again at each further one."""
+    def _held_section(self, job: Any, extraction_id: str, section_id: str) -> tuple[str, ...]:
+        """A section's LOs (the caller's withheld rule let it through) from the job's hold, else
+        ``learning_objects_for_section_in_ir`` over the job's IR of the reading, held for the job. A failed mapping
+        maps to nothing and is not held."""
 
-        from learnloop.adaptive_difficulty import reading_cache
-
-        if base is None:
-            return False
-        try:
-            if extraction_id not in self._verified:
-                now = reading_cache.commit_version(self.repository)
-                self._verified[extraction_id] = reading_cache.still_current(
-                    self.view, self.vault, self.repository, extraction_id, base, full=True)
-                if self._verified[extraction_id]:
-                    self._seen[extraction_id] = now
-                return self._verified[extraction_id]
-            return self._verified[extraction_id] and self._metadata_current(extraction_id, base)
-        except Exception:  # noqa: BLE001 - not verified: not held
-            return False
-
-    def _section_los(self, extraction_id: str, section_id: str) -> list[str]:
-        """A section's LOs once the caller's withheld rule let it through: ``learning_objects_for_section_in_ir`` over
-        the IR the reading chokepoint hands out (RO2's ruling R6), or the value held for this reading, vault, epoch
-        and digest (router speed stage 2, item 1). A failed mapping maps to nothing and is not held."""
-
-        from learnloop.adaptive_difficulty import reading_cache
         from learnloop.section_map import learning_objects_for_section_in_ir
 
-        key = (extraction_id, section_id)
-        if key not in self._mapped:
-            base = self._held_key(extraction_id)
-            held_key = None if base is None else (*base, "section", str(section_id))
-            found = reading_cache.held(held_key, self.vault)
-            if found is None:
-                ir = self._document_ir(extraction_id)
-                try:
-                    found = () if ir is None else tuple(learning_objects_for_section_in_ir(
-                        self.vault, self._projected, ir, extraction_id=extraction_id, section_id=section_id))
-                    if ir is not None and self._holdable(extraction_id, base):
-                        reading_cache.hold(held_key, self.vault, found)
-                except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
-                    found = ()
-            self._mapped[key] = list(found)
-        return self._mapped[key]
+        found = job.get(self.vault, "section", str(extraction_id), str(section_id))
+        if found is None:
+            ir = self._document_ir(extraction_id)
+            if ir is None:
+                return ()
+            try:
+                found = tuple(learning_objects_for_section_in_ir(
+                    self.vault, self._projected, ir, extraction_id=extraction_id, section_id=section_id))
+            except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
+                return ()
+            job.put(self.vault, found, "section", str(extraction_id), str(section_id))
+        return found
 
-    def _span_section(self, extraction_id: str, span_id: str) -> str | None:
-        """The section of the reading's IR holding a span (``section_map.section_id_in_ir``), from the reading's span →
-        section map: once per map, and held like the sections' LOs. None for an unreadable reading."""
+    def _held_span_section(self, job: Any, extraction_id: str, span_id: str) -> str | None:
+        """The section of the job's IR of the reading holding a span (``section_map.section_id_in_ir``), from the
+        reading's span → section map, held for the job. None for an unreadable reading or a span in no section."""
 
-        from learnloop.adaptive_difficulty import reading_cache
         from learnloop.section_map import extraction_sections
 
-        if extraction_id not in self._span_sections:
-            base = self._held_key(extraction_id)
-            held_key = None if base is None else (*base, "span_sections")
-            found = reading_cache.held(held_key, self.vault)
-            if found is None:
-                ir = self._document_ir(extraction_id)
-                try:
-                    found = None if ir is None else MappingProxyType(
-                        {str(span): str(section) for span, section in extraction_sections(ir)[2].items()})
-                    if found is not None and self._holdable(extraction_id, base):
-                        reading_cache.hold(held_key, self.vault, found)
-                except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
-                    found = None
-            self._span_sections[extraction_id] = found
-        sections = self._span_sections[extraction_id]
-        return None if sections is None else sections.get(str(span_id))
+        sections = job.get(None, "span_sections", str(extraction_id))
+        if sections is None:
+            ir = self._document_ir(extraction_id)
+            if ir is None:
+                return None
+            try:
+                sections = MappingProxyType(
+                    {str(span): str(section) for span, section in extraction_sections(ir)[2].items()})
+            except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
+                return None
+            job.put(None, sections, "span_sections", str(extraction_id))
+        return sections.get(str(span_id))
 
     def _landing_section(self, extraction_id: str, section_id: str) -> list[str]:
         """The landing code's own mapping of a section (main ``e9ceaf8d44``), over the IR this map loads once."""
@@ -311,31 +222,31 @@ class VaultReadingMap:
             return []
 
     def los_for_section(self, extraction_id: str, section_id: str) -> list[str]:
+        # The sweep's withheld rule first, asked of the view fresh at every call and before any memo is read (landing
+        # ruling R1): a reading the withheld material touches maps to nothing. Then this map's memo; then, inside an
+        # objective job, the job's hold (a snapshot as of its first read), else the landing code's mapping.
+        if self.withheld(extraction_id, None):
+            return []
         key = (extraction_id, section_id)
         if key not in self._sections:
-            # The sweep's withheld rule first, at every map (a reading the withheld material touches maps to
-            # nothing); only then the mapping: held or computed while the reading's key is current (Codex review
-            # F1), else the landing code's.
-            if self.withheld(extraction_id, None):
-                self._sections[key] = []
-            elif self._still_keyed(extraction_id):
-                self._sections[key] = list(self._section_los(extraction_id, section_id))
-            else:
-                self._sections[key] = self._landing_section(extraction_id, section_id)
+            job = self._job()
+            self._sections[key] = (self._landing_section(extraction_id, section_id) if job is None
+                                   else list(self._held_section(job, extraction_id, section_id)))
         return self._sections[key]
 
     def los_for_span(self, extraction_id: str, span_id: str) -> list[str]:
+        # ``learning_objects_for_span_in_ir``: the span's section in the IR, then that section's mapping; the withheld
+        # rule first, fresh at every call before any memo (R1), as for a section.
+        if self.withheld(extraction_id, span_id):
+            return []
         key = (extraction_id, span_id)
         if key not in self._spans:
-            # ``learning_objects_for_span_in_ir``: the span's section in the IR, then that section's mapping; the
-            # withheld rule first, at every map; the landing code's once the reading's key is not current (F1).
-            if self.withheld(extraction_id, span_id):
-                self._spans[key] = []
-            elif self._still_keyed(extraction_id):
-                section = self._span_section(extraction_id, span_id)
-                self._spans[key] = [] if section is None else list(self._section_los(extraction_id, section))
-            else:
+            job = self._job()
+            if job is None:
                 self._spans[key] = self._landing_span(extraction_id, span_id)
+            else:
+                section = self._held_span_section(job, extraction_id, span_id)
+                self._spans[key] = [] if section is None else list(self._held_section(job, extraction_id, section))
         return self._spans[key]
 
     def section_spans(self, extraction_id: str, section_id: str) -> list[str]:

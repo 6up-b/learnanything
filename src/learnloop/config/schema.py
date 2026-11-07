@@ -4324,8 +4324,8 @@ class RouterObjectiveConfig(BaseModel):
     #: draws (part of RO6's generator payload). Off: the batch's landing code, a quadrature per read.
     held_ad_link: bool = True
     #: Router speed stage 2, item 1 (its Codex review F2): AD's section → LO map (and the span → section and section
-    #: → spans maps) held across calls, keyed by the vault, the protection epoch and digests of every row they read;
-    #: the same values, but faster input builds, so a deadline admits more draws (part of RO6's generator payload).
+    #: → spans maps) held within one objective job, a snapshot as of the job's first read (landing ruling R1);
+    #: faster input builds, so a deadline admits more draws (part of RO6's generator payload).
     #: Off: main e9ceaf8d44's map, computed afresh at every map.
     held_reading_map: bool = True
     #: Router speed stage 2, item 4 (its Codex review F2): the objective job's own thread reuses its SQLite
