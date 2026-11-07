@@ -468,6 +468,39 @@ def require_owned_session(
     return _require_owned(repository, session_id, ctx.origin_device_id, expected_generation=expected_generation)
 
 
+_MOVED_KEYS = ("session_id", "owner_device_id", "owner_label", "owner_generation")
+
+
+def _require_pinned(repository, pinned: tuple[str, int], device_id: str | None,
+                    current: dict[str, Any] | None) -> None:
+    """Landing ruling R1: the session a phone's sessionless write pinned at its start, still open, still
+    this device's at the generation pinned, and still the open session; ``session_moved`` otherwise,
+    carrying the open session's owner (the pinned one's when none is open)."""
+
+    session_id, generation = pinned
+    with owned_session_errors():
+        try:
+            session = repository.require_session_owner(session_id, device_id, require_open=False,
+                                                       expected_generation=generation)
+        except SessionOwnershipError as error:
+            if error.code != "not_found":
+                raise
+            session = None
+    if session is not None and session.get("ended_at") is None and current is not None \
+            and str(current["id"]) == session_id:
+        return
+    shown = current or session
+    if shown is not None:
+        snapshot = repository.session_owner_snapshot(shown)
+        details = {key: snapshot[key] for key in _MOVED_KEYS}
+        message = (f"This session continued on {snapshot['owner_label']}." if current is not None
+                   else "This session is no longer open.")
+    else:
+        details = {"session_id": session_id, "owner_device_id": None, "owner_label": None, "owner_generation": None}
+        message = "This session is no longer open."
+    raise ownership_error(SessionOwnershipError("session_moved", message, details))
+
+
 def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None) -> Callable[[], None] | None:
     """Mobile v2 §5.6 (PR-4's open list, mobile-m2a §3 item 9): a session-keyed write outside
     practice (a plan step, a tutor question, a lesson suggestion's answer) from a device that does
@@ -484,8 +517,10 @@ def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None
 
     Returns the same check, to repeat inside each transaction that commits the write (F6): what
     was decided before slow work (a queue build, a boundary's model call) commits only if the
-    session has not moved since, not even back (``expected_generation``). None when nothing was
-    checked (the desktop, with no open session named).
+    session has not moved since, not even back (``expected_generation``). A phone's sessionless
+    write pins the open session it started against and revalidates that one on its own (landing
+    ruling R1): gone, ended, moved or replaced, it is refused. None when nothing was checked (the
+    desktop, with no open session named).
     """
 
     # A context without an origin (a None origin, or a caller's own minimal context) is the desktop.
@@ -503,12 +538,17 @@ def refuse_moved_session(ctx: SidecarContext, repository, session_id: str | None
 
         def no_session_elsewhere() -> None:
             current = repository.most_recent_open_session()
+            if pinned is not None:
+                # Landing ruling R1 (final verify, F6 reopened): the pinned session is revalidated on
+                # its own, not through the current-session lookup: gone, ended, moved (even back) or
+                # replaced by another open session, the write was accepted against a session that is
+                # no longer where it was, and commits nothing.
+                _require_pinned(repository, pinned, device_id, current)
+                return
             if current is None:
                 return
-            expected = pinned[1] if pinned is not None and str(current["id"]) == pinned[0] else None
             with owned_session_errors():
-                repository.require_session_owner(str(current["id"]), device_id, require_open=False,
-                                                 expected_generation=expected)
+                repository.require_session_owner(str(current["id"]), device_id, require_open=False)
 
         no_session_elsewhere()
         return no_session_elsewhere
