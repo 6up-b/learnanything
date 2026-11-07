@@ -261,7 +261,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_ad_link.py](../../../../../../tests/test_rofu_ad_link.py) — direct import
   - `test_the_link_is_ads_own_predictive_and_inverts_it`
 - [tests/test_rofu_ad_stable.py](../../../../../../tests/test_rofu_ad_stable.py) — direct import
+- [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
+  - `test_a_probe_closes_the_lesson_window_on_the_held_link_too`
   - `test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder`
   - `test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_moves_no_decision`
   - `test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does`

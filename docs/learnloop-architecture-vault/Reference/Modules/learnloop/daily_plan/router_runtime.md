@@ -221,6 +221,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_generation_receipts_are_in_the_daily_total`
   - `test_f1_generation_spend_refuses_the_routers_own_next_request`
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
+- [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
+  - `test_an_early_publication_served_keeps_its_carried_valuation`
 - [tests/test_rofu_switch_key.py](../../../../../../tests/test_rofu_switch_key.py) — direct import
 - [tests/test_router_r2b_agreement.py](../../../../../../tests/test_router_r2b_agreement.py) — direct import
   - `test_replay_never_asks_a_model_and_is_deterministic`

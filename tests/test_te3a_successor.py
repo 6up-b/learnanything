@@ -62,11 +62,13 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.51's value on main at TE3a's landing merge (23182034c6), frozen here: dropping TE3a's key reproduces it.
+    # mvp-0.51's value on main at TE3a's landing merge (23182034c6), frozen here: dropping TE3a's key reproduces it
+    # (and router speed's [router_objective] held_ad_link, in every snapshot, which landed after it).
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
     for key in TE3A_KEYS:
         dumped["adaptive_difficulty"].pop(key)
+    assert dumped["router_objective"].pop("held_ad_link") is True
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "94291ed4789a10800d9b6174d87ae1ccf82a36e1d103d8c89fc98735e5d1d150"
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).

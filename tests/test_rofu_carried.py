@@ -281,6 +281,26 @@ def test_an_early_publication_served_keeps_its_carried_valuation(tmp_path, monke
 
     monkeypatch.setattr(OC.V, "evaluate", spy)
     gate = threading.Event()
+    # Router speed, item 4: the serve's wait runs out right after the numeric job's early publication, by events,
+    # never by a real 3 s wait against a publication that takes about 2.2 s (later than 3 s on a loaded machine, so
+    # the serve found nothing published). A prefetch with no numeric component, and every serve once the LLM is
+    # released, waits as before.
+    from learnloop.daily_plan import router_runtime as RR
+
+    real_wait = RR.Prefetch.wait
+
+    def wait_for_the_publication(self, timeout: float) -> None:
+        if OC.NUMERIC not in self.events or gate.is_set():
+            real_wait(self, timeout)
+            return
+        deadline = time.monotonic() + 120.0
+        while time.monotonic() < deadline and not self.complete:
+            with self.lock:
+                if self.material.get(OC.PUBLISHED) is not None:
+                    return
+            self.events[OC.NUMERIC].wait(0.01)
+
+    monkeypatch.setattr(RR.Prefetch, "wait", wait_for_the_publication)
 
     def step_once(env):
         _record, step = advance(env, serve=True)

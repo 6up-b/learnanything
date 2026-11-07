@@ -300,6 +300,8 @@ MODULE_INVENTORY: dict[str, str] = {
     "router_objective_tail_data": "src/learnloop/router_objective/tail_data.py",
     "router_objective_tail_serve": "src/learnloop/router_objective/tail_serve.py",
     "router_objective_tail_report": "src/learnloop/router_objective/tail_report.py",
+    # Router speed (the follow-up batch's item 2 join, made incremental): a keep bound and the resolver's flat curve.
+    "router_objective_combiner_data": "src/learnloop/router_objective/combiner_data.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -1594,6 +1596,14 @@ _reg_const("router_objective_tail_data:_CACHE_LIMIT", "constraint", kind="struct
            owner="router_objective_tail_data",
            rationale="keep (resource bound): the parsed immutable traces kept per process before the cache is cleared; "
            "it changes no number, only how often a trace is parsed again.")
+_reg_const("router_objective_combiner_data:_PARSED_LIMIT", "constraint", kind="structural",
+           owner="router_objective_combiner_data",
+           rationale="keep (resource bound, router speed item 2): the traces' parsed untouched topics kept per process, "
+           "keyed by content digest; past it the oldest is parsed again on its next read, never a different value.")
+_reg_const("router_objective_combiner_data:_FLAT_CURVE", "numerical", kind="structural",
+           owner="router_objective_combiner_data",
+           rationale="structural (the follow-up batch's item 2): the curve handed to RO2's resolver, which the join "
+           "reads only for the outcome and its lag; its values reach no row.")
 _reg_const("router_objective_tail_data:_SAME_CUTOFF_SECONDS", "numerical", kind="structural",
            owner="router_objective_tail_data",
            rationale="numerical (Codex review F3): two cutoffs this close are one; the trace keeps cutoff_days to six "
@@ -1967,6 +1977,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("router_objective.scope_extension"), "structural", "operational",
         "kill switch for the follow-up batch's successor mvp-0.50 (RO6 R11): a topic entering the retention scope at "
         "its configured default density extends the objective's scope; off, mvp-0.49 (a change point)."),
+    _ConfigRule(_exact("router_objective.held_ad_link"), "structural", "operational",
+        "kill switch at the follow-up batch's successor mvp-0.50 (router speed item 1, Codex review F1): R9's link "
+        "evaluated once per array, its values held and recomputed only where the state changed (the same values per "
+        "draw; more draws within a deadline; in RO6's generator payload); off, the batch's landing code."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

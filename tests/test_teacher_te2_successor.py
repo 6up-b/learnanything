@@ -65,11 +65,13 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
     # mvp-0.50's value on main at the landing (516db1d862, the router follow-up batch's own mvp-0.50 snapshot),
-    # frozen here: dropping TE2's keys reproduces it.
+    # frozen here: dropping TE2's keys reproduces it (and router speed's [router_objective] held_ad_link, at mvp-0.50
+    # and in every snapshot, which landed after it).
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
     assert dumped["teacher"].pop("probes") is True
     assert dumped["teacher"].pop("placement") == {"max_probes": 8}
+    assert dumped["router_objective"].pop("held_ad_link") is True
     from tests.test_te3a_successor import drop_te3a_keys
 
     drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it

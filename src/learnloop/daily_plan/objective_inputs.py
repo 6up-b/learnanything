@@ -19,13 +19,19 @@ Every number's source is in ``sources``; nothing here writes.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
 from datetime import datetime, timedelta
 import json
 import logging
 import math
+import os
+from pathlib import Path
+import sqlite3
 from statistics import median, pstdev
+import threading
 from typing import Any
 
 from learnloop.clock import parse_utc
@@ -239,11 +245,115 @@ def _combiner_prior(vault: Any, **fields: Any) -> M.Combiner:
     return M.Combiner(**fields)
 
 
+class _DecisionReads:
+    """One decision's held reads (:func:`decision_reads`) and, per database, a read-only watcher connection whose
+    ``PRAGMA data_version`` moves whenever another connection commits (Codex review F2; the pattern of
+    ``reading_choice.fingerprint``). The scope's threads share it (the job copies its context), hence the lock and a
+    watcher not bound to one thread. Closed when the scope ends."""
+
+    def __init__(self) -> None:
+        self.held: dict[tuple[Any, ...], tuple[Any, Any, Any]] = {}
+        self.lock = threading.Lock()
+        self._watchers: dict[str, tuple[tuple[int, int], sqlite3.Connection]] = {}
+
+    def version(self, repository: Any) -> tuple[Any, ...] | None:
+        """The database's commit version as this scope's watcher sees it: (path, file identity, ``data_version``,
+        the watcher's own ``total_changes``); None, never trusted, when the database cannot be watched."""
+
+        path = getattr(repository, "sqlite_path", None)
+        if path is None:
+            return None
+        database = str(Path(path).resolve())
+        try:
+            with self.lock:
+                identity = _file_identity(database)
+                if identity is None:
+                    return None
+                watched = self._watchers.get(database)
+                if watched is None or watched[0] != identity:
+                    if watched is not None:
+                        watched[1].close()
+                    watcher = sqlite3.connect(f"{Path(database).as_uri()}?mode=ro", uri=True,
+                                              check_same_thread=False)
+                    self._watchers[database] = watched = (identity, watcher)
+                version = int(watched[1].execute("PRAGMA data_version").fetchone()[0])
+                changes = int(watched[1].total_changes)
+                if _file_identity(database) != identity:  # replaced while it was read: never trusted
+                    return None
+        except sqlite3.Error:
+            return None
+        return (database, identity, version, changes)
+
+    def close(self) -> None:
+        with self.lock:
+            for _identity, watcher in self._watchers.values():
+                try:
+                    watcher.close()
+                except sqlite3.Error:  # pragma: no cover - closing never fails a decision
+                    pass
+            self._watchers.clear()
+
+
+def _file_identity(database: str) -> tuple[int, int] | None:
+    try:
+        status = os.stat(database)
+    except OSError:
+        return None
+    return (status.st_dev, status.st_ino)
+
+
+#: Router speed, item 2: one decision's reads that do not depend on its candidates, shared by every build of the
+#: decision while the database is unchanged (:func:`decision_reads`); None outside one.
+_DECISION_READS: ContextVar[_DecisionReads | None] = ContextVar("learnloop_objective_decision_reads", default=None)
+
+
+@contextmanager
+def decision_reads() -> Iterator[None]:
+    """Router speed, item 2: inside, every :func:`build` of one decision (the prefetch job's card build for the LLM
+    policy's reference row, then the numeric policy's) on the same vault, database and ``now`` shares one read of the
+    combiner's fit **while no write has been committed to the database since it was read**: the follow-up batch's
+    trace join ran once per build, about 2.4 times a decision. Codex review F2: the read is revalidated at every build
+    by the database's commit version (``PRAGMA data_version`` of a watcher this scope holds, taken before the read), so
+    a regrade, a hold, a late outcome or late activity committed between the card's build and the numeric policy's
+    reaches the numeric policy, exactly as when every build read afresh (``checks.Closure``: grades and holds as they
+    stand now). Any commit invalidates it, whatever it wrote: no list of tables to miss. Nothing outlives the scope."""
+
+    reads = _DecisionReads()
+    token = _DECISION_READS.set(reads)
+    try:
+        yield
+    finally:
+        _DECISION_READS.reset(token)
+        reads.close()
+
+
 def _combiner(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
     """RO5 §9 item 7: the memory model's Bayesian logistic combination fitted on resolved randomized checks (each
     check's sensors frozen at its administration against §6.2's label); with none resolved, the labelled prior. The
     checks stand as of the decision (landing ruling R1: ``checks.Closure`` at ``now_iso``). With ``vault`` at the
-    follow-up batch's tag and ``combiner_trace_outcomes``, the traces' outcomes too (:func:`_combiner_with_traces`)."""
+    follow-up batch's tag and ``combiner_trace_outcomes``, the traces' outcomes too (:func:`_combiner_with_traces`).
+    Inside :func:`decision_reads`, read once per (database, ``now_iso``, vault) while the database's commit version is
+    the one taken before that read; a database that cannot be watched is read every time."""
+
+    reads = _DECISION_READS.get()
+    if reads is None:
+        return _combiner_read(repository, now_iso, vault)
+    version = reads.version(repository)  # before the read: a write landing during it makes the next build read again
+    if version is None:
+        return _combiner_read(repository, now_iso, vault)
+    key = ("combiner", version[0], str(now_iso), id(vault))
+    with reads.lock:
+        entry = reads.held.get(key)
+    if entry is not None and entry[0] is vault and entry[1] == version:
+        return entry[2]
+    combiner = _combiner_read(repository, now_iso, vault)
+    with reads.lock:
+        reads.held[key] = (vault, version, combiner)
+    return combiner
+
+
+def _combiner_read(repository: Any, now_iso: str, vault: Any = None) -> M.Combiner:
+    """:func:`_combiner`'s read."""
 
     from learnloop.router_objective import checks as C
 

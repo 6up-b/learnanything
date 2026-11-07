@@ -203,6 +203,20 @@ def _resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, gro
     by_block: dict[str, set[str]] = {}
     for pid, row in presentations.items():
         by_block.setdefault(str(row.get("block_id")), set()).add(pid)
+    # Router speed, item 2: the rows indexed once by presentation and by LO, each list in the rows' own order, so a
+    # group reads its block's and its LO's rows alone (every group scanned every row: the join grew with the log's
+    # square). The same rows, in the same order, as each filter below took them.
+    by_presentation: dict[str, list[Mapping[str, Any]]] = {}
+    attempts_on: dict[str, list[Mapping[str, Any]]] = {}
+    for row in attempts:
+        by_presentation.setdefault(str(row.get("plan_presentation_id") or ""), []).append(row)
+        attempts_on.setdefault(str(row.get("learning_object_id")), []).append(row)
+    reveals_on: dict[str, list[Mapping[str, Any]]] = {}
+    for reveal in reveals:
+        reveals_on.setdefault(str(reveal.get("learning_object_id") or ""), []).append(reveal)
+    readings_on: dict[Any, list[Mapping[str, Any]]] = {}
+    for reading in readings:
+        readings_on.setdefault(reading["learning_object_id"], []).append(reading)
     out: list[dict[str, Any]] = []
     for group in groups:
         presentation = presentations.get(group["plan_presentation_id"])
@@ -213,10 +227,11 @@ def _resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, gro
             continue
         lo = str(group["learning_object_id"] or "")
         block = by_block.get(str(presentation.get("block_id")), {group["plan_presentation_id"]})
-        block_attempts = [row for row in attempts if str(row.get("plan_presentation_id") or "") in block]
+        # The block's attempts (their order is not read: a latest time and a set of ids).
+        block_attempts = [row for pid in block for row in by_presentation.get(str(pid), ())]
         block_end = max([str(presentation["served_at"])] + [str(row["created_at"]) for row in block_attempts])
         block_ids = {str(row["id"]) for row in block_attempts}
-        on_lo = [row for row in attempts if str(row.get("learning_object_id")) == lo]
+        on_lo = attempts_on.get(lo, [])
         candidate, passed = None, []
         for row in on_lo:
             if str(row["id"]) in block_ids or str(row["created_at"]) <= block_end:
@@ -245,10 +260,9 @@ def _resolve_groups(connection: Any, vault: Any, repository: Any, view: Any, gro
             [{"kind": "attempt", "id": str(other["id"]), "at": str(other["created_at"]),
               "in_block": str(other["id"]) in block_ids} for other in on_lo]
             + [{"kind": "reveal", "id": str(reveal["id"]), "at": str(reveal["created_at"]),
-                "source_kind": reveal.get("source_kind")} for reveal in reveals
-               if str(reveal.get("learning_object_id") or "") == lo]
+                "source_kind": reveal.get("source_kind")} for reveal in reveals_on.get(lo, ())]
             + [{"kind": "reading", "id": str(reading["id"]), "at": str(reading["at"]), "subkind": reading.get("subkind")}
-               for reading in readings if reading["learning_object_id"] == lo])
+               for reading in readings_on.get(lo, ())])
         before = [touch for touch in touches if (_days(at, touch["at"]) or 0.0) > 0.0]
         exposures = [{k: v for k, v in touch.items() if k != "in_block"} for touch in before
                      if not touch.get("in_block") and (_days(touch["at"], block_end) or 0.0) > 0.0]
