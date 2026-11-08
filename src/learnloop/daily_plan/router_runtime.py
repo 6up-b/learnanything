@@ -7,7 +7,7 @@ the decision's **boundary key** (a hash of the plan, the state the chooser
 saw, the options, the newest attempt and the router's settings), and the
 decision is made by the first call that finds them answered, or by a step
 that must serve (Begin, Continue, Next), which waits up to
-``router.timeout_seconds`` (8 s) and then lets the rule take the share of any
+``router.timeout_seconds`` (40 s) and then lets the rule take the share of any
 model still out (G7, ``fallback`` recorded).
 
 * **The budget.** The models have ``router.prefetch_timeout_seconds`` (45 s)

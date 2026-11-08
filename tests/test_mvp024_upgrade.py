@@ -234,7 +234,7 @@ def test_new_vaults_start_at_the_mixture_successor(tmp_path):
     assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.54"
     router = fresh.config.router
     assert router.enabled and router.mode == "mixture" and router.restraint
-    assert (router.k, router.epsilon_min, router.timeout_seconds, router.prefetch_timeout_seconds) == (6, 0.02, 8.0, 45.0)
+    assert (router.k, router.epsilon_min, router.timeout_seconds, router.prefetch_timeout_seconds) == (6, 0.02, 40.0, 45.0)
     assert router.weights.model_dump() == {"staged": 1 / 3, "decider": 1 / 3, "llm": 1 / 3}
     assert router.max_daily_cost_usd == 5.0
     assert mixture_active(fresh)

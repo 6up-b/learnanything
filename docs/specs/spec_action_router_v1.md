@@ -321,7 +321,7 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 
 - **Block boundaries only.** The first block is decided when the plan is built, and later blocks are precomputed while the learner reads feedback on the last item of the current block.
 - **Bounded input.** The input target is ≤ 30K tokens per request (card 16K + similar decisions + candidates), which keeps latency in the low seconds.
-- **Timeout.** `router.timeout_seconds` (default 8) falls back to the staged choice.
+- **Timeout.** `router.timeout_seconds` (default 40, raised from 8 by the owner on Nov 8 2026) falls back to the staged choice.
 
 ---
 

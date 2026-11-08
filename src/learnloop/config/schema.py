@@ -4131,7 +4131,8 @@ class RouterConfig(BaseModel):
     k: int = Field(default=6, ge=2, le=64)
     epsilon_min: float = Field(default=0.02, ge=0.0, lt=0.5)
     ties_only: bool = False
-    timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
+    # Owner, Nov 8 2026: 40, up from 8. The LLM's calls took 11.6-15.8 s, so 8 discarded answers that were on the way.
+    timeout_seconds: float = Field(default=40.0, gt=0.0, le=120.0)
     prefetch_timeout_seconds: float = Field(default=45.0, gt=0.0, le=600.0)
     max_daily_cost_usd: float = Field(default=5.0, ge=0.0)
     sensors: bool = True
