@@ -33,6 +33,8 @@ class SourceRefPresentation:
     canonical_uri: str | None
     original_uri: str | None
     note: Any | None
+    #: The source library's id for this ref (its Reader card), when it has one.
+    source_id: str | None = None
 
 
 def source_ref_presentation(vault, repository, ref) -> SourceRefPresentation:
@@ -112,6 +114,7 @@ def source_ref_presentation(vault, repository, ref) -> SourceRefPresentation:
         canonical_uri=canonical_uri,
         original_uri=original_uri,
         note=note,
+        source_id=(_clean_text(artifact.get("id")) if artifact is not None else None),
     )
 
 

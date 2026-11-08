@@ -31,6 +31,8 @@ const { api } = vi.hoisted(() => {
   return { api };
 });
 vi.mock("../api/client", () => ({ api }));
+const { openUrl } = vi.hoisted(() => ({ openUrl: vi.fn() }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: () => null }));
 vi.mock("../components/ClaimSurface", () => ({ ClaimSurface: () => null, mintVisitId: () => "visit" }));
 vi.mock("../components/KnowledgeModel", () => ({ AttemptTraceView: () => null, UnresolvedCauseCard: () => null }));
@@ -318,4 +320,64 @@ it("shows an unverified criterion as not assessed and the PF-c flag as informati
   expect(screen.getByText("2.0 / 2.0")).toBeTruthy();
   expect(screen.getByTestId("unassessed-route-note")).toBeTruthy();
   expect(screen.queryByText(/manual review recommended/)).toBeNull();
+});
+
+// A learner's local PDF cannot be handed to the system opener ("Not allowed to
+// open url"): "open source" opens it in the Reader, at the block the question cites.
+const SOURCE_REF = {
+  refType: "canonical_source",
+  kind: "pdf",
+  title: "guide.pdf",
+  externalUrl: null,
+  sourceId: "src_guide",
+  extractionId: "ext_guide",
+  spanId: "s30",
+  notePath: null,
+  locator: "span:ext_guide/s30",
+  locatorResolved: true,
+  sourceChanged: false,
+  headingPath: null,
+  sectionMd: "the cited passage",
+  video: null
+};
+const MISSED = { ...FEEDBACK, correctness: 0.25, rubricScore: 1 } as FeedbackBundle;
+
+for (const surface of ["classic", "the default surface"]) {
+  it(`opens a local source in the Reader at its cited block, on ${surface}`, async () => {
+    if (surface === "classic") classic();
+    api.getTodayQueue.mockResolvedValue(queue([]));
+    api.getFeedback.mockResolvedValue({ ...MISSED, sourceRefs: [SOURCE_REF] });
+    const onOpenPassage = vi.fn();
+    const onError = vi.fn();
+    render(<FeedbackScreen {...props({ onOpenPassage, onError })} />);
+    await screen.findByText("Eigenvalues");
+    // The default surface keeps the source panel under details.
+    if (surface !== "classic") await press(".");
+    fireEvent.click(await screen.findByText("open source"));
+    expect(onOpenPassage).toHaveBeenCalledWith("src_guide", "s30", "ext_guide");
+    expect(onError).not.toHaveBeenCalled();
+  });
+}
+
+it("keeps a web source on the system opener, not the Reader", async () => {
+  classic();
+  api.getTodayQueue.mockResolvedValue(queue([]));
+  api.getFeedback.mockResolvedValue({
+    ...MISSED,
+    sourceRefs: [{ ...SOURCE_REF, kind: "website_page", externalUrl: "https://x.test/guide" }]
+  });
+  const onOpenPassage = vi.fn();
+  render(<FeedbackScreen {...props({ onOpenPassage })} />);
+  fireEvent.click(await screen.findByText("open source"));
+  await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://x.test/guide"));
+  expect(onOpenPassage).not.toHaveBeenCalled();
+});
+
+it("offers no dead link for a local source outside the library", async () => {
+  classic();
+  api.getTodayQueue.mockResolvedValue(queue([]));
+  api.getFeedback.mockResolvedValue({ ...MISSED, sourceRefs: [{ ...SOURCE_REF, sourceId: null }] });
+  render(<FeedbackScreen {...props({ onOpenPassage: vi.fn() })} />);
+  await screen.findByText("guide.pdf");
+  expect(screen.queryByText("open source")).toBeNull();
 });
