@@ -78,11 +78,15 @@ The durable status is separate from the work checkpoint. A successful full impor
 
 | Engine | Where the bytes go | Page ranges |
 |---|---|---|
-| `auto` | local: Marker when installed, else pypdf | honoured |
-| `marker` / `pypdf` | local, forced | honoured |
+| `auto` | GLM-OCR first: **the whole file goes to z.ai** when a z.ai key is set (after the learner's one-time OK; local until then), or to a self-hosted GLM-OCR server that answers; otherwise local Marker when installed, else pypdf | honoured |
+| `glm_ocr` | z.ai or the self-hosted server, as `[ingest.pdf.glm_ocr] backend` selects; fails rather than switching | honoured |
+| `marker` | local Marker, forced | honoured |
+| `pypdf` | local, forced | honoured |
 | `native` | the whole PDF is sent to the `canonical_ingest` chat provider as a file content part | rejected (`invalid_page_range`) |
 
 `native` requires the routed profile to be an OpenAI-compatible chat provider (`openai_chat` or `openrouter`) that declares `pdf` in `input_modalities`; Settings shows the readiness line and, for OpenRouter models, can detect the declaration from the public model catalog (see [[Configure AI Providers#Declare input modalities]]). An unready native route is refused when the batch is started and again by the durable job (`native_pdf_unavailable`, not retried); `[ingest.native] fallback_when_unavailable = true` runs the local engine instead and flags the extraction `native_pdf_fallback_local`. Uploads are capped by `[ingest.native] max_pdf_mb`. The legacy one-shot `learnloop ingest` command has no chat client and rejects `native` rather than downgrading it.
+
+`LEARNLOOP_MARKER_PROVIDER=datalab` (which `npm run dev:datalab` sets; it needs `DATALAB_API_KEY`) sends the PDF to hosted Datalab Marker wherever `marker`, or `auto` once it has passed over GLM-OCR, would run Marker. Hosted GLM-OCR needs a key in the environment (`ZAI_API_KEY`, `ZHIPU_API_KEY` or `ZHIPUAI_API_KEY`, or the variable `api_key_env` names). Under `auto` an import with no OK card to show reads a PDF locally and flags it `glm_ocr_needs_upload_ok`, so the book can offer text recognition; an image asks for the OK on its card. A repair the learner OK'd as local passes over z.ai and any server on another computer (`src/learnloop/content/pipeline/jobs.py`, `_document_extractor`).
 
 Audio follows the same shape through `[ingest.audio] mode` (`transcription` or `native` for mp3/wav).
 
