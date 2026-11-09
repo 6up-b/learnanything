@@ -3,13 +3,13 @@ title: "router_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
-source_commit_timestamp: "2026-11-08T23:13:15-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
   - "table router_outcomes"
-schema_head: 251
+schema_head: 250
 table_name: "router_outcomes"
 table_role: "derived"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/181_router_decisions.sql"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/cli/router.py"
-  - "src/learnloop/daily_plan/learner_action.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/data_capture_upgrade.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/evsi_calibration/live_report.py"
+  - "src/learnloop/probe_tie_upgrade.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -50,7 +50,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `184_voi_forecasts.sql`, `202_router_staged_frame.sql`, `251_router_learner_preferences.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `184_voi_forecasts.sql`, `202_router_staged_frame.sql`.
 - **Rebuild owner:** `router_outcomes`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

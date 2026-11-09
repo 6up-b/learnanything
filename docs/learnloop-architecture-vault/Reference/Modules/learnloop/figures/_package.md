@@ -31,7 +31,7 @@ source_paths:
   - "src/learnloop/figures/spec.py"
   - "src/learnloop/figures/verify.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T21:28:18-05:00"
+source_commit_timestamp: "2026-11-08T22:42:42-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -84,14 +84,14 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 5 | 16 |
-| [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] | [[Reference/Modules/learnloop/figures/routes#^module-purpose|purpose]] | `ACTIVE` | 3 | 12 |
+| [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] | [[Reference/Modules/learnloop/figures/routes#^module-purpose|purpose]] | `ACTIVE` | 3 | 13 |
 | [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] | [[Reference/Modules/learnloop/figures/service#^module-purpose|purpose]] | `ACTIVE` | 10 | 39 |
-| [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] | [[Reference/Modules/learnloop/figures/sketch#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
+| [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] | [[Reference/Modules/learnloop/figures/sketch#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] | [[Reference/Modules/learnloop/figures/sketch_engine#^module-purpose|purpose]] | `ACTIVE` | 3 | 10 |
 | [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] | [[Reference/Modules/learnloop/figures/sketch_verify#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] | [[Reference/Modules/learnloop/figures/source_check#^module-purpose|purpose]] | `ACTIVE` | 3 | 8 |
 | [[Reference/Modules/learnloop/figures/source_check_harness|learnloop.figures.source_check_harness]] | [[Reference/Modules/learnloop/figures/source_check_harness#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] | [[Reference/Modules/learnloop/figures/spec#^module-purpose|purpose]] | `ACTIVE` | 7 | 19 |
+| [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] | [[Reference/Modules/learnloop/figures/spec#^module-purpose|purpose]] | `ACTIVE` | 7 | 20 |
 | [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]] | [[Reference/Modules/learnloop/figures/verify#^module-purpose|purpose]] | `ACTIVE` | 4 | 11 |
 
 ## Cross-package dependencies

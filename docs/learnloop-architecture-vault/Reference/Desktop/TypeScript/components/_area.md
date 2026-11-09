@@ -80,12 +80,12 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/NativeMediaSettings|NativeMediaSettings.tsx]] | `ACTIVE` | Provides the reusable `NativeMediaSettings` interaction surface used by one or more desktop workflows. | 4 | 2 |
 | [[Reference/Desktop/TypeScript/components/NewVaultWizard|NewVaultWizard.tsx]] | `ACTIVE` | Provides the reusable `NewVaultWizard` interaction surface used by one or more desktop workflows. | 11 | 1 |
 | [[Reference/Desktop/TypeScript/components/NoticeHost|NoticeHost.tsx]] | `ACTIVE` | Provides the reusable `NoticeHost` interaction surface used by one or more desktop workflows. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/components/OpenInSource|OpenInSource.tsx]] | `ACTIVE` | Provides the reusable `OpenInSource` interaction surface used by one or more desktop workflows. | 4 | 8 |
+| [[Reference/Desktop/TypeScript/components/OpenInSource|OpenInSource.tsx]] | `ACTIVE` | Provides the reusable `OpenInSource` interaction surface used by one or more desktop workflows. | 4 | 9 |
 | [[Reference/Desktop/TypeScript/components/OutlineAndPlan|OutlineAndPlan.tsx]] | `ACTIVE` | Provides the reusable `OutlineAndPlan` interaction surface used by one or more desktop workflows. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/components/PageRangeSelector|PageRangeSelector.tsx]] | `ACTIVE` | Provides the reusable `PageRangeSelector` interaction surface used by one or more desktop workflows. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/components/PdfReaderPane|PdfReaderPane.tsx]] | `ACTIVE` | Provides the reusable `PdfReaderPane` interaction surface used by one or more desktop workflows. | 11 | 6 |
 | [[Reference/Desktop/TypeScript/components/PlacementControls|PlacementControls.tsx]] | `ACTIVE` | Provides the reusable `PlacementControls` interaction surface used by one or more desktop workflows. | 3 | 4 |
-| [[Reference/Desktop/TypeScript/components/PlainParts|PlainParts.tsx]] | `ACTIVE` | Provides the reusable `PlainParts` interaction surface used by one or more desktop workflows. | 1 | 17 |
+| [[Reference/Desktop/TypeScript/components/PlainParts|PlainParts.tsx]] | `ACTIVE` | Provides the reusable `PlainParts` interaction surface used by one or more desktop workflows. | 1 | 18 |
 | [[Reference/Desktop/TypeScript/components/PlanFallbackOffer|PlanFallbackOffer.tsx]] | `ACTIVE` | Provides the reusable `PlanFallbackOffer` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/PlanReadingBanner|PlanReadingBanner.tsx]] | `ACTIVE` | Provides the reusable `PlanReadingBanner` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/ProbeBlockResult|ProbeBlockResult.tsx]] | `ACTIVE` | Provides the reusable `ProbeBlockResult` interaction surface used by one or more desktop workflows. | 8 | 2 |

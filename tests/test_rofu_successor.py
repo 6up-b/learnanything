@@ -44,7 +44,21 @@ FOLLOWUP_KEYS: dict[str, object] = {
     "scope_extension": True,
     # router speed, item 1 (its Codex review F1): a kill switch at the same tag
     "held_ad_link": True,
+    # router speed stage 2, items 1 and 4 (its Codex review F2): kill switches at the same tag
+    "held_reading_map": True,
+    "pooled_connections": True,
 }
+#: Router speed stage 2's switches (its Codex review F2), in every defaults snapshot since they landed.
+ROSPEED2_KEYS = ("held_reading_map", "pooled_connections")
+
+
+def drop_rospeed2_keys(dumped: dict) -> dict:
+    """A dumped effective config without router speed stage 2's switches (each default on), for the snapshots frozen
+    before they landed."""
+
+    for key in ROSPEED2_KEYS:
+        assert dumped["router_objective"].pop(key) is True, key
+    return dumped
 
 
 def test_the_successor_is_one_constant_after_ro6_and_the_latest():

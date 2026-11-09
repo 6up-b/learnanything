@@ -154,8 +154,15 @@ def build_options(state: HintState, *, request: str, answered: EarlierHint | Non
                          reference_route=True, answered=answered,
                          taken_level=level if level in WORKED_LEVELS else None)
     if taken_level is not None:
-        return OptionSet(_offer((taken_level,), state, excluded), level_source="learner_pick",
-                         taken_level=taken_level, excluded=excluded)
+        options = _offer((taken_level,), state, excluded)
+        if not options and taken_level == 2:
+            # Rung 2 points at a step that doesn't hold, so with nothing
+            # written it has nothing to point at: a written question about the
+            # approach answers it. Lowered, because no rung raises the help
+            # untaken (Reader §5.2); "No hint fits" is no answer to a request
+            # for help (H4, owner capture 2026-11-07).
+            options = _offer((1,), state, excluded, kinds=("approach_question",))
+        return OptionSet(options, level_source="learner_pick", taken_level=taken_level, excluded=excluded)
     if request == "feedback":
         assert answered is not None
         level = int(answered.level or 3)

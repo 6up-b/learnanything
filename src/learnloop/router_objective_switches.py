@@ -281,10 +281,12 @@ def monotone_combiner_on(config: Any) -> bool:
 #: is part of RO6's generator payload and flipping one is a change point, never a change of ``Q`` under the same
 #: generator version. ``carried_in_prefetch`` is not here: it changes which transitions are valued, not the logger.
 #: ``held_ad_link`` (router speed, item 1; Codex review F1 on it): like ``merged_sessions``, the same values per draw
-#: but more draws within a deadline, so it changes the logger's values and is here too.
+#: but more draws within a deadline, so it changes the logger's values and is here too. So are router speed stage 2's
+#: ``held_reading_map`` (item 1) and ``pooled_connections`` (item 4; its Codex review F2): the same values, but the
+#: input builds finish sooner, leaving the numeric refinement more of the same deadline.
 FOLLOWUP_GENERATOR_SWITCHES: tuple[str, ...] = (
     "combiner_trace_outcomes", "merged_sessions", "consistent_review_draw", "monotone_combiner", "ad_predictive_link",
-    "scope_extension", "held_ad_link")
+    "scope_extension", "held_ad_link", "held_reading_map", "pooled_connections")
 
 
 def followup_generator_switches(config: Any) -> dict[str, bool] | None:
@@ -300,6 +302,12 @@ def followup_generator_switches(config: Any) -> dict[str, bool] | None:
 #: flip between a prefetch and its serve starts a new job (``carried_in_prefetch`` too: it changes what the job does
 #: with its carried valuation, though not the logger's values).
 FOLLOWUP_SWITCHES: tuple[str, ...] = (*FOLLOWUP_GENERATOR_SWITCHES, "carried_in_prefetch")
+
+#: Router speed stage 2's landing ruling R2: switches that change no value at a fixed draw count (only how soon the
+#: input builds finish), so the numeric policy's random seed is derived from the boundary identity WITHOUT them
+#: (``objective_chooser.numeric_seed``): whatever they are, its draws are main's. They stay in the prefetch key, the
+#: generator payload and ``serving_switches``.
+SEED_NEUTRAL_SWITCHES: tuple[str, ...] = ("held_reading_map", "pooled_connections")
 
 
 def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
@@ -398,6 +406,7 @@ __all__ = [
     "fitted_models_on",
     "FOLLOWUP_GENERATOR_SWITCHES",
     "FOLLOWUP_SWITCHES",
+    "SEED_NEUTRAL_SWITCHES",
     "followup_generator_switches",
     "followup_switch_snapshot",
     "failure_share_tag",

@@ -630,7 +630,10 @@ serves (`daily_plan.policy.objective_active`). Where it differs from §8.1-§8.1
   batch is part of the prefetch boundary key, and each numeric answer's trace records the switches it was computed
   under. Router speed (docs/reviews/router-speed-nov6.md, its Codex review F1) adds `held_ad_link` to those
   switches at the same tag: R9's link evaluated once per array and its values held, the same values per draw, but
-  more draws within the serving deadline, so it changes the logger's values; off, the batch's landing code.
+  more draws within the serving deadline, so it changes the logger's values; off, the batch's landing code. Router
+  speed stage 2 (docs/reviews/router-speed2.md, its Codex review F2) adds `held_reading_map` (AD's section → LO map
+  held across calls) and `pooled_connections` (the objective job's SQLite connections reused) the same way: the same
+  values, but faster input builds leave the deadline-bound refinement more draws; off, main `e9ceaf8d44`'s code.
 
 ## 9. RO5: return and calibration
 

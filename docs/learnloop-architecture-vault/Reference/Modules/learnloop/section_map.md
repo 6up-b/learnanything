@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`; statically calls `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `extraction_sections`, `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`; statically calls `extraction_sections`, `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; statically calls `learning_objects_for_section`, `learning_objects_for_span`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `ANCHOR_CURRENT`, `ANCHOR_MOVED`, `SPAN_LOCATOR_RE`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`, `span_for_ref`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`
@@ -125,6 +125,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
   - `test_the_raw_loading_wrappers_stay_for_callers_outside_ad`
+- [tests/test_rospeed2_section_map.py](../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_a_failed_mapping_is_not_held`
+  - `test_a_mapping_computed_across_a_source_write_is_not_held`
+  - `test_r1_nothing_is_held_outside_or_across_jobs`
+  - `test_switched_off_the_map_is_mains_and_reads_nothing_of_the_hold`
 
 ## Modification guidance
 

@@ -3,13 +3,13 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
-source_commit_timestamp: "2026-11-08T23:13:15-05:00"
+source_commit: "152a64a89386543e4477bd9dde4a22ec7ce8337b"
+source_commit_timestamp: "2026-11-07T06:47:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
   - "table source_document_units"
-schema_head: 251
+schema_head: 250
 table_name: "source_document_units"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -135,6 +135,7 @@ Indexes and uniqueness:
 - `tests/ad_ingest_fakes.py`
 - `tests/test_migrations.py`
 - `tests/test_ro2_ad_document_ir.py`
+- `tests/test_rospeed2_section_map.py`
 - `tests/exam_scope_fixtures.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
@@ -151,7 +152,6 @@ Indexes and uniqueness:
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
-- `tests/test_reader_active_reading.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

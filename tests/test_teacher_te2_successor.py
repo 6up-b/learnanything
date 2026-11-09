@@ -75,6 +75,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert dumped["teacher"].pop("probes") is True
     assert dumped["teacher"].pop("placement") == {"max_probes": 8}
     assert dumped["router_objective"].pop("held_ad_link") is True
+    from tests.test_rofu_successor import drop_rospeed2_keys
+
+    drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
     from tests.test_te3a_successor import drop_te3a_keys
 
     drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it

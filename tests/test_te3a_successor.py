@@ -76,6 +76,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
 
     drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
     assert dumped["router_objective"].pop("held_ad_link") is True
+    from tests.test_rofu_successor import drop_rospeed2_keys
+
+    drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
     # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
     assert dumped["router"]["timeout_seconds"] == 40.0
     dumped["router"]["timeout_seconds"] = 8.0

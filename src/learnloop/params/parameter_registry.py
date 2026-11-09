@@ -305,6 +305,8 @@ MODULE_INVENTORY: dict[str, str] = {
     "router_objective_tail_report": "src/learnloop/router_objective/tail_report.py",
     # Router speed (the follow-up batch's item 2 join, made incremental): a keep bound and the resolver's flat curve.
     "router_objective_combiner_data": "src/learnloop/router_objective/combiner_data.py",
+    # Router speed stage 2 (item 1): AD's section → LO map held across calls; a keep bound only.
+    "ad_reading_cache": "src/learnloop/adaptive_difficulty/reading_cache.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -1998,6 +2000,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch at the follow-up batch's successor mvp-0.50 (router speed item 1, Codex review F1): R9's link "
         "evaluated once per array, its values held and recomputed only where the state changed (the same values per "
         "draw; more draws within a deadline; in RO6's generator payload); off, the batch's landing code."),
+    _ConfigRule(_exact("router_objective.held_reading_map"), "structural", "operational",
+        "kill switch at the follow-up batch's successor mvp-0.50 (router speed stage 2 item 1, its Codex review F2): "
+        "AD's section -> LO map held within one objective job, a snapshot as of its first read (landing ruling R1; "
+        "faster builds, so more draws within a deadline; in RO6's generator payload); off, main e9ceaf8d44's map."),
+    _ConfigRule(_exact("router_objective.pooled_connections"), "structural", "operational",
+        "kill switch at the follow-up batch's successor mvp-0.50 (router speed stage 2 item 4, its Codex review F2): "
+        "the objective job's thread reuses its SQLite connections (the same values; faster builds, so more draws "
+        "within a deadline; in RO6's generator payload); off, a connection opened at every connect()."),
     _ConfigRule(_exact("router_objective.lessons_compete_with_followups"), "structural", "operational",
         "kill switch for instruct hand-off IH2 on mvp-0.55 (spec_instruct_handoff_v1 §5): a lesson offer and a follow-up "
         "compete in one logged decision wherever a lesson is available; off, mvp-0.54's boundary and follow-up decisions."),

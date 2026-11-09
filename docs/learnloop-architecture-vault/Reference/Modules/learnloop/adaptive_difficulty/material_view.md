@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/material_view.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
-source_commit: "6cad8141ecef068e53fce83d54802d5a726e0b95"
-source_commit_timestamp: "2026-11-06T08:54:29-05:00"
+source_commit: "2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2"
+source_commit_timestamp: "2026-11-07T06:25:22-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/material_view.py](../../../../../../src/learnloop/adaptive_difficulty/material_view.py) |
-| Source lines | 1818 |
+| Source lines | 1842 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `6cad8141ecef068e53fce83d54802d5a726e0b95` |
-| Commit timestamp | `2026-11-06T08:54:29-05:00` |
+| Source commit | `2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2` |
+| Commit timestamp | `2026-11-07T06:25:22-05:00` |
 
 ## Public API
 
@@ -148,18 +148,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `keys_withheld(self, keys: Iterable[tuple[str, str]], whole: Iterable[str]=()) -> bool` (line 1546; public) — Whether any located key (``exam_material.reference_keys``) is withheld: a block key in held-out material, or an extraction named whole that is held out.
   - `span_reanchors(self, repository: Any, from_extraction_id: str, to_extraction_id: str) -> list[dict[str, Any]]` (line 1553; public) — The span aliases AD may use between two readings (the operation repository's ``span_reanchors_between``, so the only set a ``SpanTranslator`` inside an operation sees; the AD23 redesign round 3).
   - `section_spans(self, extraction_id: str, section_id: str) -> list[str]` (line 1585; public) — A Reader section's spans, read only through :meth:`document_ir` (round 8, F3): none for a reading the withheld material touches.
-  - `section_withheld(self, extraction_id: str, section_id: str) -> bool` (line 1603; public) — A Reader section is withheld with its reading (round 8): a section of a reading no withheld block touches has none.
-  - `question_event_withheld(self, connection: Any, question_id: Any) -> bool` (line 1609; public) — The one protection reader of a tutor question (``question_events``; Codex verify F46, fix round 14), used when the sweep collects it and when its receipt is revalidated.
-  - `question_withheld(self, row: Mapping[str, Any]) -> bool` (line 1657; public) — A Reader question is withheld when its extraction, or any span it is anchored on or cites, is held out (Codex verify F23).
-  - `answered_questions(self, connection: Any, styles: Sequence[str]) -> list[dict[str, Any]]` (line 1670; public) — Answered, undismissed Reader questions of these styles that are not withheld.
-  - `question(self, connection: Any, question_id: Any) -> dict[str, Any] | None` (line 1678; public) — One Reader question's row (every column), or None when it is missing or withheld.
-  - `open_questions(self, connection: Any, extraction_id: str, section_id: str) -> list[dict[str, Any]]` (line 1684; public) — A section's produced, unanswered, undismissed Reader questions that are not withheld.
-  - `reading_opportunities(self, connection: Any, *, learning_object_ids: Sequence[str] | None=None) -> list[dict[str, Any]]` (line 1691; public) — ``ad_reading_opportunities`` receipts of the current epoch, revalidated now (Codex verify F20): a receipt whose source is withheld is invisible.
-  - `_opportunity_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool` (line 1713; internal) — Resolve a receipt's source again against the current predicate: the source row, by its own table's rule.
-- `material_view(vault: Any, repository: Any, protected: Any=None) -> MaterialView` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1769) — The open operation's view (the AD23 redesign): ``protected`` None returns the view of the operation open in this context (:mod:`~learnloop.adaptive_difficulty.operation`); outside an operation that is an error, so no AD reader computes a fresh, unguarded view by accident.
-- `current_view() -> MaterialView` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1788) — The view of the operation open in this context (an error outside one).
-- `detached_view(vault: Any, repository: Any, protected: Any=None) -> MaterialView` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1794) — A view computed here, outside any operation's guard: for the operation itself, the egress guards (which re-read protection afresh by design) and the incumbent's generation boundary (E1).
-- `closes_window(attempt: Mapping[str, Any], ledger_entry: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1807) — Whether a visible attempt closes its LO's reading windows (§5.6): graded (its ledger entry has evidence), and neither a skip nor a self-report (D8).
+  - `section_withheld(self, extraction_id: str, section_id: str) -> bool` (line 1627; public) — A Reader section is withheld with its reading (round 8): a section of a reading no withheld block touches has none.
+  - `question_event_withheld(self, connection: Any, question_id: Any) -> bool` (line 1633; public) — The one protection reader of a tutor question (``question_events``; Codex verify F46, fix round 14), used when the sweep collects it and when its receipt is revalidated.
+  - `question_withheld(self, row: Mapping[str, Any]) -> bool` (line 1681; public) — A Reader question is withheld when its extraction, or any span it is anchored on or cites, is held out (Codex verify F23).
+  - `answered_questions(self, connection: Any, styles: Sequence[str]) -> list[dict[str, Any]]` (line 1694; public) — Answered, undismissed Reader questions of these styles that are not withheld.
+  - `question(self, connection: Any, question_id: Any) -> dict[str, Any] | None` (line 1702; public) — One Reader question's row (every column), or None when it is missing or withheld.
+  - `open_questions(self, connection: Any, extraction_id: str, section_id: str) -> list[dict[str, Any]]` (line 1708; public) — A section's produced, unanswered, undismissed Reader questions that are not withheld.
+  - `reading_opportunities(self, connection: Any, *, learning_object_ids: Sequence[str] | None=None) -> list[dict[str, Any]]` (line 1715; public) — ``ad_reading_opportunities`` receipts of the current epoch, revalidated now (Codex verify F20): a receipt whose source is withheld is invisible.
+  - `_opportunity_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool` (line 1737; internal) — Resolve a receipt's source again against the current predicate: the source row, by its own table's rule.
+- `material_view(vault: Any, repository: Any, protected: Any=None) -> MaterialView` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1793) — The open operation's view (the AD23 redesign): ``protected`` None returns the view of the operation open in this context (:mod:`~learnloop.adaptive_difficulty.operation`); outside an operation that is an error, so no AD reader computes a fresh, unguarded view by accident.
+- `current_view() -> MaterialView` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1812) — The view of the operation open in this context (an error outside one).
+- `detached_view(vault: Any, repository: Any, protected: Any=None) -> MaterialView` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1818) — A view computed here, outside any operation's guard: for the operation itself, the egress guards (which re-read protection afresh by design) and the incumbent's generation boundary (E1).
+- `closes_window(attempt: Mapping[str, Any], ledger_entry: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1831) — Whether a visible attempt closes its LO's reading windows (§5.6): graded (its ledger entry has evidence), and neither a skip nor a self-report (D8).
 
 ### Module constants
 
@@ -200,8 +200,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_value(row: Mapping[str, Any], column: str) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 161) — A column's value in a raw row, or in a store's decoded row (``x_json`` decoded as ``x``).
 - `_lesson_exposure(record: Any) -> tuple[set[str], bool, list[Mapping[str, Any]]] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 191) — Teacher TE3a (Codex review F1): a lesson receipt's ``exposure`` as ``(the vault items it showed or revealed, whether the receipt cannot be judged, the frozen identities of the revisions it exposed)``; None for a record with no exposure (a goal, an outline).
 - `_spans(raw: Any) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 233)
-- `_in_rules(method: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1744) — Run a view reader in the rules' read scope (the AD guard lets the rules read protected tables; their SQL carries the rules marker), through the scope's codec: a failure inside it leaves as a ``ViewFailure`` of its kind and type only (the final round).
-- `_wrap_readers(cls: type) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1760)
+- `_in_rules(method: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1768) — Run a view reader in the rules' read scope (the AD guard lets the rules read protected tables; their SQL carries the rules marker), through the scope's codec: a failure inside it leaves as a ``ViewFailure`` of its kind and type only (the final round).
+- `_wrap_readers(cls: type) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/material_view.py), line 1784)
 
 ## Who imports or calls it
 
@@ -244,6 +244,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/projection|learnloop.adaptive_difficulty.projection]] — imports `project_repository`; calls `project_repository`
 - [[Reference/Modules/learnloop/adaptive_difficulty/protected_tables|learnloop.adaptive_difficulty.protected_tables]] — imports `module`
 - [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]] — imports `Protection`, `module`; calls `guard`, `protection`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]] — imports `module`; calls `held_on`, `job_hold`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `lesson_opportunities_on`; calls `lesson_opportunities_on`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `reference_keys`; calls `reference_keys`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `computed_aliases`; calls `computed_aliases`
@@ -329,6 +330,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_registry_restates_the_figure_source_grammar`
+- [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_every_ir_load_of_the_held_map_is_inside_the_chokepoint`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_a_lesson_naming_a_withheld_reading_is_absent_and_an_unavailable_predicate_reads_none`
   - `test_codex_f1_a_lesson_whose_shown_items_or_passages_are_withheld_now_is_absent`

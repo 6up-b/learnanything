@@ -638,6 +638,7 @@ export function Workbench(props: WorkbenchProps) {
                     onSmallerStep={() => void help.smallerStep(hint)}
                     onAnswer={(text) => void help.answerDiscriminating(hint, text)}
                     onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+                    bookInline={fromBook ? undefined : { practiceItemId: session.practiceItemId }}
                     extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
                       bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
                 ))}
@@ -703,6 +704,7 @@ export function Workbench(props: WorkbenchProps) {
               onSmallerStep={() => void help.smallerStep(hint)}
               onAnswer={(text) => void help.answerDiscriminating(hint, text)}
               onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+              bookInline={fromBook ? undefined : { practiceItemId: session.practiceItemId }}
               extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
                 bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
           ))}

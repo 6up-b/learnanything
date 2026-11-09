@@ -3,13 +3,13 @@ title: "router_suggestion_responses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
-source_commit_timestamp: "2026-11-08T23:13:15-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_suggestion_responses"
   - "table router_suggestion_responses"
-schema_head: 251
+schema_head: 250
 table_name: "router_suggestion_responses"
 table_role: "raw_ledger"
 functionality_status: "active"

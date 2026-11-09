@@ -128,6 +128,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`; references `MeaningLabel`, `ModelVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/figureLabels|src/screens/reader/figures/figureLabels.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `MeaningLabel`, `ModelVoice`, `SourceVoice`
+- [[Reference/Desktop/TypeScript/screens/workbench/BookPassage|src/screens/workbench/BookPassage.tsx]] — import-or-re-export: `MeaningLabel`, `SourceVoice`; references `MeaningLabel`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/workbench/CheckColumn|src/screens/workbench/CheckColumn.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/workbench/HelpLadder|src/screens/workbench/HelpLadder.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/workbench/RouteExample|src/screens/workbench/RouteExample.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`

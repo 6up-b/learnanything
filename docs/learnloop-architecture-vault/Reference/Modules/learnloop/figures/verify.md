@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/verify.py"
 source_paths:
   - "src/learnloop/figures/verify.py"
-source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
-source_commit_timestamp: "2026-11-02T20:08:53-05:00"
+source_commit: "214c206ff1962566773d30b8b44f586d62ca383b"
+source_commit_timestamp: "2026-11-08T22:42:42-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,48 +50,48 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py) |
-| Source lines | 462 |
+| Source lines | 467 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9e12d91330e6fa42d51fd7c7319294c7015e803f` |
-| Commit timestamp | `2026-11-02T20:08:53-05:00` |
+| Source commit | `214c206ff1962566773d30b8b44f586d62ca383b` |
+| Commit timestamp | `2026-11-08T22:42:42-05:00` |
 
 ## Public API
 
-- `class Report` ([source](../../../../../../src/learnloop/figures/verify.py), line 75) — What each step found, as stored in ``verification_report_json``.
-  - `as_dict(self) -> dict[str, Any]` (line 88; public)
-- `parameter_grid(compiled: S.CompiledFigure) -> list[dict[str, float]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 97) — Each parameter at its min, default and max (duplicates dropped).
-- `path_problems(data: Mapping[str, Any], point: Mapping[str, float]) -> list[str]` ([source](../../../../../../src/learnloop/figures/verify.py), line 197) — RW5b: a path that stops being finite, or starts outside its plot, at a grid point (one that leaves its padded plot is cut there and says so).
-- `structural(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> list[str]` ([source](../../../../../../src/learnloop/figures/verify.py), line 213)
-- `check_invariant(compiled: S.CompiledFigure, invariant: Any, node: G.Node | None, point: Mapping[str, float]) -> tuple[bool, str, float | None]` ([source](../../../../../../src/learnloop/figures/verify.py), line 252) — One invariant at one grid point: (holds, why not, the measured value).
-- `independent_integral(compiled: S.CompiledFigure, node: G.Node, variable: str, low: float, high: float, env: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/figures/verify.py), line 314) — The verifier's own integration: Gauss-Legendre on :data:`GL_PANELS` panels per piece, the range split at the series' piecewise breakpoints (nodes are interior, so each piece reads its own side of a jump).
-- `check_shades(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 341)
-- `check_invariants(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 366)
-- `quote_in(quote: str, text: str) -> bool` ([source](../../../../../../src/learnloop/figures/verify.py), line 392) — A quote is the source's own words: verbatim after collapsing whitespace.
-- `check_claims(compiled: S.CompiledFigure, span_texts: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 399)
-- `verified_assumptions(compiled: S.CompiledFigure, span_texts: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 405) — The assumptions as shown: a quote that is not verbatim in its span is dropped (the text stays, AI-written).
-- `decidable_predictions(compiled: S.CompiledFigure) -> tuple[list[int], list[int]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 416) — Predictions code can decide (an answer exists), and those it cannot (dropped).
-- `verify_numerics(compiled: S.CompiledFigure) -> Report` ([source](../../../../../../src/learnloop/figures/verify.py), line 426) — Steps 1 and 2 (no model, no sandbox): ``failed`` or a report to carry on.
+- `class Report` ([source](../../../../../../src/learnloop/figures/verify.py), line 76) — What each step found, as stored in ``verification_report_json``.
+  - `as_dict(self) -> dict[str, Any]` (line 91; public)
+- `parameter_grid(compiled: S.CompiledFigure) -> list[dict[str, float]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 102) — Each parameter at its min, default and max (duplicates dropped).
+- `path_problems(data: Mapping[str, Any], point: Mapping[str, float]) -> list[str]` ([source](../../../../../../src/learnloop/figures/verify.py), line 202) — RW5b: a path that stops being finite, or starts outside its plot, at a grid point (one that leaves its padded plot is cut there and says so).
+- `structural(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> list[str]` ([source](../../../../../../src/learnloop/figures/verify.py), line 218)
+- `check_invariant(compiled: S.CompiledFigure, invariant: Any, node: G.Node | None, point: Mapping[str, float]) -> tuple[bool, str, float | None]` ([source](../../../../../../src/learnloop/figures/verify.py), line 257) — One invariant at one grid point: (holds, why not, the measured value).
+- `independent_integral(compiled: S.CompiledFigure, node: G.Node, variable: str, low: float, high: float, env: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/figures/verify.py), line 319) — The verifier's own integration: Gauss-Legendre on :data:`GL_PANELS` panels per piece, the range split at the series' piecewise breakpoints (nodes are interior, so each piece reads its own side of a jump).
+- `check_shades(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 346)
+- `check_invariants(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 371)
+- `quote_in(quote: str, text: str) -> bool` ([source](../../../../../../src/learnloop/figures/verify.py), line 397) — A quote is the source's own words: verbatim after collapsing whitespace.
+- `check_claims(compiled: S.CompiledFigure, span_texts: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 404)
+- `verified_assumptions(compiled: S.CompiledFigure, span_texts: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 410) — The assumptions as shown: a quote that is not verbatim in its span is dropped (the text stays, AI-written).
+- `decidable_predictions(compiled: S.CompiledFigure) -> tuple[list[int], list[int]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 421) — Predictions code can decide (an answer exists), and those it cannot (dropped).
+- `verify_numerics(compiled: S.CompiledFigure) -> Report` ([source](../../../../../../src/learnloop/figures/verify.py), line 431) — Steps 1 and 2 (no model, no sandbox): ``failed`` or a report to carry on.
 
 ### Module constants
 
-- `ILLUSTRATIVE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 49)
-- `FAILED` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 50)
-- `UNSUPPORTED` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 51)
-- `OUTCOMES` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 54)
-- `DENSITY_TOLERANCE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 56)
-- `PMF_TOLERANCE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 57)
-- `SHADE_TOLERANCE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 58)
-- `NONNEGATIVE_SLACK` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 59)
-- `MONOTONE_SLACK` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 60)
-- `DEFAULT_BOUND` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 61)
-- `RANGE_SAMPLES` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 62)
-- `GL_PANELS` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 63)
-- `_GL` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 65)
-- `OPTIONAL_PARTS` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 145)
-- `RENDER_PADDING` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 150)
+- `ILLUSTRATIVE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 50)
+- `FAILED` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 51)
+- `UNSUPPORTED` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 52)
+- `OUTCOMES` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 55)
+- `DENSITY_TOLERANCE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 57)
+- `PMF_TOLERANCE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 58)
+- `SHADE_TOLERANCE` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 59)
+- `NONNEGATIVE_SLACK` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 60)
+- `MONOTONE_SLACK` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 61)
+- `DEFAULT_BOUND` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 62)
+- `RANGE_SAMPLES` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 63)
+- `GL_PANELS` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 64)
+- `_GL` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 66)
+- `OPTIONAL_PARTS` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 150)
+- `RENDER_PADDING` ([src/learnloop/figures/verify.py](../../../../../../src/learnloop/figures/verify.py), line 155)
 
 ### Explicit exports
 
@@ -114,16 +114,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_range_samples(low: float, high: float, count: int=RANGE_SAMPLES) -> list[float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 109)
-- `_shown_values(data: Mapping[str, Any]) -> list[tuple[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 113) — Every value a panel shows, with where it is.
-- `_leaves(value: Any, where: str, into: list[tuple[str, Any]]) -> None` ([source](../../../../../../src/learnloop/figures/verify.py), line 123) — Every number (or None, a value that is not finite) the panel data holds, at any depth: the inputs and every derived value the renderer shows (a map's determinant and corners, a shaded area's bounds and value, readouts), so a new field is checked without being listed (fix round 3…
-- `_extents(panel: Mapping[str, Any], where: str) -> list[tuple[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 153) — The scales the renderer derives from a panel's values (its value range and its reach, padded), as values that must be finite: None when one is not (fix round 3: [[1e200, 0], [0, 1e200]] has finite entries and a determinant of 1e400).
-- `_spread(numbers: Sequence[float], where: str) -> list[tuple[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 187)
-- `_point(point: Mapping[str, float]) -> str` ([source](../../../../../../src/learnloop/figures/verify.py), line 230)
-- `_env(compiled: S.CompiledFigure, point: Mapping[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 234)
-- `_sampler(compiled: S.CompiledFigure, node: G.Node, variable: str | None, env: Mapping[str, float]) -> Callable[[float], float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 240)
-- `_breakpoints(node: G.Node, defs: Mapping[str, G.Node], variable: str, env: Mapping[str, float], _seen: tuple[str, ...]=()) -> set[float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 289) — Where a piecewise condition compares the variable with an expression free of it (``x < c``, ``c >= x``): the points a series may jump at.
-- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/figures/verify.py), line 388)
+- `_range_samples(low: float, high: float, count: int=RANGE_SAMPLES) -> list[float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 114)
+- `_shown_values(data: Mapping[str, Any]) -> list[tuple[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 118) — Every value a panel shows, with where it is.
+- `_leaves(value: Any, where: str, into: list[tuple[str, Any]]) -> None` ([source](../../../../../../src/learnloop/figures/verify.py), line 128) — Every number (or None, a value that is not finite) the panel data holds, at any depth: the inputs and every derived value the renderer shows (a map's determinant and corners, a shaded area's bounds and value, readouts), so a new field is checked without being listed (fix round 3…
+- `_extents(panel: Mapping[str, Any], where: str) -> list[tuple[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 158) — The scales the renderer derives from a panel's values (its value range and its reach, padded), as values that must be finite: None when one is not (fix round 3: [[1e200, 0], [0, 1e200]] has finite entries and a determinant of 1e400).
+- `_spread(numbers: Sequence[float], where: str) -> list[tuple[str, Any]]` ([source](../../../../../../src/learnloop/figures/verify.py), line 192)
+- `_point(point: Mapping[str, float]) -> str` ([source](../../../../../../src/learnloop/figures/verify.py), line 235)
+- `_env(compiled: S.CompiledFigure, point: Mapping[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 239)
+- `_sampler(compiled: S.CompiledFigure, node: G.Node, variable: str | None, env: Mapping[str, float]) -> Callable[[float], float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 245)
+- `_breakpoints(node: G.Node, defs: Mapping[str, G.Node], variable: str, env: Mapping[str, float], _seen: tuple[str, ...]=()) -> set[float]` ([source](../../../../../../src/learnloop/figures/verify.py), line 294) — Where a piecewise condition compares the variable with an expression free of it (``x < c``, ``c >= x``): the points a series may jump at.
+- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/figures/verify.py), line 393)
 
 ## Who imports or calls it
 

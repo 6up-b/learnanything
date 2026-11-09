@@ -255,6 +255,9 @@ button { color: inherit; }
 .screen-scroll::-webkit-scrollbar-thumb:hover { background: var(--dim); }
 .screen-scroll::-webkit-scrollbar-thumb:active { background: var(--amber); }
 .screen-scroll::-webkit-scrollbar-corner { background: transparent; }
+/* The feedback screen's reading column (900px), centred in a wide window. It
+   lives in the padding so the scrollbar stays at the window's edge. */
+.screen-scroll.feedback-column { padding: 14px max(24px, calc((100% - 900px) / 2)) 20px; }
 .split { display: grid; grid-template-columns: minmax(420px, 0.9fr) minmax(380px, 1fr); min-height: 0; flex: 1; }
 .split > section { min-width: 0; overflow: auto; border-right: 1px solid var(--border); }
 .split > aside { min-width: 0; overflow: auto; }

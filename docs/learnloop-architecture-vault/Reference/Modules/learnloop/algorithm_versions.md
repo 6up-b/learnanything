@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/algorithm_versions.py"
 source_paths:
   - "src/learnloop/algorithm_versions.py"
-source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
-source_worktree_state: "modified"
+source_commit: "00d25c2f8d7411d48174672756ffefee49564220"
+source_commit_timestamp: "2026-11-07T02:14:36-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
-| Commit timestamp | `2026-11-07T01:13:16-05:00` |
+| Worktree state | `clean` |
+| Source commit | `00d25c2f8d7411d48174672756ffefee49564220` |
+| Commit timestamp | `2026-11-07T02:14:36-05:00` |
 
 ## Public API
 
@@ -577,6 +577,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_the_key_names_no_switch`
 - [tests/test_rofu_weeks.py](../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
+- [tests/test_rospeed2_connections.py](../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
+  - `test_the_pool_and_the_held_map_follow_their_switches`
+- [tests/test_rospeed2_section_map.py](../../../../../tests/test_rospeed2_section_map.py) — direct import
 - [tests/test_rospeed_ad_link.py](../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_switch_reaches_every_rollout_from_the_config`
 - [tests/test_rospeed_join.py](../../../../../tests/test_rospeed_join.py) — direct import

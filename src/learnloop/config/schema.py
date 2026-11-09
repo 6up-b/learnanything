@@ -4207,7 +4207,8 @@ class RouterObjectiveConfig(BaseModel):
     The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
     ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
     switch (off, or below the tag, mvp-0.49 exactly). Router speed (at the same tag): ``held_ad_link`` (off, the
-    batch's landing code exactly).
+    batch's landing code exactly); its stage 2: ``held_reading_map`` and ``pooled_connections`` (off, main
+    e9ceaf8d44's code exactly).
 
     Instruct hand-off IH5 (mvp-0.55, spec_instruct_handoff_v1 §7a): ``failure_share_to_other_policy``: a failed
     policy's share of the mix goes to the other policy instead of staged (both failed: staged, as before). Off, or
@@ -4336,6 +4337,15 @@ class RouterObjectiveConfig(BaseModel):
     #: and recomputed only where the state changed; the same values per draw, but faster, so a deadline admits more
     #: draws (part of RO6's generator payload). Off: the batch's landing code, a quadrature per read.
     held_ad_link: bool = True
+    #: Router speed stage 2, item 1 (its Codex review F2): AD's section → LO map (and the span → section and section
+    #: → spans maps) held within one objective job, a snapshot as of the job's first read (landing ruling R1);
+    #: faster input builds, so a deadline admits more draws (part of RO6's generator payload).
+    #: Off: main e9ceaf8d44's map, computed afresh at every map.
+    held_reading_map: bool = True
+    #: Router speed stage 2, item 4 (its Codex review F2): the objective job's own thread reuses its SQLite
+    #: connections (``db.connection.reused_connections``); the same values, but faster input builds, so a deadline
+    #: admits more draws (part of RO6's generator payload). Off: a connection opened at every ``connect()``.
+    pooled_connections: bool = True
     #: Instruct hand-off IH5 (mvp-0.55): with one policy failed the other takes the whole mix (the uniform floor
     #: kept, propensities exact), instead of staged taking the failed policy's share. Off: mvp-0.54's mix.
     failure_share_to_other_policy: bool = True

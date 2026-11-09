@@ -1586,17 +1586,41 @@ class MaterialView:
         """A Reader section's spans, read only through :meth:`document_ir` (round 8, F3): none for
         a reading the withheld material touches."""
 
+        # Router speed stage 2, landing ruling R1: the withheld rule first, fresh at every call and before the memo is
+        # read (a reading withheld since the memo was filled maps to nothing; main's memo held its spans).
+        if not self.available or self.reading_withheld(extraction_id):
+            return []
         if extraction_id not in self._section_spans:
+            from learnloop.adaptive_difficulty import reading_cache
             from learnloop.reader.reader_guidance import extraction_sections
 
+            # Router speed stage 2, item 1: inside an objective job with [router_objective] held_reading_map, the
+            # sections are the job's (computed once over the job's snapshot of the IR: reading_cache, R1); off or
+            # outside a job, main's read.
+            job = None
+            if reading_cache.held_on(getattr(self.vault, "config", None)):
+                try:
+                    job = reading_cache.job_hold(self, self.repository)
+                except Exception:  # noqa: BLE001 - nothing held: main's read
+                    job = None
+            held = None if job is None else job.get(None, "section_spans", str(extraction_id))
             sections: dict[str, list[str]] = {}
-            try:
-                ir = self.document_ir(self.repository, extraction_id)
-                if ir is not None:
-                    rows, _blocks, _map = extraction_sections(ir)
-                    sections = {str(row["id"]): [str(span) for span in row["span_ids"]] for row in rows}
-            except Exception:  # noqa: BLE001 - an unreadable extraction has no spans
-                sections = {}
+            if held is not None:
+                sections = {section: list(spans) for section, spans in held.items()}
+            else:
+                try:
+                    ir = (self.document_ir(self.repository, extraction_id) if job is None
+                          else job.document_ir(self, self.repository, extraction_id))
+                    if ir is not None:
+                        rows, _blocks, _map = extraction_sections(ir)
+                        sections = {str(row["id"]): [str(span) for span in row["span_ids"]] for row in rows}
+                        if job is not None:
+                            from types import MappingProxyType
+
+                            job.put(None, MappingProxyType({section: tuple(spans) for section, spans in sections.items()}),
+                                    "section_spans", str(extraction_id))
+                except Exception:  # noqa: BLE001 - an unreadable extraction has no spans
+                    sections = {}
             self._section_spans[extraction_id] = sections
         return self._section_spans[extraction_id].get(section_id, [])
 

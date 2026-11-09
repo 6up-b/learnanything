@@ -336,12 +336,18 @@ def decision_reads() -> Iterator[None]:
     by the database's commit version (``PRAGMA data_version`` of a watcher this scope holds, taken before the read), so
     a regrade, a hold, a late outcome or late activity committed between the card's build and the numeric policy's
     reaches the numeric policy, exactly as when every build read afresh (``checks.Closure``: grades and holds as they
-    stand now). Any commit invalidates it, whatever it wrote: no list of tables to miss. Nothing outlives the scope."""
+    stand now). Any commit invalidates it, whatever it wrote: no list of tables to miss. Nothing outlives the scope.
+
+    Router speed stage 2, landing ruling R1: the scope is also the one objective job's hold of AD's reading map
+    (``adaptive_difficulty.reading_cache.job_scope``: a snapshot as of the job's first read, discarded here)."""
+
+    from learnloop.adaptive_difficulty.reading_cache import job_scope
 
     reads = _DecisionReads()
     token = _DECISION_READS.set(reads)
     try:
-        yield
+        with job_scope():
+            yield
     finally:
         _DECISION_READS.reset(token)
         reads.close()

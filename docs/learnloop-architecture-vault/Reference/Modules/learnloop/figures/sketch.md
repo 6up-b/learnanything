@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/sketch.py"
 source_paths:
   - "src/learnloop/figures/sketch.py"
-source_commit: "0789bfcbea576a16363b70c092fc6fdc7c47cfea"
-source_commit_timestamp: "2026-10-31T19:50:29-04:00"
+source_commit: "214c206ff1962566773d30b8b44f586d62ca383b"
+source_commit_timestamp: "2026-11-08T22:42:42-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/sketch.py](../../../../../../src/learnloop/figures/sketch.py) |
-| Source lines | 903 |
+| Source lines | 910 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0789bfcbea576a16363b70c092fc6fdc7c47cfea` |
-| Commit timestamp | `2026-10-31T19:50:29-04:00` |
+| Source commit | `214c206ff1962566773d30b8b44f586d62ca383b` |
+| Commit timestamp | `2026-11-08T22:42:42-05:00` |
 
 ## Public API
 
@@ -89,10 +89,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `claim_entry_work(program: SketchProgramV1, claim: Claim, nodes: Mapping[str, G.Node], shape: str='series', var_reach: tuple[float, float] | None=None) -> int` ([source](../../../../../../src/learnloop/figures/sketch.py), line 384) — The most expression steps checking one entry of a claim's probe takes: one evaluation for ``equals`` and ``distribution``, twelve RK4 stages of ``dx`` and ``dy`` per path step for ``follows`` (the run and the half-step run), one step for an invariant.
 - `canonical_numbers(value: Any) -> Any` ([source](../../../../../../src/learnloop/figures/sketch.py), line 438) — ``value`` with every ``-0.0`` made ``0.0`` (the sandbox review verify, Astra round 2).
 - `parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch` ([source](../../../../../../src/learnloop/figures/sketch.py), line 457) — Validate a program (step 1's static half).
-- `scene_problems(scene: Any, *, parameters: Sequence[str]=()) -> list[str]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 674) — Why a ``view()`` result can't be drawn (none: drawable).
-- `probe_problems(values: Any, probes: Mapping[str, Probe]) -> list[str]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 817) — Why a ``probes()`` result does not match the declared probes (every declared one present, of its shape, every number finite; undeclared names are ignored, never shown).
-- `probe_numbers(value: Any, shape: str) -> list[float]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 846) — A validated probe's values as one list (a pairs probe's y values).
-- `element_index(scene: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 856)
+- `parse_author_sketch(raw: Any) -> tuple[CompiledSketch, list[str]]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 638) — :func:`parse_sketch` for an author's answer (:func:`.spec.parse_salvaging_predictions`).
+- `scene_problems(scene: Any, *, parameters: Sequence[str]=()) -> list[str]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 680) — Why a ``view()`` result can't be drawn (none: drawable).
+- `probe_problems(values: Any, probes: Mapping[str, Probe]) -> list[str]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 823) — Why a ``probes()`` result does not match the declared probes (every declared one present, of its shape, every number finite; undeclared names are ignored, never shown).
+- `probe_numbers(value: Any, shape: str) -> list[float]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 852) — A validated probe's values as one list (a pairs probe's y values).
+- `element_index(scene: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 862)
 
 ### Module constants
 
@@ -168,6 +169,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `element_index`
 - `expression_steps`
 - `impersonates`
+- `parse_author_sketch`
 - `parse_sketch`
 - `prediction_step`
 - `probe_numbers`
@@ -184,10 +186,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_bound_reach(node: G.Node, ranges: Mapping[str, tuple[float, float]]) -> tuple[float, float] | None` ([source](../../../../../../src/learnloop/figures/sketch.py), line 339)
 - `_ranges(program: SketchProgramV1) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 377)
 - `_parse_expr(where: str, source: str, allowed: set[str], problems: list[str]) -> G.Node | None` ([source](../../../../../../src/learnloop/figures/sketch.py), line 424)
-- `_finite(value: Any) -> bool` ([source](../../../../../../src/learnloop/figures/sketch.py), line 638)
-- `_describe(value: Any) -> str` ([source](../../../../../../src/learnloop/figures/sketch.py), line 642) — How a non-number is named in a problem (``sketchScene.ts``'s ``describe`` words it the same).
-- `class _Problems(list)` ([source](../../../../../../src/learnloop/figures/sketch.py), line 654)
-- `_numbers(problems: _Problems, where: str, value: Any, *, limit: int) -> list[float] | None` ([source](../../../../../../src/learnloop/figures/sketch.py), line 660)
+- `_finite(value: Any) -> bool` ([source](../../../../../../src/learnloop/figures/sketch.py), line 644)
+- `_describe(value: Any) -> str` ([source](../../../../../../src/learnloop/figures/sketch.py), line 648) — How a non-number is named in a problem (``sketchScene.ts``'s ``describe`` words it the same).
+- `class _Problems(list)` ([source](../../../../../../src/learnloop/figures/sketch.py), line 660)
+- `_numbers(problems: _Problems, where: str, value: Any, *, limit: int) -> list[float] | None` ([source](../../../../../../src/learnloop/figures/sketch.py), line 666)
 
 ## Who imports or calls it
 
@@ -196,7 +198,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `CLAIM_REL_TOL`, `SKETCH_MAX_CLAIM_WORK`, `expression_steps`, `impersonates`; statically calls `expression_steps`, `impersonates`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `parse_sketch`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `parse_author_sketch`, `parse_sketch`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `module`; statically calls `claim_entry_work`, `element_index`, `prediction_step`, `probe_numbers`, `probe_problems`, `read_steps`, `sample_steps`, `scene_problems`
 
 ## Dependencies
@@ -204,7 +206,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/figures/grammar|learnloop.figures.grammar]] — imports `module`; calls `check_names`, `free_names`, `is_name`, `parse`
-- [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `module`
+- [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `module`; calls `parse_salvaging_predictions`
 
 ### Platform and third-party dependencies
 
@@ -226,6 +228,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/sketch_parity_corpus.py](../../../../../../tests/sketch_parity_corpus.py) — direct import
 - [tests/sketch_scene_corpus.py](../../../../../../tests/sketch_scene_corpus.py) — direct import
+- [tests/test_figure_author_predictions.py](../../../../../../tests/test_figure_author_predictions.py) — direct import
+  - `test_a_sketch_gets_the_same_treatment`
+  - `test_run_to_is_untouched`
 - [tests/test_reader_rw5d_p4a_figures_follow.py](../../../../../../tests/test_reader_rw5d_p4a_figures_follow.py) — direct import
   - `test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes`
 - [tests/test_sketch_hostile.py](../../../../../../tests/test_sketch_hostile.py) — direct import

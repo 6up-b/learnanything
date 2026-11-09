@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/hints/options.py"
 source_paths:
   - "src/learnloop/hints/options.py"
-source_commit: "e6d3c96710df3cbdb228f505cada139d72f82cda"
-source_commit_timestamp: "2026-11-01T19:56:33-05:00"
+source_commit: "5fe3a22558905593434e76e97a9375a41bf0354f"
+source_commit_timestamp: "2026-11-08T19:24:01-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/hints/options.py](../../../../../../src/learnloop/hints/options.py) |
-| Source lines | 198 |
+| Source lines | 205 |
 | Owning package | [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e6d3c96710df3cbdb228f505cada139d72f82cda` |
-| Commit timestamp | `2026-11-01T19:56:33-05:00` |
+| Source commit | `5fe3a22558905593434e76e97a9375a41bf0354f` |
+| Commit timestamp | `2026-11-08T19:24:01-05:00` |
 
 ## Public API
 

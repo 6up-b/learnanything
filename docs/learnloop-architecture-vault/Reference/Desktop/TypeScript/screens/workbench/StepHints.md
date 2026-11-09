@@ -10,8 +10,8 @@ area: "TypeScript/screens/workbench"
 source_path: "apps/learnloop-tauri/src/screens/workbench/StepHints.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/workbench/StepHints.tsx"
-source_commit: "a73f013ca0f06b9d7b76a561bf56ce16a4c94a95"
-source_commit_timestamp: "2026-10-21T13:41:26-04:00"
+source_commit: "5fe3a22558905593434e76e97a9375a41bf0354f"
+source_commit_timestamp: "2026-11-08T19:24:01-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/StepHints.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/StepHints.tsx) |
-| Source lines | 218 |
+| Source lines | 230 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a73f013ca0f06b9d7b76a561bf56ce16a4c94a95` |
-| Commit timestamp | `2026-10-21T13:41:26-04:00` |
+| Source commit | `5fe3a22558905593434e76e97a9375a41bf0354f` |
+| Commit timestamp | `2026-11-08T19:24:01-05:00` |
 
 ## Activation and status evidence
 
@@ -60,21 +60,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface StepOption` — interface, line 32
-- `export function FeedbackBox(` — function, line 37
-- `export function HintCard(` — function, line 120
+- `export interface StepOption` — interface, line 33
+- `export function FeedbackBox(` — function, line 38
+- `export function HintCard(` — function, line 121
 
 ## Internal implementation anchors
 
-- `const chip = (on: boolean)` — const, line 21
-- `const send = ()` — const, line 51
-- `const onKey = (event: KeyboardEvent<HTMLInputElement>)` — const, line 54
-- `function DiscriminatingBox(` — function, line 89
-- `const symbolicLive = useSymbolicChecksLive()` — const, line 150
-- `const asking = hint.kind === "discriminating"` — const, line 151
-- `const authored = hint.labels?.origin === "from the item"` — const, line 152
-- `const Voice = authored ? ItemVoice : ModelVoice` — const, line 155
-- `function ItemVoice(` — function, line 211
+- `const chip = (on: boolean)` — const, line 22
+- `const send = ()` — const, line 52
+- `const onKey = (event: KeyboardEvent<HTMLInputElement>)` — const, line 55
+- `function DiscriminatingBox(` — function, line 90
+- `const symbolicLive = useSymbolicChecksLive()` — const, line 156
+- `const asking = hint.kind === "discriminating"` — const, line 157
+- `const authored = hint.labels?.origin === "from the item"` — const, line 158
+- `const Voice = authored ? ItemVoice : ModelVoice` — const, line 161
+- `function ItemVoice(` — function, line 223
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`, `ModelVoice`
+- [[Reference/Desktop/TypeScript/screens/workbench/BookPassage|src/screens/workbench/BookPassage.tsx]] — import-or-re-export; imports `BookPassage`
 - [[Reference/Desktop/TypeScript/screens/workbench/WhereThisGoes|src/screens/workbench/WhereThisGoes.tsx]] — import-or-re-export; imports `WhereThisGoes`
 - [[Reference/Desktop/TypeScript/screens/workbench/helpModel|src/screens/workbench/helpModel.ts]] — import-or-re-export; imports `HELP_COPY`, `WORKBENCH_SHORTCUTS`, `claimLine`, `hintLabel`
 - [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchHelp|src/screens/workbench/useWorkbenchHelp.ts]] — import-or-re-export; imports `BridgeState`
@@ -109,7 +110,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/workbench/BookPassage.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/BookPassage.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

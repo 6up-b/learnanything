@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 import sqlite3
+import threading
 from functools import cache
 from pathlib import Path
+from typing import Any
+import weakref
 
 # WAL itself needs SQLite 3.7.0.  A read-only connection can open a WAL
 # database whose ``-shm`` it cannot write, or that has no ``-shm`` yet in a
@@ -97,17 +103,250 @@ def connect(sqlite_path: Path, *, read_only: bool = False) -> sqlite3.Connection
 
     require_supported_sqlite()
     sqlite_path = Path(sqlite_path)
+    pool = _REUSED.get()
+    if pool is not None and pool.thread == threading.get_ident():
+        reused = pool.connect(sqlite_path, read_only=read_only)
+        if reused is not None:
+            return reused  # type: ignore[return-value]
     if read_only:
         from learnloop.db.scopes import apply_connection_hook
 
         return apply_connection_hook(_open_read_only(sqlite_path), sqlite_path)
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(sqlite_path)
-    _configure(connection)
-    connection.execute("PRAGMA synchronous = FULL")
+    connection = _open_writable(sqlite_path)
     from learnloop.db.scopes import guarded_connection
 
     return guarded_connection(connection, sqlite_path)
+
+
+def _open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection] = sqlite3.Connection) -> sqlite3.Connection:
+    connection = sqlite3.connect(sqlite_path, factory=factory)
+    _configure(connection)
+    connection.execute("PRAGMA synchronous = FULL")
+    return connection
+
+
+# -- Router speed stage 2, item 4: connections reused within one objective job -------------------------------------
+
+#: The open scope's pool (:func:`reused_connections`); None outside one.
+_REUSED: ContextVar["_ConnectionPool | None"] = ContextVar("learnloop_reused_connections", default=None)
+
+
+@contextmanager
+def reused_connections() -> Iterator[None]:
+    """Router speed stage 2, item 4: inside, every :func:`connect` made **on the thread that opened the scope** hands
+    out a connection of this scope's pool instead of opening one (SQLite parses the whole schema at a connection's
+    first statement: about 2 ms here, hundreds of times in one objective job). Other threads (the job's model calls,
+    which copy its context) open their own as before, so no connection ever crosses a thread.
+
+    A connection given back (``close()``, or the end of a repository's ``with`` block, which closes it) is returned
+    exactly as a fresh one would be next: its cursors closed (their statements finalized, so no read snapshot
+    outlives its user), any transaction its user left open rolled back (as closing discards it: no write lock is
+    ever kept), the AD guard's authorizer and trace hook removed (the next user's operation installs its own, through
+    the connection hook, as at an open) and its row factory, isolation level and text factory set back. Landing
+    ruling R4 (Codex's verify N1): a connection on which anything but reads ran during the checkout (a PRAGMA with an
+    argument, a write, DDL, ATTACH, seen by its authorizer: :class:`_PooledSqlite`), or whose API changed its own
+    state (a function, a collation, a handler, a limit), is closed at release instead, never handed out again, so no
+    setting a user changed reaches the next. Each user holds its own: a connection in use is never handed out again
+    until given back. An ingest job's guarded connections are never pooled. Every idle connection is closed when the
+    scope ends. Nothing a reader computes changes: each statement reads what a fresh connection would."""
+
+    pool = _ConnectionPool()
+    token = _REUSED.set(pool)
+    try:
+        yield
+    finally:
+        _REUSED.reset(token)
+        pool.close()
+
+
+class _ConnectionPool:
+    """One scope's idle connections, by database and mode, for its own thread only."""
+
+    def __init__(self) -> None:
+        self.thread = threading.get_ident()
+        self.idle: dict[tuple[str, bool], list[sqlite3.Connection]] = {}
+        self.opened = 0
+        self.handed = 0
+        self.closed = False
+
+    def connect(self, sqlite_path: Path, *, read_only: bool) -> "_ReusedConnection | None":
+        from learnloop.db.scopes import apply_connection_hook, current_ingest_job_id
+
+        if self.closed or (not read_only and current_ingest_job_id(sqlite_path) is not None):
+            return None  # an ingest job's writes are fenced by its own guarded connection
+        key = (str(sqlite_path.resolve()), bool(read_only))
+        idle = self.idle.get(key)
+        if idle:
+            raw = idle.pop()
+        else:
+            if read_only:
+                raw = _open_read_only(sqlite_path, factory=_PooledSqlite)
+            else:
+                sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+                raw = _open_writable(sqlite_path, factory=_PooledSqlite)
+            self.opened += 1
+        self.handed += 1
+        # As at an open: no authorizer but the current operation's (installed by the hook, which expires every
+        # statement prepared before, so nothing prepared outside it runs unchecked inside it; and every statement of
+        # this checkout is prepared again, so the watcher below sees each one: landing ruling R4).
+        raw.set_authorizer(None)
+        raw.set_trace_callback(None)
+        apply_connection_hook(raw, sqlite_path)
+        raw.watch()
+        return _ReusedConnection(raw, self, key)
+
+    def give(self, key: tuple[str, bool], raw: sqlite3.Connection) -> None:
+        if self.closed or self.thread != threading.get_ident():
+            raw.close()
+            return
+        self.idle.setdefault(key, []).append(raw)
+
+    def close(self) -> None:
+        self.closed = True
+        for connections in self.idle.values():
+            for raw in connections:
+                try:
+                    raw.close()
+                except sqlite3.Error:  # pragma: no cover - closing never fails the scope
+                    pass
+        self.idle.clear()
+
+
+class _ReusedConnection:
+    """A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the
+    pool reset (:func:`reused_connections`). The cursors it hands out are tracked so that giving it back finalizes
+    them, as closing a connection does."""
+
+    __slots__ = ("_connection", "_pool", "_key", "_cursors", "_released", "_changed")
+
+    def __init__(self, connection: "_PooledSqlite", pool: _ConnectionPool, key: tuple[str, bool]) -> None:
+        object.__setattr__(self, "_connection", connection)
+        object.__setattr__(self, "_pool", pool)
+        object.__setattr__(self, "_key", key)
+        object.__setattr__(self, "_cursors", weakref.WeakSet())
+        object.__setattr__(self, "_released", False)
+        object.__setattr__(self, "_changed", False)
+
+    def _raw(self) -> "_PooledSqlite":
+        if self._released:
+            raise sqlite3.ProgrammingError("Cannot operate on a closed database.")
+        return self._connection
+
+    def __getattr__(self, name: str) -> Any:
+        if name in _CONNECTION_STATE_CALLS:
+            object.__setattr__(self, "_changed", True)  # R4: a function, collation, handler or limit outlives it
+        return getattr(self._raw(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name not in _RESET_ATTRIBUTES:
+            object.__setattr__(self, "_changed", True)  # R4: an attribute the release does not set back
+        setattr(self._raw(), name, value)
+
+    def _track(self, cursor: sqlite3.Cursor) -> sqlite3.Cursor:
+        self._cursors.add(cursor)
+        return cursor
+
+    def cursor(self, *args: Any, **kwargs: Any) -> sqlite3.Cursor:
+        return self._track(self._raw().cursor(*args, **kwargs))
+
+    def execute(self, sql: str, parameters: Any = ()) -> sqlite3.Cursor:
+        return self._track(self._raw().execute(sql, parameters))
+
+    def executemany(self, sql: str, parameters: Any) -> sqlite3.Cursor:
+        return self._track(self._raw().executemany(sql, parameters))
+
+    def executescript(self, script: str) -> sqlite3.Cursor:
+        return self._track(self._raw().executescript(script))
+
+    def __enter__(self) -> "_ReusedConnection":
+        self._raw().__enter__()
+        return self
+
+    def __exit__(self, *exc: Any) -> Any:
+        return self._raw().__exit__(*exc)
+
+    def close(self) -> None:
+        if self._released:
+            return
+        object.__setattr__(self, "_released", True)
+        raw = self._connection
+        # Landing ruling R4: whether anything but reads ran in this checkout (seen by the authorizer, whatever
+        # authorizer the checkout installed); what follows is the pool's own reset, not watched.
+        changed = raw.unwatch() or self._changed
+        try:
+            for cursor in list(self._cursors):
+                cursor.close()
+            if raw.in_transaction:
+                raw.rollback()  # what closing does to a transaction its user left open
+            raw.set_authorizer(None)
+            raw.set_trace_callback(None)
+            if changed:
+                raw.close()  # R4: a PRAGMA with an argument, a write, DDL or ATTACH ran: never handed out again
+                return
+            raw.isolation_level = ""
+            raw.row_factory = sqlite3.Row
+            raw.text_factory = str
+        except sqlite3.Error:
+            raw.close()  # anything that cannot be reset is closed, never handed out again
+            return
+        self._pool.give(self._key, raw)
+
+
+#: Landing ruling R4: the authorizer actions of a read (a PRAGMA without an argument is one too: see
+#: :class:`_PooledSqlite`). Transaction control is allowed: the release rolls back what a checkout left open.
+_READ_ACTIONS = frozenset({sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION,
+                           sqlite3.SQLITE_RECURSIVE, sqlite3.SQLITE_TRANSACTION, sqlite3.SQLITE_SAVEPOINT})
+#: The attributes a release sets back (anything else set on a pooled connection closes it at release).
+_RESET_ATTRIBUTES = frozenset({"isolation_level", "row_factory", "text_factory"})
+#: The connection's own state its API can change outside SQL (closed at release once called).
+_CONNECTION_STATE_CALLS = frozenset({
+    "create_function", "create_aggregate", "create_window_function", "create_collation", "set_progress_handler",
+    "enable_load_extension", "load_extension", "setlimit", "setconfig", "deserialize"})
+
+
+class _PooledSqlite(sqlite3.Connection):
+    """A pooled connection's SQLite connection (router speed stage 2, landing ruling R4: Codex's verify N1). Whatever
+    authorizer a checkout installs (the AD guard's, through the connection hook, or none) is wrapped, so every
+    statement the checkout prepares is seen by its authorizer action: a PRAGMA with an argument (``SQLITE_PRAGMA``
+    with one: ``query_only = ON``, ``table_info(t)``) or any statement other than a read (a write, DDL, ATTACH, a
+    temp object...) marks the connection, and a marked connection is closed at release, never pooled again. No list
+    of settings to restore: what is not a read is not reused. The checkout's statements are all prepared afresh (the
+    checkout's ``set_authorizer`` expires every statement prepared before), so none escapes its authorizer."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._watching = False
+        self._marked = False
+        super().set_authorizer(self._wrapped(None))
+
+    def _wrapped(self, inner: Any) -> Any:
+        reference = weakref.ref(self)
+
+        def authorizer(action: int, arg1: Any, arg2: Any, database: Any, trigger: Any) -> int:
+            connection = reference()
+            if connection is not None and connection._watching and action not in _READ_ACTIONS and not (
+                    action == sqlite3.SQLITE_PRAGMA and arg2 is None):
+                connection._marked = True
+            return sqlite3.SQLITE_OK if inner is None else inner(action, arg1, arg2, database, trigger)
+
+        return authorizer
+
+    def set_authorizer(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
+        inner = args[0] if args else kwargs.get("authorizer_callback")
+        super().set_authorizer(self._wrapped(inner))
+
+    def watch(self) -> None:
+        """A checkout begins: from now on its statements mark the connection."""
+
+        self._marked = False
+        self._watching = True
+
+    def unwatch(self) -> bool:
+        """The checkout ends: whether anything but reads ran in it."""
+
+        self._watching = False
+        return self._marked
 
 
 def _configure(connection: sqlite3.Connection) -> None:
@@ -116,8 +355,8 @@ def _configure(connection: sqlite3.Connection) -> None:
     connection.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
 
 
-def _open_read_only(sqlite_path: Path) -> sqlite3.Connection:
-    """Open with ``mode=ro`` and surface a WAL open failure here.
+def _open_read_only(sqlite_path: Path, *, factory: type[sqlite3.Connection] = sqlite3.Connection) -> sqlite3.Connection:
+    """Open with ``mode=ro`` and surface a WAL open failure here (``factory``: a pooled connection's class).
 
     A WAL database opens its ``-wal`` and ``-shm`` lazily on the first read.
     Since SQLite 3.22.0 a read-only connection works when those files exist or
@@ -129,7 +368,7 @@ def _open_read_only(sqlite_path: Path) -> sqlite3.Connection:
     """
 
     uri = sqlite_path.resolve().as_uri()
-    connection = sqlite3.connect(f"{uri}?mode=ro", uri=True)
+    connection = sqlite3.connect(f"{uri}?mode=ro", uri=True, factory=factory)
     _configure(connection)
     try:
         connection.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()

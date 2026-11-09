@@ -3,13 +3,13 @@ title: "mobile_request_log"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
-source_commit_timestamp: "2026-11-08T23:13:15-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_request_log"
   - "table mobile_request_log"
-schema_head: 251
+schema_head: 250
 table_name: "mobile_request_log"
 table_role: "workflow"
 functionality_status: "active"
@@ -94,7 +94,6 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_instruct_handoff_ih0.py`
 - `tests/test_mobile_handoff.py`
 - `tests/test_mobile_host_auth.py`
 - `tests/test_mobile_host_coexistence.py`

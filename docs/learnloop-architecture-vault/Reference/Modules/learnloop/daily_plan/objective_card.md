@@ -117,6 +117,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f10_the_policy_card_names_each_goals_topics_and_their_weights`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_protection_holds_on_the_llm_policys_card`
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
   - `test_a_regrade_or_hold_between_the_jobs_card_and_numeric_builds_reaches_the_numeric_policy`
 
