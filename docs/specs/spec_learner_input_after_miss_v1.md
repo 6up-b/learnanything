@@ -1,6 +1,6 @@
 # Learner input after a miss (LI)
 
-**Status:** owner's decisions recorded Nov 9 2026 (§11): D2, D3, D4 and the `attempt_type` change decided; D1 open. Built after refactor arc D. Code references are to main at `6c8962ce95`. Arc C and arc D will move or shrink some of these files, so each rule names the concept first and the file second: the build rechecks each path. `spec_instruct_handoff_v1.md` (IH) was read from the main checkout, where it is uncommitted, and is not built at this tip.
+**Status:** accepted by the owner, Nov 9 2026 (§11: D1-D4 and the `attempt_type` change decided). Built after refactor arc D. Code references are to main at `6c8962ce95`. Arc C and arc D will move or shrink some of these files, so each rule names the concept first and the file second: the build rechecks each path. `spec_instruct_handoff_v1.md` (IH) was read from the main checkout, where it is uncommitted, and is not built at this tip.
 
 ## 1. The owner's decisions (Nov 9, verbatim)
 
@@ -90,7 +90,7 @@ The prompt settles on the first of: Send; *Not now*; Next (which also sends any 
 | Any score, including at or above AD's 0.8 | Grade | Owner's D2: no cut-off decides the asking. At or above the line a credit changes only the visible grade (§5) |
 | Some criterion earned points, and the answer isn't stuck or empty | Evidence rows | If nothing was addressed, wording isn't the plausible reason; this is a plain miss |
 | Each named criterion has 0 points and isn't marked unverified | Evidence rows | "Never addressed" |
-| **The answer says nothing wrong:** no fatal error; final answer not `differs_from_reference`; no attribution in force with a verbatim quote from the answer (`grading_support.py:564`); no first divergence anchored anywhere but `missing_required_step` | Grade | The owner's "never addressed", read at the answer level (D1) |
+| **The answer says nothing wrong about the named item:** no attribution in force on that criterion with a verbatim quote from the answer (`grading_support.py:564`), and no first divergence anchored to it anywhere but `missing_required_step` | Grade | The owner's "never addressed", read per item (D1). A wrong claim elsewhere doesn't stop the question: a fatal error or a wrong final answer stays as graded, and §5's credit can't lift either |
 | Attributions on the named criteria say `interaction_context` | Grade | "Wording could plausibly be why". `item_contract` is different: it means the item is defective, goes to machine review (`grading.py:1277`, `:1581`) and gets no question |
 | `wording_quote`, if given, is verbatim in the question | Item | Item repair reads it (§6) |
 | The question passes §4.2 | Text | |
@@ -178,6 +178,8 @@ The provisional grade reaches the ledger at submit, as A8's does, and a credited
 3. **Below the line, the attempt becomes `hinted_attempt`.** In the re-grade's transaction, with the original type kept on the receipt. Every allow-list of unaided work fails closed: `QUALIFYING_ATTEMPT_TYPES` (`diagnosis/forecast_receipts.py:84`), `GRADED_RETRIEVAL_TYPES` (`field/outcomes.py:236`), `classify_attempt_activity`'s assisted arm (`causal_activity_policy.py:168-186`, read by `diagnosis/scoreboard.py:357`, `certification_cold_probe.py:1477`, `scheduling/intent/serving.py:111`), `goals/forecast_ledger.py:106`. Any reader the build misses treats it as help, not as a cold success.
 
 `hints_used` stays the truth: AD's category reads the receipt, so `help_timing` needs no faked hint.
+
+**A wrong claim beside a skipped item (owner's D1).** The follow-up credits the skipped item only. The wrong claim keeps its lost points, a fatal error keeps its cap, and the diagnoser still sees the claim, so the router can draw a probe on it at the next step. That's the one question from us plus the router's one next step (§8).
 
 **At or above the success line (owner's D2).** The attempt keeps its original type and `practice_attempts`' score stays `y0`. `y1` lives on the follow-up's receipt, and the feedback screen and any view of the attempt's grade show it from there. An attempt of an unaided type must never carry a score that help raised: readers of the raw score (AD, field, calibration, forecasts) would take `y1` for unaided work. So this path needs no soft factor, costs no certification credit, and can't flatter a forecast. The build lists every grade display that must read the receipt.
 
@@ -329,7 +331,7 @@ Changing `practice_attempts.attempt_type` at credit is an update to a raw ledger
 
 Fakes only; no paid or live calls; the full suite only in the landing gate.
 
-- **Validator:** one case per row of §4.1, each dropping alone and writing its rule; a verbatim wrong claim anywhere stops the request whatever the model says; a fabricated quote doesn't count as located; old triggers unchanged.
+- **Validator:** one case per row of §4.1, each dropping alone and writing its rule; a verbatim wrong claim about the named item stops the request whatever the model says; a wrong claim elsewhere doesn't stop it, and the probe stays available; a fabricated quote doesn't count as located; old triggers unchanged.
 - **Giveaway and count:** a question quoting the expected answer or a distinctive number is dropped; a reply echoing only the question earns nothing; a request on the re-grade is dropped; A8 and the follow-up can't both exist.
 - **Re-grade:** a re-grade moving an unnamed criterion keeps its provisional points, `y1 ≥ y0`; each row of §4.5 leaves Next working; the reply survives an outage and a restart.
 - **Blindness:** the grader's payload has no history or stated reason; its bytes are unchanged with a stated reason present.
@@ -380,7 +382,7 @@ LI1 and LI2 may land in either order. If LI2 lands first, §8's rule still holds
 
 | # | Question | Recommendation, then the owner's decision |
 |---|---|---|
-| D1 | "Says something wrong": anywhere in the answer, or only about the missed item? Your words name the item; the brief for this spec says the answer. Consider an answer with one wrong claim and a separate clause skipped | **Anywhere.** A wrong claim is a real miss with a real cause to chase, and the probe is the right next step. It also keeps a follow-up and a probe from stacking on one attempt in most cases. **Open:** the owner's Nov 9 note favours a follow-up "anywhere"; that may mean asking about the skipped item even with a wrong claim elsewhere, the other reading of this row |
+| D1 | "Says something wrong": anywhere in the answer, or only about the missed item? Your words name the item; the brief for this spec says the answer. Consider an answer with one wrong claim and a separate clause skipped | **Anywhere,** so a wrong claim alone means a probe. **Decided, Nov 9: only about the missed item.** Ask about the skipped item even with a wrong claim elsewhere; the follow-up and a probe can both happen on one attempt (§5) |
 | D2 | Ask when the answer already reaches the success line (0.8) but skipped a smaller item? | **No.** It's already a success everywhere that matters, and asking adds a screen on a good answer. The cost: that point stays lost on the visible grade. If it bothers you, the alternative is asking with no change to any record but the grade. **Decided, Nov 9: ask at any score,** because no hardcoded value should decide the follow-up; §5 gives the grade-only path. The missed-because-why prompt (§3.1) keeps its own reading of a miss; D2 is about rubric follow-ups |
 | D3 | AD's state: the soft factor `ρ·Y=2 + (1−ρ)·Y=1`, or plain `Y = 1`? | **Soft factor.** `Y = 1` is AD's existing "success with help" and needs no new code, but it treats "nearly everything, and supplied the rest when asked" the same as a 40% answer, which isn't your "pretty close to a full success". The factor is one small addition, and forecast labels are the same either way. **Decided, Nov 9: soft factor** |
 | D4 | Answering a follow-up costs the attempt's certification credit, including for parts answered unaided, so skipping can earn more credit than answering. Accept? | **Accept for now.** The attempt was below the success line anyway, the learner never sees it, and per-criterion assistance is a bigger change to the capability ledger. A report can show whether it matters. **Decided, Nov 9: accepted.** It applies below the success line; at or above it nothing is lost (§5). The `attempt_type` change to `hinted_attempt` below the line (§9) is also accepted |
