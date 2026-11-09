@@ -245,36 +245,52 @@ def test_the_contest_values_a_generated_probe_with_rous_probe_interface_and_noth
 # -- item 2: requested items and randomized checks stay forced ----------------------------------------------------------
 
 
-def test_a_requested_followup_stays_forced_and_keeps_the_offer_out(tmp_path, draw):
-    env, live = _need_path_env(tmp_path)
+def test_only_followups_compete_a_request_or_a_check_stays_forced(tmp_path):
+    env = _env(tmp_path)
+    plain = SimpleNamespace(practice_item_id="pi_x", requested=False, check_kind=None, lane="repair", est_minutes=1.0,
+                            learning_object_id="lo_diag")
+    assert E._followups_compete(env, [plain], E.ORIGIN_FOLLOWUP) is True
+    assert E._followups_compete(env, [plain], E.ORIGIN_REQUESTED) is False
+    assert E._followups_compete(env, [SimpleNamespace(**{**vars(plain), "requested": True})], E.ORIGIN_FOLLOWUP) is False
+    assert E._followups_compete(env, [SimpleNamespace(**{**vars(plain), "check_kind": "check_once"})], E.ORIGIN_FOLLOWUP) is False
+
+
+def test_a_requested_item_is_placed_at_the_build_with_no_offer_beside_it(tmp_path, draw):
+    env = _env(tmp_path, toml=NO_CHECKS)
+    env.repository.requested_practice_item_ids = lambda *, skip_commitment_ids=(): ["pi_r1a"]
+    draw.prefer = (OFFER,)
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-    for _ in range(8):
-        _record, step = advance(env, serve=True)
-        if _objective_rows(env):
-            break
-        env.clock.advance(2)
-        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
-                       session_id=env.session_id)
-    forced = [SimpleNamespace(practice_item_id="pi_x", requested=True, check_kind=None, lane="repair", est_minutes=1.0,
-                              learning_object_id="lo_diag")]
-    assert E._followups_compete(env, forced, E.ORIGIN_FOLLOWUP) is False
-    checked = [SimpleNamespace(**{**vars(forced[0]), "requested": False, "check_kind": "check_once"})]
-    assert E._followups_compete(env, checked, E.ORIGIN_FOLLOWUP) is False
-    # A request's own origin never competes, whatever it holds.
-    plain = [SimpleNamespace(**{**vars(forced[0]), "requested": False})]
-    assert E._followups_compete(env, plain, E.ORIGIN_REQUESTED) is False
-    assert E._followups_compete(env, plain, E.ORIGIN_FOLLOWUP) is True
+    decision = _objective_rows(env)[0]
+    assert [entry["practice_item_id"] for entry in decision["detail_json"]["forced"]] == ["pi_r1a"]
+    assert decision["detail_json"]["lesson_offers"]["status"] == "none:forced_items"
+    assert not any(str(ref).startswith("lesson_offer:") for ref in decision["detail_json"]["mixture"]["support"])
 
 
-def test_a_randomized_check_is_administered_before_any_contest(tmp_path, draw, monkeypatch):
-    """The day's check block is placed by the rules before the decision: follow-ups come first in it, no offer drawn."""
+def test_the_days_check_is_placed_before_the_contest_is_asked(tmp_path, draw, monkeypatch):
+    """RO5's block is the rules': a check due at this boundary is administered before any decision, with the follow-ups
+    first in it (``tests/test_ro5_*``). Here, the order at a boundary that has follow-ups."""
 
-    env = _env(tmp_path, toml="[router_objective]\nstop_coin = 0.0\ncheck_rate = \"embedded\"\n")
-    calls = []
-    real = E._followups_compete
-    monkeypatch.setattr(E, "_followups_compete", lambda *a, **k: calls.append(1) or real(*a, **k))
-    _record, step = advance(env, serve=True)
-    assert step["kind"] == "item" and not calls  # the check's own block comes first: nothing reached the contest
+    env = _env(tmp_path)
+    _open_offer(env, draw)
+    probe = _ready_probe(env)["practice_item_id"]
+    order: list[str] = []
+    real_check, real_compete = E._randomized_check_block, E._followups_compete
+
+    def check(env_, record, context, **kwargs):
+        order.append("check")
+        assert [item.practice_item_id for item in kwargs["forced"]] == [probe]
+        return real_check(env_, record, context, **kwargs)
+
+    def compete(*args, **kwargs):
+        order.append("compete")
+        return real_compete(*args, **kwargs)
+
+    monkeypatch.setattr(E, "_randomized_check_block", check)
+    monkeypatch.setattr(E, "_followups_compete", compete)
+    env.clock.advance(1)
+    draw.prefer = ("followup_contest:",)
+    advance(env, serve=True)
+    assert order == ["check", "compete"]
 
 
 # -- a lesson win: held feedback released, nothing generated -------------------------------------------------------------
@@ -669,11 +685,10 @@ def test_a_followup_arriving_over_an_interrupting_offer_joins_the_block_below_an
     first = _need_probe_arrives(live)
     draw.prefer = (OFFER,)
     _record, offer = advance(env, serve=True)
-    second = "pi_later"
     live.insert(0, scheduled("pi_diag_easy", "lo_diag", followup_kind="negative_surprise_followup"))
     env.clock.advance(1)
     _record, again = advance(env, serve=False)
-    assert again["kind"] == "lesson_offer" and again["block_id"] == offer["block_id"], second
+    assert again["kind"] == "lesson_offer" and again["block_id"] == offer["block_id"]
     record = E.latest_today(env)
     assert record.open_lesson_offer().id == offer["block_id"] and record.current_block().interrupts
     assert first not in {item.practice_item_id for item in below.items}
@@ -984,10 +999,13 @@ def test_the_workflows_one_job_runs_again_for_a_new_decision(tmp_path):
 # -- the whole journey, through the real diagnosis, worker and author doors --------------------------------------------------
 
 
-def test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question(tmp_path, draw, monkeypatch):
+@pytest.mark.parametrize("contested", [False, True])
+def test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question(tmp_path, draw, monkeypatch, contested):
     """A real miss in a blind vault with a plan: the lesson wins with nothing written and what was held released; the
     page opens from the plan; "Not now" sends the workflow back to the worker, whose new decision generates exactly one
-    question, labelled exposed; and the plan serves it."""
+    question, labelled exposed; and the plan serves it. ``contested``: a new offer is drawn at the next boundary first,
+    so the new decision holds no lesson, and the real generated probe arrives during an open offer (the Nov 8 shape): it
+    meets the offer in a new decision, valued by RO §8.1's probe interface through its own item's mode."""
 
     from learnloop.daily_plan.policy import policy_for
     from learnloop.vault.loader import load_vault
@@ -1043,6 +1061,17 @@ def test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question(tmp_pa
     advance(env, serve=False)
     row = wf.get(repository, outcome.workflow_id)
     assert row["state"] == wf.PENDING and not row["chosen_ref"]
+    if contested:
+        draw.prefer = (offer_ref,)
+        for _ in range(12):
+            current = E.latest_today(env).current_block()
+            if current.is_lesson_offer:
+                break
+            item = next(entry for entry in current.items if not entry.resolved)
+            advance(env, serve=False, skip_practice_item_id=item.practice_item_id)
+        assert E.latest_today(env).current_block().is_lesson_offer
+        before_offer = current.decision_ref
+        draw.prefer = (INSERT_NOW,)
 
     run_jobs(vault, repository, clients=clients)
     assert author.calls == 1, "one question, written after the new decision"
@@ -1054,6 +1083,20 @@ def test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question(tmp_pa
     env.vault = load_vault(paths.root)
     env.vault.config = vault.config
     env.policy = policy_for(env.vault, env.repository, session_id="s1", clock=CLOCK, runtime=runtime, serve=True)
+    if contested:
+        draw.prefer = ("followup_contest:",)
+        before = len(_objective_rows(env))
     _record, served = advance(env, serve=True)
     assert served["kind"] == "item" and served["practice_item_id"] == row["practice_item_id"]
+    if contested:
+        decision = _objective_rows(env)[before:][-1]
+        _assert_exact_mu(decision)
+        assert decision["detail_json"]["mixture"]["support"] == [f"followup_contest:{row['practice_item_id']}", offer_ref]
+        with env.repository.connection() as connection:
+            assert json.loads(LO.withdrawn(connection, before_offer)["detail_json"])[LO.SUPERSEDED_BY] == decision["id"]
+        assert "numeric" not in decision["detail_json"]["mixture"]["failed"]
+        with env.repository.connection() as connection:
+            trace = _trace_of(connection, decision["id"])
+        entry = trace["candidates"][f"followup_contest:{row['practice_item_id']}"]
+        assert entry["kind"] == PROBE and {"none", "repair", "on_result"} <= set(entry["branches"])
     assert wf.probe_answer_exposed(repository, str(row["presentation_id"])) == "followup_feedback_released_before_probe"
