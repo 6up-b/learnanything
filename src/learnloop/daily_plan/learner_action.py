@@ -35,7 +35,7 @@ from typing import Any
 
 from learnloop.daily_plan import engine as E
 from learnloop.daily_plan.records import ORIGIN_LEARNER_PICK
-from learnloop.daily_plan.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY, BlockCandidate
+from learnloop.daily_plan.types import LESSON_OFFER_PREFIX, STOP_FOR_TODAY, BlockCandidate
 from learnloop.db.stores import router as router_store
 from learnloop.ids import new_ulid
 from learnloop.router import lesson_suggestions as LS

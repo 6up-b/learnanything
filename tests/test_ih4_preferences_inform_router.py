@@ -319,6 +319,18 @@ def _row(kind: str, n: int, *, parent: str | None = None, served: str | None = N
             "served_decision_id": served, "offered_json": offered or _offered(*LA.KINDS)}
 
 
+def test_the_kinds_are_the_plans_own_names():
+    """The leaf keeps its own copies of the plan's names, since ``router_objective`` sits below the plan."""
+
+    from learnloop.daily_plan.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY
+    from learnloop.router_objective.stop_coin import STOP as COIN_STOP
+
+    assert PF._LESSON_SUBTYPE == LESSON_OFFER_SUBTYPE and PR.OFFER_PREFIX == LESSON_OFFER_PREFIX
+    assert COIN_STOP == STOP_FOR_TODAY
+    assert PF.kind_of(reading=None, subtype=LESSON_OFFER_SUBTYPE, lane="new") == LA.LESSON
+    assert LA.kind_of is PF.kind_of and LS.LESSON_KIND == LA.LESSON
+
+
 def test_with_nothing_on_record_every_kind_is_equal():
     state, counts = PF.replay([])
     features = PF.Features(9.0, 30.0, 1.0)
