@@ -107,3 +107,64 @@ See the end of this file for the run numbers.
 - `test_re0_capture.py` 34 tests (was 22). Targeted Python (the earlier targeted lists, 31 files, `-n 4`): 880 passed, 5 skipped, 1 failed: `test_mobile_phone_contract.py::test_every_reply_carries_what_the_phone_reads`, which passes alone (8 passed) and is timing-sensitive under load (a long method past the host's wait); the same file passed in the first full targeted run.
 - `lint-imports`: 43 kept, 0 broken. Typecheck clean for both apps. Vitest: desktop 277 files, 2795 tests passed; phone 30 files, 339 passed.
 - The 94 head-pinned failures are unchanged in kind (head fixture at 250, migrations to 252); not rerun.
+
+## Landing onto main (Nov 9 2026)
+
+**Merges.** Main was merged twice:
+- `0a6e8bda4e` (instruct hand-off IH at `mvp-0.55` with migration 251, Decider v1.2, the test-suite audit, refactor docs; merge `5bd724f845`). One conflict: `tests/cli_help_snapshot.json`, deleted on main (replaced by `tests/cli_surface.json`) and modified here for the `data-capture` docstrings; main's deletion taken. `cli_surface.json` needs no edit, because the docstring change is a compatible one (`test_cli_help_snapshot.py` passes).
+- `6b597a43ee` (the placement fix at `mvp-0.56`, and the lockdown approval of `scripts/refactor_measures.py`; merge `71750e393d`). Conflicts only in generated reference notes (configuration, database, modules): main's taken, then all regenerated (`37e7bb0823`).
+
+Migration 252 was still free on main. RE0 has no successor and changes no tag.
+
+**Steps 1-6 of the section above, as done** (`f72b034551`, `37e7bb0823`)
+- `fixtures/migration_head_251` became `fixtures/migration_head_252` (a `git mv`, so the tracked files stay renames). 252 was applied through `apply_migrations` under the test-helper allowance to a backup-API copy of the tracked fixture outside the checkout (it applied `[252]` only). Then `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok, `foreign_key_check` empty, and written into place with `backup_database`, no companion files. Its README has the section.
+- The head path moved in 73 files (70 tests, `scripts/sanitize_migration_head_fixture.py`, the two DB reference scripts) and the Database Catalog. `SCHEMA_HEAD` is 252; CLAUDE.md's count says 73 and 70.
+- Head pins and applied-migration lists end at 252, by a mechanical exact-pattern script (`== 251` on `max(...)` lines, and lists ending `250, 251]`). By hand: IH3's own tests no longer call 251 the head, and AD23's downgraded-head diff also allows `RE0_ALTERED_TABLES`. `test_mobile_v3_migration.py` and `test_ro1_availability.py` downgrade one migration each, so their exact applied lists (`[250]`, `[244]`) did not change; only their head pins moved.
+- `test_re0_capture.py` gained two tests: the head fixture holds 252 in rollback mode with no `active_seconds` set, and 252 on the downgraded head adds its column, keeps every row (the new column NULL) and changes no other object.
+- No new table, so `table_roles.py` is unchanged. All four reference validators pass: `db_validate_reference.py` errors `[]`, module catalog 1:1, desktop 330/330 (its inventory pins now count `attemptClock.ts` and `useAttemptClock.ts`: 330 sources, 319 entry-build, ACTIVE 336), vault ok.
+- Two fixes to the branch itself: a duplicated `OPTIONAL_SINCE_RE0` definition in `learnloop_mobile/runtime.py` removed, and `learnloop.recognition` added to the `experiments-stay-outside-production` import contract (`e7ad46f605`), which the full suite caught (`test_e0_isolation`).
+
+**Gate** (after the second merge; code unchanged since but for the contract line)
+- Targeted, 182 files (every RE0 and head-naming test; the migration, tracked-fixture, public-tip, sqlite-copy and coordinated-migration tests; data-capture report tests; every `test_mobile_*`; CLI surface, `test_cli_json`, architecture, registry audit): 11,329 passed, 6 skipped, 0 failed. Before the second merge the same set had one failure, `test_codex_lockdown_round3::test_every_process_launch_site_is_approved`. It failed alone 3 of 3 and failed the same way on main's own tree (`scripts/refactor_measures.py`); main's `6b597a43ee` fixed it.
+- `lint-imports --no-cache`: 43 kept, 0 broken.
+- Full suite (`-n 8`, worksteal): 30,841 passed, 96 skipped, 47 xfailed, 1 failed, 16 min 51 s. The failure was `test_e0_isolation::test_the_import_linter_contract_names_every_production_package` (deterministic, fixed above). After the fix it passes, and so does every test that reads `pyproject.toml` (152 passed).
+- Durability lane (`-m durability -n 4`): 417 passed, 1 skipped. `--durable-sqlite` on the migration and submission files (`test_re0_capture`, `test_ih3_migration`, `test_migrations`, `test_ad23_migration`, `test_mobile_jobs_migration`, `test_mobile_v4_codex_review`, `test_data_capture_a3_time_metric`): 116 passed.
+- Owner lane, on fresh backup-API copies of `owner-copies-mvp035`: 91 passed, 4 skipped, 0 xfailed, the same as main since the placement fix (which removed the one xfail).
+- Desktop: typecheck clean, vitest 281 files and 2,846 tests passed, `frontend:build` ok. Phone: typecheck clean, vitest 31 files and 354 tests passed, build ok.
+- Not run: cargo.
+
+**Smoke.** Fresh backup-API copies of `~/learnloop-backups/20261109-copy` (migration 250, `mvp-0.54`), with every AI route at 127.0.0.1:9, were upgraded by main's code (`6b597a43ee`) to `mvp-0.56` (migration 251). The branch's copies took 252 when opened; the tag stayed `mvp-0.56`. They were driven in process through the sidecar handlers with IH's landing drivers: the router LLM and the Decider were in-process fakes, the grader and diagnoser `BlindRivalClient`, the probe author `AuthorFake`. The frozen clock was `2026-11-10T15:00Z` and the mixture seed was pinned to the decision id.
+
+*Identity, first.* Each vault had one day (the second served item missed, its follow-up written, the first stop declined) on three fresh copies: main; the branch with no `activeSeconds` sent; the branch with `activeSeconds: 37` on every submission. Each branch run was compared with main's draw for draw over Today, the plan, every step, the LLM and Decider requests, the gates, the prompts and every written row (traces, decisions, assignments, block events), with only `active_seconds` set aside.
+- arxiv_v2 (15 served; 13 LLM and 13 Decider requests), linear_algebra (8; 5 and 5) and probability (14; 11 and 11) were identical in both branch runs on every vault, with one exception that is not RE0's.
+- The exception: the first branch run without `activeSeconds` on probability (made while the targeted suite ran beside it) served the same items with the same choices. But one stop-coin draw's propensity (0.3219 against 0.1563), one candidate's propensity in another decision and a trace's `v_residual` (-0.001002 against -0.000992) differed. Two more fresh branch runs on probability were identical to main, two more main runs were identical to each other, and the branch run that sent `activeSeconds` was identical too. It did not recur, so it is a run-to-run artifact on a loaded machine, not RE0, which sends nothing to any decision. Main has a known flake of the same shape, `test_ro5_stop_coin`.
+- What was stored: main's attempts have no such column. The branch's attempts without `activeSeconds` store NULL (15, 8 and 14 of them), and those with `activeSeconds: 37` store 37, every one.
+
+*The phone* (the real host in process, Starlette `TestClient`, one fresh copy per vault):
+- A submission with `activeSeconds: 23` stores 23, with `latency_seconds` 75 beside it (never blended). Its identical retry is the same request: 200, the same attempt, one row.
+- A V4-era submission without `activeSeconds` still submits and stores NULL, and its identical retry is the same request (`OPTIONAL_SINCE_RE0` keeps the old hash).
+- A negative `activeSeconds` is refused (422 `validation_error`) and writes nothing.
+
+*Report.* `learnloop data-capture report` (JSON and text) ran without error on all nine copies (no seconds, seconds and phone, for each vault). Each shows `recognition_and_effort`:
+- arxiv_v2: 33 practice attempts (18 cued, 15 uncued). linear_algebra: 40 (31 cued, 8 uncued, 1 unlabelled for one unreadable `method_stated`). probability: 17 (11 cued, 6 uncued).
+- Active seconds sent and missing, by surface: `desktop_practice` sent on the seconds copies and missing elsewhere; `phone_practice` 1 sent and 1 missing on the phone copies.
+- The practice pool and the goal-date reads, each split uncued, cued and unlabelled.
+
+*Replay.* `rebuild --shadow` left the live database unchanged on every copy. Beyond stamp-only rows there are only arxiv_v2's two mastery rows (`lo_render_…`, `lo_trace_recursive_relu_folding`) and nine `pi_lesson_*` `due_at` rows, the pre-existing rows IH's landing noted. Main's own shadow after its identity day shows the same rows and values. `active_seconds` is a column of a RAW_LEDGER table and survives `rebuild-derived-state` (15, 8 and 14 set, before and after), as do the attempts, assignments, traces, decisions, block events, preferences and lesson turns.
+
+*Spend and isolation.* The smoke created no `model_call_receipts` row from a real model; every new receipt names a fake. No socket left loopback and nothing resolved a name. The only subprocesses were `powerprofilesctl get` and `git rev-parse` for the code revision (in this worktree, or in the export of main).
+
+**The owner's steps**
+1. Restart the desktop app.
+2. Rebuild the PWA: `cd apps/learnloop-mobile && npm install && npm run build`. Then `systemctl --user restart learnloop-mobile`, `learnloop-mobile doctor`, and Reload on the phone.
+3. Each vault migrates to 252 when it is opened. There is no upgrade command and no new tag.
+4. Try one real attempt with a pause in it (switch away and come back). Then run `learnloop data-capture report --vault <vault>` and check that the attempt's surface shows active seconds sent and the attempt carries a label.
+
+**Two readings the owner may overrule** (above, under the cue label)
+1. The warmth window is the outcome contract's 24 h retention minimum (`RETENTION_MIN_DELAY_SECONDS`), not AD's 6 h decay constant. Changing it is one line in the ledger.
+2. "Goal-date reads" are the exam answers and sittings the goal-date transfer fits on (`exam_evidence`, `exam_attempt`). Imported exam answers are unlabelled. The practice pool is reported beside them.
+
+**Open items**
+1. The one probability identity difference that did not recur (above). Main has a known stop-coin flake of the same shape; it is worth a look if it shows up in a quiet run.
+2. Attempts already in the vaults have no active seconds (all NULL by design: never imputed from latency). The report's cells fill only with new attempts.
+3. Not run in any stage: cargo.
