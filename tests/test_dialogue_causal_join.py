@@ -744,3 +744,56 @@ def test_submit_eliciting_response_sidecar_method(tmp_path):
             },
         )
     assert missing.value.code == "not_found"
+
+
+# --- owner capture 2026-11-08: the question stays on screen after "That's it" ---
+
+
+def _believed(repository: Repository, vault, attempt_id: str, factor_id: str) -> None:
+    from learnloop.diagnosis.causal_attribution import record_unresolved_cause_self_report
+
+    record_unresolved_cause_self_report(
+        vault, repository, factor_id=factor_id, response="believed_candidate",
+        candidate_index=0, clock=FrozenClock(NOW),
+    )
+
+
+def test_an_eliciting_response_after_the_factor_was_resolved_is_recorded(tmp_path):
+    from learnloop.diagnosis.diagnosis_adjudication import latest_learner_report
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    _insert_attempt(repository, attempt_id="att_elicit_late")
+    factor_id = _open_factor(repository, "att_elicit_late")
+    _believed(repository, vault, "att_elicit_late", factor_id)
+    assert repository.unresolved_cause_factors_for_attempt("att_elicit_late", status="open") == []
+
+    result = record_eliciting_response(
+        vault, repository, attempt_id="att_elicit_late", suggestion_index=0,
+        response_md="The second layer folds each region again.", clock=FrozenClock(NOW),
+    )
+
+    assert result["factor_id"] == factor_id
+    reports = repository.causal_attribution_reports_for_factor(factor_id)
+    assert [row["response"] for row in reports] == ["believed_candidate", ELICITING_RESPONSE_REASON]
+    assert json.loads(reports[-1]["payload_json"])["factor_status"] == "resolved"
+    # The learner's confirmation stays their report on the diagnosis: an answer
+    # to the question is not a contest of it.
+    assert latest_learner_report(repository, "att_elicit_late")["response"] == "believed_candidate"
+
+
+def test_answering_the_question_first_leaves_the_one_tap_card_open(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    _insert_attempt(repository, attempt_id="att_elicit_first")
+    factor_id = _open_factor(repository, "att_elicit_first")
+    record_eliciting_response(
+        vault, repository, attempt_id="att_elicit_first", suggestion_index=0,
+        response_md="My own account first.", clock=FrozenClock(NOW),
+    )
+    [factor] = repository.unresolved_cause_factors_for_attempt("att_elicit_first", status="open")
+    assert factor["self_report"] is None
+    _believed(repository, vault, "att_elicit_first", factor_id)
+    assert repository.unresolved_cause_factors_for_attempt("att_elicit_first", status="open") == []

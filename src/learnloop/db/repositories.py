@@ -17780,6 +17780,10 @@ class Repository(
                     SELECT latest.id
                     FROM causal_attribution_reports latest
                     WHERE latest.factor_id = f.id
+                      -- An answer to an eliciting question is the learner's
+                      -- account, not their verdict on the diagnosis: it never
+                      -- takes the card's one tap or reads as a contest.
+                      AND latest.response != 'eliciting_response'
                     ORDER BY latest.created_at DESC, latest.id DESC
                     LIMIT 1
                   )
