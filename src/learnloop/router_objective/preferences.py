@@ -28,7 +28,7 @@ candidate's kind on the tail's own scale (:func:`scaled`): standardized over the
 spread of their ``Q̄``. So ``w_pref`` is dimensionless, as ``ŵ`` is: at 1, one spread of the learner's model is worth one
 spread of the tail's, and the most the coefficient can do. That is what makes RO6's labelled prior on a share
 (``residual_weight_prior_sd``) and its clip to ``[0, 1]`` mean the same here, with no new number; read in raw probability
-they would claim that a preference could be worth a whole use, and a simulated null moved the choice. ``w_pref`` is one
+they would claim that a preference could be worth a whole use, which nothing supports. ``w_pref`` is one
 coefficient, from :func:`learned_tail.residual_weight` with RO6's prior, slope, rank, clip and least favourable fill. Its
 data are the mix's own draws, never a pick: at a decision with a frozen sensor, with ``π`` the exact served distribution,
 ``d(a) = V_pref(a) − Σ_b π(b)·V_pref(b)``, the served action's ``Ĉ = d(A)·Ĝ`` has
