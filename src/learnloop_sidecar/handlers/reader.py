@@ -880,8 +880,11 @@ def _phone_guide_plan(vault: Any, repository: Any, extraction_id: str, plan: dic
         return plan
     out = dict(plan)
     out["sections"] = []
-    for section, drop in zip(sections, dropped):
+    for number, (section, drop) in enumerate(zip(sections, dropped), start=1):
         section = dict(section)
+        if withheld.any(section.get("span_ids") or []):
+            # The label is the section's heading, which is its first block: text the phone is not sent.
+            section["label"] = f"Section {number}"
         section["suggested_passages"] = [passage for passage in section.get("suggested_passages") or []
                                          if not withheld.any(spans_of(passage))]
         if drop:

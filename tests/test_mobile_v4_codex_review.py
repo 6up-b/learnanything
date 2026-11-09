@@ -268,6 +268,20 @@ def test_f4_reopened_the_guide_plans_placed_question_is_judged_by_its_items_stor
     assert "Exam problem" not in json.dumps(phone)
 
 
+def test_landing_smoke_a_held_out_sections_heading_is_not_its_label_on_the_phone(world):
+    """Found by the landing's smoke on the owner's arxiv_v2 copy: the guide plan sent a held-out section's heading
+    (its first block, withheld in the text) as the section's label. The phone gets a plain label instead; the
+    section, its id and its span ids stay, so the list, progress and place still line up. The desktop is unchanged."""
+
+    plan = world["phone"].rpc("reader.guide_plan", {"extractionId": EXTRACTION})
+    labels = {section["id"]: section["label"] for section in plan["sections"]}
+    assert labels["u1"] == "1 Vectors" and labels["u2"] == "2 Spans"
+    assert labels["u3"] != "3 Exam review" and "Exam review" not in json.dumps(plan)
+    assert next(section for section in plan["sections"] if section["id"] == "u3")["spanIds"] == ["b5", "b6"]
+    desk = call(desktop(world["root"]), "reader.guide_plan", {"extractionId": EXTRACTION})
+    assert {section["id"]: section["label"] for section in desk["sections"]}["u3"] == "3 Exam review"
+
+
 # -- F5: a committed intent is not recorded again after a restart -----------------------------------------------
 
 
