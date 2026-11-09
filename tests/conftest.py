@@ -309,15 +309,41 @@ def _remembered_dumped(data):
 
 _yaml_io._dumped = _remembered_dumped
 
-# pydantic generates a model's JSON schema afresh on each call (8 ms), once or more per faked model request. It depends
-# only on the class and the arguments, and each caller gets its own copy.
+# pydantic generates a model's JSON schema afresh on each call (8 ms), once or more per faked model request. The result
+# depends on the class, the arguments, its core schema (a rebuild replaces it) and the model_config of every model in that
+# schema (read when generating, not when building), so all of them are the key. Each caller gets its own copy.
 _production_json_schema = pydantic.BaseModel.model_json_schema.__func__
 _json_schemas: dict[tuple, dict] = {}
+_models_in_core_schema: dict[int, tuple[object, tuple[type, ...]]] = {}
+
+
+def _models_in(core_schema) -> tuple[type, ...]:
+    known = _models_in_core_schema.get(id(core_schema))
+    if known is not None:
+        return known[1]
+    models, seen, pending = set(), set(), [core_schema]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, dict):
+            if id(node) not in seen:
+                seen.add(id(node))
+                if node.get("type") == "model" and "cls" in node:
+                    models.add(node["cls"])
+                pending.extend(node.values())
+        elif isinstance(node, (list, tuple)):
+            pending.extend(node)
+    ordered = tuple(sorted(models, key=lambda model: f"{model.__module__}.{model.__qualname__}"))
+    _models_in_core_schema[id(core_schema)] = (core_schema, ordered)  # holds the schema, so its id stays its own
+    return ordered
 
 
 def _remembered_json_schema(cls, *args, **kwargs):
+    core_schema = cls.__dict__.get("__pydantic_core_schema__")
+    if not isinstance(core_schema, dict):  # not built: its own error, or its own rebuild, belongs to the real call
+        return _production_json_schema(cls, *args, **kwargs)
     try:
-        key = (cls, args, tuple(sorted(kwargs.items())))
+        key = (cls, id(core_schema), tuple(repr(model.model_config) for model in _models_in(core_schema)), args,
+               tuple(sorted(kwargs.items())))
         hash(key)
     except TypeError:
         return _production_json_schema(cls, *args, **kwargs)

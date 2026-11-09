@@ -504,3 +504,56 @@ def test_a_cycle_goes_to_the_real_dump():
     assert lane._is_plain({"ok": [1, 2]}) is True
     assert lane._is_plain(cycle) is False  # no recursion error before the real function runs
     assert "&" in yaml_io._dumped(cycle)
+
+
+def test_a_remembered_json_schema_follows_a_rebuilt_core_schema():
+    import pydantic
+
+    import tests.conftest as lane
+
+    class Rebuilt(pydantic.BaseModel):
+        value: int
+
+    assert Rebuilt.model_json_schema()["properties"]["value"]["type"] == "integer"
+    Rebuilt.__pydantic_fields__["value"].annotation = str
+    Rebuilt.model_rebuild(force=True)
+    assert lane._production_json_schema(Rebuilt)["properties"]["value"]["type"] == "string"  # the real one moved
+    assert Rebuilt.model_json_schema()["properties"]["value"]["type"] == "string"
+
+
+def test_a_remembered_json_schema_follows_a_changed_model_config():
+    import pydantic
+
+    class Configured(pydantic.BaseModel):
+        n: int
+        model_config = pydantic.ConfigDict(json_schema_extra={"mark": 1})
+
+    assert Configured.model_json_schema()["mark"] == 1
+    Configured.model_config["json_schema_extra"] = {"mark": 2}
+    assert Configured.model_json_schema()["mark"] == 2
+
+
+def test_a_remembered_json_schema_follows_a_nested_models_config():
+    import pydantic
+
+    class Inner(pydantic.BaseModel):
+        n: int
+        model_config = pydantic.ConfigDict(json_schema_extra={"mark": 1})
+
+    class Outer(pydantic.BaseModel):
+        inner: Inner
+
+    assert Outer.model_json_schema()["$defs"]["Inner"]["mark"] == 1
+    Inner.model_config["json_schema_extra"] = {"mark": 2}
+    assert Outer.model_json_schema()["$defs"]["Inner"]["mark"] == 2
+
+
+def test_an_unbuilt_model_still_raises_its_own_error():
+    import pydantic
+
+    class Unbuilt(pydantic.BaseModel):
+        value: "NeverDefined"  # noqa: F821
+
+    for _ in range(2):
+        with pytest.raises(pydantic.errors.PydanticUserError):
+            Unbuilt.model_json_schema()
