@@ -17,8 +17,14 @@ or on a typed topic is ``learner_pick`` with no ``origin_ref``: nothing links it
 **A lesson the learner asked for** (the owner's decision 2, Nov 9: "definitely use the latest miss on that topic"): one
 started from IH3's "learn this" is ``learner_pick`` too, and its opening names the preference (``preference_ref``). The
 ledger must say it was a request for a lesson on exactly these topics (``router_learner_preferences``, kind ``lesson``),
-else nothing is added and the record says so. Its miss is the latest attempt on its topics known before the lesson
-opens that has a live diagnosis in force (a correct attempt has none, so it is passed over); the rest is as above.
+else nothing is added and the record says so. A request opens one lesson: the first opening that accepts it consumes it
+(its open turn names it), and a later opening with the same id reads nothing and its record names the lesson that used
+it. Its miss is the attempt the learner was looking at when they asked (the preference's ``attempt_id``, review 3 M1),
+else the latest attempt on its topics known before the lesson opens. An attempt with no diagnosis at all (a correct
+answer has none) is passed over to the next older one; the first that has one is the miss, and if its diagnosis is
+still being written, failed or no longer applies, the lesson opens without diagnosed sections and the record says why.
+It never falls back to an older diagnosed miss past a newer one. The record names the attempt it considered and every
+attempt it passed over, with why. The rest is as above.
 
 **What searches** (in this order): the miss's hypotheses (``causal_hypotheses``, the latest version of each, the
 learner's ``my_gap`` marks first, then the rest in the order they were written; a ``retired`` or ``demoted`` one is
@@ -71,6 +77,15 @@ NO_MISS = "no attempt on these topics before the offer"
 #: The owner's decision 2 (Nov 9): a lesson the learner asked for ("learn this").
 NO_REQUEST = "the learner's request for this lesson is not on record"
 NO_DIAGNOSED_MISS = "no attempt on these topics has a diagnosis in force before the lesson opened"
+#: Review 3, m3: a request opens one lesson.
+REQUEST_USED = "this request already opened a lesson"
+#: Review 3, M1: why an attempt was passed over on the way to the miss (``passed_over``).
+NOT_A_MISS = "that attempt has no diagnosis (a correct answer has none)"
+NOT_ON_TOPIC = "the attempt the learner was looking at is not on this lesson's topics"
+NOT_KNOWN = "the attempt the learner was looking at is not on record before the lesson opened"
+#: How the miss was chosen (``miss.chosen_as``).
+ASKED_FROM = "the_attempt_the_learner_asked_from"
+LATEST_ON_TOPIC = "the_latest_attempt_on_the_topic"
 PENDING = "the diagnosis of that attempt is still being written"
 FAILED = "the diagnosis of that attempt did not complete"
 SUPERSEDED = "the diagnosis of that attempt no longer applies (the answer was regraded)"
@@ -314,30 +329,80 @@ def _asked_lesson(connection: Any, preference_id: str, learning_object_ids: Sequ
     return dict(row) if sorted(set(learning_object_ids)) == [lo] else None
 
 
-def _latest_diagnosed_miss(connection: Any, repository: Any, config: Any, learning_object_ids: Sequence[str],
-                           at: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
-    """The owner's decision 2 (Nov 9): the latest miss on the lesson's topics, for a lesson the learner asked for. The
-    latest attempt on those topics known before the lesson opens (THE availability predicate, as :func:`_miss`) with a
-    live diagnosis in force (``Repository.current_live_diagnosis``, the rule every reader shares), and that diagnosis. A
-    correct attempt has none, so it is passed over; no score, stuck flag or time constant is read."""
+def _lesson_that_used(connection: Any, preference_id: str) -> str | None:
+    """The lesson whose opening already consumed this request (its open turn names it in ``refs.preference``), or None."""
+
+    if not _table(connection, "lesson_turns"):
+        return None
+    row = connection.execute(
+        "SELECT lesson_id FROM lesson_turns WHERE action = 'open' AND json_extract(refs_json, '$.preference') = ? "
+        "ORDER BY created_at, id LIMIT 1", (preference_id,)).fetchone()
+    return None if row is None else str(row[0])
+
+
+def _not_a_miss(connection: Any, attempt_id: str) -> bool:
+    """No live diagnosis was ever queued or written for the attempt (a correct answer has none), or the one that ran found
+    none needed. Structure on record, not a score: a pending, failed or superseded diagnosis is a miss's."""
+
+    if _why_no_diagnosis(connection, attempt_id) == ABSENT:
+        return True
+    if not _table(connection, "attempt_diagnoses"):
+        return False
+    row = connection.execute(
+        "SELECT status, error FROM attempt_diagnoses WHERE attempt_id = ? AND mode = 'live' "
+        "ORDER BY created_at DESC, id DESC LIMIT 1", (attempt_id,)).fetchone()
+    return row is not None and row[0] == "skipped" and row[1] == "not_needed"
+
+
+def _attempt(row: Sequence[Any]) -> dict[str, Any]:
+    return {"attempt_id": str(row[0]), "learning_object_id": str(row[1]), "practice_item_id": row[2], "at": str(row[3])}
+
+
+def _asked_miss(connection: Any, repository: Any, config: Any, preference: Mapping[str, Any],
+                learning_object_ids: Sequence[str], at: str
+                ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, str | None, list[dict[str, str]]]:
+    """The owner's decision 2 (Nov 9): the miss behind a lesson the learner asked for, as ``(attempt, live diagnosis, why
+    none, passed over)``. First the attempt the learner was looking at (the preference's ``attempt_id``, review 3 M1),
+    then the attempts on the lesson's topics known before the lesson opens (THE availability predicate, as
+    :func:`_miss`), latest first. An attempt with no diagnosis at all is passed over (a correct answer has none); the
+    first with one is the miss: its live diagnosis in force (``Repository.current_live_diagnosis``), or why it has none
+    (pending, failed, superseded), and then no older miss is read. No score, stuck flag or time constant is read."""
 
     from learnloop.router_objective_switches import attempt_time_sql
 
     ids = sorted(set(learning_object_ids))
-    if not ids or not _table(connection, "attempt_diagnoses"):
-        return None
+    passed: list[dict[str, str]] = []
+    if not ids:
+        return None, None, NO_DIAGNOSED_MISS, passed
     known = attempt_time_sql(config, connection)
+    columns = "a.id, a.learning_object_id, a.practice_item_id, a.created_at"
+    order: list[tuple[dict[str, Any], str]] = []
+    asked_from = str(preference.get("attempt_id") or "")
+    if asked_from:
+        row = connection.execute(
+            f"SELECT {columns} FROM practice_attempts a WHERE a.id = ? AND a.created_at <= ? AND {known} <= ?",
+            (asked_from, at, at)).fetchone()
+        if row is None:
+            passed.append({"attempt_id": asked_from, "why": NOT_KNOWN})
+        elif str(row[1]) not in ids:
+            passed.append({"attempt_id": asked_from, "why": NOT_ON_TOPIC})
+        else:
+            order.append((_attempt(row), ASKED_FROM))
     rows = connection.execute(
-        f"SELECT a.id, a.learning_object_id, a.practice_item_id, a.created_at FROM practice_attempts a "
+        f"SELECT {columns} FROM practice_attempts a "
         f"WHERE a.learning_object_id IN ({','.join('?' for _ in ids)}) AND a.created_at <= ? AND {known} <= ? "
-        "AND EXISTS (SELECT 1 FROM attempt_diagnoses d WHERE d.attempt_id = a.id AND d.mode = 'live') "
         "ORDER BY a.created_at DESC, a.id DESC", (*ids, at, at)).fetchall()
-    for row in rows:
-        live = repository.current_live_diagnosis(str(row[0]))
+    order += [(_attempt(row), LATEST_ON_TOPIC) for row in rows if str(row[0]) != asked_from]
+    for attempt, chosen_as in order:
+        attempt["chosen_as"] = chosen_as
+        live = repository.current_live_diagnosis(attempt["attempt_id"])
         if live is not None:
-            return ({"attempt_id": str(row[0]), "learning_object_id": str(row[1]), "practice_item_id": row[2],
-                     "at": str(row[3])}, live)
-    return None
+            return attempt, live, None, passed
+        if _not_a_miss(connection, attempt["attempt_id"]):
+            passed.append({"attempt_id": attempt["attempt_id"], "why": NOT_A_MISS})
+            continue
+        return attempt, None, _why_no_diagnosis(connection, attempt["attempt_id"]), passed
+    return None, None, NO_DIAGNOSED_MISS, passed
 
 
 def follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref: str | None,
@@ -348,8 +413,9 @@ def follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref
     topic's linked ones, a Reader selection first among them), which are never added twice.
 
     ``preference_ref`` (the owner's decision 2 of Nov 9): a ``learner_pick`` lesson the learner asked for through IH3's
-    "learn this" names its preference, and reads the latest miss on its topics before the lesson opens (``at``)
-    (:func:`_latest_diagnosed_miss`). A Reader selection or a typed topic names none, so it is unchanged."""
+    "learn this" names its preference, and reads the miss the learner asked from, else the latest miss on its topics
+    before the lesson opens (``at``) (:func:`_asked_miss`). The first opening consumes the request: a later one reads
+    nothing and says which lesson used it. A Reader selection or a typed topic names none, so it is unchanged."""
 
     if origin == "router" and origin_ref:
         asked = False
@@ -369,15 +435,23 @@ def follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref
                     return result.none(NO_REQUEST)
                 opens_at = at or utc_now_iso()
                 result.record["asked"] = {"preference_id": str(preference["id"]),
-                                          "asked_at": str(preference["created_at"]), "lesson_opens_at": opens_at}
-                found = _latest_diagnosed_miss(connection, repository, vault.config, learning_object_ids, opens_at)
-                if found is None:
-                    return result.none(NO_DIAGNOSED_MISS)
-                attempt, live = found
+                                          "asked_at": str(preference["created_at"]), "lesson_opens_at": opens_at,
+                                          "asked_from_attempt": preference.get("attempt_id")}
+                used_by = _lesson_that_used(connection, str(preference["id"]))
+                if used_by is not None:
+                    result.record["asked"]["already_opened_lesson"] = used_by
+                    return result.none(REQUEST_USED)
+                attempt, live, why, passed = _asked_miss(connection, repository, vault.config, preference,
+                                                         learning_object_ids, opens_at)
+                result.record["passed_over"] = passed
+                if attempt is None:
+                    return result.none(why or NO_DIAGNOSED_MISS)
                 result.attempt_id = attempt["attempt_id"]
                 result.record["miss"] = {"attempt_id": attempt["attempt_id"],
                                          "learning_object_id": attempt["learning_object_id"],
-                                         "attempt_at": attempt["at"]}
+                                         "attempt_at": attempt["at"], "chosen_as": attempt["chosen_as"]}
+                if live is None:
+                    return result.none(why or ABSENT)
             else:
                 decided_at = _decision_time(connection, str(origin_ref))
                 if decided_at is None:
@@ -434,4 +508,13 @@ def follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref
     return result
 
 
-__all__ = ["Follow", "VERSION", "follow"]
+def consumed_preference(record: Mapping[str, Any]) -> str | None:
+    """The request a lesson's opening consumes (review 3, m3): one its record accepted and no earlier lesson used."""
+
+    asked = record.get("asked") if isinstance(record, Mapping) else None
+    if not isinstance(asked, Mapping) or asked.get("already_opened_lesson"):
+        return None
+    return str(asked["preference_id"]) if asked.get("preference_id") else None
+
+
+__all__ = ["Follow", "VERSION", "consumed_preference", "follow"]

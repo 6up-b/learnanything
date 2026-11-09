@@ -694,6 +694,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     lesson_id = lesson_id or f"les_{new_ulid().lower()}"
     constraints = {"max_lesson_cost_usd": vault.config.teacher.max_lesson_cost_usd,
                    "sources_tokens": vault.config.teacher.context.sources_tokens}
+    from learnloop.teacher import diagnosed_sources as DS
     from learnloop.teacher.brief import protection_state
     from learnloop.teacher.notes import notes_still_deliverable, your_notes
 
@@ -729,8 +730,10 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
             "doctrine_version": DOCTRINE_VERSION, "brief_version": brief["version"],
             "route": getattr(client, "provider_name", None), "model": _model_name(client),
             "algorithm_version": vault.config.algorithms.algorithm_version, "opened_at": now})
+        # Review 3, m3: a "learn this" request opens one lesson; the open turn names the one it consumed.
+        consumed = DS.consumed_preference(follow_record) if follow_record else None
         store.append_turn(connection, lesson_id=lesson_id, actor="code", action="open", validation="ok",
-                          refs={"selection": selected},
+                          refs={"selection": selected, **({"preference": consumed} if consumed else {})},
                           payload={"brief": brief, "book": book.as_dict(), "protection": protection,
                                    **({"sources_follow": follow_record} if follow_record else {})},
                           created_at=now)

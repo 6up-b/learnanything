@@ -287,6 +287,31 @@ def test_with_no_session_open_a_reader_problem_from_an_earlier_day_holds_nothing
     assert step["kind"] != E.QUESTION_IN_PROGRESS_STEP and rows(env, "plan_block")
 
 
+@pytest.mark.parametrize(("now", "midnight"), [
+    ("2026-11-01T15:00:00Z", "2026-11-01T04:00:00Z"),  # the fall change: midnight was still on daylight time
+    ("2026-03-08T15:00:00Z", "2026-03-08T05:00:00Z"),  # the spring change: midnight was still on standard time
+    ("2026-11-02T15:00:00Z", "2026-11-02T05:00:00Z"),  # an ordinary day either side
+    ("2026-07-01T03:30:00Z", "2026-06-30T04:00:00Z"),  # the local date, not the UTC one
+])
+def test_the_days_start_is_local_midnight_on_daylight_saving_change_days(monkeypatch, now, midnight):
+    """Review 3, m4: decision 3's day boundary is the local date's own midnight, with that instant's UTC offset, not
+    today's offset applied to hour 0 (an hour off on change days)."""
+
+    import time as _time
+    from datetime import datetime as _datetime
+
+    from learnloop.clock import FrozenClock
+
+    monkeypatch.setenv("TZ", "America/New_York")
+    _time.tzset()
+    try:
+        clock = FrozenClock(_datetime.fromisoformat(now.replace("Z", "+00:00")))
+        assert E.local_day_start_iso(clock) == midnight
+    finally:
+        monkeypatch.undo()
+        _time.tzset()
+
+
 def test_with_no_session_open_working_an_earlier_days_reader_problem_today_makes_it_count(tmp_path):
     env = _env(tmp_path, toml=QUIET, session_id=None)
     env.session_id = None

@@ -413,8 +413,8 @@ def lesson_sources_follow_diagnosis_on(config: Any) -> bool:
 def lesson_candidate_after_cold_miss_on(config: Any) -> bool:
     """The owner's decision 4 of Nov 9 (spec_instruct_handoff_v1 §8, the same unreleased tag as IH5): a topic with a missed
     cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or error type (the
-    router, the diagnosis and the teacher then decide through the algorithm), and its reason reads "A recent check on it
-    didn't come out right": the tag and ``[router_objective] lesson_candidate_after_cold_miss`` (default true). It needs no
+    router, the diagnosis and the teacher then decide through the algorithm), and its reason says when ("On Nov 3, a check
+    on it wasn't fully right."): the tag and ``[router_objective] lesson_candidate_after_cold_miss`` (default true). It needs no
     objective: it says what is offerable wherever lesson candidates are built (an offer, TE1b's card, IH3's options). Off,
     or below the tag, mvp-0.54's ``cold_failing`` rule (the two latest cold checks below full) and its wording exactly."""
 

@@ -45,7 +45,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.daily_plan_fakes import record_attempt
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import join_carried_valuations, mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 from tests.test_ih_numeric_seed import spy  # noqa: F401 - the fixture
 from tests.test_instruct_handoff_ih0 import make_world  # noqa: F401 - the fixture
@@ -457,6 +457,7 @@ def test_no_module_of_this_stage_branches_on_a_score_or_a_stuck_flag():
 
 
 def test_with_no_preference_the_trace_gains_nothing_and_the_numbers_are_the_predecessors(tmp_path, monkeypatch):
+    join_carried_valuations(monkeypatch)  # review 3, m5: the twins compare residual numbers across serves
     pinned = _pin(monkeypatch)
     on = mixture_env(tmp_path / "on", fake_runtime(seed=pinned), version=TAG, toml=QUIET, session_id="s1")
     off = mixture_env(tmp_path / "off", fake_runtime(seed=pinned), version=TAG, toml=OFF, session_id="s1")
@@ -465,6 +466,37 @@ def test_with_no_preference_the_trace_gains_nothing_and_the_numbers_are_the_pred
     assert on_traces and len(on_traces) == len(off_traces)
     assert all("preference" not in trace and "learner_statements" not in trace for trace in on_traces)
     assert [_numbers(trace) for trace in on_traces] == [_numbers(trace) for trace in off_traces]
+
+
+def _twins_with_one_slow_carry(tmp_path, monkeypatch, *, joined: bool) -> tuple[list[Any], list[Any]]:
+    """The reviewer's reproduction (review 3, m5): one twin's carried-valuation thread runs late, as a loaded machine
+    would schedule it; the draw count is untouched."""
+
+    import time
+
+    real = OC._drain_carry
+
+    def slow(sqlite_path, *, deadline=None):
+        if "/on/" in str(sqlite_path):
+            time.sleep(1.5)
+        return real(sqlite_path, deadline=deadline)
+
+    monkeypatch.setattr(OC, "_drain_carry", slow)
+    if joined:
+        join_carried_valuations(monkeypatch)
+    pinned = _pin(monkeypatch)
+    on = mixture_env(tmp_path / "on", fake_runtime(seed=pinned), version=TAG, toml=QUIET, session_id="s1")
+    off = mixture_env(tmp_path / "off", fake_runtime(seed=pinned), version=TAG, toml=OFF, session_id="s1")
+    run(on), run(off)
+    return [_numbers(trace) for trace in _traces(on)], [_numbers(trace) for trace in _traces(off)]
+
+
+def test_a_late_carry_thread_in_one_twin_no_longer_moves_the_comparison(tmp_path, monkeypatch):
+    """With the carry joined after each serve, a carry thread delayed in one twin only leaves the twins' numbers equal
+    (unjoined, decision 4's residual fit and every ``v_residual`` differ: the race the two twin tests above had)."""
+
+    on, off = _twins_with_one_slow_carry(tmp_path, monkeypatch, joined=True)
+    assert on and on == off
 
 
 def test_the_sensor_is_frozen_in_the_trace_and_w_pref_starts_at_zero(tmp_path):
@@ -501,6 +533,7 @@ def test_w_pref_at_zero_changes_nothing_bit_for_bit_with_preferences_on_record(t
     """The same boundary with the switch on and off, preferences on record: the sensor is in the trace, and every value,
     the choice, its tie rule and the mix are the same bits. (A lesson request is another channel: the next test.)"""
 
+    join_carried_valuations(monkeypatch)  # review 3, m5: the twins compare residual numbers across serves
     pinned = _pin(monkeypatch)
     envs = {name: mixture_env(tmp_path / name, fake_runtime(seed=pinned), version=TAG, toml=toml, session_id="s1")
             for name, toml in (("on", QUIET), ("off", OFF))}

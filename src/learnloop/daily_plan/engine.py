@@ -36,7 +36,7 @@ import logging
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from typing import TYPE_CHECKING, Any
 
 from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, DELIVERABLE_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
@@ -610,10 +610,14 @@ def local_date(clock: Clock | None = None) -> str:
 
 
 def local_day_start_iso(clock: Clock | None = None) -> str:
-    """The start of the plan's day (local midnight), as a UTC timestamp."""
+    """The start of the plan's day (local midnight), as a UTC timestamp.
+
+    Midnight takes its own UTC offset, not the current one: on a daylight-saving change day the two differ by an hour
+    (review 3, m4), so the naive midnight of the local date is resolved in the local zone (``astimezone`` on a naive
+    value), never ``now``'s offset with the hour set to 0."""
 
     local_now = (clock or SystemClock()).now().astimezone()
-    midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    midnight = datetime.combine(local_now.date(), time()).astimezone()
     return midnight.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 

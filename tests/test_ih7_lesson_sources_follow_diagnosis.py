@@ -153,16 +153,27 @@ class World:
             constraints={}, origin=origin, origin_ref=decision_id, follow_record=record)
         return brief, book, record
 
-    def ask(self, *, minutes: float = 2.0, kind: str = "lesson", lo: str = LO, preference_id: str = "pref_learn") -> str:
-        """IH3's "learn this": the learner's preference for a lesson on ``lo`` (the row the desktop's choice writes)."""
+    def ask(self, *, minutes: float = 2.0, kind: str = "lesson", lo: str = LO, preference_id: str = "pref_learn",
+            attempt: str | None = None) -> str:
+        """IH3's "learn this": the learner's preference for a lesson on ``lo`` (the row the desktop's choice writes),
+        naming the attempt whose feedback it was tapped on (``attempt``), as ``learner_action.choose`` does."""
 
         stamp = (T0 + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
         _exec(self.repository,
               "INSERT INTO router_learner_preferences (id, decision_id, attempt_id, session_id, surface, offered_json, "
               "chosen_kind, chosen_ref, note_md, served_decision_id, algorithm_version, created_at) "
-              "VALUES (?, NULL, NULL, 's1', 'feedback', '{}', ?, ?, NULL, NULL, 'mvp-0.55', ?)",
-              (preference_id, kind, f"lesson_offer:{lo}", stamp))
+              "VALUES (?, NULL, ?, 's1', 'feedback', '{}', ?, ?, NULL, NULL, 'mvp-0.55', ?)",
+              (preference_id, attempt, kind, f"lesson_offer:{lo}", stamp))
         return preference_id
+
+    def pending(self, attempt_id: str) -> None:
+        """The attempt's live diagnosis is still being written (a queued job)."""
+
+        _exec(self.repository,
+              "INSERT INTO post_attempt_jobs (id, attempt_id, kind, job_key, attempt_completed_at, state, payload_json, "
+              "created_at, updated_at) VALUES (?, ?, 'diagnose', ?, '2026-11-07T09:00:00Z', 'queued', "
+              "'{\"mode\": \"live\"}', '2026-11-07T09:00:00Z', '2026-11-07T09:00:00Z')",
+              (f"j_{attempt_id}", attempt_id, f"k_{attempt_id}"))
 
     def asked_brief(self, preference_id: str | None, *, at_minutes: float = 5.0, selection=None, los=(LO,),
                     vault=None) -> tuple[dict[str, Any], SourceBook, dict[str, Any]]:
@@ -524,6 +535,120 @@ def test_a_learner_asked_lesson_with_no_diagnosed_miss_opens_as_before(world):
     plain = world.brief(None, origin=None)[0]
     brief, _book, record = world.asked_brief(world.ask())
     assert _bytes(brief) == _bytes(plain) and record["status"] == "none"
+
+
+# -- review 3: the miss the learner asked from (M1) and one lesson per request (m3) ---------------------------------
+
+
+def test_learn_this_while_the_answers_diagnosis_is_pending_reads_no_older_miss_and_says_so(world):
+    """Review 3, M1 (R1): a diagnosed miss a month earlier, then the miss the learner is looking at, its diagnosis still
+    queued, and "learn this" on its feedback. The lesson opens without diagnosed sections (it never waits), and the
+    record names the attempt it considered and why nothing was added. The month-old miss is not read."""
+
+    old = world.miss(minutes=-30 * 24 * 60)
+    world.diagnose(old, minutes=-30 * 24 * 60 + 1)
+    latest = world.miss(minutes=0)
+    world.pending(latest)
+    plain = world.brief(None, origin=None)[0]
+    brief, _book, record = world.asked_brief(world.ask(minutes=0.5, attempt=latest), at_minutes=1)
+    assert _bytes(brief) == _bytes(plain), "the lesson opens as before, without the older miss's sections"
+    assert record["status"] == "none" and record["why"] == "the diagnosis of that attempt is still being written"
+    assert record["miss"]["attempt_id"] == latest and record["miss"]["chosen_as"] == "the_attempt_the_learner_asked_from"
+    assert record["asked"]["asked_from_attempt"] == latest and record["passed_over"] == []
+    assert old not in json.dumps(record)
+
+
+def test_with_no_attempt_named_the_latest_miss_pending_is_not_skipped_for_an_older_one(world):
+    old = world.miss(minutes=0)
+    world.diagnose(old)
+    latest = world.miss(minutes=1)
+    world.pending(latest)
+    _brief, _book, record = world.asked_brief(world.ask(minutes=1.5))
+    assert record["status"] == "none" and "still being written" in record["why"]
+    assert record["miss"] == {"attempt_id": latest, "learning_object_id": LO, "attempt_at": "2026-11-07T09:01:00Z",
+                              "chosen_as": "the_latest_attempt_on_the_topic"}
+
+
+def test_a_failed_diagnosis_on_the_latest_miss_is_said_and_no_older_miss_is_read(world):
+    old = world.miss(minutes=0)
+    world.diagnose(old)
+    latest = world.miss(minutes=1)
+    world.diagnose(latest, status="failed", statements=(), minutes=1.2)
+    _brief, _book, record = world.asked_brief(world.ask(minutes=1.5, attempt=latest))
+    assert record["status"] == "none" and "did not complete" in record["why"] and record["miss"]["attempt_id"] == latest
+
+
+def test_the_attempt_the_learner_asked_from_is_read_even_with_a_later_diagnosed_miss(world):
+    first = world.miss(minutes=0)
+    world.diagnose(first, minutes=0.5)
+    second = world.miss(minutes=1)
+    world.diagnose(second, statements=("Zebras are striped.",), minutes=1.5)
+    brief, _book, record = world.asked_brief(world.ask(minutes=2, attempt=first))
+    assert record["status"] == "added" and record["miss"]["attempt_id"] == first and SOFTMAX in _refs(brief)
+    assert record["miss"]["chosen_as"] == "the_attempt_the_learner_asked_from"
+
+
+def test_learn_this_on_a_right_answer_passes_it_over_by_name_to_the_latest_miss(world):
+    """A right answer has no diagnosis at all (no score is read): it is passed over, named, with why."""
+
+    miss = world.miss(minutes=0)
+    world.diagnose(miss)
+    right = world.miss(minutes=1, points=4)
+    brief, _book, record = world.asked_brief(world.ask(minutes=1.5, attempt=right))
+    assert record["status"] == "added" and record["miss"]["attempt_id"] == miss and SOFTMAX in _refs(brief)
+    assert record["miss"]["chosen_as"] == "the_latest_attempt_on_the_topic"
+    assert record["passed_over"] == [{"attempt_id": right, "why": "that attempt has no diagnosis (a correct answer has none)"}]
+
+
+def test_an_attempt_on_another_topic_or_unknown_is_passed_over_by_name(world):
+    miss = world.miss(minutes=0)
+    world.diagnose(miss)
+    elsewhere = world.miss(minutes=1, item="pi_det_1")  # on lo_det
+    for preference_id, attempt, why in (
+            ("pref_gone", "no_such_attempt", "the attempt the learner was looking at is not on record before the lesson opened"),
+            ("pref_elsewhere", elsewhere, "the attempt the learner was looking at is not on this lesson's topics")):
+        _brief, _book, record = world.asked_brief(world.ask(minutes=1.5, attempt=attempt, preference_id=preference_id))
+        assert record["passed_over"][0] == {"attempt_id": attempt, "why": why}, preference_id
+        assert record["miss"]["attempt_id"] == miss and record["status"] == "added", preference_id
+
+
+def test_a_request_opens_one_lesson_and_a_second_opening_is_ignored_and_recorded(world):
+    """Review 3, m3 (R1b): the first opening consumes the request (its open turn names it); the same id five minutes or
+    two weeks later reads nothing, and the record names the lesson that used it. No age constant."""
+
+    attempt = world.miss()
+    world.diagnose(attempt)
+    preference = world.ask()
+    first = S.open_lesson(world.vault, world.repository, entry="learning_object", learning_object_ids=[LO],
+                          clients=clients(TeacherFake([plan_turn])), clock=_clock(5), preference_id=preference)
+    opened = _rows(world.repository, "SELECT refs_json FROM lesson_turns WHERE lesson_id = ? AND action = 'open'",
+                   (first["lesson_id"],))[0]
+    assert json.loads(opened["refs_json"])["preference"] == preference
+    assert _open_payload(world.repository, first["lesson_id"])["sources_follow"]["status"] == "added"
+    _exec(world.repository, "UPDATE lessons SET closed_at = ?, close_reason = 'learner_stop' WHERE id = ?",
+          (_clock(20).now().strftime("%Y-%m-%dT%H:%M:%SZ"), first["lesson_id"]))
+    plain = world.brief(None, origin=None)[0]
+    for minutes in (30, 60 * 24 * 14):
+        brief, _book, record = world.asked_brief(preference, at_minutes=minutes)
+        assert _bytes(brief) == _bytes(plain) and record["status"] == "none", minutes
+        assert record["why"] == "this request already opened a lesson", minutes
+        assert record["asked"]["already_opened_lesson"] == first["lesson_id"], minutes
+    second = S.open_lesson(world.vault, world.repository, entry="learning_object", learning_object_ids=[LO],
+                           clients=clients(TeacherFake([plan_turn])), clock=_clock(60), preference_id=preference)
+    payload = _open_payload(world.repository, second["lesson_id"])
+    assert payload["sources_follow"]["why"] == "this request already opened a lesson"
+    refs = _rows(world.repository, "SELECT refs_json FROM lesson_turns WHERE lesson_id = ? AND action = 'open'",
+                 (second["lesson_id"],))[0]
+    assert "preference" not in json.loads(refs["refs_json"]), "only the first opening consumes it"
+
+
+def test_a_request_not_on_record_consumes_nothing(world):
+    world.miss()
+    view = S.open_lesson(world.vault, world.repository, entry="learning_object", learning_object_ids=[LO],
+                         clients=clients(TeacherFake([plan_turn])), clock=_clock(5), preference_id="pref_missing")
+    refs = _rows(world.repository, "SELECT refs_json FROM lesson_turns WHERE lesson_id = ? AND action = 'open'",
+                 (view["lesson_id"],))[0]
+    assert "preference" not in json.loads(refs["refs_json"])
 
 
 def test_the_lesson_ref_prefix_is_the_plans():

@@ -4235,7 +4235,7 @@ class RouterObjectiveConfig(BaseModel):
     Instruct hand-off, the owner's decision 4 of Nov 9 (the same tag, spec_instruct_handoff_v1 §8):
     ``lesson_candidate_after_cold_miss``: a topic with a missed cold check since its last lesson is a lesson candidate,
     with no threshold on the miss's size, its count or its error type (the router decides with its own evidence), and its
-    reason reads "A recent check on it didn't come out right." Off, or below the tag, mvp-0.54's ``cold_failing`` rule
+    reason says when ("On Nov 3, a check on it wasn't fully right."). Off, or below the tag, mvp-0.54's ``cold_failing`` rule
     (the two latest cold checks below full) and its wording.
 
     Instruct hand-off IH4 (the same tag, spec_instruct_handoff_v1 §7): ``preferences_inform_router``: what the learner said

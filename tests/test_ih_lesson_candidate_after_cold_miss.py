@@ -4,16 +4,19 @@
 none since the failures in the cold retrieval were insignificant/trivial arithmetic. This is something for the action
 router/diagnosis/teacher ensemble to decide through the learnloop algorithm." So a topic with a missed cold check since its
 last lesson is a lesson candidate (``cold_missed``), with no threshold on the miss's size, its count or its error type, and
-its reason says "A recent check on it didn't come out right." Off, or below the tag, mvp-0.54's ``cold_failing``.
-Fakes only; no model call.
+its reason says what happened and when ("On Nov 8, a check on it wasn't fully right."). "Since" is from when the last
+lesson ended, and an answer the system records as not independent is no cold check (review 3). Off, or below the tag,
+mvp-0.54's ``cold_failing``. Fakes only; no model call.
 """
 
 from __future__ import annotations
 
 import inspect
 import io
+import time
 import tokenize
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
@@ -55,6 +58,17 @@ def _answer(paths, repository, item: str, points: int, *, days_ago: float) -> st
         SelfGradeInput(criterion_points={"correctness": points}, confidence=3),
         clock=FrozenClock(T0 - timedelta(days=days_ago)))
     return attempt.attempt_id
+
+
+@pytest.fixture
+def utc_zone(monkeypatch):
+    """The words name a local date: pin the zone so the dates below are the test's."""
+
+    monkeypatch.setenv("TZ", "UTC")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
 
 
 def _candidates(paths, repository, now: str = NOW) -> dict[str, LS.Candidate]:
@@ -153,13 +167,185 @@ def test_an_unattempted_or_only_right_topic_is_no_cold_miss(tmp_path):
 # -- the wording and the acceptance model ------------------------------------------------------------------------------
 
 
-def test_the_reason_reads_honestly(tmp_path):
-    assert SG.REASON_WORDS["cold_missed"] == "A recent check on it didn't come out right."
+def test_the_reason_reads_honestly(tmp_path, utc_zone):
+    assert SG.REASON_WORDS["cold_missed"] == "A check on it wasn't fully right."  # a record with no date
     assert SG.REASON_WORDS["cold_failing"] == "Your last two checks on it didn't come out right."  # the predecessor's
     paths, repository = _world(tmp_path)
     _answer(paths, repository, "pi_det_1", SLIP, days_ago=1)
-    entry = SG._card_entry(_candidates(paths, repository)["lo_det"].as_dict())
-    assert entry["why"] == "A recent check on it didn't come out right."
+    entry = SG._card_entry(_candidates(paths, repository)["lo_det"].as_dict(), as_of=NOW)
+    assert entry["why"] == "On Nov 8, a check on it wasn't fully right."
+
+
+@pytest.mark.parametrize("correctness", [0.0, 0.5, 0.75, 0.9, 0.99])
+def test_the_words_hold_for_every_grade_the_condition_admits(tmp_path, utc_zone, correctness):
+    """Review 3, m1 (R3): a 0.9 is a success to AD and "correct" on the LLM's card, and the offer must not say it "didn't
+    come out right". Every grade below full is truthfully "wasn't fully right", dated from the attempt itself."""
+
+    paths, repository = _world(tmp_path)
+    attempt = _answer(paths, repository, "pi_det_1", RIGHT, days_ago=1)
+    with repository.connection() as connection:
+        connection.execute("UPDATE practice_attempts SET correctness = ? WHERE id = ?", (correctness, attempt))
+        connection.commit()
+    candidate = _candidates(paths, repository)["lo_det"]
+    assert candidate.reason == "cold_missed" and candidate.missed_at == "2026-11-08T09:00:00Z"
+    assert SG.reason_words(candidate, as_of=NOW) == "On Nov 8, a check on it wasn't fully right."
+
+
+def test_an_old_miss_followed_by_right_answers_is_dated_as_old(tmp_path, utc_zone):
+    """Review 3, m1 (R4): one miss 200 days ago and ten right answers since. Still a candidate (no age rule), and the
+    words no longer say "recent": they name the day. A miss in an earlier year names the year."""
+
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SEVERE, days_ago=200)
+    for index in range(10):
+        _answer(paths, repository, "pi_det_2" if index % 2 else "pi_det_1", RIGHT, days_ago=150 - index * 10)
+    candidate = _candidates(paths, repository)["lo_det"]
+    assert candidate.reason == "cold_missed"
+    assert SG.reason_words(candidate, as_of=NOW) == "On Apr 23, a check on it wasn't fully right."
+    assert SG._card_entry(candidate.as_dict(), as_of=NOW)["why"] == "On Apr 23, a check on it wasn't fully right."
+    _answer(paths, repository, "pi_eig_1", SLIP, days_ago=400)
+    eigen = _candidates(paths, repository)["lo_eigen"]
+    assert SG.reason_words(eigen, as_of=NOW) == "On Oct 5, 2025, a check on it wasn't fully right."
+
+
+def test_the_words_name_the_latest_miss_and_survive_the_record(tmp_path, utc_zone):
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SEVERE, days_ago=5)
+    _answer(paths, repository, "pi_det_2", RIGHT, days_ago=3)
+    _answer(paths, repository, "pi_det_1", SLIP, days_ago=2)
+    candidate = _candidates(paths, repository)["lo_det"]
+    assert candidate.missed_at == "2026-11-07T09:00:00Z"
+    assert LS.Candidate.from_dict(candidate.as_dict()).as_dict() == candidate.as_dict(), "the date is on the record"
+    assert SG.reason_words(candidate.as_dict(), as_of=NOW) == "On Nov 7, a check on it wasn't fully right."
+    # The other reasons keep their words and their records (no date key).
+    new_goal = _candidates(paths, repository)["lo_eigen"]
+    assert "missed_at" not in new_goal.as_dict() and SG.reason_words(new_goal, as_of=NOW) == SG.REASON_WORDS["new_goal"]
+
+
+def test_the_offer_block_and_the_llms_row_carry_the_dated_words(tmp_path, utc_zone):
+    """The offer block's reason (which the offer page and the LLM policy's row read) is the same sentence."""
+
+    from learnloop.daily_plan import lesson_offer as LO
+    from learnloop.router import requests as rq
+
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SLIP, days_ago=1)
+    vault = load_vault(paths.root)
+    only, _excluded = SG.build_candidates(vault, repository, now_iso=NOW)
+    only = [candidate for candidate in only if candidate.learning_object_ids == ("lo_det",)]
+    real = SG.build_candidates
+    try:
+        SG.build_candidates = lambda *_a, **_k: (only, {})
+        offer = LO.build(vault, repository, today="2026-11-09", now_iso=NOW, local_hour=9.0, minutes_left=30.0,
+                         reentry=False, forced=False)
+    finally:
+        SG.build_candidates = real
+    assert offer.candidate is not None, offer
+    assert offer.candidate.reason == "On Nov 8, a check on it wasn't fully right."
+    view = SG.offer_card_view(SimpleNamespace(chosen=offer.candidate.annotations, budget_minutes=15, decision_ref="d",
+                                              id="b", outcome=None, created_at=NOW))
+    assert view["suggestion"]["why"] == offer.candidate.reason
+    assert offer.candidate.reason in rq.lesson_offer_description(topic="Determinants", why=offer.candidate.reason,
+                                                                 est_minutes=15, p_accept=0.4)
+
+
+# -- review 3, M2: "since the last lesson" is since it ended, and a non-independent answer is no cold check -------------
+
+
+def _lesson(paths, repository, *, days_ago: float, minutes: float = 20) -> None:
+    opened = T0 - timedelta(days=days_ago)
+    S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_det"],
+                  clients=clients(TeacherFake([plan_turn])), clock=FrozenClock(opened))
+    with repository.connection() as connection:
+        connection.execute("UPDATE lessons SET closed_at = ?, close_reason = 'learner_stop' WHERE closed_at IS NULL",
+                           ((opened + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ"),))
+        connection.commit()
+
+
+def _probe(paths, repository, points: int, *, days_ago: float) -> str:
+    attempt = _answer(paths, repository, "pi_det_2", points, days_ago=days_ago)
+    with repository.connection() as connection:
+        connection.execute("UPDATE practice_attempts SET attempt_type = 'diagnostic_probe' WHERE id = ?", (attempt,))
+        connection.commit()
+    return attempt
+
+
+@pytest.mark.parametrize(("version", "config"), [(TAG, ""), (TAG, OFF), (OLD, "")], ids=["on", "switch_off", "below"])
+def test_a_placement_probe_missed_inside_the_lesson_is_the_lessons_not_a_check_after_it(tmp_path, version, config):
+    """R2: a right answer, a lesson, its placement probe missed five minutes in, the lesson closed. On: no candidate (the
+    miss was while the lesson was open). Off and below the tag: mvp-0.54's rule, as before (no candidate either)."""
+
+    paths, repository = _world(tmp_path, version=version, config=config)
+    _answer(paths, repository, "pi_det_1", RIGHT, days_ago=3)
+    _lesson(paths, repository, days_ago=2)
+    _probe(paths, repository, SEVERE, days_ago=2 - 5 / 1440)
+    assert "lo_det" not in _candidates(paths, repository)
+    # A check after the lesson ended counts (on). Off, mvp-0.54's rule reads the probe and this one as its two latest
+    # cold checks, as it always did.
+    _answer(paths, repository, "pi_det_1", SLIP, days_ago=1)
+    found = _candidates(paths, repository)
+    assert found["lo_det"].reason == ("cold_missed" if config == "" and version == TAG else "cold_failing")
+
+
+def _expose(repository, attempt: str) -> None:
+    from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
+
+    repository.record_causal_activity_classification(
+        attempt_id=attempt, contamination_class="instructional_diagnostic", near_clone=False,
+        near_clone_basis="no_source_item", source=LESSON_PROBE_EXPOSED_SOURCE,
+        detail={"practice_item_id": "pi_det_2", "exposure": "revealed"}, clock=FrozenClock(T0))
+
+
+def test_an_answer_recorded_as_not_independent_is_no_cold_check(tmp_path):
+    """A lesson probe answered after the lesson showed text on the topic (``lesson_probe_exposed``, the rule
+    ``lesson_weight.qualifying_outcomes`` applies) makes no candidate; the same answer unexposed does."""
+
+    paths, repository = _world(tmp_path)
+    exposed = _probe(paths, repository, SEVERE, days_ago=1)
+    _expose(repository, exposed)
+    assert "lo_det" not in _candidates(paths, repository)
+    control, control_repository = _world(tmp_path, name="control")
+    _probe(control, control_repository, SEVERE, days_ago=1)
+    assert _candidates(control, control_repository)["lo_det"].reason == "cold_missed"
+
+
+@pytest.mark.parametrize(("version", "config"), [(TAG, OFF), (OLD, "")], ids=["switch_off", "below"])
+def test_off_or_below_an_exposed_answer_counts_as_before(tmp_path, version, config):
+    paths, repository = _world(tmp_path, version=version, config=config)
+    for days_ago in (2, 1):
+        _expose(repository, _probe(paths, repository, SEVERE, days_ago=days_ago))
+    assert _candidates(paths, repository)["lo_det"].reason == "cold_failing"
+
+
+# -- review 3, m2: a topic AD places below its band keeps below_band ------------------------------------------------
+
+
+def _below(monkeypatch, *los: str) -> dict[str, dict]:
+    band = {lo: {"below": True, "p_band": 0.1, "p_bar": 0.2, "band": [0.7, 0.8]} for lo in los}
+    monkeypatch.setattr(SG, "_band_positions", lambda _vault, _repository, ids: {lo: band[lo] for lo in ids if lo in band})
+    return band
+
+
+def test_a_topic_below_its_band_with_a_miss_keeps_below_band(tmp_path, monkeypatch):
+    band = _below(monkeypatch, "lo_det")
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SLIP, days_ago=1)
+    _answer(paths, repository, "pi_eig_1", SLIP, days_ago=1)
+    found = _candidates(paths, repository)
+    assert found["lo_det"].reason == "below_band" and found["lo_det"].band == band["lo_det"]
+    assert found["lo_det"].missed_at is None and SG.reason_words(found["lo_det"]) == SG.REASON_WORDS["below_band"]
+    assert found["lo_eigen"].reason == "cold_missed", "a miss on a topic not below its band is still a candidate"
+
+
+@pytest.mark.parametrize(("version", "config"), [(TAG, OFF), (OLD, "")], ids=["switch_off", "below"])
+def test_off_or_below_the_precedence_is_the_predecessors(tmp_path, monkeypatch, version, config):
+    _below(monkeypatch, "lo_det", "lo_eigen")
+    paths, repository = _world(tmp_path, version=version, config=config)
+    _answer(paths, repository, "pi_det_1", SEVERE, days_ago=2)
+    _answer(paths, repository, "pi_det_2", SEVERE, days_ago=1)
+    _answer(paths, repository, "pi_eig_1", SLIP, days_ago=1)
+    found = _candidates(paths, repository)
+    assert found["lo_det"].reason == "cold_failing" and found["lo_eigen"].reason == "below_band"
 
 
 def test_the_renamed_reason_enters_the_acceptance_model_through_the_same_effect_with_its_history():

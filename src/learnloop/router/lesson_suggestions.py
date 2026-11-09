@@ -94,7 +94,8 @@ NO_SUGGESTION = "no_suggestion"
 REASONS: tuple[str, ...] = ("new_goal", "cold_failing", "below_band", "cold_missed")
 #: The reasons that say a cold check on the topic didn't come out right, read by one effect, ``reason_cold_failing``
 #: (the owner's decision 4, spec_instruct_handoff_v1 §8). ``cold_missed`` replaced ``cold_failing``'s candidacy rule (any
-#: missed check since the last lesson, not the two latest) and its wording ("A recent check on it didn't come out right."),
+#: missed check since the last lesson, not the two latest) and its wording (the miss's date: "On Nov 3, a check on it wasn't
+#: fully right."),
 #: but it tells the learner the same thing, so a response to either card teaches the same effect: every earlier answer
 #: to a ``cold_failing`` card keeps informing it, and no new effect starts from a prior of its own. No prior changed, so
 #: the set keeps its name; a vault that never draws a ``cold_missed`` card computes TE1b's numbers bit for bit.
@@ -222,6 +223,9 @@ class Candidate:
     title: str = ""
     #: ``below_band``: adaptive difficulty's prediction that put it there (``P_band``, ``p̄``, the band).
     band: Mapping[str, Any] | None = None
+    #: ``cold_missed``: when the latest missed cold check since the topic's last lesson was made (its ``created_at``), so
+    #: the reason's words can say what happened and when. Read only for the words, never by the model.
+    missed_at: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         out = {"ref": self.ref, "kind": CANDIDATE_KIND, "learning_object_ids": list(self.learning_object_ids),
@@ -231,6 +235,8 @@ class Candidate:
                                       else round(float(self.days_since_decline), 6))}
         if self.band is not None:
             out["band"] = dict(self.band)
+        if self.missed_at is not None:
+            out["missed_at"] = str(self.missed_at)
         return out
 
     @classmethod
@@ -242,7 +248,8 @@ class Candidate:
                    reason=str(value.get("reason") or "new_goal"),
                    predicted_success=None if p is None else float(p),
                    days_since_decline=None if d is None else float(d), title=str(value.get("title") or ""),
-                   band=dict(band) if isinstance(band, Mapping) else None)
+                   band=dict(band) if isinstance(band, Mapping) else None,
+                   missed_at=None if value.get("missed_at") is None else str(value["missed_at"]))
 
 
 def lesson_ref(learning_object_id: str) -> str:

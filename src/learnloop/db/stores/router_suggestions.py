@@ -233,6 +233,31 @@ def last_lesson_opened_by_learning_object(connection: sqlite3.Connection) -> dic
     return out
 
 
+def last_lesson_ended_by_learning_object(connection: sqlite3.Connection) -> dict[str, str]:
+    """Per LO, when the last lesson on it ended: the latest ``closed_at`` (``opened_at`` for one still open, which the
+    candidates leave out anyway). Every attempt made while a lesson on the LO was open is at or before this instant."""
+
+    out: dict[str, str] = {}
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='lessons'").fetchone() is None:
+        return out
+    for raw, ended in connection.execute("SELECT learning_object_ids_json, coalesce(closed_at, opened_at) FROM lessons"):
+        for lo in json.loads(raw or "[]"):
+            if str(ended) > out.get(str(lo), ""):
+                out[str(lo)] = str(ended)
+    return out
+
+
+def attempts_classified_by(connection: sqlite3.Connection, source: str) -> set[str]:
+    """The attempts with an activity classification written by ``source`` (e.g. a lesson probe answered after its
+    lesson showed text on the topic, which the system records as not independent)."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                          "AND name='causal_activity_classification_events'").fetchone() is None:
+        return set()
+    return {str(row[0]) for row in connection.execute(
+        "SELECT DISTINCT attempt_id FROM causal_activity_classification_events WHERE source = ?", (source,))}
+
+
 def attempts_by_learning_object(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
     """Each LO's attempts, oldest first (what the candidate reasons read)."""
 
@@ -252,12 +277,14 @@ __all__ = [
     "RESPONSE_KINDS",
     "all_decisions",
     "attempts_by_learning_object",
+    "attempts_classified_by",
     "decision",
     "decision_for_day",
     "decisions",
     "offer_decision",
     "offer_decisions",
     "insert_response",
+    "last_lesson_ended_by_learning_object",
     "last_lesson_opened_by_learning_object",
     "lesson_exists",
     "open_lesson_learning_objects",

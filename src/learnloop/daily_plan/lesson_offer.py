@@ -360,7 +360,7 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
     candidate = BlockCandidate(
         candidate_id=offer_ref(lo), lane="new", action="instruct", subtype=LESSON_OFFER_SUBTYPE,
         learning_object_ids=(lo,), item_ids=(), reading=None, est_minutes=float(duration["median_minutes"]),
-        planner_value=round(top.value, 12), reason=LSS.REASON_WORDS.get(top.candidate.reason, ""),
+        planner_value=round(top.value, 12), reason=LSS.reason_words(top.candidate, as_of=now_iso),
         annotations={"reversible": True, "reason_code": "lesson_offer", "topic": title,
                      "lesson_offer": json.loads(json.dumps(record, sort_keys=True))})
     return Offer(candidate, {key: value for key, value in record.items() if key not in ("model", "card")}
