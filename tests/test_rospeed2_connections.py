@@ -217,6 +217,7 @@ def _canon(value: Any) -> Any:
     return value
 
 
+@pytest.mark.slow
 def test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool(tmp_path, monkeypatch):
     """Each prefetch job's input builds, its decision card and its combiner fit, recomputed at once with the pool
     switched off for that call (fresh connections), are equal bit for bit; the job opens a handful of connections."""
@@ -317,6 +318,7 @@ class _OpenCharged:
             patch.setattr(DBC, name, opened)
 
 
+@pytest.mark.slow
 def test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains(tmp_path, monkeypatch):
     """Codex review F2. One prefetch job's numeric policy, replayed on its own inputs with the LLM still out (so the
     evaluation refines until the deadline): on a clock charged per sigmoid element and per connection opened, main's
