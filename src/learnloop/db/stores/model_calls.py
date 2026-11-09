@@ -119,6 +119,24 @@ class ModelCallStoreMixin:
             rows = connection.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
+    def model_route_receipts(self) -> list[dict[str, Any]]:
+        """Root receipts, oldest first, for the doctor's route health.
+
+        ``failure_text`` is the error text a transport recorded on a failed
+        call (``finish_reason`` ``http_<status>`` or ``network``, already
+        redacted); any other output, such as a malformed paid answer, is left
+        out, so no model output reaches the report.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT purpose, provider, model, status, started_at, finish_reason, error_type, "
+                "CASE WHEN status = 'failed' AND (finish_reason LIKE 'http\\_%' ESCAPE '\\' "
+                "OR finish_reason = 'network') THEN substr(output_text, 1, 300) END AS failure_text "
+                "FROM model_call_receipts WHERE parent_call_id IS NULL ORDER BY started_at, rowid"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def model_checkpoint(self, cache_key: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute("SELECT result_json,usage_json FROM model_work_checkpoints WHERE cache_key=?", (cache_key,)).fetchone()
