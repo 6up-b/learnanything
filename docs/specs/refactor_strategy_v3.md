@@ -51,7 +51,7 @@ When its step comes (recommendations and evidence in §2.13):
 7. **31 CLI commands and `experiments/` (C7):** say which report tools you still use, and whether E1 is finished.
 8. **Kill switches at or below the oldest tag (D7):** remove them, except any your vaults set.
 9. **Router speed target (F2):** keep "Next right after feedback no worse than mvp-0.49", remeasured after IH's prefetch.
-10. **The router as the only probe decider (G2):** confirm it. A probe after a miss then arrives at the next decision, not on the feedback screen.
+10. **The router as the only probe decider (G2):** owner confirmed the direction, Nov 9. An independent Fable review (§2.10, G2) keeps it but changes two specifics: the post-miss probe stays at the post-feedback Next, and the router gets a way to price hypothesis discrimination first. Owner to confirm the amended form.
 11. **AD into surprise (H2-H3):** this crosses firewall limits A2 and A12, so it needs your amendment after you've read the four-way replay.
 12. **The table list (J1):** review it. No table is dropped without your answer.
 13. **AD eta's unbounded growth:** I recommend a saturating form as its own successor after E5, not inside the refactor.
@@ -456,6 +456,10 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 - **Scheduler EIG** (`scheduling/scheduler.py:2688`) stays as ranking for a staged fallback.
 - **Proof:** P-playbook, with a successor and kill switch serving the predecessor exactly. Report: on copies, how often each path would have differed. **Verify:** owner reads the report. **Vault:** ADR-019.
 - **Screens:** none redesigned. The existing feedback offer stays for the switch-off path; the UX stage decides how it reads.
+- **Independent review, Nov 9 (Fable; proposed amendment, owner to confirm; the cited code rechecked by the orchestrator except where noted):** the router stays the one decider, but as written this step has two faults.
+  - **Timing.** The post-miss `Next` already is a router decision (`followup_run/router.py:179-209`). Moving the probe to a later boundary is the WAIT arm, which releases feedback and marks the probe exposed, so it can no longer settle the cause (`followup_run/jobs.py:411-412`; the card says so at `objective_chooser.py:1780-1783`). So the post-miss probe stays at that Next, with feedback held. Only the learner lane's feedback-screen offer changes (`FeedbackScreen.tsx:48`, `handlers/remediation.py:170-191`).
+  - **Pricing.** The numeric policy values a probe as one binary ability result (`router_objective/value.py:886-925`), and on main FG1's stand-in is `action="practice"` (`router_chooser.py:851`), so hypothesis discrimination reaches only the LLM's card. With the LLM out, IH5 hands the share to a policy blind to it. So the shape is two-stage: the diagnostic layer proposes the candidate, asserts hard stops and supplies the structure of its value (locked set, P(result | h), repair per h, burden), and the router alone draws and logs the propensity, with `π_Q` branching per hypothesis. No threshold in the diagnostic layer. Measure the branching's milliseconds at G1 before committing, since per-hypothesis branches multiply rollouts and the numeric policy is already the largest remaining cost (D4). If it costs too much, this returns to the owner.
+  - **Scope.** As written G2 doesn't reach "only decider": `followups.py:395`'s value suppression and `voi_stopping`'s continuation site also answer. Fix or name them here. `recent_diagnostic_limit = 2.0` (`causal_probe_coherence.py:103`) is a hand-set count rule that goes with the verdict; the gate's margins are 0.0 and its claim to be fitted is unverified.
 
 **G3. Measure the disagreement** (S, read-only).
 - **Problem:** Nov 3 item 3. Different evidence models, different locked sets (commissioning with support scores, `enter_episode` again without, `probe_episodes.py:296`; each insert a new id, `db/repositories.py:7767`), independence refused in one and discounted in the other, held grades checked in one.
@@ -523,7 +527,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 - **Each:** table roles, AD's lists, generated reference, P-shadow on copies, doctor, ADR-010's gate on the doctor list. The landing record names the owner's backup step and DB size before and after. With A2 it's now about 8 files.
 - **No table is decided in this document.**
 
-**Z1. The modelling paper** (L). Nov 6 item 8. `docs/paper/learnloop-models.tex` and `.bib`, describing the code at this tip. PDF built locally if a TeX install exists, not committed (G8). No install without asking. A read-only Codex pass checks its equations against the code. No learner data or owner notes. It runs here, not earlier, because E5, G4 and H move what it describes.
+**Z1. The modelling paper** (L). Nov 6 item 8. `docs/paper/learnloop-models.tex` and `.bib`, describing the code at this tip. PDF built locally if a TeX install exists, not committed (G8). No install without asking. A read-only Codex pass on `gpt-6-astra` (owner, Nov 9) checks its equations against the code. No learner data or owner notes. It runs here, not earlier, because E5, G4 and H move what it describes.
 
 **Z2. Close** (S). Rerun every §6 measure with `scripts/refactor_measures.py` and the S0 commands. Report seconds saved per removal. **Then:** later feature work (§2.16).
 
