@@ -286,6 +286,24 @@ def test_an_unreachable_endpoint_is_recorded_as_network_without_a_status(monkeyp
     assert finish["output_text"] == "Decision endpoint unreachable (TimeoutError)"
 
 
+def test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller(monkeypatch):
+    """Codex review F5: the propagated exception carries the receipt's redacted text."""
+
+    events = []
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-key-123")
+
+    def leaky(*_args):
+        raise AIProviderUnavailable("proxy refused synthetic-key-123 with Bearer abc")
+
+    client = DeciderProviderClient("test_decider", DeciderProviderConfig(api="openrouter"), http=leaky)
+    with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
+        with pytest.raises(AIProviderUnavailable) as raised:
+            client.decide("s", {"q": NoulQuestion("q")}, purpose="test")
+    assert str(raised.value) == "proxy refused [redacted] with [redacted]"
+    assert raised.value.__cause__ is None and raised.value.__suppress_context__
+    assert events[-1][1]["output_text"] == str(raised.value)
+
+
 def test_redaction_keeps_slugs_and_drops_key_shapes():
     from learnloop.ai.providers.decider import redact_key_like
 

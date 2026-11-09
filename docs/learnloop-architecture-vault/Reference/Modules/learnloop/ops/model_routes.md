@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/model_routes.py"
 source_paths:
   - "src/learnloop/ops/model_routes.py"
-source_commit: "workspace/uncommitted @ HEAD d8f22b560af4badfa5702c707d20d3621ec042a5"
-source_commit_timestamp: "2026-11-09T12:49:40-05:00"
-source_worktree_state: "untracked"
+source_commit: "workspace/uncommitted @ HEAD 6d58440b8245a35099a0cdcd9b325518f0c1431d"
+source_commit_timestamp: "2026-11-09T12:54:21-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -50,25 +50,27 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/model_routes.py](../../../../../../src/learnloop/ops/model_routes.py) |
-| Source lines | 136 |
+| Source lines | 169 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD d8f22b560af4badfa5702c707d20d3621ec042a5` |
-| Commit timestamp | `2026-11-09T12:49:40-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 6d58440b8245a35099a0cdcd9b325518f0c1431d` |
+| Commit timestamp | `2026-11-09T12:54:21-05:00` |
 
 ## Public API
 
-- `class RouteHealth` ([source](../../../../../../src/learnloop/ops/model_routes.py), line 32)
-  - `as_dict(self) -> dict[str, Any]` (line 54; public)
-  - `message(self) -> str` (line 57; public)
-- `route_health(rows: Iterable[Mapping[str, Any]], configured_models: Mapping[str, str | None] | None=None) -> list[RouteHealth]` ([source](../../../../../../src/learnloop/ops/model_routes.py), line 71) — Facts per purpose from root receipts in ``started_at`` order.
-- `check_model_routes(repository: Any, configured_models: Mapping[str, str | None]) -> list[RouteHealth]` ([source](../../../../../../src/learnloop/ops/model_routes.py), line 130) — The doctor's reader: every root receipt, oldest first.
+- `class RouteHealth` ([source](../../../../../../src/learnloop/ops/model_routes.py), line 44)
+  - `as_dict(self) -> dict[str, Any]` (line 67; public)
+  - `message(self) -> str` (line 70; public)
+- `route_health(rows: Iterable[Mapping[str, Any]], configured_models: Mapping[str, str | None] | None=None) -> list[RouteHealth]` ([source](../../../../../../src/learnloop/ops/model_routes.py), line 94) — Facts per (purpose, provider) from root receipts, in any order.
+- `check_model_routes(repository: Any, configured_models: Mapping[str, str | None]) -> list[RouteHealth]` ([source](../../../../../../src/learnloop/ops/model_routes.py), line 163) — The doctor's reader: every root receipt.
 
 ### Module constants
 
-- `FINDING_CODE` ([src/learnloop/ops/model_routes.py](../../../../../../src/learnloop/ops/model_routes.py), line 28)
+- `FINDING_CODE` ([src/learnloop/ops/model_routes.py](../../../../../../src/learnloop/ops/model_routes.py), line 36)
+- `_TERMINAL` ([src/learnloop/ops/model_routes.py](../../../../../../src/learnloop/ops/model_routes.py), line 39)
+- `_UNPARSED` ([src/learnloop/ops/model_routes.py](../../../../../../src/learnloop/ops/model_routes.py), line 40)
 
 ### Explicit exports
 
@@ -81,7 +83,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_instant(value: Any) -> datetime` ([source](../../../../../../src/learnloop/ops/model_routes.py), line 84) — Receipt times compared as instants, not strings (``Z``, offsets and fractional seconds sort wrongly as text).
 
 ## Who imports or calls it
 
@@ -94,11 +96,11 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -116,10 +118,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_route_health.py](../../../../../../tests/test_model_route_health.py) — direct import
   - `test_a_configured_model_change_waits_for_the_next_call`
   - `test_a_model_change_restarts_the_judgment_both_ways`
+  - `test_a_purpose_moved_to_another_profile_is_superseded_not_flagged`
   - `test_a_route_that_never_completed_is_flagged_with_its_last_error`
   - `test_doctor_flags_a_route_whose_current_model_never_completed`
   - `test_doctor_reports_routes_in_json_and_text_and_flags_the_dead_one`
   - `test_failures_after_a_completed_call_on_the_same_model_are_reported_not_flagged`
+  - `test_one_purpose_on_two_profiles_keeps_both_routes`
+  - `test_receipt_times_are_ordered_as_instants_not_text`
   - `test_started_interrupted_and_truncated_calls_are_neither_failures_nor_completions`
 
 ## Modification guidance

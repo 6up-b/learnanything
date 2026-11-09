@@ -29,7 +29,7 @@ source_paths:
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T12:49:40-05:00"
+source_commit_timestamp: "2026-11-09T12:54:21-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -101,7 +101,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 41 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 41 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 21 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 22 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 13 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 12 static module edges
@@ -162,7 +162,7 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop -->|41| center
-    center -->|21| n_learnloop
+    center -->|22| n_learnloop
     center -->|41| n_learnloop_ai
     center -->|41| n_learnloop_vault
     center -->|19| n_learnloop_db

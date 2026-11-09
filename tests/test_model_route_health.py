@@ -58,7 +58,7 @@ def test_a_model_change_restarts_the_judgment_both_ways():
     ]))["reader_intent"]
     assert failing.flagged and failing.current_since.startswith("2026-11-02")
     assert failing.last_completed_model == OLD and failing.model == NEW
-    assert "since this provider/model was first used" in failing.message()
+    assert "since this model was first used" in failing.message()
     # Failed on the old model, then completed on the new one: healthy, nothing since.
     repaired = by_purpose(route_health([
         row("reader_intent", "failed", 1), row("reader_intent", "completed", 2, model=NEW),
@@ -81,6 +81,50 @@ def test_started_interrupted_and_truncated_calls_are_neither_failures_nor_comple
         row("a", "started", 1), row("a", "interrupted", 2), row("a", "truncated", 3),
     ]))
     assert routes["a"].calls == 3 and not routes["a"].flagged and routes["a"].failures_since_completed == 0
+    # Codex review F3: an unfinished call with no model after failures neither
+    # recovers the route nor resets what it knows.
+    after_failures = by_purpose(route_health([
+        row("a", "failed", 1), row("a", "interrupted", 2, model=None), row("a", "started", 3, model=None),
+    ]))["a"]
+    assert after_failures.flagged and after_failures.failures_since_completed == 1
+    assert after_failures.model == OLD and after_failures.calls == 3
+
+
+def test_one_purpose_on_two_profiles_keeps_both_routes():
+    """Codex review F1: the probability arms share a purpose; a working LLM
+    arm must not hide a dead Decider arm."""
+
+    routes = route_health([
+        row("llm_probability", "failed", 1), row("llm_probability", "completed", 2, provider="chatgpt", model="g"),
+        row("llm_probability", "failed", 3), row("llm_probability", "completed", 4, provider="chatgpt", model="g"),
+    ])
+    keyed = {(route.purpose, route.provider): route for route in routes}
+    decider, llm = keyed[("llm_probability", "openrouter_decider")], keyed[("llm_probability", "chatgpt")]
+    assert decider.flagged and decider.failures_since_completed == 2 and decider.superseded_by is None
+    assert not llm.flagged and llm.last_completed_at.startswith("2026-11-04")
+
+
+def test_a_purpose_moved_to_another_profile_is_superseded_not_flagged():
+    routes = route_health([
+        row("grading", "failed", 1), row("grading", "failed", 2),
+        row("grading", "completed", 3, provider="chatgpt", model="g"),
+    ])
+    old = next(route for route in routes if route.provider == "openrouter_decider")
+    assert old.superseded_by == "chatgpt" and not old.flagged and old.failures_since_completed == 2
+
+
+def test_receipt_times_are_ordered_as_instants_not_text():
+    """Codex review F2: ``Z`` sorts after ``.1+00:00`` as text, though it is earlier."""
+
+    rows = [
+        {**row("a", "failed", 1), "started_at": "2026-11-01T00:00:00.100000+00:00"},
+        {**row("a", "completed", 1), "started_at": "2026-11-01T00:00:00Z"},
+        {**row("a", "failed", 1), "started_at": "2026-11-01T00:30:00+01:00"},  # Oct 31 23:30Z, first
+    ]
+    route = by_purpose(route_health(rows))["a"]
+    assert route.last_completed_at == "2026-11-01T00:00:00Z"
+    assert route.failures_since_completed == 1
+    assert route.last_failure_at == "2026-11-01T00:00:00.100000+00:00"
 
 
 def _receipt(connection, call_id, purpose, status, at, *, model=OLD, parent=None, reason=None, output=None):

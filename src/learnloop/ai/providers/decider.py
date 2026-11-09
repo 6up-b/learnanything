@@ -38,7 +38,7 @@ import urllib.request
 from learnloop.ai.decisions import (
     DecisionResult, DecisionState, Question, parse_response, request_body, validate_questions,
 )
-from learnloop.ai.errors import AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.config import AIProviderConfig
 from learnloop.config.schema import DEFAULT_DECIDER_MODEL, DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT
@@ -254,10 +254,21 @@ class DeciderProviderClient:
             timeout = self.settings.timeout_seconds if timeout_seconds is None else max(float(timeout_seconds), 0.1)
             try:
                 status, headers, raw = self._http("POST", self.settings.url, self._headers, encoded, timeout)
+            except AIInterrupted:
+                raise
             except AIProviderUnavailable as exc:
                 # No HTTP status: the receipt says so (chatgpt_plan's "network").
-                metadata.update(finish_reason="network", output_text=redact_key_like(str(exc), self._secrets))
-                raise
+                # An injected transport's message could echo a credential, so
+                # the caller gets the same redacted text the receipt keeps.
+                message = redact_key_like(str(exc), self._secrets)
+                metadata.update(finish_reason="network", output_text=message)
+                if message == str(exc):
+                    raise
+                try:
+                    sanitized = type(exc)(message)
+                except Exception:  # noqa: BLE001 - a subclass with another signature
+                    sanitized = AIProviderUnavailable(message)
+                raise sanitized from None
             if status != 200:
                 # A rejected request is normally free, but its usage is
                 # unknown: the receipt keeps NULL usage rather than zero. The

@@ -1893,10 +1893,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # read by nothing serving at any version (no successor, as AD1); every snapshot moves only because the
     # effective config gains them, and all of them were recomputed (defaults_fingerprint_for_version).
     # Decider v1.2 (docs/reviews/decider-v1-2.md) moves the code-default openrouter_decider profile's model from
-    # perplexity/pplx-decider-v1.1-27b (no OpenRouter endpoints by Nov 2026: every call was a 404) to the pinned
-    # perplexity/pplx-decider-v1.2, same API contract and price. The served model changes, as Plan-first
-    # transport T1's did; questions, parsing, scoring, scheduling, projections and replayed meaning do not, and no
-    # stored value was ever produced by v1.1 (no call completed), so no successor; it acts at every version. Every
+    # perplexity/pplx-decider-v1.1-27b (no OpenRouter endpoints by Nov 2026: the owner's vaults' calls were 404s) to
+    # the pinned perplexity/pplx-decider-v1.2, same API contract and price. The served model changes, as Plan-first
+    # transport T1's did; questions, parsing, scoring, scheduling, projections and replayed meaning do not (each
+    # answer records its model), and no call completed in the owner's vault backups: no successor, at every version. Every
     # snapshot moves only because the effective config's model changes; all were recomputed
     # (defaults_fingerprint_for_version).
     "mvp-0.9": "22241799cbac98282fe955eb7b94322c07b3274cd206b2ec0f9d2b6999127eeb",
