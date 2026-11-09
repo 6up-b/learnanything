@@ -1,0 +1,2308 @@
+{
+  "<root>": [
+    "--install-completion",
+    "--show-completion"
+  ],
+  "accept": [
+    "--all",
+    "--items",
+    "--vault",
+    "<patch_id>"
+  ],
+  "ad": [],
+  "ad backfill": [
+    "--audit",
+    "--dry-run",
+    "--json",
+    "--limit",
+    "--llm-v1",
+    "--reading",
+    "--vault"
+  ],
+  "ad data-check": [
+    "--json",
+    "--vault"
+  ],
+  "ad eval": [
+    "--arms",
+    "--json",
+    "--vault"
+  ],
+  "ad forecast-audit": [
+    "--json",
+    "--limit",
+    "--mode",
+    "--run",
+    "--vault"
+  ],
+  "ad relatedness": [
+    "--adopt",
+    "--confirm-reinterpretation",
+    "--dry-run",
+    "--json",
+    "--shadow",
+    "--subject",
+    "--vault"
+  ],
+  "ad report": [
+    "--dry-run",
+    "--json",
+    "--no-sensitivity",
+    "--sensitivity",
+    "--vault"
+  ],
+  "add-note": [
+    "--body",
+    "--file",
+    "--related-los",
+    "--source-type",
+    "--vault",
+    "<note_id>",
+    "<subject_id>",
+    "<title>"
+  ],
+  "add-subject": [
+    "--vault",
+    "<subject_id>",
+    "<title>"
+  ],
+  "adjudicate-remediation": [
+    "--appropriate-remediation",
+    "--author-kind",
+    "--evidence",
+    "--false-remediation",
+    "--vault",
+    "--verifier-version",
+    "<attempt_id>"
+  ],
+  "ai": [],
+  "ai compare": [
+    "--attempt",
+    "--attempts",
+    "--copy-from",
+    "--diagnosis-attempt",
+    "--diagnosis-mode",
+    "--dry-run",
+    "--json",
+    "--no-diagnosis",
+    "--no-generation",
+    "--output",
+    "--profiles",
+    "--timeout",
+    "--vault"
+  ],
+  "ai latency": [
+    "--dry-run",
+    "--json",
+    "--max-cost-usd",
+    "--price-per-million",
+    "--provider",
+    "--runs",
+    "--timeout",
+    "--vault"
+  ],
+  "ai models": [
+    "--json",
+    "--profile",
+    "--vault",
+    "<provider>"
+  ],
+  "ai resume": [
+    "--json",
+    "<provider>"
+  ],
+  "ai signin": [
+    "--consent",
+    "--json",
+    "--new-account",
+    "--no-browser",
+    "--port",
+    "--timeout",
+    "<provider>"
+  ],
+  "ai signout": [
+    "--json",
+    "<provider>"
+  ],
+  "ai status": [
+    "--json",
+    "--vault",
+    "<provider>"
+  ],
+  "attempt": [
+    "--ai-provider",
+    "--answer",
+    "--attempt-type",
+    "--available-minutes",
+    "--confidence",
+    "--criterion-points",
+    "--dry-run",
+    "--error-type",
+    "--fatal-errors",
+    "--hints-used",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--no-diagnose",
+    "--price-per-million",
+    "--session-id",
+    "--stuck",
+    "--vault",
+    "<practice_item_id>"
+  ],
+  "backfill-originals": [
+    "--vault"
+  ],
+  "build-causal-taxonomy": [
+    "--activate",
+    "--draft",
+    "--json",
+    "--min-cluster-size",
+    "--vault"
+  ],
+  "build-plan": [
+    "--json",
+    "--subject",
+    "--vault",
+    "<refs>"
+  ],
+  "calibration": [],
+  "calibration bootstrap-sample": [
+    "--frame-id",
+    "--json",
+    "--vault"
+  ],
+  "calibration import-bundle": [
+    "--json",
+    "--vault",
+    "<bundle_path>"
+  ],
+  "card": [],
+  "card retire": [
+    "--note",
+    "--reason",
+    "--vault",
+    "<practice_item_id>"
+  ],
+  "card reword": [
+    "--answer",
+    "--prompt",
+    "--vault",
+    "<practice_item_id>"
+  ],
+  "card write": [
+    "--answer",
+    "--prompt",
+    "--vault",
+    "<learning_object_id>"
+  ],
+  "causal-attribution-audit": [
+    "--json",
+    "--vault"
+  ],
+  "causal-selection-readiness": [
+    "--json",
+    "--vault"
+  ],
+  "claims": [],
+  "claims export": [
+    "--output",
+    "--vault"
+  ],
+  "claims purge": [
+    "--vault"
+  ],
+  "clarification": [],
+  "clarification expire": [
+    "--json",
+    "--vault"
+  ],
+  "clarification list": [
+    "--json",
+    "--vault"
+  ],
+  "clarification rate": [
+    "--json",
+    "--vault"
+  ],
+  "clarification retry": [
+    "--json",
+    "--vault"
+  ],
+  "cold-probe-audit": [
+    "--json",
+    "--output",
+    "--vault",
+    "-o"
+  ],
+  "cold-probe-schedule": [
+    "--json",
+    "--lo",
+    "--output",
+    "--vault",
+    "-o"
+  ],
+  "commission-causal-probes": [
+    "--adversarial-review",
+    "--factor",
+    "--item",
+    "--json",
+    "--limit",
+    "--reviewer-id",
+    "--vault"
+  ],
+  "commission-contrast-pairs": [
+    "--json",
+    "--output",
+    "--subject",
+    "--vault",
+    "-o"
+  ],
+  "config": [],
+  "config effective": [
+    "--json",
+    "--only-overrides",
+    "--vault"
+  ],
+  "contamination": [],
+  "contamination embed": [
+    "--batch-size",
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--record-kind",
+    "--vault"
+  ],
+  "contamination report": [
+    "--detector",
+    "--dry-run",
+    "--json",
+    "--judge-revision",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--no-judge",
+    "--price-per-million",
+    "--repeat-sample",
+    "--sample",
+    "--top-k",
+    "--vault"
+  ],
+  "contract-hit-rate": [
+    "--json",
+    "--since",
+    "--vault"
+  ],
+  "contract-reachability": [
+    "--all",
+    "--json",
+    "--vault"
+  ],
+  "contracts": [],
+  "contracts amend": [
+    "--reason",
+    "--vault",
+    "<goal_id>"
+  ],
+  "contracts compare": [
+    "--vault",
+    "<goal_id>",
+    "<version_a>",
+    "<version_b>"
+  ],
+  "contracts show": [
+    "--vault",
+    "<goal_id>"
+  ],
+  "controller": [],
+  "controller open-world-gate": [
+    "--json",
+    "--vault"
+  ],
+  "correct-measurement": [
+    "--json",
+    "--preserve-history",
+    "--projection-version",
+    "--reason",
+    "--reinterpret-history",
+    "--vault",
+    "<corrected_item_path>",
+    "<source_practice_item_id>"
+  ],
+  "curriculum": [],
+  "curriculum cover": [
+    "--dry-run",
+    "--json",
+    "--source",
+    "--vault"
+  ],
+  "curriculum report": [
+    "--json",
+    "--vault"
+  ],
+  "data-capture": [],
+  "data-capture report": [
+    "--json",
+    "--vault"
+  ],
+  "data-quality": [
+    "--vault"
+  ],
+  "dataset-export": [
+    "--embargo",
+    "--split-policy",
+    "--vault",
+    "<output>"
+  ],
+  "debug-advance": [
+    "--json",
+    "--vault",
+    "<days>"
+  ],
+  "decay-pressure": [
+    "--goal",
+    "--json",
+    "--vault"
+  ],
+  "decider": [],
+  "decider agreement": [
+    "--json",
+    "--review-run",
+    "--vault"
+  ],
+  "depth": [],
+  "depth backfill-rungs": [
+    "--dry-run",
+    "--subject",
+    "--vault"
+  ],
+  "depth edges": [
+    "--status",
+    "--vault",
+    "<commitment_id>"
+  ],
+  "depth edges-author": [
+    "--count",
+    "--template-version",
+    "--vault",
+    "<commitment_id>"
+  ],
+  "depth edges-confirm": [
+    "--instance",
+    "--vault",
+    "<commitment_id>"
+  ],
+  "depth template-add": [
+    "--vault",
+    "<body_file>",
+    "<slug>"
+  ],
+  "depth template-review": [
+    "--status",
+    "--vault",
+    "<version_id>"
+  ],
+  "depth templates": [
+    "--vault"
+  ],
+  "diagnose": [],
+  "diagnose data-check": [
+    "--json",
+    "--vault"
+  ],
+  "diagnose drain": [
+    "--attempt",
+    "--dry-run",
+    "--json",
+    "--kind",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-jobs",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--vault"
+  ],
+  "diagnose import-links": [
+    "--dry-run",
+    "--json",
+    "--run",
+    "--vault"
+  ],
+  "diagnose m2-report": [
+    "--json",
+    "--out",
+    "--vault"
+  ],
+  "diagnose pfc-report": [
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-items",
+    "--max-real",
+    "--max-retries",
+    "--max-tokens",
+    "--no-ledger",
+    "--out",
+    "--price-per-million",
+    "--seed",
+    "--vault"
+  ],
+  "diagnose report": [
+    "--json",
+    "--out",
+    "--run",
+    "--vault"
+  ],
+  "diagnose retry": [
+    "--attempt",
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--queue-only",
+    "--run",
+    "--vault"
+  ],
+  "diagnose review": [
+    "--max-items",
+    "--new-session",
+    "--run",
+    "--seed",
+    "--vault"
+  ],
+  "diagnose run": [
+    "--arms",
+    "--attempt",
+    "--dry-run",
+    "--full-history-token-budget",
+    "--history-error-limit",
+    "--history-success-limit",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--no-joint-repeat",
+    "--no-judge",
+    "--no-planted",
+    "--no-probes",
+    "--no-sweep",
+    "--planted-manifest",
+    "--planted-per-shape",
+    "--price-per-million",
+    "--probe-items",
+    "--repeat-subset",
+    "--run-dir",
+    "--sample-size",
+    "--seed",
+    "--since",
+    "--sweep-budget",
+    "--vault"
+  ],
+  "diagnose status": [
+    "--attempt",
+    "--json",
+    "--vault"
+  ],
+  "diagnosis": [],
+  "diagnosis adjudicate": [
+    "--anchor-checkpoint",
+    "--anchor-criterion",
+    "--anchor-end",
+    "--anchor-kind",
+    "--anchor-quote",
+    "--anchor-start",
+    "--json",
+    "--queue-reason",
+    "--rationale",
+    "--repair",
+    "--repair-class",
+    "--source",
+    "--vault",
+    "--verdict",
+    "<attempt_id>"
+  ],
+  "diagnosis calibration": [
+    "--checks",
+    "--json",
+    "--no-checks",
+    "--since",
+    "--vault"
+  ],
+  "diagnosis queue": [
+    "--json",
+    "--learning-object",
+    "--limit",
+    "--reason",
+    "--vault"
+  ],
+  "diagnosis scoreboard": [
+    "--group-by",
+    "--json",
+    "--vault"
+  ],
+  "diagnostic-augmentation": [
+    "--json",
+    "--vault"
+  ],
+  "diagnostic-eval": [
+    "--cases",
+    "--diagnostician-provider",
+    "--generator-provider",
+    "--json",
+    "--sample-count",
+    "--vault"
+  ],
+  "doctor": [
+    "--ai",
+    "--ai-provider",
+    "--data-quality",
+    "--dry-run",
+    "--fix",
+    "--fix-content",
+    "--fix-state",
+    "--json",
+    "--vault"
+  ],
+  "edit-proposal-item": [
+    "--file",
+    "--json",
+    "--vault",
+    "<item_id>",
+    "<patch_id>"
+  ],
+  "embeddings": [],
+  "embeddings adjudicate": [
+    "--backlog",
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-pairs-to-judge",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--task",
+    "--vault"
+  ],
+  "embeddings backfill": [
+    "--batch-size",
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--record-kind",
+    "--vault"
+  ],
+  "embeddings compare": [
+    "--alternatives",
+    "--benchmark",
+    "--dims",
+    "--dry-run",
+    "--embedding-price-per-million",
+    "--family",
+    "--input-price-per-million",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cases",
+    "--max-cost-usd",
+    "--max-items",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--model",
+    "--output",
+    "--output-dir",
+    "--output-price-per-million",
+    "--price-per-million",
+    "--suite",
+    "--target-recall",
+    "--tier",
+    "--vault",
+    "--view",
+    "--writer-output-tokens"
+  ],
+  "embeddings fallback": [],
+  "embeddings fallback backfill": [
+    "--dry-run",
+    "--extraction-id",
+    "--json",
+    "--vault"
+  ],
+  "embeddings fusion": [],
+  "embeddings fusion refit": [
+    "--json",
+    "--vault"
+  ],
+  "embeddings local": [],
+  "embeddings local index": [
+    "--data-root",
+    "--dry-run",
+    "--json",
+    "--now",
+    "--vault"
+  ],
+  "embeddings local profile": [
+    "--data-root",
+    "--extraction-id",
+    "--json",
+    "--tokens",
+    "--vault"
+  ],
+  "embeddings local setup": [
+    "--adopt-env-python",
+    "--adopt-model-dir",
+    "--data-root",
+    "--dry-run",
+    "--i-understand-this-downloads-33-gb",
+    "--json",
+    "--skip-weight-digests"
+  ],
+  "embeddings local status": [
+    "--data-root",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student": [],
+  "embeddings local student adopt": [
+    "--checkpoint",
+    "--data-root",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student evaluate": [
+    "--arm",
+    "--bank",
+    "--checkpoint",
+    "--data-root",
+    "--dry-run",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student generate": [
+    "--bank",
+    "--budget",
+    "--data-root",
+    "--dry-run",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student plan": [
+    "--bank",
+    "--data-root",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student reject": [
+    "--checkpoint",
+    "--data-root",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student revoke": [
+    "--data-root",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student setup": [
+    "--adopt-base",
+    "--data-root",
+    "--dry-run",
+    "--json",
+    "--skip-weight-digests"
+  ],
+  "embeddings local student status": [
+    "--data-root",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student targets": [
+    "--bank",
+    "--data-root",
+    "--dry-run",
+    "--json",
+    "--vault"
+  ],
+  "embeddings local student train": [
+    "--bank",
+    "--data-root",
+    "--dry-run",
+    "--json",
+    "--vault"
+  ],
+  "embeddings nomination-report": [
+    "--batch-size",
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--stored-only",
+    "--vault"
+  ],
+  "eval": [
+    "--arm",
+    "--bins",
+    "--bootstrap-samples",
+    "--dry-run",
+    "--fast-track-q",
+    "--json",
+    "--legacy-fallback",
+    "--llm-cache",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--output",
+    "--output-dir",
+    "--output-tokens",
+    "--prepare-llm",
+    "--price-per-million",
+    "--probability-arm",
+    "--section",
+    "--seed",
+    "--vault"
+  ],
+  "eval families": [
+    "--arm",
+    "--bootstrap-samples",
+    "--json",
+    "--legacy-fallback",
+    "--output",
+    "--output-dir",
+    "--seed",
+    "--vault"
+  ],
+  "eval judges": [
+    "--dry-run",
+    "--json",
+    "--live-decider",
+    "--probe",
+    "--vault"
+  ],
+  "eval pf-pilot": [
+    "--dry-run",
+    "--json",
+    "--judge",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--output",
+    "--output-dir",
+    "--price-per-million",
+    "--round",
+    "--vault"
+  ],
+  "eval pf-scaling": [
+    "--dry-run",
+    "--json",
+    "--judge",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--output",
+    "--output-dir",
+    "--price-per-million",
+    "--round",
+    "--vault"
+  ],
+  "eval placement": [
+    "--json",
+    "--output",
+    "--output-dir",
+    "--vault"
+  ],
+  "eval practice-index": [
+    "--bootstrap-samples",
+    "--dry-run",
+    "--embedding-price-per-million",
+    "--json",
+    "--logged-queries",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--output-dir",
+    "--price-per-million",
+    "--queries",
+    "--seed",
+    "--vault"
+  ],
+  "eval success-head": [
+    "--backfill-seen-stems",
+    "--bootstrap-samples",
+    "--dry-run",
+    "--json",
+    "--legacy-fallback",
+    "--llm-cache",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--output",
+    "--output-dir",
+    "--output-tokens",
+    "--prepare-llm",
+    "--price-per-million",
+    "--seed",
+    "--vault"
+  ],
+  "evsi": [],
+  "evsi calibration": [
+    "--json",
+    "--since",
+    "--vault"
+  ],
+  "evsi compare": [
+    "--json",
+    "--markdown",
+    "--new",
+    "--old",
+    "--output"
+  ],
+  "evsi multisim": [
+    "--cache-dir",
+    "--eedi-2020",
+    "--eedi-2024",
+    "--fit",
+    "--fits",
+    "--json",
+    "--learners",
+    "--output",
+    "--quick",
+    "--reanalyze",
+    "--seed",
+    "--sensitivity-learners",
+    "--task",
+    "--workers"
+  ],
+  "evsi simulate": [
+    "--eedi-2020",
+    "--eedi-2024",
+    "--fit",
+    "--json",
+    "--learners",
+    "--output",
+    "--quick",
+    "--reference-bound",
+    "--safety-bound",
+    "--seed",
+    "--sensitivity-learners",
+    "--task",
+    "--workers"
+  ],
+  "exam": [],
+  "exam answer": [
+    "--ai-provider",
+    "--answer",
+    "--confidence",
+    "--criterion-points",
+    "--error-type",
+    "--fatal-errors",
+    "--json",
+    "--session",
+    "--vault",
+    "<practice_item_id>"
+  ],
+  "exam finish": [
+    "--json",
+    "--session",
+    "--vault"
+  ],
+  "exam reserve": [
+    "--goal",
+    "--item-count",
+    "--json",
+    "--vault"
+  ],
+  "exam start": [
+    "--goal",
+    "--json",
+    "--vault"
+  ],
+  "exam-calibration": [
+    "--json",
+    "--vault"
+  ],
+  "exam-readiness": [
+    "--json",
+    "--subject",
+    "--total-items",
+    "--vault"
+  ],
+  "experiments": [],
+  "experiments e0": [],
+  "experiments e0 prepare": [
+    "--dest",
+    "--from",
+    "--label"
+  ],
+  "experiments e0 report": [
+    "--out",
+    "--results"
+  ],
+  "experiments e0 run": [
+    "--anthropic-key-env",
+    "--copy",
+    "--dry-run",
+    "--env-file",
+    "--i-am-authorized-to-spend",
+    "--json",
+    "--markdown",
+    "--new-authorization",
+    "--openrouter-key-env",
+    "--out",
+    "--perplexity-key-env",
+    "--preflight-only",
+    "--reader-latency-budget-s",
+    "--reserve-share",
+    "--reuse-run",
+    "--run-dir",
+    "--voyage-key-env"
+  ],
+  "experiments e1": [],
+  "experiments e1 import": [
+    "--dest",
+    "--e0-run",
+    "--e0-vaults"
+  ],
+  "experiments e1 plan": [
+    "--e0-run",
+    "--env-file",
+    "--import",
+    "--json",
+    "--markdown",
+    "--out"
+  ],
+  "experiments e1 preflight": [
+    "--env-python",
+    "--import",
+    "--model-dir",
+    "--plan",
+    "--verify-weights"
+  ],
+  "experiments e1 report": [
+    "--out",
+    "--results"
+  ],
+  "experiments e1 run": [
+    "--dry-run",
+    "--env-file",
+    "--env-python",
+    "--i-am-authorized-to-spend",
+    "--i-have-an-idle-gpu-slot",
+    "--import",
+    "--model-dir",
+    "--new-authorization",
+    "--plan",
+    "--smoke-only",
+    "--stage"
+  ],
+  "facet-candidates": [
+    "--json",
+    "--vault"
+  ],
+  "facet-mint-gate": [
+    "--json",
+    "--vault"
+  ],
+  "facets": [],
+  "facets actions": [
+    "--json",
+    "--limit",
+    "--run",
+    "--vault"
+  ],
+  "facets confirm": [
+    "--json",
+    "--vault",
+    "<action_id>"
+  ],
+  "facets dedupe": [
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-facets",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million-input",
+    "--price-per-million-output",
+    "--subject",
+    "--vault"
+  ],
+  "facets keep": [
+    "--json",
+    "--vault",
+    "<action_id>"
+  ],
+  "facets undo": [
+    "--json",
+    "--vault",
+    "<action_id>"
+  ],
+  "families": [],
+  "families propose": [
+    "--dry-run",
+    "--json",
+    "--judge-revision",
+    "--lo",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--vault"
+  ],
+  "families undo": [
+    "--json",
+    "--vault",
+    "<decision>"
+  ],
+  "field": [],
+  "field classify-questions": [
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-tokens",
+    "--output-tokens",
+    "--price-per-million",
+    "--vault"
+  ],
+  "field data-check": [
+    "--json",
+    "--legacy-fallback",
+    "--vault"
+  ],
+  "fit": [],
+  "fit deactivate": [
+    "--id",
+    "--json",
+    "--vault",
+    "<scope>"
+  ],
+  "fit fsrs": [
+    "--dry-run",
+    "--json",
+    "--vault"
+  ],
+  "fit gate": [
+    "--dry-run",
+    "--epochs",
+    "--json",
+    "--l2",
+    "--lr",
+    "--min-labels",
+    "--vault"
+  ],
+  "fit show": [
+    "--json",
+    "--scope",
+    "--vault"
+  ],
+  "gaps": [],
+  "gaps list": [
+    "--json",
+    "--show-text",
+    "--since",
+    "--vault"
+  ],
+  "gaps report": [
+    "--dry-run",
+    "--json",
+    "--out",
+    "--since",
+    "--vault"
+  ],
+  "gaps run": [
+    "--backlog",
+    "--dry-run",
+    "--history",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-texts",
+    "--max-tokens",
+    "--price-per-million",
+    "--vault"
+  ],
+  "gaps undo": [
+    "--json",
+    "--reversal",
+    "--vault",
+    "<gap_id>"
+  ],
+  "generate-diagnostics": [
+    "--ai-provider",
+    "--dry-run",
+    "--instructions",
+    "--json",
+    "--learning-object-id",
+    "--max-needs",
+    "--vault"
+  ],
+  "generate-practice": [
+    "--ai-provider",
+    "--dry-run",
+    "--focus-concepts",
+    "--focus-facets",
+    "--from-goal",
+    "--instructions",
+    "--json",
+    "--los",
+    "--max-los",
+    "--max-new-per-lo",
+    "--mode-mix",
+    "--subjects",
+    "--target-items-per-lo",
+    "--vault"
+  ],
+  "goldenpath": [],
+  "goldenpath init-fixture": [
+    "<path>"
+  ],
+  "grading": [],
+  "grading adjudicate": [
+    "--json",
+    "--rationale",
+    "--resolved-class",
+    "--source",
+    "--vault",
+    "<interpretation_id>"
+  ],
+  "grading hardcases": [
+    "--ablations",
+    "--cases",
+    "--dry-run",
+    "--input-price-per-million",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--output",
+    "--output-dir",
+    "--output-price-per-million",
+    "--price-per-million",
+    "--repeats",
+    "--route",
+    "--vault"
+  ],
+  "grading method-phrasing": [
+    "--dry-run",
+    "--item",
+    "--json",
+    "--judge",
+    "--max-calls",
+    "--max-cost-usd",
+    "--output-dir",
+    "--price-per-million",
+    "--propose",
+    "--vault"
+  ],
+  "grading receipt": [
+    "--json",
+    "--vault",
+    "<attempt_id>"
+  ],
+  "grading required-method": [
+    "--clear",
+    "--criterion",
+    "--json",
+    "--method",
+    "--vault",
+    "<item_id>"
+  ],
+  "grading reviews": [
+    "--json",
+    "--vault"
+  ],
+  "graph-identifiability": [
+    "--json",
+    "--output",
+    "--schedule-probes",
+    "--subject",
+    "--vault",
+    "-o"
+  ],
+  "hints": [],
+  "hints maps": [],
+  "hints maps build": [
+    "--dry-run",
+    "--family",
+    "--item",
+    "--json",
+    "--limit",
+    "--lo",
+    "--vault"
+  ],
+  "hints report": [
+    "--json",
+    "--since",
+    "--surface",
+    "--vault"
+  ],
+  "import": [
+    "--inventory",
+    "--json",
+    "--subject",
+    "--vault",
+    "<sources>"
+  ],
+  "inbox": [],
+  "inbox list": [
+    "--all",
+    "--json",
+    "--limit",
+    "--offset",
+    "--vault"
+  ],
+  "independence-audit": [
+    "--apply",
+    "--json",
+    "--vault"
+  ],
+  "inference-precheck": [
+    "--json",
+    "--vault"
+  ],
+  "ingest": [
+    "--ai-provider",
+    "--allow-auto-captions",
+    "--goal",
+    "--instructions",
+    "--json",
+    "--kind",
+    "--learning-object",
+    "--no-pdf-llm",
+    "--pdf-engine",
+    "--pdf-llm",
+    "--progress-json",
+    "--subject",
+    "--vault",
+    "<source>"
+  ],
+  "ingest-batches": [],
+  "ingest-batches cancel": [
+    "--json",
+    "--vault",
+    "<batch_id>"
+  ],
+  "ingest-batches list": [
+    "--json",
+    "--limit",
+    "--vault"
+  ],
+  "ingest-batches resume": [
+    "--json",
+    "--vault",
+    "<batch_id>"
+  ],
+  "ingest-batches show": [
+    "--json",
+    "--vault",
+    "<batch_id>"
+  ],
+  "ingest-exam": [
+    "--ai-provider",
+    "--goal",
+    "--instructions",
+    "--json",
+    "--kind",
+    "--no-pdf-llm",
+    "--pdf-engine",
+    "--pdf-llm",
+    "--progress-json",
+    "--subject",
+    "--vault",
+    "<source>"
+  ],
+  "init": [
+    "--force",
+    "--level-note",
+    "--starting-level",
+    "--subject",
+    "<path>"
+  ],
+  "instrument-audit": [
+    "--json",
+    "--output",
+    "--since",
+    "--vault",
+    "-o"
+  ],
+  "integration-backfill": [
+    "--apply",
+    "--capability",
+    "--json",
+    "--learning-object",
+    "--vault"
+  ],
+  "inventory": [
+    "--ai-provider",
+    "--json",
+    "--profile",
+    "--role",
+    "--unit",
+    "--vault",
+    "<ref>"
+  ],
+  "maintenance-feed": [
+    "--action",
+    "--json",
+    "--notice",
+    "--vault"
+  ],
+  "mcp": [],
+  "mcp activity": [
+    "--days",
+    "--json",
+    "--limit",
+    "--vault"
+  ],
+  "mcp serve": [
+    "--host",
+    "--log-level",
+    "--port",
+    "--public-host",
+    "--public-origin",
+    "--transport",
+    "--vault"
+  ],
+  "mcp token": [],
+  "mcp token rotate": [
+    "--json",
+    "--port",
+    "--public-host",
+    "--vault"
+  ],
+  "mcp token show": [
+    "--json",
+    "--port",
+    "--public-host",
+    "--vault"
+  ],
+  "merge-concepts": [
+    "--alias",
+    "--dry-run",
+    "--force",
+    "--json",
+    "--no-alias",
+    "--vault",
+    "<canonical_id>",
+    "<duplicate_id>"
+  ],
+  "misconception-candidates": [
+    "--json",
+    "--limit",
+    "--query",
+    "--vault",
+    "<practice_item_id>"
+  ],
+  "misconception-gate-backfill": [
+    "--force",
+    "--json",
+    "--vault"
+  ],
+  "misconceptions": [
+    "--all-errors",
+    "--json",
+    "--vault"
+  ],
+  "observation-templates": [
+    "--all",
+    "--json",
+    "--vault"
+  ],
+  "overconfidence": [
+    "--json",
+    "--vault",
+    "<goal_id>"
+  ],
+  "persona-gate-precision": [
+    "--json",
+    "--since",
+    "--vault"
+  ],
+  "persona-realism": [
+    "--generator-model",
+    "--generator-provider",
+    "--json",
+    "--personas",
+    "--threshold",
+    "--vault"
+  ],
+  "pf": [],
+  "pf generate": [
+    "--count",
+    "--dry-run",
+    "--family",
+    "--json",
+    "--lo",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--no-publish",
+    "--path",
+    "--price-per-million",
+    "--publish",
+    "--relation",
+    "--round",
+    "--seed-item",
+    "--select",
+    "--tier",
+    "--vault"
+  ],
+  "pf publish": [
+    "--json",
+    "--vault"
+  ],
+  "pf status": [
+    "--json",
+    "--vault"
+  ],
+  "placement": [],
+  "placement status": [
+    "--json",
+    "--vault"
+  ],
+  "plan": [],
+  "plan report": [
+    "--json",
+    "--vault"
+  ],
+  "plan show": [
+    "--date",
+    "--json",
+    "--vault"
+  ],
+  "populate-goal": [
+    "--ai-provider",
+    "--dry-run",
+    "--instructions",
+    "--json",
+    "--max-new-per-lo",
+    "--review",
+    "--target-items-per-lo",
+    "--vault",
+    "<goal_id>"
+  ],
+  "practice-index": [],
+  "practice-index coverage": [
+    "--json",
+    "--min-eligible",
+    "--vault"
+  ],
+  "practice-index dossiers": [
+    "--dry-run",
+    "--facet",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--vault"
+  ],
+  "practice-index eval": [
+    "--bootstrap-samples",
+    "--dry-run",
+    "--embedding-price-per-million",
+    "--json",
+    "--logged-queries",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-pairs",
+    "--max-retries",
+    "--max-tokens",
+    "--output-dir",
+    "--price-per-million",
+    "--queries",
+    "--seed",
+    "--vault"
+  ],
+  "practice-index find": [
+    "--dry-run",
+    "--exclude",
+    "--facet",
+    "--json",
+    "--learning-object",
+    "--limit",
+    "--mode",
+    "--no-rerank",
+    "--rerank",
+    "--vault",
+    "<query>"
+  ],
+  "practice-index status": [
+    "--json",
+    "--vault"
+  ],
+  "practice-index tool-spec": [],
+  "practice-index usage": [
+    "--item",
+    "--json",
+    "--proposal",
+    "--signal",
+    "--vault"
+  ],
+  "probe-audit": [
+    "--json",
+    "--output",
+    "--vault",
+    "-o"
+  ],
+  "probe-coverage": [
+    "--json",
+    "--vault"
+  ],
+  "probe-families": [
+    "--force",
+    "--json",
+    "--promote",
+    "--retire",
+    "--revise",
+    "--vault"
+  ],
+  "probe-gate": [
+    "--family",
+    "--json",
+    "--trials",
+    "--vault",
+    "<learning_object_id>"
+  ],
+  "probe-instances": [
+    "--json",
+    "--lo",
+    "--no-llm",
+    "--seed",
+    "--vault"
+  ],
+  "probe-regrade": [
+    "--json",
+    "--limit",
+    "--vault"
+  ],
+  "project": [],
+  "project accept": [
+    "--agent",
+    "--commit",
+    "--include-untracked",
+    "--json",
+    "--repo",
+    "--vault"
+  ],
+  "project answer": [
+    "--dont-know",
+    "--dry-run",
+    "--json",
+    "--looked",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--no-grade",
+    "--price-per-million",
+    "--skip",
+    "--text",
+    "--unfair",
+    "--used-ai",
+    "--vault",
+    "<probe_id>"
+  ],
+  "project contest": [
+    "--json",
+    "--note",
+    "--score",
+    "--vault",
+    "<response_id>"
+  ],
+  "project enroll": [
+    "--context-scope",
+    "--install-hook",
+    "--json",
+    "--since-days",
+    "--vault",
+    "<repo>"
+  ],
+  "project grade": [
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--retry-failed",
+    "--vault"
+  ],
+  "project install-hook": [
+    "--json",
+    "--vault",
+    "<repo>"
+  ],
+  "project probes": [
+    "--dry-run",
+    "--json",
+    "--limit",
+    "--list",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--no-generate",
+    "--price-per-million",
+    "--repo",
+    "--vault"
+  ],
+  "project provenance": [
+    "--accept-style",
+    "--json",
+    "--usage",
+    "--vault",
+    "<diff_id>"
+  ],
+  "project report": [
+    "--json",
+    "--vault"
+  ],
+  "project status": [
+    "--diffs",
+    "--disclosure",
+    "--json",
+    "--vault"
+  ],
+  "project sweep": [
+    "--capture-only",
+    "--dry-run",
+    "--json",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-diffs",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--repo",
+    "--retry-failed",
+    "--vault"
+  ],
+  "project unenroll": [
+    "--json",
+    "--vault",
+    "<repo>"
+  ],
+  "project uninstall-hook": [
+    "--json",
+    "--vault",
+    "<repo>"
+  ],
+  "proposals": [
+    "--json",
+    "--vault"
+  ],
+  "propose": [
+    "--ai-provider",
+    "--context-stats",
+    "--file",
+    "--focus-concepts",
+    "--focus-facets",
+    "--from-goal",
+    "--instructions",
+    "--json",
+    "--notes",
+    "--subjects",
+    "--vault"
+  ],
+  "questions": [],
+  "questions list": [
+    "--all",
+    "--json",
+    "--vault"
+  ],
+  "questions resolve": [
+    "--as",
+    "--vault",
+    "<question_event_id>"
+  ],
+  "quick-add": [
+    "--json",
+    "--subject",
+    "--vault",
+    "--yes",
+    "-y",
+    "<source>"
+  ],
+  "reader": [],
+  "reader cues": [],
+  "reader cues discover": [
+    "--dry-run",
+    "--json",
+    "--source",
+    "--vault"
+  ],
+  "reader figure-checks": [
+    "--dry-run",
+    "--json",
+    "--recheck",
+    "--vault"
+  ],
+  "reader label-roles": [
+    "--dry-run",
+    "--json",
+    "--source",
+    "--vault"
+  ],
+  "reader report": [
+    "--json",
+    "--since",
+    "--vault"
+  ],
+  "rebuild": [
+    "--json",
+    "--set",
+    "--shadow",
+    "--vault"
+  ],
+  "rebuild-derived-state": [
+    "--json",
+    "--learning-object",
+    "--vault"
+  ],
+  "recall-calibration": [
+    "--assert",
+    "--json"
+  ],
+  "record-observation": [
+    "--json",
+    "--learning-object-id",
+    "--practice-item-id",
+    "--response-file",
+    "--response-json",
+    "--session-id",
+    "--subject",
+    "--vault",
+    "<template_id>"
+  ],
+  "recurrence": [],
+  "recurrence bench": [
+    "--benchmark",
+    "--dims",
+    "--dry-run",
+    "--embedding-price-per-million",
+    "--input-price-per-million",
+    "--json",
+    "--max-calls",
+    "--max-cases",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--model",
+    "--output",
+    "--output-dir",
+    "--output-price-per-million",
+    "--price-per-million",
+    "--suite",
+    "--target-recall",
+    "--vault",
+    "--view",
+    "--writer-output-tokens"
+  ],
+  "recurrence groups": [
+    "--json",
+    "--no-reviews",
+    "--reviews",
+    "--vault"
+  ],
+  "recurrence guard": [
+    "--dry-run",
+    "--from-run",
+    "--json",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--rerun",
+    "--vault"
+  ],
+  "recurrence report": [
+    "--audit-sample",
+    "--json",
+    "--out",
+    "--vault"
+  ],
+  "reentry-summary": [
+    "--json",
+    "--vault",
+    "<goal_id>"
+  ],
+  "register-observation-template": [
+    "--active",
+    "--domain",
+    "--file",
+    "--inactive",
+    "--json",
+    "--title",
+    "--vault",
+    "--version"
+  ],
+  "registry": [],
+  "registry audit": [
+    "--json",
+    "--vault"
+  ],
+  "registry certify": [
+    "--days",
+    "--high",
+    "--items-per-day",
+    "--json",
+    "--low",
+    "--profile",
+    "--seed",
+    "--steps",
+    "--vault",
+    "<path>"
+  ],
+  "registry list": [
+    "--json",
+    "--kind",
+    "--lifecycle",
+    "--status",
+    "--vault"
+  ],
+  "registry promote": [
+    "--days",
+    "--high",
+    "--items-per-day",
+    "--json",
+    "--low",
+    "--profile",
+    "--seed",
+    "--steps",
+    "--vault",
+    "<path>"
+  ],
+  "registry release-check": [
+    "--json",
+    "--vault"
+  ],
+  "registry show": [
+    "--json",
+    "--vault",
+    "<path>"
+  ],
+  "reject": [
+    "--items",
+    "--vault",
+    "<patch_id>"
+  ],
+  "repair-extraction": [
+    "--force-ocr",
+    "--inline-math",
+    "--json",
+    "--pages",
+    "--table-processing",
+    "--use-llm",
+    "--vault",
+    "--yes",
+    "<revision_id>"
+  ],
+  "residual-diagnostics": [
+    "--json",
+    "--output",
+    "--subject",
+    "--vault",
+    "-o"
+  ],
+  "resolve-conflict": [
+    "--json",
+    "--kind",
+    "--rationale",
+    "--resolution-file",
+    "--vault",
+    "<conflict_id>"
+  ],
+  "resolve-error": [
+    "--json",
+    "--vault",
+    "<event_id>"
+  ],
+  "review": [
+    "--available-minutes",
+    "--energy",
+    "--json",
+    "--limit",
+    "--vault"
+  ],
+  "review-causal-probe": [
+    "--reason",
+    "--reviewer",
+    "--to",
+    "--vault",
+    "<candidate_id>"
+  ],
+  "router": [],
+  "router card": [
+    "--decision",
+    "--json",
+    "--vault"
+  ],
+  "router embed-decisions": [
+    "--batch-size",
+    "--dry-run",
+    "--json",
+    "--limit",
+    "--max-calls",
+    "--max-candidates",
+    "--max-cost-usd",
+    "--max-retries",
+    "--max-tokens",
+    "--price-per-million",
+    "--vault"
+  ],
+  "router log": [
+    "--candidates",
+    "--decision",
+    "--json",
+    "--limit",
+    "--vault"
+  ],
+  "router objective-report": [
+    "--json",
+    "--vault"
+  ],
+  "router report": [
+    "--json",
+    "--vault"
+  ],
+  "router trace": [
+    "--json",
+    "--vault",
+    "<decision>"
+  ],
+  "scoreboard": [
+    "--json",
+    "--output",
+    "--replay",
+    "--replay-budget",
+    "--vault",
+    "-o"
+  ],
+  "seed-exam-attempts": [
+    "--dry-run",
+    "--exam-date",
+    "--json",
+    "--outcomes",
+    "--subject",
+    "--vault"
+  ],
+  "select-units": [
+    "--json",
+    "--unit",
+    "--vault",
+    "<extraction_id>"
+  ],
+  "show": [
+    "--causal",
+    "--json",
+    "--vault",
+    "<identifier>"
+  ],
+  "sim": [],
+  "sim benchmark-forgetting": [
+    "--json",
+    "--output",
+    "--train-fraction",
+    "--vault",
+    "-o"
+  ],
+  "sim probe-pilot": [
+    "--action-threshold",
+    "--json",
+    "--label-threshold",
+    "--lo",
+    "--output",
+    "--planted",
+    "--seeds",
+    "--set",
+    "--vault",
+    "-o"
+  ],
+  "sim probe-validation": [
+    "--action-threshold",
+    "--json",
+    "--label-threshold",
+    "--lo",
+    "--output",
+    "--planted",
+    "--seeds",
+    "--set",
+    "--vault",
+    "-o"
+  ],
+  "sim run": [
+    "--days",
+    "--fresh-copy",
+    "--goal-due-day",
+    "--in-place",
+    "--items-per-day",
+    "--json",
+    "--keep-state",
+    "--no-primed-retries",
+    "--output",
+    "--primed-retries",
+    "--profile",
+    "--reset-state",
+    "--seed",
+    "--set",
+    "--vault",
+    "-o"
+  ],
+  "sim sweep": [
+    "--days",
+    "--goal-due-day",
+    "--items-per-day",
+    "--json",
+    "--keep-state",
+    "--no-primed-retries",
+    "--output",
+    "--primed-retries",
+    "--profile",
+    "--reset-state",
+    "--seed",
+    "--set",
+    "--spec",
+    "--vault",
+    "-o"
+  ],
+  "source-coverage": [
+    "--json",
+    "--vault",
+    "<set_id>"
+  ],
+  "source-outcomes": [
+    "--json",
+    "--vault",
+    "<subject>"
+  ],
+  "source-outline": [
+    "--json",
+    "--vault",
+    "<ref>"
+  ],
+  "source-set": [],
+  "source-set add": [
+    "--json",
+    "--priority",
+    "--reading",
+    "--revision",
+    "--role",
+    "--source",
+    "--unit",
+    "--vault",
+    "<set_id>"
+  ],
+  "source-set create": [
+    "--json",
+    "--subject",
+    "--title",
+    "--vault",
+    "<set_id>"
+  ],
+  "source-set list": [
+    "--json",
+    "--vault"
+  ],
+  "source-set show": [
+    "--json",
+    "--vault",
+    "<set_id>"
+  ],
+  "source-set update": [
+    "--json",
+    "--title",
+    "--vault",
+    "<set_id>"
+  ],
+  "sources": [],
+  "sources build-preview": [
+    "--approved",
+    "--json",
+    "--vault",
+    "--whole-book",
+    "<source_id>"
+  ],
+  "sources exercises": [],
+  "sources exercises harvest": [
+    "--dry-run",
+    "--facet",
+    "--json",
+    "--lo",
+    "--max-cost-usd",
+    "--vault"
+  ],
+  "sources exercises verify": [
+    "--dry-run",
+    "--item",
+    "--json",
+    "--max-cost-usd",
+    "--vault"
+  ],
+  "sources outcomes": [
+    "--json",
+    "--vault"
+  ],
+  "sources report": [
+    "--json",
+    "--since",
+    "--spend-days",
+    "--vault"
+  ],
+  "sources search": [
+    "--deep",
+    "--dry-run",
+    "--json",
+    "--limit",
+    "--max-calls",
+    "--max-cost-usd",
+    "--max-tokens",
+    "--vault",
+    "<query>"
+  ],
+  "sources suggest-lo": [
+    "--extraction",
+    "--json",
+    "--span",
+    "--vault"
+  ],
+  "sources tool": [
+    "--args",
+    "--dry-run",
+    "--json",
+    "--vault",
+    "<name>"
+  ],
+  "sources tools": [
+    "--json"
+  ],
+  "surfaces": [],
+  "surfaces audit": [
+    "--vault",
+    "<surface_id>"
+  ],
+  "surfaces retire": [
+    "--provenance",
+    "--reason",
+    "--scope",
+    "--vault",
+    "<surface_id>"
+  ],
+  "synthesis-eval": [
+    "--ai-provider",
+    "--gold",
+    "--json",
+    "--set",
+    "--vault",
+    "<subject>"
+  ],
+  "synthesize": [
+    "--ai-provider",
+    "--apply",
+    "--brief-file",
+    "--create-goal",
+    "--dry-run",
+    "--json",
+    "--mode",
+    "--new-revision",
+    "--vault",
+    "<set_id>"
+  ],
+  "synthesize-repair": [
+    "--apply",
+    "--create-goal",
+    "--dry-run",
+    "--json",
+    "--no-auto",
+    "--ops-file",
+    "--vault",
+    "<run_id>"
+  ],
+  "taxonomy-regrade-check": [
+    "--json",
+    "--limit",
+    "--vault"
+  ],
+  "teacher": [],
+  "teacher report": [
+    "--json",
+    "--vault"
+  ],
+  "today": [
+    "--vault"
+  ],
+  "trace-evidence": [
+    "--json",
+    "--vault"
+  ],
+  "upgrade": [
+    "--to",
+    "--vault"
+  ],
+  "usage": [
+    "--json",
+    "--purpose",
+    "--since",
+    "--vault"
+  ],
+  "why": [
+    "--json",
+    "--vault",
+    "<practice_item_id>"
+  ]
+}
