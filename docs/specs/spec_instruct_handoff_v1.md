@@ -26,6 +26,10 @@ And on the router's wait (§3a), Nov 8 2026:
 
 > add the phone prefetch to the spec and correct the notes. implement the spec via subagents as you see fit (Opus and sonnet subagents)
 
+And on two later questions (§7b, §7c), Nov 8 2026:
+
+> I think an open workbench should count as an open item for the router. And yes a lesson opened after a miss should load the sections matching the diagnosed confusion
+
 ## 2. What happened (`arxiv_v2`, Nov 7-8)
 
 | Local time (EST) | Record | Meaning |
@@ -72,7 +76,7 @@ A third is related. `plan_interrupt` is logged as `staged_v1` with `insert_now` 
 4. Starting takes one tap. A lesson never starts unasked.
 5. The Today card stays for offers reached from Today.
 6. Add an `offer_shown` block event, written when the card or page renders, with surface and time. `block_started` does not answer whether the learner saw it.
-7. An offer never appears over an open item. Step 0 of the build: find what triggered the 12:37 pm draw during an open workbench session, and draw at the item's close instead if that read was the cause.
+7. An offer never appears over an open item. Step 0 of the build: find what triggered the 12:37 pm draw during an open workbench session, and draw at the item's close instead if that read was the cause. *Found in IH1: any background plan read crosses the boundary, because the plan engine doesn't know a workbench is open. The draw itself is §7b's change.*
 
 ## 5. IH2: offers and follow-ups compete in one decision (algorithm change)
 
@@ -164,6 +168,36 @@ The uniform floor `ε` applies in every row, and propensities stay exact.
 - A decision where a policy failed still carries no score for `w` (RO4's rule, unchanged), so the fallback share does not move `w`.
 - Replay: `tests/test_ih5_successor.py` recomputes `μ` under both rules and, on a synthetic history, draws every decision's seed under both and counts where the served choice differs (only decisions with exactly one policy failed can differ).
 
+## 7b. IH6: an open workbench is an open item (algorithm change)
+
+Under the unreleased `mvp-0.55` tag, with its own kill switch in `[router_objective]`. Off or below the tag, reads behave as they do today.
+
+**Why.** On Nov 8 the plan engine didn't know a workbench was open, so a background plan read drew the decision at 12:37 pm, before the failed ReLU attempt at 1:08 pm existed.
+
+1. **What counts as open:** a workbench session whose status is open, for the plan's current practice session. The plan engine learns this through one small read, in the shape it already uses for facts about the plan.
+2. **Non-serving reads don't cross a boundary** while one is open: the desktop's global plan query, Today's poll and `next_plan_item{serve:false}` write no decision. They report what the plan already holds, and the plan view says plainly that a question is in progress instead of "Choosing what's next…".
+3. **No job starts for that boundary either,** including the phone's `plan_prefetch`, since its key would go stale when the answer lands. `plan_prefetch` reports this as a new no-op reason. Closing the workbench lets the next read or prefetch start the job as usual.
+4. **A serve still decides.** An explicit step (Next, Begin, Continue) always decides, so this can never strand the learner.
+5. **A workbench left open must not stall the plan.** On Nov 7-8 one stayed open across a day. A session left open beyond the current practice session doesn't count. The build must also check that the learner can always leave or resume it from the plan view. No new time limit is added: if a limit seems necessary, stop and report.
+6. **The cost:** every boundary decision, not only lessons, can come later and use fresher evidence. That changes what the router decides and when, so the trace must show the decision's own time and evidence as it does today.
+
+**Tests:** a read with an open workbench writes no decision and starts no job; closing it lets the next read draw; a serve decides regardless; a workbench from an earlier session doesn't block; the Nov 8 shape draws after the attempt and has that attempt in its evidence; switch off and below the tag match the predecessor exactly.
+
+## 7c. IH7: a lesson after a miss reads what the diagnosis points at
+
+Under the unreleased `mvp-0.55` tag, with its own kill switch in `[teacher]` or `[router_objective]`, following how the neighbouring switches are placed. It changes what a lesson reads, not what the router decides. Off or below the tag, the brief is byte-identical to today's.
+
+**Why.** On Nov 8 the offer was for rendering decision regions, whose linked section is a short code listing on p. 173 of the Welch Labs PDF. The confusion was softmax against `argmax`, and softmax is discussed in chapter 3, pp. 108-123. A lesson built only from the topic's links would reach that material only if the teacher chose to fetch it.
+
+1. **When:** a lesson opened from an offer or a suggestion with a recent miss on its topics behind it. A lesson started from a Reader selection, or on a typed topic, is unchanged. A learner's selection stays first.
+2. **What to search with:** the diagnosed confusion in the ledger for that miss: the diagnosis's hypotheses and the learner-text gaps' belief statements, in that order, including any the learner marked as `my_gap`.
+3. **How to find sections:** the existing retrieval (`search_spans`, grouped to sections as `section_coverage` does) through the existing `Library`, so withheld and exam material, and exercises and solutions, stay out. Use existing per-source limits. The brief's "built deterministically from the ledger" holds unless the existing retrieval needs a model; if it does, report that before building.
+4. **How they enter the brief:** beside the topic's linked sections, under the existing `teacher.context.sources_tokens` budget. A section that won't fit is listed in the outline, so the teacher can fetch it with `read_source`. The topic's linked sections are not displaced.
+5. **Inspectable:** the brief records which sections were added, the confusion text that found each one, and why any were left out. If nothing matches, or the diagnosis is pending, failed or absent, the lesson opens as today and the record says so.
+6. **Never:** a score or stuck flag choosing sections, or expected answers or rubrics entering the query.
+
+**Tests:** synthetic fixture of the Nov 7 shape: a softmax confusion on a decision-regions topic brings in the section that discusses softmax, beside the linked one; a Reader selection stays first; withheld sections stay out; over budget, the section falls to the outline; no diagnosis means an unchanged brief; switch off and below the tag leave the brief byte-identical; the record names what was added and why.
+
 ## 8. Owner decisions
 
 | # | Decision | State |
@@ -181,7 +215,7 @@ The uniform floor `ε` applies in every row, and propensities stay exact.
 
 ## 10. Order and tests
 
-Build order: IH0, IH1, IH5, IH2, IH3, IH4. IH0 and IH1 address the visible failures and change no decision rule. IH5 is small and independent. IH2 is the largest change to what the router decides. IH3's capture comes next, since data starts accruing as soon as it lands. IH4 needs IH3's data path, and its coefficient simply stays near 0 until data exists.
+Build order: IH0, IH1, IH5, IH2, IH3, IH6, IH7, IH4. IH0 and IH1 address the visible failures and change no decision rule. IH5 is small and independent. IH2 is the largest change to what the router decides. IH3's capture comes next, since data starts accruing as soon as it lands. IH6 and IH7 follow it (§7b and §7c hold their tests). IH4 needs IH3's data path and comes after IH6, because IH6 changes when decisions are drawn; its coefficient simply stays near 0 until data exists.
 
 - **IH0:** `plan_prefetch` writes nothing in any decision table (row counts pinned across the call); a later serve finds the job and uses its answer without starting a second LLM call; it is a no-op in mid-block; it is allowlisted on the phone host; a slow fake LLM that answers within 40 s is served rather than falling back.
 - **IH1:** a `lesson_offer` step opens the page; Start opens the lesson; `offer_shown` is written once per render path; no offer appears over an open item.
