@@ -2032,6 +2032,8 @@ export function PracticeScreen({
                 layout="full"
                 hideProblem
                 autoFocus
+                // RE0: the steps continue this attempt: one clock, this screen's.
+                activeSeconds={() => activeClock.seconds()}
                 practiceSessionId={session.sessionId}
                 // This screen's serve, always named as one pair (review F15).
                 schedulerCandidateId={schedulerCandidateId ?? null}
@@ -2056,6 +2058,7 @@ export function PracticeScreen({
                   // unmount nor restored when the item is served again (the
                   // sidecar's submit cleared its checkpoint).
                   suppressDraftFlush.current = true;
+                  activeClock.forget(submissionId.current);
                   onCheckpointCleared({ practiceItemId: item.id, submissionId: submissionId.current });
                   onFeedback(result.attempt.attemptId);
                 }}

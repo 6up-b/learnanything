@@ -69,6 +69,10 @@ export interface WorkbenchProps {
   /** Practice screen: back to the plain answer box (the session carries the
    *  hints it holds back to it). */
   onAnswerBox?: (session: WorkbenchSessionDto) => void;
+  /** RE0: the host's active seconds for this attempt. Hosted by the practice screen, the steps are the same attempt as
+   *  the answer box that came before them, so there is one clock and one total (five minutes in the box, two in steps:
+   *  420), the host's; this workbench then keeps none. Absent (the Reader's own workbench): its own clock. */
+  activeSeconds?: () => number | null;
   /** The practice card already shows the item's own presentation above. */
   hideProblem?: boolean;
   /** Owner capture 2026-10-25 (B1): the practice screen's Ask, from steps
@@ -147,9 +151,10 @@ export function Workbench(props: WorkbenchProps) {
   // Recognition and effort RE0: the problem's active seconds, carried across resumes of this workbench session, sent
   // beside `latencySeconds` and never blended with it.
   const activeClock = useAttemptClock();
+  const hostClock = props.activeSeconds;
   useEffect(() => {
-    activeClock.open(`workbench:${session.sessionId}`);
-  }, [activeClock, session.sessionId]);
+    if (!hostClock) activeClock.open(`workbench:${session.sessionId}`);
+  }, [activeClock, hostClock, session.sessionId]);
 
   // "saved · 2 min ago" ages quietly (a text change, never a motion).
   useEffect(() => {
@@ -300,10 +305,10 @@ export function Workbench(props: WorkbenchProps) {
         practiceSessionId,
         ...(named ? { schedulerCandidateId: props.schedulerCandidateId ?? null, planPresentationId: props.planPresentationId ?? null } : {}),
         latencySeconds: Math.max(0, Math.round((Date.now() - openedAt.current) / 1000)),
-        activeSeconds: activeClock.seconds(),
+        activeSeconds: hostClock ? hostClock() : activeClock.seconds(),
         ...(helpOn && confidence !== null ? { answerConfidence: confidence } : {}),
       });
-      activeClock.forget();
+      if (!hostClock) activeClock.forget();
       props.onSubmitted(result);
     } catch (error) {
       const command = getCommandError(error);
