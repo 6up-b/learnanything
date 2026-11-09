@@ -337,3 +337,36 @@ def test_the_durability_lane_builds_every_fresh_schema_for_real(tmp_path, monkey
     assert len(calls) == 2
     with closing(sqlite3.connect(tmp_path / "b.sqlite")) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+def test_remembered_yaml_is_the_real_dump_and_comments_and_order_are_never_mixed_up():
+    from learnloop.vault import yaml_io
+    import tests.conftest as lane
+
+    plain = {"b": 1, "a": [True, None, 1.5, "x: y"]}
+    assert yaml_io._dumped(plain) == lane._production_dumped(plain) == yaml_io._dumped(dict(plain))
+    # Key order is part of the text, and 1 is not True or "1".
+    assert yaml_io._dumped({"a": 1, "b": 2}) != yaml_io._dumped({"b": 2, "a": 1})
+    assert yaml_io._dumped({"a": 1}) != yaml_io._dumped({"a": True}) != yaml_io._dumped({"a": "1"})
+    # A round-trip mapping keeps the comment a plain mapping with the same repr doesn't have.
+    commented = yaml_io.yaml_from_string("a: 1  # keep me\n")
+    assert "keep me" in yaml_io._dumped(commented)
+    assert "keep me" not in yaml_io._dumped({"a": 1})
+    # A key too long to fold still comes back readable (the reason _dumped re-parses).
+    long_key = {"k" * 300 + " " + "k" * 300: 1}
+    assert yaml_io.yaml_from_string(yaml_io._dumped(long_key)) == long_key
+
+
+def test_a_remembered_json_schema_is_the_real_one_and_a_caller_cannot_change_it():
+    import pydantic
+
+    import tests.conftest as lane
+
+    class Model(pydantic.BaseModel):
+        n: int
+
+    first = Model.model_json_schema()
+    assert first == lane._production_json_schema(Model)
+    first["properties"]["n"]["type"] = "changed"
+    assert Model.model_json_schema()["properties"]["n"]["type"] == "integer"
+    assert Model.model_json_schema(by_alias=False) == lane._production_json_schema(Model, by_alias=False)

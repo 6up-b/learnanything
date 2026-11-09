@@ -256,6 +256,63 @@ def _ensure_outcome_schema_fixed_id(self, *, slug, kind, clock=None):
 _Repository.ensure_outcome_schema = _ensure_outcome_schema_fixed_id
 
 
+# Two pure functions that cost 26% of a sample's time after the connection work, and repeat their inputs across tests.
+# Both remember only exact results of the real function, and the real function runs on every new input.
+#
+# yaml_io._dumped dumps and then re-parses (pure Python, 9 ms). Only plain data is remembered, keyed by its repr: a
+# round-trip CommentedMap carries comments its repr doesn't show, so it always runs for real. Failures aren't remembered.
+import copy  # noqa: E402
+
+import pydantic  # noqa: E402
+
+from learnloop.vault import yaml_io as _yaml_io  # noqa: E402
+
+_production_dumped = _yaml_io._dumped
+_dumped_texts: dict[str, str] = {}
+
+
+def _is_plain(value) -> bool:
+    kind = type(value)
+    if kind is dict:
+        return all(type(key) is str and _is_plain(item) for key, item in value.items())
+    if kind is list:
+        return all(_is_plain(item) for item in value)
+    return kind in (str, int, float, bool) or value is None
+
+
+def _remembered_dumped(data):
+    if not _is_plain(data):
+        return _production_dumped(data)
+    key = repr(data)
+    text = _dumped_texts.get(key)
+    if text is None:
+        text = _dumped_texts[key] = _production_dumped(data)
+    return text
+
+
+_yaml_io._dumped = _remembered_dumped
+
+# pydantic generates a model's JSON schema afresh on each call (8 ms), once or more per faked model request. It depends
+# only on the class and the arguments, and each caller gets its own copy.
+_production_json_schema = pydantic.BaseModel.model_json_schema.__func__
+_json_schemas: dict[tuple, dict] = {}
+
+
+def _remembered_json_schema(cls, *args, **kwargs):
+    try:
+        key = (cls, args, tuple(sorted(kwargs.items())))
+        hash(key)
+    except TypeError:
+        return _production_json_schema(cls, *args, **kwargs)
+    schema = _json_schemas.get(key)
+    if schema is None:
+        schema = _json_schemas[key] = _production_json_schema(cls, *args, **kwargs)
+    return copy.deepcopy(schema)
+
+
+pydantic.BaseModel.model_json_schema = classmethod(_remembered_json_schema)
+
+
 # Background owners (sidecar contexts, ingest hosts, post-attempt workers,
 # exam graders) that test code constructs are closed when the test ends
 # (tests/background_owners.py); production-built ones stay their owner's.
