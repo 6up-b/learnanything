@@ -1806,7 +1806,7 @@ pre-registers each arm's constants and the thresholds of G-AD2-18, G-AD3-7 and G
 in docs/reviews/adaptive-difficulty-ad23.md before the first replay on owner data.
 
 Paid routes: the feature audit on the existing tier1_decider route (the Decider,
-perplexity/pplx-decider-v1.1-27b on OpenRouter) with its LLM fallback; llm_v1:item and
+perplexity/pplx-decider-v1.2 on OpenRouter, v1.1-27b until 2026-11-09) with its LLM fallback; llm_v1:item and
 llm_v3:llm (Codex on the owner's subscription, recorded estimated_only); llm_v3:decider;
 the relatedness proposal (AD2+AD3) on ai.routing.llm_probability_llm, which never reads
 learner data or held-out text (§5.10). All go through the spend framework with --dry-run, inside

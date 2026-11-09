@@ -39,7 +39,7 @@ def client_for(server, monkeypatch, *, api="openrouter", key_env=None, model=Non
 
 
 def test_request_body_holds_exactly_model_state_and_typed_questions():
-    body = request_body("perplexity/pplx-decider-v1.1-27b", {"review": "text"}, QUESTIONS)
+    body = request_body("perplexity/pplx-decider-v1.2", {"review": "text"}, QUESTIONS)
     assert set(body) == {"model", "state", "questions"}
     assert body["questions"]["defect"] == {
         "type": "noul", "instructions": "Does the review report a defect?",
@@ -85,7 +85,7 @@ def test_openrouter_dialect_posts_the_typed_request_and_parses_typed_answers(mon
     request = server.requests[0]
     assert request["path"] == "/api/alpha/decisions"
     assert set(request["body"]) == {"model", "state", "questions"}
-    assert request["body"]["model"] == "perplexity/pplx-decider-v1.1-27b"
+    assert request["body"]["model"] == "perplexity/pplx-decider-v1.2"
     assert request["headers"]["Authorization"] == "Bearer test-key"
     assert request["headers"]["X-Title"] == "LearnLoop"
     assert isinstance(result.answers["defect"], NoulAnswer) and result.answers["defect"].p_yes == 0.73
@@ -94,7 +94,7 @@ def test_openrouter_dialect_posts_the_typed_request_and_parses_typed_answers(mon
     assert set(choice.probabilities) == {"positive", "mixed", "negative"}
     score = result.answers["severity"]
     assert isinstance(score, ScoreAnswer) and set(score.probabilities) == {0, 1, 2} and score.score == 1.0
-    assert result.model == "perplexity/pplx-decider-v1.1-27b-20261006"
+    assert result.model == "perplexity/pplx-decider-v1.2-20261016"
     assert result.provider == "Perplexity" and result.response_id == "gen-dec-1"
     assert result.cost is not None and result.input_tokens > 0
 
@@ -105,9 +105,9 @@ def test_perplexity_dialect_uses_its_path_key_and_model(monkeypatch):
         result = client.decide("A review.", {"q": NoulQuestion("Is it a review?")}, purpose="test")
     request = server.requests[0]
     assert request["path"] == "/v1/decisions"
-    assert request["body"]["model"] == "pplx-decider-v1.1-27b"
+    assert request["body"]["model"] == "pplx-decider-v1.2"
     assert "X-Title" not in request["headers"]
-    assert result.model == "pplx-decider-v1.1-27b" and result.cost is None
+    assert result.model == "pplx-decider-v1.2" and result.cost is None
 
 
 def test_fake_endpoint_answers_400_to_an_unknown_field_and_the_client_never_sends_one(monkeypatch):
@@ -228,7 +228,7 @@ def test_receipt_carries_body_usage_cost_model_and_labels(monkeypatch):
     assert "test-key" not in json.dumps(start)
     assert finish["status"] == "completed"
     assert finish["input_tokens"] > 0 and finish["output_tokens"] == 3 and finish["cost"] > 0
-    assert finish["resolved_model"].endswith("-20261006") and finish["provider_response_id"] == "gen-dec-1"
+    assert finish["resolved_model"].endswith("-20261016") and finish["provider_response_id"] == "gen-dec-1"
 
 
 def test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt(monkeypatch):
@@ -250,11 +250,11 @@ def test_settings_resolve_from_the_dialect():
     openrouter = resolved_decider_settings(openrouter_decider_provider())
     assert openrouter.url == "https://openrouter.ai/api/alpha/decisions"
     assert openrouter.api_key_env == "OPENROUTER_API_KEY"
-    assert openrouter.model == "perplexity/pplx-decider-v1.1-27b"
+    assert openrouter.model == "perplexity/pplx-decider-v1.2"
     assert openrouter.price_per_million_input == 0.02
     direct = resolved_decider_settings(DeciderProviderConfig(api="perplexity"))
     assert direct.url == "https://api.perplexity.ai/v1/decisions"
-    assert (direct.api_key_env, direct.model) == ("PERPLEXITY_API_KEY", "pplx-decider-v1.1-27b")
+    assert (direct.api_key_env, direct.model) == ("PERPLEXITY_API_KEY", "pplx-decider-v1.2")
 
 
 def test_probe_reads_the_free_listing_without_a_key():
@@ -263,7 +263,7 @@ def test_probe_reads_the_free_listing_without_a_key():
     def http(method, url, headers, body, timeout):
         seen.append((method, url, dict(headers), body))
         return 200, {}, json.dumps({"data": {
-            "id": "perplexity/pplx-decider-v1.1-27b",
+            "id": "perplexity/pplx-decider-v1.2",
             "architecture": {"output_modalities": ["decisions"]},
             "endpoints": [{"provider_name": "Perplexity", "status": 0, "pricing": {"prompt": "0.00000002"}}],
         }}).encode()
@@ -272,7 +272,7 @@ def test_probe_reads_the_free_listing_without_a_key():
     assert result["reachable"] is True and result["endpoints"][0]["provider"] == "Perplexity"
     method, url, headers, body = seen[0]
     assert method == "GET" and body is None and "Authorization" not in headers
-    assert url == "https://openrouter.ai/api/v1/models/perplexity/pplx-decider-v1.1-27b/endpoints"
+    assert url == "https://openrouter.ai/api/v1/models/perplexity/pplx-decider-v1.2/endpoints"
     chat_only = probe_decider_endpoint(
         openrouter_decider_provider(),
         http=lambda *a: (200, {}, json.dumps({"data": {"architecture": {"output_modalities": ["text"]}, "endpoints": []}}).encode()),

@@ -1116,9 +1116,13 @@ class VoyageContextualEmbeddingProviderConfig(AIProviderConfig):
 DECIDER_PROFILE_TYPE = "decider"
 DEFAULT_DECIDER_PROVIDER = "openrouter_decider"
 DEFAULT_EMBEDDING_PROVIDER = "openrouter_embedding"
-DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.1-27b"
-# OpenRouter's listing for the model (checked 2026-10-12): $0.02 per million
-# input tokens, output free. Used for estimates; OpenRouter also reports cost.
+# Pinned to v1.2, never the ``pplx-decider-latest`` alias (an alias moves the
+# model under recorded receipts). v1.1-27b lost its OpenRouter endpoints by
+# Nov 2026 (HTTP 404 "No endpoints found"; docs/reviews/decider-v1-2.md).
+DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.2"
+# OpenRouter's listing for the model (checked 2026-11-09): $0.02 per million
+# input tokens (Perplexity; Makora $0.019), output free, context 262144. Used
+# for estimates; OpenRouter also reports cost.
 DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT = 0.02
 
 

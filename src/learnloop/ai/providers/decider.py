@@ -1,18 +1,19 @@
 """The ``decider`` transport: Perplexity's Decider over OpenRouter or direct.
 
 Pinned from the providers' documentation (checked 2026-10-12, recorded in
-``docs/reviews/router-r0.md``):
+``docs/reviews/router-r0.md``; model moved to v1.2 on 2026-11-09,
+``docs/reviews/decider-v1-2.md``):
 
 * **OpenRouter** (the owner's route, ``api = "openrouter"``): ``POST
   https://openrouter.ai/api/alpha/decisions`` ("Submit a Decisions request to
   the Decisions router"), ``Authorization: Bearer $OPENROUTER_API_KEY``. The
-  model is ``perplexity/pplx-decider-v1.1-27b`` (modality
-  ``text+image->decisions``, one provider: Perplexity). The response adds
+  model is ``perplexity/pplx-decider-v1.2`` (output modality ``decisions``;
+  providers Perplexity and Makora). The response adds
   ``id``, ``provider`` and ``usage.cost`` to Perplexity's shape, and ``model``
   is the dated slug that answered.
 * **Perplexity direct** (``api = "perplexity"``): ``POST
   https://api.perplexity.ai/v1/decisions``, ``Authorization: Bearer
-  $PERPLEXITY_API_KEY``, model ``pplx-decider-v1.1-27b``. Unknown top-level
+  $PERPLEXITY_API_KEY``, model ``pplx-decider-v1.2``. Unknown top-level
   fields return 400; the body here never has any.
 
 One ``decide`` is one physical request: no SDK, no hidden retries, no
@@ -55,7 +56,7 @@ _DIALECTS: dict[str, dict[str, str]] = {
         "base_url": "https://api.perplexity.ai",
         "path": "/v1/decisions",
         "api_key_env": "PERPLEXITY_API_KEY",
-        "model": "pplx-decider-v1.1-27b",
+        "model": "pplx-decider-v1.2",
     },
 }
 DEFAULT_TIMEOUT_SECONDS = 30.0
