@@ -1116,9 +1116,9 @@ class VoyageContextualEmbeddingProviderConfig(AIProviderConfig):
 DECIDER_PROFILE_TYPE = "decider"
 DEFAULT_DECIDER_PROVIDER = "openrouter_decider"
 DEFAULT_EMBEDDING_PROVIDER = "openrouter_embedding"
-DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.1-27b"
-# OpenRouter's listing for the model (checked 2026-10-12): $0.02 per million
-# input tokens, output free. Used for estimates; OpenRouter also reports cost.
+DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.2"  # pinned, never -latest; docs/reviews/decider-v1-2.md
+# OpenRouter's listing (checked 2026-11-09): $0.02 per million input tokens,
+# output free. Used for estimates; OpenRouter also reports cost.
 DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT = 0.02
 
 
@@ -3860,6 +3860,10 @@ class PlacementConfig(BaseModel):
     # D11: no opening diagnostic episode per new LO. True restores them while
     # keeping assumed-known (a narrower switch than ``enabled``).
     initial_probes: bool = False
+    # Kill switch for mvp-0.56 (UNEVIDENCED_RETURN_VERSIONS): an answered item
+    # with no due time, on an LO with no evidence, starts as learning instead of
+    # never coming back. Off (or below the tag) serves mvp-0.55 exactly.
+    unevidenced_return: bool = True
     # D6: the assumed LO's first review is the check.
     assumed_first_interval_days: int = Field(default=14, ge=1)
     # D6: at least this many cold, unhinted, unhelped, full-marks first answers.
@@ -4249,7 +4253,7 @@ class RouterObjectiveConfig(BaseModel):
     objective's trace, on the lesson offer's card record and on the LLM's card. No numeric value moves. SG2:
     ``miss_cause_in_value`` (needs ``miss_cause_sensor``): a lesson's and a repair's effect slope splits by the miss's
     cause, ``p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ`` (``γ_slip``'s seeded prior centred at 0), with ``p_gap``
-    calibrated by a learned surprise coefficient (prior 0). Off, or below the tag, mvp-0.55's trace, card and values.
+    calibrated by a learned surprise coefficient (prior 0). Off, or below the tag, mvp-0.56's trace, card and values.
     """
 
     receipts: bool = True
@@ -4399,10 +4403,10 @@ class RouterObjectiveConfig(BaseModel):
     #: value through a learned ``w_pref`` (no hand-set bonus) and the LLM's card (the owner's decisions of Nov 8).
     preferences_inform_router: bool = True
     #: Slip or gap SG1 (mvp-0.57): the per-topic miss-cause sensor in the trace, the offer's card record and the LLM's
-    #: card; no numeric value moves. Off: mvp-0.55's trace and card, byte for byte.
+    #: card; no numeric value moves. Off: mvp-0.56's trace and card, byte for byte.
     miss_cause_sensor: bool = True
     #: Slip or gap SG2 (mvp-0.57; needs ``miss_cause_sensor``): the lesson's and the repair's effect slopes split by the
-    #: miss's cause, ``p_gap`` calibrated by a learned surprise coefficient. Off: mvp-0.55's numeric values.
+    #: miss's cause, ``p_gap`` calibrated by a learned surprise coefficient. Off: mvp-0.56's numeric values.
     miss_cause_in_value: bool = True
 
     @model_validator(mode="after")

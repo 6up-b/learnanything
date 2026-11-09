@@ -212,6 +212,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reactivation_wipes_resolved_at_but_returned_stays_derivable`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repair`
+- [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
 - [tests/test_prescription_passages.py](../../../../../../tests/test_prescription_passages.py) — direct import
   - `test_ranked_and_verified_passages_replace_the_first_linked_span`
   - `test_switch_off_keeps_todays_prescription_byte_identical`

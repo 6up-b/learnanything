@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
-source_commit_timestamp: "2026-11-09T15:51:40-05:00"
+source_commit: "79532f7149b554db05a40c2ae1dbde68d9efec5a"
+source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 251
+schema_head: 252
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/superseded_claims_upgrade.py`
 - `src/learnloop/teacher_probes_upgrade.py`
 - `src/learnloop/teacher_upgrade.py`
+- `src/learnloop/unevidenced_return_upgrade.py`
 
 ### Direct SQL writers
 

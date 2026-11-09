@@ -674,6 +674,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_capture_host_coexists_without_primary_startup_work`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
+- [tests/test_model_route_health.py](../../../../../../tests/test_model_route_health.py) — direct import
+  - `test_doctor_flags_a_route_whose_current_model_never_completed`
+  - `test_doctor_reports_routes_in_json_and_text_and_flags_the_dead_one`
 - [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
   - `test_upgrade_flips_rebuilds_and_preserves_raw_history`

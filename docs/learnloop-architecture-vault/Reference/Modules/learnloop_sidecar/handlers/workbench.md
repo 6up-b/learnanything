@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/workbench.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/workbench.py"
-source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
-source_commit_timestamp: "2026-11-04T16:51:26-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
+source_commit_timestamp: "2026-11-09T16:01:49-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py) |
-| Source lines | 1399 |
+| Source lines | 1402 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
-| Commit timestamp | `2026-11-04T16:51:26-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
+| Commit timestamp | `2026-11-09T16:01:49-05:00` |
 
 ## Public API
 
@@ -72,29 +72,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class WorkbenchSetBookInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 496)
 - `class WorkbenchBindInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 501)
 - `class WorkbenchSubmitInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 506)
-- `class WorkbenchAdmitInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 516)
-- `class WorkbenchAttemptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 522)
-- `class WorkbenchItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 526)
-- `class WorkbenchSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 530)
-- `class WorkbenchOpenProblemsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 534) — No parameters: every source's open problems.
-- `workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 574) — Open a problem at once (or resume the open one for the same item or selection).
-- `class ReaderImportSelection(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 814) — The two fields of a fallback's ``reader.import_exercise`` request the workbench reads (the request is otherwise passed on unchanged).
-- `workbench_get(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 842)
-- `workbench_save_step(ctx: SidecarContext, params: WorkbenchSaveStepInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 848) — One change to the work, saved as it is typed (idempotent by key).
-- `workbench_set_book(ctx: SidecarContext, params: WorkbenchSetBookInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 862)
-- `workbench_leave(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 870)
-- `workbench_abandon(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 909)
-- `workbench_reopen(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 916)
-- `workbench_refresh_import(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 923) — Bind the problem when its import has landed: one item binds; several ask which part (``parts``); none, or a failed job, is ``failed`` with the steps kept and "try again".
-- `workbench_bind(ctx: SidecarContext, params: WorkbenchBindInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 958) — Bind a multi-part import to the part the learner picked (one of its own).
-- `workbench_retry_import(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 975) — "Try again" on a failed setup: the same request, enqueued again.
-- `admission_key(session_id: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1136) — The learner pick's durable idempotency identity for a picked exercise's admission (fix round 5, R1): derived from the workbench session id, kept with the pick's plan receipt, so a retried admission finds its pick.
-- `workbench_admit(ctx: SidecarContext, params: WorkbenchAdmitInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1145) — Make a picked exercise's owed learner pick, for the problem named (Reader RW4b fix round 4, R1): see ``_admit``.
-- `workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1160) — Submit the work through the ordinary attempt path (spec §5.4).
-- `workbench_session_for_attempt(ctx: SidecarContext, params: WorkbenchAttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1333) — The submitted problem behind an attempt, for back-from-feedback (UX S6); ``null`` for every attempt the workbench did not write.
-- `workbench_for_item(ctx: SidecarContext, params: WorkbenchItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1343) — The item's open or abandoned problems ("resume your steps" on its card).
-- `workbench_for_source(ctx: SidecarContext, params: WorkbenchSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1353) — The source's open or abandoned problems: the ``✎`` marks, the rail and RW6a's recap (``unfinished`` past ``workbench.open_session_days``).
-- `workbench_open_problems(ctx: SidecarContext, params: WorkbenchOpenProblemsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1365) — UX Phase 3 (spec ux_learnloop_v1 §7.1, §10 3.3): Today's unfinished problems ("Exercise 5.9 -- 3 steps written · resume"), newest first, each with the source it opens in.
+- `class WorkbenchAdmitInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 518)
+- `class WorkbenchAttemptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 524)
+- `class WorkbenchItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 528)
+- `class WorkbenchSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 532)
+- `class WorkbenchOpenProblemsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 536) — No parameters: every source's open problems.
+- `workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 576) — Open a problem at once (or resume the open one for the same item or selection).
+- `class ReaderImportSelection(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 816) — The two fields of a fallback's ``reader.import_exercise`` request the workbench reads (the request is otherwise passed on unchanged).
+- `workbench_get(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 844)
+- `workbench_save_step(ctx: SidecarContext, params: WorkbenchSaveStepInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 850) — One change to the work, saved as it is typed (idempotent by key).
+- `workbench_set_book(ctx: SidecarContext, params: WorkbenchSetBookInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 864)
+- `workbench_leave(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 872)
+- `workbench_abandon(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 911)
+- `workbench_reopen(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 918)
+- `workbench_refresh_import(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 925) — Bind the problem when its import has landed: one item binds; several ask which part (``parts``); none, or a failed job, is ``failed`` with the steps kept and "try again".
+- `workbench_bind(ctx: SidecarContext, params: WorkbenchBindInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 960) — Bind a multi-part import to the part the learner picked (one of its own).
+- `workbench_retry_import(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 977) — "Try again" on a failed setup: the same request, enqueued again.
+- `admission_key(session_id: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1138) — The learner pick's durable idempotency identity for a picked exercise's admission (fix round 5, R1): derived from the workbench session id, kept with the pick's plan receipt, so a retried admission finds its pick.
+- `workbench_admit(ctx: SidecarContext, params: WorkbenchAdmitInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1147) — Make a picked exercise's owed learner pick, for the problem named (Reader RW4b fix round 4, R1): see ``_admit``.
+- `workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1162) — Submit the work through the ordinary attempt path (spec §5.4).
+- `workbench_session_for_attempt(ctx: SidecarContext, params: WorkbenchAttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1336) — The submitted problem behind an attempt, for back-from-feedback (UX S6); ``null`` for every attempt the workbench did not write.
+- `workbench_for_item(ctx: SidecarContext, params: WorkbenchItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1346) — The item's open or abandoned problems ("resume your steps" on its card).
+- `workbench_for_source(ctx: SidecarContext, params: WorkbenchSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1356) — The source's open or abandoned problems: the ``✎`` marks, the rail and RW6a's recap (``unfinished`` past ``workbench.open_session_days``).
+- `workbench_open_problems(ctx: SidecarContext, params: WorkbenchOpenProblemsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1368) — UX Phase 3 (spec ux_learnloop_v1 §7.1, §10 3.3): Today's unfinished problems ("Exercise 5.9 -- 3 steps written · resume"), newest first, each with the source it opens in.
 
 ### Module constants
 
@@ -102,10 +102,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `EXERCISE_ADMISSION_RPCS` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 45)
 - `_IMPORT_RUNNING` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 48)
 - `SOURCE_EXERCISE_KIND` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 326)
-- `_DRAFT_HANDOFF_ORIGINS` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 665)
-- `EXERCISE_WITHHELD` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 776)
-- `EXERCISE_WITHHELD_MESSAGE` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 777)
-- `ADMISSION_PENDING` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1034)
+- `_DRAFT_HANDOFF_ORIGINS` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 667)
+- `EXERCISE_WITHHELD` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 778)
+- `EXERCISE_WITHHELD_MESSAGE` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 779)
+- `ADMISSION_PENDING` ([src/learnloop_sidecar/handlers/workbench.py](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1036)
 
 ## Internal implementation anchors
 
@@ -127,27 +127,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_job_parts(job: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 387)
 - `_job_error(job: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 401)
 - `_start_import(ctx: SidecarContext, vault, repository, request: dict[str, Any]) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 408)
-- `_require_open_identity(repository: Any, params: WorkbenchOpenInput) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 541) — Reader CA6b fix round 5: a problem's passages are the reading it opens on, its import request is that reading's own selection (source, revision, reading and nodes agree), and a source exercise's passages are its reading's.
-- `_draft_earlier(repository, params: WorkbenchOpenInput, practice_item_id: str | None) -> tuple[str | None, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 668) — Codex re-review F1: ``(practice session, 1)`` when the practice screen's draft of the item, handed to the steps now, opened an earlier attempt's help under its current key (``sessions.draft_earlier_opened``), else ``(None, 0)``.
-- `_handed_draft_keys(repository, params: WorkbenchOpenInput, practice_item_id: str | None) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 698) — Astra batch review (Medium): the answer box's draft keys an open from the practice screen or the plan hands to the steps: the key the screen names, and the key of the draft its practice session holds on the item (the one the screen names while open, else the most recent open one…
-- `_carry_earlier(repository, draft_session: str | None, earlier: int, row: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 728) — Record on the draft that its opening now lives on the problem (its own component, ``earlier_opened_at``: never the authored reveals' ``carried_hints``, orchestrator fix F15), so the checkpoint never counts it again.
-- `_picked_exercise(vault, repository, params: WorkbenchOpenInput, request: dict[str, Any], stem: str) -> tuple[str, str, dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 747) — What a textbook exercise the learner picked opens as (Reader RW4b), decided here rather than by the card that offered it: its complete statement, read through the one statement reader (fix round 4, R4: an exercise held out since its card was shown is refused before anything of i…
-- `_exercise_region(params: WorkbenchOpenInput, request: dict[str, Any]) -> tuple[str, list[str], dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 780) — The picked exercise's extraction, spans and the pick's record to keep.
-- `_selection_spans(raw_selection: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 794)
-- `_picked_region(request: dict[str, Any] | None) -> tuple[str, list[str]] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 800) — A picked exercise's region from an import request (None for every other problem).
-- `_refuse_withheld_exercise(vault, repository, row: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 806) — A picked exercise's statement is built only while its region may be shown (fix rounds 4 and 5): every status, a submitted problem's too.
-- `_named_serve(params: ParamsModel) -> dict[str, str | None] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 824) — The serve a request names, as one pair (review F15): ``None`` when it names neither identifier (keep the pair the session holds), else both, an explicit null included (replace the pair).
-- `_key_exists(repository, key: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 834)
-- `_queue_stuck_texts(ctx: SidecarContext, vault, repository, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 877) — RW2b in-session updates (§5.2): a stuck step's newest text goes to learner-text gaps when Leave or Submit sends it.
-- `_schedule_map(ctx: SidecarContext, vault, repository, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 892) — RW2b (§5.2): the bound item's approach map is built in the background (H1's ``build_on_serve``, its switches, locks and envelope).
-- `_kept_offer(repository, candidate_id: str | None, practice_session_id: str, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 993) — The scheduler offer kept on the session, when it is still an unanswered offer of this item in the session the submit runs in; a stale one (answered elsewhere, another session after a restart) is dropped, so the attribution it carried never fails the submit (review F13).
-- `_session_open(repository, practice_session_id: str | None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1007)
-- `_practice_session(ctx: SidecarContext, repository, requested: str | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1014) — The practice session a workbench submit runs in: the app's open one, else the most recent open one, else a new one (``start_session``).
-- `_admit(ctx: SidecarContext, session_id: str, requested_practice_session: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1037) — Admit a picked exercise's item as the learner's pick, for THIS problem (Reader RW4b fix round 4, R1).
-- `_close_answer_box_draft(repository, practice_session_id: str, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1275) — Owner capture 2026-10-25 (B3, B4): the steps answered the item, so the practice screen's draft of it in this session (the answer box the learner left for steps: its retry key, its hints, its offer binding) is superseded, as an answer-box submit acknowledges its own.
-- `_stamp_help_rows(repository, session_id: str, latency_seconds: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1294)
-- `_bind_help_rows(repository, session_id: str, plan, *, attempt_id: str, practice_session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1311) — RW2b: the practice session (set at Submit, the schema's rule) and the attempt on the problem's help rows, after the attempt committed.
-- `_cleared(vault, repository, summaries: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1393) — A list's problems whose statement may be shown (fix round 5, R2): a picked exercise whose region is held out now is left out of the list (its steps are kept; it cannot be resumed while it is withheld).
+- `_require_open_identity(repository: Any, params: WorkbenchOpenInput) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 543) — Reader CA6b fix round 5: a problem's passages are the reading it opens on, its import request is that reading's own selection (source, revision, reading and nodes agree), and a source exercise's passages are its reading's.
+- `_draft_earlier(repository, params: WorkbenchOpenInput, practice_item_id: str | None) -> tuple[str | None, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 670) — Codex re-review F1: ``(practice session, 1)`` when the practice screen's draft of the item, handed to the steps now, opened an earlier attempt's help under its current key (``sessions.draft_earlier_opened``), else ``(None, 0)``.
+- `_handed_draft_keys(repository, params: WorkbenchOpenInput, practice_item_id: str | None) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 700) — Astra batch review (Medium): the answer box's draft keys an open from the practice screen or the plan hands to the steps: the key the screen names, and the key of the draft its practice session holds on the item (the one the screen names while open, else the most recent open one…
+- `_carry_earlier(repository, draft_session: str | None, earlier: int, row: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 730) — Record on the draft that its opening now lives on the problem (its own component, ``earlier_opened_at``: never the authored reveals' ``carried_hints``, orchestrator fix F15), so the checkpoint never counts it again.
+- `_picked_exercise(vault, repository, params: WorkbenchOpenInput, request: dict[str, Any], stem: str) -> tuple[str, str, dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 749) — What a textbook exercise the learner picked opens as (Reader RW4b), decided here rather than by the card that offered it: its complete statement, read through the one statement reader (fix round 4, R4: an exercise held out since its card was shown is refused before anything of i…
+- `_exercise_region(params: WorkbenchOpenInput, request: dict[str, Any]) -> tuple[str, list[str], dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 782) — The picked exercise's extraction, spans and the pick's record to keep.
+- `_selection_spans(raw_selection: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 796)
+- `_picked_region(request: dict[str, Any] | None) -> tuple[str, list[str]] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 802) — A picked exercise's region from an import request (None for every other problem).
+- `_refuse_withheld_exercise(vault, repository, row: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 808) — A picked exercise's statement is built only while its region may be shown (fix rounds 4 and 5): every status, a submitted problem's too.
+- `_named_serve(params: ParamsModel) -> dict[str, str | None] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 826) — The serve a request names, as one pair (review F15): ``None`` when it names neither identifier (keep the pair the session holds), else both, an explicit null included (replace the pair).
+- `_key_exists(repository, key: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 836)
+- `_queue_stuck_texts(ctx: SidecarContext, vault, repository, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 879) — RW2b in-session updates (§5.2): a stuck step's newest text goes to learner-text gaps when Leave or Submit sends it.
+- `_schedule_map(ctx: SidecarContext, vault, repository, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 894) — RW2b (§5.2): the bound item's approach map is built in the background (H1's ``build_on_serve``, its switches, locks and envelope).
+- `_kept_offer(repository, candidate_id: str | None, practice_session_id: str, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 995) — The scheduler offer kept on the session, when it is still an unanswered offer of this item in the session the submit runs in; a stale one (answered elsewhere, another session after a restart) is dropped, so the attribution it carried never fails the submit (review F13).
+- `_session_open(repository, practice_session_id: str | None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1009)
+- `_practice_session(ctx: SidecarContext, repository, requested: str | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1016) — The practice session a workbench submit runs in: the app's open one, else the most recent open one, else a new one (``start_session``).
+- `_admit(ctx: SidecarContext, session_id: str, requested_practice_session: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1039) — Admit a picked exercise's item as the learner's pick, for THIS problem (Reader RW4b fix round 4, R1).
+- `_close_answer_box_draft(repository, practice_session_id: str, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1278) — Owner capture 2026-10-25 (B3, B4): the steps answered the item, so the practice screen's draft of it in this session (the answer box the learner left for steps: its retry key, its hints, its offer binding) is superseded, as an answer-box submit acknowledges its own.
+- `_stamp_help_rows(repository, session_id: str, latency_seconds: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1297)
+- `_bind_help_rows(repository, session_id: str, plan, *, attempt_id: str, practice_session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1314) — RW2b: the practice session (set at Submit, the schema's rule) and the attempt on the problem's help rows, after the attempt committed.
+- `_cleared(vault, repository, summaries: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench.py), line 1396) — A list's problems whose statement may be shown (fix round 5, R2): a picked exercise whose region is held out now is left out of the list (its steps are kept; it cannot be resumed while it is withheld).
 
 ## Who imports or calls it
 

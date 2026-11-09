@@ -41,6 +41,7 @@ import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress, HelpRecordDto } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
+import { useAttemptClock } from "./useAttemptClock";
 import { AS_PRINTED_COPY, AsPrinted, OriginalPageLink, printedPageLabel, useAsPrinted } from "../components/AsPrinted";
 import { OpenInSource } from "../components/OpenInSource";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
@@ -400,9 +401,13 @@ export function PracticeScreen({
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+  // Recognition and effort RE0: the attempt's active seconds, on the router objective's active clock, carried across
+  // resumes of this draft under its submission key. Sent beside `latencySeconds`, never blended with it.
+  const activeClock = useAttemptClock();
   useEffect(() => {
     openedAtMs.current = Date.now();
     submissionId.current = restoredSubmissionId?.trim() || crypto.randomUUID();
+    activeClock.open(submissionId.current);
     setAnswerConfidence(null);
     setDifficultyRating(null);
   }, [practiceItemId, restoredSubmissionId]);
@@ -1394,6 +1399,7 @@ export function PracticeScreen({
         // Reader CA1: the original page opened before Submit is that book.
         bookCounted: bookCounts,
         latencySeconds: elapsedSeconds(),
+        activeSeconds: activeClock.seconds(),
         primed,
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
@@ -1461,6 +1467,7 @@ export function PracticeScreen({
         authoredHints: hintsUsed,
         bookCounted: bookCounts,
         latencySeconds: elapsedSeconds(),
+        activeSeconds: activeClock.seconds(),
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,
@@ -1511,6 +1518,7 @@ export function PracticeScreen({
         submissionId: expectedSubmissionId,
       });
       if (!result.acknowledged || result.status === "checkpoint_mismatch") return false;
+      activeClock.forget(expectedSubmissionId);
       onCheckpointCleared({ practiceItemId, submissionId: expectedSubmissionId });
       return true;
     } catch (error) {
@@ -2024,6 +2032,8 @@ export function PracticeScreen({
                 layout="full"
                 hideProblem
                 autoFocus
+                // RE0: the steps continue this attempt: one clock, this screen's.
+                activeSeconds={() => activeClock.seconds()}
                 practiceSessionId={session.sessionId}
                 // This screen's serve, always named as one pair (review F15).
                 schedulerCandidateId={schedulerCandidateId ?? null}
@@ -2048,6 +2058,7 @@ export function PracticeScreen({
                   // unmount nor restored when the item is served again (the
                   // sidecar's submit cleared its checkpoint).
                   suppressDraftFlush.current = true;
+                  activeClock.forget(submissionId.current);
                   onCheckpointCleared({ practiceItemId: item.id, submissionId: submissionId.current });
                   onFeedback(result.attempt.attemptId);
                 }}
@@ -2478,6 +2489,13 @@ function TeachBackConversation({
   // startupStartedRef in App.tsx); the retry button bypasses it on purpose.
   const startedRef = useRef(false);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
+  // Recognition and effort RE0: the conversation's active seconds, carried across resumes under its own key; the
+  // server uses them when this turn finishes the conversation (the graded attempt), and ignores them before.
+  const activeClock = useAttemptClock();
+  const clockKey = `teach_back:${session.sessionId}:${item.id}`;
+  useEffect(() => {
+    activeClock.open(clockKey);
+  }, [activeClock, clockKey]);
 
   const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null;
   // Resume gap: the answer was checkpointed but the next question was never
@@ -2532,9 +2550,11 @@ function TeachBackConversation({
         practiceItemId: item.id,
         schedulerCandidateId,
         answerMd: text,
-        finish
+        finish,
+        activeSeconds: activeClock.seconds()
       });
       if (result.done) {
+        activeClock.forget(clockKey);
         markSubmitted();
         onCheckpointCleared();
         onFeedback(result.attemptId);

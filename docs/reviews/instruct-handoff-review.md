@@ -516,3 +516,96 @@ Each finding was reproduced first: R1-R5 and the one-twin delay all gave the rev
 - Rebuild the PWA and restart the phone host (the allowlist digest moved).
 - Upgrade each vault to `mvp-0.55`.
 - Smoke on an owner-lane copy: `plan_prefetch` fails closed to no prefetch on an unexpected write, and no stage touched real data.
+
+## Landing onto main (Nov 9 2026)
+
+**Merges.** Main was merged three times:
+- `9c770a43e7` (Decider v1.2, refactor strategy A5; merge `903b93e7e8`);
+- `cf45777002` (the generated-probe reserved check logs instead of raising; merge `9bdfbd0b03`, no conflict);
+- after the gate, `db2c92aeda` (refactor A4 docs and README, the Z2 measures script and its test; merge `933fa8a8f6`, no conflict, no source file touched). After this merge, its own test, the public-tip guards, architecture, CLI surface and registry audit passed (73 tests), and so did all four reference validators.
+
+Migration 251 and `mvp-0.55` were still free on main.
+- `config/template.py`: every `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry (46) was recomputed from the merged tree with `defaults_fingerprint_for_version`. Each moves twice, for Decider v1.2's model and for the 40 s wait, and each move now has a comment.
+- The eleven frozen-digest successor tests keep both normalizations: this side's (`drop_ih5_keys` where it was there, the 40 s wait put back to 8.0), then main's `undo_decider_v12`. `test_ih5_successor.py`'s own frozen mvp-0.54 digest also needed `undo_decider_v12` (`8cdc296b4b`).
+- References were regenerated, not hand-merged (`108ea9282b`). All four validators pass. `db_validate_reference.py` reports no errors, so main's 8 known sidecar citation errors are gone too.
+
+**Gate** (tip `8cdc296b4b` before this section; code unchanged since)
+- Targeted, 391 files (every `test_ih*`, `test_mobile_*`, the files naming the IH seams, the defaults, snapshot and config sweep, every successor and upgrade test, CLI surface, architecture, registry audit, `test_cli_json`, doctor, `test_decider_client`, public-tip guards): 14,825 passed, 24 skipped, 3 xfailed, 1 failed. The failure was `test_ih5_successor`'s frozen digest (above). After the fix the file passes, 26 of 26.
+- `lint-imports --no-cache`: 43 contracts kept, 0 broken.
+- Full suite (`-n 8`, worksteal): 30,771 passed, 93 skipped, 47 xfailed, 0 failed, 17 min 15 s.
+- Durability lane (`-m durability -n 4`): 417 passed, 1 skipped.
+- Owner lane, on fresh backup-API copies of `owner-copies-mvp035`: 87 passed, 4 skipped, 1 xfailed, the same as main. `test_settings_sidecar` and the `test_ux_phase1` text-recognition tests did not fail.
+- Desktop: typecheck clean, vitest 280 files and 2,838 tests passed, `frontend:build` ok. Phone: typecheck clean, vitest 30 files and 352 tests passed, build ok.
+- Not run: cargo.
+
+**Smoke.** Fresh backup-API copies of `~/learnloop-backups/20261109-copy` (migration 250, `mvp-0.54`) were made, upgraded on the branch to `mvp-0.55` (migration 251), and driven in process through the sidecar handlers.
+- Every AI route was pointed at 127.0.0.1:9. The router LLM, the Decider, the grader and diagnoser (`BlindRivalClient`), the probe author (`AuthorFake`) and the lesson writer (`TeacherFake`) were in-process fakes.
+- The frozen clock was `2026-11-10T15:00Z`, after the backup.
+
+*Identity, first.* Three vaults, one day each: the second served item was missed, its follow-up written, and the first stop declined. The mixture seed was pinned to the decision id on both sides. Each pair was compared draw for draw over Today, the plan, every step, the LLM and Decider requests, the follow-up gates, the prompts and every written row, traces included.
+- Main (`cf45777002`) at `mvp-0.54` against the branch at `mvp-0.54` (migration 251 applied, not upgraded; boundary key not pinned): **identical** on all three vaults.
+- Main at `mvp-0.54` against the branch at `mvp-0.55` with all seven switches off: **identical** on all three vaults. The boundary key was pinned on both sides here, because it names the version and, from the tag on, `failure_share_to_other_policy`, `lessons_compete_with_followups` and `preferences_inform_router`, and the numeric seed derives from it. Version and those key names were taken out on both sides alike.
+- What was set aside, and nothing else:
+  - the seven switch keys wherever recorded;
+  - the version label;
+  - RO6's `generator` key (names the version; the `mvp-0.55` pair only);
+  - the code-revision string (the archived main tree says `package:0.1.0`, the worktree `git:<sha>`);
+  - two display fields IH1 adds to a `lesson_offer` step's reply at every version, `why` and `whyKind` (the router's rationale for the offer page; spec §4 item 2, unswitched by design).
+- Draws, decisions, propensities, traces and rows did not move.
+
+*The lesson hand-off* (switches on).
+- After a miss in an ordinary block, the follow-up's `plan_interrupt` held the lesson beside `insert_now`, `continue_current`, `no_intervention` and `decline`, with an exact logged propensity (0.118, 0.327). This held on all three vaults.
+- The smoke drove the draw to the lesson the way the tests' `draw` fixture does, logging the exact μ. The offer was then the step feedback's Next reached; the desktop's prefetch peek found it too. `offer_shown` was written for the page, and Start took one call (`lesson.suggestion_respond`, then `lesson.turn` `open`).
+- A miss in the day's randomized-check block gets no lesson arm, as built (`_offer_may_interrupt`).
+- *Lessons compete with follow-ups.* A follow-up decided `continue_current` without a lesson in its support (a miss in the check block) and then met a lesson at the next boundary in one decision. The feasible support was exactly `[followup_contest:…, lesson_offer:…]`, at 0.673 and 0.327 on all three vaults. A follow-up whose own decision already held a lesson stayed forced (`none:forced_items`), as §5 says.
+- *Preferences.*
+  - "Something else would help" wrote one `router_learner_preferences` row, and a retry with the same key wrote nothing.
+  - The next decisions' traces carry `ih4_preference_value_v1` (applied, `w_pref` 0 on its prior, as built).
+  - The LLM card has the `learner_statements` section. On arxiv_v2 the card's shared budget left the one statement out (`left_out.learner_statements: 1`).
+  - The staged policy doesn't read preferences: with the LLM and numeric both down, a copy with a preference on record and one without served the same staged picks with the same propensities.
+- *Failure share.*
+  - LLM down: the effective weights were LLM 0, numeric 1.0, staged 0 at every objective decision, with the floor kept in the propensities.
+  - Both down: staged 1.0.
+- *Workbench.* With a workbench open at a boundary, three peeks and three plan reads wrote no decision and no block, and said `question_in_progress`.
+- *Lesson sources follow the diagnosis.*
+  - On probability, a lesson opened after a miss on its topic added the diagnosis' matching sections whole (Blitzstein §1 "Sample spaces and Pebble World", "Story proofs", and the elevator-paradox note), recorded in `sources_follow`.
+  - On arxiv_v2 and linear_algebra the record was written but added nothing. Every confusion was withheld: "what the text was written from could not be established". The cause is the diagnosis' write-time provenance on these vaults, which is incomplete for every diagnosis and hypothesis written since Nov 8 (the tutor's reading of a question and earlier workbench assists record no provenance). This fails closed, as built (open item 1).
+- *`plan_prefetch` on real data.*
+  - On each vault it returned `not_a_boundary` in mid-block and `started` at the boundary, and changed no table but `model_call_receipts` (the job's own).
+  - A write injected on its walk (in `_reconcile_view`) failed at the read-only attach. The reply was `started: false`, `reason: unavailable`, with no row changed and no job started, and the next serve decided normally.
+- *Protection.* The check covered offers, lesson briefs (every open and teacher turn, TE3a's `exposure_identities` ledger set aside), served items and every LLM and Decider prompt, against the vault's withheld items (`learner_protection.withheld_items`) and exam material. No exam or held-out item reached any of them.
+  - linear_algebra has 15 exam or held-out items. Three "learn this" lessons on their topics also leaked none.
+  - None of the three vaults has an exam or held-out source span, so the span half was not exercised on real data (the IH7 tests cover it synthetically).
+- *Replay.*
+  - `rebuild --shadow` on the smoke copies (hand-off, contest, phone, preferences) left the live database unchanged. Beyond stamp-only rows there are only arxiv_v2's two mastery rows (`lo_render_…`, `lo_trace_recursive_relu_folding`) and nine `pi_lesson_*` `due_at` rows. The untouched upgraded copy shows the same rows, and main's own shadow after its identity day shows the same mastery rows, so they predate IH.
+  - One phone run with four answers at one frozen instant showed a 0.004 logit tie-order difference. It went away once the smoke's clock advanced between answers (a harness artifact).
+  - The raw ledger (assignments, traces, decisions, block events, preferences, lesson turns) is identical across `rebuild-derived-state`.
+- *The phone* (the real host in process, Starlette `TestClient`).
+  - With a desktop offer open, the phone's plan shows the same `lessonOffer` block as the desktop's, byte for byte, and its next step says `held_for_desktop` with `heldLessonOffers: 1`.
+  - The phone's Next served items beside the offer, and its decision logged `none:device_serves_no_lesson`.
+  - Its "learn this" was logged `waits_on_desktop`. `plan_prefetch` was allowed (`not_a_boundary` in mid-block). The desktop's offer stayed open and unanswered.
+  - A V4-era journey (V4's capabilities and methods only) ran with no error and no lesson step.
+- *Spend and isolation.* The smoke created no `model_call_receipts` row from a real model; every new receipt names a fake provider. No socket left loopback, nothing resolved a name, and no Codex process started. The only subprocesses were `powerprofilesctl get` and `git` for the code revision.
+
+**The owner's steps**
+1. Restart the desktop app.
+2. Rebuild the PWA: `cd apps/learnloop-mobile && npm install && npm run build`. Then `systemctl --user restart learnloop-mobile`, `learnloop-mobile doctor`, and Reload on the phone (the allowlist digest moved).
+3. Upgrade each vault to `mvp-0.55`: `learnloop upgrade --vault <vault>` (the default target), for arxiv_v2, linear_algebra and probability. Migration 251 runs on open.
+4. Each switch goes off with one line under `[router_objective]` in the vault's `learnloop.toml`, and each restores `mvp-0.54` when off:
+   - `failure_share_to_other_policy = false`: a failed policy's share goes to staged again.
+   - `lessons_compete_with_followups = false`: forced follow-ups withdraw an offer again.
+   - `learner_preferences = false`: no "Something else would help" link, nothing written.
+   - `workbench_is_open_item = false`: a read under an open workbench crosses the boundary again.
+   - `lesson_sources_follow_diagnosis = false`: the lesson brief is byte-identical to `mvp-0.54`'s.
+   - `preferences_inform_router = false`: no preference in the acceptance model, value, card or trace.
+   - `lesson_candidate_after_cold_miss = false`: the old `cold_failing` candidates and wording.
+   
+   `router.timeout_seconds` (40) is operational and has no successor.
+5. Main's working-tree copy of the 40 s change (schema.py, template.py, router_runtime.py, `spec_action_router_v1.md`, `Config - router.md`, about 15 tests) and the untracked `docs/specs/spec_instruct_handoff_v1.md` can be discarded once this lands. Leave `.gitignore` and `README.md`: they are the owner's.
+
+**Open items**
+1. IH7 adds nothing on arxiv_v2 or linear_algebra today: every diagnosis and hypothesis written there since Nov 8 has incomplete write-time provenance, so every confusion is withheld (fail closed). Making the tutor's question reading and the workbench assists record provenance would let it work there.
+2. On a large card (arxiv_v2) the shared budget can leave the learner's statements out of the LLM's context. It is the budget as built; watch whether statements ever make the card.
+3. `w_pref` stays 0 until randomized draws with a frozen preference sensor accumulate (the owner's "land as built and monitor").
+4. Not covered on real data: held-out source spans (none exist in the three vaults).
+5. Not run in any stage: cargo.

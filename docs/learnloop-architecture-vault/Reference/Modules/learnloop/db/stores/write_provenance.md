@@ -186,6 +186,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Inputs`, `stored_record`, `text_sha256`; statically calls `Inputs`, `stored_record`, `text_sha256`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `stored_record`, `text_sha256`; statically calls `stored_record`, `text_sha256`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `pinned_contract_ids`; statically calls `pinned_contract_ids`
+- [[Reference/Modules/learnloop/recognition/ledger|learnloop.recognition.ledger]] — imports `pinned_contract_ids`; statically calls `pinned_contract_ids`
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `stored_record`; statically calls `stored_record`
 
 ## Dependencies
@@ -207,7 +208,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

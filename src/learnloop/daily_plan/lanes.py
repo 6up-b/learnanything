@@ -141,6 +141,14 @@ class PoolItem:
     #: mvp-0.21: the rank an admitted project probe plans at (the value
     #: order); None means the scheduler's ``rank``.
     plan_rank: int | None = None
+    #: mvp-0.56: answered, but the scheduler starts it as learning (its ``unevidenced_return``): the plan's new material.
+    unevidenced_return: bool = False
+
+    @property
+    def counts_as_new(self) -> bool:
+        """New material as the plan admits and counts it: never attempted, or back as learning (mvp-0.56)."""
+
+        return self.never_attempted or self.unevidenced_return
 
     @property
     def order_rank(self) -> int:
@@ -161,6 +169,7 @@ class PoolItem:
             "check_kind": self.check_kind,
             "followup": self.followup,
             **({"plan_rank": self.plan_rank} if self.plan_rank is not None else {}),
+            **({"unevidenced_return": True} if self.unevidenced_return else {}),
         }
 
 
@@ -211,6 +220,10 @@ def classify_item(
         due = bool(due_override)
     frontier = float(components.get("goal_frontier", 0.0) or 0.0) > 0.0
     followup = is_followup(scheduled)
+    # mvp-0.56: the scheduler started this answered item as learning. Carried whatever lane it takes (an open
+    # diagnosed problem still sends it to repair first), so no signal reads it as acquired. Only where the scheduler
+    # wrote the component, so every other pool is the predecessor's.
+    returned = float(components.get("unevidenced_return", 0.0) or 0.0) > 0.0
     base = dict(
         practice_item_id=scheduled.practice_item_id,
         learning_object_id=scheduled.learning_object_id,
@@ -218,6 +231,7 @@ def classify_item(
         priority=float(scheduled.priority),
         est_minutes=float(est_minutes),
         never_attempted=never_attempted,
+        unevidenced_return=returned,
         requested=requested,
         followup=followup,
         due=due,
@@ -270,6 +284,9 @@ def classify_item(
         return PoolItem(lane="repair", reason="an open diagnosed problem on this topic", **base)
     if never_attempted:
         return PoolItem(lane="new", reason="your request" if requested else "new material", **base)
+    if returned:
+        # mvp-0.56: without this lane the scheduler's return would sit in "later" and never be planned.
+        return PoolItem(lane="new", reason="back as learning", **base)
     if due or requested:
         return PoolItem(lane="maintain", reason="your request" if requested and not due else "past its review date", **base)
     if frontier:

@@ -7,6 +7,7 @@ import { ProbeBlockResult } from "./ProbeBlockResult";
 import { COLOR, FONT_MONO, Faint } from "./term";
 import { Card, Pill, SectionHeader } from "./ui";
 import { screenLeavesKey } from "../app/keymap";
+import { useAttemptClock } from "../screens/useAttemptClock";
 
 // Dialogue microprobe UI (probe redesign §8.1/§12): a short block of committed
 // turns — commit → decisive reason → minimally-changed case → counterexample —
@@ -51,6 +52,9 @@ export function DialogueProbePanel({
   const [turn, setTurn] = useState<DialogueTurnDto | null>(null);
   // Wall-clock, not idle-adjusted (see PracticeScreen for the rationale).
   const turnOpenedAtMs = useRef(Date.now());
+  // Recognition and effort RE0: each turn's active seconds, on the router objective's active clock. A turn is one open
+  // (no resume), so nothing is carried.
+  const activeClock = useAttemptClock();
   const elapsedSeconds = () =>
     Math.max(0, Math.round((Date.now() - turnOpenedAtMs.current) / 1000));
   const [answer, setAnswer] = useState("");
@@ -104,11 +108,12 @@ export function DialogueProbePanel({
       // TURN, not per block — a block-scoped timer would bill every turn for the
       // ones before it (B5's `learner_minutes_to_first_unassisted_success`).
       turnOpenedAtMs.current = Date.now();
+      activeClock.open(null);
       setPhase("asking");
     } catch (error) {
       fail(error);
     }
-  }, [endBlock, fail]);
+  }, [endBlock, fail, activeClock]);
 
   // Begin the block on mount. React 18 StrictMode double-mounts effects in
   // dev; the ref guard keeps the second run from opening a second block.
@@ -143,6 +148,7 @@ export function DialogueProbePanel({
             practiceItemId: turn.practiceItemId,
             hintsUsed: 0,
             latencySeconds: elapsedSeconds(),
+            activeSeconds: activeClock.seconds(),
             probePresentationId: turn.presentationId,
             answerConfidence: confidence
           });
@@ -154,6 +160,7 @@ export function DialogueProbePanel({
             attemptType: "diagnostic_probe",
             hintsUsed: 0,
             latencySeconds: elapsedSeconds(),
+            activeSeconds: activeClock.seconds(),
             probePresentationId: turn.presentationId,
             answerConfidence: confidence,
             ...(stuck ? { declaredStuck: true } : {})

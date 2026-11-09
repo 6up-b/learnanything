@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/ai/providers/structured_output.py"
   - "src/learnloop/ai/providers/voyage_contextual.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T20:19:06-05:00"
+source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai.providers"

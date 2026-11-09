@@ -200,6 +200,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_assumed_lo_with_no_commitment_reads_as_keep_for_its_check`
   - `test_committed_los_reach_the_chooser_state_with_their_intent`
 - [tests/test_mcp_c1a_landing.py](../../../../../../tests/test_mcp_c1a_landing.py) — direct import
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_a_reading_target_is_stored_as_the_predecessors_unless_the_path_chose_it`
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import

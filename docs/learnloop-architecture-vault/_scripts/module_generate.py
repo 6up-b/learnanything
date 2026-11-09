@@ -106,6 +106,7 @@ PACKAGE_DESCRIPTIONS = {
     "learnloop.placement": "Placement for new material through the LearnerPredictor contract; writes only its own receipts, never evidence.",
     "learnloop.practice_index": "The practice index: facet dossiers and find_practice (recall by search, an LLM decides, the scheduler admits).",
     "learnloop.projects": "Project understanding: captured agent-written diffs and delayed comprehension probes on them.",
+    "learnloop.recognition": "Recognition and effort RE0: the derived cue label of an attempt and the report section that splits results by it; capture only, read by reports and nothing else.",
     "learnloop.remote": "Application services for frontends outside the desktop (the MCP chat adapter's only door); no learning policy of its own.",
     "learnloop.router": "The action router: decisions logged on today's serving paths and their derived outcomes; a leaf that chooses nothing yet.",
     "learnloop.scheduling.intent": "Intent at serving time: the vocabulary, the most-recent-choice resolution, per-intent recall targets and the per-build view.",

@@ -4,7 +4,7 @@ Phase A, job 2. **Status: for the owner's review. No step starts until the owner
 
 ## Summary for the owner
 
-The refactor has 63 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
+The refactor has 65 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
 
 **What gets smaller**
 
@@ -58,7 +58,7 @@ When its step comes (recommendations and evidence in §2.13):
 
 Settled since the map: RE2 is a firm step (owner, Nov 9) and RE0 lands before step 1. Not settled: RE1's placement (§2.1).
 
-**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 63 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
+**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 65 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
 
 **Where to stop if you need to.** After arc A (4% of the cost; every later change is cheaper). After B4 (10%; your four cases are answerable). After arc C (27%; dead code gone). After arc D (47%; history gone, tests on the real path). §2.14 lists them all.
 
@@ -170,6 +170,14 @@ No behaviour changes, and every later step gets cheaper, so this comes first, ev
 - **Problem:** §8.1: the privacy note says PDFs stay local while `auto` uses a hosted service when a key is set. CLAUDE.md's suite time is stale (N2).
 - **Files:** Content Pipeline, Import Canonical Sources, Privacy and Trust; `CLAUDE.md`; `README.md` if it repeats it; Developer Map gets a "where to change what" table from §6 (replacing its scheduler-first row).
 - **Proof:** read against `ingest/extractors/__init__.py:84`, by the implementer, with the check recorded.
+
+**A5. A bug-finding linter in every gate** (M) `[IH] [RE0]`. Owner, Nov 9.
+- **Problem:** nothing checks Python beyond `lint-imports`. A ruff 0.17 run on main (`a36da14a4a`, `src/` and `tests/`, rules `F,E9,B,UP,SIM,PLE,RUF100`) found 7 undefined names, one of them live: `diagnosis/probe_instance_generation.py:933` calls `LOG.warning` in the fail-closed branch of the reserved-question check, where `LOG` is undefined, so a failed read raises `NameError` instead of returning "nothing admitted". Also: 65 closures capturing a loop variable (17 in that same file), 238 `zip()` calls without `strict=`, 72 re-raises without `from`, about 600 auto-fixable items and 847 stale `noqa` comments. About 3,500 star-import warnings, mostly in `cli/app.py`, are noise.
+- **Files:** `pyproject.toml` (`[tool.ruff]`, and ruff in the `dev` extra pinned to one version), the findings' files, CLAUDE.md's commands, the stage and landing gate lists.
+- **Rules:** bug-finding only: pyflakes `F`, `E9`, bugbear `B`, `PLE`, `RUF100`, and the `UP`/`SIM` rules the implementer judges free of churn. No formatter and no naming, style or complexity rules: reformatting 620k lines would change nearly every line and collide with every branch in flight. Star imports in the CLI modules get a per-file ignore, not a rewrite.
+- **Order:** (1) the `LOG` bug first, its own commit, with a test that fails before the fix, if it hasn't been fixed by then; (2) one mechanical commit of `ruff check --fix` (safe fixes only), with nothing else in it; (3) each remaining finding read and either fixed with a test, or kept with a `noqa` and a reason; `B023` and `B905` are read one by one, because each can be a real bug or deliberate; (4) `ruff check` joins every step's gate and every landing gate, beside `lint-imports`.
+- **Types, later and per file:** modules that arcs E and I create or rewrite get strict type checking (one checker, chosen at E1), enforced per file. No whole-codebase typing.
+- **Proof:** `ruff check` is clean on the tip; the mechanical commit changes no test outcome (targeted run of the files it touches, then the batch gate); every behaviour fix has its own test. **Vault:** Developer Map's commands.
 
 **Stopping point 1.**
 
@@ -541,6 +549,13 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 
 **Z2. Close** (S). Rerun every §6 measure with `scripts/refactor_measures.py` and the S0 commands. Report seconds saved per removal. **Then:** later feature work (§2.16).
 
+**Z3. Archive the old specs** (S). Owner, Nov 9: "Within the refactor after documentation is finished we should also archive all of the old specs." It runs after the documentation rewrite (§5's last stage, by Codex, after the UX overhaul), so it's the one step that waits past Z2; Z2's measures don't wait for it.
+- **Problem:** `docs/specs` holds every spec since July, and as-built, superseded and live ones sit side by side.
+- **Does:** moves every spec that's implemented and superseded, or abandoned, into `docs/specs/archive/`. It leaves the live ones (specs still being built, or still the reference for current behaviour), with a short index (`docs/specs/README.md`): each live spec, then each archived one with what superseded it.
+- **Keeps:** links working. Every reference in `docs/`, the architecture vault, `CLAUDE.md`, tests and code comments is updated, and the vault validators run.
+- **Owner:** reviews the live/archive list before the move.
+- **Proof:** no broken link (a check script or `validate_vault.py`); nothing deleted, only moved (`git diff --stat -M` shows renames only, plus the index and the updated references).
+
 ### 2.13 Evidence for the owner's calls
 
 | Row | Evidence | Recommendation |
@@ -565,7 +580,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 | F and I | 74% | Next faster where it can be; retrievability one function; grading and queue cores testable alone. |
 | G6 | 83% | One probe decider; protection one predicate. |
 | H6 | 92% | Scalar retired, reported first. |
-| J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures. |
+| J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures; old specs archived once the docs rewrite is done (Z3). |
 
 Each arc's steps also land one at a time, so an interruption mid-arc leaves a working system, with the exception noted at H.
 
@@ -573,7 +588,7 @@ Each arc's steps also land one at a time, so an interruption mid-arc leaves a wo
 
 | | Count | Rough size each | Total |
 |---|---|---|---:|
-| Small steps | 9 | 0.2-0.4M tokens | about 3M |
+| Small steps | 10 | 0.2-0.4M tokens | about 3M |
 | Medium | 32 | 0.5-1M | about 24M |
 | Large | 21 | 1.5-3M | about 46M |
 
@@ -590,6 +605,7 @@ About **45-90M Opus tokens including re-read context** (revised, owner, Nov 9: C
 | RE3-RE8 | E6, RE2, I1 | New action kind; one read function for `S_eff`; RE7 is an `objective.py` term. RE's spec places RE3-RE8 between the refactor and the UX audit; the brief says beside the audit. Either works here. |
 | UX audit and overhaul | C3-C5, B9 | Fewer backends; `why.get` for the glass-box view; the UX list this strategy collects |
 | Codex docs, last | all | Describes the final screens |
+| Z3, the spec archive | Codex docs | Archives what the rewritten docs no longer cite as live |
 
 ## 3. The decision record
 

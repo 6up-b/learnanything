@@ -237,6 +237,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_never_reads_the_switch`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
+- [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
+  - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import
   - `test_the_rw3b_tables_are_classified`
 - [tests/test_reader_rw7a_migration.py](../../../../../../tests/test_reader_rw7a_migration.py) — direct import

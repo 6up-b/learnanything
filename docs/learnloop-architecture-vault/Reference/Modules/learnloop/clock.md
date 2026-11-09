@@ -341,6 +341,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/ops/model_routes|learnloop.ops.model_routes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Clock`
@@ -497,6 +498,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `Clock`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -549,7 +551,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 443 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 445 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1511,6 +1513,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_located_error_is_decided_by_its_diagnosis`
   - `test_a_regrade_to_unverified_keeps_the_topic_in_maintenance`
   - `test_the_check_follows_a_regrade_that_requeues_the_diagnosis`
+- [tests/test_placement_unevidenced_return.py](../../../../../tests/test_placement_unevidenced_return.py) — direct import
 - [tests/test_plan_determinism.py](../../../../../tests/test_plan_determinism.py) — direct import
   - `test_replay_never_reads_the_switch`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
@@ -1635,6 +1638,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_virtual_open_state_for_questioned_facet_without_row`
 - [tests/test_quick_add.py](../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_randomization_layer.py](../../../../../tests/test_randomization_layer.py) — direct import
+- [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
+  - `test_active_seconds_is_a_nullable_attempt_column_filled_after_the_row_and_never_blended_with_latency`
 - [tests/test_reader_active_reading.py](../../../../../tests/test_reader_active_reading.py) — direct import
 - [tests/test_reader_authoring.py](../../../../../tests/test_reader_authoring.py) — direct import
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import

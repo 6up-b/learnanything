@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, PracticeItemDetail, ProbeContractDto, SessionSnapshot } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
+import { useAttemptClock } from "@desktop/screens/useAttemptClock";
 import { MathLiveEditor } from "@desktop/render/MathLiveEditor";
 import { committedAttempt, staleRefusal } from "../api/http";
 import { phone, type SubmitInput } from "../api/phone";
@@ -9,6 +10,7 @@ import { newUlid } from "../util/ulid";
 import {
   clearQuestionDraft,
   NO_ASSIST,
+  phoneClockKey,
   readQuestionDraft,
   rememberPendingSubmit,
   writeQuestionDraft,
@@ -43,6 +45,11 @@ type PhoneProbeContract = ProbeContractDto & { readonly phoneAnswers?: boolean }
 
 /** The desktop's runtime guard (`PracticeScreen.activeProbeContract`): a malformed or incomplete contract never
  *  enables help or an ordinary submit during a probe. */
+/** The request's active seconds, left out (so stored as missing) before the clock was opened. */
+function activeSecondsField(seconds: number | null): { activeSeconds?: number } {
+  return seconds === null ? {} : { activeSeconds: seconds };
+}
+
 export function phoneProbe(contract: PhoneProbeContract | null): PhoneProbeContract | null {
   if (!contract || !contract.active || !contract.phoneAnswers) return null;
   const restrictions = contract.restrictions;
@@ -181,6 +188,9 @@ export function QuestionScreen({
   // landed, so no write yet (F11), and landing would discard only that revision (verify finding 1).
   const skipRevision = useRef<number | null>(opened.skipRevision ?? null);
   const shownAt = useRef(Date.now());
+  // Recognition and effort RE0: the attempt's active seconds, the desktop's own clock (the router objective's), kept
+  // under this draft's session and item so a resumed question carries them. Sent beside `latencySeconds`, never blended.
+  const activeClock = useAttemptClock();
   // Its own copy may hold what never reached the checkpoint, or the checkpoint may have moved on to
   // another item since. A request already sent settles that at the submit.
   const dirty = useRef(opened.own && !opened.sentInput);
@@ -226,6 +236,7 @@ export function QuestionScreen({
         setProbeActive(Boolean(contract.active));
         setProbe(answered);
         shownAt.current = Date.now();
+        activeClock.open(phoneClockKey(sessionId, practiceItemId));
       })
       .catch((error: CommandError) => {
         if (cancelled) return;
@@ -337,6 +348,9 @@ export function QuestionScreen({
       sentInput.current = null;
       outcome.current = "none";
       dirty.current = true;
+      // A new draft: the skipped attempt's active time is not its.
+      activeClock.forget();
+      activeClock.open(phoneClockKey(sessionId, practiceItemId));
       remember();
       setFailure(null);
       onError(SKIP_LANDED_WRITTEN_SINCE);
@@ -350,7 +364,10 @@ export function QuestionScreen({
     if (skipInFlight.current) return;
     skipInFlight.current = true;
     const settled = await settleSkip();
-    if (settled === "landed") return;
+    if (settled === "landed") {
+      activeClock.forget();
+      return;
+    }
     skipInFlight.current = false;
     if (settled !== "unreachable") await saveDraft();
   }
@@ -360,6 +377,7 @@ export function QuestionScreen({
     dirty.current = false;
     rememberPendingSubmit(null);
     clearQuestionDraft(sessionId, practiceItemId);
+    activeClock.forget();
     await phone.acknowledge(sessionId, practiceItemId, key).catch(() => undefined);
     onFeedback(attemptId, practiceItemId);
   }
@@ -406,6 +424,7 @@ export function QuestionScreen({
         attemptType: "diagnostic_probe",
         submissionId: key,
         latencySeconds: Math.round((Date.now() - shownAt.current) / 1000),
+        ...activeSecondsField(activeClock.seconds()),
         schedulerCandidateId: schedulerCandidateId.current,
         assessmentContractVersionId: currentItem.assessmentContractVersionId,
         hintsUsed: 0,
@@ -423,6 +442,7 @@ export function QuestionScreen({
       attemptType: phoneAttemptType(currentItem.attemptTypesAllowed, hints),
       submissionId: key,
       latencySeconds: Math.round((Date.now() - shownAt.current) / 1000),
+      ...activeSecondsField(activeClock.seconds()),
       schedulerCandidateId: schedulerCandidateId.current,
       assessmentContractVersionId: currentItem.assessmentContractVersionId,
       hintsUsed: hints,
@@ -442,6 +462,7 @@ export function QuestionScreen({
     try {
       if (skipRevision.current !== null) {
         const settled = await settleSkip();
+        if (settled === "landed") activeClock.forget();
         if (settled === "landed" || settled === "unreachable") return;
       }
       if (outcome.current === "unknown") {
@@ -527,7 +548,11 @@ export function QuestionScreen({
       }
     }
     // Landed, it stays set: the skip ended this draft, and a flush on the way out would put it back.
-    if (result === "recorded" || settled === "landed") return;
+    if (result === "recorded" || settled === "landed") {
+      // The skip ended this attempt: its active time goes with it, and an unmount must not write it back.
+      activeClock.forget();
+      return;
+    }
     skipInFlight.current = false;
     setSkipping(false);
     // The question stays open, so what the skip held back is due now, unless it may still have landed.

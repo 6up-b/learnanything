@@ -37,6 +37,17 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Recognition and effort RE0 (migration 252), landing of `capture/re0`, 2026-11-09
+
+Renamed from `migration_head_251` at RE0's landing (base: main at `0a6e8bda4e`, head 251, merged into the branch).
+`252_attempt_active_seconds.sql` (one nullable column, `practice_attempts.active_seconds INTEGER CHECK (active_seconds IS
+NULL OR active_seconds >= 0)`, on a RAW_LEDGER table; no new table) applied through `learnloop.db.migrate.apply_migrations`
+on a backup-API copy of the tracked, sanitized `migration_head_251/state.sqlite` outside the checkout, under the test-helper
+upgrade allowance, which applied `[252]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes
+1/1), `integrity_check` ok and `foreign_key_check` empty; written into place from a backup-API copy in rollback mode, with no
+companion files. No row changes (only `schema_migrations` gains 252; the six attempts' `active_seconds` stay NULL); the only
+object whose definition changed is the `practice_attempts` table. The head holds 229 through 252.
+
 ## Instruct hand-off IH3 (migration 251), `instruct/handoff`, 2026-11-08
 
 Renamed from `migration_head_250` on the instruct hand-off branch (base: IH2's commit on top of main at `ccb6573987`, head

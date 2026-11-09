@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/tutor/teach_back.py"
 source_paths:
   - "src/learnloop/tutor/teach_back.py"
-source_commit: "0c445c246cee05db2245abe7ac4dd298d033da07"
-source_commit_timestamp: "2026-10-15T21:08:59-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
+source_commit_timestamp: "2026-11-09T16:01:49-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.tutor"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/teach_back.py](../../../../../../src/learnloop/tutor/teach_back.py) |
-| Source lines | 1409 |
+| Source lines | 1411 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `0c445c246cee05db2245abe7ac4dd298d033da07` |
-| Commit timestamp | `2026-10-15T21:08:59-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
+| Commit timestamp | `2026-11-09T16:01:49-05:00` |
 
 ## Public API
 
@@ -77,13 +77,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `record_answer(state: TeachBackState, answer_md: str) -> TeachBackState` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 438) — Append the learner's answer to the most recent AI question.
 - `asked_criterion_ids(state: TeachBackState) -> list[str]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 453) — Criteria whose question was asked AND answered, in ask order.
 - `render_transcript_md(state: TeachBackState, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 473) — Render the conversation to Markdown (the graded ``learner_answer_md``).
-- `finish_teach_back(vault: LoadedVault, repository: Repository, state: TeachBackState, client: Any, *, session_id: str | None=None, latency_seconds: int | None=None, conversation_id: str | None=None, grading_source: str='ai', runtime: Any | None=None, entry_surface: str='unspecified', evidence_origin: str='unknown', awaits_completion: bool=True, clock: Clock | None=None) -> TeachBackFinishResult` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 504) — Grade the whole transcript as ONE ``teach_back`` attempt.
-- `core_criteria(rubric: Rubric) -> list[RubricCriterion]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 722) — Core-tier criteria of a rubric (the fallback graded set).
-- `restrict_grading_context_to_criteria(context: Any, item: PracticeItem, rubric: Rubric, criteria: list[RubricCriterion]) -> Any` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 728) — Restrict a grading context's rubric + facet weights to ``criteria``.
-- `asked_rubric_score(rubric: Rubric, asked_criteria: list[RubricCriterion], criterion_points: Mapping[str, float], fatal_errors: list[str]) -> int` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 767) — Rubric score normalized over the asked criteria's points.
-- `ensure_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, source_practice_item_id: str | None=None, authoring_client: Any | None=None, quest_sentence: str | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 800) — Find or mint a learner-requested teach-back card.
-- `teach_back_authoring_context(vault: LoadedVault, source_item: PracticeItem, learning_object, *, quest_sentence: str | None=None) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1045) — The teach-back authoring context exactly as the tutor builds it (and its source criteria).
-- `validate_teach_back_authoring(authored: TeachBackAuthoring, *, source_criteria: list[dict[str, Any]], source_item: PracticeItem, learning_object, quest_sentence: str | None) -> None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1061) — The tutor's own check of an AI authoring draft; raises :class:`TeachBackError`.
+- `finish_teach_back(vault: LoadedVault, repository: Repository, state: TeachBackState, client: Any, *, session_id: str | None=None, latency_seconds: int | None=None, active_seconds: int | None=None, conversation_id: str | None=None, grading_source: str='ai', runtime: Any | None=None, entry_surface: str='unspecified', evidence_origin: str='unknown', awaits_completion: bool=True, clock: Clock | None=None) -> TeachBackFinishResult` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 504) — Grade the whole transcript as ONE ``teach_back`` attempt.
+- `core_criteria(rubric: Rubric) -> list[RubricCriterion]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 724) — Core-tier criteria of a rubric (the fallback graded set).
+- `restrict_grading_context_to_criteria(context: Any, item: PracticeItem, rubric: Rubric, criteria: list[RubricCriterion]) -> Any` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 730) — Restrict a grading context's rubric + facet weights to ``criteria``.
+- `asked_rubric_score(rubric: Rubric, asked_criteria: list[RubricCriterion], criterion_points: Mapping[str, float], fatal_errors: list[str]) -> int` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 769) — Rubric score normalized over the asked criteria's points.
+- `ensure_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, source_practice_item_id: str | None=None, authoring_client: Any | None=None, quest_sentence: str | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 802) — Find or mint a learner-requested teach-back card.
+- `teach_back_authoring_context(vault: LoadedVault, source_item: PracticeItem, learning_object, *, quest_sentence: str | None=None) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1047) — The teach-back authoring context exactly as the tutor builds it (and its source criteria).
+- `validate_teach_back_authoring(authored: TeachBackAuthoring, *, source_criteria: list[dict[str, Any]], source_item: PracticeItem, learning_object, quest_sentence: str | None) -> None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1063) — The tutor's own check of an AI authoring draft; raises :class:`TeachBackError`.
 
 ### Module constants
 
@@ -100,16 +100,16 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - `_sanitize_ai_markdown(value: str) -> str` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 132)
 - `_criterion_tier(criterion: RubricCriterion) -> str` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 147)
-- `_grade_and_apply_transcript(vault: LoadedVault, repository: Repository, client: Any, *, item: PracticeItem, rubric: Rubric, asked: list[str], asked_criteria: list[RubricCriterion], context: Any, attempt_id: str, draft: AttemptDraft, conversation_id: str | None, grading_source: str, grading_run_id: str, clock: Clock | None) -> tuple[AttemptResult, list[str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 624) — Request the grade for the restricted context and record the attempt.
-- `_teach_back_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 793)
-- `_active_quest_for_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str) -> tuple[str | None, str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 950) — Highest-priority relevant active goal with a resolvable learner quest.
-- `_teach_back_authoring_context(vault: LoadedVault, source_item: PracticeItem, learning_object, *, quest_sentence: str | None) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 979)
-- `_run_teach_back_authoring(client: Any | None, context: TeachBackAuthoringContext, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], learning_object_title: str) -> TeachBackAuthoring | None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1086)
-- `_validate_teach_back_authoring(authored: TeachBackAuthoring, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], quest_sentence: str | None, learning_object_title: str) -> None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1113)
-- `_fallback_teach_back_authoring(source_item: PracticeItem, source_criteria: list[dict[str, Any]], *, quest_sentence: str | None) -> TeachBackAuthoring` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1174) — Conservative source-specific fallback: useful wording, zero false facet links.
-- `_compiled_teach_back_criteria(authored: TeachBackAuthoring) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1232)
-- `_ensure_lo_wide_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1276) — Compatibility path for direct LO requests with no source item.
-- `_facet_ranks(vault: LoadedVault, repository: Repository, item: PracticeItem, *, clock: Clock | None) -> dict[str, tuple[int, float, str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1381) — Uncertainty rank per item facet, from the diagnostic read path.
+- `_grade_and_apply_transcript(vault: LoadedVault, repository: Repository, client: Any, *, item: PracticeItem, rubric: Rubric, asked: list[str], asked_criteria: list[RubricCriterion], context: Any, attempt_id: str, draft: AttemptDraft, conversation_id: str | None, grading_source: str, grading_run_id: str, clock: Clock | None) -> tuple[AttemptResult, list[str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 626) — Request the grade for the restricted context and record the attempt.
+- `_teach_back_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 795)
+- `_active_quest_for_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str) -> tuple[str | None, str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 952) — Highest-priority relevant active goal with a resolvable learner quest.
+- `_teach_back_authoring_context(vault: LoadedVault, source_item: PracticeItem, learning_object, *, quest_sentence: str | None) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 981)
+- `_run_teach_back_authoring(client: Any | None, context: TeachBackAuthoringContext, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], learning_object_title: str) -> TeachBackAuthoring | None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1088)
+- `_validate_teach_back_authoring(authored: TeachBackAuthoring, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], quest_sentence: str | None, learning_object_title: str) -> None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1115)
+- `_fallback_teach_back_authoring(source_item: PracticeItem, source_criteria: list[dict[str, Any]], *, quest_sentence: str | None) -> TeachBackAuthoring` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1176) — Conservative source-specific fallback: useful wording, zero false facet links.
+- `_compiled_teach_back_criteria(authored: TeachBackAuthoring) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1234)
+- `_ensure_lo_wide_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1278) — Compatibility path for direct LO requests with no source item.
+- `_facet_ranks(vault: LoadedVault, repository: Repository, item: PracticeItem, *, clock: Clock | None) -> dict[str, tuple[int, float, str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1383) — Uncertainty rank per item facet, from the diagnostic read path.
 
 ## Who imports or calls it
 

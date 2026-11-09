@@ -3,13 +3,13 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
-source_commit_timestamp: "2026-11-09T15:51:40-05:00"
+source_commit: "79532f7149b554db05a40c2ae1dbde68d9efec5a"
+source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 251
+schema_head: 252
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/figures/prefetch.py`
+- `src/learnloop/recognition/ledger.py`
 - `src/learnloop/router_objective/forecast_resolve.py`
 - `src/learnloop/router_objective/miss_cause.py`
 - `src/learnloop/router_objective/offer_report.py`
@@ -136,6 +137,7 @@ None found by exact static reference scan.
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_ih_lesson_candidate_after_cold_miss.py`
 - `tests/test_mobile_allowlist.py`
+- `tests/test_re0_capture.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
 - `tests/test_sg_slip_vs_gap.py`
@@ -143,7 +145,6 @@ None found by exact static reference scan.
 - `tests/test_te3b_binding.py`
 - `tests/test_te3b_clock.py`
 - `tests/test_te3b_population.py`
-- `tests/test_te3b_value.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

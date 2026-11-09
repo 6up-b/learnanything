@@ -175,6 +175,10 @@ class AttemptDraft:
     attempt_type: str = "independent_attempt"
     hints_used: int = 0
     latency_seconds: int | None = None
+    # Recognition and effort RE0 (migration 252): seconds the learner was active on this attempt, on the router
+    # objective's active clock and summed across resumes. Never blended with ``latency_seconds`` (elapsed time).
+    # None: the surface sent no clock; reports count it as missing and never impute it. Only reports read it.
+    active_seconds: int | None = None
     session_id: str | None = None
     # Retry launched from the feedback screen's source-review panel: the
     # canonical source was just re-read, so the mastery update applies an IRT
@@ -1450,6 +1454,7 @@ def replay_existing_attempt(
         attempt_type=attempt.get("attempt_type") or "independent_attempt",
         hints_used=int(attempt.get("hints_used") or 0),
         latency_seconds=attempt.get("latency_seconds"),
+        active_seconds=attempt.get("active_seconds"),
         session_id=attempt.get("session_id"),
         probe_presentation_id=attempt.get("probe_presentation_id"),
         plan_presentation_id=attempt.get("plan_presentation_id"),
@@ -2892,6 +2897,8 @@ def _resolve_attempt_target(
         raise AttemptValidationError("hints_used must be non-negative")
     if draft.latency_seconds is not None and draft.latency_seconds < 0:
         raise AttemptValidationError("latency_seconds must be non-negative")
+    if draft.active_seconds is not None and draft.active_seconds < 0:
+        raise AttemptValidationError("active_seconds must be non-negative")
     if draft.answer_confidence is not None and not 1 <= draft.answer_confidence <= 5:
         raise AttemptValidationError("answer_confidence must be between 1 and 5")
     if draft.difficulty_rating is not None and draft.difficulty_rating not in DIFFICULTY_RATINGS:
@@ -4798,6 +4805,7 @@ def _compute_resolved_grade_application(
         "correctness": correctness,
         "confidence": grade.confidence,
         "latency_seconds": draft.latency_seconds,
+        "active_seconds": draft.active_seconds,
         "hints_used": draft.hints_used,
         "error_type": primary_error_type,
         "grader_confidence": grade.grader_confidence,

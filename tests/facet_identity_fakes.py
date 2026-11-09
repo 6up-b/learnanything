@@ -116,7 +116,7 @@ class _Answer:
 @dataclass
 class _Result:
     answers: Mapping[str, _Answer]
-    model: str = "perplexity/pplx-decider-v1.1-27b"
+    model: str = "perplexity/pplx-decider-v1.2"
     input_tokens: int = 100
     output_tokens: int = 0
     cost: float | None = 0.0001
@@ -129,7 +129,7 @@ class FakeDecider:
     choose: Callable[[Mapping[str, Any], Mapping[str, Any]], str]
     provider_name: str = "fake_decider"
     provider_type: str = "decider"
-    model: str = "perplexity/pplx-decider-v1.1-27b"
+    model: str = "perplexity/pplx-decider-v1.2"
     calls: list[dict[str, Any]] = field(default_factory=list)
 
     def decide(self, state: Mapping[str, Any], questions: Mapping[str, Any], *, purpose: str) -> _Result:

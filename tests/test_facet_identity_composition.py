@@ -200,7 +200,7 @@ def _decider_answers(pairs_same: set[frozenset[str]]):
             answers[name] = {"type": "choice", "choice": choice, "confidence": 0.9,
                              "probabilities": {option: (0.91 if option == choice else 0.03)
                                                for option in question["criteria"]}}
-        payload = {"model": body["model"] + "-20261006", "answers": answers, "id": "gen-dec-facets",
+        payload = {"model": body["model"] + "-20261016", "answers": answers, "id": "gen-dec-facets",
                    "provider": "Perplexity", "usage": {"input_tokens": 120, "output_tokens": 3, "cost": 0.0000024}}
         return 200, payload, {}
 
@@ -218,7 +218,7 @@ def test_dedupe_through_a_decider_route_merges_and_writes_labelled_receipts(tmp_
             api = "openrouter"
             base_url = "{server.base_url}"
             api_key_env = "LEARNLOOP_TEST_DECIDER_KEY"
-            model = "perplexity/pplx-decider-v1.1-27b"
+            model = "perplexity/pplx-decider-v1.2"
         """)
         _route(paths.root, "test_decider")
         report = run_dedupe(paths.root, clock=_CLOCK)

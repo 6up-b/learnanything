@@ -499,6 +499,9 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       await screen.findByText(/AI grading is unavailable/);
       const sent = called("submit_attempt")[0].params;
       expect(sent).toMatchObject({ latencySeconds: 42, schedulerCandidateId: "cand_i1" });
+      // RE0: the active seconds go beside the latency, on their own clock (never more than the time since it opened).
+      expect(Number.isInteger(sent.activeSeconds)).toBe(true);
+      expect(sent.activeSeconds as number).toBeLessThanOrEqual(42);
       first.unmount();
       const key = String(sent.submissionId);
       answers.get_session = session({ checkpoint: checkpoint({ currentAnswer: "My answer", submissionId: key }) });

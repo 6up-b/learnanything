@@ -503,6 +503,9 @@ def build_due_queue(
             # F2: the same small floor the predecessor's opening episode gave a
             # never-attempted LO; the selection reward decides the rest.
             components["new_material" if new_material else "assumed_check"] = 1.0
+            if new_material and state is not None and state.last_attempt_at is not None:
+                # mvp-0.56's receipt: absent on every never-attempted item, so a build without one is the predecessor's.
+                components["unevidenced_return"] = 1.0
             if assumed_check and placement_serving is not None:
                 if learning_object.id in placement_serving.committed_learning_object_ids:
                     # A prerequisite created from the learner's own text.
@@ -1273,6 +1276,9 @@ class _PlacementServing:
     gap_check_learning_object_ids: frozenset[str] = frozenset()
     advanced_learning_object_ids: frozenset[str] = frozenset()
     committed_learning_object_ids: frozenset[str] = frozenset()
+    #: mvp-0.56: answered items with no due time, free of the out-of-timing holds. With no evidence on their LO they
+    #: start as learning (``_BuildAdmission.placement``). Empty below the tag or with the switch off.
+    unevidenced_return_item_ids: frozenset[str] = frozenset()
 
 
 #: Practice modes never used as an assumed-known first review: the check is a
@@ -1308,6 +1314,7 @@ def _placement_serving(
         diagnosis_can_arrive,
         load_placement_state,
         placement_active,
+        unevidenced_return_active,
     )
 
     if not placement_active(vault):
@@ -1329,14 +1336,31 @@ def _placement_serving(
     due = state.due_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
     gap_due = state.due_gap_check_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
     due = due | gap_due
-    if due:
+    # mvp-0.56: answers that set no review. Nothing about them gave the item a moment, so, like the check below, an
+    # item here is picked outside the routine timing and takes the same holds: it never returns while a cold follow-up
+    # has it or within the cold retrieval delay of its answer being shown, which is what keeps a primed answer's item
+    # from coming straight back in the session that showed it.
+    answered_unscheduled = (
+        frozenset(
+            item_id for item_id, item_state in item_states.items()
+            if item_state.active and item_state.last_attempt_at is not None and item_state.due_at is None
+            and getattr(vault.practice_items.get(item_id), "status", None) == "active"
+        )
+        if unevidenced_return_active(vault)
+        else frozenset()
+    )
+    unevidenced_return_item_ids: frozenset[str] = frozenset()
+    if due or answered_unscheduled:
         from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
         from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
 
-        excluded_item_ids = set(excluded_item_ids) | out_of_timing_serving_exclusions(
+        out_of_timing = out_of_timing_serving_exclusions(
             vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
             reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
         ).out_of_timing_item_ids
+        unevidenced_return_item_ids = answered_unscheduled - out_of_timing
+        if due:
+            excluded_item_ids = set(excluded_item_ids) | out_of_timing
     candidates: dict[str, list[str]] = {}
     for item in vault.practice_items.values():
         if item.learning_object_id not in due or item.status != "active":
@@ -1363,6 +1387,7 @@ def _placement_serving(
         gap_check_learning_object_ids=frozenset(gap_due),
         advanced_learning_object_ids=state.advanced_learning_object_ids,
         committed_learning_object_ids=state.committed_learning_object_ids,
+        unevidenced_return_item_ids=unevidenced_return_item_ids,
     )
 
 
@@ -3177,13 +3202,23 @@ class _BuildAdmission:
                 if never_attempted:
                     result = ("placement_maintained_withheld", False, False)
             elif (
-                never_attempted
-                and episode is None
+                episode is None
                 and frontier_entry is None
                 and (
-                    mastery is None
-                    or mastery.last_evidence_at is None
-                    or learning_object.id in placement_serving.back_to_learning_learning_object_ids
+                    (
+                        never_attempted
+                        and (
+                            mastery is None
+                            or mastery.last_evidence_at is None
+                            or learning_object.id in placement_serving.back_to_learning_learning_object_ids
+                        )
+                    )
+                    # mvp-0.56: an answer that set no review on an LO with no evidence demonstrated nothing, so the
+                    # item starts as learning like a never-attempted one; without this no gate ever lets it back.
+                    or (
+                        item.id in placement_serving.unevidenced_return_item_ids
+                        and (mastery is None or mastery.last_evidence_at is None)
+                    )
                 )
             ):
                 result = (None, True, False)
@@ -3702,7 +3737,9 @@ def _plain_english(item: PracticeItem, components: dict[str, float]) -> list[str
         reasons.append("a check brought forward: your question pointed at this topic")
     elif components.get("assumed_check", 0.0) > 0:
         reasons.append("first review of a topic assumed known (not tested): this is the check")
-    if components.get("new_material", 0.0) > 0:
+    if components.get("unevidenced_return", 0.0) > 0:
+        reasons.append("back as learning: an earlier answer set no review and gave no evidence")
+    elif components.get("new_material", 0.0) > 0:
         reasons.append("new material: starts as learning, no opening probe")
     if components["forgetting_risk"] > 0:
         reasons.append(f"forgetting risk {components['forgetting_risk']:.2f}")

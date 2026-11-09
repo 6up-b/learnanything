@@ -64,8 +64,8 @@ def drop_rospeed2_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_ro6_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.49"
     # Teacher TE2 (mvp-0.51) landed after it and keeps it.
-    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-7] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
-    assert ROUTER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.57"})
+    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-8] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert ROUTER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
 
 
 def test_the_switches_default_on():
@@ -102,6 +102,12 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
     assert dumped["router"]["timeout_seconds"] == 40.0
     dumped["router"]["timeout_seconds"] = 8.0
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
+    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "cb3a4f907f667d77deb1b53eb92c2e7b57f836443f7058de2a5a6e2b431e2e48"
 

@@ -335,6 +335,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
   - `test_placement_ignores_unanswered_opening_episodes_on_fixture_copies`
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
+  - `test_a_returned_prerequisite_moves_its_dependents_one_layer_later`
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_probe_episodes.py](../../../../../../tests/test_probe_episodes.py) — direct import
   - `test_missing_instruments_park_episode_with_one_deduplicated_need`

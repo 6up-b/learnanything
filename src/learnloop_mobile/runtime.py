@@ -163,6 +163,10 @@ class JobView:
 SUBMIT_METHODS = frozenset(capture.SUBMIT_METHODS)
 
 
+#: Request fields added after jobs were first hashed, left out of a request's canonical form while unset (see ``validate``).
+OPTIONAL_SINCE_RE0: tuple[str, ...] = ("active_seconds",)
+
+
 class HostRuntime:
     """The two workers and the jobs they run, for one pinned vault."""
 
@@ -296,7 +300,12 @@ class HostRuntime:
             validated = METHOD_REGISTRY[method.name].params_model.model_validate(dict(params))
         except ValidationError as error:
             raise ParamsInvalid({"errors": _safe_validation_errors(error)}) from None
-        return validated.model_dump(mode="json")
+        # A field a request left unset must not change its hash, or an identical retry of a request accepted before the
+        # field existed (RE0's ``active_seconds``, on every request model that gained it) reads as another request
+        # (``submission_conflict``). So an unset ``active_seconds`` is left out, and the hash is what it was.
+        unset = {name for name in OPTIONAL_SINCE_RE0 if name in type(validated).model_fields
+                 and getattr(validated, name) is None}
+        return validated.model_dump(mode="json", exclude=unset)
 
     def call_short(
         self, method: MobileMethod, params: Mapping[str, Any], device_id: str, *, timing: dict[str, float] | None = None,

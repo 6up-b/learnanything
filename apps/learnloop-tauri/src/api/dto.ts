@@ -1305,6 +1305,9 @@ export interface SubmitAttemptInput {
   /** RW2b fix round 12: the count holds a book the answer box carried (its own component). */
   bookCounted?: boolean | null;
   latencySeconds?: number | null;
+  /** RE0: active seconds on this attempt, on the router objective's active clock and summed across resumes of the
+   *  draft. Never blended with `latencySeconds` (elapsed time since the problem opened). Absent: stored as missing. */
+  activeSeconds?: number | null;
   selfGrade?: SelfGradeInputDto | null;
   /** Retry launched from the feedback screen's source-review panel. */
   primed?: boolean;
@@ -2785,6 +2788,8 @@ export interface SubmitTeachBackTurnInput {
   /** Grade the transcript now instead of asking further questions. */
   finish?: boolean;
   latencySeconds?: number | null;
+  /** RE0: active seconds on the conversation (the router objective's active clock); the server reads it at finish. */
+  activeSeconds?: number | null;
 }
 
 export interface TeachBackQuestionResult {
@@ -9180,6 +9185,8 @@ export interface WorkbenchSubmitInput {
   practiceSessionId?: string | null;
   answerConfidence?: number | null;
   latencySeconds?: number | null;
+  /** RE0: active seconds on the problem (see SubmitAttemptInput). */
+  activeSeconds?: number | null;
   /** The serve this submit answers, as one pair (review F15): both, or
    *  neither to answer the serve the problem kept. */
   schedulerCandidateId?: string | null;

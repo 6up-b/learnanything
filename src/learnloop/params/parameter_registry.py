@@ -2039,13 +2039,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("router_objective.miss_cause_sensor"), "structural", "operational",
         "kill switch for slip or gap SG1 on mvp-0.57 (spec_slip_vs_gap_v1 §3): each candidate topic's latest missed "
         "cold check's diagnosis cause-class probabilities, stored surprise and status are frozen in the objective's "
-        "trace, the lesson offer's card record and the LLM's card, with no change to any numeric value; off, mvp-0.55's "
+        "trace, the lesson offer's card record and the LLM's card, with no change to any numeric value; off, mvp-0.56's "
         "trace and card."),
     _ConfigRule(_exact("router_objective.miss_cause_in_value"), "structural", "operational",
         "kill switch for slip or gap SG2 on mvp-0.57 (spec_slip_vs_gap_v1 §3; needs miss_cause_sensor): a lesson's and a "
         "repair's effect slope split by the miss's cause (gamma_gap, gamma_slip with seeded priors, gamma_slip's centred "
         "at 0), p_gap calibrated by a learned surprise coefficient with a prior centred at 0, no threshold; off, "
-        "mvp-0.55's numeric values."),
+        "mvp-0.56's numeric values."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded
@@ -2889,6 +2889,9 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("placement.quick_check_k", "placement.quick_check_budget_minutes"),
                 "structural", "operational",
                 "optional learner-initiated quick-check length and time bound (field D4)."),
+    _ConfigRule(_exact("placement.unevidenced_return"), "structural", "operational",
+        "kill switch for mvp-0.56: an answered item with no due time, on an LO with no evidence, starts as learning "
+        "under placement instead of never coming back; off (or below the tag) mvp-0.55's serving exactly."),
     # Learner-text gaps (implementation_handoffs §4): the vault-wide shortlist
     # breadth (judges decide, R4), the daily cap on created prerequisites, the
     # created LO's delayed check and mvp-0.16's sooner-check delay. A priori,

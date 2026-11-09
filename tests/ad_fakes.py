@@ -95,7 +95,7 @@ class AuditDecider:
 
     provider_name = "fake_decider"
     provider_type = "decider"
-    model = "perplexity/pplx-decider-v1.1-27b"
+    model = "perplexity/pplx-decider-v1.2"
 
     def __init__(self, distributions: Mapping[str, Mapping[str, float]] | None = None, *, p_yes: float = 0.7,
                  error: Exception | None = None) -> None:

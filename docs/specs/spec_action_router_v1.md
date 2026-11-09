@@ -4,7 +4,7 @@
 
 **Owner decisions (2026-10-11 and 2026-10-12):**
 - **Two judgment models compete; the evidence picks the winner** (2026-10-12):
-  - **Perplexity Decider v1.1** (`perplexity/pplx-decider-v1.1-27b`), a decision model that returns typed probabilities;
+  - **Perplexity Decider v1.2** (`perplexity/pplx-decider-v1.2`; v1.1-27b until 2026-11-09, see §6), a decision model that returns typed probabilities;
   - **a frontier LLM** (`ai.routing.router_llm`), returning a probability distribution plus a rationale.
 
   Both answer every decision. Selection samples from a mixture, so the replay can score the staged policy, the Decider and the LLM on the same decisions (§7.3, §10). Neither Jev nor a fine-tuned local model is used.
@@ -172,7 +172,7 @@ Each retrieved decision is shown to both models with its candidate set, the chos
 
 ### 6.1 Decider facts relied on (Perplexity docs and announcements, checked 2026-10-11 and 2026-10-12)
 
-- **Model.** `pplx-decider-v1.1-27b`, released 2026-10-06. On OpenRouter it is `perplexity/pplx-decider-v1.1-27b`. A third-party report found the v1 slug returning 404 there on 2026-10-10, and v1.1 returning 200.
+- **Model.** `pplx-decider-v1.1-27b`, released 2026-10-06. On OpenRouter it is `perplexity/pplx-decider-v1.1-27b`. A third-party report found the v1 slug returning 404 there on 2026-10-10, and v1.1 returning 200. **Since 2026-11-09 the default is `perplexity/pplx-decider-v1.2`** (released 2026-10-16, dated slug `perplexity/pplx-decider-v1.2-20261016`, $0.02 per million input tokens, context 262144): v1.1 lost its OpenRouter endpoints (HTTP 404 "No endpoints found"), so every Decider call in the owner's vaults had failed since at least Oct 25. Perplexity documents the same request and response contract for v1.2 and maps the v1.1 name to v1.2 on its direct API (`pplx-decider-v1.2`). The default stays pinned to the version, never the `pplx-decider-latest` alias (`docs/reviews/decider-v1-2.md`).
 - **Endpoints.**
   - **OpenRouter (owner's choice):** base URL `https://openrouter.ai/api`, with `OPENROUTER_API_KEY`. OpenRouter lists it at $0.02 per million input tokens and $0 output. The model doesn't appear in OpenRouter's public `/api/v1/models` chat list (checked 2026-10-12). Third-party sources describe it as reachable through OpenRouter's decision ("System One") interface rather than chat completions.
   - **The exact path and body on OpenRouter are unverified.** R0's first task is to confirm them from OpenRouter's docs and pin them in the client.
@@ -200,7 +200,7 @@ These facts are pinned per receipt by model id. If Perplexity changes the API, t
 ### 6.2 Providers and routes
 
 - **The Decider.**
-  - **Provider type and profile.** A new type, `decider`, in `ai/providers/`. Profile `openrouter_decider`: base URL `https://openrouter.ai/api`, `api_key_env = "OPENROUTER_API_KEY"`, model `perplexity/pplx-decider-v1.1-27b`. A `perplexity_direct` profile can switch to Perplexity's endpoint (D4).
+  - **Provider type and profile.** A new type, `decider`, in `ai/providers/`. Profile `openrouter_decider`: base URL `https://openrouter.ai/api`, `api_key_env = "OPENROUTER_API_KEY"`, model `perplexity/pplx-decider-v1.2` (v1.1-27b until 2026-11-09). A `perplexity_direct` profile can switch to Perplexity's endpoint (D4).
   - **Interface.** `DecisionClient.decide(state, questions) -> DecisionResult`, with typed question classes.
   - **Routes:** `ai.routing.router_decider` and `ai.routing.llm_probability_decider`.
   - **Fallback.** Neither route falls back to a chat provider, because the interface differs. `LEARNLOOP_AI_PROVIDER` doesn't override them, the same rule as `ai.routing.embedding`.
@@ -408,7 +408,7 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 | D1 | Launch mode | `mixture` with equal weights (1/3 each), `ties_only = false` (owner, 2026-10-12: see what works best) |
 | D2 | Switching margin for §10.4 | Fixed before the first report at 0.03 in mean `S` |
 | D3 | `router.k` (candidates shown) | 6 |
-| D4 | Route: Perplexity direct or OpenRouter | **Decided (owner, 2026-10-12): OpenRouter, `perplexity/pplx-decider-v1.1-27b`** |
+| D4 | Route: Perplexity direct or OpenRouter | **Decided (owner, 2026-10-12): OpenRouter, `perplexity/pplx-decider-v1.1-27b`**; model moved to `perplexity/pplx-decider-v1.2` on 2026-11-09 when v1.1 lost its OpenRouter endpoints (§6) |
 | D5 | Local hosting of the open weights | Not now. Revisit if API cost or availability becomes a problem; it would be evaluated as its own model id |
 | D6 | Privacy | Learner text goes to Perplexity (via OpenRouter) and to the LLM route's provider. The owner accepts text leaving the machine, and checks retention terms before R2 |
 | D7 | Label when a model chose | "LearnLoop's model picked this among N close options" (Decider), or the labelled rationale (LLM) |

@@ -46,8 +46,8 @@ def drop_te3b_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_te3a_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.52"
     # Phone V3's successor (mvp-0.54) follows it and keeps it.
-    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
-    assert LESSON_OFFERS_VERSIONS == frozenset({TAG, "mvp-0.54", "mvp-0.55", "mvp-0.57"})
+    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert LESSON_OFFERS_VERSIONS == frozenset({TAG, "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -80,6 +80,12 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
     assert dumped["router"]["timeout_seconds"] == 40.0
     dumped["router"]["timeout_seconds"] = 8.0
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
+    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP052_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
@@ -119,9 +125,14 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    # Phone V3's link (mvp-0.54) is the chain's latest since; its completion hands this link's journal here.
+    # Slip or gap's link (mvp-0.57) is the chain's latest since; its completion hands this link's journal on to the
+    # placement hole's (mvp-0.56), IH5's (mvp-0.55), then phone V3's (mvp-0.54), which hands it here.
     assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    from learnloop import phone_probes_upgrade
+
+    assert "learnloop.lesson_offers_upgrade import complete_interrupted_activation" in inspect.getsource(
+        phone_probes_upgrade)
     # It hands an earlier link's journal to TE3a's completion, which hands it on in turn.
     assert "learnloop.lesson_opportunity_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_offers_upgrade)

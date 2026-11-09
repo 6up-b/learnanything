@@ -112,6 +112,8 @@ export interface SubmitInput {
   readonly attemptType: AttemptType;
   readonly submissionId: string;
   readonly latencySeconds?: number;
+  /** RE0: active seconds on the question, on the router objective's active clock, summed across resumes. */
+  readonly activeSeconds?: number;
   readonly schedulerCandidateId?: string | null;
   readonly assessmentContractVersionId?: string | null;
   readonly declaredStuck?: boolean;

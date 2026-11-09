@@ -29,6 +29,7 @@ from learnloop.algorithm_versions import (
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
+    UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -129,7 +130,8 @@ def upgrade(
                 f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
                 f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
                 f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
-                f"{FAILURE_SHARE_ALGORITHM_VERSION} or {SLIP_GAP_ALGORITHM_VERSION}); "
+                f"{FAILURE_SHARE_ALGORITHM_VERSION}, {UNEVIDENCED_RETURN_ALGORITHM_VERSION} or "
+                f"{SLIP_GAP_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -484,6 +486,10 @@ def upgrade(
         from learnloop.failure_share_upgrade import upgrade_to_failure_share
 
         result = upgrade_to_failure_share(_root(vault))
+    elif to == UNEVIDENCED_RETURN_ALGORITHM_VERSION:
+        from learnloop.unevidenced_return_upgrade import upgrade_to_unevidenced_return
+
+        result = upgrade_to_unevidenced_return(_root(vault))
     elif to == SLIP_GAP_ALGORITHM_VERSION:
         from learnloop.slip_gap_upgrade import upgrade_to_slip_gap
 
@@ -505,7 +511,8 @@ def upgrade(
             f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
             f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
             f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
-            f"{FAILURE_SHARE_ALGORITHM_VERSION} or {SLIP_GAP_ALGORITHM_VERSION}."
+            f"{FAILURE_SHARE_ALGORITHM_VERSION}, {UNEVIDENCED_RETURN_ALGORITHM_VERSION} or "
+            f"{SLIP_GAP_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -1730,6 +1737,8 @@ def doctor(
             typer.echo("No learnloop.toml setting names a Codex profile.")
     if report.storage is not None:
         typer.echo(_storage_line(report.storage))
+    for line in _model_route_lines(report.model_routes):
+        typer.echo(line)
     if dense is not None:
         from learnloop.source_retrieval.source_vectors import coverage_line
 
@@ -1781,6 +1790,29 @@ def _echo_fix_content(fix: dict) -> None:
         typer.echo(f"  left as is (depends on itself): {entry['practice_item_id']} {entry['criterion_id']}")
     if fix["self_dependencies"]:
         typer.echo(f"  {fix['self_dependency_note']}")
+
+
+def _model_route_lines(routes: list[dict] | None) -> list[str]:
+    """Doctor's model-route facts: one line per route that failed since its
+    last completed call (all routes are in --json), then a count of the rest."""
+
+    if not routes:
+        return []
+    lines = []
+    for route in routes:
+        if not route["failures_since_completed"]:
+            continue
+        last = route["last_completed_at"] or "never"
+        reason = route["last_failure_reason"] or route["last_failure_error_type"] or "unknown"
+        mark = " [flagged]" if route["flagged"] else ""
+        lines.append(
+            f"model route {route['purpose']} ({route['provider']}, {route['model']}): last completed {last}; "
+            f"{route['failures_since_completed']} failed since, last {route['last_failure_at']} ({reason}){mark}"
+        )
+    healthy = len(routes) - len(lines)
+    lines.append(f"model routes: {len(routes)} with receipts, {len(routes) - healthy} failed since their last "
+                 f"completed call, {healthy} not")
+    return lines
 
 
 def _storage_line(storage) -> str:

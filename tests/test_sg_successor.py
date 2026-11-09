@@ -1,10 +1,10 @@
-"""Slip or gap's successor (mvp-0.57, after instruct hand-off's mvp-0.55): one constant, its defaults, its gates, its
+"""Slip or gap's successor (mvp-0.57, after the placement hole's mvp-0.56): one constant, its defaults, its gates, its
 prefetch key, its generator payload and its upgrade (docs/specs/spec_slip_vs_gap_v1.md §7).
 
 The upgrade is the chain's next journalled link (a projection activation; nothing recorded changes, no migration).
-``[router_objective] miss_cause_sensor = false`` serves mvp-0.55 exactly; ``miss_cause_in_value = false`` keeps the
-sensor and mvp-0.55's values. Built on instruct/handoff as mvp-0.57: the placement fix's mvp-0.56 lands before it and
-becomes its predecessor at the landing. Fakes only; no model call.
+``[router_objective] miss_cause_sensor = false`` serves mvp-0.56 exactly; ``miss_cause_in_value = false`` keeps the
+sensor and mvp-0.56's values. Built on instruct/handoff as mvp-0.57: the placement fix's mvp-0.56 landed before it and
+became its predecessor at the landing. Fakes only; no model call.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from learnloop.algorithm_versions import (
     SLIP_GAP_ALGORITHM_VERSION,
     SLIP_GAP_VERSIONS,
     SUCCESSOR_CHAIN,
+    UNEVIDENCED_RETURN_ALGORITHM_VERSION,
 )
 from learnloop.config.schema import LearnLoopConfig, RouterObjectiveConfig
 from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
@@ -37,7 +38,9 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 
 TAG = SLIP_GAP_ALGORITHM_VERSION
-OLD = FAILURE_SHARE_ALGORITHM_VERSION
+OLD = UNEVIDENCED_RETURN_ALGORITHM_VERSION
+#: The version whose defaults digest was frozen at this branch's base (instruct hand-off's mvp-0.55, then the predecessor).
+BASE = FAILURE_SHARE_ALGORITHM_VERSION
 #: Slip or gap's keys (spec §7), in every defaults snapshot, inert below the tag.
 SG_KEYS = {"miss_cause_sensor": True, "miss_cause_in_value": True}
 
@@ -51,8 +54,8 @@ def drop_sg_keys(dumped: dict) -> dict:
     return dumped
 
 
-def test_the_successor_is_one_constant_after_instruct_handoff_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.55"
+def test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest():
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.56"
     assert TAG == "mvp-0.57" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
     assert SLIP_GAP_VERSIONS == frozenset({TAG})
 
@@ -69,9 +72,15 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.55's value at this branch's base (55abc68feb), frozen here: dropping SG's keys reproduces it.
-    dumped = drop_sg_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
+    # mvp-0.55's value at this branch's base (55abc68feb), frozen here: dropping SG's keys reproduces it (and undoing
+    # Decider v1.2's model and dropping the placement hole's switch, both in every snapshot, which landed after that base).
+    from tests.helpers import undo_decider_v12
+    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+    dumped = drop_sg_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(BASE))).model_dump(
         mode="json", exclude_none=False))
+    undo_decider_v12(dumped)
+    drop_unevidenced_return_keys(dumped)
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP055_BASE_DIGEST
     at_tag = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG))).model_dump(
@@ -131,7 +140,8 @@ def test_the_openers_install_this_links_completion():
 
     assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade import complete_interrupted_activation" in inspect.getsource(slip_gap_upgrade)
+    assert "learnloop.unevidenced_return_upgrade import complete_interrupted_activation" in inspect.getsource(
+        slip_gap_upgrade)
 
 
 def test_the_upgrade_publishes_the_tag_and_completes_once(tmp_path):

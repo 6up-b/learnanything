@@ -202,6 +202,9 @@ class SubmitAttemptInput(ParamsModel):
     #: the book (``combine_held``). Absent: no client-held book is assumed.
     book_counted: bool | None = None
     latency_seconds: int | None = None
+    #: Recognition and effort RE0 (migration 252): active seconds on this attempt, on the router objective's active
+    #: clock, summed across resumes of the draft. Never blended with ``latency_seconds``. Absent: stored as missing.
+    active_seconds: int | None = Field(default=None, ge=0)
     self_grade: SelfGradeInputDto | None = None
     primed: bool = False
     # Probe redesign §5.1: the committed presentation this submission consumes.
@@ -242,6 +245,7 @@ class DontKnowInput(ParamsModel):
     #: the book (``combine_held``). Absent: no client-held book is assumed.
     book_counted: bool | None = None
     latency_seconds: int | None = None
+    active_seconds: int | None = Field(default=None, ge=0)
     self_grade: SelfGradeInputDto | None = None
     probe_presentation_id: str | None = None
     answer_confidence: int | None = None
@@ -1398,6 +1402,7 @@ def submit_attempt_on(
                 authored_hints=params.authored_hints,
                 book_counted=params.book_counted,
                 latency_seconds=params.latency_seconds,
+                active_seconds=params.active_seconds,
                 probe_presentation_id=params.probe_presentation_id,
                 answer_confidence=params.answer_confidence,
                 assessment_contract_version_id=params.assessment_contract_version_id,
@@ -1464,6 +1469,7 @@ def submit_attempt_on(
         attempt_type=attempt_type,
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
+        active_seconds=params.active_seconds,
         session_id=params.session_id,
         primed=primed,
         probe_presentation_id=params.probe_presentation_id,
@@ -1663,6 +1669,7 @@ def submit_dont_know_on(
             attempt_type=hint_fold.attempt_type("independent_attempt"),
             hints_used=hints_used,
             latency_seconds=params.latency_seconds,
+            active_seconds=params.active_seconds,
             session_id=params.session_id,
             primed=server_primed,
             probe_presentation_id=params.probe_presentation_id,
@@ -1689,6 +1696,7 @@ def submit_dont_know_on(
         attempt_type="diagnostic_probe" if params.probe_presentation_id else "dont_know",
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
+        active_seconds=params.active_seconds,
         session_id=params.session_id,
         primed=server_primed,
         probe_presentation_id=params.probe_presentation_id,

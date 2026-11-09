@@ -203,7 +203,7 @@ Keep at most three or four branches open at once. Waves overlap where their depe
 | O-1 | Mobile M1 was built to revision 2 (QR pairing, token scopes) | **Decided (owner, 2026-10-12):** the spec follows the build (mobile spec revision 4) |
 | O-2 | Push `main` | **Done (2026-10-12)** |
 | O-3 | Defaults for stages whose prompts assume them | **Decided (owner, 2026-10-12): accepted** ("most defaults"). The owner may override any one at its checkpoint |
-| O-4 | Route for the paid LLM roles | **Decided (owner, 2026-10-12): Codex on the ChatGPT subscription, without restraint**, with cost estimated from token usage (Slice A plan §5 rule 6). The Decider is `perplexity/pplx-decider-v1.1-27b` on OpenRouter |
+| O-4 | Route for the paid LLM roles | **Decided (owner, 2026-10-12): Codex on the ChatGPT subscription, without restraint**, with cost estimated from token usage (Slice A plan §5 rule 6). The Decider is `perplexity/pplx-decider-v1.1-27b` on OpenRouter (`perplexity/pplx-decider-v1.2` since 2026-11-09, `docs/reviews/decider-v1-2.md`) |
 
 **Needed at checkpoints:**
 - **Phase 2:** read reports 1–2 once, on a copy of the vault.

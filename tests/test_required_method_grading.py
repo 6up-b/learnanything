@@ -98,7 +98,7 @@ def test_the_method_explicit_successor_is_the_latest_after_the_route_rules():
     assert VERSION == "mvp-0.25"
     assert LATEST_ALGORITHM_VERSION == "mvp-0.57"
     assert PREDECESSOR == "mvp-0.24"
-    assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", LATEST_ALGORITHM_VERSION})
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", LATEST_ALGORITHM_VERSION})
 
 
 def test_active_only_at_the_successor_with_both_switches_on(tmp_path):

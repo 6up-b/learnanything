@@ -77,10 +77,13 @@ RECEIPT_FIELDS: Mapping[str, tuple[str, ...]] = {
     "source_exposure_events": ("initiator", "initiator_block_id", "initiator_session_id", "initiator_visit_id"),
     "decision_objectives": ("delay_json",),
     "decision_measurement_events": ("non_service_type", "delay_json"),
+    # Recognition and effort RE0 (migration 252): an attempt's active seconds follow its row the same way. Only reports
+    # read them (spec_recognition_and_effort_v1 §4.1).
+    "practice_attempts": ("active_seconds",),
 }
 _RECEIPT_KEYS: Mapping[str, str] = {
     "question_events": "id", "plan_presentations": "id", "source_exposure_events": "id",
-    "decision_objectives": "decision_id", "decision_measurement_events": "id",
+    "decision_objectives": "decision_id", "decision_measurement_events": "id", "practice_attempts": "id",
 }
 _RECEIPT_WHAT: Mapping[str, str] = {
     "question_events": "the disclosure state and generating process of question",
@@ -88,6 +91,7 @@ _RECEIPT_WHAT: Mapping[str, str] = {
     "source_exposure_events": "the initiator of exposure",
     "decision_objectives": "the check delay of objective",
     "decision_measurement_events": "the delay and type of measurement event",
+    "practice_attempts": "the active seconds of attempt",
 }
 
 

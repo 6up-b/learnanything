@@ -2,6 +2,7 @@
 // in, a submit it left mid-grade, and the question it has open. Nothing here is learner state of
 // record: the checkpoint and the job are, and this is what the phone was saying to them.
 import type { FirstHintProgress, SessionCheckpoint } from "@desktop/api/dto";
+import { defaultActiveStorage, forgetActiveMs, forgetActiveMsWithPrefix } from "@desktop/screens/attemptClock";
 import type { SubmitInput } from "../api/phone";
 
 const SESSION_KEY = "learnloop.session";
@@ -120,16 +121,27 @@ export function writeQuestionDraft(draft: QuestionDraft): void {
   writeDrafts({ ...allDrafts(), [draftId(draft.sessionId, draft.practiceItemId)]: draft });
 }
 
+/** The key a phone question's carried active seconds (RE0) are kept under: its session and item, like its draft. */
+export function phoneClockKey(sessionId: string, practiceItemId: string): string {
+  return `phone:${sessionId}:${practiceItemId}`;
+}
+const PHONE_CLOCKS = "phone:";
+
 export function clearQuestionDraft(sessionId: string, practiceItemId: string): void {
+  // Every path that ends an attempt (finish, startup recovery, a waiting job's completion, a skip) clears its draft
+  // here, so this is the one place its carried active time is forgotten: a later attempt on the item starts from zero.
+  forgetActiveMs(defaultActiveStorage(), phoneClockKey(sessionId, practiceItemId));
   const { [draftId(sessionId, practiceItemId)]: _gone, ...rest } = allDrafts();
   writeDrafts(rest);
 }
 
 export function clearQuestionDrafts(): void {
+  forgetActiveMsWithPrefix(defaultActiveStorage(), PHONE_CLOCKS);
   localStorage.removeItem(DRAFTS_KEY);
 }
 
 export function clearSessionCache(): void {
+  forgetActiveMsWithPrefix(defaultActiveStorage(), PHONE_CLOCKS);
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(PENDING_KEY);
   localStorage.removeItem(DRAFTS_KEY);

@@ -230,6 +230,17 @@ it("Ctrl+Enter saves what is pending, then submits through the ordinary path", a
   await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith(result));
 });
 
+it("a hosted workbench sends the host's active seconds, one total for the attempt, not its own clock (RE0)", async () => {
+  api.workbenchSubmit.mockResolvedValue({ version: 1, attempt: { attemptId: "att_1" }, session: session({ status: "submitted", attemptId: "att_1" }), practiceSession: null });
+  // Five minutes in the answer box, then two in steps: the host's clock holds all 420 seconds.
+  render(<Workbench {...props({ activeSeconds: () => 420, initial: session({ steps: [
+    { stepId: "a", chainId: "a", ordinal: 1, kind: "step", bodyMd: "one", deleted: false, createdAt: "x", editedAt: "x", versions: [] },
+  ] }) })} />);
+  fireEvent.click(screen.getByRole("button", { name: /^submit/ }));
+  await waitFor(() => expect(api.workbenchSubmit).toHaveBeenCalledTimes(1));
+  expect(api.workbenchSubmit.mock.calls[0][0].activeSeconds).toBe(420);
+});
+
 it("a refused submit keeps the steps and says why", async () => {
   api.workbenchSubmit.mockRejectedValue({ code: "validation_error", message: "a cold retry must be unassisted and unprimed" });
   render(<Workbench {...props({ initial: session({ steps: [

@@ -90,7 +90,7 @@ def test_the_decider_gets_typed_questions_and_a_body_with_no_unknown_field():
     assert isinstance(questions["will_pass_next_lo_r1"], NoulQuestion)
     assert request.question_set_version == "router_qs_v2"
     assert _request().question_set_version == "router_qs_v1"
-    body = request_body("perplexity/pplx-decider-v1.1-27b", request.state, questions)
+    body = request_body("perplexity/pplx-decider-v1.2", request.state, questions)
     assert set(body) == {"model", "state", "questions"}
 
 

@@ -1,7 +1,7 @@
 """``learnloop upgrade --to <SLIP_GAP_ALGORITHM_VERSION>``: slip or gap, the router weighs what a miss was.
 
 Slip or gap SG1 + SG2 (owner decisions 2026-11-09; ``docs/specs/spec_slip_vs_gap_v1.md``). It is the next link of the
-linear chain: everything the predecessor (instruct hand-off's mvp-0.55) means PLUS this:
+linear chain: everything the predecessor (the placement hole's mvp-0.56) means PLUS this:
 
 * **SG1, the miss-cause sensor** (``[router_objective] miss_cause_sensor``, default true): each candidate topic's latest
   missed cold check's diagnosis cause-class probabilities (gap, slip, unknown), stored surprise and status are frozen in
@@ -18,8 +18,8 @@ publication LAST; a death between the publication and the commit is completed by
 :func:`complete_interrupted_activation`, the chain's latest; a journal naming an earlier link is handed to the
 predecessor's completion).
 
-``miss_cause_sensor = false`` serves mvp-0.55's trace, card and values exactly; rolling the version back is
-restore-only. Built on instruct/handoff as mvp-0.57: at its landing the placement fix's mvp-0.56 becomes
+``miss_cause_sensor = false`` serves mvp-0.56's trace, card and values exactly; rolling the version back is
+restore-only. Built on instruct/handoff as mvp-0.57: at its landing the placement fix's mvp-0.56 became
 :data:`PREDECESSOR` (one import and one assignment).
 """
 
@@ -32,8 +32,8 @@ from pathlib import Path
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
     SLIP_GAP_ALGORITHM_VERSION,
-    FAILURE_SHARE_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
+    UNEVIDENCED_RETURN_ALGORITHM_VERSION,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
 from learnloop.clock import Clock
@@ -41,16 +41,16 @@ from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
 from learnloop.substrate.p0_projection import activate_p0_projection
-from learnloop.failure_share_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.failure_share_upgrade import upgrade_to_failure_share
+from learnloop.unevidenced_return_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.unevidenced_return_upgrade import upgrade_to_unevidenced_return
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = FAILURE_SHARE_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_failure_share
+PREDECESSOR = UNEVIDENCED_RETURN_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_unevidenced_return
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/decider.py"
 source_paths:
   - "src/learnloop/ai/providers/decider.py"
-source_commit: "bf51a51a9634f2570fdefe3bace585bb7506424e"
-source_commit_timestamp: "2026-10-14T09:16:50-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
+source_commit_timestamp: "2026-11-09T16:01:49-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai.providers"
@@ -51,37 +51,40 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py) |
-| Source lines | 316 |
+| Source lines | 360 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `bf51a51a9634f2570fdefe3bace585bb7506424e` |
-| Commit timestamp | `2026-10-14T09:16:50-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
+| Commit timestamp | `2026-11-09T16:01:49-05:00` |
 
 ## Public API
 
-- `class DecisionRequestFailed(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 72) — The provider answered with an error status; nothing was parsed.
-  - `__init__(self, message: str, *, status: int, retry_after: float | None=None) -> None` (line 75; internal)
-- `class DeciderSettings` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 82) — A profile's effective, non-secret settings (``api`` fills the gaps).
-  - `as_dict(self) -> dict[str, Any]` (line 94; public)
-- `resolved_decider_settings(profile: AIProviderConfig) -> DeciderSettings` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 104)
-- `encode_body(body: Mapping[str, Any]) -> bytes` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 124) — Deterministic bytes that keep insertion order.
-- `estimate_input_tokens(body: Mapping[str, Any]) -> int` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 134)
-- `class DeciderProviderClient` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 177) — ``DecisionClient`` over HTTP; never a chat or structured-completion transport.
-  - `__init__(self, provider_name: str, profile: AIProviderConfig, *, http: HttpTransport | None=None) -> None` (line 182; internal)
-  - `supports(self, capability: str) -> bool` (line 208; public)
-  - `estimated_cost(self, input_tokens: int) -> float` (line 211; public) — Input-only price; the Decider's output tokens are free.
-  - `decide(self, state: DecisionState, questions: Mapping[str, Question], *, purpose: str, timeout_seconds: float | None=None) -> DecisionResult` (line 216; public) — One physical request.
-- `probe_decider_endpoint(profile: AIProviderConfig, *, http: HttpTransport | None=None, timeout: float=10.0) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 263) — Free reachability check: OpenRouter's public endpoint listing for the model.
+- `class DecisionRequestFailed(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 81) — The provider answered with an error status; nothing was parsed.
+  - `__init__(self, message: str, *, status: int, retry_after: float | None=None) -> None` (line 84; internal)
+- `class DeciderSettings` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 91) — A profile's effective, non-secret settings (``api`` fills the gaps).
+  - `as_dict(self) -> dict[str, Any]` (line 103; public)
+- `resolved_decider_settings(profile: AIProviderConfig) -> DeciderSettings` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 113)
+- `encode_body(body: Mapping[str, Any]) -> bytes` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 133) — Deterministic bytes that keep insertion order.
+- `estimate_input_tokens(body: Mapping[str, Any]) -> int` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 143)
+- `redact_key_like(text: str, secrets: tuple[str, ...]=()) -> str` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 161) — ``text`` without the given secrets or anything shaped like a key.
+- `class DeciderProviderClient` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 197) — ``DecisionClient`` over HTTP; never a chat or structured-completion transport.
+  - `__init__(self, provider_name: str, profile: AIProviderConfig, *, http: HttpTransport | None=None) -> None` (line 202; internal)
+  - `supports(self, capability: str) -> bool` (line 230; public)
+  - `estimated_cost(self, input_tokens: int) -> float` (line 233; public) — Input-only price; the Decider's output tokens are free.
+  - `decide(self, state: DecisionState, questions: Mapping[str, Question], *, purpose: str, timeout_seconds: float | None=None) -> DecisionResult` (line 238; public) — One physical request.
+- `probe_decider_endpoint(profile: AIProviderConfig, *, http: HttpTransport | None=None, timeout: float=10.0) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 306) — Free reachability check: OpenRouter's public endpoint listing for the model.
 
 ### Module constants
 
-- `DECISIONS` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 45)
-- `_DIALECTS` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 47)
-- `DEFAULT_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 61)
-- `BYTES_PER_TOKEN_ESTIMATE` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 64)
-- `_ERROR_TEXT_LIMIT` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 66)
+- `DECISIONS` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 47)
+- `_DIALECTS` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 49)
+- `DEFAULT_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 63)
+- `BYTES_PER_TOKEN_ESTIMATE` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 66)
+- `_ERROR_TEXT_LIMIT` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 68)
+- `_KEY_LIKE` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 72)
+- `_REDACTED` ([src/learnloop/ai/providers/decider.py](../../../../../../../src/learnloop/ai/providers/decider.py), line 75)
 
 ### Explicit exports
 
@@ -95,13 +98,14 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `encode_body`
 - `estimate_input_tokens`
 - `probe_decider_endpoint`
+- `redact_key_like`
 - `resolved_decider_settings`
 
 ## Internal implementation anchors
 
-- `_urllib_transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float) -> tuple[int, Mapping[str, str], bytes]` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 138)
-- `_error_message(raw: bytes) -> str` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 152)
-- `_retry_after(headers: Mapping[str, str]) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 167)
+- `_urllib_transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float) -> tuple[int, Mapping[str, str], bytes]` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 147)
+- `_error_message(raw: bytes, secrets: tuple[str, ...]=()) -> str` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 170)
+- `_retry_after(headers: Mapping[str, str]) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/decider.py), line 187)
 
 ## Who imports or calls it
 
@@ -120,14 +124,14 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/decisions|learnloop.ai.decisions]] — imports `DecisionResult`, `DecisionState`, `Question`, `parse_response`, `request_body`, `validate_questions`; calls `parse_response`, `request_body`, `validate_questions`
-- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`; calls `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIProviderUnavailable`; calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `model_call`, `report_call_usage`; calls `model_call`, `report_call_usage`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `DEFAULT_DECIDER_MODEL`, `DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `http`, `json`, `math`, `os`, `typing`, `urllib`
+- Standard library: `__future__`, `collections`, `dataclasses`, `http`, `json`, `math`, `os`, `re`, `typing`, `urllib`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -144,10 +148,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_decider_client.py](../../../../../../../tests/test_decider_client.py) — direct import
+  - `test_a_rejected_request_keeps_its_status_and_redacted_error_on_the_receipt`
+  - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
+  - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
   - `test_error_statuses_surface_without_parsing`
   - `test_missing_key_and_oversized_state_refuse_before_any_request`
   - `test_openrouter_dialect_posts_the_typed_request_and_parses_typed_answers`
   - `test_probe_reads_the_free_listing_without_a_key`
+  - `test_redaction_keeps_slugs_and_drops_key_shapes`
   - `test_settings_resolve_from_the_dialect`
 - [tests/test_decider_landing.py](../../../../../../../tests/test_decider_landing.py) — direct import
   - `test_inside_an_automatic_builds_request_gate_the_span_check_is_admitted_and_settled`

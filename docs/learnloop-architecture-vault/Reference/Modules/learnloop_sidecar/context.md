@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/context.py"
 source_paths:
   - "src/learnloop_sidecar/context.py"
-source_commit: "4be77a51f600217467f5594eab9f98af4a2bd3e4"
-source_commit_timestamp: "2026-11-09T15:29:00-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
+source_commit_timestamp: "2026-11-09T16:01:49-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar"
@@ -57,9 +57,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `4be77a51f600217467f5594eab9f98af4a2bd3e4` |
-| Commit timestamp | `2026-11-09T15:29:00-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
+| Commit timestamp | `2026-11-09T16:01:49-05:00` |
 
 ## Public API
 
@@ -496,6 +496,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked`
 - [tests/test_placement_sidecar.py](../../../../../tests/test_placement_sidecar.py) — direct import
+- [tests/test_placement_unevidenced_return.py](../../../../../tests/test_placement_unevidenced_return.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_plan_determinism.py](../../../../../tests/test_plan_determinism.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_a_background_jobs_offer_reaches_the_read_that_finds_it_done`
@@ -519,6 +521,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
 - [tests/test_rbeq_pr2_landing.py](../../../../../tests/test_rbeq_pr2_landing.py) — direct import
+- [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
+  - `test_the_sidecar_carries_active_seconds_into_the_attempt_beside_its_latency`
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import
   - `test_a_card_written_from_a_photo_shows_the_photo_outside_a_check`
   - `test_a_purged_photo_is_not_offered`

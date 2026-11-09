@@ -298,6 +298,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_joint_fixture_replays_through_the_unchanged_path`
   - `test_joint_grades_replay_untouched_beside_blind_unverified_ones`
   - `test_split_vault_replay_and_rebuild_keep_unverified_criteria_unassessed`
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
+  - `test_a_shadow_rebuild_reports_nothing_moved_for_the_shape`
+  - `test_a_whole_vault_rebuild_writes_the_same_state_at_both_tags`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
   - `test_replay_never_reads_the_switch`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import

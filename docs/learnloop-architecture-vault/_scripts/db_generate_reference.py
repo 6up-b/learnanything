@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_251/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_252/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_251" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_252" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 251
+SCHEMA_HEAD = 252
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -1051,6 +1051,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "field.llm_probability_enabled": "Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model.",
     "placement.enabled": "Kill switch for F2 placement at mvp-0.11 and later; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions.",
     "placement.initial_probes": "Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off).",
+    "placement.unevidenced_return": "Kill switch for mvp-0.56: an answered item with no due time, on an LO with no evidence, starts as learning under placement; off (or below the tag) serves mvp-0.55 exactly.",
     "placement.assumed_first_interval_days": "Days from an assumed-known decision to its first review, which is the check (D6).",
     "placement.fast_track_min_correct": "Clean full-marks first answers fast-track needs before the probability test (D6, at least 2).",
     "placement.fast_track_q": "Probability the active predictor must give that the LO's ability exceeds the known threshold (D6).",
@@ -2162,7 +2163,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_251/state.sqlite",
+                "fixtures/migration_head_252/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

@@ -59,11 +59,11 @@ def drop_ih5_keys(dumped: dict) -> dict:
 # -- the successor -------------------------------------------------------------------------------------------
 
 
-def test_the_successor_is_one_constant_after_phone_v3_and_the_latest():
+def test_the_successor_is_one_constant_after_phone_v3():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.54"
-    # Slip or gap's successor (mvp-0.57) follows it and keeps it.
-    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
-    assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.57"})
+    # The placement hole's successor (mvp-0.56) follows it and keeps it, and slip or gap's (mvp-0.57) after that.
+    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.56", "mvp-0.57"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -78,11 +78,16 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
     # mvp-0.54's value on the branch at IH5's base (19a812ae46), frozen here: dropping IH5's key reproduces it (and router
     # speed stage 2's switches, in every snapshot, which landed after that base).
+    from tests.helpers import undo_decider_v12
     from tests.test_rofu_successor import drop_rospeed2_keys
     from tests.test_sg_successor import drop_sg_keys
 
     dumped = drop_sg_keys(drop_rospeed2_keys(drop_ih5_keys(LearnLoopConfig.model_validate(tomllib.loads(
         default_config_text(OLD))).model_dump(mode="json", exclude_none=False))))
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor), which landed after that base
+    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP054_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
@@ -131,12 +136,18 @@ def test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below(
 
 
 def test_the_openers_install_this_links_completion():
-    from learnloop import failure_share_upgrade
+    from learnloop import failure_share_upgrade, slip_gap_upgrade, unevidenced_return_upgrade
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
+    # The placement hole's link (mvp-0.56) and slip or gap's (mvp-0.57) follow; the chain's latest completion hands
+    # this link's journal down to the placement hole's, which hands it here.
     assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade import complete_interrupted_activation" in inspect.getsource(
+        slip_gap_upgrade)
+    assert "learnloop.failure_share_upgrade import complete_interrupted_activation" in inspect.getsource(
+        unevidenced_return_upgrade)
     # It hands an earlier link's journal to phone V3's completion, which hands it on in turn.
     assert "learnloop.phone_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
         failure_share_upgrade)

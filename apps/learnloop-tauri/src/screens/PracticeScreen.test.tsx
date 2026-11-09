@@ -305,6 +305,20 @@ it("sends a stuck answer with text as an ordinary attempt marked stuck", async (
   })));
 });
 
+it("sends the attempt's active seconds beside its latency, as separate numbers (RE0)", async () => {
+  api.submitAttempt.mockResolvedValue(RESULT);
+  render(<PracticeScreen {...props()} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.change(answer, { target: { value: "A = U Sigma V^T" } });
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledOnce());
+  const sent = api.submitAttempt.mock.calls[0][0];
+  expect(Number.isInteger(sent.activeSeconds)).toBe(true);
+  expect(sent.activeSeconds).toBeGreaterThanOrEqual(0);
+  expect(Number.isInteger(sent.latencySeconds)).toBe(true);
+});
+
 it("lets the learner step back out of the stuck prompt before sending", async () => {
   setAlgoConfig({ practice: { stuckPrompt: true } });
   api.submitAttempt.mockResolvedValue(RESULT);
