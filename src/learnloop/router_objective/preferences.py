@@ -6,9 +6,11 @@ and that is this module.
 
 **The choice model** (:class:`ChoiceState`). ``P(chosen kind | the link was used here, decision features)``, in the
 acceptance model's form: per kind a Gaussian over the effects (:data:`TERMS`), AD's assumed-density step, predictions by
-the same Gaussian-sigmoid mean, normalized over the kinds a decision holds. Seeded (:data:`PRIORS_VERSION`): each effect
-centred at 0 with TE1b's width (``LS.PRIOR_SD``), so with nothing on record every kind has the same probability. It is
-frozen in each ``plan_block`` trace as a sensor (``preference``).
+the same Gaussian-sigmoid mean, normalized over the kinds a decision holds. Seeded (:data:`PRIORS_VERSION`): TE1b's width on
+every effect (``LS.PRIOR_SD``), each effect's centre 0 but the intercept's, which is where a kind's predictive is one in
+the six offered (structural, TE1b's own construction, ``LS._centre_for``), so with nothing on record every kind has the
+same probability, and a kind that was offered and passed over doesn't fall below one that was never offered. It is frozen
+in each ``plan_block`` trace as a sensor (``preference``).
 
 **What each row contributes.** One observation per preference with frozen features: the offered kinds, chosen or not. A
 pick that agrees with the plan's own draw counts like any other choice among what was offered, since it says as much; it
@@ -21,10 +23,15 @@ the model is conditional on use. So it can't say how much the learner wants what
 with what was served, and the served action is never an implicit choice. Its limit: use is itself selected (the link is
 more likely used when something feels wrong), so it under-represents what the learner would have accepted silently.
 
-**Entering the value.** ``Ṽ = V_tail + ŵ·V_residual + w_pref·V_pref``, with ``V_pref(a)`` the frozen probability of ``a``'s
-kind. ``w_pref`` is one coefficient, from :func:`learned_tail.residual_weight` with RO6's prior, slope, rank, clip and
-least favourable fill. Its data are the mix's own draws, never a pick: at a decision with a frozen sensor, with ``π`` the
-exact served distribution, ``d(a) = V_pref(a) − Σ_b π(b)·V_pref(b)``, the served action's ``Ĉ = d(A)·Ĝ`` has
+**Entering the value.** ``Ṽ = V_tail + ŵ·V_residual + w_pref·V_pref``. ``V_pref`` is the frozen probability of each
+candidate's kind on the tail's own scale (:func:`scaled`): standardized over the decision's candidates and multiplied by the
+spread of their ``Q̄``. So ``w_pref`` is dimensionless, as ``ŵ`` is: at 1, one spread of the learner's model is worth one
+spread of the tail's, and the most the coefficient can do. That is what makes RO6's labelled prior on a share
+(``residual_weight_prior_sd``) and its clip to ``[0, 1]`` mean the same here, with no new number; read in raw probability
+they would claim that a preference could be worth a whole use, and a simulated null moved the choice. ``w_pref`` is one
+coefficient, from :func:`learned_tail.residual_weight` with RO6's prior, slope, rank, clip and least favourable fill. Its
+data are the mix's own draws, never a pick: at a decision with a frozen sensor, with ``π`` the exact served distribution,
+``d(a) = V_pref(a) − Σ_b π(b)·V_pref(b)``, the served action's ``Ĉ = d(A)·Ĝ`` has
 ``E[Ĉ | x] = Σ_a π(a)·d(a)·G(a)``. So under ``G(a) = c(x) + α·Q_tail(a) + b·V_pref(a)``, ``E[Ĉ | x] = α·Σπ·d·Q_tail +
 b·Σπ·d²``: the state's level ``c(x)`` cancels and ``b`` is ``residual_weight``'s slope, with no intercept. ``Ĝ`` is RO6's
 window return observed through the randomized checks, each term ``Y − m⁰``, a cold outcome less its frozen forecast
@@ -34,7 +41,7 @@ something on record, some spread under ``π``, a closed window).
 **What ``w_pref`` can and can't identify.** It is fitted only on rows that are not self-selected: ``learner_pick`` decisions
 have no trace and no propensity, so no pick is in its cohort, and a drawn decision the learner then overrode stays in it as
 what was drawn (intention to treat; dropping it would select on what the draw led to). It can say: where the mix happened to
-draw a kind the learner's choices favour, cold outcomes beat the tail's forecast by this much per unit of probability. It
+draw a kind the learner's choices favour, cold outcomes beat the tail's forecast by this share of the tail's own spread. It
 can't say whether a pick works, whether following the learner works because they asked, or whether one kind differs from
 another (one coefficient for all). It only sees actions the mix gave some probability, and its scale is the window's return,
 not the cutoff's. With no sensor on record, or windows still open, it is exactly 0.
@@ -64,6 +71,7 @@ from learnloop.router_objective import tail_data as TD
 LOG = logging.getLogger(__name__)
 
 VERSION = "ih4_preference_value_v1"
+WEIGHT_VERSION = "ih4_w_pref_slope_rank_v1"
 #: The model's form and its features (a changed prior set is a new version, as TE1b's).
 CHOICE_VERSION = "choice_model_v1"
 PRIORS_VERSION = "choice_priors_v1"
@@ -156,7 +164,12 @@ def features_at(connection: Any, config: Any, *, at: str, minutes_left: float | 
 
 
 def _prior() -> tuple[np.ndarray, np.ndarray]:
-    return np.zeros(len(TERMS), dtype=np.float64), np.eye(len(TERMS), dtype=np.float64) * LS.PRIOR_SD ** 2
+    """One kind's seeded Gaussian. At the reference ``h·θ`` has the intercept's and the time of day's variance
+    (``sin² + cos² = 1``), as TE1b's: its intercept is centred where a kind's predictive is ``1/len(KINDS)``."""
+
+    mean = np.zeros(len(TERMS), dtype=np.float64)
+    mean[TERMS.index("intercept")] = LS._centre_for(1.0 / len(KINDS), 2.0 * LS.PRIOR_SD ** 2)
+    return mean, np.eye(len(TERMS), dtype=np.float64) * LS.PRIOR_SD ** 2
 
 
 @dataclass
@@ -234,6 +247,30 @@ def mark(connection: Any, config: Any) -> dict[str, Any]:
 # -- w_pref ---------------------------------------------------------------------------------------------------------
 
 
+def scaled(p: Mapping[str, float], q: Mapping[str, float]) -> dict[str, float]:
+    """``V_pref`` per candidate: ``p`` standardized over the candidates, times the spread of their ``Q̄`` (uniform over the
+    support: the mix's ``μ`` does not exist yet when the numeric policy answers, and depends on it). Zero where either has
+    no spread: every candidate one kind, or the tail indifferent."""
+
+    refs = [ref for ref in p if ref in q]
+    values = np.asarray([float(p[ref]) for ref in refs], dtype=np.float64)
+    tail = np.asarray([float(q[ref]) for ref in refs], dtype=np.float64)
+    if not refs or values.max() == values.min() or tail.max() == tail.min():
+        return dict.fromkeys(refs, 0.0)
+    out = (values - values.mean()) / values.std() * tail.std()
+    return {ref: float(value) for ref, value in zip(refs, out)}
+
+
+def with_values(preference: Mapping[str, Any], q: Mapping[str, float]) -> dict[str, Any]:
+    """The sensor with each candidate's ``V_pref`` at the evaluation that answered (the tail's ``Q̄``), frozen exactly, so
+    the shift and the contrasts read one number."""
+
+    entries = preference.get("candidates") or {}
+    values = scaled({ref: float(entry["p"]) for ref, entry in entries.items()}, q)
+    return {**dict(preference), "candidates": {ref: {**dict(entry), **({"v_pref": _exact(values[ref])} if ref in values else {})}
+                                               for ref, entry in entries.items()}}
+
+
 def frozen_values(row: Any) -> dict[str, float] | None:
     """A logged decision's frozen ``V_pref`` by ref, or None: no sensor, nothing on record then, or a candidate without
     one. Fixed before the draw, so reading it selects nothing on the outcome."""
@@ -309,10 +346,17 @@ def weight(connection: Any, config: Any, rows: Sequence[Any], *, at: str) -> tup
     contrast, exactly 0."""
 
     found, record = contrasts(connection, config, rows, at=at)
-    fit = LT.residual_weight(found, prior_sd=float(config.router_objective.residual_weight_prior_sd), at=at)
-    if not found:
-        fit = replace(fit, source="prior: no randomized draw with a frozen preference sensor and a closed window")
-    return fit, LT.calibration_summary(found, record, at=at)
+    return fitted(found, prior_sd=float(config.router_objective.residual_weight_prior_sd), at=at), \
+        LT.calibration_summary(found, record, at=at)
+
+
+def fitted(found: Sequence[LT.Contrast], *, prior_sd: float, at: str | None = None) -> LT.WeightFit:
+    """:func:`learned_tail.residual_weight` over ``found``, its noise with the fit's degrees of freedom off: every row
+    here is a draw, so with few of them a fit through the rows would otherwise report no noise and drop the prior."""
+
+    fit = replace(LT.residual_weight(found, prior_sd=prior_sd, at=at, noise_dof=True), version=WEIGHT_VERSION)
+    return fit if found else replace(fit, source="prior: no randomized draw with a frozen preference sensor and a "
+                                                 "closed window")
 
 
 # -- the decision's record ------------------------------------------------------------------------------------------
@@ -349,7 +393,7 @@ def record(repository: Any, config: Any, *, kinds: Mapping[str, str], minutes_le
                        "rows": counts, "features": features.as_dict(), "p": p, "self_selected": True,
                        "basis": "conditional on the link being used: a decision where it wasn't used is no row, and "
                                 "never reads as a preference for what was served"},
-            "candidates": {ref: {"kind": kind, "v_pref": _exact(p[kind])} for ref, kind in kinds.items()},
+            "candidates": {ref: {"kind": kind, "p": _exact(p[kind])} for ref, kind in kinds.items()},
             "w_pref": float(weighed.w_hat) if weighed is not None else 0.0,
             "weight": weighed.as_dict() if weighed is not None else None, "contrasts": summary,
             "claim": "fitted only on the mix's randomized draws, never on a pick; no causal claim about following the "
@@ -367,17 +411,19 @@ def moves_the_value(preference: Mapping[str, Any] | None) -> bool:
         preference.get("w_pref") or 0.0) > 0.0
 
 
-def shifted(evaluation: Any, preference: Mapping[str, Any]) -> Any:
+def shifted(evaluation: Any, preference: Mapping[str, Any], *, tail: Mapping[str, float]) -> Any:
     """The evaluation the numeric policy's argmax reads: each candidate's draws moved by ``w_pref·V_pref``, a constant
-    per candidate, so the paired precision is the tail's (as ``tail_serve.shifted``). ``Q̄`` in the trace stays the tail's."""
+    per candidate, so the paired precision is the tail's (as ``tail_serve.shifted``). ``tail``: the candidates' ``Q̄``,
+    which set ``V_pref``'s scale. ``Q̄`` in the trace stays the tail's."""
 
     w_pref = float(preference.get("w_pref") or 0.0)
-    values = preference.get("candidates") or {}
+    values = with_values(preference, tail)["candidates"]
     rows = tuple(replace(row, q_draws=tuple(float(q) + w_pref * float((values.get(row.ref) or {}).get("v_pref") or 0.0)
                                             for q in row.q_draws)) for row in evaluation.valued)
     return replace(evaluation, valued=rows)
 
 
 __all__ = ["CHOICE_VERSION", "ChoiceState", "FEATURES_KEY", "Features", "KINDS", "LESSON", "NEW", "PRIORS_VERSION", "QUESTION",
-           "READ", "REVIEW", "STOP", "TERMS", "VERSION", "WORDS", "contrast", "contrasts", "features_at", "frozen_values",
+           "READ", "REVIEW", "STOP", "TERMS", "VERSION", "WEIGHT_VERSION", "WORDS", "contrast", "contrasts", "features_at", "fitted",
+           "frozen_values", "scaled", "with_values",
            "kind_of", "mark", "moves_the_value", "record", "replay", "shifted", "weight"]

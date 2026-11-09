@@ -448,8 +448,14 @@ def _parse(stamp: str) -> datetime:
     return datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
 
 
-def residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str | None = None) -> WeightFit:
-    """``ŵ`` from the randomized contrasts whose windows closed before ``at`` (no peeking; module docstring)."""
+def residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str | None = None,
+                    noise_dof: bool = False) -> WeightFit:
+    """``ŵ`` from the randomized contrasts whose windows closed before ``at`` (no peeking; module docstring).
+
+    ``noise_dof`` (instruct hand-off IH4's ``w_pref``, whose every row has a draw, where RO6's cohort holds the coin's
+    ``policy`` arm at zero): the noise is read with the fit's degrees of freedom taken off, and with no more rows than
+    coefficients it is not read at all (a fit through the rows would report no noise and so drop the prior). Off, RO6's
+    estimate exactly."""
 
     cut = _parse(at) if at else None
     rows = [row for row in contrasts if cut is None or _parse(row.window_closes_at) < cut]
@@ -464,7 +470,7 @@ def residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str |
     bounds = np.asarray([row.bounds for row in rows], dtype=np.float64)
     lo, hi = bounds[:, 0], bounds[:, 1]
     open_rows = [i for i, row in enumerate(rows) if row.missing > 0 and hi[i] > lo[i]]
-    unbounded = _slope_and_rank(rows, x, point, precision, forced)
+    unbounded = _slope_and_rank(rows, x, point, precision, forced, noise_dof=noise_dof)
     if not open_rows:
         estimate, source, bound = unbounded, "randomized_contrasts", NO_BOUND
     else:
@@ -498,15 +504,19 @@ def residual_weight(contrasts: Sequence[Contrast], *, prior_sd: float, at: str |
                      excluded_terms=sum(int(row.excluded) for row in rows))
 
 
-def _noise(x: np.ndarray, y: np.ndarray, precision: np.ndarray, sigma2: float) -> tuple[float, np.ndarray]:
+def _noise(x: np.ndarray, y: np.ndarray, precision: np.ndarray, sigma2: float, *,
+           noise_dof: bool = False) -> tuple[float, np.ndarray]:
     """The regression's noise at ``y``, refined from ``sigma2`` until it settles, and the coefficients of its last
-    pass."""
+    pass. ``noise_dof``: :func:`residual_weight`'s."""
 
     beta = np.zeros(x.shape[1])
+    free = x.shape[0] - x.shape[1]
+    if noise_dof and free <= 0:
+        return sigma2, np.linalg.pinv(x.T @ x + max(sigma2, _TINY) * precision) @ (x.T @ y)
     for _ in range(_FIT_PASSES):
         beta = np.linalg.pinv(x.T @ x + max(sigma2, _TINY) * precision) @ (x.T @ y)
         residual = y - x @ beta
-        updated = float(np.mean(residual * residual))
+        updated = float(np.sum(residual * residual)) / free if noise_dof else float(np.mean(residual * residual))
         settled = abs(updated - sigma2) <= _FIT_TOLERANCE * max(sigma2, _TINY)
         sigma2 = updated
         if settled:
@@ -515,11 +525,11 @@ def _noise(x: np.ndarray, y: np.ndarray, precision: np.ndarray, sigma2: float) -
 
 
 def _slope_and_rank(rows: Sequence[Contrast], x: np.ndarray, y: np.ndarray, precision: np.ndarray,
-                    forced: Sequence[int]) -> dict[str, Any]:
+                    forced: Sequence[int], *, noise_dof: bool = False) -> dict[str, Any]:
     """The slope (posterior mean and sd of ``b``, the tail's ``a``) and the rank at the contrasts ``y``, the noise
     refined from ``y``'s mean square (module docstring)."""
 
-    sigma2, beta = _noise(x, y, precision, float(np.mean(y * y)) if np.any(y) else 0.0)
+    sigma2, beta = _noise(x, y, precision, float(np.mean(y * y)) if np.any(y) else 0.0, noise_dof=noise_dof)
     matrix = x.T @ x + max(sigma2, _TINY) * precision
     covariance = max(sigma2, _TINY) * np.linalg.pinv(matrix)
     partial = [rows[i].forced_probability * float(y[i]) - float(beta[0]) * rows[i].tail for i in forced]

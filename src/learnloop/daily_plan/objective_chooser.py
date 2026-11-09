@@ -22,6 +22,9 @@ today`` (§8.2):
 * **w_i** is ``ℓ_L + (1 − ℓ_L − ℓ_Q)·p_i`` from the weight's posterior (:mod:`learnloop.router_objective.weight`);
   with no randomized checks before RO5 no score forms and ``w`` stays at its prior, and the trace says so.
 * **κ0** is the day's seed (:mod:`learnloop.router_objective.price`), carried from the day's first decision.
+* **Preferences** (instruct hand-off IH4, :mod:`learnloop.router_objective.preferences`): frozen as a sensor in each trace,
+  entering ``π_Q`` through ``w_pref`` only as far as randomized draws support (0 until then, nothing shifted), and on the
+  LLM's card as the learner's own statements. Staged reads nothing.
 
 The chooser writes nothing: its record and its trace ride on ``BlockChoice.router_record`` to the ``plan_block``
 logger, which writes the trace (``router_objective_traces``) in the block's transaction.
@@ -609,7 +612,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 base = (tail_serve.shifted(evaluation, residual_record) if residual_record is not None
                         and residual_record.get("status") == "applied" else evaluation)
                 before = tie["argmax"]
-                choice, moved = V.numeric_choice(PF.shifted(base, preference_record), support)
+                choice, moved = V.numeric_choice(PF.shifted(base, preference_record,
+                                                            tail={row.ref: row.q for row in evaluation.valued}), support)
                 tie = {**tie, **moved, "on": "v_tail + w_hat * v_residual + w_pref * v_pref",
                        "before_preferences_argmax": before}
             if "baselines" not in cached:
@@ -1216,8 +1220,11 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
         extra["residual"] = section_record
     preference_record = numeric.preference if numeric is not None else None
     if preference_record is not None:
-        # IH4 (spec_instruct_handoff_v1 §7 item 2): the choice model's sensor and w_pref, frozen.
-        extra["preference"] = dict(preference_record)
+        # IH4 (spec_instruct_handoff_v1 §7 item 2): the choice model's sensor and w_pref, frozen, with V_pref at this Q̄.
+        from learnloop.router_objective import preferences as PF
+
+        extra["preference"] = (PF.with_values(preference_record, {ref: rows[ref].q for ref in rows})
+                               if preference_record.get("status") == "applied" else dict(preference_record))
     return {
         **extra,
         "candidates": candidates,

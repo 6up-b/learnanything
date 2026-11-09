@@ -797,6 +797,8 @@ y_i = R_i + Σ_{a′} π_ref(a′ | x′_i) Q̂(x′_i, a′)        with the ti
 
 **How it enters.** As a residual on RO4's tail, inside `π_Q`'s value: `Ṽ = V_tail + ŵ·V_residual`, with `ŵ` a learned weight starting at zero and moved by how well frozen predicted contrasts match realized randomized ones, by slope and rank (report T10). So it phases in on its own, with no promotion step, and the trace shows `ŵ`. `Ṽ` is an approximate critic, not the exact value of any policy. Never fitted to TD loss alone. Refit after every mixture change, with generator versions as change points. Partial-history weights are reported beside it as the cross-check near the logger.
 
+*Amended 2026-11-09 (instruct hand-off IH4, mvp-0.55): with `[router_objective] preferences_inform_router` on, `π_Q`'s argmax reads `Ṽ = V_tail + ŵ·V_residual + w_pref·V_pref`, with `w_pref` learned from the mix's randomized draws by this section's slope, rank and bound, and exactly 0 until they support more. `Q̄` stays the tail's. See `spec_instruct_handoff_v1.md` §7.*
+
 **No improvement guarantee is claimed.** A `2δ` per-decision bound needs a uniform `Q` error bound and an expected-value update whose feasible set contains the baseline. Calibration slopes and rank agreement don't establish those, so the report keeps showing §8.9's evaluations.
 
 ### 10.1 As built (Nov 5 2026, `router/ro6-learned-tail`; `docs/reviews/router-ro6.md`)

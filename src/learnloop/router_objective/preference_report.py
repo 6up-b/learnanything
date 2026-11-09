@@ -99,7 +99,8 @@ def _followed(connection: Any, row: Mapping[str, Any], lo: str | None) -> bool |
                                   "COALESCE(json_extract(detail_json, '$.minutes_counted'), 0) > 0 LIMIT 1",
                                   (block["id"],)).fetchone() is not None
     return connection.execute("SELECT 1 FROM plan_presentations p JOIN practice_attempts a ON a.plan_presentation_id = p.id "
-                              "WHERE p.block_id = ? AND a.created_at >= ? LIMIT 1", (block["id"], at)).fetchone() is not None
+                              "OR a.practice_item_id = p.practice_item_id WHERE p.block_id = ? AND a.created_at >= ? LIMIT 1",
+                              (block["id"], at)).fetchone() is not None
 
 
 def _mean(values: list[float]) -> dict[str, Any]:
