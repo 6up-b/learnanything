@@ -370,3 +370,111 @@ def test_a_remembered_json_schema_is_the_real_one_and_a_caller_cannot_change_it(
     first["properties"]["n"]["type"] = "changed"
     assert Model.model_json_schema()["properties"]["n"]["type"] == "integer"
     assert Model.model_json_schema(by_alias=False) == lane._production_json_schema(Model, by_alias=False)
+
+
+# -- what can escape a checkout (Codex review F4) ------------------------------------------------------------------
+
+
+def test_a_cursors_connection_is_the_proxy_not_the_raw_handle(tmp_path):
+    database = _database(tmp_path)
+    connection = connect(database)
+    for cursor in (connection.execute("SELECT 1"), connection.cursor()):
+        assert cursor.connection is connection
+    connection.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        cursor.connection.execute("SELECT 1")
+
+
+def test_a_raw_handles_cursor_cant_keep_a_lock_past_release(tmp_path):
+    database = _database(tmp_path, rows=1000)
+    connection = connect(database)
+    raw_cursor = _raw_of(connection).cursor()
+    raw_cursor.execute("SELECT n FROM t").fetchone()
+    direct = _raw_of(connection).execute("SELECT n FROM t")
+    direct.fetchone()
+    connection.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        raw_cursor.fetchone()
+    with pytest.raises(sqlite3.ProgrammingError):
+        direct.fetchone()
+    with closing(sqlite3.connect(database, timeout=0)) as other:
+        other.execute("DELETE FROM t")  # no reader's lock is left to block this commit
+        other.commit()
+
+
+@pytest.mark.parametrize("register", [
+    lambda raw: raw.create_function("probe", 0, lambda: 1),
+    lambda raw: raw.create_aggregate("probe", 0, type("A", (), {"step": lambda self: None, "finalize": lambda self: 1})),
+    lambda raw: raw.create_collation("probe", lambda a, b: 0),
+    lambda raw: raw.set_progress_handler(lambda: 0, 100),
+    lambda raw: raw.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 100_000),
+], ids=["function", "aggregate", "collation", "progress", "limit"])
+def test_a_raw_registered_state_never_reaches_the_next_user(tmp_path, register):
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        before = _raw_of(connection)
+        register(before)
+    with closing(connect(database)) as connection:
+        assert _raw_of(connection) is not before
+        with pytest.raises(sqlite3.OperationalError):
+            connection.execute("SELECT probe()")
+
+
+def test_state_registered_on_a_kept_raw_handle_while_idle_ends_its_reuse(tmp_path):
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        kept = _raw_of(connection)
+    kept.create_function("probe", 0, lambda: 1)
+    with closing(connect(database)) as connection:
+        assert _raw_of(connection) is not kept
+
+
+def test_a_blob_handle_cant_survive_release(tmp_path):
+    database = _database(tmp_path)
+    with closing(sqlite3.connect(database)) as setup:
+        setup.execute("CREATE TABLE b(data BLOB)")
+        setup.execute("INSERT INTO b VALUES (zeroblob(8))")
+        setup.commit()
+    connection = connect(database, read_only=True)
+    raw = _raw_of(connection)
+    blob = connection.blobopen("b", "data", 1, readonly=True)
+    connection.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        blob.read()
+    with closing(connect(database, read_only=True)) as again:
+        assert _raw_of(again) is not raw
+
+
+#: Files allowed to read these counters, because they don't use a pooled connection.
+_OWN_CONNECTION_FILES = {"src/learnloop_sidecar/handlers/sqlite_admin.py"}  # sqlite3.connect, closed in one request
+
+
+def _connection_scoped_counter_reads(source: str) -> list[str]:
+    import ast
+
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Attribute) and node.attr == "lastrowid":
+            found.append(f"line {node.lineno}: .lastrowid")
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and "last_insert_rowid" in node.value.lower():
+            found.append(f"line {node.lineno}: last_insert_rowid()")
+    return found
+
+
+def test_src_reads_no_rowid_counter_a_kept_connection_would_carry_over():
+    """A kept connection keeps these from its last user's DML, where production's fresh one has none. Code reading them
+    across checkouts would pass here and fail in production, or the reverse. Today nothing does."""
+
+    root = Path(__file__).resolve().parents[1]
+    readers = {}
+    for path in (root / "src").rglob("*.py"):
+        relative = path.relative_to(root).as_posix()
+        found = _connection_scoped_counter_reads(path.read_text(encoding="utf-8"))
+        if found and relative not in _OWN_CONNECTION_FILES:
+            readers[relative] = found
+    assert not readers, f"see tests/connection_reuse.py's limits before using these: {readers}"
+    # The scan itself sees both forms.
+    assert _connection_scoped_counter_reads("x = cursor.lastrowid\ny = 'SELECT last_insert_rowid()'\n") == [
+        "line 1: .lastrowid", "line 2: last_insert_rowid()"]
+    own = (root / next(iter(_OWN_CONNECTION_FILES))).read_text(encoding="utf-8")
+    assert "sqlite3.connect(" in own and "learnloop.db.connection" not in own

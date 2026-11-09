@@ -19,6 +19,12 @@ installs and leaves through the same connection hook. It differs from production
 
 A test that patches the open path (``sqlite3.connect``, ``BUSY_TIMEOUT_MS``...) gets real opens while its patch stands.
 
+**A limit of keeping a connection after DML:** the connection-scoped counters (``last_insert_rowid()``, ``.lastrowid``,
+``total_changes``, ``changes()``) carry over from the last user, where production's fresh connection starts at nothing. A
+reader across checkouts would see a different value here. ``tests/test_connection_reuse.py`` fails if ``src`` starts
+reading the rowid counters on a pooled connection. Otherwise this difference, and any other a fresh connection would
+show, is covered only by a full ``--fresh-connections`` run, due at each refactor arc's close.
+
 A WAL database is never kept (closing the last connection checkpoints it, which tests may observe). The durability
 lane, the owner lane, ``--fresh-connections`` and the ``fresh_connections`` marker open every connection for real, so
 production's open path keeps running in the gate.
@@ -29,6 +35,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from pathlib import Path
+import weakref
 
 from learnloop.db import connection as _db_connection
 from learnloop.db.scopes import apply_connection_hook, current_ingest_job_id
@@ -36,7 +43,30 @@ from learnloop.db.scopes import apply_connection_hook, current_ingest_job_id
 _DML_ACTIONS = frozenset({sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE})
 
 
+#: What outlives a checkout on the raw connection: production's list, plus a blob, which holds a statement open.
+_STATE_CALLS = _db_connection._CONNECTION_STATE_CALLS | {"blobopen"}
+
+
+class _ProxiedCursor(sqlite3.Cursor):
+    """``cursor.connection`` is the checkout's proxy, so user code can't reach the raw connection through a cursor."""
+
+    @property
+    def connection(self):
+        raw = super().connection
+        proxy = raw._proxy() if raw._proxy is not None else None
+        return raw if proxy is None else proxy
+
+
 class _KeptAfterDml(_db_connection._PooledSqlite):
+    """A kept connection. Every cursor is recorded here, whoever made it, so release closes all of them. A call that
+    changes the connection's own state marks it for good, even made directly on this object, so it's never reused."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._live_cursors = weakref.WeakSet()
+        self._state_changed = False
+        self._proxy = None
+
     def _wrapped(self, inner):
         production = super()._wrapped(inner)
 
@@ -46,6 +76,47 @@ class _KeptAfterDml(_db_connection._PooledSqlite):
             return production(action, arg1, arg2, database, trigger)
 
         return authorizer
+
+    def cursor(self, factory=_ProxiedCursor):
+        cursor = super().cursor(factory)
+        if not isinstance(cursor, _ProxiedCursor):
+            self._state_changed = True  # its .connection is this raw object: never hand this connection out again
+        self._live_cursors.add(cursor)
+        return cursor
+
+    # sqlite3's own execute methods make their cursor in C, past cursor() above.
+    def execute(self, sql, parameters=(), /):
+        return self.cursor().execute(sql, parameters)
+
+    def executemany(self, sql, parameters, /):
+        return self.cursor().executemany(sql, parameters)
+
+    def executescript(self, script, /):
+        return self.cursor().executescript(script)
+
+    def unwatch(self) -> bool:
+        return super().unwatch() or self._state_changed
+
+    def close_cursors(self) -> None:
+        for cursor in list(self._live_cursors):
+            cursor.close()
+
+
+def _marks_state(name: str):
+    production = getattr(sqlite3.Connection, name)
+
+    def call(self, *args, **kwargs):
+        self._state_changed = True
+        return production(self, *args, **kwargs)
+
+    call.__name__ = name
+    return call
+
+
+for _name in _STATE_CALLS:
+    if hasattr(sqlite3.Connection, _name):
+        setattr(_KeptAfterDml, _name, _marks_state(_name))
+del _name
 
 
 def _signature(path: str) -> tuple[int, int, int, int] | None:
@@ -71,7 +142,12 @@ def _open_path_patched() -> bool:
 
 
 class _Reused(_db_connection._ReusedConnection):
-    __slots__ = ()
+    __slots__ = ("__weakref__",)
+
+    def close(self):
+        if not self._released:
+            self._connection.close_cursors()
+        super().close()
 
     def backup(self, target, **kwargs):
         """SQLite's backup takes a real connection as its target; a pooled one is its raw connection, not kept after."""
@@ -102,6 +178,8 @@ class TestLanePool(_db_connection._ConnectionPool):
         if resolved in self._file_at_release and _signature(resolved) != self._file_at_release[resolved]:
             self._forget(resolved)
         idle = self.idle.get(key)
+        while idle and idle[-1]._state_changed:  # changed on a kept raw handle while it was idle
+            idle.pop().close()
         if idle:
             raw = idle.pop()
         else:
@@ -116,7 +194,9 @@ class TestLanePool(_db_connection._ConnectionPool):
         raw.set_trace_callback(None)
         apply_connection_hook(raw, sqlite_path)
         raw.watch()
-        return _Reused(raw, self, key)
+        proxy = _Reused(raw, self, key)
+        raw._proxy = weakref.ref(proxy)
+        return proxy
 
     def give(self, key: tuple[str, bool], raw: sqlite3.Connection) -> None:
         if not self.closed and raw.execute("PRAGMA journal_mode").fetchone()[0] == "wal":
