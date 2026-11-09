@@ -6,6 +6,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 from pathlib import Path
 import pytest
 
@@ -232,29 +233,37 @@ for _module in list(sys.modules.values()):
 
 # A vault mints its builtin outcome schemas' ids at random, those ids are in the calibration model's content hash, and
 # that hash seeds the certainty bound's draws. So a test's effective mass depended on the run: about 1 vault in 600 got a
-# bound below its certainty, and a dont_know read 0.690 instead of 0.7 (two recorded failures; see
-# docs/reviews/test-suite-audit.md). A fixed id per slug makes every test's draws the same on every run. In production a
-# vault's id, and so its draws, are fixed once it is minted.
-from learnloop.db.repositories import Repository as _Repository  # noqa: E402
+# bound below its certainty, and a dont_know read 0.690 instead of 0.7 (see docs/reviews/test-suite-audit.md). Production's
+# ensure_outcome_schema runs here unchanged, its real insert included; only the one id it mints is fixed, per slug, so
+# every test's draws are the same on every run. tests/test_outcome_schema_ids.py pins the real random id and the bound's
+# limits over many seeds. In production a vault's id, and so its draws, are fixed once minted.
+from learnloop.db import repositories as _repositories  # noqa: E402
 
-_production_ensure_outcome_schema = _Repository.ensure_outcome_schema
+_production_ensure_outcome_schema = _repositories.Repository.ensure_outcome_schema
+_production_new_ulid = _repositories.new_ulid
+_minting_schema = threading.local()
+
+
+def _schema_id_for(slug: str) -> str:
+    digest = hashlib.sha256(slug.encode("utf-8")).hexdigest().upper()
+    return ("01SCHEMA" + digest.translate(str.maketrans("", "", "ILOU")))[:26]
+
+
+def _new_ulid_or_fixed_schema_id():
+    slug = getattr(_minting_schema, "slug", None)
+    return _production_new_ulid() if slug is None else _schema_id_for(slug)
 
 
 def _ensure_outcome_schema_fixed_id(self, *, slug, kind, clock=None):
-    from learnloop.clock import utc_now_iso
-
-    digest = hashlib.sha256(slug.encode("utf-8")).hexdigest().upper()
-    fixed = ("01SCHEMA" + digest.translate(str.maketrans("", "", "ILOU")))[:26]
-    with self.connection() as connection:
-        connection.execute(
-            "INSERT OR IGNORE INTO outcome_schemas(id, slug, kind, created_at) VALUES (?, ?, ?, ?)",
-            (fixed, slug, kind, utc_now_iso(clock)),
-        )
-        connection.commit()
-    return _production_ensure_outcome_schema(self, slug=slug, kind=kind, clock=clock)
+    _minting_schema.slug = slug
+    try:
+        return _production_ensure_outcome_schema(self, slug=slug, kind=kind, clock=clock)
+    finally:
+        _minting_schema.slug = None
 
 
-_Repository.ensure_outcome_schema = _ensure_outcome_schema_fixed_id
+_repositories.new_ulid = _new_ulid_or_fixed_schema_id
+_repositories.Repository.ensure_outcome_schema = _ensure_outcome_schema_fixed_id
 
 
 # Two pure functions that cost 26% of a sample's time after the connection work, and repeat their inputs across tests.
