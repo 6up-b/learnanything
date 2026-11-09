@@ -1253,6 +1253,9 @@ def test_a_tutor_keep_takes_a_take_with_the_library_answer_off(tmp_path, monkeyp
         connection.execute("UPDATE library_asks SET manifest_json = ? WHERE id = ?", (json.dumps(manifest), ask_id))
         connection.commit()
     monkeypatch.setattr(policy, "cold_administration_open", lambda _repo, item_id: item_id == "item_cold")
+    # Taking a keep starts background gap work. The refused calls below write nothing, so it must be over before the
+    # counts are read, or its rows look like theirs.
+    ctx.close()
     before = _all_counts(repository)
     for name, params in (("reader.library_compare_reopen", {"askId": ask_id}),
                          ("reader.library_compare_keep", {"askId": ask_id, "comparisonId": comparison_id,
