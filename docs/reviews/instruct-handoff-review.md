@@ -519,7 +519,12 @@ Each finding was reproduced first: R1-R5 and the one-twin delay all gave the rev
 
 ## Landing onto main (Nov 9 2026)
 
-**Merges.** Main was merged twice: `9c770a43e7` (Decider v1.2, refactor strategy A5; merge `903b93e7e8`) and `cf45777002` (the generated-probe reserved check logs instead of raising; merge `9bdfbd0b03`, no conflict). Migration 251 and `mvp-0.55` were still free on main.
+**Merges.** Main was merged three times:
+- `9c770a43e7` (Decider v1.2, refactor strategy A5; merge `903b93e7e8`);
+- `cf45777002` (the generated-probe reserved check logs instead of raising; merge `9bdfbd0b03`, no conflict);
+- after the gate, `db2c92aeda` (refactor A4 docs and README, the Z2 measures script and its test; merge `933fa8a8f6`, no conflict, no source file touched). After this merge, its own test, the public-tip guards, architecture, CLI surface and registry audit passed (73 tests), and so did all four reference validators.
+
+Migration 251 and `mvp-0.55` were still free on main.
 - `config/template.py`: every `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry (46) was recomputed from the merged tree with `defaults_fingerprint_for_version`. Each moves twice, for Decider v1.2's model and for the 40 s wait, and each move now has a comment.
 - The eleven frozen-digest successor tests keep both normalizations: this side's (`drop_ih5_keys` where it was there, the 40 s wait put back to 8.0), then main's `undo_decider_v12`. `test_ih5_successor.py`'s own frozen mvp-0.54 digest also needed `undo_decider_v12` (`8cdc296b4b`).
 - References were regenerated, not hand-merged (`108ea9282b`). All four validators pass. `db_validate_reference.py` reports no errors, so main's 8 known sidecar citation errors are gone too.
