@@ -1,0 +1,17 @@
+{
+  "method": "plan_something_else_options",
+  "requests": [
+    {
+      "wrapper": "planSomethingElseOptions",
+      "envelope": {
+        "method": "plan_something_else_options",
+        "params": {
+          "sessionId": "s1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "enabled"
+  ]
+}

@@ -111,8 +111,22 @@ function apis() {
   }));
   const nextPlanItem = vi.fn(async () => ({ ...PLAN, enabled: true, step: ITEM_STEP }));
   const recordOfferShown = vi.fn(async () => ({ version: 1, recorded: true }));
+  // IH3: the plan says the quiet link may show; the options and the served choice come from the sidecar.
+  const planSomethingElseOptions = vi.fn(async () => ({
+    version: 1, enabled: true, drawn: true, decisionId: "dec1", device: "desktop",
+    options: [
+      { kind: "question", ref: "cand_q", label: "Another question", minutes: 6, propensity: null, plansPick: false, servable: true },
+      { kind: "lesson", ref: "lesson_offer:lo_relu", label: "Learn ReLU", minutes: 12, propensity: null, plansPick: true, servable: true }
+    ]
+  }));
+  const planSomethingElse = vi.fn(async (input: { kind: string }) => input.kind === "lesson"
+    ? { ...PLAN, step: null, preference: { id: "k", outcome: "lesson", kind: "lesson", ref: "lesson_offer:lo_relu", servedDecisionId: "d1",
+                                           lesson: { learningObjectIds: ["lo_relu"], title: "ReLU" }, replayed: false } }
+    : { ...PLAN, step: ITEM_STEP, preference: { id: "k", outcome: "served", kind: "question", ref: "cand_q", servedDecisionId: "d1",
+                                                lesson: null, replayed: false } });
   Object.assign(stubs.api, {
-    getDailyPlan: vi.fn(async () => PLAN),
+    getDailyPlan: vi.fn(async () => ({ ...PLAN, somethingElse: true })),
+    planSomethingElseOptions, planSomethingElse,
     goalsList: vi.fn(async () => ({ version: 1, goals: [] })),
     getTodayHeadline: vi.fn(async () => ({ version: 1, enabled: false })),
     listQuestionQueue: vi.fn(async () => ({ version: 1, questions: [], openCount: 0 })),
@@ -121,7 +135,7 @@ function apis() {
     lessonSuggestion: vi.fn(async () => ({ version: 1, suggestion: null })),
     lessonSuggestionRespond, nextPlanItem, recordOfferShown
   });
-  return { lessonSuggestionRespond, nextPlanItem, recordOfferShown };
+  return { lessonSuggestionRespond, nextPlanItem, recordOfferShown, planSomethingElse, planSomethingElseOptions };
 }
 
 async function flush() {
@@ -203,4 +217,22 @@ it("a step that is not a lesson offer still routes as before (no offer page, no 
   expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
   expect(screen.getByTestId("practice-pi_9")).toBeTruthy();
   expect(recordOfferShown).not.toHaveBeenCalled();
+});
+
+it("IH3: 'Something else would help' sits under the offer's actions; a served choice closes the page and opens its step", async () => {
+  const { planSomethingElse, lessonSuggestionRespond } = apis();
+  await toFeedbackNext();
+  const slot = screen.getByTestId("lesson-offer-something-else-slot");
+  const link = await screen.findByTestId("something-else-link");
+  expect(slot.contains(link)).toBe(true);
+  await act(async () => { fireEvent.click(link); });
+  // the page is the plan's own pick already, so "learn this" isn't offered on it
+  expect(screen.queryByTestId("something-else-option-lesson")).toBeNull();
+  await act(async () => { fireEvent.click(screen.getByTestId("something-else-option-question")); });
+  await flush();
+  expect(planSomethingElse).toHaveBeenCalledWith(expect.objectContaining({ kind: "question", surface: "offer_page", sessionId: "s1" }));
+  expect(await screen.findByTestId("practice-pi_9")).toBeTruthy();
+  expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
+  // the offer itself was neither started nor answered by the learner: the sidecar ended it
+  expect(lessonSuggestionRespond).not.toHaveBeenCalled();
 });

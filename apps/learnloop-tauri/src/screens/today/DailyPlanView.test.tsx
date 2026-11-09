@@ -324,3 +324,16 @@ it("offers the router objective's trace on demand, in plain words (RO4)", async 
   expect(explain).toHaveBeenCalledWith("dec_1");
   expect(screen.getByTestId("plan-block-objective-trace").textContent).toContain("what helps most");
 });
+
+it("IH3: one quiet link under the block's actions, only where the sidecar says so and a session is open", () => {
+  const onSomethingElse = vi.fn();
+  show(data(plan(), { somethingElse: true }), { sessionId: "sess1", onSomethingElse });
+  expect(screen.getByTestId("something-else-link").textContent).toBe("Something else would help");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  cleanup();
+  show(data(plan()), { sessionId: "sess1", onSomethingElse }); // the switch off: the plan carries no flag
+  expect(screen.queryByTestId("something-else")).toBeNull();
+  cleanup();
+  show(data(plan(), { somethingElse: true }), { onSomethingElse }); // no session to serve the choice into
+  expect(screen.queryByTestId("something-else")).toBeNull();
+});

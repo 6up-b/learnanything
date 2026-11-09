@@ -210,7 +210,10 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
         applied = apply_migrations(database)
     assert [migration.version for migration in applied] == [214, 249, 250, 251]
     after = _schema(database)
-    assert set(after) - set(before) == AD23_ADDED_OBJECTS
+    # Instruct hand-off IH3's 251 (its own table) follows on the way to head.
+    from tests.test_ih3_migration import IH3_ADDED_OBJECTS
+
+    assert set(after) - set(before) - IH3_ADDED_OBJECTS == AD23_ADDED_OBJECTS
     # Phone V3's 250 (help_assists' surface CHECK) runs after them too.
     from tests.test_mobile_v3_migration import V3_ALTERED_TABLES
 

@@ -23,6 +23,8 @@
     "router_objective_explain",
     "record_answer_display",
     "trigger_regrade",
-    "followup_status"
+    "followup_status",
+    "plan_something_else_options",
+    "plan_something_else"
   ]
 }

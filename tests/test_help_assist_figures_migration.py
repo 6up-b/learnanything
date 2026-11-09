@@ -39,6 +39,7 @@ from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
 from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
 from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
 from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
+from tests.test_ih3_migration import IH3_ADDED_OBJECTS
 from tests.test_teacher_te2_migration import TE2_ALTERED_TABLES
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
@@ -104,7 +105,7 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
         # Follow-ups Nov 2's 235 (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), not read here, follow too.
         assert [migration.version for migration in apply_migrations(database)] == [232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251]
     after = _schema(database)
-    assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
+    assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
     assert {name for name in before if before[name] != after.get(name)} == set(P3_ALTERED_TABLES) | set(
         C2B_ALTERED_TABLES) | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES) | UNLINKED_ALTERED_TABLES | (
         TE2_ALTERED_TABLES & set(before))

@@ -41,7 +41,8 @@ import { LessonSuggestionCard } from "./today/LessonSuggestionCard";
 import { ContinueLessonCard } from "./today/ContinueLessonCard";
 import type { LessonEntry } from "./LessonScreen";
 import { planStepAction, useDailyPlan } from "../app/dailyPlan";
-import type { DailyPlanDto, PlanReadingDto, PlanStepDto, TodayHeadlineDto } from "../api/dto";
+import type { DailyPlanDto, PlanReadingDto, PlanStepDto, SomethingElseChosenDto, TodayHeadlineDto } from "../api/dto";
+import { lessonEntryFor } from "./today/SomethingElse";
 
 const HOTKEYS = "123456789abcdef";
 
