@@ -3,8 +3,8 @@ title: "Config - data_capture"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "66fedb471c522823888366b7fb65ea42afde2cac"
-source_commit_timestamp: "2026-11-09T12:16:35-05:00"
+source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
+source_commit_timestamp: "2026-11-09T13:07:00-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml data_capture"
@@ -27,10 +27,10 @@ source_paths:
   - "tests/intent_fakes.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/query_student_fakes.py"
+  - "tests/router_mixture_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_fix_round5.py"
   - "tests/test_ad1_fix_round7.py"
-  - "tests/test_ad1_migration.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/data-capture"
@@ -69,10 +69,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/intent_fakes.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/query_student_fakes.py`
+- `tests/router_mixture_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round5.py`
 - `tests/test_ad1_fix_round7.py`
-- `tests/test_ad1_migration.py`
 
 ## Extension and modification guidance
 

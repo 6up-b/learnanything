@@ -3,8 +3,8 @@ title: "Config - error_impacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "66fedb471c522823888366b7fb65ea42afde2cac"
-source_commit_timestamp: "2026-11-09T12:16:35-05:00"
+source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
+source_commit_timestamp: "2026-11-09T13:07:00-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml error_impacts"
@@ -24,13 +24,13 @@ source_paths:
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
   - "tests/pf_fakes.py"
+  - "tests/router_mixture_helpers.py"
   - "tests/source_service_fakes.py"
   - "tests/test_activity_patterns.py"
   - "tests/test_activity_substrate.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_reading_opportunities.py"
   - "tests/test_ad23_contract.py"
-  - "tests/test_ad23_fix_r8.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/error-impacts"
@@ -82,13 +82,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
 - `tests/pf_fakes.py`
+- `tests/router_mixture_helpers.py`
 - `tests/source_service_fakes.py`
 - `tests/test_activity_patterns.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad23_contract.py`
-- `tests/test_ad23_fix_r8.py`
 
 ## Extension and modification guidance
 

@@ -3,8 +3,8 @@ title: "lesson_turns"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "66fedb471c522823888366b7fb65ea42afde2cac"
-source_commit_timestamp: "2026-11-09T12:16:35-05:00"
+source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
+source_commit_timestamp: "2026-11-09T13:07:00-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_turns"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/db/stores/lessons.py"
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
+  - "src/learnloop/teacher/diagnosed_sources.py"
   - "src/learnloop/teacher/probes.py"
-  - "src/learnloop/teacher/service.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -94,6 +94,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/lessons.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/teacher/diagnosed_sources.py`
 
 ### Direct SQL writers
 
@@ -111,6 +112,7 @@ None found by exact static reference scan.
 - `tests/test_followups_batch5_lesson.py`
 - `tests/test_followups_batch5_recap_dependencies.py`
 - `tests/test_followups_batch5_recap_protection.py`
+- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_salience_firewall.py`
 - `tests/test_te3a_lesson_opportunity.py`
