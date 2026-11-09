@@ -16,6 +16,7 @@ import pytest
 
 from learnloop.db import connection as DBC
 from learnloop.db.connection import connect
+from learnloop.db.copies import backup_database
 from tests.connection_reuse import TestLanePool
 
 
@@ -220,7 +221,7 @@ def test_the_marker_opens_real_connections(tmp_path):
 
 
 @pytest.mark.durability
-def test_the_durability_lane_runs_production_connections(tmp_path):
+def test_the_durability_lane_runs_production_connections_copies_and_fsync(tmp_path, monkeypatch):
     from tests.helpers import create_basic_vault
 
     assert DBC._REUSED.get() is None
@@ -229,3 +230,37 @@ def test_the_durability_lane_runs_production_connections(tmp_path):
         assert type(connection) is sqlite3.Connection
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert connection.execute("PRAGMA synchronous").fetchone()[0] == 2  # FULL
+    synced: list[int] = []
+    import tests.conftest as lane
+
+    real_fsync = lane._real_fsync
+    monkeypatch.setattr(lane, "_real_fsync", lambda fd: (synced.append(fd), real_fsync(fd))[1])
+    with open(tmp_path / "file", "wb") as handle:
+        os.fsync(handle.fileno())
+    assert synced, "os.fsync must reach the disk in the durability lane"
+    seen_synchronous: list[int] = []
+    real_connect = sqlite3.connect
+
+    def watching(*args, **kwargs):
+        connection = real_connect(*args, **kwargs)
+        seen_synchronous.append(connection.execute("PRAGMA synchronous").fetchone()[0])
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", watching)
+    backup_database(database, tmp_path / "copy.sqlite")
+    assert 2 in seen_synchronous  # the copy's target is written at the default FULL, as in production
+
+
+def test_the_fast_lanes_copy_target_and_fsync_skip_the_disk(tmp_path, monkeypatch):
+    calls: list[int] = []
+    import tests.conftest as lane
+
+    monkeypatch.setattr(lane, "_real_fsync", lambda fd: calls.append(fd))
+    with open(tmp_path / "file", "wb") as handle:
+        os.fsync(handle.fileno())
+    assert calls == []
+    with pytest.raises(OSError):
+        os.fsync(987654)  # a bad descriptor still fails, as it would
+    copy = lane._db_copies.sqlite3.connect(tmp_path / "copy.sqlite")
+    assert copy.execute("PRAGMA synchronous").fetchone()[0] == 0
+    copy.close()

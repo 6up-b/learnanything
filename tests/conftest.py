@@ -8,6 +8,11 @@ import pytest
 # Fails a test that leaves a thread running (tests/thread_guard.py).
 pytest_plugins = ["tests.thread_guard"]
 
+# Small matrices gain nothing from OpenBLAS threads, and under xdist each worker's pool competes with the others
+# (the AD sims used 20% more CPU with them). Set before anything imports numpy.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 # Keep the 4,000+ fixture vaults off the capacity-constrained system temp
 # volume. PYTEST_DEBUG_TEMPROOT controls pytest's numbered tmp_path roots when
 # --basetemp is not supplied, while still allowing CI to override it.
@@ -108,7 +113,10 @@ os.environ["LEARNLOOP_FIGURE_PREFETCH"] = "off"
 # databases keep a rollback header and the in-memory journal applies. The
 # durability lane (`durability` marker or --durable-sqlite) runs the production
 # path: the switch to WAL and synchronous=FULL.
+import sqlite3  # noqa: E402
+
 import learnloop.db.connection as _db_connection  # noqa: E402
+import learnloop.db.copies as _db_copies  # noqa: E402
 import learnloop.db.migrate as _db_migrate  # noqa: E402
 
 _durable_connect = _db_connection.connect
@@ -144,6 +152,37 @@ def _lane_switch_to_wal(connection, sqlite_path):
         return _production_switch_to_wal(connection, sqlite_path)
     return "fast test lane keeps the in-memory journal"
 
+
+# An explicit fsync pays what `PRAGMA synchronous=OFF` already stopped paying (about 12 ms on the btrfs test volume).
+# A test that spies on or fails os.fsync replaces this attribute as it did the real one.
+_real_fsync = os.fsync
+
+
+def _lane_fsync(fd):
+    if _durability_active:
+        return _real_fsync(fd)
+    os.fstat(fd)  # a bad descriptor still raises, as fsync would
+
+
+os.fsync = _lane_fsync
+
+
+# db.copies writes each copy on a plain sqlite3 connection, outside connect(): the connect patch does not reach it, so
+# in the fast lane every test's vault copy paid full fsyncs (about 90 ms against 3 ms on btrfs). The durability lane
+# keeps the production copy path.
+class _CopiesSqlite3:
+    def __getattr__(self, name):
+        return getattr(sqlite3, name)
+
+    @staticmethod
+    def connect(*args, **kwargs):
+        connection = sqlite3.connect(*args, **kwargs)
+        if not _durability_active:
+            connection.execute("PRAGMA synchronous=OFF")
+        return connection
+
+
+_db_copies.sqlite3 = _CopiesSqlite3()
 
 _db_connection.connect = _fast_test_connect
 _db_migrate.switch_to_wal = _lane_switch_to_wal
