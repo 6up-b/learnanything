@@ -169,6 +169,7 @@ def close_test_background_owners():
 
 def pytest_addoption(parser):
     parser.addoption("--durable-sqlite", action="store_true", help="Use production SQLite durability for every selected test.")
+    parser.addoption("--fresh-connections", action="store_true", help="Open every SQLite connection for real instead of reusing idle ones in the fast lane (tests/connection_reuse.py).")
 
 
 # The SQLite mode is switched in runtest hooks rather than in a fixture because
@@ -267,6 +268,27 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if item.get_closest_marker("owner_vaults") is not None:
             item.add_marker(skip)
+
+
+# The fast lane's connection reuse spans a test's setup, call and teardown (tests/connection_reuse.py).
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    from tests.connection_reuse import TestLanePool
+
+    fresh = (
+        _session_durable
+        or item.config.getoption("--fresh-connections")
+        or any(item.get_closest_marker(name) is not None for name in ("durability", "owner_vaults", "fresh_connections"))
+    )
+    if fresh:
+        return (yield)
+    pool = TestLanePool()
+    token = _db_connection._REUSED.set(pool)
+    try:
+        return (yield)
+    finally:
+        _db_connection._REUSED.reset(token)
+        pool.close()
 
 
 @pytest.hookimpl(tryfirst=True)

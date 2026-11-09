@@ -1,0 +1,231 @@
+"""The fast lane's connection reuse (``tests/connection_reuse.py``) must look like fresh connections to the test.
+
+A reused connection that leaked a setting, a transaction or a stale view would let a test pass that production fails,
+so each way a fresh connection differs from an idle one is pinned here, against a real file. The last tests pin that
+the lanes which must exercise production's open path still do.
+"""
+
+from __future__ import annotations
+
+from contextlib import closing
+import os
+from pathlib import Path
+import sqlite3
+
+import pytest
+
+from learnloop.db import connection as DBC
+from learnloop.db.connection import connect
+from tests.connection_reuse import TestLanePool
+
+
+def _database(tmp_path: Path, name: str = "reuse.sqlite", rows: int = 1) -> Path:
+    path = tmp_path / name
+    with closing(sqlite3.connect(path)) as raw:
+        raw.execute("CREATE TABLE t(n INTEGER)")
+        raw.executemany("INSERT INTO t VALUES (?)", [(n,) for n in range(rows)])
+        raw.commit()
+    return path
+
+
+def _raw_of(connection):
+    return connection._connection
+
+
+def test_a_test_runs_inside_the_pool_and_reuses_one_connection_after_a_read_and_after_dml(tmp_path):
+    database = _database(tmp_path)
+    assert isinstance(DBC._REUSED.get(), TestLanePool)
+    seen = set()
+    for n in range(5):
+        with closing(connect(database)) as connection:
+            seen.add(id(_raw_of(connection)))
+            connection.execute("INSERT INTO t VALUES (?)", (n,))
+            connection.commit()
+        with closing(connect(database)) as connection:
+            seen.add(id(_raw_of(connection)))
+            assert connection.execute("SELECT COUNT(*) FROM t").fetchone()[0] == n + 2
+    assert len(seen) == 1
+
+
+@pytest.mark.parametrize("statement", [
+    "PRAGMA foreign_keys = OFF",
+    "PRAGMA busy_timeout = 1",
+    "CREATE TEMP TABLE scratch(n)",
+    "CREATE TABLE made_here(n)",
+    "ATTACH DATABASE ':memory:' AS other",
+])
+def test_a_connection_that_changed_any_setting_or_schema_is_never_handed_out_again(tmp_path, statement):
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        before = _raw_of(connection)
+        connection.execute(statement)
+    with closing(connect(database)) as connection:
+        assert _raw_of(connection) is not before
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == DBC.BUSY_TIMEOUT_MS
+        assert connection.execute("SELECT COUNT(*) FROM sqlite_temp_master").fetchone()[0] == 0
+        assert "other" not in [row[1] for row in connection.execute("PRAGMA database_list")]
+
+
+def test_a_connection_api_call_that_changes_state_is_not_kept(tmp_path):
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        before = _raw_of(connection)
+        connection.create_function("probe", 0, lambda: 1)
+    with closing(connect(database)) as connection:
+        assert _raw_of(connection) is not before
+        with pytest.raises(sqlite3.OperationalError):
+            connection.execute("SELECT probe()")
+
+
+def test_an_uncommitted_write_is_discarded_at_close_and_holds_no_lock(tmp_path):
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        connection.execute("INSERT INTO t VALUES (99)")
+        assert connection.in_transaction
+    with closing(sqlite3.connect(database, timeout=0)) as other:
+        other.execute("INSERT INTO t VALUES (100)")
+        other.commit()
+    with closing(connect(database)) as connection:
+        assert not connection.in_transaction
+        assert sorted(row[0] for row in connection.execute("SELECT n FROM t")) == [0, 100]
+
+
+def test_a_cursor_left_mid_read_keeps_no_snapshot_or_lock(tmp_path):
+    database = _database(tmp_path, rows=1000)
+    with closing(connect(database)) as connection:
+        cursor = connection.execute("SELECT n FROM t")
+        cursor.fetchone()
+    with closing(sqlite3.connect(database, timeout=0)) as other:
+        other.execute("DELETE FROM t")
+        other.commit()
+    with closing(connect(database)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 0
+
+
+def test_two_users_at_once_get_two_connections_and_a_closed_handle_stays_closed(tmp_path):
+    database = _database(tmp_path)
+    first = connect(database)
+    second = connect(database)
+    assert _raw_of(first) is not _raw_of(second)
+    first.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        first.execute("SELECT 1")
+    third = connect(database)  # the raw connection first gave back: the old handle must stay closed
+    with pytest.raises(sqlite3.ProgrammingError):
+        first.execute("SELECT 1")
+    third.close()
+    second.close()
+
+
+def test_a_commit_by_another_connection_is_seen(tmp_path):
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 1
+    with closing(sqlite3.connect(database)) as other:
+        other.execute("INSERT INTO t VALUES (2)")
+        other.commit()
+    with closing(connect(database)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 2
+
+
+def test_a_database_replaced_by_rename_is_read_afresh(tmp_path):
+    database = _database(tmp_path)
+    replacement = _database(tmp_path, "new.sqlite", rows=7)
+    with closing(connect(database)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 1
+    os.replace(replacement, database)
+    with closing(connect(database)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 7
+
+
+def test_a_database_deleted_is_gone_for_a_read_only_open(tmp_path):
+    database = _database(tmp_path)
+    with closing(connect(database, read_only=True)) as connection:
+        connection.execute("SELECT 1 FROM t")
+    database.unlink()
+    with pytest.raises(sqlite3.OperationalError):
+        connect(database, read_only=True)
+
+
+def test_bytes_edited_in_place_are_read_afresh_even_with_the_change_counter_untouched(tmp_path):
+    """What only the file check can catch: SQLite trusts its page cache while the header's change counter stands."""
+
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        assert connection.execute("SELECT n FROM t").fetchone()[0] == 0
+        kept = _raw_of(connection)
+    original = database.read_bytes()
+    other = _database(tmp_path, "edited.sqlite")
+    with closing(sqlite3.connect(other)) as raw:
+        raw.execute("UPDATE t SET n = 41")
+        raw.commit()
+    edited = other.read_bytes()
+    assert len(edited) == len(original)
+    # The same counter as the original's, so only the bytes of the row differ to a connection that cached the page.
+    edited = edited[:24] + original[24:28] + edited[28:92] + original[92:100] + edited[100:]
+    database.write_bytes(edited)
+    with closing(connect(database)) as connection:
+        assert _raw_of(connection) is not kept
+        assert connection.execute("SELECT n FROM t").fetchone()[0] == 41
+
+
+def test_a_wal_database_is_never_kept(tmp_path):
+    database = _database(tmp_path)
+    with closing(sqlite3.connect(database)) as raw:
+        assert raw.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
+    with closing(connect(database)) as connection:
+        connection.execute("INSERT INTO t VALUES (5)")
+        connection.commit()
+    # Closing the last connection checkpointed the database and removed its companions, as production's close does.
+    assert not database.with_name(database.name + "-wal").exists()
+    assert not database.with_name(database.name + "-shm").exists()
+    assert not DBC._REUSED.get().idle.get((str(database.resolve()), False))
+
+
+def test_a_backup_onto_a_pooled_target_works_and_the_target_is_not_kept(tmp_path):
+    source = _database(tmp_path, rows=3)
+    target_path = tmp_path / "target.sqlite"
+    with closing(connect(source, read_only=True)) as origin, closing(connect(target_path)) as target:
+        kept = _raw_of(target)
+        origin.backup(target)
+    with closing(connect(target_path)) as target:
+        assert _raw_of(target) is not kept
+        assert target.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 3
+
+
+def test_another_thread_opens_its_own_and_the_pool_closes_with_the_test(tmp_path):
+    import threading
+
+    database = _database(tmp_path)
+    types = []
+
+    def read():
+        with closing(connect(database)) as connection:
+            types.append(type(connection))
+            connection.execute("SELECT 1").fetchone()
+
+    thread = threading.Thread(target=read)
+    thread.start()
+    thread.join()
+    assert types == [sqlite3.Connection]
+
+
+@pytest.mark.fresh_connections
+def test_the_marker_opens_real_connections(tmp_path):
+    database = _database(tmp_path)
+    assert DBC._REUSED.get() is None
+    with closing(connect(database)) as connection:
+        assert type(connection) is sqlite3.Connection
+
+
+@pytest.mark.durability
+def test_the_durability_lane_runs_production_connections(tmp_path):
+    from tests.helpers import create_basic_vault
+
+    assert DBC._REUSED.get() is None
+    database = Path(create_basic_vault(tmp_path / "vault").sqlite_path)
+    with closing(connect(database)) as connection:
+        assert type(connection) is sqlite3.Connection
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert connection.execute("PRAGMA synchronous").fetchone()[0] == 2  # FULL

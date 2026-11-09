@@ -30,6 +30,9 @@ import pytest
 from learnloop.db import connection as DBC
 from learnloop.db.connection import connect, reused_connections
 
+# These pin production's own pool, so production's connect path must run around it.
+pytestmark = pytest.mark.fresh_connections
+
 _PROBE = "rospeed2_probe"
 
 
