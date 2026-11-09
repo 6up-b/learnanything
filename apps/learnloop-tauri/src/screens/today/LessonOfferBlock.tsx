@@ -43,6 +43,7 @@ export function useLessonOfferActions({
   sessionId,
   onStartLesson,
   onAnswered,
+  onGone,
   onError
 }: {
   offer: PlanLessonOfferDto;
@@ -51,6 +52,8 @@ export function useLessonOfferActions({
   onStartLesson?: (entry: LessonEntry) => void;
   /** The plan moves on (its next block is chosen): re-read it. */
   onAnswered: (response: OfferResponse) => void;
+  /** IH2: this offer is no longer in the plan (a newer decision replaced it), so no answer can land. */
+  onGone?: () => void;
   onError: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -72,7 +75,9 @@ export function useLessonOfferActions({
         });
       }
     } catch (error) {
-      onError(getCommandError(error)?.message ?? String(error));
+      const failure = getCommandError(error);
+      if (failure?.code === "not_found" && onGone) onGone();
+      else onError(failure?.message ?? String(error));
     } finally {
       setBusy(false);
     }
@@ -96,7 +101,7 @@ export function LessonOfferBlock({
   onAnswered: () => void;
   onError: (message: string) => void;
 }) {
-  const { busy, respond } = useLessonOfferActions({ offer, sessionId, onStartLesson, onAnswered, onError });
+  const { busy, respond } = useLessonOfferActions({ offer, sessionId, onStartLesson, onAnswered, onGone: onAnswered, onError });
   useOfferShown(offer, "today", sessionId);
   if (!offer.decisionId || offer.answered) return null;
 

@@ -23,6 +23,7 @@ export function LessonOfferPage({
   sessionId,
   onStartLesson,
   onAnswered,
+  onGone,
   onError,
   onSomethingElse
 }: {
@@ -32,12 +33,14 @@ export function LessonOfferPage({
   onStartLesson?: (entry: LessonEntry) => void;
   /** The offer was answered: the plan goes on (or, after Start, the lesson has opened). */
   onAnswered: (response: OfferResponse) => void;
+  /** IH2: a newer decision replaced this offer while the page was up, so no answer can land: the host closes the page. */
+  onGone?: () => void;
   onError: (message: string) => void;
   /** IH3: "Something else would help" was chosen and served (the offer ends superseded). The host opens what it served. */
   onSomethingElse?: (result: SomethingElseChosenDto) => void;
 }) {
   const offer = step.offer;
-  const { busy, respond } = useLessonOfferActions({ offer, sessionId, onStartLesson, onAnswered, onError });
+  const { busy, respond } = useLessonOfferActions({ offer, sessionId, onStartLesson, onAnswered, onGone, onError });
   useOfferShown(offer, "offer_page", sessionId);
 
   const { suggestion, alternatives } = offer;

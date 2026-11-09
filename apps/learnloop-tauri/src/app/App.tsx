@@ -81,10 +81,10 @@ import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from 
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
-import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
+import { planStepAction, readerTargetForReading, servedForExplicitStep, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
-import type { IntentRestorationDto, PlanLessonOfferStepDto, PlanReadingDto, PlanStepDto, SomethingElseChosenDto, WorkbenchOpenProblemDto } from "../api/dto";
+import type { DailyPlanDto, IntentRestorationDto, PlanLessonOfferStepDto, PlanReadingDto, PlanStepDto, SomethingElseChosenDto, WorkbenchOpenProblemDto } from "../api/dto";
 import {
   planPresentationForServe,
   proposalOriginForServe,
@@ -200,6 +200,25 @@ export function App() {
   // feedback's Next follows it. Shares Today's cache entry.
   const dailyPlanQuery = useDailyPlan(session?.sessionId ?? null, Boolean(session));
   const planServing = dailyPlanQuery.data?.enabled === true && dailyPlanQuery.data.plan !== null;
+  // IH2: a plan read after the offer page opened that no longer has the offer's block current has moved past it. The read
+  // the page opened beside may be older than the offer, so only a later one says so.
+  const planAtOffer = useRef<{ blockId: string; read: DailyPlanDto | undefined } | null>(null);
+  useEffect(() => {
+    if (todayStage !== "offer" || !planOffer) {
+      planAtOffer.current = null;
+      return;
+    }
+    const read = dailyPlanQuery.data;
+    if (planAtOffer.current?.blockId !== planOffer.blockId) {
+      planAtOffer.current = { blockId: planOffer.blockId, read };
+      return;
+    }
+    if (dailyPlanQuery.refreshing || read === planAtOffer.current.read || !read?.plan) return;
+    if (read.plan.currentBlockId !== planOffer.blockId) {
+      setPlanOffer(null);
+      setTodayStage("queue");
+    }
+  }, [todayStage, planOffer, dailyPlanQuery.data, dailyPlanQuery.refreshing]);
   // The plan banner belongs to the reading step that opened the reader.
   useEffect(() => {
     if (tab !== "reader") setPlanReading(null);
@@ -1258,12 +1277,21 @@ export function App() {
     setTodayStage("queue");
     // Start and an alternative both open a lesson; only "Not now" moves the plan on at once.
     if (response !== "declined" || !sessionId) return;
-    void api.nextPlanItem({ sessionId, serve: false }).then(
-      (next) => {
-        if (next.step && next.step.kind !== "lesson_offer") routePlanStep(next.step);
-      },
-      () => undefined
-    );
+    void api.nextPlanItem({ sessionId, serve: false })
+      .then((next) => servedForExplicitStep(sessionId, next.step ?? null))
+      .then(
+        (step) => {
+          if (step && step.kind !== "lesson_offer") routePlanStep(step);
+        },
+        () => undefined
+      );
+  }
+
+  // IH2: the offer on the page has been superseded (a read crossed the boundary while it was up). Nothing on the page can
+  // answer it any more, so it closes and Today shows what the plan holds now.
+  function closeOfferPage() {
+    setPlanOffer(null);
+    setTodayStage("queue");
   }
 
   // IH3: "Something else would help" on the offer page was chosen and served. The offer it replaced has ended, so the page
@@ -2125,6 +2153,10 @@ export function App() {
             sessionId={session.sessionId}
             {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
             onAnswered={answerPlanOffer}
+            onGone={() => {
+              closeOfferPage();
+              void dailyPlanQuery.refetch().catch(() => undefined);
+            }}
             onSomethingElse={answerSomethingElseOnOffer}
             onError={onError}
           />

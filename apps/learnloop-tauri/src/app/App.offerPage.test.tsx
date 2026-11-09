@@ -2,7 +2,8 @@
 // offer page (it no longer falls through to Today); Start opens the lesson; Not now goes on to the plan's next step.
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { clear } from "../api/queryCache";
+import { clear, invalidate } from "../api/queryCache";
+import { TAG } from "../api/queryTags";
 
 const stubs = vi.hoisted(() => ({
   api: {} as Record<string, (...args: unknown[]) => unknown>,
@@ -62,8 +63,10 @@ vi.mock("../screens/today/TodayPlace", () => ({
   )
 }));
 vi.mock("../screens/PracticeScreen", () => ({
-  PracticeScreen: (props: { onFeedback: (id: string) => void; practiceItemId: string }) => (
-    <div data-testid={`practice-${props.practiceItemId}`}><button onClick={() => props.onFeedback("att_1")}>submit</button></div>
+  PracticeScreen: (props: { onFeedback: (id: string) => void; practiceItemId: string; planPresentationId?: string | null }) => (
+    <div data-testid={`practice-${props.practiceItemId}`} data-presentation={props.planPresentationId ?? ""}>
+      <button onClick={() => props.onFeedback("att_1")}>submit</button>
+    </div>
   )
 }));
 vi.mock("../screens/FeedbackScreen", () => ({
@@ -109,7 +112,9 @@ function apis() {
     lesson: input.response === "declined" ? null
       : { lessonId: "les_1", decisionId: input.decisionId, learningObjectIds: ["lo_relu"], title: "ReLU" }
   }));
-  const nextPlanItem = vi.fn(async () => ({ ...PLAN, enabled: true, step: ITEM_STEP }));
+  const nextPlanItem = vi.fn(async (input: { serve?: boolean }) => ({
+    ...PLAN, enabled: true, step: input.serve ? { ...ITEM_STEP, presentationId: "pp_9" } : ITEM_STEP
+  }));
   const recordOfferShown = vi.fn(async () => ({ version: 1, recorded: true }));
   // IH3: the plan says the quiet link may show; the options and the served choice come from the sidecar.
   const planSomethingElseOptions = vi.fn(async () => ({
@@ -198,16 +203,72 @@ it("Start opens the lesson at once and never before the tap", async () => {
   expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
 });
 
-it("Not now moves on to the plan's next step (its item opens), with no lesson", async () => {
+it("Not now moves on to the plan's next step: its item is served, then opens, with no lesson", async () => {
+  // Review M1: inside the block the read's step names an item nobody served. It must be served as feedback's Next serves it,
+  // or the attempt binds to no presentation and the serve's eligibility decision is skipped.
   const { lessonSuggestionRespond, nextPlanItem } = apis();
   await toFeedbackNext();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Not now" })); });
   await flush();
   expect(lessonSuggestionRespond).toHaveBeenCalledWith(expect.objectContaining({ response: "declined" }));
   expect(nextPlanItem).toHaveBeenCalledWith({ sessionId: "s1", serve: false });
-  expect(await screen.findByTestId("practice-pi_9")).toBeTruthy();
+  expect(nextPlanItem).toHaveBeenCalledWith({ sessionId: "s1", serve: true });
+  const practice = await screen.findByTestId("practice-pi_9");
+  expect(practice.getAttribute("data-presentation")).toBe("pp_9");
   expect(screen.queryByTestId("lesson-stub")).toBeNull();
   expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
+});
+
+it("Not now with a new block next stays a read: the block line is shown, nothing is served", async () => {
+  const { nextPlanItem } = apis();
+  nextPlanItem.mockImplementation(async () => ({ ...PLAN, enabled: true, step: { ...ITEM_STEP, boundary: true } }));
+  await toFeedbackNext();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Not now" })); });
+  await flush();
+  expect(nextPlanItem).not.toHaveBeenCalledWith({ sessionId: "s1", serve: true });
+  expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
+  expect(screen.getByTestId("today-place")).toBeTruthy();
+});
+
+// Review M2: a read crossed the boundary while the page was up, so a newer decision superseded the offer.
+it.each([["Start"], ["Not now"]])("%s on an offer already gone closes the page and re-reads the plan, with no error", async (button) => {
+  const { lessonSuggestionRespond } = apis();
+  lessonSuggestionRespond.mockImplementation(async () => {
+    throw { code: "not_found", message: "That suggestion is no longer in your plan.", retryable: false };
+  });
+  await toFeedbackNext();
+  const getDailyPlan = stubs.api.getDailyPlan as ReturnType<typeof vi.fn>;
+  const reads = getDailyPlan.mock.calls.length;
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: button })); });
+  await flush();
+  expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
+  expect(screen.getByTestId("today-place")).toBeTruthy();
+  expect(getDailyPlan.mock.calls.length).toBeGreaterThan(reads);
+  expect(screen.queryByText("That suggestion is no longer in your plan.")).toBeNull();
+});
+
+it("a plan read that shows another block closes the page", async () => {
+  apis();
+  await toFeedbackNext();
+  expect(screen.getByTestId("lesson-offer-page")).toBeTruthy();
+  (stubs.api.getDailyPlan as ReturnType<typeof vi.fn>).mockImplementation(async () => ({
+    ...PLAN, somethingElse: true, plan: { ...PLAN.plan, currentBlockId: "blk_probe" }
+  }));
+  await act(async () => { invalidate({ tags: [TAG.queue] }); });
+  await flush();
+  expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
+  expect(screen.getByTestId("today-place")).toBeTruthy();
+});
+
+it("a plan read still on the offer's block leaves the page up", async () => {
+  apis();
+  await toFeedbackNext();
+  (stubs.api.getDailyPlan as ReturnType<typeof vi.fn>).mockImplementation(async () => ({
+    ...PLAN, somethingElse: true, plan: { ...PLAN.plan, currentBlockId: "blk1" }
+  }));
+  await act(async () => { invalidate({ tags: [TAG.queue] }); });
+  await flush();
+  expect(screen.getByTestId("lesson-offer-page")).toBeTruthy();
 });
 
 it("a step that is not a lesson offer still routes as before (no offer page, no offer_shown)", async () => {

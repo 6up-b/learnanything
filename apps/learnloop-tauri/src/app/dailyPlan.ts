@@ -88,6 +88,19 @@ export function readerTargetForReading(
   return card ? { card, spanId: reading.startSpanId ?? null } : null;
 }
 
+/**
+ * What an explicit step does with what a read named. Inside the block the read's item is served now, with the offer that
+ * ranked it: an item opened unserved binds its attempt to no presentation and skips the serve's eligibility decision. A
+ * boundary held for an open problem (IH6) decides, since the learner asked to go on. Anything else is already the step.
+ */
+export async function servedForExplicitStep(sessionId: string, next: PlanStepDto | null): Promise<PlanStepDto | null> {
+  if (next && (next.kind === "question_in_progress" || (next.kind === "item" && !next.boundary))) {
+    const served = await api.nextPlanItem({ sessionId, serve: true });
+    return served.step ?? null;
+  }
+  return next;
+}
+
 export interface NextPlanStep {
   /** The prefetched next step (read while feedback shows), when current. */
   readonly step: PlanStepDto | null;
@@ -124,18 +137,7 @@ export function useNextPlanStep(sessionId: string | null, prefetch: boolean): Ne
       });
       const state = peek<DailyPlanDto>(key);
       if (isStale(state, Infinity)) continue;
-      const next = (state.data ?? snapshot)?.step ?? null;
-      if (next && next.kind === "question_in_progress") {
-        // IH6: another problem is open, so the read held this boundary. Next is an explicit step: it decides.
-        const served = await api.nextPlanItem({ sessionId, serve: true });
-        return served.step ?? null;
-      }
-      if (next && next.kind === "item" && !next.boundary) {
-        // Inside the block: serve it now, with the offer that ranked it.
-        const served = await api.nextPlanItem({ sessionId, serve: true });
-        return served.step ?? null;
-      }
-      return next;
+      return servedForExplicitStep(sessionId, (state.data ?? snapshot)?.step ?? null);
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
