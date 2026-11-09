@@ -12,6 +12,11 @@ Both items are therefore serving changes behind their own kill switches, `[route
 `pooled_connections` (default on at the follow-up batch's tag, in RO6's generator payload, the trace's
 `versions.serving_switches` and the prefetch key, as router speed's `held_ad_link`); off serves main's code exactly.
 
+**Superseded at the landing (rulings R1-R4, "Landing onto main" below):** item 1's map is no longer held across
+calls. It is held only within one objective job, as a snapshot as of the job's first read, and nothing digests stored
+rows any more (R1). The numeric seed excludes both switches (R2). A pooled connection on which anything but reads ran
+is closed at release (R4). The sections below describe the stage as built before those rulings.
+
 Fakes only. No paid call, no model request. No owner vault or tracked working vault was opened. Every measurement is
 on a synthetic vault under the worktree's `fixtures-local/rospeed2/`, run under `env -i` with an empty `HOME`,
 `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
