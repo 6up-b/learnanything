@@ -198,7 +198,7 @@ Nothing on the map's deprecated inventory was deleted. `test_ad23_sim` and `sim/
 - **Removed:** 2 test cases (the CLI hash test, and the journey's mvp-0.49 arm).
 - **Merged:** 0. No real duplicates were found (§5).
 - **Rewritten:** 4 (CLI surface, into 3 tests; pure read; RO0 receipts; the follow-ups journey).
-- **Corrected or strengthened in place:** 10 (AD's row, RO5's trace and check, backfill's setup, placement's property, phone contract's item choice, 3 background-work orderings, the planted-key checks across 3 files).
+- **Corrected or strengthened in place:** 12 (AD's row, RO5's trace and check, backfill's setup, placement's property, phone contract's item choice and wait, 3 background-work orderings, the narrative test's lane, the VOI golden's ids, the planted-key checks across 3 files).
 - **Added:** 33 test functions, 51 cases: `test_connection_reuse` 23 functions, `test_learner_protection_predicates` 4, `test_ad23_sim_smoke` 1 (15 cases), and one each in `test_shadow_rebuild`, `test_blind_grading_contract`, `test_ad2_serving`, `test_mcp_c1a_narrow` and `test_placement_fixture_copies`.
 
 ## 7. Plumbing list for the refactor
