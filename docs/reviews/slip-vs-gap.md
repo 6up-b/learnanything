@@ -140,3 +140,137 @@ Regenerated on the final tree (`db_generate_reference`, `module_generate`, `desk
   exact at serving time, not for a historical recompute.
 - The kill switches restore mvp-0.55's values at the same seed; across the tag the seed itself differs, as at every
   successor (Codex F2, declined).
+
+## Landing onto main
+
+Merged main `78669c40b9` (IH's landing merges, Decider v1.2, the placement hole's mvp-0.56, RE0's migration 252, the
+LOG fix, the refactor docs and measures script) in `17b7ef6614`; the gate's fixes in `d017f8bf55`; the module catalog
+regenerated on the committed merge in `186c31045b`.
+
+**The merge.** The chain is now mvp-0.54 -> mvp-0.55 (IH5) -> mvp-0.56 (the placement hole) -> mvp-0.57.
+`slip_gap_upgrade.PREDECESSOR` is `UNEVIDENCED_RETURN_ALGORITHM_VERSION` and its upgrade and completion imports point at
+`unevidenced_return_upgrade`; the CLI and sidecar openers install the 0.57 completion, which hands a 0.56 journal down the
+chain; `upgrade --to` names mvp-0.56 and mvp-0.57 (default the latest). The SG switches' off-state notes (registry,
+schema, module docstrings) now say mvp-0.56. All 48 defaults snapshots were recomputed from the merged tree
+(`defaults_fingerprint_for_version`; idempotent). The frozen-digest tests keep every normalization (`drop_ih5_keys`, the
+40 s router wait reset to 8.0, `undo_decider_v12`, `drop_unevidenced_return_keys`, `drop_sg_keys`);
+`test_sg_successor.py` names mvp-0.56 as the predecessor, and its frozen mvp-0.55 base digest adds the two
+normalizations that landed after its base. Latest-tag pins moved to mvp-0.57: the conflicting pin hunks and 11 cleanly
+merged lines (sets missing mvp-0.56, chain slices one link short) by exact-pattern script, the semantic hunks (the
+openers' chain, IH5's and phone V3's tests, the placement test) by hand. `tests/cli_surface.json`'s `upgrade --to` default
+is mvp-0.57. `learnloop.slip_gap_upgrade` sits in the experiments-isolation contract beside the placement and RE0
+modules (`miss_cause` and `miss_cause_report` are inside `learnloop.router_objective`, already listed). References were
+regenerated, not hand-merged (the 508 conflicting notes taken from main, then `db_generate_reference`, `module_generate`,
+`desktop_generate`); the two prose leaf counts moved 1193 -> 1195 by hand.
+
+**The gate's two code fixes** (`d017f8bf55`). The first full suite found two time-cutoff reads of `practice_attempts`
+in `router_objective/miss_cause.py` that neither asked RO1's availability predicate nor were allowlisted
+(`test_ro1_availability_reads`, landing ruling R1; deterministic, and not in the branch's targeted sets):
+- `_between` (β's "nothing on the topic in between"): an intervening attempt now counts only once known at the decision
+  (`attempt_time_sql`), as `beta_rows`' own miss and next-check reads already did; the window stays by occurrence time.
+  It differs only for an attempt received after the decision.
+- `probe_posterior`: allowlisted with its reason (the cutoff is the probe observation's own write time; the attempt row
+  is joined only to reach the presentation).
+
+### Gate
+
+| Step | Result |
+|---|---|
+| Targeted (139 files: `test_sg*`, every successor/upgrade test incl. 0.55/0.56/0.57, frozen-digest and defaults files, the router/IH/RO files of this record, `test_e0_isolation`, `test_codex_lockdown_round3`, CLI help and JSON, architecture, registry audit, public-tip guards) | first run 11 failed (merge pins: 6 sets missing mvp-0.56, 5 chain slices), fixed; those 11 files again: 221 passed, 6 skipped, 1 xfailed |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| `db_generate_reference` / `db_validate_reference` | regenerated; errors `[]` (1195 configuration leaves) |
+| `module_generate` / `module_validate` | 1268 module notes; PASS |
+| `desktop_generate` / `desktop_validate` | 330 TS/TSX + 6 Rust; passed, reproducible |
+| `validate_vault.py` | passed (2270 notes) |
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Full pytest, first run (`-n 8 --dist worksteal`) | 30890 passed, 97 skipped, 47 xfailed, 3 failed: `test_ro1_availability_reads` (the two reads above, fixed), `test_curriculum_c1_landing` (a chain slice, fixed), `test_ih2_one_open_offer::test_a_need_decision_replacing_an_interrupting_offer_keeps_its_place_and_what_it_beat` (load flake: 3/3 alone and 3 x 36/36 for its file at `-n 6`) |
+| Full pytest, after the fixes | **30893 passed, 97 skipped, 47 xfailed, 0 failed** (the known `test_ro5_stop_coin` flake did not fire) |
+| Durability lane (`-m durability -n 4`), after the fixes | 417 passed, 1 skipped |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 91 passed, 4 skipped (as main) |
+| Desktop / phone | no file under `apps/` changed: not run |
+
+### Smoke
+
+In-process, on fresh backup-API copies of the Nov 9 backup (mvp-0.54, migration 250) in gitignored
+`fixtures-local/landing-sg-smoke/`. Each copy was opened (migrations 251 and 252) and upgraded: with main's code
+(`git archive 78669c40b9`) to mvp-0.56 (`m56`), and with this branch to mvp-0.57 (`u57`). Variants of `u57`: `off` (both
+switches false), `sg1` (`miss_cause_in_value = false`), `on` (both true). Every AI route of each tree points at
+127.0.0.1:9; the router LLM, the Decider, grading and diagnosis and the FG1 author are the tests' in-process fakes; a socket
+guard logs every connection and refuses any non-loopback one. The drivers are the placement and IH landings'.
+
+**Draw control.** The numeric policy's draw count was pinned on both trees alike: the driver wraps
+`router_objective.value.evaluate` to run its first batch only (`keep_going` and `deadline` removed), so no refinement
+batch depends on the monotonic clock. The identity drives also ran on an otherwise quiet machine; one SG2 day repeated
+under the full suite's load reproduced its first run exactly.
+
+1. **Identity first: both switches off at mvp-0.57 equals main at mvp-0.56.** A served day at 2026-11-12 15:00 (the
+   second item missed, FG1's follow-up authored, the first stop declined, the mixture seed pinned to the decision id,
+   the numeric seed key's version dropped on both sides): Today, the plan, every step, submit and feedback, the router
+   LLM requests (11 / 5 / 5) and Decider requests (11 / 5 / 5), the gate, the objective traces and every written row
+   are identical on arxiv_v2 (14 served), linear_algebra (7) and probability (4). Set aside: the version label
+   (mvp-0.56 / mvp-0.57) and RO6's generator key (it names the version and the serving-switch record, which gains
+   `miss_cause_in_value = false` at the tag). The comparison also sets aside the two switch keys and the sensor's
+   `miss_cause` fields wherever recorded; with the switches off none appeared outside the generator key.
+2. **SG1 alone: no value moves.** Against `off`, on all three vaults: every candidate's `q` in every trace is equal,
+   and no choice changes. The sensor is in the traces (18 / 5 / 4) and on 33 / 17 / 11 candidates' topic sensors, on
+   every LLM card ("router-policy-card-v4 ... miss causes", the "What the last miss on each topic was" section), and on
+   the lesson offer's card record (`attention_block_events`). What else differs is the card's text and size and the
+   cost estimate that follows from it (`cost_usd`), in receipts and decision payloads.
+3. **SG2 on: which values move, and whether a choice changes.** Compared trace by trace with `off` until the day
+   diverges:
+   - arxiv_v2: the first moved decision (plan_block, trace 8) moved only two repairs on diagnosed topics (-0.0102 for a
+     miss read 93% gap, -0.0051 for one read 71% slip). The numeric choice switched between the two repairs, and so
+     did the drawn one. After that the day diverges (18 served instead of 14), so later differences are a different day.
+   - probability: one lesson and one repair on the diagnosed topic moved (-0.00027, -0.00084); no choice changed.
+   - linear_algebra: nothing moved (its only diagnosed candidate's miss reads `p_gap = 1.0`, where the split equals the
+     old slope).
+   - No maintain, new-material, stop or sequence candidate moved before a divergence.
+   - **The LLM's share.** SG2 does not touch the LLM's distribution: its share passes into the mix unchanged (0.8 of
+     the mix in these decisions). For example, a repair whose miss read 71% slip took 0.43 of the mix from the LLM's
+     0.6 (arxiv_v2), and every lesson offer after a diagnosed miss kept its LLM-weighted mass. No lesson candidate with
+     a slip-dominant miss arose in these drives.
+4. **IH's lesson offer and placement's returned LOs at 0.57.** IH hand-off on probability (2026-11-12 15:00, item 2
+   missed): on main at 0.56, `off` and `on`, `plan_interrupt` holds the lesson offer beside `insert_now` with the same
+   support and propensity (0.1181) and draws it. The offer is the step right after feedback, `offer_shown` is written,
+   and Start opens the lesson with `sources_follow` recorded. Only `on` carries the sensor on the offer's record. (On
+   arxiv_v2 the same scenario reaches no lesson at that position on any of the three, alike.) Placement: the scheduler
+   queue (no limit), the plan's classified pool and the new-material candidates are identical on `m56` and `u57`
+   (both switches on) at the backup's noon and three days later, on all three vaults, arxiv_v2's returned items
+   included.
+5. **Protection.** Scanned: every router LLM prompt, every Decider state, every objective trace and router decision
+   written by the `sg1` and `on` days, and on its own the sensor's surfaces (every `miss_cause` object and the card's
+   miss-cause section). Protected text: every causal hypothesis statement (36 / 4 / 5), every diagnosis `analysis_md`
+   (5 / 0 / 1), and on one probability copy two items made exam-reserved (an unreleased `exam_pool_items` row), with
+   their prompts and expected answers.
+   - **The sensor's surfaces carry none, and no trace or decision row carries any.** The exam-reserved items were not
+     served in a 90-minute day (13 served).
+   - Pre-existing on main: hypothesis statements do appear in the Decider state and in the LLM card's existing
+     sections (open problems, "the learner's own read of possible causes"). The matches are the same on main at 0.56,
+     on `off` and on `sg1` (19 / 5 / 8). On arxiv_v2 with SG2 on, the diverged day shows 6 more through those same
+     sections. This change adds none.
+6. **`rebuild --shadow`** on fresh copies of `m56`, `u57` and the `on` copy after its served day, all three vaults:
+   exit 0, live unchanged every time. linear_algebra and probability show stamp-only mastery rows. arxiv_v2 shows
+   stamp-only rows plus the pre-existing rows earlier landings noted (two mastery rows,
+   `lo_render_a_classifier_s_decision_regions` and `lo_trace_recursive_relu_folding`, and nine `pi_lesson_*` due
+   dates), the same on `m56` and `u57`. Nothing beyond them.
+7. **No real model call, no network.** 350 new receipts across the drives, every one a fake's (`fake_decider` 95,
+   `fake_llm` 190, `fake` 65); the scenario copies' newest receipts are fakes only. The socket log has no non-loopback
+   connection and no name lookup (subprocesses: `git` and `powerprofilesctl` only).
+
+### Owner steps
+
+1. Restart the desktop app and the phone host.
+2. Upgrade each vault to mvp-0.57: `learnloop upgrade --vault <path>` (the default target; from mvp-0.56, or from
+   mvp-0.9 onwards through the chain).
+3. To turn it off: `[router_objective] miss_cause_in_value = false` keeps the sensor and mvp-0.56's values;
+   `miss_cause_sensor = false` serves mvp-0.56 exactly (SG2 needs SG1).
+
+### Open items
+
+- `test_ih2_one_open_offer::test_a_need_decision_replacing_an_interrupting_offer_keeps_its_place_and_what_it_beat`
+  failed once under the full suite's load and passed every rerun. It is untriaged, and may be timing-sensitive like
+  `test_ro5_stop_coin`'s rounding flake (which did not fire here).
+- The hypothesis statements already on the Decider state and the LLM card (item 5) predate this change. They are
+  consistent with the Nov 1 owner rule (blind only the grader), but the landing brief's protection line reads them as
+  protected.
+- Everything under "What is unverified" above still stands, except the full suite and the durability lane.
