@@ -74,6 +74,21 @@ def install_grading_outage(monkeypatch) -> None:
     monkeypatch.setattr(practice, "ready_grading_provider", lambda vault, override=None: ("fake", DownRuntime(), None))
 
 
+def _no_load_dependent_wait() -> None:
+    """A method past the host's 15 s wait answers 202 "still running", and ``Phone.rpc`` requires 200. On a loaded
+    machine a long method can pass 15 s, so every host test's result depended on the load. Tests of the wait itself
+    set their own short value (tests/test_mobile_jobs.py)."""
+
+    try:
+        from learnloop_mobile import host
+    except ImportError:  # without the mobile extra these tests skip themselves
+        return
+    host.JOB_WAIT_SECONDS = 600
+
+
+_no_load_dependent_wait()
+
+
 def seeded_vault(root: Path, *, fresh: bool = False):
     paths = create_basic_vault(root, fresh=fresh)
     repository = seed_due_item(paths)

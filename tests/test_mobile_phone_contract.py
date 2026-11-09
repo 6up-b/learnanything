@@ -150,13 +150,9 @@ def host_world(tmp_path, monkeypatch):
     pytest.importorskip("starlette")
     from starlette.testclient import TestClient
 
-    import learnloop_mobile.host as host
     from learnloop_mobile.host import create_app
     from tests.mobile_host_helpers import CountingGrader, HOSTNAME, Phone, config_for, install_grader, pair, seeded_vault
 
-    # A method past the host's 15 s wait answers "still running", which isn't the reply this journey reads. On a loaded
-    # machine a long method can pass it, so the journey's result mustn't depend on the machine's load.
-    monkeypatch.setattr(host, "JOB_WAIT_SECONDS", 600)
     paths, repository = seeded_vault(tmp_path / "vault")
     # Mobile v2 V4: one book for the Reader's replies (a real PDF in the store, a reading in three sections).
     from tests.test_mobile_v4_reader import add_book
