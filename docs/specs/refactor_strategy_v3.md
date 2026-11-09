@@ -242,7 +242,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 
 **C2. Registry-tied modules** (M).
 - **Problem:** `MODULE_INVENTORY` (`params/parameter_registry.py:107`) imports these at `resolve_effective` through `importlib`, so "0 imports" was wrong. Deleting a module without its entry raises at registry refresh.
-- **Candidates:** `substrate/compat/substrate_cutover.py` (721; 2 entries), `scheduling/progression_policy.py` (103; 3), `scheduling/progression.py` (341; 3), `scheduling/reentry_adapter.py` (287; 2), `scheduling/predictive_targets.py` (165; 1), `scheduling/short_session.py` (117; 0 entries, but named by `open_world_gate`'s `_has_attrs` check, to read).
+- **Candidates:** `substrate/compat/substrate_cutover.py` (721; 2 entries), `scheduling/progression_policy.py` (103; 3), `scheduling/progression.py` (341; 3), `scheduling/reentry_adapter.py` (287; 2), `scheduling/predictive_targets.py` (165; 1), `scheduling/short_session.py` (117; in `MODULE_INVENTORY` with no `_reg_const` entry). `scheduling/open_world_gate.py`'s `_has_attrs` also imports modules by name, so step 0 reads its list.
 - **Files:** those, `parameter_registry.py`, `open_world_gate.py`, `test_architecture.py`, `test_progression.py`, `test_activity_contract_extensions.py`, `test_laddered_stems.py`, `test_reentry_short_session.py`.
 - **Check in step 0:** `refresh` loops over `decision_specs()` and leaves a removed spec's stored row in place, so it stays readable. Confirm `freeze_manifest` and `doctor` tolerate that. A removed decision parameter changes the next frozen manifest only.
 - **Proof:** P-shadow; registry tests. **Vault:** generated.
@@ -261,7 +261,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 **C5. Golden Path** (L, split if the review finds it large) `[IH]`.
 - **Problem:** compile-time off (`SHOW_GOLDEN_PATH`), 39 RPCs, tables seeded by migration (T3), `bridge_active` (`daily_plan/policy.py:36`) still read by `router_active` and the handler.
 - **Files:** `screens/GoldenPathScreen.tsx` (1,276), `components/goldenpath/`, `fixtures/goldenpath/`, `keymap.ts`, `App.tsx`; `handlers/golden_path.py`, `ladder.py`, `diagnostic.py` (check: some `diagnostic.*` may serve other screens); `daily_plan/policy.py`.
-- **Check:** `DoseOffer.tsx` and `ExemplarConfirmDialog.tsx` mention golden names; `bridge_active` also carries the `router.enabled` switch `router_active` needs, so its check moves, not goes. `test_p2_acceptance` goes only for what it uniquely proves.
+- **Check:** `open_world_gate.py:134` imports `curriculum.golden_path_assessment` and `pattern_ladder` by name; `DoseOffer.tsx` and `ExemplarConfirmDialog.tsx` mention golden names; `bridge_active` also carries the `router.enabled` switch `router_active` needs, so its check moves, not goes. `test_p2_acceptance` goes only for what it uniquely proves.
 - **Tables:** left in place for J1. **Proof:** vitest, P-tests. **Verify:** Codex greps for a learner route left. **Vault:** User Journey Map.
 
 **C6. P4 controller, kinship, shadow components** (M, conditional).
@@ -285,12 +285,12 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 
 ### 2.6 Arc D: history
 
-**What I proved.** An AST closure over every import, function-local included and `TYPE_CHECKING` excluded, starting from `substrate/rebuild_orchestrator`, `shadow_rebuild`, `canonical_projection`, `attempts/attempts`, `daily_plan/engine` and `ops/doctor`, reaches 485-579 modules and none of the 42 upgrade modules. The only `importlib` paths are the registry's `MODULE_INVENTORY`, `valuation`'s named gaps, `open_world_gate` and the fetchers, and none names an upgrade. So replay doesn't import them.
+**What I proved.** An AST closure over every import, function-local included and `TYPE_CHECKING` excluded, starting from `substrate/rebuild_orchestrator`, `shadow_rebuild`, `canonical_projection`, `attempts/attempts`, `daily_plan/engine` and `ops/doctor`, reaches 485-579 modules and none of the 42 upgrade modules. The `importlib` paths in `src` are the registry's `MODULE_INVENTORY`, `valuation`'s named gaps, `open_world_gate`, the fetchers and the PF sandbox, and a scan for `_upgrade` strings finds none naming an upgrade. So replay doesn't import them.
 
 **What they're still needed for:**
 1. **The CLI's `upgrade`.** Every link is its next link's predecessor.
 2. **Every writing open.** The CLI and sidecar install `phone_probes_upgrade.complete_interrupted_activation`, which hands a journal naming an earlier link down the chain, back to mvp-0.33. Without a journal it checks one path and returns.
-3. **Three helpers.** `UpgradeResult`, `rewrite_algorithm_version`, `publish_algorithm_version`, `write_activation_journal`, plus two constants that `learner/recall_calibration.py:16` imports.
+3. **Helpers.** `UpgradeResult`, `rewrite_algorithm_version`, `publish_algorithm_version`, `write_activation_journal`, plus two constants that `learner/recall_calibration.py:16` imports.
 4. **Old vaults.** The retired vaults' tags are unknown. A restore from an old backup needs an upgrade path.
 5. **Tests.** 190 test files name a tag at or below mvp-0.42. 62 call an upgrade. 34 are upgrade or successor files.
 
@@ -304,7 +304,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 
 **D2a. The default test vault moves to the head** (L) `[T]`.
 - **Problem:** finding 3 in §1. Basic-vault tests run the path below every real vault's tag, so later removals would delete what they test while leaving the real path untested.
-- **Measured:** a random 40 of the 271 files, run with the pin changed by a scratch plugin (no source edited): baseline all green; at mvp-0.43, 11 of 441 tests failed in 5 files of the sample plus 2 in others (7 files); at mvp-0.54, 14 of 441. So expect very roughly 50-60 files and a few percent of their tests. This sample is small, and other files may be worse.
+- **Measured:** a random 40 of the 271 files, run with the pin changed by a scratch plugin (no source edited): baseline green on the failing files; at mvp-0.43, 11 of 441 tests failed, in 7 of the 40 files; at mvp-0.54, 14 failed, in at least 8. So expect very roughly 50 files and a few percent of their tests. The sample is small, and other files may be worse.
 - **Files:** `config/schema.py:18`'s default (to the floor or a required field), `tests/helpers.py:21`, `:75-79`, the basic vault's facets (it's "the pre-KM2 contract"), `use_init_algorithm_version`, the failing tests.
 - **Rule:** a failing test is fixed to assert the same behaviour on the real path, or, if it only ever described the old path, deleted with a line in the landing note. An assertion is never edited to whatever the code now says without reading why it differs. A difference is a finding.
 - **Proof:** P-tests; the Codex review reads every changed assertion. **Vault:** Testing.
@@ -315,7 +315,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Proof:** as D2a.
 
 **D3. The upgrade table** (L) `[IH]`.
-- **Problem:** Z1, P5, X-clones: `_activate_as_writer` in 19 modules, `_upgrade` in 21, `complete_interrupted_activation` in 20. The 12 newest links differ only in the name of their upgrade function, and the ones behind them differ by little (checked by normalized AST). `interval_factor` is the real exception: a whole-vault rebuild. `cli/app.py:108` has a 180-line docstring and a 40-branch `if`. 23 tests pin `inspect.getsource(...)` to name the latest module.
+- **Problem:** Z1, P5, X-clones: `_activate_as_writer` in 19 modules, `_upgrade` in 21, `complete_interrupted_activation` in 20. By normalized AST, the 7 newest links (mvp-0.48 on) differ only in the name of their upgrade function, and most of the 14 before them in four or five small functions, which step 0 reads. `interval_factor` is a real exception (a whole-vault rebuild), and `replay_ledger`'s activation differs too; step 0 reads it. `cli/app.py:108` has a 180-line docstring and a 40-branch `if`. About 23 assertions pin `inspect.getsource(...)` to name the latest module.
 - **Files:** new `ops/upgrades.py`; `algorithm_versions.py`; `cli/app.py`; `cli/runtime.py:138`; `learnloop_sidecar/context.py:810`; `activation_journal.py`; `learner/recall_calibration.py:16`; the tests.
 - **Deletes:** all 42 modules (about 8,900 lines; `recurrence/upgrade.py` and `ops/vault_upgrade.py` included), about 400 lines of `cli/app.py`, most of 8,808 lines of tests, the chain-walking tests (Z1).
 - **Adds:** one table: `Link(tag, activate)`, where `activate` is `idempotent_projection` or `whole_vault_rebuild`, or a function if a link needs one. It replaces 42 clones with one transaction, journal and publication. A successor adds a row.
@@ -324,7 +324,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Target:** a new tag is 1 constant, 1 row, 1 test row.
 
 **D4. Constant gates: attempts, mastery, grading** (L) `[IH] [RE0]`.
-- **Problem:** with the floor enforced, a gate on a set that holds every tag at or above the floor has a dead else-branch. By AST against the real chain, 79 sites at floor mvp-0.43, and 90 at floor mvp-0.55, in 47 sets. (The map's "about 40 pure, 38 paired" isn't reproducible; my own syntactic split found only 10 paired, and it misses some, such as `daily_plan/policy.py:42`. Each site gets read.)
+- **Problem:** with the floor enforced, a gate on a set that holds every tag at or above the floor has a dead else-branch. By AST against the real chain, 79 sites are constant at a floor of mvp-0.43, and all 90 sites (47 sets) at a floor at the head. (The map's "about 40 pure, 38 paired" isn't reproducible; my own syntactic split found only 10 paired, and it misses some, such as `daily_plan/policy.py:42`. Each site gets read.)
 - **Files:** `attempts/` (17 sites), `learner/` (6), and `held_grades`-adjacent callers.
 - **Deletes:** the gate and its else-branch. Where a gate pairs with a kill switch, only the tag half goes; the switch waits for D7.
 - **Proof:** P-shadow identical on every copy, and P-tests at the head. **Vault:** Attempt Processing, Learning System where they state a removed branch.
@@ -405,7 +405,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 Nothing here changes a value at a fixed draw count without the playbook. More draws fitting before a deadline is existing behaviour, as in both speed stages.
 
 **F1. Column checks** (M).
-- **Problem:** D5. 54 `table_info` sites in 40 files each mark a pooled connection (`db/connection.py:310`), raising opens per job from 5 to 17. Most guard schemas that no open can have, since every writing open migrates and every other attach refuses a mismatch.
+- **Problem:** D5. 54 `table_info` sites in 40 files each mark a pooled connection (`db/connection.py:310`), raising opens per job from 5 to 17. Many appear to guard schemas no open can have, since every writing open migrates and every other attach refuses a mismatch; step 0 reads each.
 - **Files:** those sites; `db/schema_facts.py` (one small helper, cached per head migration), used only by the sites that remain.
 - **Deletes:** checks with no older schema to guard, after D1 (read each: some exist for test databases with partial schemas, and those tests move to the real schema). `db/stores/source_service.py` (5), `router_objective/scores.py` (2), `router_objective/checks.py:563`, `daily_plan/router_card.py:447` first.
 - **Keeps:** R4's rule that a marked connection closes.
@@ -576,5 +576,143 @@ About **50-100M Opus tokens including re-read context,** plus about 60 Codex rev
 | RE3-RE8 | E6, RE2, I1 | New action kind; one read function for `S_eff`; RE7 is an `objective.py` term. RE's spec places RE3-RE8 between the refactor and the UX audit; the brief says beside the audit. Either works here. |
 | UX audit and overhaul | C3-C5, B9 | Fewer backends; `why.get` for the glass-box view; the UX list this strategy collects |
 | Codex docs, last | all | Describes the final screens |
+
+## 3. The decision record
+
+### 3.1 What it is
+
+**One record, one trace id, one entry point.** A decision-producing function returns a `DecisionRecord`, and the imperative shell writes it. Rich domain rows stay where they are, because replay and the playbook depend on them, and the record points to them. For failures, exclusions and refusals, which have no domain row today, the record is the row.
+
+It sits at meaningful boundaries: the inventory in §3.8, not every function. It never holds learner text or item text.
+
+### 3.2 The shape
+
+`decision_records`, role `RECEIPT` (append-only, never cleared by replay, never read by it):
+
+| Column | What it holds |
+|---|---|
+| `id` | ULID; also the record's handle in `why` |
+| `trace_id` | One learner-visible action and its background work (§3.3) |
+| `parent_id` | The record that caused this one, possibly in an earlier trace |
+| `kind` | `plan_block`, `model_answer`, `offer_withdrawn`, `slate`, `figure_prebuild`, `figure_author`, `grade`, ... (constants beside the code that writes them) |
+| `status` | `chosen`, `fallback`, `excluded`, `withdrawn`, `timeout`, `discarded`, `failed`, `refused`, `deferred` |
+| `subject_kind`, `subject_id` | `attempt`, `item`, `block`, `offer`, `figure`, `job`, so a learner-visible thing finds its records |
+| `chosen_ref` | What won, or null |
+| `decided_by` | The rule, policy or route: `lane_quota`, `mixture`, `router_llm`, `prefetch_eu_v1` |
+| `rule` | Why: a named code (`chooser_error`, `forced_items`, `no_measured_latency`, `sampled_eu_positive`) |
+| `alternatives_json` | `[{ref, p, score, lost_by}]`: each alternative, its score or probability, and the rule that excluded it. Capped at 50, with an overflow count per rule |
+| `facts_json` | The inputs as of that moment that explain it, as numbers, ids and codes: `{timeout_s, waited_ms, p_open, wait_min, cost_min, waits_n}` |
+| `versions_json` | Tag, policy or prompt version, model id, seed, and the switches that changed this decision |
+| `detail_table`, `detail_id` | The rich row: `router_decisions`, `ad_selections`, `interactive_figures`, ... |
+| `error_type`, `error_where` | On failure: the exception class and `module:function:line`. No message by default, following the owner's Oct 24 rule that a traceback can quote what the code read, so it goes to the log at DEBUG with the trace id (`daily_plan/engine.py:4935`'s pattern) |
+| `created_at` | |
+
+**What happened next** isn't a column. It's the next record whose `parent_id` is this one, the `detail` row's own outcome (`router_outcomes`), or a presentation and attempt reached from the subject.
+
+**In Python:** `provenance.DecisionRecord` (frozen dataclass), `provenance.write(connection, record)`, `provenance.current_trace()`. A pure function returns the dataclass; it never writes. Writing joins the caller's transaction where there is one, otherwise it takes its own short one. A failed write logs a warning and never changes the decision.
+
+### 3.3 The trace id
+
+**Born** once per learner-visible action:
+- sidecar: `learnloop_sidecar/server.py:_handle`, per RPC;
+- phone: `learnloop_mobile/runtime.py:250`, which dispatches the same handlers;
+- MCP: `learnloop_mcp/server.py:364`;
+- CLI: the root callback.
+
+**Carried** by a ContextVar. Threads already start in a copied context (`router_runtime.py:495`), so router jobs inherit it with no change.
+
+**Across a queue:** enqueuing a job writes a `job_enqueued` record with the job id as subject; the worker looks it up and continues that trace. No job table changes. So submit, grade, diagnosis and follow-up generation share one trace.
+
+**Across actions:** the next plan decision is a new trace, and its `parent_id` names the record of the attempt its key already depends on (`objective_chooser.py:1225`). That closes break 1.
+
+**Model calls** get a real `model_call_receipts.trace_id` column, set from the ContextVar in `db/stores/model_calls.py:45`. That closes break 2 without moving the decision id, which feeds the mix's seed.
+
+**Logs:** `learnloop_sidecar/logging.py:84`'s `log_event` adds the trace id, so logs join through it.
+
+### 3.4 Replay and persisted meaning
+
+Writing a record changes no replayed meaning, for these reasons, each with a test:
+- no replay or rebuild code can reach the table (import closure and a SQL scan, in the style of the upgrade proof);
+- the role is `RECEIPT`, so rebuild never clears it;
+- AD's guard classifies it as not readable by AD;
+- `model_call_receipts.trace_id` is nullable, and no projection reads it.
+
+Old decisions keep their rows and get no backfilled records. `why` reads old rows through a small reader labelled "reconstructed" (§3.6).
+
+### 3.5 The entry point
+
+```
+learnloop why [latest | <trace-id> | <record-id> | attempt:<id> | item:<id> | block:<id> | figure:<id>]
+              [--kind k] [--first-build] [--payload] [--json] --vault V
+```
+
+- **Read-only:** `connect(path, read_only=True)`, no sync and no maintenance.
+- **Answers,** for each decision: chosen; alternatives, each with score or probability and why it lost; the inputs as of then; who decided, with versions and seed; what happened next; anything discarded, including calls in the trace that finished late or have no decision (S4, S5 derive from this rather than from new writes).
+- **`item:<id>`** keeps today's `why` question and adds exclusions.
+- **`--payload`** reads the prompt and output through the existing receipts, on the desktop's CLI only.
+- **The glass-box view** reads the same function through one RPC, `why.get`, which returns ids, numbers and codes, not payloads. The UX stage draws it. It isn't on the phone's allowlist.
+- `learnloop router trace` and `trace-evidence` become views over the same reader.
+
+### 3.6 The four real cases, and how they're tested
+
+| Case | How it's answered | From |
+|---|---|---|
+| **Nov 7, router LLM answers discarded by the 8 s timeout** | `plan_block`: `facts.timeout_s = 8`, `facts.waited_ms`, the mix's alternatives. `model_answer`, `decided_by=router_llm`, `status=timeout`. Receipts with this `trace_id` finishing after the decision's `created_at`: `why` prints "answered N s late, discarded", with `--payload` showing the answer | B1, B2 |
+| **Nov 8, offer withdrawn with `forced_items`** | `offer_withdrawn`, `rule=forced_items`, `parent_id` = the offer's `plan_block`, `alternatives` = the forced items, `facts` = their workflow and source attempt. The next `plan_block`'s `parent_id` = this record. Under IH2's switch the case becomes one contest decision showing both with their chances | B3 |
+| **Nov 8, figure stored failed for a bad prediction** | One `figure_author` per attempt: `status`, `rule=prediction_invalid`, typed problem codes, prompt version, model; `detail` = the `interactive_figures` row. Since `214c206ff1` a bad prediction drops only itself: `rule=prediction_dropped` | B4 |
+| **Why automatic pre-builds started after 12 skips** | `figure_prebuild` per candidate: `rule=no_measured_latency`, then `sampled_eu_positive`; `facts.waits_n`, `wait_min`, `cost_min`, `p_open`; versions with the seed. `why --kind figure_prebuild --first-build` shows the last skip, the first build, and the measurement that changed between them. My reading of the code (no 12 exists; every skip before the first measured latency; EU then positive with cost 0) is a hypothesis until rows confirm it | B4 |
+
+**The honest limit.** Those four events happened before these records exist. No backup can make them answer from `decision_records`, and the Nov 3 copies predate them too. So there are two tests.
+
+**1. Staged, runs in every suite (`tests/test_why_cases.py`).** Each case is staged with fake models and a synthetic vault: a slow LLM past the wait, then a late answer; a probe arriving while an offer waits; a figure author returning a bad prediction; a run of pre-build passes before and after the first measured latency. Each asserts the fields above from `why --json` alone.
+
+**2. Real rows, on a fresh backup (`tests/test_why_real_cases.py`, marker `owner_vaults`).** It runs once the owner supplies a backup taken after Nov 8:
+
+```
+# the owner, or an agent with the owner's fresh backup path:
+#   copy with learnloop.db.copies.copy_tree_with_databases into fixtures-local/why-cases/
+LEARNLOOP_OWNER_VAULTS=$PWD/fixtures-local/why-cases \
+  systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G \
+  uv run pytest -m owner_vaults tests/test_why_real_cases.py -v
+```
+
+It finds, by date and shape, rows from Nov 7-8 on `arxiv_v2`, and asserts what `why`'s "reconstructed" reader can give from rows of that age:
+- **Case 1:** a `router_decisions` row with LLM status `timeout`, and its receipt joined through `boundary_key`, output present or the reason it's absent.
+- **Case 2:** the `expired` response with `forced_items`, plus the time-ordered next decision and workflow rows, labelled as inferred.
+- **Case 3:** the `interactive_figures` row with `verification='failed'`, its reason and call rows.
+- **Case 4:** the count of skip rows before the first non-skip per trigger kind, and the time of the first press or completed `figure_author` call. It reports whether that count is 12 and whether the first measurement falls between. If it doesn't, the hypothesis is wrong and the owner is told.
+
+Failures print ids and field names only. Nothing from it goes in a tracked file.
+
+**A later backup completes it:** after B4 has been live through a real timeout, withdrawal, figure failure and first build, the same test finds native records, and asserts they answer without the word "reconstructed".
+
+**Verified by a reader without the code.** A Codex reader gets only `why --json` output and the four questions, plus the past-bug sample in §6, and writes the answers. The owner judges them.
+
+### 3.7 Storage and protection
+
+**Storage.** Rows are small: ids, numbers, capped lists. Exclusions are aggregated by rule, with counts and a few ids. Assume at most about 1 KB a row and about 30 rows per attempt cycle (this is an estimate; B6 measures it on a copy-shaped synthetic journey). `router.payload_retention_days` prunes `alternatives_json` and `facts_json` on old rows and keeps the row. If growth passes 5% of a vault's database per month, B6 tightens what it records by rule. Payloads aren't duplicated: the receipts already hold them.
+
+**Protection and blindness.** The proportionate bar: a row holds no prose. A test checks that `facts_json`, `alternatives_json` and `rule` contain only numbers, ids and code constants, with item text planted in the fixture. No model context reads the table, and no grader context can, enforced as AD's guard is. `why.get` returns no payloads, and `--payload` reads only what the receipts already hold, on the owner's own desktop CLI. A trace therefore can't move protected text anywhere new.
+
+### 3.8 Inventory: what has no record today, and where it's covered
+
+| Gap (map) | Debugging value | Step |
+|---|---|---|
+| Chooser crash S1; timeout S2; provider failure S3; `card_error` S6 | Highest: cost the owner real time | B2 |
+| Orphan calls S4; eviction S5 | High; derived at read, no write | B1, B2 |
+| Withdrawal; check draw or place failure; lesson builder crash; AD unavailable; head mismatch S12; eligibility on ordinary serves | High | B3 |
+| Figure filter S7; reason S8; stoppages S9; salvage S10; author refusal; unseeded RNG | High | B4 |
+| Disabled Decider and lost text S11; refused decision row S13; lost logged check S14; refused spend | Medium | B5 |
+| Scheduler skip S15; slate exclusions; serving exclusions outside offers | High (daily-loop bug 2) | B6 |
+| Held grade; grading verdict; diagnosis attribution; follow-up value; VOI forecast failure; causal probe's router link; probe selection; AD generation refusal; hint ladder's missing client; `decision_receipt_id`'s overload | Medium to high; several read only by outline | B6, B7 |
+| Teacher lesson and check; Reader retrieval; ingest routing; route fallback; retries; re-read and alias; curriculum path; FSRS rating and elapsed; device eligibility's failure | Lower; read first, record or write down why not | B8 |
+| Learner protection, a per-call read | Recorded only where it excludes something from a decision (B4, B6). Not per read | none alone |
+
+**What it replaces.**
+- **Kept:** `router_decisions` and payloads, `router_objective_traces`, `ad_selections` (the model for the shape), `judgment_ledger`, `plan_presentations`, the causal receipts and the receipts in `§4.3`. They're ledgers with guarantees, and the playbook keeps them immutable.
+- **Gone:** the JSON join from decision to receipt (new rows), free-text `owner_id` as the join, AD's JSONL denial log if nothing else reads it, in-memory build notes, `why`'s writes, and per-subsystem entry points as separate code.
+- **Net concepts:** +1 table, +1 small module, +1 RPC; −4 entry points and −3 ad hoc logs. It's the one new concept this strategy adds, and it's justified because no existing mechanism can answer the owner's four cases.
+
+**ADR-017** records all of this. **"Decision" isn't renamed everywhere;** `router_decisions` stays.
 
 <!-- NEXT -->
