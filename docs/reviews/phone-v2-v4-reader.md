@@ -194,10 +194,10 @@ R1 `b1b08138a6`; R2 (b) `6b428a6c66` (pypdfium2 in the mobile extra, lock update
 
 ### The owner's steps
 
-`uv sync --extra dev --extra mobile` (new pypdfium2 dependency; confirm 5.14.0 is installed), rebuild the PWA, restart the phone host, `learnloop doctor`, Reload the phone app, then P7 and P8 on the iPhone (§6). To turn the feature off: `phone_reader = false` in `mobile.toml`; the phone returns to V3.
+`uv sync --inexact --extra dev --extra mobile` (new pypdfium2 dependency; `--inexact` because a plain sync in the main checkout uninstalls torch and marker; pypdfium2 stays at 4.30.0), rebuild the PWA, restart the phone host, `learnloop doctor`, Reload the phone app, then P7 and P8 on the iPhone (§6). To turn the feature off: `phone_reader = false` in `mobile.toml`; the phone returns to V3.
 
 ### Open items
 
 * The D6 pickup from the desktop's reading sweep goes to the follow-up batch (R2 e).
-* A plain `uv sync` resolved pypdfium2 to 4.30.0 here; verify the lock holds 5.14.0 for the mobile extra on the owner's machine.
-* Twin plan composition difference above (phone eligibility) is not isolated.
+* R2 (b) narrowed by the orchestrator: the mobile extra says `pypdfium2>=4`, not 5.14.0, because an exact 5.14.0 is unsatisfiable beside the pdf extra (marker-pdf -> pdftext 0.6.3 pins 4.30.0). The lock and the owner's host hold 4.30.0, and the phone's page tests pass under it (49 passed) as under 5.14.0. The gate itself ran under 5.14.0.
+* Twin plan composition difference above: the orchestrator compared the twins' plans on linear_algebra, and the 26 plans' blocks (ordinal, lane, action, subtype, status, items) are equal, with no block deferred (`deferredCount` 0). The other plan fields and the other two copies weren't compared, so what differs there is still not isolated. Not a stop condition: doses, rows and progress are equal.
