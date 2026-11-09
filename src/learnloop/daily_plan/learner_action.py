@@ -218,6 +218,22 @@ def _label(kind: str, candidate: BlockCandidate | None) -> str:
     return WORDS[kind]
 
 
+def _plans_pick_label(kind: str, block: Any) -> str:
+    """The plan's own drawn pick in plain words: a lesson offer by its topic, a reading by its section, else the kind's."""
+
+    try:
+        if kind == LESSON and block is not None and block.is_lesson_offer:
+            from learnloop.daily_plan.lesson_suggestion import offer_card_view
+
+            title = str(((offer_card_view(block) or {}).get("suggestion") or {}).get("title") or "")
+            return f"Learn {title}" if title else WORDS[kind]
+        if kind == READ and block is not None and (block.reading or {}).get("section_title"):
+            return f"Read {block.reading['section_title']}"
+    except Exception:  # noqa: BLE001 - the plain kind is always a fair label
+        LOG.warning("learner preference: the plan's own pick was not named", exc_info=True)
+    return WORDS[kind]
+
+
 def _phone_serves(env: Any, kind: str, candidate: BlockCandidate | None) -> bool:
     """A phone serves a practice block whose first item it can show. Lessons and readings, and an item the device
     leaves for the desktop, it logs and says wait."""
@@ -271,7 +287,7 @@ def options(env: Any) -> Options:
         if parent is not None and parent_kind == kind:
             # The plan's own drawn pick stands for its kind: its ref, its logged probability, nothing to place.
             ref = str(parent["chosen_ref"])
-            out.append(Option(kind, ref, _label(kind, None), None, probabilities.get(ref), plans_pick=True,
+            out.append(Option(kind, ref, _plans_pick_label(kind, waiting), None, probabilities.get(ref), plans_pick=True,
                               servable=_phone_serves(env, kind, None)))
         elif candidate is not None:
             out.append(Option(kind, candidate.candidate_id, _label(kind, candidate), round(candidate.est_minutes, 2),
