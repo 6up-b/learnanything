@@ -212,6 +212,28 @@ def test_another_thread_opens_its_own_and_the_pool_closes_with_the_test(tmp_path
     assert types == [sqlite3.Connection]
 
 
+def test_a_test_that_forbids_opening_a_connection_is_not_satisfied_by_an_idle_one(tmp_path, monkeypatch):
+    database = _database(tmp_path)
+    with closing(connect(database, read_only=True)) as connection:
+        connection.execute("SELECT 1 FROM t").fetchone()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("store access")
+
+    monkeypatch.setattr(sqlite3, "connect", forbidden)
+    with pytest.raises(AssertionError, match="store access"):
+        connect(database, read_only=True)
+
+
+def test_a_shortened_busy_timeout_reaches_the_next_connection(tmp_path, monkeypatch):
+    database = _database(tmp_path)
+    with closing(connect(database)) as connection:
+        connection.execute("SELECT 1 FROM t").fetchone()
+    monkeypatch.setattr(DBC, "BUSY_TIMEOUT_MS", 50)
+    with closing(connect(database)) as connection:
+        assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == 50
+
+
 @pytest.mark.fresh_connections
 def test_the_marker_opens_real_connections(tmp_path):
     database = _database(tmp_path)

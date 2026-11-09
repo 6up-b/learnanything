@@ -17,6 +17,8 @@ installs and leaves through the same connection hook. It differs from production
 * It notices what no SQLite connection can: a database file replaced or edited behind its back. The file's identity,
   size and mtime are recorded at each release, and a mismatch at the next checkout closes that path's idle connections.
 
+A test that patches the open path (``sqlite3.connect``, ``BUSY_TIMEOUT_MS``...) gets real opens while its patch stands.
+
 A WAL database is never kept (closing the last connection checkpoints it, which tests may observe). The durability
 lane, the owner lane, ``--fresh-connections`` and the ``fresh_connections`` marker open every connection for real, so
 production's open path keeps running in the gate.
@@ -54,6 +56,20 @@ def _signature(path: str) -> tuple[int, int, int, int] | None:
     return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
 
 
+_PRODUCTION_OPEN = (sqlite3.connect, _db_connection._open_read_only, _db_connection._open_writable,
+                    _db_connection._configure, _db_connection.BUSY_TIMEOUT_MS)
+
+
+def _open_path_patched() -> bool:
+    """A test has changed what opening a connection does: it spies on it, forbids it ("this code touches no store") or
+    shortens the busy timeout. Reusing an idle connection would skip that, and such a test could pass for the wrong
+    reason, so while the patch stands every connect takes production's open path."""
+
+    current = (sqlite3.connect, _db_connection._open_read_only, _db_connection._open_writable,
+               _db_connection._configure, _db_connection.BUSY_TIMEOUT_MS)
+    return any(now is not original and now != original for now, original in zip(current, _PRODUCTION_OPEN))
+
+
 class _Reused(_db_connection._ReusedConnection):
     __slots__ = ()
 
@@ -77,6 +93,9 @@ class TestLanePool(_db_connection._ConnectionPool):
 
     def connect(self, sqlite_path: Path, *, read_only: bool):
         if self.closed or (not read_only and current_ingest_job_id(sqlite_path) is not None):
+            return None
+        if _open_path_patched():
+            self._forget_all()
             return None
         resolved = str(sqlite_path.resolve())
         key = (resolved, bool(read_only))
@@ -106,6 +125,12 @@ class TestLanePool(_db_connection._ConnectionPool):
         super().give(key, raw)
         if not self.closed:
             self._file_at_release[key[0]] = _signature(key[0])
+
+    def _forget_all(self) -> None:
+        for resolved, _mode in list(self.idle):
+            self.idle[(resolved, _mode)], closing = [], self.idle[(resolved, _mode)]
+            for raw in closing:
+                raw.close()
 
     def _forget(self, resolved: str) -> None:
         for mode in (False, True):
