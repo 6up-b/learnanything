@@ -475,6 +475,13 @@ APPROVED_LAUNCH_SITES = {
     # `git rev-parse --verify HEAD` / `git cat-file blob` in the owner's checkout
     # (fixed argv, no shell), no model call.
     ("scripts/s0_landing.py", "_git", "subprocess.run"),
+    # The refactor's measures script (S0/Z2), run by the orchestrator: read-only
+    # `git ls-files` (tracked), `git rev-parse` and `git status` (main), fixed argv,
+    # no shell; run_timed starts only the fixed pytest commands of its TIMED table,
+    # and only under --timed. No model call.
+    ("scripts/refactor_measures.py", "tracked", "subprocess.run"),
+    ("scripts/refactor_measures.py", "run_timed", "subprocess.run"),
+    ("scripts/refactor_measures.py", "main", "subprocess.run"),
     ("src/learnloop/ai/chatgpt_plan/store.py", "_fsync_directory", "getattr(os)"),
     ("src/learnloop/ai/providers/codex.py", "SdkCodexClient.__init__", "subprocess.Popen"),  # annotation
     # The launch check's probes: the resolved Codex CLI, never a model call.
@@ -549,6 +556,7 @@ APPROVED_LAUNCH_SITES = {
 APPROVED_LAUNCH_COUNTS: dict[tuple[str, str, str], int] = {
     ("src/learnloop/ai/providers/codex.py", "default_startup", "subprocess.Popen"): 2,
     ("src/learnloop/content/authoring/concept_animation.py", "_session_kwargs", "getattr(subprocess)"): 2,
+    ("scripts/refactor_measures.py", "main", "subprocess.run"): 2,
 }
 
 
