@@ -205,3 +205,30 @@ So the assertion `step["kind"] == "item"` fails about 5% of the time: the lesson
 - The durability lane (WAL) for the prefetch's read-only attach, and `plan_something_else` on the RPC worker racing a serve on the job worker. It's guarded by the receipt key and SQLite, but I didn't run it.
 - `router.log_decisions = false`. `record_decision`'s fallback to `insert_now` covers only an exception, and a `None` receipt returns earlier, so a drawn lesson with no receipt looks possible. My run with logging off settled `no_intervention` without drawing a lesson, so I can't say whether it's reachable.
 - The Rust passthroughs (compiled by nobody here), and the full suite, per your instruction.
+
+## Fixes
+
+Fixed on `instruct/handoff` after this review. Each finding was reproduced first. Commit hashes are in the table; the merge is the last step (m1).
+
+| Finding | Outcome | Commit |
+|---|---|---|
+| B1 | Fixed. `SomethingElse` reads no plan. `App` decides from the plan it holds (`peek`, no fetch) and `PlanToday` from its own read. Test: feedback makes no `get_daily_plan` call with and without the flag (3 against 2 before the fix). | `3217a11da4` |
+| M1 | Fixed. *Not now* serves through `servedForExplicitStep`, shared with feedback's Next. The test that pinned the bug now pins the serve. | `05e1f7dbe0` |
+| M2 | Fixed. `not_found` closes the page and re-reads, and a later plan read with another block current closes it. Today's card takes `not_found` the same way. | `05e1f7dbe0` |
+| M3 | Fixed, with a different rule for the open offer. An offer counts only if it was on screen or answered, and only for rows at the tag with the switch on. A decision replacing an open offer isn't held back by the ceiling at all, because leaving only that offer out of the count still ends the next replacement by rule. | `4a43accdee` |
+| M4 | Fixed. A contest always runs with an open offer being replaced, and "that draw stands" holds only while no offer has been drawn since. A requested item or a randomized check still gives `none:forced_items` beside an open offer: §5 item 2 keeps those forced. | `4a43accdee` |
+| M5 | Fixed. An unseen offer ends `expired` (`withdrawn: never_shown`). The review named one sweep; TE1b's `_sweep_ignored` also reached passed offers and is fixed too. | `4a43accdee` |
+| M6 | Fixed. A device's choice with no step builds its reply from the stored plan. Host tests pin the row counts. | `3fff1f3022` |
+| m1 | Fixed as the last step: main recorded as a real parent with `git merge -s ours`. See the report for how it was checked. | the merge commit |
+| m2 | Fixed. The phone is told the drawn lesson waits; it stays an agreement, so the parent isn't called `overridden`. | `3fff1f3022` |
+| m3 | Fixed. Servable where `device.serves_reading` says so. Checked at the function; no reading option arises in the host fixture. | `3fff1f3022` |
+| m4 | Fixed. A retry gives the first outcome and finishes a serve a crash left owing. `replayed` is no longer an outcome, only a flag. | `3fff1f3022` |
+| m5 | Fixed. A need follow-up's `plan_interrupt` is read through its `followup_deferred` event. | `4a43accdee` |
+| m6 | Fixed. `correctness IS NOT NULL`. | `3fff1f3022` |
+| m7 | Fixed. `TodayPlace` has the link with a session. | `4a43accdee` |
+| m8 | Fixed. An override writes `prefilter` and `decision_state` receipts with `decision_kind = learner_pick`. | `3fff1f3022` |
+| m9 | Fixed. `App.offerPage.test.tsx` corrected; IH3's replies checked against a real host with the plan on (`tests/test_ih3_phone_host.py`); the word-list guard now reads `engine.py` and `learner_action.py`, and its docstring says rules on other counts need behaviour tests; IH5 pinned through a real chooser; the IH6 test pins its draw. | `3fff1f3022` |
+
+**New in this pass, not in the review.** The old ceiling count was the only thing stopping a redraw loop. Two written probes that had each lost to a lesson passed each other's offer on every read, so reads alone would have drawn for ever once unseen offers stopped counting. Workflows an offer replaced had beaten now move to the newest offer (`engine._followups_lost`). Spec §5 "What bounds the draws" has the argument. The test fails without the change.
+
+**Left for the owner, unchanged:** whether `w_pref` acts or stays report-only; whether a learner-asked lesson uses IH7's diagnosed sections; whether an open Reader problem holds decisions when no session is open; the `cold_failing` gate at `lesson_suggestion.py:198`.

@@ -21,6 +21,7 @@ from learnloop.db.stores import followup_serve as store
 from learnloop.db.stores import router_suggestions as suggestions
 from learnloop.followup_serve import workflow as wf
 from learnloop.router import lesson_suggestions as LS
+from learnloop.router_objective import offer_report
 
 from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.router_mixture_helpers import rows
@@ -391,6 +392,8 @@ def test_an_offer_drawn_after_a_miss_and_never_rendered_is_no_decline(tmp_path, 
         assert release is not None and release["response"] == "expired"
         assert LO.offer_standing(connection, decision, today=env.today()) == LO.OFFER_PASSED
     assert _observations(env) == []
+    with env.repository.connection() as connection:
+        assert offer_report.binding(connection, decision)["response"]["response"] == "never_shown"
     assert _sweep(env) == 0  # once
     with pytest.raises(SG.SuggestionError):  # and it takes no late answer
         SG.respond(env.vault, env.repository, decision_id=decision, response="accepted", clock=env.clock)

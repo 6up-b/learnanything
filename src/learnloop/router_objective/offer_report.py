@@ -47,6 +47,8 @@ def binding(connection: Any, decision_id: str) -> dict[str, Any] | None:
         detail = json.loads(taken_back[0] or "{}") if taken_back is not None else {}
         if detail.get("superseded_by_decision"):
             out["response"] = {"response": "superseded", "by": detail["superseded_by_decision"], "at": taken_back[1]}
+        elif detail.get("withdrawn") == "never_shown":
+            out["response"] = {"response": "never_shown", "at": taken_back[1]}
         return out
     out["response"] = {"response": response[0], "candidate_ref": response[1], "at": response[3]}
     if not response[2] or not _has(connection, "lessons"):

@@ -51,6 +51,15 @@ OFF = "[router_objective]\nstop_coin = 0.0\nworkbench_is_open_item = false\n"
 SESSION = "s1"
 
 
+@pytest.fixture(autouse=True)
+def _a_block_of_items_unless_a_test_asks(draw):
+    """These tests are about when a boundary is decided, not what it draws. A real draw's seed is fresh each run and a stop
+    and a lesson are in its support, each at the floor, so a test assuming a block of items failed about one run in twenty.
+    A test wanting a lesson names it (``draw.prefer``)."""
+
+    draw.never_stop, draw.avoid = True, ("lesson_offer:",)
+
+
 def _start_session(env, *, at: str | None = None, session_id: str = SESSION) -> None:
     env.session_id = session_id
     with env.repository.connection() as connection:
@@ -371,11 +380,9 @@ def test_a_follow_up_ready_during_a_workbench_waits_then_competes_at_the_next_re
     assert rows(env, "plan_block")[-1]["detail_json"]["mixture"]["support"] == [f"followup_contest:{probe}", OFFER]
 
 
-def test_a_mid_block_follow_up_waits_too_with_no_decision_of_its_own(tmp_path, draw):
+def test_a_mid_block_follow_up_waits_too_with_no_decision_of_its_own(tmp_path):
     env, live = _need_path_env(tmp_path, toml=NO_CHECKS)
     _start_session(env, at=iso(env.clock.now() - timedelta(minutes=1)))
-    # The first block's real draw has a stop and a lesson in its support, each at the floor: this test needs a block of items.
-    draw.never_stop, draw.avoid = True, ("lesson_offer:",)
     _record, step = advance(env, serve=True)
     assert step["kind"] == "item"
     env.clock.advance(2)

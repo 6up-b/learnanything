@@ -36,6 +36,13 @@ SERVED_STEP_READS = ("step.kind", "step.practiceItemId", "step.presentationId", 
 PLACED_TABLES = ("attention_blocks", "router_objective_traces", "plan_presentations")
 
 
+@pytest.fixture(autouse=True)
+def _a_block_of_items_unless_a_test_asks(draw):
+    """A real draw's seed is fresh each run, and a stop or a lesson at the floor would change what these tests start from."""
+
+    draw.never_stop, draw.avoid = True, ("lesson_offer:",)
+
+
 def _fake_lesson(_env, _record):
     return BlockCandidate(candidate_id="lesson_offer:lo_a", lane="new", action="instruct", subtype="lesson_offer",
                           learning_object_ids=("lo_a",), item_ids=(), reading=None, est_minutes=12.0, planner_value=0.1,
@@ -268,6 +275,9 @@ def test_an_override_keeps_the_state_a_pick_keeps(tmp_path):
                                    (made.served_decision_id,)).fetchone()
     assert state is not None and state["decision_kind"] == "learner_pick"
     assert state["candidate_items"] == len(option.candidate.item_ids)
+    with env.repository.connection() as connection:
+        assert connection.execute("SELECT decision_kind FROM prefilter_receipts WHERE decision_id = ?",
+                                  (made.served_decision_id,)).fetchone()[0] == "learner_pick"
 
 
 # -- m6: the choice model's feature ----------------------------------------------------------------------------------------
