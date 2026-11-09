@@ -7,7 +7,7 @@ The sources, each the existing record and never a new one:
 * attempts: ``practice_attempts``;
 * reading and reveals: the Reader's exposures through data capture's one read (:func:`learnloop.data_capture.
   reading_exposures.read`) and ``reveal_events`` (a reveal tied to an attempt is kept with it, so it never cues it);
-* lessons: ``lessons`` (a lesson exposes each of its learning objects when it ends);
+* lessons: ``lessons`` (a lesson exposes each of its learning objects from when it opens, never when it closes);
 * the frozen required method: the attempt's pinned assessment contract (:func:`learnloop.db.stores.write_provenance.
   pinned_contract_ids`), None where an attempt has none;
 * the follow-up binding: ``followup_tasks.consumed_attempt_id``; ``followup_workflows`` (the attempt that answered its
@@ -60,12 +60,14 @@ def _lessons(connection: sqlite3.Connection) -> list[Exposure]:
     if not _present(connection, "lessons"):
         return []
     out: list[Exposure] = []
-    for ids_json, opened, closed in connection.execute("SELECT learning_object_ids_json, opened_at, closed_at FROM lessons"):
+    for ids_json, opened in connection.execute("SELECT learning_object_ids_json, opened_at FROM lessons"):
         try:
             ids = json.loads(ids_json or "[]")
         except ValueError:
             continue
-        out.extend(Exposure(str(lo), str(closed or opened), LESSON) for lo in ids if lo)
+        # From when it opened, never when it closed: the label is a function of what happened before the attempt, so
+        # closing a lesson later cannot change an earlier attempt's label.
+        out.extend(Exposure(str(lo), str(opened), LESSON) for lo in ids if lo)
     return out
 
 

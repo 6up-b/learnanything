@@ -12,7 +12,7 @@ The seven fields (the spec's table):
   session reads the router objective's own session rule (less than ``session_gap_minutes`` since the previous attempt,
   itself with no session).
 * ``after_reading`` / ``after_lesson``: a Reader exposure or a reveal on the attempt's learning object / a lesson on it
-  ended within ``window_hours`` before the attempt began. The attempt began at its time less its latency when it has
+  opened within ``window_hours`` before the attempt began. The attempt began at its time less its latency when it has
   one, so help given during the attempt (a reveal, a tutor answer) is help, not a cue, and a reveal tied to this attempt
   is never counted. The window is the caller's (the report passes the outcome contract's retention minimum, 24 hours, the delay under which
   a read is not a delayed one).

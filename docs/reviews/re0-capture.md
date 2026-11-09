@@ -51,7 +51,7 @@ Defined once, as the router objective's own clock, not a second one: the Reader'
 |---|---|
 | `same_lo_before`, `same_concept_before` | The previous practice attempt in the session (same `session_id`; an attempt with no session reads the router objective's `session_gap_minutes`, passed in) is on the same learning object / concept. Self-reports, skips and imported exam answers are never "previous" |
 | `after_reading` | A Reader exposure on the attempt's learning object (data capture's one read, `reading_exposures.read`) or any `reveal_events` row on it, within the warmth window before the attempt began. A reveal tied to this attempt, or after it began, is help and does not count |
-| `after_lesson` | A closed (or opened) `lessons` row naming the learning object, within the window |
+| `after_lesson` | A `lessons` row naming the learning object, from when it opened (never when it closed), within the window |
 | `method_stated` | The attempt's pinned assessment contract froze a `required_method` (`contract_required_method`). No pinned contract: unreadable, listed, not read as false |
 | `followup_of_miss` | `followup_tasks.consumed_attempt_id`, or the attempt that answered a `followup_workflows` presentation, or the first other attempt on its item after the workflow was made |
 | `randomized_check` | An attempt `router_objective.checks.resolve` ties to a drawn slot (reads `policy_experiment_assignments`) |

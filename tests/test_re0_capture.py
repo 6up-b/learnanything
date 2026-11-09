@@ -395,3 +395,57 @@ def test_an_attempt_with_an_unreadable_cue_stays_out_of_the_uncued_mean(tmp_path
     assert method["uncued"]["attempts"] == 0 and method["uncued"]["scored"] == 0
     assert method["unlabelled"]["attempts"] == 1 and method["unlabelled"]["mean_correctness"] == 1.0
     assert section["unlabelled_for_an_unreadable_field"] == 1
+
+
+def _lesson(connection, lesson_id: str, los: list[str], opened: str) -> None:
+    connection.execute(
+        "INSERT INTO lessons(id, driver, origin, entry, goal_text, goal_json, learning_object_ids_json, doctrine_version, "
+        "brief_version, algorithm_version, opened_at) VALUES (?, 'desktop', 'learner_pick', 'learning_object', 'g', '{}', "
+        "?, 'd', 'b', 'a', ?)", (lesson_id, json.dumps(los), opened))
+
+
+def test_closing_a_lesson_later_does_not_change_an_earlier_attempts_label(tmp_path):
+    _root, loaded, repository = _exam_vault(tmp_path)
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM practice_attempts")
+        _lesson(connection, "les1", ["lo_svd_definition"], _stamp(-60))      # opened an hour before the attempt
+        _insert(connection, _attempt("t1", 0, lo="lo_svd_definition", session=None), correctness=1.0, active=None)
+        _pin_contract(connection, "t1")
+
+        def label():
+            ledger = L.build(connection, loaded, repository, window_hours=WINDOW_HOURS, session_gap_minutes=SESSION_GAP)
+            return C.attempt_cue_v1(next(r for r in ledger.attempts if r["id"] == "t1"), ledger)
+
+        before = label()
+        assert before.after_lesson and before.label == C.CUED
+        connection.execute("UPDATE lessons SET closed_at = ?, close_reason = 'goal_reached' WHERE id = 'les1'", (_stamp(120),))
+        assert label() == before
+
+
+@pytest.mark.parametrize("source", ["later_attempt", "later_reading", "later_reveal", "later_lesson", "later_followup",
+                                    "later_check", "later_method_contract"])
+def test_a_later_event_never_changes_an_existing_attempts_label(source):
+    attempts = [_attempt("a1", 0, lo="lo_a", concept="c_a"), _attempt("a2", 10, lo="lo_b", concept="c_b")]
+    base = _ledger(attempts)
+    expected = C.attempt_cue_v1(attempts[1], base)
+    later = 600  # minutes after both attempts: only what happens afterwards differs
+    more: dict = {}
+    extra = list(attempts)
+    if source == "later_attempt":
+        extra.append(_attempt("a3", later, lo="lo_b", concept="c_b"))
+    elif source == "later_reading":
+        more["exposures"] = [C.Exposure("lo_b", _stamp(later), C.READING)]
+    elif source == "later_reveal":
+        more["exposures"] = [C.Exposure("lo_b", _stamp(later), C.READING, attempt_id=None)]
+    elif source == "later_lesson":
+        # A lesson that opened after the attempt, whenever it closes, is not before it.
+        more["exposures"] = [C.Exposure("lo_b", _stamp(later), C.LESSON)]
+    elif source == "later_followup":
+        more["followups"] = frozenset({"a3"})
+    elif source == "later_check":
+        more["checks"] = frozenset({"a3"})
+    elif source == "later_method_contract":
+        more["method_stated"] = {"a1": False, "a2": False, "a3": True}
+    ledger = _ledger(extra, **({"method_stated": {str(r["id"]): False for r in extra}, **more} if "method_stated" not in more
+                               else more))
+    assert C.attempt_cue_v1(attempts[1], ledger) == expected
