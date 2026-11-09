@@ -506,13 +506,20 @@ def surprise_words(surprise: Mapping[str, Any] | None, reference: Sequence[float
 # -- SG2: beta, the calibration and the cause slopes -----------------------------------------------------------
 
 
-def _between(connection: Any, lo: str, after: str, before: str, after_id: str, before_id: str) -> bool:
-    """Whether anything happened on the topic strictly between two attempts: another attempt, or a lesson opened."""
+def _between(connection: Any, config: Any, lo: str, after: str, before: str, after_id: str, before_id: str,
+             now_iso: str) -> bool:
+    """Whether anything happened on the topic strictly between two attempts: another attempt known at ``now_iso``
+    (RO1's availability predicate, landing ruling R1: an attempt imported later is not there yet; the window
+    itself stays by when the work happened), or a lesson opened."""
 
+    from learnloop.router_objective_switches import attempt_time_sql
+
+    known = attempt_time_sql(config, connection, alias="a")
     row = connection.execute(
-        "SELECT 1 FROM practice_attempts WHERE learning_object_id = ? AND ((created_at > ? OR (created_at = ? AND id > ?)) "
-        "AND (created_at < ? OR (created_at = ? AND id < ?))) LIMIT 1",
-        (lo, after, after, after_id, before, before, before_id)).fetchone()
+        "SELECT 1 FROM practice_attempts a WHERE a.learning_object_id = ? "
+        "AND ((a.created_at > ? OR (a.created_at = ? AND a.id > ?)) "
+        f"AND (a.created_at < ? OR (a.created_at = ? AND a.id < ?))) AND {known} <= ? LIMIT 1",
+        (lo, after, after, after_id, before, before, before_id, now_iso)).fetchone()
     if row is not None:
         return True
     if not _table(connection, "lessons"):
@@ -560,7 +567,7 @@ def beta_rows(connection: Any, config: Any, now_iso: str) -> tuple[list[dict[str
         if nxt is None or str(nxt[0]) in exposed:
             counts["no_next_check"] += 1
             continue
-        if _between(connection, lo, created, str(nxt[1]), attempt_id, str(nxt[0])):
+        if _between(connection, config, lo, created, str(nxt[1]), attempt_id, str(nxt[0]), now_iso):
             counts["intervening"] += 1
             continue
         p_gap = weighted[0][GAP]

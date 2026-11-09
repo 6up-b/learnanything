@@ -278,6 +278,10 @@ OCCURRENCE_TIME_READS: dict[tuple[str, str], str] = {
         "write path: binds a placement quick check's answers inside its own session window",
     ("learnloop/placement/state.py", "evaluate_independence"):
         "outcome: an attempt's independence, by the attempts that happened before it",
+    ("learnloop/router_objective/miss_cause.py", "probe_posterior"):
+        "slip or gap SG1: the cutoff is the probe observation's own write time (o.created_at, when its posterior "
+        "became known, after its attempt was received); practice_attempts is joined only to reach the presentation, "
+        "never cut by when the work happened",
     ("learnloop_sidecar/handlers/sessions.py", "_session_cold_checks"): "report: a session's summary",
     ("learnloop_sidecar/handlers/sessions.py", "_session_followups_queued"): "report: a session's summary",
 }
