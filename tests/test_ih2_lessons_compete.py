@@ -62,7 +62,7 @@ def draw(monkeypatch):
     holds); the uniforms are not reproduced, which no test here reads. Nothing named: the real draw."""
 
     real = mix.draw
-    control = SimpleNamespace(prefer=(), never_stop=False)
+    control = SimpleNamespace(prefer=(), never_stop=False, avoid=())
 
     def fake(support, parts, weights, epsilon, seed):
         drawn = real(support, parts, weights, epsilon, seed)
@@ -70,8 +70,9 @@ def draw(monkeypatch):
             match = next((option for option in support if str(option).startswith(ref)), None)
             if match is not None:
                 return replace(drawn, chosen=match, propensity=drawn.pi[match])
-        if control.never_stop and drawn.chosen == "stop_for_today":
-            other = next(ref for ref in support if ref != "stop_for_today")
+        avoid = (*(("stop_for_today",) if control.never_stop else ()), *control.avoid)
+        if str(drawn.chosen).startswith(avoid):
+            other = next(ref for ref in support if not str(ref).startswith(avoid))
             return replace(drawn, chosen=other, propensity=drawn.pi[other])
         return drawn
 
@@ -875,7 +876,8 @@ def test_replay_gives_every_logged_decision_its_logged_mu(tmp_path, draw, monkey
 
 DECISION_MODULES = (
     "daily_plan/objective_chooser.py", "daily_plan/router_chooser.py", "daily_plan/lesson_offer.py", "daily_plan/policy.py",
-    "followup_run/router.py", "router_objective/mix.py", "daily_plan/staged_frame.py",
+    "followup_run/router.py", "router_objective/mix.py", "daily_plan/staged_frame.py", "daily_plan/engine.py",
+    "daily_plan/learner_action.py",
 )
 EVIDENCE_WORDS = ("stuck", "correctness", "miss_count", "misses", "n_misses", "score_on_attempt", "last_score")
 
@@ -894,7 +896,9 @@ def _names_in(tree: ast.AST) -> set[str]:
 
 def test_no_decision_module_reads_a_score_or_a_stuck_flag():
     """Static: the modules that form a decision's support and its draw name none of these in any condition or call.
-    A guard against a rule being added, with its limits in the module's report (spec §5 "As built")."""
+    A guard against a rule being added, with its limits in the module's report (spec §5 "As built"). It sees names, so a
+    rule on another count or flag is out of its reach: the ceiling's and the forced rule's cancellations of an open offer
+    are pinned by behaviour (``tests/test_ih2_offer_ceiling_and_unseen.py``)."""
 
     root = pathlib.Path(E.__file__).resolve().parents[1]
     for relative in DECISION_MODULES:

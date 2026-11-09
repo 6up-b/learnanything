@@ -154,9 +154,10 @@ def features_at(connection: Any, config: Any, *, at: str, minutes_left: float | 
 
     known = attempt_time_sql(config, connection)
     row = connection.execute(
-        f"SELECT correctness FROM practice_attempts WHERE attempt_type != 'self_report' AND {known} <= ? "
+        f"SELECT correctness FROM practice_attempts WHERE attempt_type != 'self_report' AND correctness IS NOT NULL "
+        f"AND {known} <= ? "
         "ORDER BY created_at DESC, id DESC LIMIT 1", (at,)).fetchone()
-    latest = float(row[0]) if row is not None and row[0] is not None else 1.0
+    latest = float(row[0]) if row is not None else 1.0
     return Features(local_hour=_local_hour(at), minutes_left=minutes_left, last_miss=max(1.0 - latest, 0.0))
 
 

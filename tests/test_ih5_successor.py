@@ -33,7 +33,12 @@ from learnloop.router_objective import mix
 from learnloop.router_objective_switches import failure_share_tag, failure_share_to_other_policy_on
 from learnloop.vault.loader import load_vault
 
+from learnloop.daily_plan.engine import advance
+from tests.daily_plan_fakes import record_attempt
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
+from tests.router_mixture_helpers import mixture_env, rows
+from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+from tests.test_daily_plan_build import _wide_items
 
 TAG = FAILURE_SHARE_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
@@ -271,6 +276,44 @@ def test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly(tmp_pat
     for version in (OLD,):
         set_algorithm_version(paths, version)
         assert not failure_share_to_other_policy_on(load_vault(paths.root).config)
+
+
+class _DownLLM(FakeLLM):
+    def __init__(self):
+        def down(_request):
+            raise RuntimeError("the LLM is down")
+
+        super().__init__(answer=down)
+
+
+@pytest.mark.parametrize("version,toml,numeric,staged,rule,component", [
+    (TAG, "", 1.0, 0.0, "other_policy", "numeric"),
+    (TAG, "failure_share_to_other_policy = false\n", 0.2, 0.8, None, "staged"),
+    (OLD, "", 0.2, 0.8, None, "staged"),
+])
+def test_a_real_chooser_with_the_llm_failing_logs_the_rule_it_drew_under(tmp_path, version, toml, numeric, staged, rule, component):
+    """The review's m9: the table above, through a real chooser and a logged decision, not only the mix's own functions."""
+
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=_DownLLM()), version=version,
+                      toml='[router_objective]\nstop_coin = 0.0\ncheck_rate = "off"\n' + toml, items=lambda: list(_wide_items()))
+    for _ in range(10):
+        _record, step = advance(env, serve=True)
+        decided = [row for row in rows(env, "plan_block") if row["policy"] == mix.POLICY]
+        if decided:
+            break
+        env.clock.advance(2)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                       session_id=env.session_id)
+    logged = decided[-1]["detail_json"]["mixture"]
+    assert logged["failed"] == ["llm"]
+    weights = logged["effective_weights"]
+    assert weights.get("numeric", 0.0) == pytest.approx(numeric) and weights.get("staged", 0.0) == pytest.approx(staged)
+    assert logged.get("failure_rule") == rule
+    assert logged["drawn_component"] in (component, "uniform")  # the seed may land on the floor, which every row keeps
+    recomputed = mix.recompute(logged)
+    for entry in decided[-1]["candidates_json"]:
+        if entry["ref"] in recomputed:
+            assert entry["propensity"] == pytest.approx(recomputed[entry["ref"]], abs=1e-12)
 
 
 def test_a_logged_decision_replays_to_its_logged_mu_under_its_own_rule():

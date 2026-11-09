@@ -371,9 +371,11 @@ def test_a_follow_up_ready_during_a_workbench_waits_then_competes_at_the_next_re
     assert rows(env, "plan_block")[-1]["detail_json"]["mixture"]["support"] == [f"followup_contest:{probe}", OFFER]
 
 
-def test_a_mid_block_follow_up_waits_too_with_no_decision_of_its_own(tmp_path):
+def test_a_mid_block_follow_up_waits_too_with_no_decision_of_its_own(tmp_path, draw):
     env, live = _need_path_env(tmp_path, toml=NO_CHECKS)
     _start_session(env, at=iso(env.clock.now() - timedelta(minutes=1)))
+    # The first block's real draw has a stop and a lesson in its support, each at the floor: this test needs a block of items.
+    draw.never_stop, draw.avoid = True, ("lesson_offer:",)
     _record, step = advance(env, serve=True)
     assert step["kind"] == "item"
     env.clock.advance(2)

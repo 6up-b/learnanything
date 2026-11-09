@@ -8829,8 +8829,8 @@ export interface SomethingElseOptionsDto {
 export interface SomethingElseChosenDto extends DailyPlanDto {
   preference?: {
     id: string;
-    /** served | agreed | stopped | lesson | waits_on_desktop | replayed */
-    outcome: "served" | "agreed" | "stopped" | "lesson" | "waits_on_desktop" | "replayed";
+    /** What the choice came to. A retry answers as it was made, with `replayed` set. */
+    outcome: "served" | "agreed" | "stopped" | "lesson" | "waits_on_desktop";
     kind: SomethingElseKind | null;
     ref: string | null;
     servedDecisionId: string | null;

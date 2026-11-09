@@ -200,7 +200,7 @@ def test_a_retry_with_the_same_key_writes_nothing_again(tmp_path, draw):
                       preference_id="p_once")
     again = LA.choose(env, kind=pick.kind, ref=pick.ref, surface="feedback", attempt_id=None, note_md="x",
                       preference_id="p_once")
-    assert first.outcome == "served" and again.replayed and again.outcome == "replayed"
+    assert first.outcome == "served" and again.replayed and again.outcome == "served"
     assert again.served_decision_id == first.served_decision_id
     assert again.step is not None and again.step["practice_item_id"] == first.step["practice_item_id"]
     assert len(_preferences(env)) == 1 and len(_picks(env)) == 1

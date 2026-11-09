@@ -31,6 +31,7 @@ import json
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 from learnloop.daily_plan import engine as E
@@ -52,6 +53,10 @@ PHONE_SURFACES = ("phone_feedback", "phone_today")
 
 #: What a phone says when it can log a choice but not serve it.
 WAITS_ON_DESKTOP = "waits_on_desktop"
+#: How the override's decision says it was served (``detail.override.serving``), besides :data:`WAITS_ON_DESKTOP`.
+DESKTOP_OPENS_LESSON = "desktop_opens_lesson"
+SERVING_STOP = "stop_for_today"
+SERVING_BLOCK = "block"
 
 
 class PreferenceError(ValueError):
@@ -96,6 +101,7 @@ class Options:
     #: Everything below is internal: the live context the chosen candidate's block is built from.
     record: Any = field(default=None, repr=False, compare=False)
     context: Any = field(default=None, repr=False, compare=False)
+    built: Any = field(default=None, repr=False, compare=False)
 
     def offered(self) -> dict[str, Any]:
         """What ``offered_json`` keeps: the options as refs with the router's probabilities where known."""
@@ -238,14 +244,19 @@ def _frozen_inputs(env: Any, record: Any, lesson: BlockCandidate | None) -> dict
     return out
 
 
-def _phone_serves(env: Any, kind: str, candidate: BlockCandidate | None) -> bool:
-    """A phone serves a practice block whose first item it can show. Lessons and readings, and an item the device
-    leaves for the desktop, it logs and says wait."""
+def _phone_serves(env: Any, kind: str, candidate: BlockCandidate | None, *, block: Any = None) -> bool:
+    """A phone serves a practice block whose first item it can show, and a reading its own Reader shows (V4). Lessons, and
+    what the device leaves for the desktop, it logs and says wait. ``block``: the plan's own drawn pick, when that is it."""
 
     if env.device is None:
         return True
-    if kind in (LESSON, READ):
+    if kind == LESSON:
         return False
+    if kind == READ:
+        if block is not None:
+            return env.device.serves_reading(block)
+        reading = candidate.reading if candidate is not None else None
+        return reading is not None and env.device.serves_reading(SimpleNamespace(reading=reading.as_dict()))
     if kind == STOP or candidate is None or not candidate.item_ids:
         return True
     item = env.vault.practice_items.get(candidate.item_ids[0])
@@ -264,7 +275,7 @@ def options(env: Any) -> Options:
     record = E.reconcile(env, record)
     if not record.is_open:
         return Options(False, device=device)
-    context, _built = E._live_context(env, record)
+    context, built = E._live_context(env, record)
     computed = E._feasibility(record, context, env.policy)
     waiting = _waiting_block(record)
     with env.repository.connection() as connection:
@@ -292,7 +303,7 @@ def options(env: Any) -> Options:
             # The plan's own drawn pick stands for its kind: its ref, its logged probability, nothing to place.
             ref = str(parent["chosen_ref"])
             out.append(Option(kind, ref, _plans_pick_label(kind, waiting), None, probabilities.get(ref), plans_pick=True,
-                              servable=_phone_serves(env, kind, None)))
+                              servable=_phone_serves(env, kind, None, block=waiting)))
         elif candidate is not None:
             out.append(Option(kind, candidate.candidate_id, _label(kind, candidate), round(candidate.est_minutes, 2),
                               probabilities.get(candidate.candidate_id),
@@ -302,7 +313,7 @@ def options(env: Any) -> Options:
                    parent_kind=parent_kind, parent_block_id=getattr(waiting, "id", None) if parent else None,
                    parent_is_offer=bool(parent is not None and waiting is not None and waiting.is_lesson_offer),
                    no_draw_reason=reason, device=device, frozen=_frozen_inputs(env, record, lesson),
-                   record=record, context=context)
+                   record=record, context=context, built=built)
 
 
 # -- the choice ----------------------------------------------------------------------------------------------------
@@ -314,7 +325,8 @@ class Chosen:
 
     preference_id: str
     #: ``served`` (a block was placed), ``agreed`` (the plan's own pick stands), ``stopped``, ``lesson`` (the desktop
-    #: opens it), ``waits_on_desktop`` (a phone logged what only the desktop serves), ``replayed`` (a retry).
+    #: opens it), ``waits_on_desktop`` (a phone logged what only the desktop serves). A retry answers as it was made, with
+    #: ``replayed`` set.
     outcome: str
     step: dict[str, Any] | None = None
     served_decision_id: str | None = None
@@ -408,41 +420,63 @@ def choose(env: Any, *, kind: str, ref: str | None, surface: str, attempt_id: st
                 "created_at": env.now_iso()}
 
     if agrees:
-        # The plan had already drawn this kind: nothing new is served, and the preference says it agreed.
+        # The plan had already drawn this kind: nothing new is served, and the preference says it agreed. On a phone that
+        # can't show it (a lesson the desktop drew), the learner is told it waits there (§6 item 5).
         with env.repository.atomic(), env.repository.connection() as connection:
             router_store.insert_learner_preference(connection, preference(parent_id))
-        return Chosen(preference_id, "agreed", kind=chosen.kind, ref=chosen.ref, served_decision_id=parent_id)
+        return Chosen(preference_id, "agreed" if chosen.servable else WAITS_ON_DESKTOP, kind=chosen.kind, ref=chosen.ref,
+                      served_decision_id=parent_id)
     if not chosen.servable:
         # A phone logs what only the desktop serves; the pick is on record and nothing is placed.
-        decision_id = _log_only(env, preference, preference_id, chosen, parent_id, offered, WAITS_ON_DESKTOP)
+        decision_id = _log_only(env, live, preference, preference_id, chosen, parent_id, offered, WAITS_ON_DESKTOP)
         return Chosen(preference_id, WAITS_ON_DESKTOP, kind=chosen.kind, ref=chosen.ref, served_decision_id=decision_id)
     if chosen.kind == LESSON:
-        decision_id = _log_only(env, preference, preference_id, chosen, parent_id, offered, "desktop_opens_lesson")
-        lo = chosen.ref[len(LESSON_OFFER_PREFIX):] if chosen.ref.startswith(LESSON_OFFER_PREFIX) else chosen.ref
-        title = env.vault.learning_objects[lo].title if lo in env.vault.learning_objects else lo
+        decision_id = _log_only(env, live, preference, preference_id, chosen, parent_id, offered, DESKTOP_OPENS_LESSON)
         return Chosen(preference_id, "lesson", kind=chosen.kind, ref=chosen.ref, served_decision_id=decision_id,
-                      lesson={"learning_object_ids": [lo], "title": title})
+                      lesson=_lesson_view(env, chosen.ref))
     if chosen.kind == STOP:
         return _stop(env, live, preference, preference_id, chosen, parent_id, offered)
     return _place(env, live, preference, preference_id, chosen, parent_id, offered)
 
 
-def _write_decision(env: Any, connection: Any, **row_args: Any) -> str | None:
-    """The learner_pick decision, or None when the router's log is off (``router.log_decisions``). Raises on a ledger
-    refusal: the caller's transaction then rolls back whole, and the learner is told."""
+def _state_receipt(env: Any, live: Options, chosen: Option) -> Any:
+    """RO0 rows 9 and 13, as for any learner pick (:func:`~learnloop.daily_plan.engine._pick_new_block`): the state and the
+    VOI verdict in force, read before the choice's transaction opens. None off, or when it can't be read."""
 
-    if not bool(getattr(env.vault.config.router, "log_decisions", True)):
+    candidate = chosen.candidate
+    items = list(candidate.item_ids) if candidate is not None else []
+    los = list(candidate.learning_object_ids) if candidate is not None else []
+    return E._decision_state(env, live.built.estimator,
+                             candidates=[{"item_ids": items, "learning_object_ids": los}] if candidate is not None else [],
+                             voi=[dict(entry.voi) for entry in live.built.pool if entry.voi is not None],
+                             pick=(items[0] if items else None, los[0] if los else None))
+
+
+def _write_decision(env: Any, connection: Any, *, live: Options, state: Any, **row_args: Any) -> str | None:
+    """The learner_pick decision and its receipts, or None when the router's log is off (``router.log_decisions``). Raises
+    on a ledger refusal: the caller's transaction then rolls back whole, and the learner is told. A receipt never does."""
+
+    config = env.vault.config
+    if not bool(getattr(config.router, "log_decisions", True)):
         return None
     decision_id = new_ulid()
-    router_store.insert_router_decision(connection, _decision_row(env, decision_id=decision_id, **row_args))
+    row = _decision_row(env, decision_id=decision_id, **row_args)
+    router_store.insert_router_decision(connection, row)
+    at = str(row["created_at"])
+    if live.built.prefilter is not None:
+        E.prefilter.record(connection, decision_id=decision_id, decision_kind=row["decision_kind"],
+                           material=live.built.prefilter, config=config, at=at)
+    E.decision_state.record(connection, decision_id=decision_id, decision_kind=row["decision_kind"], material=state,
+                            config=config, at=at)
     return decision_id
 
 
-def _log_only(env: Any, preference: Any, preference_id: str, chosen: Option, parent_id: str | None,
+def _log_only(env: Any, live: Options, preference: Any, preference_id: str, chosen: Option, parent_id: str | None,
               offered: Mapping[str, Any], serving: str) -> str | None:
+    state = _state_receipt(env, live, chosen)
     with env.repository.atomic(), env.repository.connection() as connection:
-        decision_id = _write_decision(env, connection, preference_id=preference_id, chosen=chosen, parent_id=parent_id,
-                                      offered=offered, block_id=None, serving=serving)
+        decision_id = _write_decision(env, connection, live=live, state=state, preference_id=preference_id, chosen=chosen,
+                                      parent_id=parent_id, offered=offered, block_id=None, serving=serving)
         router_store.insert_learner_preference(connection, preference(decision_id))
     return decision_id
 
@@ -450,9 +484,10 @@ def _log_only(env: Any, preference: Any, preference_id: str, chosen: Option, par
 def _stop(env: Any, live: Options, preference: Any, preference_id: str, chosen: Option, parent_id: str | None,
           offered: Mapping[str, Any]) -> Chosen:
     record = live.record
+    state = _state_receipt(env, live, chosen)
     with env.repository.atomic(), env.repository.connection() as connection:
-        decision_id = _write_decision(env, connection, preference_id=preference_id, chosen=chosen, parent_id=parent_id,
-                                      offered=offered, block_id=None, serving="stop_for_today")
+        decision_id = _write_decision(env, connection, live=live, state=state, preference_id=preference_id, chosen=chosen,
+                                      parent_id=parent_id, offered=offered, block_id=None, serving=SERVING_STOP)
         router_store.insert_learner_preference(connection, preference(decision_id))
         _end_offer(env, connection, live, decision_id)
         E._close(env, record, status="stopped", reason="learner_stopped")
@@ -489,9 +524,10 @@ def _place(env: Any, live: Options, preference: Any, preference_id: str, chosen:
         "fallback": False, "candidate_set": [], "feasible_ids": [], "forced": [], "self_selected": True,
         "preference_id": preference_id, **E._device_detail(env),
     }
+    state = _state_receipt(env, live, chosen)
     with env.repository.atomic(), env.repository.connection() as connection:
-        decision_id = _write_decision(env, connection, preference_id=preference_id, chosen=chosen, parent_id=parent_id,
-                                      offered=offered, block_id=block_id, serving="block")
+        decision_id = _write_decision(env, connection, live=live, state=state, preference_id=preference_id, chosen=chosen,
+                                      parent_id=parent_id, offered=offered, block_id=block_id, serving=SERVING_BLOCK)
         router_store.insert_learner_preference(connection, preference(decision_id))
         _end_offer(env, connection, live, decision_id)
         if decision_id is not None:
@@ -523,31 +559,66 @@ def _serve_step(env: Any, record: Any, block: Any, context: Any) -> dict[str, An
                         presentation_id=presentation_id)
 
 
+def _lesson_view(env: Any, ref: str) -> dict[str, Any]:
+    """The lesson a chosen "learn this" opens."""
+
+    lo = ref[len(LESSON_OFFER_PREFIX):] if ref.startswith(LESSON_OFFER_PREFIX) else ref
+    title = env.vault.learning_objects[lo].title if lo in env.vault.learning_objects else lo
+    return {"learning_object_ids": [lo], "title": title}
+
+
+def _serving_of(env: Any, decision_id: str | None) -> str | None:
+    """How an override's decision says it was served, or None (no such decision: an agreement, or the log off)."""
+
+    if not decision_id:
+        return None
+    with env.repository.connection() as connection:
+        found = connection.execute("SELECT detail_json FROM router_decisions WHERE id = ? AND decision_kind = 'learner_pick'",
+                                   (decision_id,)).fetchone()
+    return str(((json.loads(found[0] or "{}")).get("override") or {}).get("serving") or "") or None if found else None
+
+
 def _replayed(env: Any, row: Mapping[str, Any]) -> Chosen:
-    """A retry of a preference already written: answered as it was made, writing nothing."""
+    """A retry of a preference already written: answered as it was made, so a lost reply loses nothing. It writes no
+    second preference or decision. One thing it can finish: a crash after the placement's commit left the block's step
+    unserved, and that serve is the one the first call owed."""
 
     record = E.get_or_create_today(env, create=False)
+    if record is not None:
+        record = E.reconcile(env, record)
     served = row.get("served_decision_id")
     kind, ref = str(row["chosen_kind"]), str(row["chosen_ref"])
-    out = Chosen(str(row["id"]), "replayed", kind=kind, ref=ref, served_decision_id=served, replayed=True)
-    if record is None:
-        return out
-    record = E.reconcile(env, record)
-    if kind == STOP:
-        out.step = E._done_step(record)
-        return out
-    block = next((b for b in record.blocks if served and b.decision_ref == served and b.chosen_by == "learner_pick"),
-                 None)
+
+    def answered(outcome: str, step: dict[str, Any] | None = None, lesson: dict[str, Any] | None = None) -> Chosen:
+        return Chosen(str(row["id"]), outcome, step=step, kind=kind, ref=ref, served_decision_id=served, lesson=lesson,
+                      replayed=True)
+
+    if served and served == row.get("decision_id"):
+        # An agreement wrote no decision of its own. What it said depends on the device, as when it was made.
+        parent = next((b for b in (record.blocks if record is not None else ()) if b.decision_ref == served), None)
+        return answered("agreed" if _phone_serves(env, kind, None, block=parent) else WAITS_ON_DESKTOP)
+    serving = _serving_of(env, served)
+    if serving == WAITS_ON_DESKTOP:
+        return answered(WAITS_ON_DESKTOP)
+    if serving == DESKTOP_OPENS_LESSON:
+        return answered("lesson", lesson=_lesson_view(env, ref))
+    if kind == LESSON:  # the router's log off: no decision to read, and only these two can have happened
+        return answered("lesson", lesson=_lesson_view(env, ref)) if env.device is None else answered(WAITS_ON_DESKTOP)
+    if kind == STOP or serving == SERVING_STOP:
+        return answered("stopped", step=E._done_step(record) if record is not None else None)
+    block = next((b for b in (record.blocks if record is not None else ())
+                  if (b.chosen or {}).get("preference_id") == row["id"]), None)
     if block is None:
-        return out
+        return answered(WAITS_ON_DESKTOP if env.device is not None else "served")
     if block.is_reading:
-        out.step = E._reading_step(env, record, block, boundary=False)
-        return out
-    item = next((i for i in block.items if i.served_at is not None), block.items[0] if block.items else None)
-    if item is not None:
-        out.step = E._item_step(env, record, block, item, boundary=False, candidate_id=None,
-                                presentation_id=E._standing_presentation(env, block, item))
-    return out
+        if block.started_at is None:
+            return answered("served", step=_serve_step(env, record, block, E._live_context(env, record)[0]))
+        return answered("served", step=E._reading_step(env, record, block, boundary=False))
+    item = next((i for i in block.items if i.served_at is not None), None)
+    if item is None:
+        return answered("served", step=_serve_step(env, record, block, E._live_context(env, record)[0]))
+    return answered("served", step=E._item_step(env, record, block, item, boundary=False, candidate_id=None,
+                                                presentation_id=E._standing_presentation(env, block, item)))
 
 
 __all__ = [

@@ -588,6 +588,21 @@ def plan_something_else_options(ctx: SidecarContext, params: PlanSomethingElseOp
     return versioned(learner_action.options(env).view())
 
 
+def _standing_view(env: PlanEnv) -> dict[str, Any]:
+    """The plan as it stands, with no boundary crossed: a device's choice that serves nothing places nothing, and a read
+    at a finished block would draw its decision in the same call (§6, spec_mobile_frontend_v2 §4.5). Nothing is being
+    chosen because of this, so the reply doesn't say otherwise."""
+
+    from learnloop.daily_plan.engine import get_or_create_today
+
+    record = get_or_create_today(env, create=False)
+    if record is None:
+        return {"enabled": True, "plan": None}
+    view = _view(env, record, None, None)
+    view["plan"]["deciding"] = False
+    return view
+
+
 @method("plan_something_else", PlanSomethingElseInput)
 @host_mutation
 def plan_something_else(ctx: SidecarContext, params: PlanSomethingElseInput) -> dict[str, Any]:
@@ -614,7 +629,7 @@ def plan_something_else(ctx: SidecarContext, params: PlanSomethingElseInput) -> 
                        "served_decision_id": chosen.served_decision_id, "lesson": chosen.lesson,
                        "replayed": chosen.replayed},
         "step": chosen.step,
-        **_current_view(env),
+        **(_standing_view(env) if env.device is not None and chosen.step is None else _current_view(env)),
     }
     if chosen.step is not None and chosen.outcome == "served":
         _schedule_ad(ctx, env, step=chosen.step)
