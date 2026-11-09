@@ -73,6 +73,9 @@ class _JobMeta:
     kind: str
     session_id: str
     practice_item_id: str
+    #: The learner pressed "show me the book's way": a hint job's bridge runs
+    #: off the Reader too, and a bridge job's passage counts the book.
+    book_way: bool = False
 
 
 def _jobs(ctx: SidecarContext) -> HintJobs:
@@ -138,9 +141,9 @@ def _require(ctx: SidecarContext, session_id: str, *, bound: bool = True, open_:
 
 
 def _start(ctx: SidecarContext, kind: str, session: dict[str, Any], item: Any,
-           work: Callable[[Any, Callable[[], bool]], dict[str, Any]]) -> dict[str, Any]:
+           work: Callable[[Any, Callable[[], bool]], dict[str, Any]], *, book_way: bool = False) -> dict[str, Any]:
     job = _jobs(ctx).start(ctx, item.id, work)
-    _meta(ctx)[job.job_id] = _JobMeta(kind, str(session["id"]), item.id)
+    _meta(ctx)[job.job_id] = _JobMeta(kind, str(session["id"]), item.id, book_way=book_way)
     return _payload(ctx, job.job_id)
 
 
@@ -348,7 +351,7 @@ def request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any
             _queue_text(ctx, vault, worker_repo, str(result.assist_id))
         return payload
 
-    return _start(ctx, HINT, session, item, work)
+    return _start(ctx, HINT, session, item, work, book_way=params.request == "book_way")
 
 
 # -- reading a job (the read that returns a ready check or hint delivers it) ---------------
@@ -486,8 +489,12 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
         if meta.kind == CHECK and (job.delivered or result.get("status") == "unchanged"):
             result = _check_payload(ctx, meta, result)
         if meta.kind in PASSAGE_JOBS and result.get("status") == "ready" and not job.delivered:
-            job.delivered = _show_bridge(repository, str(result["assist_id"]), kind=meta.kind)
+            job.delivered = _show_bridge(repository, str(result["assist_id"]), kind=meta.kind,
+                                         book_session_id=meta.session_id if meta.book_way else None)
             result["shown"] = job.delivered
+        if meta.kind in PASSAGE_JOBS and meta.book_way and job.delivered:
+            # The record line names the book as soon as the passage shows.
+            result["record"] = _record(ctx, meta.session_id)
         if meta.kind == CHECK and job.delivered:
             # The record line and footer name the check (G62).
             result["record"] = _record(ctx, meta.session_id)
@@ -578,7 +585,9 @@ def cancel_help(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]:
 
 def _start_bridge(ctx: SidecarContext, meta: _JobMeta, hint_assist_id: str) -> str | None:
     """"Compare with the book" (§5.2 bridging): in the background after a
-    hint is shown in the Reader, never delaying it."""
+    hint is shown in the Reader, never delaying it. Off the Reader the book is
+    not beside the problem, so only the learner's own "show me the book's way"
+    looks it up (owner, 2026-11-08), and the passage shown counts the book."""
 
     vault, repository = ctx.require_vault()
     if not bool(vault.config.workbench.bridge_enabled):
@@ -588,7 +597,7 @@ def _start_bridge(ctx: SidecarContext, meta: _JobMeta, hint_assist_id: str) -> s
     except WB.WorkbenchError:
         return None
     item = vault.practice_items.get(meta.practice_item_id)
-    if session.get("origin") != "reader" or item is None:
+    if item is None or (session.get("origin") != "reader" and not meta.book_way):
         return None
     if check_module.session_calls(repository, meta.session_id) >= int(vault.config.workbench.max_calls_per_session):
         return None
@@ -608,17 +617,20 @@ def _start_bridge(ctx: SidecarContext, meta: _JobMeta, hint_assist_id: str) -> s
                                seed=getattr(ctx, "passage_draw_seed", None))
 
     job = _jobs(ctx).start(ctx, item.id, work)
-    _meta(ctx)[job.job_id] = _JobMeta(BRIDGE, meta.session_id, item.id)
+    _meta(ctx)[job.job_id] = _JobMeta(BRIDGE, meta.session_id, item.id, book_way=meta.book_way)
     return job.job_id
 
 
-def _show_bridge(repository: Any, assist_id: str, *, kind: str = BRIDGE) -> bool:
+def _show_bridge(repository: Any, assist_id: str, *, kind: str = BRIDGE, book_session_id: str | None = None) -> bool:
     from learnloop.clock import utc_now_iso
     from learnloop.db.stores.help_assists import mark_bridge_shown
 
     with repository.atomic():
-        return mark_bridge_shown(repository.connection(), assist_id, shown_at=utc_now_iso(),
-                                 kind="example" if kind == EXAMPLE else "bridge")
+        shown = mark_bridge_shown(repository.connection(), assist_id, shown_at=utc_now_iso(),
+                                  kind="example" if kind == EXAMPLE else "bridge")
+        if shown and book_session_id:
+            WB.count_book_passage(repository, book_session_id)
+        return shown
 
 
 # -- the discriminating answer, the help style, the restored state --------------------------

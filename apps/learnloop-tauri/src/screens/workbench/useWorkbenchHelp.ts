@@ -62,6 +62,8 @@ export interface HelpNotice {
 
 export interface BridgeState {
   status: "pending" | "ready" | "none";
+  /** Why there is no passage: the books have none, or they couldn't be searched. */
+  reason?: "none" | "unavailable";
   line?: string;
   spanId?: string | null;
   extractionId?: string | null;
@@ -220,10 +222,11 @@ export function useWorkbenchHelp(options: {
         ...current,
         [hintAssistId]: result && result.status === "ready" && result.shown
           ? { status: "ready", line: result.line, spanId: result.spanId ?? null, extractionId: result.extractionId ?? null, ...drawnFields(result) }
-          : { status: "none" },
+          : { status: "none", reason: result?.status === "none" ? "none" : "unavailable" },
       }));
+      if (result?.record) onRecordRef.current(result.record);
     } catch {
-      if (alive.current) setBridges((current) => ({ ...current, [hintAssistId]: { status: "none" } }));
+      if (alive.current) setBridges((current) => ({ ...current, [hintAssistId]: { status: "none", reason: "unavailable" } }));
     }
   }, [poll]);
 
@@ -335,6 +338,11 @@ export function useWorkbenchHelp(options: {
         if (result.record) onRecordRef.current(result.record);
         if (result.message) setNotice({ stepId: view.aboutStepId, message: result.message });
         if (result.bridgeJobId) void followBridge(result.assistId, result.bridgeJobId);
+        else if (input.request === "book_way") {
+          // No search started (this problem's calls are spent, or the switch
+          // is off): the press still gets an answer.
+          setBridges((current) => ({ ...current, [view.assistId]: { status: "none", reason: "unavailable" } }));
+        }
         if (result.exampleJobId) exampleJobRef.current?.(result.assistId, result.exampleJobId);
       } else {
         setNotice({ stepId: result.steps?.aboutStepId ?? stepId, message: result.message ?? "Couldn't write a hint. Your steps are saved — try again ↵" });

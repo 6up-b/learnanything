@@ -17,6 +17,7 @@ import { HELP_COPY, WORKBENCH_SHORTCUTS, claimLine, hintLabel } from "./helpMode
 import { useSymbolicChecksLive } from "../../app/algoConfig";
 import type { BridgeState } from "./useWorkbenchHelp";
 import { WhereThisGoes } from "./WhereThisGoes";
+import { BookPassage } from "./BookPassage";
 
 const chip = (on: boolean) => ({
   border: `1px solid ${on ? COLOR.borderFocus : COLOR.border}`,
@@ -129,7 +130,12 @@ export function HintCard({
   onSkip,
   onPeek,
   extras,
+  bookInline,
 }: {
+  /** Off the Reader no book sits beside the problem, and a bridge exists only
+   *  because the learner asked for the book's way: the passage shows here,
+   *  under the hint it answers (absent: a link that peeks, as in the Reader). */
+  bookInline?: { practiceItemId: string | null };
   hint: WorkbenchHintViewDto;
   steps: StepOption[];
   pending: boolean;
@@ -190,7 +196,13 @@ export function HintCard({
           }} />
         ) : null}
         {bridge?.status === "pending" ? <MeaningLabel>{HELP_COPY.bridging}</MeaningLabel> : null}
-        {bridge?.status === "ready" && bridge.line ? (
+        {bookInline && bridge?.status === "none" ? (
+          <MeaningLabel>{bridge.reason === "none" ? HELP_COPY.bookWayNone : HELP_COPY.bookWayUnavailable}</MeaningLabel>
+        ) : null}
+        {bookInline && bridge?.status === "ready" && bridge.spanId && bridge.extractionId ? (
+          <BookPassage extractionId={bridge.extractionId} spanId={bridge.spanId} practiceItemId={bookInline.practiceItemId} />
+        ) : null}
+        {!bookInline && bridge?.status === "ready" && bridge.line ? (
           <button type="button" data-testid="workbench-bridge" style={{ ...quietLink, fontSize: 11 }}
             onClick={() => {
               if (!bridge.spanId || !onPeek) return;
