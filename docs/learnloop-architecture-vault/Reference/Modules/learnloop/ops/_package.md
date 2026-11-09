@@ -16,6 +16,7 @@ source_paths:
   - "src/learnloop/ops/family_proposals.py"
   - "src/learnloop/ops/graph_nomination_report.py"
   - "src/learnloop/ops/maintenance_feed.py"
+  - "src/learnloop/ops/model_routes.py"
   - "src/learnloop/ops/pf_calls.py"
   - "src/learnloop/ops/pf_generation.py"
   - "src/learnloop/ops/pf_publish.py"
@@ -28,7 +29,7 @@ source_paths:
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T04:50:36-05:00"
+source_commit_timestamp: "2026-11-09T13:20:47-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -71,12 +72,13 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/content_fixes|learnloop.ops.content_fixes]] | [[Reference/Modules/learnloop/ops/content_fixes#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] | [[Reference/Modules/learnloop/ops/debug_time#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] | [[Reference/Modules/learnloop/ops/debug_time_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 47 |
+| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 48 |
 | [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] | [[Reference/Modules/learnloop/ops/embedding_backfill#^module-purpose|purpose]] | `ACTIVE` | 13 | 20 |
 | [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] | [[Reference/Modules/learnloop/ops/embedding_compare#^module-purpose|purpose]] | `ACTIVE` | 3 | 9 |
 | [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] | [[Reference/Modules/learnloop/ops/family_proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]] | [[Reference/Modules/learnloop/ops/graph_nomination_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] | [[Reference/Modules/learnloop/ops/maintenance_feed#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
+| [[Reference/Modules/learnloop/ops/model_routes|learnloop.ops.model_routes]] | [[Reference/Modules/learnloop/ops/model_routes#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ops/pf_calls|learnloop.ops.pf_calls]] | [[Reference/Modules/learnloop/ops/pf_calls#^module-purpose|purpose]] | `ACTIVE` | 10 | 11 |
 | [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] | [[Reference/Modules/learnloop/ops/pf_generation#^module-purpose|purpose]] | `ACTIVE` | 2 | 9 |
 | [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] | [[Reference/Modules/learnloop/ops/pf_publish#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
@@ -99,7 +101,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 41 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 41 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 21 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 22 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 13 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 12 static module edges
@@ -160,7 +162,7 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop -->|42| center
-    center -->|21| n_learnloop
+    center -->|22| n_learnloop
     center -->|41| n_learnloop_ai
     center -->|41| n_learnloop_vault
     center -->|19| n_learnloop_db

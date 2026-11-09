@@ -341,6 +341,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/ops/model_routes|learnloop.ops.model_routes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Clock`
@@ -548,7 +549,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 442 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 443 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1204,6 +1205,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_identifiability_doctor.py](../../../../../tests/test_identifiability_doctor.py) — direct import
   - `test_graph_identifiability_report_and_probe_scheduling`
   - `test_pre_first_practice_doctor_watermark`
+- [tests/test_ih6_workbench_open_item.py](../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_days_start_is_local_midnight_on_daylight_saving_change_days`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
   - `test_only_a_miss_since_the_last_lesson_counts`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/lesson_offer.py"
 source_paths:
   - "src/learnloop/daily_plan/lesson_offer.py"
-source_commit: "f837a8a7b4070a36aa3288598d59a614f603e47a"
-source_commit_timestamp: "2026-11-09T11:20:01-05:00"
+source_commit: "8b78e84ff43e932afae1d7438e99c3ea6b72a57e"
+source_commit_timestamp: "2026-11-09T13:55:19-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f837a8a7b4070a36aa3288598d59a614f603e47a` |
-| Commit timestamp | `2026-11-09T11:20:01-05:00` |
+| Source commit | `8b78e84ff43e932afae1d7438e99c3ea6b72a57e` |
+| Commit timestamp | `2026-11-09T13:55:19-05:00` |
 
 ## Public API
 
@@ -180,7 +180,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] — imports `NODES`, `WEIGHTS`, `sigmoid`; calls `sigmoid`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FAILURE_SHARE_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `card_view`, `module`; calls `build_candidates`, `card_view`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `card_view`, `module`; calls `build_candidates`, `card_view`, `reason_words`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `objective_active`; calls `objective_active`
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `BlockCandidate`, `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`; calls `BlockCandidate`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `module`; calls `append_block_event`
@@ -231,6 +231,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_card_passed_over_is_no_answer_so_the_phones_request_still_counts`
   - `test_a_learner_asked_lesson_reaches_p_accept_flagged_unprompted`
   - `test_a_phone_agreement_is_a_request_it_reaches_the_model_on_the_drawn_offers_card`
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_the_offer_block_and_the_llms_row_carry_the_dated_words`
 - [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_offer_shown_is_ignored_by_the_plan_and_changes_no_decision`
   - `test_offer_shown_is_written_once_per_block_and_surface`

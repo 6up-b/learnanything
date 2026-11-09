@@ -1744,6 +1744,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
   - `test_only_a_miss_since_the_last_lesson_counts`
+  - `test_the_offer_block_and_the_llms_row_carry_the_dated_words`
   - `test_the_switch_is_not_in_the_prefetch_key_and_moves_no_seed_by_itself`
   - `test_the_switch_needs_the_tag_defaults_on_and_is_registered`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import

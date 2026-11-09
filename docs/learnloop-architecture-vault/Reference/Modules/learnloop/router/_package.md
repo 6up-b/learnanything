@@ -18,7 +18,7 @@ source_paths:
   - "src/learnloop/router/suggestion_report.py"
   - "src/learnloop/router/why.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T12:12:32-05:00"
+source_commit_timestamp: "2026-11-09T13:55:19-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -64,7 +64,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 9 | 11 |
 | [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] | [[Reference/Modules/learnloop/router/outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 23 |
 | [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] | [[Reference/Modules/learnloop/router/plan_log#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
-| [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] | [[Reference/Modules/learnloop/router/requests#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] | [[Reference/Modules/learnloop/router/requests#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/router/suggestion_report|learnloop.router.suggestion_report]] | [[Reference/Modules/learnloop/router/suggestion_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/router/why|learnloop.router.why]] | [[Reference/Modules/learnloop/router/why#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
 

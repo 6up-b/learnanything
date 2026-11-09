@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/model_calls.py"
 source_paths:
   - "src/learnloop/db/stores/model_calls.py"
-source_commit: "07b0dcdec98f2698d10011595c38b28e9a39ba68"
-source_commit_timestamp: "2026-10-18T03:49:21-04:00"
+source_commit: "6d58440b8245a35099a0cdcd9b325518f0c1431d"
+source_commit_timestamp: "2026-11-09T12:54:21-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/model_calls.py](../../../../../../../src/learnloop/db/stores/model_calls.py) |
-| Source lines | 142 |
+| Source lines | 160 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `07b0dcdec98f2698d10011595c38b28e9a39ba68` |
-| Commit timestamp | `2026-10-18T03:49:21-04:00` |
+| Source commit | `6d58440b8245a35099a0cdcd9b325518f0c1431d` |
+| Commit timestamp | `2026-11-09T12:54:21-05:00` |
 
 ## Public API
 
@@ -68,9 +68,10 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 45; public)
   - `model_call_roots_since(self, *, owner_kind: str, since: str) -> int` (line 78; public) — Logical model calls (root receipts) of one owner kind started at or after ``since`` -- failed and unfinished calls included, since a receipt is written before its request is sent.
   - `model_call_spend_rows(self, *, started_since: str | None=None, owner_kind: str | None=None, owner_ids: Any=None) -> list[dict[str, Any]]` (line 91; public) — Usage rows for spend accounting: every receipt (usage lands on the innermost one), optionally since an ISO time and for some owners.
-  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 122; public)
-  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 127; public)
-  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 134; public) — Delete a checkpoint whose stored result no longer validates.
+  - `model_route_receipts(self) -> list[dict[str, Any]]` (line 122; public) — Root receipts, oldest first, for the doctor's route health.
+  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 140; public)
+  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 145; public)
+  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 152; public) — Delete a checkpoint whose stored result no longer validates.
 
 ### Module constants
 

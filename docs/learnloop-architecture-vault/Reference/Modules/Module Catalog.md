@@ -9,7 +9,7 @@ source_paths:
   - "src/learnloop_sidecar"
   - "apps/learnloop-tauri"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T12:12:32-05:00"
+source_commit_timestamp: "2026-11-09T14:23:42-05:00"
 generated: true
 generated_at: "2026-11-02"
 tags:
@@ -21,13 +21,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1259 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **614 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **67 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1260 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **614 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **67 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1236 | Live ownership after the refactor. |
+| `ACTIVE` | 1237 | Live ownership after the refactor. |
 | `COMPAT` | 4 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 2 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 17 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -84,7 +84,7 @@ tags:
 | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] | `domain` | `ACTIVE` | 27 | Mastery, recall, evidence, claims, ability transitions, and learner-state views. |
 | [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] | `domain` | `ACTIVE` | 13 | Local contextual source retrieval: the local document space's pins, capped batch worker, GPU meter, locks and owner-run commands. |
 | [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] | `domain` | `ACTIVE` | 5 | The one 'same or different?' step: registered match kinds, embedding shortlists and LLM judges, recorded in the judgment ledger. |
-| [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] | `domain` | `ACTIVE` | 22 | Vault diagnostics, locks, settings, startup, upgrades, and operator-facing maintenance. |
+| [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] | `domain` | `ACTIVE` | 23 | Vault diagnostics, locks, settings, startup, upgrades, and operator-facing maintenance. |
 | [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] | `domain` | `ACTIVE` | 7 | Contamination detectors as shadow flags, run offline on the owner's command beside the live lexical floor. |
 | [[Reference/Modules/learnloop/params/_package|learnloop.params]] | `domain` | `ACTIVE` | 4 | Algorithm parameter registry, fitted values, and sensitivity certificates. |
 | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] | `domain` | `ACTIVE` | 9 | Placement for new material through the LearnerPredictor contract; writes only its own receipts, never evidence. |
@@ -163,4 +163,4 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1472 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1473 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.

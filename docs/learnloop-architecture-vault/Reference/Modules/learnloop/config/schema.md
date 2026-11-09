@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/config/schema.py"
 source_paths:
   - "src/learnloop/config/schema.py"
-source_commit: "9e7b2fdc2819048463e701742a937666bbdca669"
-source_commit_timestamp: "2026-11-09T12:12:32-05:00"
+source_commit: "903b93e7e8ac75c12240a78a0ac5f785c300a6d6"
+source_commit_timestamp: "2026-11-09T14:22:36-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9e7b2fdc2819048463e701742a937666bbdca669` |
-| Commit timestamp | `2026-11-09T12:12:32-05:00` |
+| Source commit | `903b93e7e8ac75c12240a78a0ac5f785c300a6d6` |
+| Commit timestamp | `2026-11-09T14:22:36-05:00` |
 
 ## Public API
 
@@ -389,6 +389,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
   - `test_the_switches_are_on_by_default_and_the_gate_reads_the_tag`
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
+  - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
+  - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
   - `test_error_statuses_surface_without_parsing`
   - `test_missing_key_and_oversized_state_refuse_before_any_request`
   - `test_probe_reads_the_free_listing_without_a_key`
