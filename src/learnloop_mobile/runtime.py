@@ -166,12 +166,15 @@ SUBMIT_METHODS = frozenset(capture.SUBMIT_METHODS)
 class HostRuntime:
     """The two workers and the jobs they run, for one pinned vault."""
 
-    def __init__(self, vault: Path, repo: Repository, read_repo: Repository, *, phone_probes: bool = False):
+    def __init__(self, vault: Path, repo: Repository, read_repo: Repository, *, phone_probes: bool = False,
+                 phone_reader: bool = False):
         self._vault = vault
         self._repo = repo
         self._read_repo = read_repo
         #: Mobile v2 V3: the host's ``phone_probes``, carried on every origin it makes (never a parameter).
         self.phone_probes = phone_probes
+        #: Mobile v2 V4: the host's ``phone_reader``, carried on every origin it makes (never a parameter).
+        self.phone_reader = phone_reader
         self.boot_id = new_ulid()
         self._post_attempt: Any = None
         self._setup_lock = threading.Lock()
@@ -184,6 +187,8 @@ class HostRuntime:
         # job id -> whether the app that sent it said it answers probes (mobile v2 V3, F3). Only for jobs this run
         # accepted; under _waiters_lock.
         self._probes_said: dict[str, bool] = {}
+        # Mobile v2 V4: job id -> whether the app that sent it said it has the Reader. Under _waiters_lock.
+        self._reader_said: dict[str, bool] = {}
         self._readiness: tuple[float, bool] | None = None
         self._readiness_refreshing = False
         # Terminal writes this run still owes (job id -> what the row should say). The handler's
@@ -263,15 +268,19 @@ class HostRuntime:
         assert response is not None  # every request carries an id
         return response
 
-    def _origin(self, device_id: str, *, accepted_session_id: str | None = None, probes: bool = True) -> Any:
+    def _origin(self, device_id: str, *, accepted_session_id: str | None = None, probes: bool = True,
+                reader: bool = False, job_id: str | None = None) -> Any:
         """``probes``: the app said it answers probes (Codex review of V3, F3; the host's ``/rpc`` reads it). A job
         keeps the switch alone: its only V3 meaning is a submit naming a presentation, which the host admitted only
-        from an app that said so."""
+        from an app that said so. ``reader`` (mobile v2 V4): the app said it has the Reader, so the plan may hand it
+        a reading step; a cached V3 app, which has none, is never handed one it can't end. ``job_id`` (V4, Codex
+        review F5): the job this runs as, whose receipt an outbox intent's handler commits with its rows."""
 
         from learnloop_sidecar.request_origin import RequestOrigin
 
         return RequestOrigin(device_id=device_id, accepted_session_id=accepted_session_id,
-                             phone_probes=self.phone_probes and probes)
+                             phone_probes=self.phone_probes and probes, phone_reader=self.phone_reader and reader,
+                             job_id=job_id)
 
     # -- requests ----------------------------------------------------------------
 
@@ -291,13 +300,14 @@ class HostRuntime:
 
     def call_short(
         self, method: MobileMethod, params: Mapping[str, Any], device_id: str, *, timing: dict[str, float] | None = None,
-        probes: bool = False,
+        probes: bool = False, reader: bool = False,
     ) -> Future:
         """``timing``, if given, gets the worker's ``started`` and ``finished`` monotonic times, for
         ``Server-Timing`` (mobile v2 §4.5): the queue wait and the handler, measured, not guessed.
-        ``probes``: the app said it answers probes (mobile v2 V3, F3); without it the request is V2's."""
+        ``probes``: the app said it answers probes (mobile v2 V3, F3); without it the request is V2's.
+        ``reader``: the app said it has the Reader (V4); without it the request is V3's."""
 
-        origin = self._origin(device_id, probes=probes)
+        origin = self._origin(device_id, probes=probes, reader=reader)
 
         def run(worker: _Worker) -> dict[str, Any]:
             if timing is not None:
@@ -314,7 +324,7 @@ class HostRuntime:
 
     def accept(
         self, method: MobileMethod, params: Mapping[str, Any], validated: Mapping[str, Any], *,
-        request_id: str, device_id: str, probes: bool = False,
+        request_id: str, device_id: str, probes: bool = False, reader: bool = False,
     ) -> JobView:
         """Commit the job, or find it; then it runs whether or not the caller is still here.
 
@@ -338,6 +348,7 @@ class HostRuntime:
         if enqueue:
             with self._waiters_lock:
                 self._probes_said[job["id"]] = probes
+                self._reader_said[job["id"]] = reader
             self._enqueue(job)
             return JobView.of(job)
         return self._current_view(job)
@@ -350,6 +361,13 @@ class HostRuntime:
         with self._waiters_lock:
             said = self._probes_said.pop(job["id"], None)
         return said if said is not None else job["method"] in SUBMIT_METHODS
+
+    def _job_reader_for(self, job: Mapping[str, Any]) -> bool:
+        """Mobile v2 V4: what the app said when this run accepted the job. A job another run accepted (a restart's)
+        runs as V3's: no reading step is handed to an app not known to have the Reader."""
+
+        with self._waiters_lock:
+            return bool(self._reader_said.pop(job["id"], False))
 
     def _enqueue(self, job: Mapping[str, Any]) -> None:
         with self._waiters_lock:
@@ -370,6 +388,8 @@ class HostRuntime:
                 job["device_id"],
                 accepted_session_id=str(session_id) if job["method"] in SUBMIT_METHODS and session_id else None,
                 probes=self._job_probes_for(job),
+                reader=self._job_reader_for(job),
+                job_id=job_id,
             )
             response = self._dispatch(worker, job["method"], job["params"], origin)
         except Exception:

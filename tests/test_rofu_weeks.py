@@ -1,6 +1,6 @@
-"""The follow-up batch on the copy-shaped synthetic vault: the same two weeks (RO6's few-weeks journey: six practised
-topics, the default arms, one day a week without a session, both policies answering through fakes, a seeded ~70%
-learner) at mvp-0.49 and at mvp-0.50, printed for the review file (docs/reviews/router-followups-nov5.md): the
+"""The follow-up batch on the copy-shaped synthetic vault: two weeks (RO6's few-weeks journey: six practised topics, the
+default arms, one day a week without a session, both policies answering through fakes, a seeded ~70% learner) at
+mvp-0.50. Its comparison with mvp-0.49 is recorded in docs/reviews/router-followups-nov5.md. Printed: the
 transitions and their censoring (items 4 and 5), the generator versions (item 5), the combiner's fit (item 2) and the
 numeric policy's time per decision (item 3). Fakes only; no model request.
 """
@@ -13,7 +13,7 @@ from statistics import median
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import tail_data as TD
 from learnloop.vault.loader import load_vault
@@ -35,8 +35,9 @@ def _env(tmp_path, version: str):
     return env, runtime
 
 
-@pytest.mark.parametrize("version", [ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, ROUTER_FOLLOWUPS_ALGORITHM_VERSION])
-def test_two_weeks_before_and_after_the_batch(tmp_path, version):
+@pytest.mark.slow
+def test_two_weeks_after_the_batch(tmp_path):
+    version = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
     days = int(os.environ.get("LEARNLOOP_ROFU_DAYS", "15"))
     env, runtime = _env(tmp_path, version)
     _days(env, runtime, range(days), skip=frozenset(day for day in range(days) if day % 7 == 3))
@@ -75,4 +76,8 @@ def test_two_weeks_before_and_after_the_batch(tmp_path, version):
     append_config_toml(env.vault.root, "[router_objective]\ncombiner_trace_outcomes = false\n")
     summary["combiner_ms"]["join_off"] = timed(load_vault(env.vault.root))
     print("ROFU_WEEKS", json.dumps(summary, sort_keys=True, default=str))
-    assert traces and summary["transitions"] >= 0
+    # Two weeks of the default arms leave transitions to value, one generator per serving config, and a fit for it.
+    assert traces and summary["decisions"] == len(traces)
+    assert summary["transitions"] > 0
+    assert summary["generator_versions"] >= 1 and summary["fits"]
+    assert all(trace["versions"]["serving_switches"] for trace in traces)

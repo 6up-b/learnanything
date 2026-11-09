@@ -184,6 +184,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_import_cache_hit_skips_extractor_and_restores_health`
   - `test_import_retry_replaces_ir_left_by_interrupted_run`
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_annotation_survival_across_reextraction`
 - [tests/test_pdf_extraction.py](../../../../../../tests/test_pdf_extraction.py) — direct import

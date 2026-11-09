@@ -1,5 +1,6 @@
 // The device's token (§4.2). A 401 deletes it and the session cache and keeps the outbox (§4.4).
 import { CREDENTIAL_STORE, txRequest } from "./db";
+import { purgePageImages } from "./displayCache";
 
 export interface Credential {
   readonly token: string;
@@ -29,6 +30,10 @@ export async function readCredential(): Promise<Credential | null> {
 }
 
 export async function saveCredential(credential: Credential): Promise<void> {
+  // Codex re-review F1: kept page images are the last pairing's; a new token starts with none, before anything is
+  // fetched under it (the service worker's copies are tied to their token as well, `public/sw.js`).
+  const previous = await readCredential().catch(() => null);
+  if (previous?.token !== credential.token) await purgePageImages().catch(() => undefined);
   await txRequest(CREDENTIAL_STORE, "readwrite", (objects) => objects.put(credential, KEY));
   publish(credential);
 }

@@ -75,7 +75,25 @@ def test_propensity_recomputes_from_logged_row(tmp_path):
         entry["ref"]: entry["propensity"] for entry in row["support"]}
     assert redone.chosen == row["chosen_item_id"] == step["practice_item_id"]
     assert row["propensity"] == pytest.approx(redone.propensity, abs=1e-12)
+    # The logged probability of what was served is its own entry in the logged distribution, not just the same
+    # property read twice: a bad Draw.propensity passed the line above.
+    chosen = next(entry for entry in row["support"] if entry["ref"] == row["chosen_item_id"])
+    assert row["propensity"] == pytest.approx(chosen["propensity"], abs=1e-12)
     assert sum(entry["propensity"] for entry in row["support"]) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_a_draws_propensity_is_the_probability_of_what_it_chose():
+    """Every estimator weights by this number. A draw over a tie set must log each option's real share."""
+
+    scored = [S.Scored(f"i{k}", 0.40 + 0.01 * k, 0.70, 0.1) for k in range(6)]
+    seen = set()
+    for k in range(40):
+        drawn = S.draw(scored, key=f"block:{k}")
+        assert drawn.propensity == drawn.propensities[drawn.chosen]
+        assert 0.0 < drawn.propensity < 1.0
+        seen.add(drawn.chosen)
+    assert len(seen) > 1
+    assert sum(drawn.propensities.values()) == pytest.approx(1.0)
 
 
 def test_seed_reproduces_draw():

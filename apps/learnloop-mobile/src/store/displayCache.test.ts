@@ -9,6 +9,7 @@ import {
   dropExtraction,
   getLatest,
   getSection,
+  PAGE_CACHE,
   putLatest,
   putSection,
   SECTION_BUDGET_BYTES,
@@ -151,12 +152,33 @@ describe("an upgrade another tab holds up (Codex review of V1, F2)", () => {
   it("this build closes its own connection when a newer build asks for the database", async () => {
     await putLatest("plan", { step: 1 });
     const newer = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("learnloop-phone", 3);
+      // V4's build is version 3 (the intents store), so a newer one asks for 4.
+      const request = indexedDB.open("learnloop-phone", 4);
       request.onblocked = () => reject(new Error("blocked by this build's open connection"));
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    expect(newer.version).toBe(3);
+    expect(newer.version).toBe(4);
     newer.close();
+  });
+});
+
+// Codex re-review F1: the page images are one pairing's. A new token (pairing again, or a pairing link) drops
+// every kept page and stored image before anything is fetched under it, and the pre-fix cache name with it.
+describe("page images belong to the token they were fetched under", () => {
+  it("a new token drops the page images; saving the same token again keeps them", async () => {
+    const deleted: string[] = [];
+    vi.stubGlobal("caches", { delete: async (name: string) => { deleted.push(name); return true; } });
+    try {
+      await saveCredential({ token: "first", deviceId: "dev", scope: "app" });
+      deleted.length = 0;
+      await saveCredential({ token: "first", deviceId: "dev", scope: "app" });
+      expect(deleted).toEqual([]);
+      await saveCredential({ token: "second", deviceId: "dev2", scope: "app" });
+      expect(deleted).toEqual(expect.arrayContaining([PAGE_CACHE, "learnloop-pages-v1"]));
+      expect(PAGE_CACHE).not.toBe("learnloop-pages-v1");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

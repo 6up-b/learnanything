@@ -1,0 +1,30 @@
+{
+  "method": "reader.capture",
+  "requests": [
+    {
+      "wrapper": "save",
+      "envelope": {
+        "method": "reader.capture",
+        "params": {
+          "sourceId": "src1",
+          "revisionId": "rev1",
+          "extractionId": "ext1",
+          "clientIdempotencyKey": "save_1",
+          "renderViewId": "rv1",
+          "rawSelection": {
+            "nodes": [
+              {
+                "spanId": "b1",
+                "quote": "Every vector space"
+              }
+            ]
+          },
+          "action": "highlight"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "receipt"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "method": "reader.log_activity",
+  "requests": [
+    {
+      "wrapper": "logActivity",
+      "envelope": {
+        "method": "reader.log_activity",
+        "params": {
+          "events": [
+            {
+              "kind": "reader_view_opened",
+              "occurredAt": "2026-11-07T08:00:00.000Z",
+              "payload": {
+                "visitId": "v1",
+                "extractionId": "ext1",
+                "surface": "text"
+              }
+            }
+          ]
+        },
+        "request_id": "act_1"
+      }
+    }
+  ],
+  "reads": []
+}

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+import logging
 from dataclasses import replace as dataclass_replace
 from typing import Any, Literal
 
@@ -187,9 +188,56 @@ def _step_filter(ctx: SidecarContext, vault: Any, repository: Any, session_id: s
     return PlanStepFilter(
         device_filter=device_filter(ctx.request_origin, vault, repository, session_id),
         surface=plan_surface(ctx.request_origin),
-        device_policy=device_policy(vault),
+        device_policy=device_policy(vault, ctx.request_origin),
         generated_probe=generated_probe,
+        reading=phone_reading_check(ctx, vault, repository),
     )
+
+
+def phone_reading_check(ctx: SidecarContext, vault: Any, repository: Any) -> Any:
+    """Mobile v2 V4: which of the plan's reading blocks the phone's Reader takes (the host's ``phone_reader``),
+    or None (V3's phone, which leaves every reading for the desktop). A block is the phone's when its book opens
+    in the phone's Reader: the Reader on, the source not opted out of it, and nothing of its section withheld
+    from the phone (``phone_reader.phone_withheld``). Anything that can't be read leaves it for the desktop."""
+
+    from learnloop_sidecar.request_origin import phone_reader_on
+
+    if not phone_reader_on(ctx.request_origin):
+        return None
+
+    def check(reading: Mapping[str, Any]) -> bool:
+        try:
+            return _phone_reading_eligible(vault, repository, reading)
+        except Exception:  # noqa: BLE001 - fail closed: the desktop shows it
+            logging.getLogger(__name__).warning("phone reading eligibility unreadable", exc_info=True)
+            return False
+
+    return check
+
+
+def _phone_reading_eligible(vault: Any, repository: Any, reading: Mapping[str, Any]) -> bool:
+    from learnloop.reader import reader_dialogue as RD
+    from learnloop.section_map import extraction_sections
+    from learnloop_sidecar.phone_reader import phone_withheld
+
+    extraction_id = str(reading.get("extraction_id") or "")
+    section_id = str(reading.get("section_id") or "")
+    if not extraction_id or not section_id or not RD.reader_enabled(vault):
+        return False
+    run = repository.get_extraction_run(extraction_id)
+    if run is None or run.get("status") != "completed":
+        return False
+    revision = repository.get_source_revision(run["revision_id"]) if run.get("revision_id") else None
+    artifact = repository.get_source_artifact(revision["source_id"]) if revision else None
+    if artifact is None or not artifact.get("reader_enabled", 1):
+        return False
+    ir = repository.load_document_ir(extraction_id)
+    section = next((row for row in (extraction_sections(ir)[0] if ir is not None else []) if row["id"] == section_id),
+                   None)
+    if section is None:
+        return False
+    withheld = phone_withheld(vault, repository, extraction_id, section["span_ids"])
+    return not withheld.whole and not withheld.spans
 
 
 def _require(ctx: SidecarContext, session_id: str | None, *, serve: bool = False,

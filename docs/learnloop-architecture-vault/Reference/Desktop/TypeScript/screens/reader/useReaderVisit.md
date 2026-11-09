@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useReaderVisit.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useReaderVisit.ts"
-source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
-source_commit_timestamp: "2026-11-04T09:17:25-05:00"
+source_commit: "d9e95c6025d25552c051f68259df62d893782389"
+source_commit_timestamp: "2026-11-07T07:06:12-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `VISIT_IDLE_MS`, `ReaderVisitInput`, `ReaderVisit`, `useReaderVisit` within the desktop's TypeScript/screens/reader ownership area.
+Provides `ReaderVisitInput`, `ReaderVisit`, `useReaderVisit` within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderVisit.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderVisit.ts) |
-| Source lines | 143 |
+| Source lines | 134 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
-| Commit timestamp | `2026-11-04T09:17:25-05:00` |
+| Source commit | `d9e95c6025d25552c051f68259df62d893782389` |
+| Commit timestamp | `2026-11-07T07:06:12-05:00` |
 
 ## Activation and status evidence
 
@@ -60,31 +60,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const VISIT_IDLE_MS = 120_000` — const, line 22
-- `export interface ReaderVisitInput` — interface, line 24
-- `export interface ReaderVisit` — interface, line 33
-- `export function useReaderVisit(` — function, line 53
+- `export interface ReaderVisitInput` — interface, line 25
+- `export interface ReaderVisit` — interface, line 34
+- `export function useReaderVisit(` — function, line 54
 
 ## Internal implementation anchors
 
-- `const visitRef = useRef<` — const, line 56
-- `const backToReadingRef = useRef<` — const, line 57
-- `const proactiveSeenRef = useRef<Set<string>>(new Set())` — const, line 58
-- `const now = Date.now()` — const, line 70
-- `const visit =` — const, line 71
-- `const at = Date.now()` — const, line 82
-- `const gap = at - visit.lastActive` — const, line 83
-- `const touchVisit = useCallback(()` — const, line 100
-- `const visit = visitRef.current` — const, line 101
-- `const now = Date.now()` — const, line 103
-- `const gap = now - visit.lastActive` — const, line 104
-- `const visitPayload = useCallback( ()` — const, line 109
-- `const noteBackToReading = useCallback(()` — const, line 113
-- `const pending = backToReadingRef.current` — const, line 114
-- `const noteUsableResult = useCallback((jobId: string, actionKind: string)` — const, line 122
-- `const noteSelection = useCallback((spanCount: number, surface: string)` — const, line 125
-- `const noteProactive = useCallback((key: string, element: string)` — const, line 131
-- `const resetVisitState = useCallback(()` — const, line 137
+- `const visitRef = useRef<` — const, line 57
+- `const backToReadingRef = useRef<` — const, line 58
+- `const proactiveSeenRef = useRef<Set<string>>(new Set())` — const, line 59
+- `const now = Date.now()` — const, line 71
+- `const visit =` — const, line 72
+- `const touchVisit = useCallback(()` — const, line 95
+- `const visit = visitRef.current` — const, line 96
+- `const visitPayload = useCallback( ()` — const, line 100
+- `const noteBackToReading = useCallback(()` — const, line 104
+- `const pending = backToReadingRef.current` — const, line 105
+- `const noteUsableResult = useCallback((jobId: string, actionKind: string)` — const, line 113
+- `const noteSelection = useCallback((spanCount: number, surface: string)` — const, line 116
+- `const noteProactive = useCallback((key: string, element: string)` — const, line 122
+- `const resetVisitState = useCallback(()` — const, line 128
 
 ## Who imports or calls it
 
@@ -101,6 +96,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderPdfViewDto`, `ReaderRenderViewDto`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `flushReaderActivity`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`, `setReaderActivityEnabled`, `takeReaderVisitInitiator`
+- [[Reference/Desktop/TypeScript/screens/reader/visitClock|src/screens/reader/visitClock.ts]] — import-or-re-export; imports `VISIT_IDLE_MS`, `accrueVisit`, `visitSeconds`
 
 ### Assets, platform, and third-party dependencies
 

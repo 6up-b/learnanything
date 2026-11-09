@@ -1,0 +1,28 @@
+{
+  "method": "plan_reading_ended",
+  "requests": [
+    {
+      "wrapper": "planReadingEnded",
+      "envelope": {
+        "method": "plan_reading_ended",
+        "params": {
+          "outcome": "left_reader",
+          "sessionId": "s1"
+        }
+      }
+    },
+    {
+      "wrapper": "planReadingEnded",
+      "envelope": {
+        "method": "plan_reading_ended",
+        "params": {
+          "outcome": "skipped",
+          "sessionId": null
+        }
+      }
+    }
+  ],
+  "reads": [
+    "enabled"
+  ]
+}

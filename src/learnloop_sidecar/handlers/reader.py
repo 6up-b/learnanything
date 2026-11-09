@@ -146,6 +146,14 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     ask_source_id = _source_id_for_extraction(repository, params.extraction_id)
     if ask_source_id is not None:
         _require_source_reader(repository, ask_source_id)
+    # Mobile v2 V4: a phone's Ask on protected material, or during one of its checks on your
+    # own (J8, the server's own state), is refused before any model call.
+    from learnloop_sidecar import phone_reader as PR
+
+    PR.refuse_if_withheld(ctx, vault, repository, params.extraction_id,
+                          [params.span_id, *(params.selection_span_ids or [])])
+    if ctx.request_origin is not None and PR.cold_check_open(ctx, vault, repository):
+        raise SidecarError(PR.COLD_CHECK_CODE, PR.COLD_CHECK_MESSAGE)
     provider_name, runtime, client = ready_tutor_qa_provider(vault)
     if not runtime.ready or client is None:
         raise SidecarError(
@@ -213,6 +221,13 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             f"{provider_label(provider_name)} is unavailable for reader Ask.",
             retryable=True,
         ) from exc
+    if ctx.request_origin is not None and not _phone_ask_history(
+            vault, repository, params.extraction_id, [{"event_id": str(result["reader_answer_event_id"])}]):
+        # Mobile v2 V4 landing (ruling R1): the answer as the Ask stored it (its citations, excerpt and what the
+        # tutor retrieved, which the model chose) is judged as its history will judge it, before anything of it
+        # is sent; one naming material withheld from the phone is not sent (the desktop still has it).
+        raise SidecarError(PR.HELD_OUT_CODE, "This answer drew on material held out from the phone. "
+                                             "It's in your history on the desktop.")
     response = {
         "event_id": result["event_id"],
         "reader_answer_event_id": result["reader_answer_event_id"],
@@ -297,12 +312,39 @@ def reader_ask_history(ctx: SidecarContext, params: ReaderAskHistoryInput) -> di
         _require_source_reader(repository, source_id)
     from learnloop_sidecar.handlers import reader_tutor as RTU
 
-    return versioned({"exchanges": RD.ask_history(
+    exchanges = RD.ask_history(
         repository, extraction_id=params.extraction_id, branches=RD.inquiry_enabled(vault),
         # RW1c's presentation fields only while the contract enables RW1c
         # (either switch); both off, the projection is the base's (fix round 5, R4).
         **({"tutor_views": True} if RTU.retrieval_enabled(vault) or RTU.offers_enabled(vault) else {}),
-    )})
+    )
+    if ctx.request_origin is not None:
+        # Mobile v2 V4: no exchange grounded on protected material reaches the phone: its anchor, every span
+        # its selection named (whose quote it carries), every citation, the tutor's excerpt and what it
+        # retrieved (Codex review F4), each read in the reading it names. Judged on the stored event, before
+        # the projection above dropped anything under a presentation switch (landing ruling R1); only an
+        # exchange that passes is sent, as projected.
+        exchanges = _phone_ask_history(vault, repository, params.extraction_id, exchanges)
+    return versioned({"exchanges": exchanges})
+
+
+def _phone_ask_history(vault: Any, repository: Any, extraction_id: str,
+                       exchanges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from learnloop_sidecar import phone_reader as PR
+
+    provenance = RD.ask_provenance(repository, extraction_id=extraction_id)
+    by_reading: dict[str, set[str]] = {extraction_id: set()}
+    for places in provenance.values():
+        for reading, span in places:
+            by_reading.setdefault(reading, set()).add(span)
+    withheld = {reading: PR.phone_withheld(vault, repository, reading, sorted(spans))
+                for reading, spans in by_reading.items()}
+    if withheld[extraction_id].whole:
+        return []
+    passed = {event_id for event_id, places in provenance.items()
+              if not any(withheld[reading].covers(span) for reading, span in places)}
+    # An exchange the stored events don't account for is not sent (fail closed).
+    return [exchange for exchange in exchanges if exchange.get("event_id") in passed]
 
 
 class ReaderSetAnswerModeInput(ParamsModel):
@@ -555,6 +597,59 @@ class ReaderRenderViewInput(ParamsModel):
     # through ``resolve_extraction_id`` so the library can open a source directly.
     extraction_id: str
     revision_id: str | None = None
+    #: Mobile v2 §3.2 (stage V4): only one range's blocks, in the same shape: a guide
+    #: section (``reader.guide_plan``'s ``sections[].id``), or the blocks from one span to
+    #: another in reading order (either end may be left open). Absent, the reply is
+    #: today's, byte for byte.
+    section_id: str | None = None
+    from_span_id: str | None = None
+    to_span_id: str | None = None
+
+    @model_validator(mode="after")
+    def _one_range(self) -> "ReaderRenderViewInput":
+        if self.section_id is not None and (self.from_span_id is not None or self.to_span_id is not None):
+            raise ValueError("Give sectionId, or fromSpanId/toSpanId, not both.")
+        return self
+
+    def ranged(self) -> bool:
+        return self.section_id is not None or self.from_span_id is not None or self.to_span_id is not None
+
+
+def _range_blocks(repository: Any, extraction_id: str, blocks: list[dict[str, Any]],
+                  params: ReaderRenderViewInput) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Mobile v2 §3.2: the blocks of one range, in reading order, and what the range was."""
+
+    first, last = params.from_span_id, params.to_span_id
+    if params.section_id is not None:
+        from learnloop.section_map import extraction_sections
+
+        ir = repository.load_document_ir(extraction_id)
+        rows = extraction_sections(ir)[0] if ir is not None else []
+        section = next((row for row in rows if row["id"] == params.section_id), None)
+        if section is None:
+            raise SidecarError("validation_error", "That section is not in this reading.",
+                               details={"field": "sectionId"})
+        first, last = section["start_span_id"], section["end_span_id"]
+    order = [block.get("span_id") for block in blocks]
+    start = 0
+    end = len(blocks) - 1
+    if first is not None:
+        if first not in order:
+            raise SidecarError("validation_error", "That passage is not in this reading.",
+                               details={"field": "fromSpanId" if params.section_id is None else "sectionId"})
+        start = order.index(first)
+    if last is not None:
+        if last not in order:
+            raise SidecarError("validation_error", "That passage is not in this reading.",
+                               details={"field": "toSpanId" if params.section_id is None else "sectionId"})
+        end = order.index(last)
+    chosen = blocks[start:end + 1] if end >= start else []
+    return chosen, {
+        "section_id": params.section_id,
+        "from_span_id": chosen[0].get("span_id") if chosen else first,
+        "to_span_id": chosen[-1].get("span_id") if chosen else last,
+        "block_count": len(blocks),
+    }
 
 
 @method("reader.render_view", ReaderRenderViewInput)
@@ -568,6 +663,14 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
     source_id = _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
+    if ctx.request_origin is not None:
+        # Mobile v2 V4: nothing of a reading exam material covers whole reaches the phone
+        # (refused before a render view is made for it).
+        from learnloop_sidecar import phone_reader as PR
+
+        whole = PR.phone_withheld(vault, repository, resolved)
+        if whole.whole:
+            raise SidecarError(PR.HELD_OUT_CODE, whole.message or "This reading is held out.")
     try:
         view = RV.resolve_or_create_render_view(
             repository,
@@ -590,11 +693,32 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
     from learnloop.content.sources.span_aliases import other_readings
 
     payload["other_readings"] = other_readings(repository, resolved)
+    every_span = [block.get("span_id") for block in payload.get("blocks") or []]
+    if params.ranged():
+        payload["blocks"], payload["range"] = _range_blocks(repository, resolved, payload.get("blocks") or [], params)
     # reader-pdf-selection: what the model actions must not touch here, so a
     # selection on held-out material offers none (exam_material decides).
     payload["protection"] = RG.reading_protection(
         vault, repository, resolved, [block.get("span_id") for block in payload.get("blocks") or []]
     )
+    if ctx.request_origin is not None:
+        # Mobile v2 V4: a withheld passage's text never reaches the phone, and its
+        # protection names every passage withheld here (a superset of the desktop's).
+        from learnloop_sidecar import phone_reader as PR
+
+        # The protection is the whole reading's, whatever the range: one value per reading, which the phone
+        # keeps beside what it cached of it and compares at every load, so a new mark drops that cache.
+        phone = PR.phone_withheld(vault, repository, resolved, every_span)
+        if phone.whole:  # marked between the check above and here
+            raise SidecarError(PR.HELD_OUT_CODE, phone.message or "This reading is held out.")
+        payload["blocks"] = PR.redact_blocks(payload.get("blocks") or [], phone)
+        payload["protection"] = phone.as_protection(
+            RG.reading_protection(vault, repository, resolved, every_span) if params.ranged() else payload["protection"])
+        # The phone has no PDF.js (D4): each block names its page (zero-based, as the page endpoint
+        # takes it), so *View the page* asks the host for that page's image.
+        ir = repository.load_document_ir(resolved)
+        pages = {block.span_id: block.page for block in ir.blocks} if ir is not None else {}
+        payload["blocks"] = [{**block, "page": pages.get(block.get("span_id"))} for block in payload["blocks"]]
     return versioned(payload)
 
 
@@ -679,6 +803,13 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
     source_id = _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
+    if ctx.request_origin is not None:
+        # Mobile v2 V4: nothing of a reading exam material covers whole reaches the phone.
+        from learnloop_sidecar import phone_reader as PR
+
+        whole = PR.phone_withheld(vault, repository, resolved)
+        if whole.whole:
+            raise SidecarError(PR.HELD_OUT_CODE, whole.message or "This reading is held out.")
     try:
         plan = RG.build_guide_plan(vault, repository, extraction_id=resolved)
     except ValueError as exc:
@@ -698,7 +829,99 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
             remember(ctx, resolved, plan["cues"], vault=vault, repository=repository)
         else:
             plan["cues"] = RCU.guide_cues(vault, repository, extraction_id=resolved, plan=plan)
+    if ctx.request_origin is not None:
+        plan = _phone_guide_plan(vault, repository, resolved, plan)
     return versioned(plan)
+
+
+def _phone_guide_plan(vault: Any, repository: Any, extraction_id: str, plan: dict[str, Any]) -> dict[str, Any]:
+    """Mobile v2 V4: the guide plan as a phone gets it. No quote, question or cue of a
+    passage exam material covers reaches the phone; the sections and their span ids stay,
+    so its section list, progress and place line up with the desktop's."""
+
+    from learnloop_sidecar import phone_reader as PR
+
+    def spans_of(entry: Any) -> list[str]:
+        if not isinstance(entry, dict):
+            return []
+        found = [str(entry["span_id"])] if entry.get("span_id") else []
+        found += [str(span) for span in entry.get("span_ids") or [] if span]
+        return found
+
+    sections = plan.get("sections") or []
+    every = [span for section in sections for span in section.get("span_ids") or []]
+    # Landing ruling R1: a question is judged on what it is stored with (an authored check's anchors as well as
+    # the spans it cites; a placed item's own source), not only on what the plan projects of it.
+    stored = [_stored_question_places(vault, repository, extraction_id, section.get("question"))
+              for section in sections]
+    by_reading: dict[str, set[str]] = {extraction_id: set(every)}
+    for places in stored:
+        for reading, span in (places or (set(), set()))[0]:
+            by_reading.setdefault(reading, set()).add(span)
+        for reading in (places or (set(), set()))[1]:
+            by_reading.setdefault(reading, set())
+    readings = {reading: PR.phone_withheld(vault, repository, reading, sorted(spans))
+                for reading, spans in by_reading.items()}
+    withheld = readings[extraction_id]
+
+    def question_withheld(section: dict[str, Any], places: Any) -> bool:
+        question = section.get("question")
+        if question is None:
+            return False
+        if places is None:  # its stored row or item can't be read (fail closed)
+            return True
+        keys, whole = places
+        return (withheld.any(spans_of(question) or section.get("span_ids") or [])
+                or any(readings[reading].covers(span) for reading, span in keys)
+                or any(readings[reading].whole for reading in whole))
+
+    dropped = [question_withheld(section, places) for section, places in zip(sections, stored)]
+    if not withheld.spans and not any(dropped):
+        return plan
+    out = dict(plan)
+    out["sections"] = []
+    for number, (section, drop) in enumerate(zip(sections, dropped), start=1):
+        section = dict(section)
+        if withheld.any(section.get("span_ids") or []):
+            # The label is the section's heading, which is its first block: text the phone is not sent.
+            section["label"] = f"Section {number}"
+        section["suggested_passages"] = [passage for passage in section.get("suggested_passages") or []
+                                         if not withheld.any(spans_of(passage))]
+        if drop:
+            section["question"] = None
+        out["sections"].append(section)
+    if isinstance(out.get("cues"), list):
+        out["cues"] = [cue for cue in out["cues"] if not withheld.any(spans_of(cue))]
+    return out
+
+
+def _stored_question_places(vault: Any, repository: Any, extraction_id: str,
+                            question: Any) -> tuple[set[tuple[str, str]], set[str]] | None:
+    """Every ``(reading, span)`` and whole reading a guide question is stored with, or None when it can't be
+    read: an authored check's row (its anchors and its cited spans, as the dose offer judges them), or a placed
+    question's practice item (its canonical exercise and source refs)."""
+
+    import json as _json
+
+    from learnloop.content.sources.exam_material import item_source_keys, reference_keys
+
+    if not isinstance(question, dict):
+        return set(), set()
+    if question.get("authored_question_id"):
+        row = repository.get_reader_authored_question(str(question["authored_question_id"]))
+        if row is None:
+            return None
+        spans: list[str] = []
+        for column in ("anchor_span_ids_json", "span_ids_json"):
+            try:
+                spans += [str(span) for span in _json.loads(row.get(column) or "[]") if span]
+            except (TypeError, ValueError):
+                return None
+        return reference_keys({"extraction_id": str(row.get("extraction_id") or extraction_id), "span_ids": spans})
+    if question.get("practice_item_id"):
+        item = vault.practice_items.get(str(question["practice_item_id"]))
+        return item_source_keys(item) if item is not None else None
+    return set(), set()
 
 
 class ReaderBlockHealthInput(ParamsModel):
@@ -911,6 +1134,14 @@ def reader_capture(ctx: SidecarContext, params: ReaderCaptureInput) -> dict[str,
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
                      source_id=params.source_id, revision_id=params.revision_id, render_view_id=params.render_view_id)
+    if ctx.request_origin is not None:
+        # Mobile v2 V4: a phone's Save names no protected passage (it was never sent its text).
+        from learnloop_sidecar.phone_reader import refuse_if_withheld
+
+        selection = params.raw_selection or {}
+        nodes = [selection, *(node for node in selection.get("nodes") or [] if isinstance(node, dict))]
+        refuse_if_withheld(ctx, _vault, repository, params.extraction_id,
+                           [node.get("span_id") or node.get("spanId") for node in nodes])
     try:
         receipt = RC.capture(
             repository,
@@ -1810,10 +2041,107 @@ def reader_get_progress(ctx: SidecarContext, params: ReaderGetProgressInput) -> 
 
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
 
-    _vault, repository = _require_reader(ctx)
+    vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
+    if not getattr(ctx, "secondary", False):
+        # Mobile v2 D6: a section the phone finished builds its questions when the desktop's
+        # Reader opens the book (and at the desktop's start). Nothing runs for a vault the
+        # phone never finished a section of.
+        drain_deferred_section_generations(ctx, vault, repository, extraction_id=resolved)
     rows = repository.reader_section_progress_for(resolved)
     return versioned({"extraction_id": resolved, "sections": [_progress_payload(r) for r in rows]})
+
+
+#: Mobile v2 D6: the generation stamp of a section finished on the phone host, whose
+#: questions are built by the primary (the desktop app), never by the host.
+DEFERRED_TO_PRIMARY = "deferred_to_primary"
+
+
+def _trigger_section_generation(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
+                                section_id: str, *, from_stamp: str | None = None) -> str | None:
+    """The first completion's practice generation for one section; the batch id, or None
+    when nothing was enqueued. ``from_stamp``: the stamp this claims from (None: an
+    untriggered section, the desktop's own completion; :data:`DEFERRED_TO_PRIMARY`: one the
+    phone finished). Either way the stamp is taken once, before anything is enqueued."""
+
+    from learnloop.reader.reader_progression import (
+        section_generation_candidates,
+        source_refs_for_section,
+    )
+
+    def stamp(batch_id: str) -> bool:
+        if from_stamp is None:
+            return repository.mark_section_generation(
+                extraction_id=extraction_id, section_id=section_id, batch_id=batch_id
+            )
+        return repository.swap_section_generation(
+            extraction_id=extraction_id, section_id=section_id, from_batch_id=from_stamp, batch_id=batch_id
+        )
+
+    lo_ids = section_generation_candidates(
+        vault, repository, extraction_id=extraction_id, section_id=section_id
+    )
+    if not lo_ids:
+        stamp("none_needed")
+        return None
+    # Stamp FIRST so a concurrent completion cannot double-enqueue; the
+    # loser of the race sees the stamp and does nothing.
+    if not stamp("enqueuing"):
+        return None
+    source_refs = source_refs_for_section(
+        vault,
+        repository,
+        extraction_id=extraction_id,
+        section_id=section_id,
+        learning_object_ids=lo_ids,
+    )
+    from learnloop.ai import plan_fallback
+
+    # Reading progress is not a press (T1 landing review round 2):
+    # the expansion asks nothing and carries no grant.
+    with plan_fallback.quiet():
+        batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
+            learning_object_ids=lo_ids,
+            reason=f"reader_section_completed:{section_id}",
+            source_refs=source_refs,
+        )
+    repository.set_section_generation_batch(
+        extraction_id=extraction_id, section_id=section_id, batch_id=batch_id
+    )
+    return batch_id
+
+
+def drain_deferred_section_generations(ctx: SidecarContext, vault: Any, repository: Any, *,
+                                       extraction_id: str | None = None) -> int:
+    """Mobile v2 D6: build the questions of the sections the phone finished, on the primary,
+    as the desktop's own completion would have (the same candidates, refs and batch). Returns
+    how many were enqueued. Best effort: it never fails the Reader or the start, and a
+    section it could not enqueue keeps its stamp for the next try."""
+
+    if getattr(ctx, "secondary", False):
+        return 0
+    enqueued = 0
+    try:
+        rows = repository.deferred_section_generations(DEFERRED_TO_PRIMARY, extraction_id=extraction_id)
+    except Exception:  # pragma: no cover - a read failure leaves them for the next try
+        return 0
+    for row in rows:
+        try:
+            if _trigger_section_generation(ctx, vault, repository, str(row["extraction_id"]), str(row["section_id"]),
+                                           from_stamp=DEFERRED_TO_PRIMARY) is not None:
+                enqueued += 1
+        except Exception:  # noqa: BLE001 - one section's failure is kept for its next try
+            import logging
+
+            logging.getLogger(__name__).warning("a phone-finished section's questions were not queued", exc_info=True)
+            try:
+                # The claim may have moved to 'enqueuing' before the failure: hand it back.
+                repository.swap_section_generation(extraction_id=str(row["extraction_id"]),
+                                                   section_id=str(row["section_id"]),
+                                                   from_batch_id="enqueuing", batch_id=DEFERRED_TO_PRIMARY)
+            except Exception:  # pragma: no cover
+                pass
+    return enqueued
 
 
 class ReaderMarkSectionProgressInput(ParamsModel):
@@ -1836,10 +2164,6 @@ def reader_mark_section_progress(
     'none_needed' = mapped to zero targets, else the enqueued batch id) — a
     re-completed section never enqueues twice."""
 
-    from learnloop.reader.reader_progression import (
-        section_generation_candidates,
-        source_refs_for_section,
-    )
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
 
     vault, repository = _require_reader(ctx)
@@ -1877,47 +2201,26 @@ def reader_mark_section_progress(
     enqueued = False
     batch_id: str | None = None
     if params.completed and row.get("generation_batch_id") is None:
-        lo_ids = section_generation_candidates(
-            vault, repository, extraction_id=resolved, section_id=params.section_id
-        )
-        if not lo_ids:
+        if getattr(ctx, "secondary", False):
+            # Mobile v2 D6: the phone host runs only the phone's own work, so a section
+            # finished there leaves its generation to the primary (the desktop app, or later
+            # the hub), which takes it from this stamp (:func:`drain_deferred_section_generations`).
+            # The stamp is the same once-only claim, so it is never enqueued twice.
             repository.mark_section_generation(
-                extraction_id=resolved, section_id=params.section_id, batch_id="none_needed"
+                extraction_id=resolved, section_id=params.section_id, batch_id=DEFERRED_TO_PRIMARY
             )
         else:
-            # Stamp FIRST so a concurrent completion cannot double-enqueue; the
-            # loser of the race sees the stamp and does nothing.
-            if repository.mark_section_generation(
-                extraction_id=resolved, section_id=params.section_id, batch_id="enqueuing"
-            ):
-                source_refs = source_refs_for_section(
-                    vault,
-                    repository,
-                    extraction_id=resolved,
-                    section_id=params.section_id,
-                    learning_object_ids=lo_ids,
-                )
-                from learnloop.ai import plan_fallback
-
-                # Reading progress is not a press (T1 landing review round 2):
-                # the expansion asks nothing and carries no grant.
-                with plan_fallback.quiet():
-                    batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
-                        learning_object_ids=lo_ids,
-                        reason=f"reader_section_completed:{params.section_id}",
-                        source_refs=source_refs,
-                    )
-                repository.set_section_generation_batch(
-                    extraction_id=resolved, section_id=params.section_id, batch_id=batch_id
-                )
-                enqueued = True
+            batch_id = _trigger_section_generation(ctx, vault, repository, resolved, params.section_id)
+            enqueued = batch_id is not None
         row = repository.upsert_reader_section_progress(
             extraction_id=resolved, section_id=params.section_id
         )
 
     # Act on the recorded request now. Best effort, like the plan receipt
-    # below: it never fails the Reader (a failure is kept and retried).
-    if keep_ahead:
+    # below: it never fails the Reader (a failure is kept and retried). Never on
+    # the phone host's secondary attach (mobile v2 D6): its ingest is the desktop's,
+    # whose reading sweep acts on the request recorded above.
+    if keep_ahead and not getattr(ctx, "secondary", False):
         try:
             from learnloop.ai import plan_fallback
             from learnloop.content.pipeline import add_source as auto_build
@@ -1944,8 +2247,16 @@ def reader_mark_section_progress(
     try:
         from learnloop.daily_plan.engine import PlanEnv, note_reading_progress
 
+        device = None
+        if ctx.request_origin is not None:
+            # Mobile v2 V4: the phone's reading block is the one its Reader was served, which can
+            # follow work it left for the desktop; the desktop's (None) is the plan's current block.
+            from learnloop.scheduling.device_eligibility import PlanStepFilter
+            from learnloop_sidecar.handlers.daily_plan import phone_reading_check
+
+            device = PlanStepFilter(device_filter=None, reading=phone_reading_check(ctx, vault, repository))
         note_reading_progress(
-            PlanEnv(vault=vault, repository=repository),
+            PlanEnv(vault=vault, repository=repository, **({"device": device} if device is not None else {})),
             extraction_id=resolved,
             section_id=params.section_id,
             spans_seen=row.get("spans_seen"),
@@ -1977,6 +2288,29 @@ def reader_authored_question_action(
     ctx: SidecarContext, params: ReaderAuthoredQuestionActionInput
 ) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    if ctx.request_origin is not None:
+        # Mobile v2 V4 (Codex review F9): the phone answers the dose arm's extra question here, as the desktop's
+        # card does; never one on a passage withheld from the phone.
+        import json as _json
+
+        from learnloop_sidecar.phone_reader import refuse_if_withheld
+
+        asked = repository.get_reader_authored_question(params.question_id) or {}
+        # Codex re-review F14: the source's own Reader switch (an exam opted out at ingest) holds here too.
+        extraction = asked.get("extraction_id")
+        source_id = asked.get("source_id") or (_source_id_for_extraction(repository, str(extraction))
+                                               if extraction else None)
+        if source_id is not None:
+            _require_source_reader(repository, str(source_id))
+        # Codex re-review F13: the anchors as well as the cited spans, as the dose offer judges them (F23): a
+        # prompt quotes its anchor.
+        spans: list[str] = []
+        for column in ("anchor_span_ids_json", "span_ids_json"):
+            try:
+                spans += [str(span) for span in _json.loads(asked.get(column) or "[]")]
+            except (TypeError, ValueError):
+                continue
+        refuse_if_withheld(ctx, _vault, repository, extraction, spans)
     try:
         row = RQC.record_action(
             repository,
@@ -2470,11 +2804,29 @@ def reader_log_activity(ctx: SidecarContext, params: ReaderLogActivityInput) -> 
     never learner text). All-or-nothing per call."""
 
     vault, repository = _require_inquiry(ctx)
-    try:
-        ids = RI.record_activity(repository, params.events, config=vault.config)
-    except RI.InquiryError as exc:
-        raise SidecarError("validation_error", str(exc)) from exc
-    return versioned({"recorded": len(ids)})
+    # Mobile v2 §3.4: under a phone origin each event records the device surface
+    # ``phone_reader`` (from the origin, never the payload); the desktop's rows are unchanged.
+    extra: dict[str, Any] = {}
+    if ctx.request_origin is None:
+        try:
+            ids = RI.record_activity(repository, params.events, config=vault.config, **extra)
+        except RI.InquiryError as exc:
+            raise SidecarError("validation_error", str(exc)) from exc
+        return versioned({"recorded": len(ids)})
+    from learnloop_sidecar.phone_reader import PHONE_READER_SURFACE, once_per_job
+
+    extra["device_surface"] = PHONE_READER_SURFACE
+
+    def record() -> dict[str, Any]:
+        try:
+            ids = RI.record_activity(repository, params.events, config=vault.config, **extra)
+        except RI.InquiryError as exc:
+            raise SidecarError("validation_error", str(exc)) from exc
+        return versioned({"recorded": len(ids)})
+
+    # Codex review F5: an outbox intent's events and its job's receipt commit together, so a restart's re-run of
+    # the job records nothing twice.
+    return once_per_job(ctx, repository, record)
 
 
 # ---------------------------------------------------------------------------

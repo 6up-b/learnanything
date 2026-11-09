@@ -13,7 +13,9 @@
 
 Both are reads or a report: no model call, no evidence, no exposure (the
 original page records its own where it opens, ``get_span_view``).
-Desktop only (no phone RPC in v1, D20).
+``practice.as_printed`` is on the phone from mobile v2 V4 (CA7's *as printed*
+after feedback), with nothing of protected material at a phone origin;
+``practice.report_transcription`` stays the desktop's.
 """
 
 from __future__ import annotations
@@ -120,6 +122,14 @@ def practice_as_printed(ctx: SidecarContext, params: AsPrintedInput) -> dict[str
         from learnloop.capture import photo_for_practice_item
 
         photo = photo_for_practice_item(repository, item.id)
+    if origin is not None and ctx.request_origin is not None:
+        # Mobile v2 V4: no crop or page of protected material reaches the phone.
+        from learnloop_sidecar.phone_reader import phone_withheld
+
+        spans = list(dict.fromkeys([*origin.span_ids, *origin.located_by]))
+        if phone_withheld(vault, repository, origin.extraction_id, spans).any(spans):
+            return versioned({"practice_item_id": item.id, "enabled": True, "kind": "none", "cold": cold,
+                              "reason": "held_out_material"})
     title = _source_title(repository, origin.source_id, origin.extraction_id) if origin is not None else None
     view = item_as_printed(repository, item, enabled=True, cold=cold, render=params.render,
                            source_title=title, photo=photo, origin=origin, roles=block_roles)

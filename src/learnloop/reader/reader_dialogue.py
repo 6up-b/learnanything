@@ -974,6 +974,52 @@ def ask_history(
     return exchanges
 
 
+def ask_provenance(repository: Repository, *, extraction_id: str) -> dict[str, list[tuple[str, str]]]:
+    """Every ``(reading, span)`` each completed Reader Ask of one extraction names, by its event id.
+
+    Read from the durable ``reader_answer_submitted`` event, never from :func:`ask_history`'s
+    projection, whose presentation switches (``branches``, ``tutor_views``) leave fields out: the
+    anchor, every span the selection named, every citation, the tutor's excerpt, the passages it
+    retrieved and judged explorable. A protection filter judges this, then lets the projection
+    through (mobile v2 V4 landing, ruling R1: Codex re-review F4)."""
+
+    prefix = f"span:{extraction_id}/"
+    found: dict[str, list[tuple[str, str]]] = {}
+
+    def located(value: Any) -> tuple[str, str] | None:
+        if not isinstance(value, dict):
+            return None
+        span = value.get("span_id")
+        reading = value.get("extraction_id") or extraction_id
+        locator = str(value.get("locator") or value.get("href") or "")
+        if not span and locator.startswith("span:") and "/" in locator:
+            reading, span = locator[len("span:"):].split("/", 1)
+        return (str(reading), str(span)) if span else None
+
+    for event in repository.reader_interaction_events(kind="reader_answer_submitted"):
+        subject_id = str(event.get("subject_id") or "")
+        if not subject_id.startswith(prefix):
+            continue
+        payload = event.get("payload") or {}
+        if str(payload.get("extraction_id") or "") != extraction_id:
+            continue
+        manifest = payload.get("manifest") or {}
+        selection = manifest.get("selection") or {}
+        tutor = payload.get("tutor") if isinstance(payload.get("tutor"), dict) else {}
+        places = [(extraction_id, str(span)) for span in
+                  [payload.get("span_id") or subject_id[len(prefix):], *(selection.get("span_ids") or [])] if span]
+        for value in [*(payload.get("citations") or []), tutor.get("excerpt"), *(tutor.get("explorable") or [])]:
+            place = located(value)
+            if place is not None:
+                places.append(place)
+        for key in (tutor.get("retrieval") or {}).get("span_keys") or []:
+            reading, _, span = str(key).partition(":")  # as ``reader_tutor.shown_span_keys`` reads them
+            if reading and span:
+                places.append((reading, span))
+        found[str(event["id"])] = places
+    return found
+
+
 def _record_cold_hint_equivalent(
     repository: Repository,
     *,

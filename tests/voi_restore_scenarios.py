@@ -252,6 +252,11 @@ def seed_ids(monkeypatch: Any, seed: int = 7) -> None:
     monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
     monkeypatch.setattr(ids, "_last_randomness", 0)
     monkeypatch.setattr(ids.secrets, "randbits", random.Random(seed).getrandbits)
+    # This golden pins the seeded id stream, schema ids included, so the lane's fixed schema ids (conftest) step aside.
+    from learnloop.db.repositories import Repository
+    from tests import conftest
+
+    monkeypatch.setattr(Repository, "ensure_outcome_schema", conftest._production_ensure_outcome_schema)
 
 
 #: The id stream the golden was pinned on: no ``voi_forecasts`` receipt draws

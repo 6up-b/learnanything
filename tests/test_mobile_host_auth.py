@@ -230,7 +230,8 @@ def test_slow_capture_has_separate_bounded_lane(mobile, monkeypatch):
                 release.set()
                 results = await asyncio.gather(first, *([second] if second else []))
             assert all(response.status_code == 201 for response in results)
-            assert host.active == {"short": 0, "capture": 0, "media": 0, "rpc": 0}
+            # Mobile v2 V4: ``pages`` is the media lane's page and asset reads.
+            assert host.active == {"short": 0, "capture": 0, "media": 0, "rpc": 0, "pages": 0}
     asyncio.run(run())
 
 

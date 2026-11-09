@@ -116,6 +116,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_render_view_without_a_range_is_todays_reply_byte_for_byte`
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_journey1_reading_first_session`
 - [tests/test_reader_render_views.py](../../../../../../tests/test_reader_render_views.py) — direct import

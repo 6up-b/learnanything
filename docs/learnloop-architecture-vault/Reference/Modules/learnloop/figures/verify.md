@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/verify.py"
 source_paths:
   - "src/learnloop/figures/verify.py"
-source_commit: "214c206ff1962566773d30b8b44f586d62ca383b"
-source_commit_timestamp: "2026-11-08T22:42:42-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220"
+source_commit_timestamp: "2026-11-08T22:51:11-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `214c206ff1962566773d30b8b44f586d62ca383b` |
-| Commit timestamp | `2026-11-08T22:42:42-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220` |
+| Commit timestamp | `2026-11-08T22:51:11-05:00` |
 
 ## Public API
 

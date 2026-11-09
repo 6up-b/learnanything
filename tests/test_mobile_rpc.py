@@ -57,7 +57,7 @@ def test_the_allowlist_is_the_m2_row_and_every_name_is_a_registered_method():
     assert {entry.name for entry in ALLOWLIST.values() if entry.kind == "long" and entry.milestone == "M2"} == {
         "submit_attempt", "submit_dont_know", "answer_grading_clarification",
     }
-    assert {entry.milestone for entry in ALLOWLIST.values()} == {"M2", "V2", "V3"}
+    assert {entry.milestone for entry in ALLOWLIST.values()} == {"M2", "V2", "V3", "V4"}
     with pytest.raises(TypeError):
         ALLOWLIST["run_cli_command"] = object()  # type: ignore[index]
 

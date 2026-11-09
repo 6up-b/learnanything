@@ -9,7 +9,8 @@ export const GRADING_LINE = "Grading isn't available right now. Your answer is s
 
 export function offlineLine(waiting: number): string {
   const queued = waiting > 0 ? ` ${waiting} ${waiting === 1 ? "capture" : "captures"} waiting to send.` : "";
-  return `Desktop offline. Capture still works.${queued}`;
+  // Mobile v2 V4: the sections opened here read offline too (§4.4's line, now that the phone has its Reader).
+  return `Desktop offline. Reading and capture still work.${queued}`;
 }
 
 export function ConnectionLine({ outboxWaiting }: { outboxWaiting: number }) {

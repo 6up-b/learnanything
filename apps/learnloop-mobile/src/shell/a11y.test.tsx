@@ -40,7 +40,7 @@ describe("plain words (§4.1)", () => {
   it.each([
     ["the pairing screen", () => render(<PairScreen waiting={2} />)],
     ["capture", () => render(<CaptureScreen onSaved={() => undefined} />)],
-    ["read", () => render(<ReadScreen />)],
+    ["read", () => render(<ReadScreen onOpen={() => undefined} onError={() => undefined} />)],
     ["progress", () => render(<ProgressScreen />)],
     ["the tab bar", () => render(<TabBar current="today" onSelect={() => undefined} />)],
     ["the display sheet", () => render(<DisplaySheet onClose={() => undefined} />)],

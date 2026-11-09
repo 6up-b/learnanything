@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/queue.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/queue.py"
-source_commit: "0b1619dcdd2e52f031e2494b89ce4d6d2e99d8b1"
-source_commit_timestamp: "2026-11-07T02:45:31-05:00"
+source_commit: "031c10cc83242fcf014d5c0ed5e995d014bcf732"
+source_commit_timestamp: "2026-11-07T06:17:58-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0b1619dcdd2e52f031e2494b89ce4d6d2e99d8b1` |
-| Commit timestamp | `2026-11-07T02:45:31-05:00` |
+| Source commit | `031c10cc83242fcf014d5c0ed5e995d014bcf732` |
+| Commit timestamp | `2026-11-07T06:17:58-05:00` |
 
 ## Public API
 

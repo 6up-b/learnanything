@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readCredential, saveCredential } from "./credential";
 import {
+  addReaderIntent,
   addToOutbox,
   CAPTURE_INTENT,
   flushOutbox,
   INTENT_KINDS,
   listOutbox,
+  listReaderIntents,
+  READER_INTENT,
   removeFromOutbox,
   requestFor,
   responseClass,
@@ -146,8 +149,8 @@ describe("the outbox generalized to intents (mobile v2 §5.4)", () => {
     return { kind: kind as IntentKind<never>, records, sent };
   }
 
-  it("V1 flushes one kind, the capture, exactly as built", () => {
-    expect(INTENT_KINDS).toEqual([CAPTURE_INTENT]);
+  it("V1's capture, exactly as built, and V4's reader intents", () => {
+    expect(INTENT_KINDS).toEqual([CAPTURE_INTENT, READER_INTENT]);
   });
 
   it("every kind together, oldest client id first", async () => {
@@ -173,5 +176,80 @@ describe("the outbox generalized to intents (mobile v2 §5.4)", () => {
     [403, "stop_forbidden"], [409, "conflict"], [413, "refused"], [422, "refused"]
   ])("%i is %s", (status, kind) => {
     expect(responseClass(status)).toBe(kind);
+  });
+});
+
+describe("the Reader's intents (mobile v2 V4, §3.4, §5.4)", () => {
+  const progress = (id: string, spansSeen: number) => ({
+    id, method: "reader.mark_section_progress" as const, coalesce: "ext1:u1",
+    params: { extractionId: "ext1", sectionId: "u1", spansSeen, spanCount: 3 }
+  });
+  const sentBodies = () => fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+
+  it("a newer progress report replaces the unsent one for its section; others wait in order", async () => {
+    await addReaderIntent(progress("01A", 1));
+    await addReaderIntent({ id: "01B", method: "reader.log_activity", params: { events: [{ kind: "reader_view_opened" }] } });
+    await addReaderIntent(progress("01C", 2));
+    expect((await listReaderIntents()).map((one) => one.id).sort()).toEqual(["01B", "01C"]);
+  });
+
+  it("each is one /rpc under its own key; the job's end (a 200) delivers it, its acceptance (a 202) does not", async () => {
+    await addReaderIntent(progress("01A", 2));
+    await addReaderIntent({ id: "01B", method: "reader.dose_offer_event", params: { drawId: "d1", event: "delivered" } });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, accepted: { job_id: "j", request_id: "01B", state: "accepted" } }), { status: 202 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    expect(sentBodies()).toEqual([
+      { method: "reader.mark_section_progress", params: { extractionId: "ext1", sectionId: "u1", spansSeen: 2, spanCount: 3 }, request_id: "01A" },
+      { method: "reader.dose_offer_event", params: { drawId: "d1", event: "delivered" }, request_id: "01B" }
+    ]);
+    // Codex review F7: the accepted job may still fail (a busy database), so its intent stays, unflagged.
+    expect((await listReaderIntents()).map((one) => [one.id, one.problem ?? null])).toEqual([["01B", null]]);
+  });
+
+  it("an accepted intent is sent again under its key until the host answers its end (F7)", async () => {
+    await addReaderIntent({ id: "01B", method: "reader.dose_offer_event", params: { drawId: "d1", event: "taken" } });
+    const accepted = () => new Response(JSON.stringify({ ok: true, accepted: { job_id: "j", request_id: "01B", state: "running" } }), { status: 202 });
+    fetchMock.mockResolvedValueOnce(accepted());
+    await flushOutbox();
+    // The job failed for a busy database: the same key runs it again on the host (a retryable failure), and
+    // this time it ends.
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, result: { recorded: true } }), { status: 200 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    expect(sentBodies().map((body) => body.request_id)).toEqual(["01B", "01B"]);
+    expect(await listReaderIntents()).toEqual([]);
+  });
+
+  it("a queued completion survives a later, smaller report for its section (F6): counts are the max, flags stick", async () => {
+    await addReaderIntent({ ...progress("01A", 3), params: { extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, completed: true } });
+    await addReaderIntent(progress("01C", 1));
+    const queued = await listReaderIntents();
+    expect(queued).toHaveLength(1);
+    expect(queued[0].params).toEqual({ extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, completed: true });
+    // The newest report's key: an accepted older one may still be running, and its replay is its own.
+    expect(queued[0].id).toBe("01C");
+  });
+
+  it("no answer keeps it and sends it again under the same key (the host coalesces the replay)", async () => {
+    await addReaderIntent({ id: "01A", method: "reader.log_activity", params: { events: [{ kind: "reader_view_opened", occurredAt: "t" }] } });
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "offline" });
+    expect(await listReaderIntents()).toHaveLength(1);
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    // The lost try and the replay carry one key: the host's job for it records it once.
+    expect(sentBodies().map((body) => body.request_id)).toEqual(["01A", "01A"]);
+    expect(await listReaderIntents()).toEqual([]);
+  });
+
+  it("a busy host keeps it; a conflict on its key is flagged, never sent again", async () => {
+    await addReaderIntent(progress("01A", 1));
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: false, error: { code: "host_busy", message: "busy", retryable: true } }), { status: 503 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "offline" });
+    expect((await listReaderIntents())[0].problem ?? null).toBeNull();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: false, error: { code: "submission_conflict", message: "used", retryable: false } }), { status: 409 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    expect((await listReaderIntents())[0].problem?.kind).toBe("conflict");
   });
 });

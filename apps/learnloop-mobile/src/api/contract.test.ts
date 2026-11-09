@@ -89,7 +89,34 @@ const EXAMPLES: Record<Exclude<Wrapper, (typeof NOT_RPC)[number]>, ReadonlyArray
       phone.recordHintReveal({
         sessionId: "s1", practiceItemId: "i1", submissionId: "k1", authoredIndex: 0, answerMd: "Half", revealedAt: "2026-11-06T12:00:00.000Z"
       })
-  ]
+  ],
+  // Mobile v2 V4: the phone Reader.
+  library: [() => phone.library()],
+  guidePlan: [() => phone.guidePlan("ext1")],
+  section: [() => phone.section("ext1", "u1")],
+  readerProgress: [() => phone.readerProgress("ext1")],
+  doseOffer: [() => phone.doseOffer("ext1", "u1", "visit_1")],
+  ask: [
+    () => phone.ask({ extractionId: "ext1", spanId: "b1", question: "Why is it zero?", selectionSpanIds: ["b1", "b2"], selectionQuote: "Every vector space", retrievalIntent: "explain" }, "ask_1"),
+    () => phone.ask({ extractionId: "ext1", spanId: "b1", question: "Explain it another way.", retrievalIntent: "alternative", parentExchangeId: "ex_1" }, "ask_2")
+  ],
+  askHistory: [() => phone.askHistory("ext1")],
+  save: [
+    () => phone.save({ sourceId: "src1", revisionId: "rev1", extractionId: "ext1", clientIdempotencyKey: "save_1", renderViewId: "rv1",
+      rawSelection: { nodes: [{ spanId: "b1", quote: "Every vector space" }] } })
+  ],
+  asPrinted: [() => phone.asPrinted("i1")],
+  planReadingEnded: [() => phone.planReadingEnded("left_reader", "s1"), () => phone.planReadingEnded("skipped", null)],
+  markProgress: [
+    () => phone.markProgress({ extractionId: "ext1", sectionId: "u1", spansSeen: 2, spanCount: 3 }, "prog_1"),
+    () => phone.markProgress({ extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, completed: true }, "prog_2")
+  ],
+  logActivity: [
+    () => phone.logActivity([{ kind: "reader_view_opened", occurredAt: "2026-11-07T08:00:00.000Z", payload: { visitId: "v1", extractionId: "ext1", surface: "text" } }], "act_1")
+  ],
+  doseOfferEvent: [() => phone.doseOfferEvent("draw_1", "delivered", "dose_1")],
+  // Codex review F9: a taken extra question, answered as the desktop's quick-check card answers it.
+  authoredQuestionAction: [() => phone.authoredQuestionAction("aq_1", "All the linear combinations.")]
 };
 
 /**
@@ -136,14 +163,36 @@ const READS: Record<string, readonly string[]> = {
   followup_next: ["action", "line", "practiceItemId", "presentationId"],
   record_hypothesis_exposure: ["recorded"],
   record_hypothesis_mark: ["recorded", "marks"],
-  "practice.record_hint_reveal": ["recorded"]
+  "practice.record_hint_reveal": ["recorded"],
+  // Mobile v2 V4. The outbox's three intents read nothing of their reply: the job's acceptance is the delivery.
+  get_source_library: ["sources[].sourceId", "sources[].title", "sources[].extractionId"],
+  "reader.guide_plan": ["extractionId", "sections[].id", "sections[].label", "sections[].spanIds"],
+  "reader.render_view": [
+    "renderViewId", "extractionId", "revisionId", "sourceId", "contentHash", "blocks[].displayNodeId", "blocks[].spanId",
+    "blocks[].markdown", "blocks[].health", "blocks[].page", "protection", "range"
+  ],
+  "reader.get_progress": ["sections[].sectionId", "sections[].spansSeen", "sections[].completedAt"],
+  "reader.dose_offer": ["eligible", "offer"],
+  "reader.ask": ["answerMd", "readerAnswerEventId"],
+  "reader.ask_history": ["exchanges"],
+  "reader.capture": ["receipt"],
+  "practice.as_printed": ["kind"],
+  plan_reading_ended: ["enabled"],
+  "reader.mark_section_progress": [],
+  "reader.log_activity": [],
+  "reader.dose_offer_event": [],
+  "reader.authored_question_action": ["question"]
 };
 
 /** A reply the host journey cannot reach without a diagnosis model, pinned by these tests instead. */
 const REPLY_PINNED_BY: Record<string, readonly string[]> = {
   submit_eliciting_response: ["tests/test_dialogue_causal_join.py", "tests/test_ux_phase4_feedback.py"],
   // A mark needs a list of causes, which only a diagnosis writes.
-  record_hypothesis_mark: ["tests/test_hypothesis_marks.py"]
+  record_hypothesis_mark: ["tests/test_hypothesis_marks.py"],
+  // An answer needs the tutor's model; its refusals and its way to the handler are the host's tests'.
+  "reader.ask": ["tests/test_mobile_v4_reader.py", "tests/test_sidecar_reader.py"],
+  // A dose event names a draw that offered an extra, which the dose arm's own tests make.
+  "reader.dose_offer_event": ["tests/test_mobile_v4_reader.py", "tests/test_ad3_dose_arm.py"]
 };
 
 interface Recorded {
@@ -194,7 +243,7 @@ describe("the request contract (§7.2)", () => {
   });
 
   it("phone.ts names only methods the allowlist has", () => {
-    const named = [...phoneSource.matchAll(/\b(?:call|runLong)(?:<[^()]*?>)?\(\s*"([a-z_.]+)"/g)].map((match) => match[1]);
+    const named = [...phoneSource.matchAll(/\b(?:call|runLong|rpcOnce)(?:<[^()]*?>)?\(\s*"([a-z_.]+)"/g)].map((match) => match[1]);
     expect(named.length).toBeGreaterThan(0);
     const allowed = new Set<string>(PHONE_METHODS);
     expect(named.filter((name) => !allowed.has(name))).toEqual([]);

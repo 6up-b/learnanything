@@ -24,25 +24,69 @@ V2_ALLOWED = frozenset({
 })
 #: Mobile v2 §8's V3 row (owner decision D3): a generated follow-up probe opened by Next on the phone.
 V3_ALLOWED = frozenset({"followup_next"})
-PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED
+#: Mobile v2 §8's V4 row (owner decision D4): the phone Reader (J7, J8 in the Reader, CA7's *as printed*), and the
+#: Read tab's book list.
+V4_ALLOWED = frozenset({
+    "reader.prompt_contract", "reader.render_view", "reader.guide_plan", "reader.get_progress", "reader.saved_place",
+    "reader.mark_section_progress", "reader.log_activity", "reader.dose_offer", "reader.dose_offer_event",
+    "reader.ask", "reader.ask_history", "reader.capture", "practice.as_printed", "get_source_library",
+    # Codex review F9: a taken extra question is answered as the desktop's quick-check card answers it.
+    "reader.authored_question_action",
+})
+PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED | V4_ALLOWED
 
 
-def test_the_allowlist_is_the_m2_v2_and_v3_rows_and_frozen():
+def test_the_allowlist_is_the_m2_v2_v3_and_v4_rows_and_frozen():
     assert set(ALLOWLIST) == PHONE_ALLOWED
     assert {name for name, entry in ALLOWLIST.items() if entry.milestone == "V2"} == V2_ALLOWED
     assert {name for name, entry in ALLOWLIST.items() if entry.milestone == "V3"} == V3_ALLOWED
+    assert {name for name, entry in ALLOWLIST.items() if entry.milestone == "V4"} == V4_ALLOWED
     with pytest.raises(TypeError):
         ALLOWLIST["run_cli_command"] = object()
 
 
-def test_v3_holds_back_what_later_stages_open():
-    """No help is reachable from the phone during a probe: the adaptive hint jobs (in-memory threads of
-    one sidecar, not the host's durable jobs), Ask and the tutor are not allowlisted at all, nor are the
-    desktop's probe tools (Teach me instead, the block peek)."""
+def test_v4_holds_back_what_later_stages_open():
+    """No help beyond the Reader's Ask is reachable from the phone: the adaptive hint jobs (in-memory threads of
+    one sidecar, not the host's durable jobs) and the tutor are not allowlisted at all, nor are the desktop's
+    probe tools (Teach me instead, the block peek), lessons (V6), the library's Ask and Compare and figures (V5),
+    side by side, annotations as objects and the block crop of any passage (the phone's page is the media
+    lane's). The Reader's Ask is refused on the server while a check on your own is open
+    (``tests/test_mobile_v4_reader.py``)."""
 
     for name in ("practice.request_hint", "practice.hint_job", "practice.cancel_hint", "lesson.turn",
-                 "reader.ask", "ask_tutor_question", "stop_probe_diagnosing", "get_next_probe_item"):
+                 "ask_tutor_question", "stop_probe_diagnosing", "get_next_probe_item", "reader.library_ask",
+                 "reader.library_compare", "figure.request", "reader.side_by_side_section",
+                 "reader.create_annotation", "reader.block_original_region", "reader.pdf_view",
+                 "reader.invoke_preset"):
         assert name not in ALLOWLIST, name
+
+
+def test_v4_constraints_and_outbox_kinds():
+    """§5.4: the three outbox intents are jobs keyed by the phone's request id; the Ask is a job (D2); Save is
+    a highlight with no session; a cold administration is never the phone's to say."""
+
+    from learnloop_mobile.allowlist import READER_METHODS, ParamRejected, check_parameters
+
+    assert READER_METHODS == V4_ALLOWED
+    for name in ("reader.mark_section_progress", "reader.log_activity", "reader.dose_offer_event", "reader.ask"):
+        assert ALLOWLIST[name].kind == "long" and ALLOWLIST[name].retry_safe, name
+    assert not ALLOWLIST["reader.dose_offer"].retry_safe
+    for params in ({"extractionId": "e", "spanId": "s", "question": "q", "coldActive": False},
+                   {"extractionId": "e", "spanId": "s", "question": "q", "coldAttemptId": "a"},
+                   {"extractionId": "e", "spanId": "s", "question": "q", "workbenchSessionId": "w"}):
+        with pytest.raises(ParamRejected):
+            check_parameters(ALLOWLIST["reader.ask"], params)
+    check_parameters(ALLOWLIST["reader.ask"], {"extractionId": "e", "spanId": "s", "question": "q"})
+    save = {"sourceId": "s", "revisionId": "r", "extractionId": "e", "clientIdempotencyKey": "k"}
+    check_parameters(ALLOWLIST["reader.capture"], {**save, "action": "highlight"})
+    for params in ({**save, "action": "ask"}, {**save, "action": "test_me_later"},
+                   {**save, "action": "highlight", "sessionId": "x"}):
+        with pytest.raises(ParamRejected):
+            check_parameters(ALLOWLIST["reader.capture"], params)
+    # The extra question's answer only (*don't bring this back* stays on the desktop).
+    check_parameters(ALLOWLIST["reader.authored_question_action"], {"questionId": "q", "action": "answered"})
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["reader.authored_question_action"], {"questionId": "q", "action": "dismissed"})
 
 
 def test_v3_a_probe_answer_is_the_hosts_switch():

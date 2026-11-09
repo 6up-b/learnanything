@@ -4603,12 +4603,15 @@ def _note_check_deferral(env: PlanEnv, block: PlannedBlock, item: PlannedItem, r
 
 def _device_block(env: PlanEnv, record: PlanRecord) -> tuple[PlannedBlock | None, PlannedItem | None]:
     """The device's current block and item: the first open block, in plan order, with something it
-    can show. A reading block waits for the desktop until the phone has its Reader (V4)."""
+    can show. A reading block is the device's when its Reader shows it (V4, the host's ``phone_reader``:
+    ``PlanStepFilter.serves_reading``; the item is then None); otherwise it waits for the desktop."""
 
     for block in sorted(record.blocks, key=lambda b: b.ordinal):
         if block.finished:
             continue
         if block.is_reading:
+            if env.device.serves_reading(block):
+                return block, None
             env.device.held_readings.add(block.id)
             continue
         if block.is_lesson_offer:
@@ -4804,15 +4807,18 @@ def advance_with_context(
         if env.device is not None:
             # One boundary per step: a block the device can't show waits for the desktop.
             if block.is_reading:
-                env.device.held_readings.add(block.id)
-                return record, _held_step(env, record), context
-            if block.is_lesson_offer:
+                if not env.device.serves_reading(block):
+                    env.device.held_readings.add(block.id)
+                    return record, _held_step(env, record), context
+                # Mobile v2 V4: the phone's Reader shows it; it is served below, as on the desktop.
+            elif block.is_lesson_offer:
                 # Teacher TE3b: a drawn offer waits for the desktop, unshown and unanswered (V6 brings lessons).
                 env.device.held_lesson_offers.add(block.id)
                 return record, _held_step(env, record), context
-            device_item = _device_item(env, block)
-            if device_item is None:
-                return record, _held_step(env, record), context
+            else:
+                device_item = _device_item(env, block)
+                if device_item is None:
+                    return record, _held_step(env, record), context
     boundary = block.started_at is None
     if block.is_lesson_offer:
         # Teacher TE3b (spec §15.1a): the offer card is the block. Serving it shows the card (``block_started``); a
@@ -5852,12 +5858,30 @@ def reading_ended(env: PlanEnv, outcome: str) -> PlanRecord:
         raise ValueError(f"unknown reading outcome {outcome!r}")
     record = get_or_create_today(env)
     assert record is not None
-    block = record.current_block()
-    if block is None or not block.is_reading:
+    block = _current_reading(env, record)
+    if block is None:
         return record
     with env.repository.atomic(), env.repository.connection() as connection:
         _event(connection, block.id, "block_ended", {"outcome": outcome, "minutes_counted": round(block.est_minutes(), 4)}, env.now_iso())
     return _reload(env, record.id)
+
+
+def _current_reading(env: PlanEnv, record: PlanRecord) -> PlannedBlock | None:
+    """The reading block a reading report or its end is about: the plan's current block (the desktop's, exactly).
+
+    Mobile v2 V4: a device serves the first open block it can show, which can be a reading block after work it
+    left for the desktop (``_device_block``). For a device, the current block is that reading block: the first open
+    reading block it serves and has been served; else the plan's current block, as on the desktop."""
+
+    block = record.current_block()
+    if env.device is None:
+        return block if block is not None and block.is_reading else None
+    if block is not None and block.is_reading and env.device.serves_reading(block):
+        return block
+    # A reading the device's Reader can't show is the desktop's to end, never the device's.
+    return next((candidate for candidate in sorted(record.blocks, key=lambda b: b.ordinal)
+                 if not candidate.finished and candidate.is_reading and candidate.started_at is not None
+                 and env.device.serves_reading(candidate)), None)
 
 
 def note_reading_progress(
@@ -5880,8 +5904,8 @@ def note_reading_progress(
     record = latest_today(env)
     if record is None or not record.is_open:
         return False
-    block = record.current_block()
-    if block is None or not block.is_reading:
+    block = _current_reading(env, record)
+    if block is None:
         return False
     reading = block.reading or {}
     if reading.get("extraction_id") != extraction_id or reading.get("section_id") != section_id:

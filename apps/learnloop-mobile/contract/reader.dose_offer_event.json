@@ -1,0 +1,21 @@
+{
+  "method": "reader.dose_offer_event",
+  "requests": [
+    {
+      "wrapper": "doseOfferEvent",
+      "envelope": {
+        "method": "reader.dose_offer_event",
+        "params": {
+          "drawId": "draw_1",
+          "event": "delivered"
+        },
+        "request_id": "dose_1"
+      }
+    }
+  ],
+  "reads": [],
+  "replyPinnedBy": [
+    "tests/test_mobile_v4_reader.py",
+    "tests/test_ad3_dose_arm.py"
+  ]
+}

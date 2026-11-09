@@ -23,6 +23,20 @@
     "router_objective_explain",
     "record_answer_display",
     "trigger_regrade",
-    "followup_status"
+    "followup_status",
+    "reader.prompt_contract",
+    "reader.render_view",
+    "reader.guide_plan",
+    "reader.get_progress",
+    "reader.saved_place",
+    "reader.mark_section_progress",
+    "reader.log_activity",
+    "reader.dose_offer_event",
+    "reader.authored_question_action",
+    "reader.ask",
+    "reader.ask_history",
+    "reader.capture",
+    "practice.as_printed",
+    "get_source_library"
   ]
 }

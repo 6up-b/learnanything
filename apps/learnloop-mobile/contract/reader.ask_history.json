@@ -1,0 +1,17 @@
+{
+  "method": "reader.ask_history",
+  "requests": [
+    {
+      "wrapper": "askHistory",
+      "envelope": {
+        "method": "reader.ask_history",
+        "params": {
+          "extractionId": "ext1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "exchanges"
+  ]
+}
