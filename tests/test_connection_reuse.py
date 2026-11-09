@@ -370,3 +370,16 @@ def test_a_remembered_json_schema_is_the_real_one_and_a_caller_cannot_change_it(
     first["properties"]["n"]["type"] = "changed"
     assert Model.model_json_schema()["properties"]["n"]["type"] == "integer"
     assert Model.model_json_schema(by_alias=False) == lane._production_json_schema(Model, by_alias=False)
+
+
+def test_builtin_schema_ids_are_the_same_in_every_vault(tmp_path):
+    """So the certainty bound's seed, and every mass that reads it, is the same on every run."""
+
+    from learnloop.db.repositories import Repository
+
+    first = Repository(tmp_path / "a.sqlite")
+    second = Repository(tmp_path / "b.sqlite")
+    ids = {repository.ensure_outcome_schema(slug="coarse", kind="response") for repository in (first, second)}
+    assert len(ids) == 1
+    assert first.ensure_outcome_schema(slug="other", kind="response") not in ids
+    assert first.ensure_outcome_schema(slug="coarse", kind="response") in ids  # idempotent

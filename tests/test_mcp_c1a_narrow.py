@@ -908,3 +908,10 @@ def test_each_kind_of_released_text_has_exactly_one_renderer():
     assert owners("AnswerText") == {"answer"}
     assert owners("RecordedText") == {"derived"}
     assert owners("GuardedText") == set()
+
+
+def test_the_planted_key_check_tells_a_leak_from_a_random_id():
+    for leak in ("Legacy key 8841: a row swap", "lo_ltg_legacy_key_8841_a_row_swap", '"topic": "8841 negates"'):
+        assert names_planted_key(leak), leak
+    for noise in ("01M6ZEMDX378841ZBWA09WXPXW", "att_8841abcd", "abcd8841", "0.8841", "18841"):
+        assert not names_planted_key(noise), noise
