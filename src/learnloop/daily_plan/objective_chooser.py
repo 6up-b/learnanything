@@ -1721,7 +1721,7 @@ class ObjectiveRestraintGate(RestraintGate):
             # IH2 (spec_instruct_handoff_v1 §5 item 3): the offer page's words for this draw, under the block's guard.
             _code, rule = _rule_sentence(offer_drawn, state)
             cited = tuple(getattr(llm.parsed, "evidence_ids", ()) or ()) if llm_dist is not None else ()
-            guard = (router_why.rationale_guard(rationale, cited, set(rq.evidence_from_card(card.json)))
+            guard = (router_why.rationale_guard(rationale, cited, {ref.attempt_id for ref in rq.evidence_from_card(card.json)})
                      if rationale is not None else "absent")
             if guard is None and drawn.component == mix.LLM and max(llm_dist, key=lambda ref: llm_dist[ref]) != drawn.chosen:
                 guard = "another_option"

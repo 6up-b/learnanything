@@ -37,7 +37,8 @@ from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_
 
 TAG = FAILURE_SHARE_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
-IH5_KEYS = {"failure_share_to_other_policy": True}
+#: IH5's key and IH2's, on the same unreleased tag (spec_instruct_handoff_v1 §5, §7a).
+IH5_KEYS = {"failure_share_to_other_policy": True, "lessons_compete_with_followups": True}
 
 
 def drop_ih5_keys(dumped: dict) -> dict:
@@ -114,7 +115,7 @@ def test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below(
     append_config_toml(off.root, "[router_objective]\nfailure_share_to_other_policy = false\n")
     flipped = objective_settings(load_vault(off.root).config)
     assert flipped["failure_share_to_other_policy"] is False and flipped != on
-    assert {k: v for k, v in on.items() if k != "failure_share_to_other_policy"} == below
+    assert {k: v for k, v in on.items() if k not in IH5_KEYS} == below
 
 
 def test_the_openers_install_this_links_completion():
