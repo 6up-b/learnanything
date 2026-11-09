@@ -141,6 +141,14 @@ class PoolItem:
     #: mvp-0.21: the rank an admitted project probe plans at (the value
     #: order); None means the scheduler's ``rank``.
     plan_rank: int | None = None
+    #: mvp-0.56: answered, but the scheduler starts it as learning (its ``unevidenced_return``): the plan's new material.
+    unevidenced_return: bool = False
+
+    @property
+    def counts_as_new(self) -> bool:
+        """New material as the plan admits and counts it: never attempted, or back as learning (mvp-0.56)."""
+
+        return self.never_attempted or self.unevidenced_return
 
     @property
     def order_rank(self) -> int:
@@ -161,6 +169,7 @@ class PoolItem:
             "check_kind": self.check_kind,
             "followup": self.followup,
             **({"plan_rank": self.plan_rank} if self.plan_rank is not None else {}),
+            **({"unevidenced_return": True} if self.unevidenced_return else {}),
         }
 
 
@@ -270,6 +279,10 @@ def classify_item(
         return PoolItem(lane="repair", reason="an open diagnosed problem on this topic", **base)
     if never_attempted:
         return PoolItem(lane="new", reason="your request" if requested else "new material", **base)
+    if float(components.get("unevidenced_return", 0.0) or 0.0) > 0.0:
+        # mvp-0.56: without this lane the scheduler's return would sit in "later" and never be planned. Present only
+        # where the scheduler wrote it, so every other pool is the predecessor's.
+        return PoolItem(lane="new", reason="back as learning", unevidenced_return=True, **base)
     if due or requested:
         return PoolItem(lane="maintain", reason="your request" if requested and not due else "past its review date", **base)
     if frontier:

@@ -2049,7 +2049,7 @@ def simulate_blocks(
                     new_admitted=bool(
                         origin == ORIGIN_CHOOSER
                         and pool_item.lane == "new"
-                        and pool_item.never_attempted
+                        and pool_item.counts_as_new
                         and not pool_item.requested
                     ),
                 )
@@ -2406,7 +2406,8 @@ def _intents(context: PoolContext) -> dict[str, IntentView]:
 
 
 def new_material_candidates(intent: Any, pool: Iterable[PoolItem]) -> list[NewCandidate]:
-    """THE plan's new-material candidates from a pool (§6.3): its never-attempted new-lane items, in
+    """THE plan's new-material candidates from a pool (§6.3): its never-attempted new-lane items (and,
+    from mvp-0.56, those the scheduler starts as learning after an unevidenced answer), in
     intent's admission order (Keep and Light touch add no new material of the system's choosing;
     requests stay exempt). The plan's build admits from these; adaptive difficulty's slot draw may
     choose only among them (:func:`admitted_new_material_ids`), so a rule added here applies to both."""
@@ -2414,7 +2415,7 @@ def new_material_candidates(intent: Any, pool: Iterable[PoolItem]) -> list[NewCa
     candidates = [
         NewCandidate(item.practice_item_id, item.est_minutes, requested=item.requested)
         for item in pool
-        if item.lane == "new" and item.never_attempted
+        if item.lane == "new" and item.counts_as_new
     ]
     if intent is not None:
         candidates = _intent_admission_order(intent, candidates)
@@ -2815,7 +2816,9 @@ def _persist_block(
                 "origin": origin,
                 "position": position,
                 "new_admitted": bool(
-                    origin == ORIGIN_CHOOSER and lane_value == "new" and getattr(item, "never_attempted", False) and not getattr(item, "requested", False)
+                    origin == ORIGIN_CHOOSER and lane_value == "new"
+                    and (getattr(item, "never_attempted", False) or getattr(item, "unevidenced_return", False))
+                    and not getattr(item, "requested", False)
                 ),
                 "check_kind": getattr(item, "check_kind", None),
                 "serving_origin": "learner_pick" if origin == ORIGIN_LEARNER_PICK else "daily_plan",

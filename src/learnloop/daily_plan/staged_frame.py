@@ -311,7 +311,7 @@ class StagedFrame:
             signals = sp.StateSignals(
                 model_misspecified=lo_id in alarmed,
                 decision_relevant_robust_value=1.0 if lo_id in measuring else 0.0,
-                target_acquired=any(not item.never_attempted for item in items),
+                target_acquired=any(not item.counts_as_new for item in items),
                 capability_fragile=any(item.lane == "repair" for item in items),
                 terminal_required_unshown=False,
                 terminal_reserve_valid=any(item.practice_item_id in reserved_items for item in items),

@@ -1051,6 +1051,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "field.llm_probability_enabled": "Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model.",
     "placement.enabled": "Kill switch for F2 placement at mvp-0.11 and later; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions.",
     "placement.initial_probes": "Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off).",
+    "placement.unevidenced_return": "Kill switch for mvp-0.56: an answered item with no due time, on an LO with no evidence, starts as learning under placement; off (or below the tag) serves mvp-0.54 exactly.",
     "placement.assumed_first_interval_days": "Days from an assumed-known decision to its first review, which is the check (D6).",
     "placement.fast_track_min_correct": "Clean full-marks first answers fast-track needs before the probability test (D6, at least 2).",
     "placement.fast_track_q": "Probability the active predictor must give that the LO's ability exceeds the known threshold (D6).",

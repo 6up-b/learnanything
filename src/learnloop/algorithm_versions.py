@@ -870,6 +870,22 @@ LESSON_OFFERS_ALGORITHM_VERSION = "mvp-0.53"
 # mvp-0.54 when main (TE3b's mvp-0.53) was merged in; ONE constant.
 PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"
 
+# mvp-0.56 (the placement hole; owner decision 2026-11-09, "Fix the placement
+# bug with a successor"; docs/reviews/placement-stranded.md). Under placement an
+# answered item with no due time on an LO with no evidence (a primed first
+# answer, a held grade) reached neither new material nor the routine queue, so
+# an LO with nothing else left never came back; the opening episode that used to
+# keep it served is one placement ignores. Such an item now starts as learning,
+# with the same floor and order as new material, once a selector outside the
+# scheduler's timing may offer it (no cold follow-up holds it, its answer not
+# revealed within the cold retrieval delay). Serving only: nothing recorded
+# changes meaning and replay reads nothing new. Kill switch
+# ``placement.unevidenced_return`` (off, or below the tag: mvp-0.54's serving
+# exactly). No migration. Labelled mvp-0.56 because instruct/handoff claims
+# mvp-0.55 and lands first (the chain has skipped a label before, mvp-0.28);
+# until then its predecessor in the chain is mvp-0.54. ONE constant.
+UNEVIDENCED_RETURN_ALGORITHM_VERSION = "mvp-0.56"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -923,6 +939,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
+    UNEVIDENCED_RETURN_ALGORITHM_VERSION,
 )
 
 
@@ -1180,6 +1197,10 @@ LESSON_OFFERS_VERSIONS: frozenset[str] = successors_from(LESSON_OFFERS_ALGORITHM
 # v2 V3, owner decision D3), behind the phone host's ``phone_probes``. Every
 # later successor keeps them; gates must use this set, never equality.
 PHONE_PROBES_VERSIONS: frozenset[str] = successors_from(PHONE_PROBES_ALGORITHM_VERSION)
+# Versions where an answered item with no due time, on an LO with no evidence,
+# starts as learning under placement, behind ``placement.unevidenced_return``.
+# Every later successor keeps it; gates must use this set, never equality.
+UNEVIDENCED_RETURN_VERSIONS: frozenset[str] = successors_from(UNEVIDENCED_RETURN_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

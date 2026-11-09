@@ -3860,6 +3860,10 @@ class PlacementConfig(BaseModel):
     # D11: no opening diagnostic episode per new LO. True restores them while
     # keeping assumed-known (a narrower switch than ``enabled``).
     initial_probes: bool = False
+    # Kill switch for mvp-0.56 (UNEVIDENCED_RETURN_VERSIONS): an answered item
+    # with no due time, on an LO with no evidence, starts as learning instead of
+    # never coming back. Off (or below the tag) serves mvp-0.54 exactly.
+    unevidenced_return: bool = True
     # D6: the assumed LO's first review is the check.
     assumed_first_interval_days: int = Field(default=14, ge=1)
     # D6: at least this many cold, unhinted, unhelped, full-marks first answers.

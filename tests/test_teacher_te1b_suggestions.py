@@ -465,9 +465,9 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
 
 
 def test_the_successor_is_the_latest_link_after_followups_nov2():
-    assert SUCCESSOR_CHAIN[-14:-11] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.54"
-    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54"})
+    assert SUCCESSOR_CHAIN[-15:-12] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.56"
+    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.56"})
 
 
 def test_the_upgrade_from_teacher_te1_and_its_refusals(tmp_path):
@@ -495,8 +495,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys():
@@ -544,6 +544,9 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
         dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
         assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
+        from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+        drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch, inert below it
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM

@@ -46,8 +46,8 @@ def drop_te3a_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_te2_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.51"
     # Teacher TE3b's router successor (mvp-0.53) landed after it and keeps it.
-    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
-    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53", "mvp-0.54"})
+    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
+    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53", "mvp-0.54", "mvp-0.56"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -76,6 +76,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     from tests.test_rofu_successor import drop_rospeed2_keys
 
     drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
+    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "94291ed4789a10800d9b6174d87ae1ccf82a36e1d103d8c89fc98735e5d1d150"
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
@@ -108,8 +111,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to TE2's completion, which hands it on in turn.
     assert "learnloop.teacher_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_opportunity_upgrade)
