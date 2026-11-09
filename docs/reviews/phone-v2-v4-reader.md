@@ -153,3 +153,51 @@ Also worth a look while there: a held-out section of a book you marked shows *A 
 1. §2 item 2: is the shared place "furthest read" (built) enough, or should the device that read last win (a small migration)?
 2. §2 item 10: add pypdfium2 to the `mobile` extra?
 3. §3: confirm the no-successor reading of §2.3's lift (or take the V3-style successor).
+
+## Landing onto main
+
+Landed by the landing agent (continuation after a usage-limit stop), tip merged with main `a525dbcef4` (router speed 2 and the figure author fix; `5fe3a22558` and `214c206ff1` before it). No successor, no migration. Kill switch `phone_reader` in `mobile.toml` (and the app's capability header: a V3 app gets V3).
+
+### Rulings (verbatim)
+
+- R1: "F4: protection filtering on the phone runs on the COMPLETE stored provenance of every Ask exchange, tutor answer and excerpt (selection span ids, cited spans, excerpt locations, anchors), read before any presentation switch strips fields; only after an item passes is it projected under the presentation switches. Codex's two reproductions (reader_inquiry off hiding selection_span_ids; both tutor presentation switches off hiding excerpt locations) are tests, failing on the pre-fix source, and every other phone read that filters by provenance is checked for the same ordering. No further Codex round; I read the diff before landing."
+- R2: "Open questions, decided: (a) Continue reading lands at the furthest section read on either device, as built (a last-place row is not needed now); (b) pypdfium2 is added to the mobile extra at the version the project pins (5.14.0), so page images work on a host without the pdf extras; (c) the §2.3 lift (image, page and asset prompts phone-eligible when the host serves every target by content address, device_eligibility_v2) takes no successor: it changes which device shows an item, not what an answer means, and the label records it; (d) 'as printed' after feedback stays practice.as_printed (guarded) rather than reader.block_original_region; (e) the D6 pickup also running from the desktop's reading sweep goes to the follow-up batch."
+- R3: "Owner, Nov 5: the old item difficulty scalar is to be retired in the refactor. V4 adds no new reader or writer of it; the landing checks this with a grep of the diff against main and records the result."
+
+R3 grep: `git diff main...HEAD -U0 -- src apps/learnloop-mobile/src migrations`, added lines matching `difficulty` (case-insensitive): only `import learnloop.adaptive_difficulty.reading as reading` (a module path, not the scalar). No new reader or writer of the scalar.
+
+### Commits of the landing
+
+R1 `b1b08138a6`; R2 (b) `6b428a6c66` (pypdfium2 in the mobile extra, lock updated offline); the smoke's finding, its own commit `10b97d1062` (a held-out section's heading was sent as the section's label in `reader.guide_plan` at a phone origin; the label is now `Section N`; test fails before, passes after); merges of main (`5fe3a22558`, then `a525dbcef4`, the latter resolving only generated references and `desktop_validate.py`'s counts, now 325 / 314 / 331).
+
+### Gate (on the tree merged with `a525dbcef4`)
+
+| Step | Result |
+|---|---|
+| `uv sync --offline --extra dev --extra mobile`, then `uv pip install --offline pypdfium2==5.14.0` | done (sync alone installs 4.30.0 on this machine; see open items) |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| Full pytest (`-n 8`, worksteal, 10G scope) | **30272 passed, 90 skipped, 47 xfailed**, 58m46s |
+| Durability lane (`-m durability`) | 409 passed, 1 skipped |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 4 skipped, the 2 known failures (`test_backfill_logs_attempt_duration_interaction_events`, `test_placement_ignores_unanswered_opening_episodes_on_fixture_copies[arxiv_v2]`) |
+| Desktop: typecheck, vitest (`--maxWorkers=4`), frontend build | clean; 276 files, 2787 tests passed |
+| Phone: typecheck, vitest, build | clean; 29 files, 337 tests passed |
+| References | module and desktop generate and validate, `validate_vault.py`: pass (no schema move, no DB reference) |
+
+### Smoke (in-process, fresh copies of the mvp-0.43 backup upgraded on main code to mvp-0.54, on linear_algebra, arxiv_v2 and probability; every AI route refused except in-process fakes)
+
+* Desktop at a `None` origin, main (`a525dbcef4` archive) against the branch: replies byte-identical after id and time renaming on all three copies (41, 117 and 36 steps, 0 diffs).
+* Phone Reader: 16 checks, 0 problems on each copy (books, section text, prefetch, page image and its cache, token and cross-vault refusals, shared progress, outbox replay once, Ask and Save, as printed, a plan reading block served on the phone with `plan_reading_ended`).
+* Protection: 0 problems on each copy (held-out span, exam-pool source and withheld reading never reach the phone as text, page image, Ask history or display cache; purge on change). The `arxiv_v2` run failed once before the heading fix (`guide_plan`) and passes after.
+* `phone_reader` off and a V3 app: the phone behaves as V3 (3 checks, 0 problems, each copy).
+* Twin (same reading through the desktop handler and through the phone): dose offers, dose events and the 8 dose rows equal; reading progress equal. The plan composition is not identical between the twins (the phone applies device eligibility, and its reply carries a `device` block), so block ordinals and review-load figures differ; the desktop is deterministic across runs, so this is the phone's filtering. The cause was not isolated further.
+* 0 receipts from a real model, no socket connect, no Codex process, every off-allowlist method refused.
+
+### The owner's steps
+
+`uv sync --extra dev --extra mobile` (new pypdfium2 dependency; confirm 5.14.0 is installed), rebuild the PWA, restart the phone host, `learnloop doctor`, Reload the phone app, then P7 and P8 on the iPhone (§6). To turn the feature off: `phone_reader = false` in `mobile.toml`; the phone returns to V3.
+
+### Open items
+
+* The D6 pickup from the desktop's reading sweep goes to the follow-up batch (R2 e).
+* A plain `uv sync` resolved pypdfium2 to 4.30.0 here; verify the lock holds 5.14.0 for the mobile extra on the owner's machine.
+* Twin plan composition difference above (phone eligibility) is not isolated.
