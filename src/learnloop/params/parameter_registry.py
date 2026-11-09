@@ -2001,6 +2001,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("router_objective.lessons_compete_with_followups"), "structural", "operational",
         "kill switch for instruct hand-off IH2 on mvp-0.55 (spec_instruct_handoff_v1 §5): a lesson offer and a follow-up "
         "compete in one logged decision wherever a lesson is available; off, mvp-0.54's boundary and follow-up decisions."),
+    _ConfigRule(_exact("router_objective.learner_preferences"), "structural", "operational",
+        "kill switch for instruct hand-off IH3 on mvp-0.55 (spec_instruct_handoff_v1 §6): the \"Something else would "
+        "help\" link, the action the learner chooses there (served as a learner pick) and the preference ledger; off, "
+        "mvp-0.54: no link, nothing served or written."),
     _ConfigRule(_exact("router_objective.failure_share_to_other_policy"), "structural", "operational",
         "kill switch for instruct hand-off IH5's successor mvp-0.55 (spec_instruct_handoff_v1 §7a): a failed policy's "
         "share of the objective's mix goes to the other policy instead of staged (both failed: staged); off, mvp-0.54's "

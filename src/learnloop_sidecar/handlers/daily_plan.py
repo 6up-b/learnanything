@@ -2,7 +2,8 @@
 
 ``get_daily_plan``, ``set_plan_minutes``, ``next_plan_item``,
 ``plan_reading_ended``, ``plan_keep_going``, ``plan_more_new``,
-``plan_learner_pick``, ``get_today_headline`` and ``plan_prefetch``. While the plan is off (a
+``plan_learner_pick``, ``get_today_headline``, ``plan_prefetch`` and IH3's ``plan_something_else_options`` and
+``plan_something_else``. While the plan is off (a
 pre-``mvp-0.14`` vault or ``plan.enabled = false``) every one of them answers
 ``enabled: false`` without building a queue or writing a row, and Today, Start
 and ``get_today_queue`` are mvp-0.13's (G1).
@@ -73,6 +74,8 @@ DAILY_PLAN_RPCS = (
     "plan_learner_pick",
     "get_today_headline",
     "plan_prefetch",
+    "plan_something_else_options",
+    "plan_something_else",
 )
 
 
@@ -90,6 +93,23 @@ class NextPlanItemInput(ParamsModel):
 
 class PlanPrefetchInput(ParamsModel):
     session_id: str
+
+
+class PlanSomethingElseOptionsInput(ParamsModel):
+    session_id: str | None = None
+
+
+class PlanSomethingElseInput(ParamsModel):
+    """IH3: the learner's choice at "Something else would help". ``preference_id`` is the act's own key: the same id
+    sent again (a retry) is answered as it was made and writes nothing."""
+
+    kind: Literal["question", "review", "new", "read", "lesson", "stop"]
+    ref: str | None = Field(default=None, max_length=300)
+    surface: str = Field(max_length=40)
+    attempt_id: str | None = Field(default=None, max_length=100)
+    note_md: str | None = Field(default=None, max_length=4000)
+    preference_id: str | None = Field(default=None, max_length=100)
+    session_id: str | None = None
 
 
 class OfferShownInput(ParamsModel):
@@ -311,7 +331,16 @@ def _view(env: PlanEnv, record: Any, step: dict[str, Any] | None, context: Any) 
         reentry_panel=panel,
         streak=env.repository.session_day_streak(),
     )
-    return {**view, **_router_decision_line(env, record, step)}
+    return {**view, **_router_decision_line(env, record, step), **_preference_line(env)}
+
+
+def _preference_line(env: PlanEnv) -> dict[str, Any]:
+    """IH3: ``somethingElse`` says the quiet link may show. Absent with the switch off or below the tag, so the reply
+    is the predecessor's exactly."""
+
+    from learnloop.daily_plan import learner_action
+
+    return {"something_else": True} if learner_action.enabled(env) else {}
 
 
 def _router_decision_line(env: PlanEnv, record: Any, step: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -494,6 +523,54 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
         bind_plan_step(env.repository, step)
         _schedule_ad(ctx, env, step=step)
     return result
+
+
+@method("plan_something_else_options", PlanSomethingElseOptionsInput)
+def plan_something_else_options(ctx: SidecarContext, params: PlanSomethingElseOptionsInput) -> dict[str, Any]:
+    """IH3 (spec_instruct_handoff_v1 §6): what the plan could do at this boundary, in plain words, for "Something else
+    would help". Chooses nothing and draws nothing: the router's own feasible candidates, one per kind, with the
+    probabilities the waiting decision logged (none when no draw is waiting)."""
+
+    from learnloop.daily_plan import learner_action
+
+    required = _require(ctx, params.session_id)
+    if required is None:
+        return versioned({"enabled": False})
+    _vault, _repository, env = required
+    return versioned(learner_action.options(env).view())
+
+
+@method("plan_something_else", PlanSomethingElseInput)
+@host_mutation
+def plan_something_else(ctx: SidecarContext, params: PlanSomethingElseInput) -> dict[str, Any]:
+    """IH3: serve the action the learner chose and log it with the options then (one transaction, idempotent on
+    ``preference_id``). On the phone a lesson or a reading is logged and nothing is served: ``outcome`` says
+    ``waits_on_desktop``."""
+
+    from learnloop.daily_plan import learner_action
+
+    required = _require(ctx, params.session_id, writes=True)
+    if required is None:
+        return versioned({"enabled": False})
+    _vault, _repository, env = required
+    try:
+        chosen = learner_action.choose(env, kind=params.kind, ref=params.ref, surface=params.surface,
+                                       attempt_id=params.attempt_id, note_md=params.note_md,
+                                       preference_id=params.preference_id)
+    except learner_action.PreferenceError as exc:
+        raise SidecarError(exc.code if exc.code in ("validation_error", "not_found") else "invalid_request", str(exc),
+                           details={"reason": exc.code}) from exc
+    result = {
+        "enabled": True,
+        "preference": {"id": chosen.preference_id, "outcome": chosen.outcome, "kind": chosen.kind, "ref": chosen.ref,
+                       "served_decision_id": chosen.served_decision_id, "lesson": chosen.lesson,
+                       "replayed": chosen.replayed},
+        "step": chosen.step,
+        **_current_view(env),
+    }
+    if chosen.step is not None and chosen.outcome == "served":
+        _schedule_ad(ctx, env, step=chosen.step)
+    return versioned(result)
 
 
 @method("record_offer_shown", OfferShownInput)

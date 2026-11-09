@@ -235,8 +235,12 @@ def pending_start(connection: Any, decisions: Sequence[Mapping[str, Any]]) -> bo
 
 
 def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: float, minutes_left: float | None,
-          reentry: bool, forced: bool) -> Offer:
-    """This boundary's offer, or none with why (module docstring)."""
+          reentry: bool, forced: bool, learner_asked: bool = False) -> Offer:
+    """This boundary's offer, or none with why (module docstring).
+
+    ``learner_asked`` (IH3, spec_instruct_handoff_v1 §6): the learner named a lesson through "Something else would
+    help", so the day's anti-nagging ceiling and a waiting lesson's reservation (both about offers the router makes
+    unasked) don't hide it. The candidate and its sensors are the router's own, read the same way."""
 
     from learnloop.daily_plan import lesson_suggestion as LSS
 
@@ -254,11 +258,11 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
         responses = store.responses(connection)
         releases = store.releases(connection)
         shown = shown_today(decisions, today)
-        if shown >= ceiling:
+        if shown >= ceiling and not learner_asked:
             # ``keep``: the anti-nagging ceiling binds across the day's offers and cards; each bind is logged.
             return Offer(None, {**base, "status": "none:ceiling_bound",
                                 "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": True}})
-        if pending_start(connection, decisions):
+        if pending_start(connection, decisions) and not learner_asked:
             return Offer(None, {**base, "status": "none:pending_start"})
     candidates, excluded = LSS.build_candidates(vault, repository, now_iso=now_iso)
     if not candidates:

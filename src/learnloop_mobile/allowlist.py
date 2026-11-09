@@ -216,7 +216,25 @@ _IH0 = (
     MobileMethod("plan_prefetch", "IH0", "short", False, _no_constraint),
 )
 
-ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2, *_V3, *_IH0)})
+def _preference_key_required(params: Mapping[str, Any]) -> None:
+    """IH3: the phone names its choice's own key (``preference_id``), so a retried send is answered as it was made and
+    writes once: that is what makes the method safe to retry."""
+
+    key = _fields(params).get("preference_id")
+    if not isinstance(key, str) or not key.strip():
+        raise ParamRejected("preference_id", "preference_id is required")
+
+
+#: Instruct hand-off IH3 (spec_instruct_handoff_v1 §6): "Something else would help". The options are a read of what the
+#: plan could do (it draws nothing); the choice is a plan write that names its own key, serves a practice block the
+#: phone can show and, for a lesson or a reading, only logs it (the phone's lessons are V6's, its reader V4's).
+_IH3 = (
+    MobileMethod("plan_something_else_options", "IH3", "short", True, _no_constraint),
+    MobileMethod("plan_something_else", "IH3", "short", True, _preference_key_required),
+)
+
+ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType(
+    {entry.name: entry for entry in (*_M2, *_V2, *_V3, *_IH0, *_IH3)})
 
 #: Mobile v2 V3: what ``phone_probes`` off refuses (``phone_probes_off``), so the phone is V2's.
 PROBE_METHODS = frozenset({"followup_next"})
@@ -236,6 +254,7 @@ def check_probe_parameters(name: str, params: Mapping[str, Any], *, phone_probes
 PLAN_METHODS = frozenset({
     "get_daily_plan", "get_today_headline", "get_start_summary", "next_plan_item", "set_plan_minutes",
     "plan_keep_going", "plan_more_new", "plan_reading_ended", "plan_learner_pick", "plan_prefetch",
+    "plan_something_else_options", "plan_something_else",
 })
 
 #: The phone's API generation (mobile v2 §5.2). v2 adds methods and endpoints and changes no

@@ -4216,6 +4216,11 @@ class RouterObjectiveConfig(BaseModel):
     Instruct hand-off IH2 (the same tag, spec_instruct_handoff_v1 §5): ``lessons_compete_with_followups``: a lesson
     offer and a follow-up compete in one logged decision wherever a lesson is available, at a block boundary and after
     a miss. Off, or below the tag, mvp-0.54's boundary and follow-up decisions exactly.
+
+    Instruct hand-off IH3 (the same tag, spec_instruct_handoff_v1 §6): ``learner_preferences``: the quiet "Something
+    else would help" link, the learner's own pick of an action (served as a ``learner_pick`` decision) and the
+    ``router_learner_preferences`` ledger it writes. Off, or below the tag, the link is absent and nothing is served or
+    written, as mvp-0.54.
     """
 
     receipts: bool = True
@@ -4337,6 +4342,10 @@ class RouterObjectiveConfig(BaseModel):
     #: Instruct hand-off IH2 (mvp-0.55): lessons compete with follow-ups in one decision wherever a lesson is available
     #: (the owner's decision of Nov 8). Off: forced follow-ups keep offers out and withdraw a drawn one, as mvp-0.54.
     lessons_compete_with_followups: bool = True
+    #: Instruct hand-off IH3 (mvp-0.55): "Something else would help" (the owner's request of Nov 8): the learner may
+    #: choose the router's next action, which is served and logged as a learner pick beside the options then. Off: no
+    #: link, no write, as mvp-0.54.
+    learner_preferences: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

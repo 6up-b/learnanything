@@ -364,6 +364,16 @@ def lessons_compete_with_followups_on(config: Any) -> bool:
         getattr(section, "lessons_compete_with_followups", False))
 
 
+def learner_preferences_on(config: Any) -> bool:
+    """IH3 (spec_instruct_handoff_v1 §6, the same unreleased tag as IH5): the learner may name what would help and have
+    it served: the tag and ``[router_objective] learner_preferences`` (default true). It needs no lesson offers and no
+    objective: the options are whatever the plan can serve. Off, or below the tag, there is no link, nothing is served
+    through it and no preference is written, as mvp-0.54."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and bool(getattr(section, "learner_preferences", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -393,6 +403,7 @@ __all__ = [
     "failure_share_tag",
     "failure_share_to_other_policy_on",
     "followup_on",
+    "learner_preferences_on",
     "lessons_compete_with_followups_on",
     "lesson_offers_on",
     "lesson_offers_tag",
