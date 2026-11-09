@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/practice.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/practice.py"
-source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
-source_worktree_state: "modified"
+source_commit: "30b71186d0e5337f3d4926f8428bc46875d218cd"
+source_commit_timestamp: "2026-11-09T01:27:28-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -57,9 +57,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
-| Commit timestamp | `2026-11-09T16:01:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `30b71186d0e5337f3d4926f8428bc46875d218cd` |
+| Commit timestamp | `2026-11-09T01:27:28-05:00` |
 
 ## Public API
 

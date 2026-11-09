@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/miss_cause.py"
 source_paths:
   - "src/learnloop/router_objective/miss_cause.py"
-source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
-source_commit_timestamp: "2026-11-09T15:51:40-05:00"
+source_commit: "d017f8bf556491d172db58fb7226c99eef55ea3e"
+source_commit_timestamp: "2026-11-09T17:58:19-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py) |
-| Source lines | 797 |
+| Source lines | 804 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `1f9f56d046d309a903a4a45d868cff9b618bce30` |
-| Commit timestamp | `2026-11-09T15:51:40-05:00` |
+| Source commit | `d017f8bf556491d172db58fb7226c99eef55ea3e` |
+| Commit timestamp | `2026-11-09T17:58:19-05:00` |
 
 ## Public API
 
@@ -74,13 +74,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `moments(reference: Sequence[float]) -> tuple[float, float] | None` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 465) — The reference's mean and standard deviation, computed once per decision (Codex F8); None with no spread.
 - `standardized(value: float | None, reference: Sequence[float] | tuple[float, float] | None) -> float` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 475) — ``(value − mean) / sd`` over ``reference`` (the values, or their :func:`moments`); 0 when there is no spread to standardize by (then ``β`` has nothing to act on) or no value.
 - `surprise_words(surprise: Mapping[str, Any] | None, reference: Sequence[float]) -> str` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 492) — The surprise in words: its direction (the surprise module's own label) and where its Bayesian surprise ranks among the learner's recorded misses (a rank, never a cut-off).
-- `beta_rows(connection: Any, config: Any, now_iso: str) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 527) — ``β``'s data (module docstring): each diagnosed missed cold check known at ``now_iso`` whose topic's next attempt was a cold check, with nothing on the topic in between.
-- `beta_fit(connection: Any, config: Any, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 581) — ``β``'s Laplace posterior: ``P(the next cold check is missed) = σ(logit p_gap + β·s)`` with the prior :data:`BETA_PRIOR`, by Newton's method (the log posterior is concave).
-- `fit_beta(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 589) — :func:`beta_fit`'s arithmetic on its rows (each ``p_gap`` in (0, 1), ``s``, ``missed_again``): pure.
-- `calibrated(record: Mapping[str, Any], beta: float, s: float) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 636) — ``(p̃_gap, p̃_slip, p̃_unknown)``: ``logit p̃_gap = logit p_gap + β·s``, the rest of the mass split between slip and unknown in the diagnosis's own proportion.
-- `cause_slopes(connection: Any, gamma: tuple[float, float], now_iso: str, config: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 696) — ``(γ_gap, γ_slip)``'s posterior.
-- `value_inputs(connection: Any, config: Any, records: Mapping[str, Mapping[str, Any]], gamma: tuple[float, float], now_iso: str) -> tuple[dict[str, tuple[float, float, float]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 729) — SG2: each diagnosed topic's calibrated ``(p_gap, p_slip, p_unknown)`` and the record of how (``β``'s fit, each topic's ``s``, the cause slopes).
-- `card_entry(record: Mapping[str, Any], *, topic: str, days_before: float | None, reference: Sequence[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 758) — What the LLM policy's card shows of one topic's sensor: the cause class probabilities, the surprise in words and the status.
+- `beta_rows(connection: Any, config: Any, now_iso: str) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 534) — ``β``'s data (module docstring): each diagnosed missed cold check known at ``now_iso`` whose topic's next attempt was a cold check, with nothing on the topic in between.
+- `beta_fit(connection: Any, config: Any, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 588) — ``β``'s Laplace posterior: ``P(the next cold check is missed) = σ(logit p_gap + β·s)`` with the prior :data:`BETA_PRIOR`, by Newton's method (the log posterior is concave).
+- `fit_beta(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 596) — :func:`beta_fit`'s arithmetic on its rows (each ``p_gap`` in (0, 1), ``s``, ``missed_again``): pure.
+- `calibrated(record: Mapping[str, Any], beta: float, s: float) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 643) — ``(p̃_gap, p̃_slip, p̃_unknown)``: ``logit p̃_gap = logit p_gap + β·s``, the rest of the mass split between slip and unknown in the diagnosis's own proportion.
+- `cause_slopes(connection: Any, gamma: tuple[float, float], now_iso: str, config: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 703) — ``(γ_gap, γ_slip)``'s posterior.
+- `value_inputs(connection: Any, config: Any, records: Mapping[str, Mapping[str, Any]], gamma: tuple[float, float], now_iso: str) -> tuple[dict[str, tuple[float, float, float]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 736) — SG2: each diagnosed topic's calibrated ``(p_gap, p_slip, p_unknown)`` and the record of how (``β``'s fit, each topic's ``s``, the cause slopes).
+- `card_entry(record: Mapping[str, Any], *, topic: str, days_before: float | None, reference: Sequence[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 765) — What the LLM policy's card shows of one topic's sensor: the cause class probabilities, the surprise in words and the status.
 
 ### Module constants
 
@@ -106,7 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SELF_SELECTED` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 86)
 - `OBSERVATIONAL` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 89)
 - `_DIRECTION_WORDS` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 487)
-- `CARD_NOTE` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 783)
+- `CARD_NOTE` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 790)
 
 ### Explicit exports
 
@@ -168,8 +168,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_pending(connection: Any, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 194)
 - `_class(scope: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 235)
 - `_factors(connection: Any, attempt_id: str) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 273)
-- `_between(connection: Any, lo: str, after: str, before: str, after_id: str, before_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 509) — Whether anything happened on the topic strictly between two attempts: another attempt, or a lesson opened.
-- `_offer_rows(connection: Any, config: Any, now_iso: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 651) — Lessons that ran from an offer whose card froze this sensor (diagnosed), closed by ``now_iso``, with the first qualifying cold outcome after their close (``lesson_weight.qualifying_outcomes``), counted only once that outcome is known at the decision (THE availability predicate;…
+- `_between(connection: Any, config: Any, lo: str, after: str, before: str, after_id: str, before_id: str, now_iso: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 509) — Whether anything happened on the topic strictly between two attempts: another attempt known at ``now_iso`` (RO1's availability predicate, landing ruling R1: an attempt imported later is not there yet; the window itself stays by when the work happened), or a lesson opened.
+- `_offer_rows(connection: Any, config: Any, now_iso: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 658) — Lessons that ran from an offer whose card froze this sensor (diagnosed), closed by ``now_iso``, with the first qualifying cold outcome after their close (``lesson_weight.qualifying_outcomes``), counted only once that outcome is known at the decision (THE availability predicate;…
 
 ## Who imports or calls it
 

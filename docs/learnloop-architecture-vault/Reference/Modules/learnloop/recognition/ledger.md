@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/recognition/ledger.py"
 source_paths:
   - "src/learnloop/recognition/ledger.py"
-source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
-source_worktree_state: "modified"
+source_commit: "1a0a3b9e9f1472da1fd69e2720165d669f73013d"
+source_commit_timestamp: "2026-11-09T02:21:55-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.recognition"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
-| Commit timestamp | `2026-11-09T16:01:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `1a0a3b9e9f1472da1fd69e2720165d669f73013d` |
+| Commit timestamp | `2026-11-09T02:21:55-05:00` |
 
 ## Public API
 

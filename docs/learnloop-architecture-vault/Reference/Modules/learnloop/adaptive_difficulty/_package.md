@@ -53,7 +53,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/successor.py"
   - "src/learnloop/adaptive_difficulty/switches.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
+source_commit_timestamp: "2026-11-09T01:27:28-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"

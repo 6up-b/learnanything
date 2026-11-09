@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/db/storage.py"
   - "src/learnloop/db/table_roles.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
+source_commit_timestamp: "2026-11-09T15:28:11-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db"

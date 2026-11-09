@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/model_routes.py"
 source_paths:
   - "src/learnloop/ops/model_routes.py"
-source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
-source_worktree_state: "modified"
+source_commit: "7290ee9340255141f4b258b072832a0b69277577"
+source_commit_timestamp: "2026-11-09T13:20:47-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
-| Commit timestamp | `2026-11-09T16:01:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `7290ee9340255141f4b258b072832a0b69277577` |
+| Commit timestamp | `2026-11-09T13:20:47-05:00` |
 
 ## Public API
 

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/content/facet_identity/judge.py"
 source_paths:
   - "src/learnloop/content/facet_identity/judge.py"
-source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
-source_worktree_state: "modified"
+source_commit: "b8b25b83371545b70ba4963667344d6b0da52942"
+source_commit_timestamp: "2026-11-09T12:49:34-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.facet_identity"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Owning package | [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
-| Commit timestamp | `2026-11-09T16:01:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `b8b25b83371545b70ba4963667344d6b0da52942` |
+| Commit timestamp | `2026-11-09T12:49:34-05:00` |
 
 ## Public API
 

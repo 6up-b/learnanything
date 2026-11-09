@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/slip_gap_upgrade.py"
 source_paths:
   - "src/learnloop/slip_gap_upgrade.py"
-source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
-source_worktree_state: "modified"
+source_commit: "17b7ef6614969edd7b4dd76d99075053c1639792"
+source_commit_timestamp: "2026-11-09T17:22:45-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
-| Commit timestamp | `2026-11-09T16:01:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `17b7ef6614969edd7b4dd76d99075053c1639792` |
+| Commit timestamp | `2026-11-09T17:22:45-05:00` |
 
 ## Public API
 

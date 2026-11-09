@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/lanes.py"
 source_paths:
   - "src/learnloop/daily_plan/lanes.py"
-source_commit: "workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
-source_worktree_state: "modified"
+source_commit: "c20dbbda42a9937c118c66f6755c0136f1be9454"
+source_commit_timestamp: "2026-11-09T12:03:19-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 79532f7149b554db05a40c2ae1dbde68d9efec5a` |
-| Commit timestamp | `2026-11-09T16:01:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `c20dbbda42a9937c118c66f6755c0136f1be9454` |
+| Commit timestamp | `2026-11-09T12:03:19-05:00` |
 
 ## Public API
 
