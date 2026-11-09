@@ -76,6 +76,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     from tests.test_rofu_successor import drop_rospeed2_keys
 
     drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "94291ed4789a10800d9b6174d87ae1ccf82a36e1d103d8c89fc98735e5d1d150"
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).

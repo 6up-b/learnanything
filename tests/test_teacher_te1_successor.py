@@ -96,6 +96,9 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
 
         drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
         # (teacher TE3b's in_objective is in [router.lesson_suggestions], popped with TE1b's section)
+        from tests.helpers import undo_decider_v12
+
+        undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM

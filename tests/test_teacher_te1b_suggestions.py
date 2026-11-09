@@ -544,6 +544,9 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
         dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
         assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
+        from tests.helpers import undo_decider_v12
+
+        undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM

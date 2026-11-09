@@ -81,6 +81,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_te3b_successor import drop_te3b_keys
 
     drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "780d5afa78fc92eae0911c381a364428f126dabd594125f7d63f423a4638ae59"
 
