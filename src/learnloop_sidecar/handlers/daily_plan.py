@@ -92,6 +92,13 @@ class PlanPrefetchInput(ParamsModel):
     session_id: str
 
 
+class OfferShownInput(ParamsModel):
+    block_id: str
+    #: "today" (the card) or "offer_page" (the page feedback's Next opens).
+    surface: str
+    session_id: str | None = None
+
+
 class PlanMinutesInput(ParamsModel):
     minutes: int
     session_id: str | None = None
@@ -487,6 +494,24 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
         bind_plan_step(env.repository, step)
         _schedule_ad(ctx, env, step=step)
     return result
+
+
+@method("record_offer_shown", OfferShownInput)
+def record_offer_shown(ctx: SidecarContext, params: OfferShownInput) -> dict[str, Any]:
+    """Spec_instruct_handoff_v1 §4 item 6: the offer's card or page rendered. One ``offer_shown`` event on the offer's
+    block, at most once per block and surface; fire and forget, it never fails the page. Desktop only: it is not in
+    ``DAILY_PLAN_RPCS``, so the phone host denies it (the phone shows no offers)."""
+
+    try:
+        _vault, repository = ctx.require_vault()
+        from learnloop.daily_plan import lesson_offer
+
+        recorded = lesson_offer.record_shown(repository, block_id=params.block_id, surface=params.surface,
+                                             session_id=params.session_id)
+    except Exception:  # noqa: BLE001 - a receipt never blocks the page
+        logging.getLogger(__name__).warning("record_offer_shown failed", exc_info=True)
+        recorded = False
+    return versioned({"recorded": recorded})
 
 
 @method("plan_prefetch", PlanPrefetchInput)

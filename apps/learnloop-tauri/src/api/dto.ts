@@ -8631,6 +8631,9 @@ export interface PlanLessonOfferStepDto {
   blockId: string;
   blockOrdinal: number;
   offer: PlanLessonOfferDto;
+  /** IH1: the router's own words for the draw (a model's rationale only when its guard passed). */
+  why?: string;
+  whyKind?: string | null;
   estMinutes: number;
   boundary: boolean;
 }

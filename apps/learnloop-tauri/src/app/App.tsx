@@ -54,6 +54,7 @@ import {
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TodayPlace } from "../screens/today/TodayPlace";
+import { LessonOfferPage } from "../screens/today/LessonOfferPage";
 import { implicitSessionMinutes } from "./todayPlan";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
@@ -82,7 +83,7 @@ import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
-import type { IntentRestorationDto, PlanReadingDto, PlanStepDto, WorkbenchOpenProblemDto } from "../api/dto";
+import type { IntentRestorationDto, PlanLessonOfferStepDto, PlanReadingDto, PlanStepDto, WorkbenchOpenProblemDto } from "../api/dto";
 import {
   planPresentationForServe,
   proposalOriginForServe,
@@ -118,7 +119,7 @@ const GoldenPathScreen = lazy(() => import("../screens/GoldenPathScreen").then((
 const KnowledgeMapView = lazy(() => import("../screens/KnowledgeMapScreen").then((module) => ({ default: module.KnowledgeMapView })));
 const LibraryScreen = lazy(() => import("../screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
 
-type TodayStage = "queue" | "practice" | "feedback" | "blockReview";
+type TodayStage = "queue" | "practice" | "feedback" | "blockReview" | "offer";
 
 type VaultFilesChangedEvent = {
   root: string;
@@ -192,6 +193,8 @@ export function App() {
   const [ingestGuideActive, setIngestGuideActive] = useState(false);
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [todayStage, setTodayStage] = useState<TodayStage>("queue");
+  // IH1: the lesson offer feedback's Next resolved to (its page shows while todayStage is "offer").
+  const [planOffer, setPlanOffer] = useState<PlanLessonOfferStepDto | null>(null);
   // Daily-loop DL1: while the finite plan serves (mvp-0.14, plan.enabled),
   // feedback's Next follows it. Shares Today's cache entry.
   const dailyPlanQuery = useDailyPlan(session?.sessionId ?? null, Boolean(session));
@@ -1227,6 +1230,12 @@ export function App() {
   // inside the current block opens directly; a new block's line, a reading
   // step or the done screen are shown by Today's plan view (continue on Enter).
   function routePlanStep(step: PlanStepDto | null) {
+    if (step && step.kind === "lesson_offer") {
+      // Instruct hand-off IH1: a lesson offer gets its own page, not the plan view's line.
+      setPlanOffer(step);
+      setTodayStage("offer");
+      return;
+    }
     const action = planStepAction(step);
     if (action.type === "practice") {
       openPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
@@ -1237,6 +1246,23 @@ export function App() {
       return;
     }
     setTodayStage("queue");
+  }
+
+  // IH1: the offer page was answered. Start (or an alternative) has opened its lesson (the plan goes on at its next block when the
+  // lesson closes, so Today is where the learner lands); any other answer goes straight on to the step the plan
+  // would have served.
+  function answerPlanOffer(response: "accepted" | "chose_alternative" | "declined") {
+    const sessionId = session?.sessionId ?? null;
+    setPlanOffer(null);
+    setTodayStage("queue");
+    // Start and an alternative both open a lesson; only "Not now" moves the plan on at once.
+    if (response !== "declined" || !sessionId) return;
+    void api.nextPlanItem({ sessionId, serve: false }).then(
+      (next) => {
+        if (next.step && next.step.kind !== "lesson_offer") routePlanStep(next.step);
+      },
+      () => undefined
+    );
   }
 
   function openPrimedRetry(id: string) {
@@ -2074,6 +2100,18 @@ export function App() {
             onError={onError}
             // The repair step over the results owns the keyboard (Codex review F2).
             keysSuspended={repairMisconceptionId !== null}
+          />
+        );
+      }
+      if (todayStage === "offer" && planOffer && session) {
+        return (
+          <LessonOfferPage
+            key={planOffer.offer.decisionId ?? planOffer.blockId}
+            step={planOffer}
+            sessionId={session.sessionId}
+            {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
+            onAnswered={answerPlanOffer}
+            onError={onError}
           />
         );
       }

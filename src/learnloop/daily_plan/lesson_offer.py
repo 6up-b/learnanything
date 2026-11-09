@@ -458,9 +458,57 @@ def action_inputs(candidate: BlockCandidate) -> dict[str, Any]:
                             for check in record.get("checks") or ())}
 
 
+# =============================================================================
+# IH1: the offer's card or page was on screen
+# =============================================================================
+
+#: The ``attention_block_events`` kind written when an offer's card or page actually rendered (spec_instruct_handoff_v1
+#: §4 item 6). ``block_started`` can't say so: a read of the plan serves nothing. The kind is free text in an existing
+#: column, and no reader of a block's events acts on it (the fold in ``daily_plan.records`` ignores kinds it doesn't know).
+SHOWN_EVENT = "offer_shown"
+#: Where the learner saw it: Today's card, or the full page that feedback's Next opens.
+SHOWN_SURFACES = ("today", "offer_page")
+
+
+def record_shown(repository: Any, *, block_id: str | None, surface: str, session_id: str | None = None,
+                 clock: Any = None) -> bool:
+    """Write ``offer_shown`` on the offer's block: at most once per block and surface, only on a lesson offer's
+    block that has not ended (an answered offer's card is not an offer any more). True when a row was written.
+    Never raises: a receipt must not disturb the page it describes."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores import daily_plans as plans
+    from learnloop.ids import new_ulid
+
+    if not block_id or surface not in SHOWN_SURFACES:
+        return False
+    try:
+        with repository.atomic(), repository.connection() as connection:
+            block = connection.execute("SELECT id, subtype, decision_ref FROM attention_blocks WHERE id = ?",
+                                       (block_id,)).fetchone()
+            if block is None or block["subtype"] != LESSON_OFFER_SUBTYPE:
+                return False
+            if _block_state(connection, block_id)[0]:
+                return False
+            seen = connection.execute(
+                "SELECT 1 FROM attention_block_events WHERE block_id = ? AND kind = ? "
+                "AND json_extract(detail_json, '$.surface') = ? LIMIT 1", (block_id, SHOWN_EVENT, surface)).fetchone()
+            if seen is not None:
+                return False
+            plans.append_block_event(
+                connection, event_id=new_ulid(), block_id=block_id, kind=SHOWN_EVENT,
+                detail={"surface": surface, "decision_id": block["decision_ref"],
+                        **({"session_id": session_id} if session_id else {})},
+                created_at=utc_now_iso(clock))
+            return True
+    except Exception:  # noqa: BLE001 - a receipt never blocks the page
+        LOG.warning("lesson offer: offer_shown was not recorded", exc_info=True)
+        return False
+
+
 __all__ = [
     "CONTEXT_RESOLUTION_DAYS", "DURATION_LOG_SD", "DURATION_MEDIAN_PRIOR_SD", "DURATION_PRIOR_MEDIAN",
-    "DURATION_VERSION", "OFFER_VERSION", "Offer", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_OFF", "accept_moments",
+    "DURATION_VERSION", "OFFER_VERSION", "Offer", "SHOWN_EVENT", "SHOWN_SURFACES", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_OFF", "accept_moments",
     "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
-    "lesson_active_minutes", "offer_ref", "offers_on", "pending_start", "shown_today", "withdraw", "withdrawn",
+    "lesson_active_minutes", "offer_ref", "offers_on", "pending_start", "record_shown", "shown_today", "withdraw", "withdrawn",
 ]

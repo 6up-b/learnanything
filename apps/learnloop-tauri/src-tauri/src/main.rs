@@ -281,6 +281,7 @@ fn main() {
                 save_practice_draft,
                 practice_record_hint_reveal,
                 record_ask_availability,
+                record_offer_shown,
                 router_objective_explain,
                 set_goal_use_weight,
                 practice_request_hint,

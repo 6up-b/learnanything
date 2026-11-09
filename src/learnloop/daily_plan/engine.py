@@ -4565,6 +4565,10 @@ def _lesson_offer_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *,
         "block_id": block.id,
         "block_ordinal": block.ordinal,
         "offer": offer_card_view(block),
+        # IH1: the router's own words for this draw, as the block row carries them (the guard already ran: a model's
+        # rationale is here only when it passed, ``why_kind == "model_written"``).
+        "why": str(block.chosen.get("why") or ""),
+        "why_kind": block.chosen.get("why_kind"),
         "est_minutes": round(float(block.budget_minutes), 4),
         "boundary": boundary,
     }

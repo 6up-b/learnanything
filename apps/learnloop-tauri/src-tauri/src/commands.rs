@@ -260,6 +260,8 @@ sidecar_passthrough!(save_practice_draft, "save_practice_draft");
 // Adaptive hints H0: telemetry for an authored hint the practice screen revealed.
 sidecar_passthrough!(practice_record_hint_reveal, "practice.record_hint_reveal");
 sidecar_passthrough!(record_ask_availability, "record_ask_availability");
+// Instruct hand-off IH1: a lesson offer's card or page rendered (an `offer_shown` event on its block).
+sidecar_passthrough!(record_offer_shown, "record_offer_shown");
 // Router objective RO4: the "why" surface's trace on demand, and a goal's use weights.
 sidecar_passthrough!(router_objective_explain, "router_objective_explain");
 sidecar_passthrough!(set_goal_use_weight, "set_goal_use_weight");
