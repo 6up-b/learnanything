@@ -20,6 +20,25 @@ from learnloop.db.copies import backup_database
 from tests.connection_reuse import TestLanePool
 
 
+@pytest.fixture(autouse=True)
+def lane_pool(request):
+    """Each test here gets its own pool, built here, so these tests pin the pool in whichever mode the run selected
+    (``--fresh-connections`` has none of its own). Yields the pool the harness had set up, or None. A test about the
+    open path itself (``fresh_connections``, ``durability``) keeps what the harness gave it."""
+
+    harness = DBC._REUSED.get()
+    if any(request.node.get_closest_marker(name) for name in ("fresh_connections", "durability")):
+        yield harness
+        return
+    pool = TestLanePool()
+    token = DBC._REUSED.set(pool)
+    try:
+        yield harness
+    finally:
+        DBC._REUSED.reset(token)
+        pool.close()
+
+
 def _database(tmp_path: Path, name: str = "reuse.sqlite", rows: int = 1) -> Path:
     path = tmp_path / name
     with closing(sqlite3.connect(path)) as raw:
@@ -33,7 +52,14 @@ def _raw_of(connection):
     return connection._connection
 
 
-def test_a_test_runs_inside_the_pool_and_reuses_one_connection_after_a_read_and_after_dml(tmp_path):
+def test_the_harness_gives_a_test_the_selected_mode(request, lane_pool):
+    if request.config.getoption("--fresh-connections") or request.config.getoption("--durable-sqlite"):
+        assert lane_pool is None
+    else:
+        assert isinstance(lane_pool, TestLanePool)
+
+
+def test_a_pool_reuses_one_connection_after_a_read_and_after_dml(tmp_path):
     database = _database(tmp_path)
     assert isinstance(DBC._REUSED.get(), TestLanePool)
     seen = set()
@@ -306,6 +332,7 @@ def test_a_copied_fresh_schema_matches_a_built_one_and_stamps_this_builds_clock(
     from learnloop.db import migrate
     import tests.conftest as lane
 
+    monkeypatch.setattr(lane, "_real_open_paths", False)  # the shortcut under test, whichever mode the run selected
     clock = FrozenClock(datetime(2031, 2, 3, 4, 5, tzinfo=UTC))
     migrate.create_or_attach_current(tmp_path / "first.sqlite", clock=clock)  # may itself be the process's real build
     migrate.create_or_attach_current(tmp_path / "copied.sqlite", clock=clock)
