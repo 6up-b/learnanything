@@ -3,13 +3,13 @@ title: "policy_experiment_assignments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a121b50fc6d7aa4b4d4d5756c0da8d0de9d2d2a7"
-source_commit_timestamp: "2026-11-09T15:45:04-05:00"
+source_commit: "71750e393d2b4bf6dd1f11951d5f2302842a95d0"
+source_commit_timestamp: "2026-11-09T16:19:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite policy_experiment_assignments"
   - "table policy_experiment_assignments"
-schema_head: 251
+schema_head: 252
 table_name: "policy_experiment_assignments"
 table_role: "receipt"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/db/stores/router_objective.py"
   - "src/learnloop/ops/capture_report.py"
   - "src/learnloop/params/parameter_registry.py"
+  - "src/learnloop/recognition/ledger.py"
   - "src/learnloop/router_calibration_upgrade.py"
-  - "src/learnloop/router_objective/assignments.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

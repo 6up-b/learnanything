@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a121b50fc6d7aa4b4d4d5756c0da8d0de9d2d2a7"
-source_commit_timestamp: "2026-11-09T15:45:04-05:00"
+source_commit: "71750e393d2b4bf6dd1f11951d5f2302842a95d0"
+source_commit_timestamp: "2026-11-09T16:19:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 251
+schema_head: 252
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/recognition/ledger.py`
 - `src/learnloop/scheduling/intent/followup_gate.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 

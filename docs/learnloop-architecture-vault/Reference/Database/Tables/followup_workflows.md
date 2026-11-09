@@ -3,13 +3,13 @@ title: "followup_workflows"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a121b50fc6d7aa4b4d4d5756c0da8d0de9d2d2a7"
-source_commit_timestamp: "2026-11-09T15:45:04-05:00"
+source_commit: "71750e393d2b4bf6dd1f11951d5f2302842a95d0"
+source_commit_timestamp: "2026-11-09T16:19:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_workflows"
   - "table followup_workflows"
-schema_head: 251
+schema_head: 252
 table_name: "followup_workflows"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/241_followup_generate_serve.sql"
   - "src/learnloop/db/stores/followup_serve.py"
+  - "src/learnloop/recognition/ledger.py"
   - "src/learnloop/router_objective/decision_state.py"
 tags:
   - "learnloop/database/table"
@@ -104,6 +105,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/followup_serve.py`
+- `src/learnloop/recognition/ledger.py`
 - `src/learnloop/router_objective/decision_state.py`
 
 ### Direct SQL writers
