@@ -138,6 +138,12 @@ def _with_primed_answer(tmp_path, name="vault", *, only_item=True):
 
 
 def _queue(vault, repository, minutes=2):
+    # The item-shape cache is keyed on id(vault): a vault object built later in the worker can reuse a freed one's id
+    # and read another vault's shapes (pre-existing; docs/reviews/placement-stranded.md). These tests compare queues
+    # across vault objects value for value, so each build starts without it.
+    from learnloop.scheduling import selection_rewards
+
+    selection_rewards._SHAPE_CACHE.clear()
     return build_due_queue(vault, repository, clock=_at(minutes), persist_explanations=False)
 
 
@@ -260,26 +266,65 @@ def test_the_switch_and_the_old_tag_serve_the_predecessor_exactly_and_on_only_ad
     switched_off = _dump(_reload(paths, TAG, OFF), repository)
     assert switched_off == before
 
-    # The same database with the switch back on: nothing else about any other row but its new-material order.
+    # The same database with the switch back on. Here the returned LO is no other LO's prerequisite, so every other row
+    # is the predecessor's exactly, value for value; only the returned item is added (and the queue order around it).
     on_paths, on_vault, on_repository = _with_primed_answer(tmp_path, "on")
     on = _dump(_reload(on_paths, TAG), on_repository)
     assert {row["practice_item_id"] for row in on} - {row["practice_item_id"] for row in before} == {ITEM}
-    assert {row["practice_item_id"] for row in before} <= {row["practice_item_id"] for row in on}
     before_by_id = {row["practice_item_id"]: row for row in before}
-    for row in on:
-        if row["practice_item_id"] != ITEM:
-            assert row["components"].keys() == before_by_id[row["practice_item_id"]]["components"].keys()
-            assert "unevidenced_return" not in row["components"]
+    assert {row["practice_item_id"]: row for row in on if row["practice_item_id"] != ITEM} == before_by_id
 
 
-def test_the_plans_pool_below_the_tag_is_the_predecessors(tmp_path):
+def test_a_returned_prerequisite_moves_its_dependents_one_layer_later(tmp_path):
+    """The one knock-on on other rows (Codex F1, accepted): new material is ordered prerequisites first, and a returned
+    LO is new material, so an LO that names it as a prerequisite is placed one layer after it."""
+
+    results = {}
+    for name, version in (("below", OLD), ("at", TAG)):
+        paths = create_placement_vault(tmp_path / name, version=OLD)
+        for retired in ("pi_eig_mid", "pi_eig_hard"):
+            path = paths.practice_item_path("linear-algebra", retired)
+            write_yaml(path, {**read_yaml(path), "status": "retired"})
+        vault = load_vault(paths.root)
+        repository = Repository(paths.sqlite_path)
+        sync_vault_state(vault, repository, clock=_at(0))
+        _answer(vault, repository, "pi_eig_easy", primed=True)
+        vault = _reload(paths, version)
+        results[name] = {s.practice_item_id: s.components for s in _queue(vault, repository)}
+    assert "pi_eig_easy" not in results["below"]
+    assert results["at"]["pi_eig_easy"]["unevidenced_return"] == 1.0
+    for dependent in ("pi_spec_easy", "pi_spec_hard"):
+        assert results["below"][dependent]["placement_layer"] == 0.0
+        assert results["at"][dependent]["placement_layer"] == 1.0
+    for other in ("pi_diag_easy", "pi_diag_mid", "pi_diag_hard"):
+        assert results["at"][other] == results["below"][other]
+
+
+def _pool(paths, repository, minutes=2):
+    from learnloop.daily_plan.engine import _classified_pool
+    from learnloop.daily_plan.types import LANES
+
+    vault = load_vault(paths.root)
+    env = make_env(paths.root, lambda: _queue(vault, repository, minutes))
+    built = _classified_pool(env, minutes=40.0, lanes_allowed=LANES, day=(), reentry=False)
+    return [item.as_dict() for item in built.pool], [c.practice_item_id for c in new_material_candidates(None, built.pool)]
+
+
+def test_the_plans_pool_with_the_switch_off_is_the_predecessors(tmp_path):
+    """Real scheduler output through the plan's classification (Codex F4): the switched-off successor's pool and
+    new-material candidates are the predecessor's exactly; with the switch on the returned item joins both."""
+
     paths, vault, repository = _with_primed_answer(tmp_path)
-    pool_item = classify_item(
-        scheduled(ITEM, LO, new_material=0.0), rank=0, state=repository.practice_item_states()[ITEM], requested=False,
-        now=NOW + timedelta(minutes=2), est_minutes=5.0, check=None, probe_slot_available=False,
-    )
-    assert (pool_item.lane, pool_item.reason, pool_item.unevidenced_return) == (None, "later", False)
-    assert "unevidenced_return" not in pool_item.as_dict()
+    before = _pool(paths, repository)
+    assert ITEM not in {row["practice_item_id"] for row in before[0]}
+    _reload(paths, TAG, OFF)
+    assert _pool(paths, repository) == before
+    on_paths, _on_vault, on_repository = _with_primed_answer(tmp_path, "on")
+    _reload(on_paths, TAG)
+    pool, candidates = _pool(on_paths, on_repository)
+    assert ITEM in candidates and set(candidates) - set(before[1]) == {ITEM}
+    assert next(row for row in pool if row["practice_item_id"] == ITEM)["unevidenced_return"] is True
+    assert all("unevidenced_return" not in row for row in pool if row["practice_item_id"] != ITEM)
 
 
 # ── the plan ─────────────────────────────────────────────────────────────────
@@ -305,7 +350,10 @@ def test_the_plan_admits_it_as_new_material(tmp_path):
     assert [row["practice_item_id"] for row in record.admission["admitted"]] == [ITEM]
 
 
-def test_an_open_problem_on_it_stays_the_repair_lanes(tmp_path):
+def test_an_open_problem_on_it_stays_the_repair_lanes_and_it_is_still_unacquired(tmp_path):
+    """Codex F2 (ruled): an open diagnosed problem's repair comes first, as for any attempted item (the LO is served
+    either way); the item still reads as a return, so no signal (staged frame's target_acquired) counts it acquired."""
+
     paths, vault, repository = _with_primed_answer(tmp_path)
     pool_item = classify_item(
         scheduled(ITEM, LO, new_material=1.0, unevidenced_return=1.0), rank=0,
@@ -313,6 +361,8 @@ def test_an_open_problem_on_it_stays_the_repair_lanes(tmp_path):
         est_minutes=5.0, check=None, probe_slot_available=False, open_problem=True,
     )
     assert pool_item.lane == "repair"
+    assert pool_item.unevidenced_return and pool_item.counts_as_new
+    assert pool_item.as_dict()["unevidenced_return"] is True
 
 
 # ── replay ───────────────────────────────────────────────────────────────────

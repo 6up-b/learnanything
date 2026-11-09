@@ -220,6 +220,10 @@ def classify_item(
         due = bool(due_override)
     frontier = float(components.get("goal_frontier", 0.0) or 0.0) > 0.0
     followup = is_followup(scheduled)
+    # mvp-0.56: the scheduler started this answered item as learning. Carried whatever lane it takes (an open
+    # diagnosed problem still sends it to repair first), so no signal reads it as acquired. Only where the scheduler
+    # wrote the component, so every other pool is the predecessor's.
+    returned = float(components.get("unevidenced_return", 0.0) or 0.0) > 0.0
     base = dict(
         practice_item_id=scheduled.practice_item_id,
         learning_object_id=scheduled.learning_object_id,
@@ -227,6 +231,7 @@ def classify_item(
         priority=float(scheduled.priority),
         est_minutes=float(est_minutes),
         never_attempted=never_attempted,
+        unevidenced_return=returned,
         requested=requested,
         followup=followup,
         due=due,
@@ -279,10 +284,9 @@ def classify_item(
         return PoolItem(lane="repair", reason="an open diagnosed problem on this topic", **base)
     if never_attempted:
         return PoolItem(lane="new", reason="your request" if requested else "new material", **base)
-    if float(components.get("unevidenced_return", 0.0) or 0.0) > 0.0:
-        # mvp-0.56: without this lane the scheduler's return would sit in "later" and never be planned. Present only
-        # where the scheduler wrote it, so every other pool is the predecessor's.
-        return PoolItem(lane="new", reason="back as learning", unevidenced_return=True, **base)
+    if returned:
+        # mvp-0.56: without this lane the scheduler's return would sit in "later" and never be planned.
+        return PoolItem(lane="new", reason="back as learning", **base)
     if due or requested:
         return PoolItem(lane="maintain", reason="your request" if requested and not due else "past its review date", **base)
     if frontier:
