@@ -7,7 +7,7 @@ import type { AttemptResultDto, CommandError, ScheduledItemDto, SessionEndSummar
 import { invalidate, peek, setQueryData, clear as clearQueries } from "@desktop/api/queryCache";
 import { TAG } from "@desktop/api/queryTags";
 import { committedAttempt, pollJob, refusedOutright } from "./api/http";
-import { phone, type OwnerSnapshot, type PhonePlanDto } from "./api/phone";
+import { phone, type OwnerSnapshot } from "./api/phone";
 import { useVisibleInterval } from "./util/useVisibleInterval";
 import { CaptureScreen } from "./capture/CaptureScreen";
 import { FeedbackScreen } from "./practice/FeedbackScreen";
