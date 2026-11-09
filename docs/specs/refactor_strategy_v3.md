@@ -709,10 +709,191 @@ Failures print ids and field names only. Nothing from it goes in a tracked file.
 | Learner protection, a per-call read | Recorded only where it excludes something from a decision (B4, B6). Not per read | none alone |
 
 **What it replaces.**
-- **Kept:** `router_decisions` and payloads, `router_objective_traces`, `ad_selections` (the model for the shape), `judgment_ledger`, `plan_presentations`, the causal receipts and the receipts in `§4.3`. They're ledgers with guarantees, and the playbook keeps them immutable.
+- **Kept:** `router_decisions` and payloads, `router_objective_traces`, `ad_selections` (the model for the shape), `judgment_ledger`, `plan_presentations`, the causal receipts and the other rows in the map's §4.3. They're ledgers with guarantees, and the playbook keeps them immutable.
 - **Gone:** the JSON join from decision to receipt (new rows), free-text `owner_id` as the join, AD's JSONL denial log if nothing else reads it, in-memory build notes, `why`'s writes, and per-subsystem entry points as separate code.
 - **Net concepts:** +1 table, +1 small module, +1 RPC; −4 entry points and −3 ad hoc logs. It's the one new concept this strategy adds, and it's justified because no existing mechanism can answer the owner's four cases.
 
 **ADR-017** records all of this. **"Decision" isn't renamed everywhere;** `router_decisions` stays.
 
-<!-- NEXT -->
+## 4. What not to do
+
+| Tempting | Why not |
+|---|---|
+| **Split `Repository` into stores wholesale** | 943 methods, 406 importing modules: a very large diff that proves nothing and changes no decision. Dead methods go (C1), and a method moves to its store when a step touches it. |
+| **Break the 191-module import cycle head-on** | The frozen-cycle contract records it honestly. Function-local imports are the cost, and removals, E1 and E5 cut edges where they pay. Re-measure at Z2; no separate arc. |
+| **A policy, action or sensor registry; a plugin framework; dependency injection** | The owner ruled them out, and a plain `match` and small modules do it. E6 stops if it adds more than it removes. |
+| **Make `decision_records` the system of record, or replace ledgers with it** | Raw ledgers and receipts are immutable by the playbook, and bundles must exist before the answer. A log can't replace them (Nov 3 item 4). |
+| **Backfill records for old decisions** | A record written now would claim to know inputs nobody stored. `why` labels what it reconstructs instead. |
+| **Trace spans, OpenTelemetry, a log store** | A new dependency and concept for a single-user desktop app. One table and a ContextVar answer the questions. |
+| **A record at every function, or per protection read** | Storage, noise, and a false sense of coverage. The rule is meaningful boundaries, and an exclusion that affected a decision. |
+| **Storing prompts or free text in records** | The receipts hold them under existing rules. A second copy is a new leak surface. |
+| **Delete Appendix C's 715 definitions** | They're candidates from a name scan. Its misses include `importlib` and generators. Only re-proven rows go. |
+| **Delete by tag without the floor, or remove old-row readers** | Replay reads old rows by shape at any tag. Pruning them breaks real history. D5's review hunts for exactly this. |
+| **Prune below-floor branches before moving the test vault** | Most tests would lose their path while the real path stays less tested. D2 comes first. |
+| **Squash the 237 migrations into one baseline** | Saves little reading, since nobody reads them in sequence, and it would break coordinated migrations and old-copy upgrades. |
+| **Merge AD's two guard lists, or weaken them, to cheapen a new table** | They enforce a real firewall (B4). A2 makes the fixture cost go away; the guard keeps its cost. |
+| **Untrack generated `Reference/`** | The owner reads it in Obsidian, and validators and the final docs stage use it. With stamps gone, what's left is real change. |
+| **Reduce rollout draws or shorten the deadline to hit the speed target** | That changes decisions to win a number. |
+| **Cache across jobs or add a read-cache layer for speed** | Router speed 2 already held reads within a job, and the remainder isn't there. F3 only if measured. |
+| **Consolidate `router/`, `router_objective/` and `daily_plan/router_*` into one package first** | A rename doesn't help until E2-E6 say what's left. E9 renames only what misleads. |
+| **Rename the FSRS `difficulty` columns** | A migration with no learner benefit. H1's guard test keeps the two apart. |
+| **A separate comment sweep** | Touch it, fix it. A sweep is a large diff with nothing to test. |
+| **Polish screens; rewrite settings** | The UX overhaul follows. This strategy only lists what removals affect. |
+| **Test-speed infrastructure here** | It's on `tests/audit-speed`, by the owner's word. |
+| **Rework `build_due_queue` or the engine's traversal beyond I2 and E6** | `daily_plan/engine.py` (5,978 lines) carries real policy. Taking out only the pieces with a named cost keeps review possible. |
+| **Bound AD eta inside the refactor** | It's a modelling change for the owner, with its own successor. |
+
+## 5. The vault plan
+
+**Order (owner, Nov 8).** Job 1's audit is the input (§8 of the map). Each step fixes the notes it touches. The one full update is the last stage, by Codex, after the UX overhaul, so it describes the final screens. This overrides the older prompt's "first docs-only step". Only A4 runs early, for a wrong privacy statement.
+
+**Each step's gate:** the four validators pass, and the notes named in its step are true. Validators check links and coverage, not truth (§8), so the review reads the notes it changed against the code.
+
+**Inside the refactor:**
+
+| Note | Change | Step |
+|---|---|---|
+| Content Pipeline, Import Canonical Sources, Privacy and Trust | Fix the privacy claim | A4 |
+| Developer Map | Replace "next-item policy lives in scheduling" with §6's table | A4, then each arc |
+| Generated `Reference/` | Lose per-note stamps; `_generated.md` | A1 |
+| Inspect Persistent State, State and Persistence | Head path; head number by reference, not literal | A2 |
+| Algorithm Versions and Reproducibility, Version Registry, playbook | Defaults file; floor; upgrade table | A3, D1, D3 |
+| ADR-017 (new) | The decision record | B1 |
+| ADR-018 (new) | The floor, the upgrade table, the kill-switch rule; supersedes the chain parts of the playbook | D1, D3, D7 |
+| ADR-019 (new) | The router as one decider | G2 |
+| "Debug a decision" workflow (new) | How to use `why` | B9 |
+| ADR-005, ADR-011, ADR-012, ADR-003 | Mark as amended or superseded when the step makes it so | C4, D, C1 |
+| AI Architecture | Provider table | C4 |
+| Adapter Architecture, Package Boundaries, Testing | As removals land | C7, D2 |
+| Router Objective (new, short) | Where the objective, rollouts, actions and sensors live | E5, E6, E7 |
+| Attempt Processing, Learning System, Diagnosis, Scheduling and Selection | Each paragraph the step made false | D4, I1, I2, G1, G2, H |
+| Refactor Status | Points to this strategy; deleted at the close | S0, Z2 |
+
+**For the last stage (Codex, after the UX overhaul):**
+- **Fix** everything in the map's §8.1, §8.3 and §8.5, re-checked then: the first hop (Home, Architecture Overview), Maps, Examples' stale preconditions (`research_on_learning.md`'s path).
+- **Add** notes for §8.2's gaps, short and few: Teacher, Figures, Follow-up serve, Phone, MCP and protection, Adaptive difficulty, Decider and held grades. `learnloop_mobile`, `learnloop_mcp` and `apps/learnloop-mobile` get module and desktop notes.
+- **Redraw:** Architecture Map, Data and State Map, Developer Map, User Journey Map, Pipeline Map, the canvas (or delete the canvas: it has 14 nodes and is linked once).
+- **Merge or delete:** one-link notes (Glossary, Status Legend, Tag Taxonomy, Documentation Dashboard, AI Operation Registry) merged where they duplicate; workflows that describe removed paths deleted; ADR-001, 008, 009's stale counts replaced by references.
+- **Mark:** Design Decision Index brought up to date, with new ADRs for the router objective, teacher, phone, MCP, S0, Decider and GLM-OCR as Codex finds them undecided on paper.
+- **The onboarding path:** Home → Architecture Overview → the relevant Concept, Workflow and Map → the code. The gate: a new reader locates §6's sample changes from the vault alone.
+- **Gates:** every validator, every file:line citation re-checked, every Example's commands dry-run on a scratch vault.
+
+## 6. Success measures
+
+Measured at S0 and Z2 with one script and the same commands.
+
+**Size and rules**
+
+| Measure | Map's baseline | Target |
+|---|---|---|
+| Python files, all packages | 1,268 | down 6-11% |
+| Raw lines, code lines | 624,515; 436,042 | down 5-9% (about 9% with TUI, `projects/`, `experiments/` gone) |
+| Functions over 200 lines | 81 | down, no fixed number; `build_due_queue` and `_compute_resolved_grade_application` out of the list |
+| Root `*_upgrade.py`; all upgrade modules | 40; 42 | 0; 1 table module |
+| `Repository` methods | 943 | at least 58 fewer |
+| `mvp-0.N` literals: code / docstring / comment | 285 / 949 / 3,070 | under 60 / under 300 / under 500 |
+| Tag gates: constant at the floor / all | 79 at 0.43 / 90 | 0 / only tags above the floor |
+| Kill switches at or below the floor | 27 named, at least | 0, except any the owner keeps |
+| Import-linter contracts | 43 | lower, no fixed number; each kept contract readable |
+| Removed list | | every removed feature named in Z2's report |
+| Database size | private file | reported before and after each drop |
+
+**What a change costs.** Files edited, counted on a scratch branch at Z2 with the same changes.
+
+| Sample change | Today | Target | Where after |
+|---|---|---|---|
+| Threshold or default (40 s timeout) | 1 line, 46 digests, 12 test files, 1 note | 1 line; 1 golden line; at most 1 test literal; 1 note | `config/schema.py` |
+| A new table | Migration, roles, AD's 2 lists, store; 24 files renamed; 68 pinned tests; 481 notes | Those 5; 2 fixture files; 0 pins; a handful of notes | |
+| Speed work with no version (router speed 2) | 615 files (9 source, 593 notes) | about 110 at most; lower if per-module test lists go | |
+| A new tag | 9 source files, 36 pinned tests, 101 digest lines | 1 constant, 1 table row, 1 test row, plus its switch | `algorithm_versions.py`, `ops/upgrades.py` |
+| Add a sensor (objective) | 11, 7 files | `daily_plan/sensors.py` and its test | |
+| Change an objective term | 3, 6, 4, 1 files | `router_objective/objective.py` and its test; a switch if it's a successor | |
+| Swap the mixing rule | 13 files, 47 lines of rule | `mix.py` and its test; a new tag adds its row and switch | |
+| Add an action | 20 files | `router_objective/actions.py`, its test, a trace label; plus a screen if it has one | |
+| Change a seed or prior | 1 line, plus digest churn | As a default | `config/schema.py` |
+| Prompt | 1 file and a version bump, plus goldens for each switch-off parity test | 1 file and bump; goldens only for that prompt | its module |
+| New signal to model contexts (TE0) | 11 files | the signal's function, and one line in each builder that uses it | `learner_signals` |
+| New step in a pipeline | not reducible to a number; FG1, IH2 | Developer Map names the seam; time-to-locate measures it | |
+| A model route | not measured: no recent commit changed one alone | measure at S0 on a scratch branch; target: 1 default, 1 golden line | `config/schema.py`, `ai/routing.py` |
+
+**Speed**
+
+| Measure | Baseline | Target |
+|---|---|---|
+| Next right after feedback, large copies | Median 2,676 ms, 16 of 21 over 2 s, against mvp-0.49's 2,250 ms, 25 of 30 (a pinned week) | No worse than mvp-0.49's by the same method, after IH's prefetch |
+| Connection opens per job | 17 | about 5 |
+| Decision values at a fixed draw count | | Byte-identical across every speed step |
+
+**Tests (item 13).** The test branch owns infrastructure and the "before" is S0's, because it lands first.
+
+| Measure | Baseline | Target |
+|---|---|---|
+| Serial; `-n 8 --dist worksteal`; `-m durability` | S0 (Nov 7's `-n 8` was 59:22 before that branch) | Same commands at Z2. No fixed target; each removal reports its seconds |
+| Upgrade and successor family | 4,364 test seconds, 16% (Nov 7) | under 3% |
+| Tests run on the served path | 271 files default to mvp-0.6 | 0 |
+
+The order: removals first (C1-C7, each with its tests), then D3 (the chain tests, the largest family), then D7 (predecessor-exact tests), then Z2. Nothing that a test proves is dropped without a named replacement, and each landing note says what still proves it.
+
+**Inspectability**
+
+| Measure | Target |
+|---|---|
+| The four real cases | `tests/test_why_cases.py` passes always; `tests/test_why_real_cases.py` passes on a fresh backup; the no-code reader answers |
+| "The latest decision", "this attempt", "this block", "this figure" | `why` answers each with chosen, alternatives, losers' reasons, inputs, decider, versions, seed, next |
+| Silent sites S1-S15 | Each has a fail-first test, or a line in ADR-017 saying why not |
+| A decision with no record | B8's inventory lists none unexplained |
+
+**Time to locate.** A fresh agent, given only a symptom, the vault and `why`, with minutes and files opened recorded at S0 and Z2:
+1. "Dormant or resolved learning objects are still served" (`docs/reviews/daily-loop-bugs.md` §2).
+2. "Choosing a help style changed nothing" (`docs/reviews/owner-capture-2026-10-25-fixes.md`, B2).
+3. "The scheduler offer does not belong to this item/session" (same review, B4).
+4. A router decision that fell back to a rule: which model failed and how.
+5. "Where do I change the mixing rule, an objective term, a route, a threshold?"
+
+**Docs (at the last stage).** Every validator passes, and no note describes behaviour that no longer exists.
+
+## Appendix A: corrections to the map
+
+Fixed in place in `docs/reviews/architecture-map-2026-11-08.md`, under its "Corrections" section and at each row. Everything here was checked against the code on Nov 9.
+
+| # | Map said | Actually | Effect |
+|---|---|---|---|
+| 1 | A new table renames a 48-file fixture, 4,510 lines | **24 files:** 22 renamed unchanged, 2 changed. `--numstat --no-renames` counts each twice (2,261 + 2,249 lines) | A2's baseline |
+| 2 | 70 files name the head's path | 68 test files (70 lines), plus 3 scripts: 71 files | A2 |
+| 3 | 4,302 `mvp-0.N` literals (read as code) | By tokenizer, 4,304: **3,070 in comments, 2,319 of them in `template.py`; 949 in docstrings and multi-line strings; 285 in code strings** | The cost is mostly history in comments. A3 and D3 remove most |
+| 4 | `substrate_cutover`: 0 imports, path strings only; DEAD | **Imported at runtime:** `MODULE_INVENTORY` and `_resolve_module_constant` (`params/parameter_registry.py:3150`) `importlib` it. The same goes for `progression_policy`, `progression`, `predictive_targets`, `reentry_adapter`, `shadow_components`, `kinship_feature`, `controller_cutover`. Deleting one without its entries breaks registry refresh | C1 and C2 split |
+| 5 | `sim/ad_gates`: DEAD, 1 test file | **It's the library of `test_ad23_sim`, the suite's slowest file (734 s),** with `sim/ad_synthetic` (1,289 lines, not listed) | Not a removal; handed to test usefulness |
+| 6 | `client_contract`: DEAD, "may be a pin by design" | A generator: `tests/test_mobile_phone_contract.py:49` writes and compares committed files with it. **Live as a tool** | Kept |
+| 7 | Upgrade importers are `cli/app.py`, the next link and two callers; 40 modules | **42 modules** (40 at root, `ops/vault_upgrade`, `diagnosis/recurrence/upgrade`), and `learner/recall_calibration.py:16` imports `vault_upgrade`'s constants | D3 |
+| 8 | "Replay imports none" | **Proven, and stronger:** none reachable by any import from 6 replay and serving roots. **But** every writing open in the CLI and sidecar installs the chain's completion, and a journal naming an old link walks it | D1, D3 |
+| 9 | Tests start from old tags: the head fixture at mvp-0.6 | **Larger:** `AlgorithmsConfig`'s default and `create_basic_vault` are at mvp-0.6. 437 test files use that vault, 271 name no version. Not in the map | D2 is new |
+| 10 | About 40 pure gates, about 38 paired | The 79 and 11 are confirmed by AST against the real chain (36 sets constant, 11 varying). The split isn't reproducible: a syntactic pass finds about 10 paired and misses some | D4-D6 read each |
+| 11 | S1: answers, trace and payloads are dropped | Exact on the decision row, trace and payloads. The answers survive in `model_call_receipts` if the call finished; a fallback row with `chooser_error` is written. The exception's message is lost | B2 |
+| 12 | 53 `table_info` sites in 39 files | 54 in 40 at this tip | Small |
+| 13 | §7.4's DEAD rows don't list them | **Also unreachable by import from any entry:** `scheduling/progression`, `predictive_targets`, `reentry_adapter`, `short_session`, `sim/ad_synthetic`. Not orphans: `figures/source_check_harness.py` (read as text, `figures/source_check.py:90`), `ingest/detect.py` (re-exported) | C2 |
+| 14 | §9 "48" in the stage table (TE2, TE3a, V3, IH) | Same double count | Rows annotated |
+
+**Checked and held:** the 8 s and 40 s lines; `DEFAULTS_SNAPSHOT_BY_ALGORITHM` has no `src` reader; S2, S7 and S8 as described; `decide_probe`'s two sites; `figure_prefetch_decisions` has no reason column; `_flat_change` leaves no note; no 12 in the pre-build code; the scalar's readers I opened; 943 `Repository` methods; 43 contracts.
+
+**Not re-checked:** every other row. §4.1's (o) rows stay unread until B7 and B8. Steps prove what they rest on when they run.
+
+## Appendix B: one record of each fact (Nov 3 item 2)
+
+The owner. A step moves a reader to it (G5), and a duplicate stops being written only after that. Rows stay. "Guarantee" means written before the answer, and it can't come from logs.
+
+| Fact | One owner | Also held today | What happens |
+|---|---|---|---|
+| Predictions before the answer | `causal_blind_prediction_bundles` | ids in `probe_presentations` | Stays; guarantee |
+| Locked hypotheses | `hypothesis_sets` | Second lock at `enter_episode` | Stays; guarantee; one lock if G4 goes ahead |
+| Posterior at selection | `probe_presentations` | | Stays; guarantee |
+| Which prediction matched | `causal_discriminating_observations` | Features in `probe_observations`, grading evidence | Stays; read by the 8 modules in §2.10 |
+| Belief after an observation | `probe_observations` (episode posterior) | `support_scores`, `resolved_factor` | G3, G4 |
+| Attempt, presentation | `practice_attempts`, `probe_presentations` | `causal_probe_decision_receipts`, observations | Join by id; stop copying only where nothing reads the copy |
+| Whether to probe: formula and EVSI provenance | `causal_probe_decision_receipts` | Router's `observational` field | Stays; the verdict goes at G2, the facts stay |
+| Burden minutes | Trace | Receipts | Trace |
+| Learner's "Not now" | `causal_probe_preference_events` | Workflow's release reason | Statement stays there; the workflow names it |
+| Cold outcome | `causal_cold_outcomes` for non-measured dispositions; `router_outcomes` R_cold, `causal_cold_verifications` | `forecast_receipts`, `decision_measurement_events` | **Two rules for "delayed outcome" exist (map §4.4).** G5 names one, or writes down why two |
+| Why this choice | `decision_records`, pointing at the row above | | New; B7 |
+
+`decision_features`, `router_outcomes` and `forecast_receipts` share no row with the receipts, so there's nothing to merge: the overlap is by fact only.
+
