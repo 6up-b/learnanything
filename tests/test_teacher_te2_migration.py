@@ -15,7 +15,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_250" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_251" / "state.sqlite"
 PREVIOUS = Path(__file__).resolve().parents[1] / "migrations" / "247_lesson_episodes.sql"
 REBUILT = ("followup_generation_jobs", "generated_probe_items", "learner_text_gaps", "learner_text_gap_jobs")
 #: What 248 alters (earlier migrations' "nothing else changed" diffs on the way to head read this): the four rebuilt
@@ -31,7 +31,7 @@ _PROBE = ("INSERT INTO lesson_episodes(id, lesson_id, kind, opened_by, node_id, 
 
 def test_248_is_the_head_and_adds_no_table():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[248] == "248_teacher_te2_sources.sql" and max(names) == 250
+    assert names[248] == "248_teacher_te2_sources.sql" and max(names) == 251
     for table in REBUILT:
         assert table in TABLE_ROLES
     assert TABLE_ROLES["lesson_episodes"] is TableRole.RECEIPT
@@ -39,7 +39,7 @@ def test_248_is_the_head_and_adds_no_table():
 
 def test_the_head_fixture_holds_248_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 250
+    assert max(applied_versions(HEAD)) == 251
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         sql = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
         assert "'lesson')" in sql["followup_generation_jobs"]
@@ -160,4 +160,4 @@ def test_248_applies_under_production_pragmas(tmp_path):
     _downgraded(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         assert [migration.version for migration in apply_migrations(database)] == [248]
-    assert max(applied_versions(database)) == 250
+    assert max(applied_versions(database)) == 251

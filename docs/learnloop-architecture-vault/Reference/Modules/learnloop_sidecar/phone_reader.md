@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/phone_reader.py"
 source_paths:
   - "src/learnloop_sidecar/phone_reader.py"
-source_commit: "c61150f982e9b7910573adf87ad5fbce3c77ae6c"
-source_commit_timestamp: "2026-11-07T06:50:40-05:00"
+source_commit: "38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0"
+source_commit_timestamp: "2026-11-09T06:12:48-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c61150f982e9b7910573adf87ad5fbce3c77ae6c` |
-| Commit timestamp | `2026-11-07T06:50:40-05:00` |
+| Source commit | `38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0` |
+| Commit timestamp | `2026-11-09T06:12:48-05:00` |
 
 ## Public API
 
@@ -123,11 +123,11 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_ca1_astra_redesign.py](../../../../../tests/test_reader_ca1_astra_redesign.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]]
 - [tests/test_ad23_fix_review.py](../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../tests/test_followups_batch6_verify_fixes.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_ih3_learner_preferences.py](../../../../../tests/test_ih3_learner_preferences.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_instruct_handoff_ih1.py](../../../../../tests/test_instruct_handoff_ih1.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
 - [tests/test_learner_pick_proposal.py](../../../../../tests/test_learner_pick_proposal.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
 - [tests/test_library_exercises.py](../../../../../tests/test_library_exercises.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
 - [tests/test_mobile_v2_plan.py](../../../../../tests/test_mobile_v2_plan.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_reader_rw4b_admission_idempotency.py](../../../../../tests/test_reader_rw4b_admission_idempotency.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
 
 ## Modification guidance
 

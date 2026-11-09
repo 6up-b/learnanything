@@ -3,7 +3,7 @@
 // file under LEARNLOOP_UPDATE_PHONE_CONTRACT=1.
 
 /** What `GET /api/v1/meta` answers when this build and the host agree (spec §5.2). */
-export const ALLOWLIST_DIGEST = "b814276c821aafafd9db269a29413c246198e0030c31e78d8dda5b6909f13502";
+export const ALLOWLIST_DIGEST = "8c72de0e5c05c655a187b77ec4ee63f36db7d3b8eae72a3db4dfed81da498fc7";
 
 /** Every method the host lets the phone call. Anything else is a 403. */
 export const PHONE_METHODS = [
@@ -33,7 +33,10 @@ export const PHONE_METHODS = [
   "plan_keep_going",
   "plan_learner_pick",
   "plan_more_new",
+  "plan_prefetch",
   "plan_reading_ended",
+  "plan_something_else",
+  "plan_something_else_options",
   "practice.as_printed",
   "practice.record_hint_reveal",
   "rate_followup",

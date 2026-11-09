@@ -1,0 +1,36 @@
+{
+  "method": "plan_something_else",
+  "requests": [
+    {
+      "wrapper": "planSomethingElse",
+      "envelope": {
+        "method": "plan_something_else",
+        "params": {
+          "sessionId": "s1",
+          "kind": "question",
+          "ref": "cand_1",
+          "surface": "phone_feedback",
+          "attemptId": "a1",
+          "noteMd": "A harder one.",
+          "preferenceId": "pref_1"
+        }
+      }
+    },
+    {
+      "wrapper": "planSomethingElse",
+      "envelope": {
+        "method": "plan_something_else",
+        "params": {
+          "sessionId": "s1",
+          "kind": "lesson",
+          "ref": "lesson_offer:lo_1",
+          "surface": "phone_today",
+          "preferenceId": "pref_2"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "enabled"
+  ]
+}

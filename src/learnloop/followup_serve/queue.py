@@ -21,6 +21,17 @@ def enqueue_workflow(repository: Repository, workflow_id: str, *, clock: Clock |
         )
 
 
+def requeue_workflow(repository: Repository, workflow_id: str, *, clock: Clock | None = None) -> bool:
+    """IH2: a follow-up that lost to a lesson with nothing generated goes to a new decision: its job runs again."""
+
+    with repository.atomic(), repository.connection() as connection:
+        at = utc_now_iso(clock)
+        if store.requeue_generation_job(connection, f"workflow:{workflow_id}", at=at):
+            return True
+        return store.enqueue_generation_job(connection, kind="workflow", dedupe_key=f"workflow:{workflow_id}",
+                                            workflow_id=workflow_id, at=at) is not None
+
+
 def enqueue_need(repository: Repository, need_id: str, *, clock: Clock | None = None) -> str | None:
     """A recorded practice-lane need fills in the background, deduplicated (§4)."""
 
@@ -83,4 +94,4 @@ def pending_jobs(repository: Repository) -> int:
 
 
 __all__ = ["enqueue_entry", "enqueue_factor", "enqueue_lesson", "enqueue_need", "enqueue_workflow", "lesson_dedupe_key",
-           "pending_jobs", "skip_lesson_job"]
+           "pending_jobs", "requeue_workflow", "skip_lesson_job"]

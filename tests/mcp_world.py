@@ -14,6 +14,7 @@ learner's own state does.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -305,6 +306,17 @@ def payload_text(value: Any) -> str:
 #: The key an item had when an older answer (graded before contracts were pinned)
 #: was graded: no contract, snapshot or YAML records it any more.
 LEGACY_KEY = "LEGACY KEY 8841 a row swap negates the volume"
+_PLANTED_KEY_NUMBER = re.compile(r"(?<![0-9A-Za-z.])8841(?![0-9A-Za-z])")
+
+
+def names_planted_key(text: str) -> bool:
+    """Whether ``text`` names the planted key's number: as a word of a title (``key 8841:``) or of a slug
+    (``legacy_key_8841_a_row``). A substring check also matched random ids and hashes that happen to contain the four
+    digits (the known '8841' flake)."""
+
+    return _PLANTED_KEY_NUMBER.search(text) is not None
+
+
 #: A prerequisite title the learner-text pipeline drafted from that answer.
 GENERATED_TITLE = f"Legacy key 8841: {LEGACY_KEY.split('8841 ')[1]}"
 #: A pinned answer with a record-id-shaped id, so a diagnosis's text can name it.

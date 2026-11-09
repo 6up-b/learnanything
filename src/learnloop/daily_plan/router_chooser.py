@@ -380,6 +380,9 @@ class RouterChooser:
     #: True on reads and prefetches (Today's open, feedback): a decision whose
     #: models are still out is left open. False on a serving step: it waits.
     may_defer: bool = True
+    #: The phone's prefetch (spec_instruct_handoff_v1 §3a): the objective chooser starts the boundary's job and always
+    #: leaves the decision open, whatever the job has answered. Only ``ObjectiveChooser`` reads it.
+    start_only: bool = False
     name: str = CHOOSER_NAME
 
     @property

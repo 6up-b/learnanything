@@ -40,6 +40,16 @@ async function open(first: LessonViewDto, onQuickCheck = vi.fn()) {
   return { onError, onQuickCheck };
 }
 
+it("a lesson asked for with \"learn this\" names its preference when it opens (IH7, the owner's decision 2)", async () => {
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"], preferenceId: "pref_1" }}
+                         onClose={vi.fn()} onQuickCheck={vi.fn()} onError={vi.fn()} />);
+  });
+  expect(api.lessonTurn).toHaveBeenCalledWith({ action: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"],
+                                               preferenceId: "pref_1" });
+});
+
 it("opens a lesson on the topic and shows the document and the map as positions", async () => {
   await open(lesson());
   expect(api.lessonTurn).toHaveBeenCalledWith({ action: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"] });

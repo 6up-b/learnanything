@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/router_runtime.py"
 source_paths:
   - "src/learnloop/daily_plan/router_runtime.py"
-source_commit: "a01ecfbb27093bad0f8c7924a0558bfc49acbc22"
-source_commit_timestamp: "2026-11-04T01:43:14-05:00"
+source_commit: "8ea11df389cdbeafc9322952d0f7f9686895d11e"
+source_commit_timestamp: "2026-11-08T18:36:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a01ecfbb27093bad0f8c7924a0558bfc49acbc22` |
-| Commit timestamp | `2026-11-04T01:43:14-05:00` |
+| Source commit | `8ea11df389cdbeafc9322952d0f7f9686895d11e` |
+| Commit timestamp | `2026-11-08T18:36:40-05:00` |
 
 ## Public API
 
@@ -220,6 +220,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_an_in_flight_generation_reserves_against_the_next`
   - `test_f1_generation_receipts_are_in_the_daily_total`
   - `test_f1_generation_spend_refuses_the_routers_own_next_request`
+- [tests/test_instruct_handoff_ih0.py](../../../../../../tests/test_instruct_handoff_ih0.py) — direct import
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
   - `test_an_early_publication_served_keeps_its_carried_valuation`

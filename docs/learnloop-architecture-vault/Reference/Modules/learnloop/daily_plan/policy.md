@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/policy.py"
 source_paths:
   - "src/learnloop/daily_plan/policy.py"
-source_commit: "e4131322b0676d232c53ccd2d25fb8ded32f6ea6"
-source_commit_timestamp: "2026-11-06T13:48:58-05:00"
+source_commit: "4a43accdeee73f40cfc87496be678e016f93b3b3"
+source_commit_timestamp: "2026-11-09T08:57:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/policy.py](../../../../../../src/learnloop/daily_plan/policy.py) |
-| Source lines | 174 |
+| Source lines | 201 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e4131322b0676d232c53ccd2d25fb8ded32f6ea6` |
-| Commit timestamp | `2026-11-06T13:48:58-05:00` |
+| Source commit | `4a43accdeee73f40cfc87496be678e016f93b3b3` |
+| Commit timestamp | `2026-11-09T08:57:15-05:00` |
 
 ## Public API
 
@@ -64,7 +64,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `router_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 47) — The router composes Today: the plan serves and the bridge's switch holds.
 - `mixture_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 53) — The model mixture chooses Today's blocks: the router composes Today, the vault is at the R2b + R2c successor or later, and ``router.mode`` is ``mixture``.
 - `objective_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 67) — Router objective RO4 (spec §8): the objective chooses Today's blocks: the mixture serves and the vault is at RO4's tag with ``[router_objective] enabled``.
-- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 76) — Today's source/chooser pair for one plan env (one RPC).
+- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False, start_only: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 76) — Today's source/chooser pair for one plan env (one RPC).
+- `prefetch_can_start(vault: Any, *, runtime: Any=None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 151) — Spec_instruct_handoff_v1 §3a: a boundary's objective job has something to ask: the objective chooses Today and a model is set up.
 
 ### Explicit exports
 
@@ -74,11 +75,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `mixture_active`
 - `objective_active`
 - `policy_for`
+- `prefetch_can_start`
 - `router_active`
 
 ## Internal implementation anchors
 
-- `_lesson_offer_builder(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 148) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise.
+- `_lesson_offer_builder(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 163) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise.
 
 ## Who imports or calls it
 
@@ -91,7 +93,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `router_active`; statically calls `router_active`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `mixture_active`, `objective_active`, `policy_for`, `router_active`; statically calls `mixture_active`, `objective_active`, `policy_for`, `router_active`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `mixture_active`; statically calls `mixture_active`
-- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `policy_for`; statically calls `policy_for`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `policy_for`, `prefetch_can_start`; statically calls `policy_for`, `prefetch_can_start`
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `bridge_active`; statically calls `bridge_active`
 
 ## Dependencies
@@ -101,14 +103,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ROUTER_MIXTURE_VERSIONS`, `ROUTER_STAGED_FRAME_VERSIONS`
 - [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `LaneQuotaChooser`; calls `LaneQuotaChooser`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `DEFAULT_POLICY`, `PlanPolicy`, `plan_active`; calls `PlanPolicy`, `plan_active`
-- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `build`, `sweep_ignored`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `Offer`, `build`, `sweep_due`, `sweep_ignored`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ObjectiveChooser`, `ObjectiveRestraintGate`; calls `ObjectiveChooser`, `ObjectiveRestraintGate`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `CardGatherer`; calls `CardGatherer`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `RestraintGate`, `RouterChooser`; calls `RestraintGate`, `RouterChooser`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `default_runtime`; calls `default_runtime`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `SOURCE_NAME`, `StagedChooser`, `StagedFrame`, `StagedFrameFactory`; calls `StagedChooser`, `StagedFrame`, `StagedFrameFactory`
 - [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `tables_present`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `lesson_offers_on`, `objective_on`; calls `lesson_offers_on`, `objective_on`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `lesson_offers_on`, `lessons_compete_with_followups_on`, `objective_on`; calls `lesson_offers_on`, `lessons_compete_with_followups_on`, `objective_on`
 
 ### Platform and third-party dependencies
 
@@ -132,6 +134,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
   - `test_a_committed_staged_forecast_joins_the_attempt_bound_to_its_presentation`
   - `test_an_unbound_attempt_on_the_chosen_item_is_never_the_forecasts_outcome`
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
+  - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
 - [tests/test_intent_fix_round5.py](../../../../../../tests/test_intent_fix_round5.py) — direct import
   - `test_f16_contract_no_reserved_item_is_ever_planned_and_every_miss_is_named`
 - [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import

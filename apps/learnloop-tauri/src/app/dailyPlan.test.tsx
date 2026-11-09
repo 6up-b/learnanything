@@ -1,14 +1,17 @@
 // Daily-loop DL1: routing plan steps (§6.5, §6.10), the reader banner, and
 // feedback's Next under the plan, through the real client and query cache.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanStepDto, SourceLibraryCard } from "../api/dto";
 import { clear } from "../api/queryCache";
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
-import { minutesPerDay, nextPlanKeyLabel, planStepAction, readerTargetForReading, waitingLine } from "./dailyPlan";
+import { algoConfig, setAlgoConfig } from "./algoConfig";
+import { getOrFetch, peek } from "../api/queryCache";
+import { TAG } from "../api/queryTags";
+import { minutesPerDay, nextPlanKeyLabel, planStepAction, questionInProgressLine, readerTargetForReading, rereadPlanAfterWorkbenchClosed, useNextPlanStep, waitingLine } from "./dailyPlan";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
 
 afterEach(() => { cleanup(); clear(); vi.clearAllMocks(); });
@@ -94,4 +97,52 @@ it("UX Phase 4 round 7: Next under a waiting plan promises when it is back, and 
   expect(nextPlanKeyLabel(false, step)).toBe("back in 2 min");
   expect(planStepAction(step)).toEqual({ type: "plan" });
   expect(waitingLine({ ...step, learningObjectTitle: null })).toBe("Nothing to do right now. Back in 2 min: one more question.");
+});
+
+describe("a question in progress (IH6)", () => {
+  const HELD: PlanStepDto = { kind: "question_in_progress", planId: "p", workbenchSessionId: "wb", practiceItemId: "pi", learningObjectTitle: "ReLU" };
+
+  it("goes to the plan view, and says plainly what is happening", () => {
+    expect(planStepAction(HELD)).toEqual({ type: "plan" });
+    expect(nextPlanKeyLabel(false, HELD)).toBe("next");
+    expect(questionInProgressLine(HELD)).toBe("A question is in progress on ReLU. What comes next is chosen when you finish it or go on.");
+    expect(questionInProgressLine({ learningObjectTitle: null })).toContain("A question is in progress. ");
+  });
+
+  it("feedback's Next is an explicit step: over a held read it serves, so it decides", async () => {
+    const served = { ...ITEM, boundary: true };
+    invoke.mockImplementation(async (command: string, args: { input?: { serve?: boolean } }) =>
+      command === "next_plan_item"
+        ? { version: 1, enabled: true, plan: null, step: args.input?.serve ? served : HELD }
+        : null
+    );
+    let resolve: (() => Promise<PlanStepDto | null>) | null = null;
+    function Probe() {
+      resolve = useNextPlanStep("s1", true).resolve;
+      return null;
+    }
+    render(<Probe />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // The serve started its presentation, so its step opens: the block line would leave it running with nothing on screen.
+    const step = await resolve!();
+    expect(step).toEqual({ ...served, boundary: false });
+    expect(planStepAction(step).type).toBe("practice");
+    expect(invoke.mock.calls.filter(([command, args]) => command === "next_plan_item" && (args as { input: { serve: boolean } }).input.serve)).toHaveLength(1);
+  });
+
+  it("setting a problem aside re-reads the plan while the switch is on, and refetches nothing off", async () => {
+    const key = ["get_daily_plan", "s1"] as const;
+    await getOrFetch(key, async () => ({ read: 1 }), { tags: [TAG.queue] });
+    setAlgoConfig({ workbench: { enabled: true } } as never);
+    expect(algoConfig().workbenchOpenItem).toBe(false);
+    rereadPlanAfterWorkbenchClosed();
+    expect(peek(key).invalidatedAt).toBe(0);
+    setAlgoConfig({ workbench: { enabled: true, openItem: true } } as never);
+    expect(algoConfig().workbenchOpenItem).toBe(true);
+    rereadPlanAfterWorkbenchClosed();
+    expect(peek(key).invalidatedAt).toBeGreaterThan(0);
+    setAlgoConfig({} as never);
+  });
 });

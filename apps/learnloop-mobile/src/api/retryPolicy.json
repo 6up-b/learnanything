@@ -37,6 +37,8 @@
     "reader.ask_history",
     "reader.capture",
     "practice.as_printed",
-    "get_source_library"
+    "get_source_library",
+    "plan_something_else_options",
+    "plan_something_else"
   ]
 }

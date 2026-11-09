@@ -3,13 +3,13 @@ title: "router_objective_traces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_objective_traces"
   - "table router_objective_traces"
-schema_head: 250
+schema_head: 251
 table_name: "router_objective_traces"
 table_role: "receipt"
 functionality_status: "active"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/goal_read.py`
 - `src/learnloop/router_objective/objective_report.py`
 - `src/learnloop/router_objective/offer_report.py`
+- `src/learnloop/router_objective/preference_report.py`
 - `src/learnloop/router_objective/scores.py`
 - `src/learnloop/router_objective/stop_coin.py`
 - `src/learnloop/router_objective/tail_data.py`
@@ -137,6 +138,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ih2_lessons_compete.py`
+- `tests/test_ih3_phone_host.py`
+- `tests/test_instruct_handoff_ih0.py`
 - `tests/test_ro4_trace_report.py`
 - `tests/test_ro4_traces_migration.py`
 - `tests/test_ro5_checks.py`

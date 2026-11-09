@@ -144,6 +144,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolution_global_fallback_never_crashes`
   - `test_resolution_seeds_and_missing_child_inherits_parent`
 - [tests/test_grader_channel_prior_knobs.py](../../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
+- [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import
+  - `test_each_bound_is_repeatable_for_its_own_seed`
+  - `test_the_bound_stays_inside_its_limits_on_every_seed_and_mass_with_it`
 - [tests/test_probe_robust_cutover.py](../../../../../../tests/test_probe_robust_cutover.py) — direct import
   - `test_decision_snapshot_byte_stable_after_model_activation_with_receipt`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import

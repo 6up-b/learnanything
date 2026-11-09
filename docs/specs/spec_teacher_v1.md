@@ -1136,6 +1136,8 @@ This section is the amendment text. The router spec itself is not edited here. *
 
 **What the census says.** No suggestion was ever drawn or answered, no traced `plan_block` decision exists in the copies, and no goal is active, so `new_goal` produces no candidate; `cold_failing` would produce 2 (linear_algebra). At the TE1b seeded rate, about one offer a day once the owner plans daily.
 
+*Amended Nov 8, 2026 (instruct hand-off IH2, `spec_instruct_handoff_v1.md` §5, the owner's decision): at `mvp-0.55` with `[router_objective] lessons_compete_with_followups` on, "Not in `plan_interrupt`" above no longer holds, and forced follow-ups no longer keep an offer out or withdraw a drawn one: they compete with it in one logged decision, and an offer they replace ends `superseded` with `superseded_by_decision` on its `expired` row. A phone decision holds no offer until V6. A `plan_interrupt` offer's forecast is not bound (the restraint path logs no per-option forecasts). Off, or below the tag, this section stands.*
+
 *As built (TE3b, `docs/reviews/teacher-te3b.md`; branch `router/te3b-lesson-offers` on main `8b0738499d`):* router
 successor `mvp-0.53` after TE3a's `mvp-0.52` (ONE constant, `LESSON_OFFERS_ALGORITHM_VERSION`; upgrade
 `learnloop.lesson_offers_upgrade`, a projection activation), switch `router.lesson_suggestions.in_objective` (default

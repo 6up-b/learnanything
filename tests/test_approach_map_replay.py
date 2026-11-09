@@ -57,6 +57,9 @@ def _populate(tmp_path: Path):
         if level is not None:
             params["takenLevel"] = level
         assert _call(ctx, "practice.request_hint", params)["result"]["status"] == "ready"
+    # The hints scheduled a background merge. It ends here, with nothing new to merge; running later it would take the
+    # correct answers below, before the merge this populates the map with.
+    assert MB.wait_for_background_builds(30)
     _call(ctx, "submit_attempt", {
         "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "F(x) = x^2, so P(X ≤ 1/2) = 1/4.",
         "attemptType": "hinted_attempt", "hintsUsed": 2, "submissionId": "k1",

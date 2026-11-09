@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 250
+schema_head: 251
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -116,6 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/teach_back.py`
 - `src/learnloop_sidecar/handlers/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/workbench.py`
+- `src/learnloop_sidecar/phone_reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

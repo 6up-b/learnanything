@@ -3,8 +3,8 @@ title: "Config - source_retrieval"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_retrieval"
@@ -32,6 +32,8 @@ source_paths:
   - "src/learnloop/local_embeddings/fusion.py"
   - "tests/ad23_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/conftest.py"
+  - "tests/connection_reuse.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/marker_fakes.py"
   - "tests/mcp_world.py"
@@ -40,8 +42,6 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
-  - "tests/rw5c_fixtures.py"
-  - "tests/source_service_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-retrieval"
@@ -91,6 +91,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad23_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/conftest.py`
+- `tests/connection_reuse.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/marker_fakes.py`
 - `tests/mcp_world.py`
@@ -99,8 +101,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
-- `tests/rw5c_fixtures.py`
-- `tests/source_service_fakes.py`
 
 ## Extension and modification guidance
 

@@ -60,6 +60,11 @@ RELEASE_SHOW_ANYWAY = "show_anyway"
 RELEASE_REFUSED = "refused"
 RELEASE_FALLBACK = "fallback"
 RELEASE_SWITCH_OFF = "switch_off"
+#: IH2 (spec_instruct_handoff_v1 §5): a lesson offer beat the follow-up: released at once, nobody waits on a probe.
+RELEASE_LESSON_OFFER = "lesson_offer_won"
+#: The move's reason, and the event whose detail names the offer's decision (:func:`lost_offer_decision`).
+LESSON_OFFER_WON = "lesson_offer_won"
+LESSON_REF_PREFIX = "lesson_offer:"
 #: Why a probe's answer is not independent, beyond FG1's two flags (spec §7; R1 of the landing).
 CAUSES_SHOWN_BEFORE_PROBE = "followup_causes_shown_before_probe"
 CAUSE_EXPOSURES_UNREADABLE = "followup_cause_exposures_unreadable"
@@ -364,7 +369,68 @@ def desktop_waiting_count(repository: Repository) -> int:
     with repository.connection() as connection:
         if not store.present(connection):
             return 0
-        return len(store.open_workflows(connection, states=(READY, WAITING)))
+        return sum(1 for row in store.open_workflows(connection, states=(READY, WAITING)) if row.get("practice_item_id"))
+
+
+def lost_to_lesson(row: Mapping[str, Any]) -> bool:
+    """IH2 §5: this open workflow's follow-up lost to a lesson offer and waits on the answer to it. Its feedback is
+    released; if nothing was generated, nothing is until a later decision asks."""
+
+    return row["state"] == WAITING and str(row.get("chosen_ref") or "").startswith(LESSON_REF_PREFIX)
+
+
+def lost_offer_decision(repository: Repository, workflow_id: str) -> str | None:
+    """The decision of the lesson offer this workflow last lost to, or None."""
+
+    with repository.connection() as connection:
+        rows = [row for row in store.workflow_events(connection, workflow_id) if row["reason"] == LESSON_OFFER_WON]
+    return json.loads(rows[-1]["detail_json"]).get("offer_decision_id") if rows else None
+
+
+def lost_to(repository: Repository, decision_id: str | None) -> list[dict[str, Any]]:
+    """The open workflows waiting on the lesson offer ``decision_id`` drew, with or without a question written."""
+
+    if not decision_id:
+        return []
+    with repository.connection() as connection:
+        if not store.present(connection):
+            return []
+        rows = store.open_workflows(connection, states=(WAITING,))
+    return [row for row in rows if lost_to_lesson(row) and lost_offer_decision(repository, str(row["id"])) == decision_id]
+
+
+def lose_to_lesson(repository: Repository, row: Mapping[str, Any], *, offer_ref: str, offer_decision_id: str | None,
+                   clock: Clock | None = None) -> bool:
+    """IH2 §5: the follow-up lost to a lesson offer. What was held is released now, as for a wait, so no learner waits on
+    a probe nobody will serve, and a probe served later is labelled exposed. It stays open: a later decision has it once
+    the offer is answered or has passed. False when the move lost the race."""
+
+    return move(repository, str(row["id"]), to_state="waiting", reason=LESSON_OFFER_WON,
+                from_states=(PENDING, READY, WAITING), release=RELEASE_LESSON_OFFER,
+                detail={"offer_decision_id": offer_decision_id, "offer": offer_ref},
+                clock=clock, chosen_ref=offer_ref, exposed_at=row.get("exposed_at") or _now(clock))
+
+
+def lesson_taken(repository: Repository, row: Mapping[str, Any], *, clock: Clock | None = None) -> bool:
+    """IH2 §5: the learner took the lesson that beat this follow-up: it settles, and a probe already written retires."""
+
+    return finish(repository, str(row["id"]), to_state=SETTLED, reason="lesson_taken", release=RELEASE_LESSON_OFFER,
+                  from_states=(WAITING,), clock=clock)
+
+
+def reopen_after_lesson(repository: Repository, row: Mapping[str, Any], *, clock: Clock | None = None) -> bool:
+    """IH2 §5: the offer passed with nothing generated: the workflow goes back to its decision on the generation slot,
+    which draws again and writes a new receipt (``router_decisions.parent_decision_id`` names the one it lost). What was
+    held stays released and the later probe stays labelled exposed."""
+
+    with repository.atomic():
+        if not move(repository, str(row["id"]), to_state="pending", reason="lesson_offer_passed", from_states=(WAITING,),
+                    clock=clock, chosen_ref=None, decision_id=None):
+            return False
+        from learnloop.followup_serve.queue import requeue_workflow
+
+        requeue_workflow(repository, str(row["id"]), clock=clock)
+    return True
 
 
 def waiting_still_valid(repository: Repository, row: Mapping[str, Any]) -> bool:
@@ -516,6 +582,6 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 __all__ = [
     "CAUSES_SHOWN_BEFORE_PROBE", "CAUSE_EXPOSURES_UNREADABLE",
     "FAILED", "OPEN_STATES", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "finish", "get", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
+    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "finish", "get", "LESSON_OFFER_WON", "lesson_taken", "lose_to_lesson", "lost_offer_decision", "lost_to", "lost_to_lesson", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "reopen_after_lesson", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",
 ]

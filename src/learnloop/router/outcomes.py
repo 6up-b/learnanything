@@ -150,7 +150,7 @@ from learnloop.clock import parse_utc
 from learnloop.data_capture.gates import OUTCOME_VERSION_V3, serving_on
 from learnloop.db.stores import data_capture as capture_store
 from learnloop.db.stores.plan_presentations import presentations_for_blocks
-from learnloop.db.stores.router import replace_router_outcomes
+from learnloop.db.stores.router import OVERRIDE_KEY_PREFIX, replace_router_outcomes
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS, retention_exclusions
 
 OUTCOME_VERSION = "router_outcomes_v2"
@@ -1295,6 +1295,11 @@ def derive_router_outcomes(
         connection, [block for row in decisions if (block := _decision_block(row)) is not None]
     )
     overridden = {row["parent_decision_id"] for row in decisions if row["decision_kind"] == "learner_pick"}
+    # IH3 (spec_instruct_handoff_v1 §6): a learner's chosen action ("Something else would help") overrides the
+    # decision whose drawn block was waiting, whatever its kind and whether or not it named an item (a lesson, a
+    # stop). Only these picks widen the rule, so every older decision's outcome is as it was.
+    overridden_by_choice = {row["parent_decision_id"] for row in decisions if row["decision_kind"] == "learner_pick"
+                            and str(row["receipt_key"] or "").startswith(OVERRIDE_KEY_PREFIX)}
     # Decisions are ordered by (created_at, id): a later one in the same
     # session supersedes an offer whose head was never taken.
     last_in_session: dict[str, int] = {}
@@ -1324,7 +1329,8 @@ def derive_router_outcomes(
         decision = _follow_binding(decision, bindings)
         if not decision.get("chosen_practice_item_id"):
             # Stop for today, a vetoed run, a block with no item: no action to follow.
-            out = _not_applicable(decision, "not_applicable", ledger.observed_through, pending=False,
+            out = _not_applicable(decision, "overridden" if decision["id"] in overridden_by_choice
+                                  else "not_applicable", ledger.observed_through, pending=False,
                                   version=outcome_version)
             if outcome_version == OUTCOME_VERSION_V3:
                 out["detail_json"] = json.dumps({**json.loads(out["detail_json"]), "no_outcome": "no_frozen_objective"},
@@ -1333,7 +1339,8 @@ def derive_router_outcomes(
             continue
         action, binding = _action_attempt(decision, ledger, presentations)
         if action is None:
-            if decision["decision_kind"] == "today_offer" and decision["id"] in overridden:
+            if (decision["decision_kind"] == "today_offer" and decision["id"] in overridden) \
+                    or decision["id"] in overridden_by_choice:
                 status, pending = "overridden", False
             elif decision["session_id"] and last_in_session.get(decision["session_id"], -1) > index:
                 status, pending = "superseded", False

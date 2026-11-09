@@ -3,13 +3,13 @@ title: "router_suggestion_responses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_suggestion_responses"
   - "table router_suggestion_responses"
-schema_head: 250
+schema_head: 251
 table_name: "router_suggestion_responses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_followups_batch6_te1b_card.py`
+- `tests/test_ih3_learner_preferences.py`
 - `tests/test_te3b_binding.py`
 - `tests/test_te3b_offers.py`
 - `tests/test_teacher_te1b_landing_r2.py`

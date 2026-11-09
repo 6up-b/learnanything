@@ -70,7 +70,9 @@ import { PrimaryAction, QuietAction } from "../components/PlainParts";
 import { IntentCheckFeedback } from "../components/IntentCheckFeedback";
 import { ClaimCheckFeedback } from "../components/ClaimCheckFeedback";
 import { PrintedAfterFeedback, printedPageInReader } from "../components/AsPrinted";
-import type { IntentRestorationDto } from "../api/dto";
+import type { IntentRestorationDto, SomethingElseChosenDto } from "../api/dto";
+import { SomethingElse, lessonEntryFor } from "./today/SomethingElse";
+import type { LessonEntry } from "./LessonScreen";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -1481,6 +1483,7 @@ export function FeedbackScreen({
   onOpenNext,
   nextPlan = null,
   onPlanStep,
+  onStartLesson,
   onNext,
   onBack,
   onOpenNotes,
@@ -1514,6 +1517,8 @@ export function FeedbackScreen({
    *  `onPlanStep` routes it (an item in the same block opens directly; a new
    *  block's line, a reading step or the done screen go through the plan). */
   nextPlan?: { sessionId: string } | null;
+  /** IH3: "Something else would help" may open a lesson (absent: "learn this" is not offered). */
+  onStartLesson?: (entry: LessonEntry) => void;
   onPlanStep?: (step: PlanStepDto | null) => void;
   /** Next without auto-advance: back to the list (or the overlay that owns the round). */
   onNext: () => void;
@@ -1691,6 +1696,20 @@ export function FeedbackScreen({
     }
     await goOn();
   }, [actOnNext, goOn, attemptId, trackQueueWrite]);
+  // IH3: "Something else would help" was chosen and served. A lesson opens as the learner's own start; the plan's own pick
+  // (an agreement) is served as Next serves it; anything else is the step the choice placed.
+  const somethingElseChosen = useCallback((result: SomethingElseChosenDto) => {
+    const entry = lessonEntryFor(result);
+    if (entry) {
+      onStartLesson?.(entry);
+      return;
+    }
+    if (result.preference?.outcome === "agreed") {
+      void advance();
+      return;
+    }
+    onPlanStep?.(result.step ?? null);
+  }, [advance, onPlanStep, onStartLesson]);
   const followupOpen = followup !== null && (followup.state === "pending" || followup.held);
   useEffect(() => {
     if (!followupOpen && !nextWaiting) return undefined;
@@ -2520,6 +2539,14 @@ export function FeedbackScreen({
             // FG1 §6.0: held means off screen, with no display row.
             answerCovered={answerCovered || followup?.held === true}
           />
+          {/* IH3: one quiet link under the feedback, only while the plan serves; never a modal. */}
+          {planMode && nextPlan ? (
+            <div style={{ marginTop: 14 }}>
+              <SomethingElse sessionId={nextPlan.sessionId} surface="feedback" attemptId={attemptId}
+                             canStartLesson={Boolean(onStartLesson)} onChosen={somethingElseChosen}
+                             onError={onError} />
+            </div>
+          ) : null}
           {marksRead ? <HypothesisMarksPanel marks={marksRead} /> : null}
           {/* Reader RW2c: "compare methods ▸" after a correct workbench Submit,
               only while workbench.compare_methods_enabled is on. */}

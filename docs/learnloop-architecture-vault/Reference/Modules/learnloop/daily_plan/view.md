@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/view.py"
 source_paths:
   - "src/learnloop/daily_plan/view.py"
-source_commit: "a7fdc90e67184aa039990ad48c89c8b8ee222104"
-source_commit_timestamp: "2026-11-06T22:59:23-05:00"
+source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
+source_commit_timestamp: "2026-11-09T03:09:29-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py) |
-| Source lines | 370 |
+| Source lines | 378 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a7fdc90e67184aa039990ad48c89c8b8ee222104` |
-| Commit timestamp | `2026-11-06T22:59:23-05:00` |
+| Source commit | `86021e6b79512c86957d2bb83a488e23a3818a2f` |
+| Commit timestamp | `2026-11-09T03:09:29-05:00` |
 
 ## Public API
 
@@ -64,8 +64,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `minute_choices(presets: list[int], remembered: int) -> list[int]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 221)
 - `device_current(record: PlanRecord, next_step: dict[str, Any] | None) -> PlannedBlock | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 225) — Mobile v2 §2.2: a device's current block is its step's, not the plan's first open block (which may be one it left for the desktop).
 - `plan_view(env: PlanEnv, record: PlanRecord, *, context: PoolContext | None, next_step: dict[str, Any] | None, reentry_panel: dict[str, Any] | None=None, streak: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 233)
-- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 357)
-- `now_payload(moment: datetime) -> str` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 366)
+- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 365)
+- `now_payload(moment: datetime) -> str` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 374)
 
 ### Module constants
 
@@ -137,6 +137,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
   - `test_f3_plan_reads_never_call_the_live_chooser`
   - `test_f9_more_new_preview_is_what_confirming_plans`
+- [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_a_long_lived_problem_in_a_long_lived_session_holds_reads_only_and_can_be_left`
+  - `test_a_read_with_an_open_workbench_writes_no_decision_and_says_a_question_is_in_progress`
+  - `test_closing_it_lets_the_next_read_draw`
+  - `test_off_or_below_the_tag_a_read_is_the_predecessors_exactly`
+  - `test_the_days_first_read_builds_a_plan_with_no_block_and_a_serve_decides_it`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_plan_rows_preview_keeps_the_sentence_whole`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import

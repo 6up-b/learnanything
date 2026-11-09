@@ -35,7 +35,7 @@ source_paths:
   - "src/learnloop/reader/span_view.py"
   - "src/learnloop/reader/workbench.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-08T19:24:01-05:00"
+source_commit_timestamp: "2026-11-09T06:12:48-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -100,7 +100,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] | [[Reference/Modules/learnloop/reader/source_roles#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
 | [[Reference/Modules/learnloop/reader/source_search|learnloop.reader.source_search]] | [[Reference/Modules/learnloop/reader/source_search#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] | [[Reference/Modules/learnloop/reader/span_view#^module-purpose|purpose]] | `ACTIVE` | 9 | 8 |
-| [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] | [[Reference/Modules/learnloop/reader/workbench#^module-purpose|purpose]] | `ACTIVE` | 12 | 17 |
+| [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] | [[Reference/Modules/learnloop/reader/workbench#^module-purpose|purpose]] | `ACTIVE` | 12 | 18 |
 
 ## Cross-package dependencies
 

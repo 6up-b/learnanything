@@ -3,13 +3,13 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2b50a4f2977b3239c6069d98c8bf61da463f3fbe"
-source_commit_timestamp: "2026-11-08T22:43:27-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
   - "table interactive_figures"
-schema_head: 250
+schema_head: 251
 table_name: "interactive_figures"
 table_role: "workflow"
 functionality_status: "active"

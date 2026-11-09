@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/doctor.py"
 source_paths:
   - "src/learnloop/ops/doctor.py"
-source_commit: "f07990df62bdf890561c46f90d785f06a19e3d5b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "6d58440b8245a35099a0cdcd9b325518f0c1431d"
+source_commit_timestamp: "2026-11-09T12:54:21-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,111 +50,112 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py) |
-| Source lines | 2908 |
+| Source lines | 2939 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f07990df62bdf890561c46f90d785f06a19e3d5b` |
-| Commit timestamp | `2026-11-04T17:57:24-05:00` |
+| Source commit | `6d58440b8245a35099a0cdcd9b325518f0c1431d` |
+| Commit timestamp | `2026-11-09T12:54:21-05:00` |
 
 ## Public API
 
 - `class HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 78)
   - `as_dict(self) -> dict[str, object]` (line 86; public)
 - `class DoctorReport` ([source](../../../../../../src/learnloop/ops/doctor.py), line 100)
-  - `clean(self) -> bool` (line 117; public)
-  - `error_count(self) -> int` (line 121; public)
-  - `warning_count(self) -> int` (line 125; public)
-  - `as_dict(self) -> dict[str, object]` (line 128; public)
-- `run_doctor(root: Path, *, fix_state: bool=False, ai: bool=False, ai_provider: str | None=None) -> DoctorReport` ([source](../../../../../../src/learnloop/ops/doctor.py), line 145)
-- `review_nominator(vault: LoadedVault) -> Any` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2360) — Slice 2 T5 stored-vector nominator for the doctor's cosine columns, or None.
-- `concept_merge_candidate_pairs(vault: LoadedVault) -> list[tuple[str, str, float, bool]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2459) — Doctor's lexical concept-duplicate pairs: (left, right, similarity, strong_alias).
+  - `clean(self) -> bool` (line 120; public)
+  - `error_count(self) -> int` (line 124; public)
+  - `warning_count(self) -> int` (line 128; public)
+  - `as_dict(self) -> dict[str, object]` (line 131; public)
+- `run_doctor(root: Path, *, fix_state: bool=False, ai: bool=False, ai_provider: str | None=None) -> DoctorReport` ([source](../../../../../../src/learnloop/ops/doctor.py), line 149)
+- `review_nominator(vault: LoadedVault) -> Any` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2391) — Slice 2 T5 stored-vector nominator for the doctor's cosine columns, or None.
+- `concept_merge_candidate_pairs(vault: LoadedVault) -> list[tuple[str, str, float, bool]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2490) — Doctor's lexical concept-duplicate pairs: (left, right, similarity, strong_alias).
 
 ### Module constants
 
-- `STALE_POST_ATTEMPT_JOB_HOURS` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 637)
-- `WAL_SIZE_WARNING_BYTES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1102)
-- `_DEPRECATED_STATE_TABLES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1218)
-- `_REACHABILITY_CODES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2758)
-- `_REACHABILITY_HEADLINE` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2765)
-- `_REACHABILITY_ACTION` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2772)
+- `STALE_POST_ATTEMPT_JOB_HOURS` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 668)
+- `WAL_SIZE_WARNING_BYTES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1133)
+- `_DEPRECATED_STATE_TABLES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1249)
+- `_REACHABILITY_CODES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2789)
+- `_REACHABILITY_HEADLINE` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2796)
+- `_REACHABILITY_ACTION` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2803)
 
 ## Internal implementation anchors
 
-- `_check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 247) — Plan-first transport T1: every learnloop.toml setting that still names a Codex profile.
-- `_check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue], *, machine_state: bool=False) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 273) — Warn when a route uses a ``chatgpt_plan`` profile that cannot serve it.
-- `_requested_ai_runtimes(vault_root: Path, config: LearnLoopConfig, *, ai: bool, ai_provider: str | None) -> tuple[AIRuntimeReport | None, AIRuntimeReport | None]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 335) — ``(codex_runtime, ai_runtime)`` for ``doctor --ai``; both None otherwise.
-- `_attach_state_database(paths: VaultPaths, issues: list[HealthIssue], *, fix_state: bool) -> tuple[Repository | None, set[str]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 361) — The state database (read-only unless fixing) and its table names, or ``(None, set())``.
-- `_merge_mvp06_facet_recall_aliases(vault: LoadedVault, repository: Repository, database_tables: set[str], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 389) — Under ``--fix``, fold aliased per-LO facet recall rows on mvp-0.6 vaults.
-- `_check_database_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 415) — Checks of derived learner state; each runs only when its tables exist.
-- `_book_title(repository: Repository, source_id: str) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 445)
-- `_check_reread_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 450) — Re-read safety (docs/reviews/reread-safety.md): what reading a book again can leave behind.
-- `_check_source_block_fts(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 610) — Slice 2 T6: the DERIVED keyword index matches the source blocks.
-- `_check_post_attempt_jobs(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 640) — Slice 1 §11: failed and stale diagnosis/embedding jobs.
-- `_check_database_contracts(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 682) — Checks of diagnostic proposals, goal-contract drift, canonical facet state and pre-practice identifiability; each runs only when its tables exist.
-- `_load_config_for_doctor(root: Path, issues: list[HealthIssue]) -> LearnLoopConfig | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 712)
-- `_check_retired_config(root: Path, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 724) — Migration warning for retired config blocks (knowledge-model §8.3/§15).
-- `_check_retired_keep_local(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 870) — The per-book "Keep this book on this computer" (spec ux_learnloop_v1 §6.6, migration 198's ``source_artifacts.keep_local``) is retired (owner, 2026-10-13: sending books to an AI is fine; the opt-out was not asked for).
-- `_check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 899)
-- `class _ParsedYamlFiles` ([source](../../../../../../src/learnloop/ops/doctor.py), line 914) — Each vault YAML file parsed once per doctor run.
-- `_check_schema_versions(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 940)
-- `_check_yaml_schema(path: Path, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles, supported: set[int]=frozenset({1})) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 955)
-- `_check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 980)
-- `_check_unknown_yaml_keys_for_file(path: Path, model: type[BaseModel], issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1008)
-- `_check_unknown_mapping_keys(data: dict[str, Any], model: type[BaseModel], issues: list[HealthIssue], *, path: Path, location: str) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1024)
-- `_iter_model_children(value: Any, annotation: Any, location: str) -> list[tuple[str, type[BaseModel], dict[str, Any]]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1051)
-- `_model_from_annotation(annotation: Any) -> type[BaseModel] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1086)
-- `_check_storage(paths: VaultPaths, issues: list[HealthIssue]) -> DatabaseStorage | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1105) — Warn about a SQLite without the WAL-reset fix, filesystems WAL cannot share memory on, and an oversized WAL.
-- `_check_wal_runtime(paths: VaultPaths, storage: DatabaseStorage | None, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1145)
-- `_check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1178)
-- `_database_tables(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1208)
-- `_check_deprecated_tables(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> dict[str, int]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1225) — Report read-only telemetry before deprecated state is detached.
-- `_has_tables(available: set[str], *required: str) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1276)
-- `_recover_apply_intents(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1280) — Complete any write-ahead apply intent left mid-flight (§10.2 recovery).
-- `_recover_facet_identity_actions(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1333) — Finish a facet merge, undo or Library save left mid-flight (facet identity, review F4).
-- `_from_loader_issue(issue: DoctorIssue) -> HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1399)
-- `_check_references(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1408)
-- `_check_source_sets(vault: LoadedVault, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1445) — Validate source-set membership (spec_source_ingestion_v2 §4.3).
-- `_check_sql_state(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1495)
-- `_check_derived_state_rebuild_marker(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1543)
-- `_check_projection_switches(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1569) — Router objective RO1 (spec §5.5): persisted due dates were derived under a switch the config no longer says.
-- `_check_invalid_proposals(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1604)
-- `_check_difficulty_calibration(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1618) — Surface items whose IRT difficulty ``b`` looks miscalibrated (spec §7.4).
-- `_check_bad_item_suspicion(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1629)
-- `_check_criterion_facet_maps(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1653)
-- `_check_mvp07_canonical_state(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1739) — Guard against mixed/inconsistent keying on an mvp-0.7 vault (KM §15).
-- `_mvp07_facet_severity(vault: LoadedVault) -> Severity` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1774) — Facet-registry issues are errors on mvp-0.7 vaults, warnings on legacy.
-- `_check_registered_facets(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1786)
-- `_check_facet_contract_completeness(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1837) — Facet semantic-contract completeness (knowledge-model §3.2).
-- `_check_blueprints_and_criteria(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1878) — Validate LO blueprints and rubric criterion targets (§5.1/§7.2).
-- `_check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1939) — Meas §3.A2-§3.A5 contracts, checked on the VAULT (plan item 6.4).
-- `_check_laddered_stems(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2129) — Meas §3.A2: a stem's parts must actually span the capability ladder.
-- `_instrument_normalizer()` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2186)
-- `_instrument_expected_text(item: Any) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2192)
-- `_check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2199) — Method-explicit items (owner rule 2026-10-13).
-- `_check_criterion_target_dags(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2269)
-- `_first_dependency_cycle(graph: dict[str, list[str]]) -> list[str] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2331) — Return one cycle as an id path, or None if the graph is a DAG.
-- `_cosine_column(nominator: Any, recipe: str, left: str, right: str) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2368) — (details fields, message suffix) for the T5 cosine column; empty when off.
-- `_check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue], nominator: Any=None) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2378)
-- `_check_registry_near_duplicate_facets(vault: LoadedVault, issues: list[HealthIssue], nominator: Any=None) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2434) — Post-append near-duplicate facet pass over the whole registry (§14).
-- `_check_concept_merge_candidates(vault: LoadedVault, issues: list[HealthIssue], nominator: Any=None) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2474)
-- `_concept_similarity(left_id: str, left: Any, right_id: str, right: Any) -> float` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2501)
-- `_concept_surfaces(concept_id: str, concept: Any) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2511)
-- `_normalized_surface(value: str) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2516)
-- `_concept_merge_affected_refs(vault: LoadedVault, canonical_id: str, duplicate_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2520)
-- `_facet_merge_details(learning_object_id: str, left: str, right: str, score: float, *, item_ids_by_lo_facet: dict[tuple[str, str], list[str]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2547)
-- `_check_learning_object_merge_candidates(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2574)
-- `_check_duplicate_diagnostic_proposals(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2604)
-- `_facet_similarity(left: str, right: str) -> float` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2654)
-- `_text_similarity(left: str | None, right: str | None) -> float` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2671)
-- `_text_tokens(value: str) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2679)
-- `_facet_tokens(value: str) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2685)
-- `_check_pre_first_practice_identifiability(vault: LoadedVault, repository: Repository, issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2691) — Pre-first-practice identifiability doctor check (knowledge-model §11.3).
-- `_check_contract_cell_reachability(vault: LoadedVault, issues: list[HealthIssue]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2793) — Contract-cell reachability as a standing check (§5.8.2, plan item 3.1).
-- `_check_contract_drift(vault, repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2855) — Surface goal terminal-contract drift (P0.4 §3): a confirmed goal whose live YAML draft fields diverge from the confirmed head.
-- `_issue(severity: Severity, code: str, message: str, path: Path | None=None, *, entity_id: str | None=None, details: dict[str, Any] | None=None) -> HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2880)
-- `_dedupe(issues: list[HealthIssue]) -> list[HealthIssue]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2899)
+- `_check_model_routes(config: LearnLoopConfig, repository: Repository, issues: list[HealthIssue]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 257) — Each model route's last completed call and failures since, from receipts.
+- `_check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 278) — Plan-first transport T1: every learnloop.toml setting that still names a Codex profile.
+- `_check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue], *, machine_state: bool=False) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 304) — Warn when a route uses a ``chatgpt_plan`` profile that cannot serve it.
+- `_requested_ai_runtimes(vault_root: Path, config: LearnLoopConfig, *, ai: bool, ai_provider: str | None) -> tuple[AIRuntimeReport | None, AIRuntimeReport | None]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 366) — ``(codex_runtime, ai_runtime)`` for ``doctor --ai``; both None otherwise.
+- `_attach_state_database(paths: VaultPaths, issues: list[HealthIssue], *, fix_state: bool) -> tuple[Repository | None, set[str]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 392) — The state database (read-only unless fixing) and its table names, or ``(None, set())``.
+- `_merge_mvp06_facet_recall_aliases(vault: LoadedVault, repository: Repository, database_tables: set[str], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 420) — Under ``--fix``, fold aliased per-LO facet recall rows on mvp-0.6 vaults.
+- `_check_database_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 446) — Checks of derived learner state; each runs only when its tables exist.
+- `_book_title(repository: Repository, source_id: str) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 476)
+- `_check_reread_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 481) — Re-read safety (docs/reviews/reread-safety.md): what reading a book again can leave behind.
+- `_check_source_block_fts(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 641) — Slice 2 T6: the DERIVED keyword index matches the source blocks.
+- `_check_post_attempt_jobs(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 671) — Slice 1 §11: failed and stale diagnosis/embedding jobs.
+- `_check_database_contracts(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 713) — Checks of diagnostic proposals, goal-contract drift, canonical facet state and pre-practice identifiability; each runs only when its tables exist.
+- `_load_config_for_doctor(root: Path, issues: list[HealthIssue]) -> LearnLoopConfig | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 743)
+- `_check_retired_config(root: Path, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 755) — Migration warning for retired config blocks (knowledge-model §8.3/§15).
+- `_check_retired_keep_local(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 901) — The per-book "Keep this book on this computer" (spec ux_learnloop_v1 §6.6, migration 198's ``source_artifacts.keep_local``) is retired (owner, 2026-10-13: sending books to an AI is fine; the opt-out was not asked for).
+- `_check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 930)
+- `class _ParsedYamlFiles` ([source](../../../../../../src/learnloop/ops/doctor.py), line 945) — Each vault YAML file parsed once per doctor run.
+- `_check_schema_versions(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 971)
+- `_check_yaml_schema(path: Path, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles, supported: set[int]=frozenset({1})) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 986)
+- `_check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1011)
+- `_check_unknown_yaml_keys_for_file(path: Path, model: type[BaseModel], issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1039)
+- `_check_unknown_mapping_keys(data: dict[str, Any], model: type[BaseModel], issues: list[HealthIssue], *, path: Path, location: str) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1055)
+- `_iter_model_children(value: Any, annotation: Any, location: str) -> list[tuple[str, type[BaseModel], dict[str, Any]]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1082)
+- `_model_from_annotation(annotation: Any) -> type[BaseModel] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1117)
+- `_check_storage(paths: VaultPaths, issues: list[HealthIssue]) -> DatabaseStorage | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1136) — Warn about a SQLite without the WAL-reset fix, filesystems WAL cannot share memory on, and an oversized WAL.
+- `_check_wal_runtime(paths: VaultPaths, storage: DatabaseStorage | None, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1176)
+- `_check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1209)
+- `_database_tables(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1239)
+- `_check_deprecated_tables(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> dict[str, int]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1256) — Report read-only telemetry before deprecated state is detached.
+- `_has_tables(available: set[str], *required: str) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1307)
+- `_recover_apply_intents(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1311) — Complete any write-ahead apply intent left mid-flight (§10.2 recovery).
+- `_recover_facet_identity_actions(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1364) — Finish a facet merge, undo or Library save left mid-flight (facet identity, review F4).
+- `_from_loader_issue(issue: DoctorIssue) -> HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1430)
+- `_check_references(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1439)
+- `_check_source_sets(vault: LoadedVault, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1476) — Validate source-set membership (spec_source_ingestion_v2 §4.3).
+- `_check_sql_state(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1526)
+- `_check_derived_state_rebuild_marker(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1574)
+- `_check_projection_switches(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1600) — Router objective RO1 (spec §5.5): persisted due dates were derived under a switch the config no longer says.
+- `_check_invalid_proposals(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1635)
+- `_check_difficulty_calibration(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1649) — Surface items whose IRT difficulty ``b`` looks miscalibrated (spec §7.4).
+- `_check_bad_item_suspicion(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1660)
+- `_check_criterion_facet_maps(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1684)
+- `_check_mvp07_canonical_state(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1770) — Guard against mixed/inconsistent keying on an mvp-0.7 vault (KM §15).
+- `_mvp07_facet_severity(vault: LoadedVault) -> Severity` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1805) — Facet-registry issues are errors on mvp-0.7 vaults, warnings on legacy.
+- `_check_registered_facets(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1817)
+- `_check_facet_contract_completeness(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1868) — Facet semantic-contract completeness (knowledge-model §3.2).
+- `_check_blueprints_and_criteria(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1909) — Validate LO blueprints and rubric criterion targets (§5.1/§7.2).
+- `_check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1970) — Meas §3.A2-§3.A5 contracts, checked on the VAULT (plan item 6.4).
+- `_check_laddered_stems(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2160) — Meas §3.A2: a stem's parts must actually span the capability ladder.
+- `_instrument_normalizer()` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2217)
+- `_instrument_expected_text(item: Any) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2223)
+- `_check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2230) — Method-explicit items (owner rule 2026-10-13).
+- `_check_criterion_target_dags(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2300)
+- `_first_dependency_cycle(graph: dict[str, list[str]]) -> list[str] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2362) — Return one cycle as an id path, or None if the graph is a DAG.
+- `_cosine_column(nominator: Any, recipe: str, left: str, right: str) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2399) — (details fields, message suffix) for the T5 cosine column; empty when off.
+- `_check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue], nominator: Any=None) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2409)
+- `_check_registry_near_duplicate_facets(vault: LoadedVault, issues: list[HealthIssue], nominator: Any=None) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2465) — Post-append near-duplicate facet pass over the whole registry (§14).
+- `_check_concept_merge_candidates(vault: LoadedVault, issues: list[HealthIssue], nominator: Any=None) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2505)
+- `_concept_similarity(left_id: str, left: Any, right_id: str, right: Any) -> float` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2532)
+- `_concept_surfaces(concept_id: str, concept: Any) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2542)
+- `_normalized_surface(value: str) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2547)
+- `_concept_merge_affected_refs(vault: LoadedVault, canonical_id: str, duplicate_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2551)
+- `_facet_merge_details(learning_object_id: str, left: str, right: str, score: float, *, item_ids_by_lo_facet: dict[tuple[str, str], list[str]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2578)
+- `_check_learning_object_merge_candidates(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2605)
+- `_check_duplicate_diagnostic_proposals(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2635)
+- `_facet_similarity(left: str, right: str) -> float` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2685)
+- `_text_similarity(left: str | None, right: str | None) -> float` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2702)
+- `_text_tokens(value: str) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2710)
+- `_facet_tokens(value: str) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2716)
+- `_check_pre_first_practice_identifiability(vault: LoadedVault, repository: Repository, issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2722) — Pre-first-practice identifiability doctor check (knowledge-model §11.3).
+- `_check_contract_cell_reachability(vault: LoadedVault, issues: list[HealthIssue]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2824) — Contract-cell reachability as a standing check (§5.8.2, plan item 3.1).
+- `_check_contract_drift(vault, repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2886) — Surface goal terminal-contract drift (P0.4 §3): a confirmed goal whose live YAML draft fields diverge from the confirmed head.
+- `_issue(severity: Severity, code: str, message: str, path: Path | None=None, *, entity_id: str | None=None, details: dict[str, Any] | None=None) -> HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2911)
+- `_dedupe(issues: list[HealthIssue]) -> list[HealthIssue]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2930)
 
 ## Who imports or calls it
 
@@ -199,6 +200,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/learner/contract_reachability|learnloop.learner.contract_reachability]] — imports `analyze_contract_reachability`; calls `analyze_contract_reachability`
 - [[Reference/Modules/learnloop/learner/identifiability|learnloop.learner.identifiability]] — imports `analyze_identifiability`, `build_registry_view`, `calculate_registry_hash`, `schedule_discriminating_probes`; calls `analyze_identifiability`, `build_registry_view`, `calculate_registry_hash`, `schedule_discriminating_probes`
 - [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `migrate_vault`; calls `migrate_vault`
+- [[Reference/Modules/learnloop/ops/model_routes|learnloop.ops.model_routes]] — imports `FINDING_CODE`, `check_model_routes`; calls `check_model_routes`
 - [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] — imports `FINDING_CODE`, `METERED_FALLBACK_CODE`, `codex_pins`, `finding_message`, `metered_fallback_message`; calls `codex_pins`, `finding_message`, `metered_fallback_message`
 - [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] — imports `vault_mutation_lock`; calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `INTERVAL_FACTOR_SNAPSHOT_KEY`, `projection_switches`; calls `projection_switches`
@@ -307,6 +309,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_doctor_warns_when_a_stem_fills_only_one_column`
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
+- [tests/test_model_route_health.py](../../../../../../tests/test_model_route_health.py) — direct import
+  - `test_doctor_flags_a_route_whose_current_model_never_completed`
+  - `test_doctor_reports_routes_in_json_and_text_and_flags_the_dead_one`
 - [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
 - [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import

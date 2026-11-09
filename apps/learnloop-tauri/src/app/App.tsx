@@ -54,6 +54,8 @@ import {
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TodayPlace } from "../screens/today/TodayPlace";
+import { LessonOfferPage } from "../screens/today/LessonOfferPage";
+import { lessonEntryFor } from "../screens/today/SomethingElse";
 import { implicitSessionMinutes } from "./todayPlan";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
@@ -79,10 +81,10 @@ import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from 
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
-import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
+import { planStepAction, readerTargetForReading, servedForExplicitStep, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
-import type { IntentRestorationDto, PlanReadingDto, PlanStepDto, WorkbenchOpenProblemDto } from "../api/dto";
+import type { DailyPlanDto, IntentRestorationDto, PlanLessonOfferStepDto, PlanReadingDto, PlanStepDto, SomethingElseChosenDto, WorkbenchOpenProblemDto } from "../api/dto";
 import {
   planPresentationForServe,
   proposalOriginForServe,
@@ -118,7 +120,7 @@ const GoldenPathScreen = lazy(() => import("../screens/GoldenPathScreen").then((
 const KnowledgeMapView = lazy(() => import("../screens/KnowledgeMapScreen").then((module) => ({ default: module.KnowledgeMapView })));
 const LibraryScreen = lazy(() => import("../screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
 
-type TodayStage = "queue" | "practice" | "feedback" | "blockReview";
+type TodayStage = "queue" | "practice" | "feedback" | "blockReview" | "offer";
 
 type VaultFilesChangedEvent = {
   root: string;
@@ -192,10 +194,31 @@ export function App() {
   const [ingestGuideActive, setIngestGuideActive] = useState(false);
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [todayStage, setTodayStage] = useState<TodayStage>("queue");
+  // IH1: the lesson offer feedback's Next resolved to (its page shows while todayStage is "offer").
+  const [planOffer, setPlanOffer] = useState<PlanLessonOfferStepDto | null>(null);
   // Daily-loop DL1: while the finite plan serves (mvp-0.14, plan.enabled),
   // feedback's Next follows it. Shares Today's cache entry.
   const dailyPlanQuery = useDailyPlan(session?.sessionId ?? null, Boolean(session));
   const planServing = dailyPlanQuery.data?.enabled === true && dailyPlanQuery.data.plan !== null;
+  // IH2: a plan read after the offer page opened that no longer has the offer's block current has moved past it. The read
+  // the page opened beside may be older than the offer, so only a later one says so.
+  const planAtOffer = useRef<{ blockId: string; read: DailyPlanDto | undefined } | null>(null);
+  useEffect(() => {
+    if (todayStage !== "offer" || !planOffer) {
+      planAtOffer.current = null;
+      return;
+    }
+    const read = dailyPlanQuery.data;
+    if (planAtOffer.current?.blockId !== planOffer.blockId) {
+      planAtOffer.current = { blockId: planOffer.blockId, read };
+      return;
+    }
+    if (dailyPlanQuery.refreshing || read === planAtOffer.current.read || !read?.plan) return;
+    if (read.plan.currentBlockId !== planOffer.blockId) {
+      setPlanOffer(null);
+      setTodayStage("queue");
+    }
+  }, [todayStage, planOffer, dailyPlanQuery.data, dailyPlanQuery.refreshing]);
   // The plan banner belongs to the reading step that opened the reader.
   useEffect(() => {
     if (tab !== "reader") setPlanReading(null);
@@ -1227,6 +1250,12 @@ export function App() {
   // inside the current block opens directly; a new block's line, a reading
   // step or the done screen are shown by Today's plan view (continue on Enter).
   function routePlanStep(step: PlanStepDto | null) {
+    if (step && step.kind === "lesson_offer") {
+      // Instruct hand-off IH1: a lesson offer gets its own page, not the plan view's line.
+      setPlanOffer(step);
+      setTodayStage("offer");
+      return;
+    }
     const action = planStepAction(step);
     if (action.type === "practice") {
       openPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
@@ -1237,6 +1266,47 @@ export function App() {
       return;
     }
     setTodayStage("queue");
+  }
+
+  // IH1: the offer page was answered. Start (or an alternative) has opened its lesson (the plan goes on at its next block when the
+  // lesson closes, so Today is where the learner lands); any other answer goes straight on to the step the plan
+  // would have served.
+  function answerPlanOffer(response: "accepted" | "chose_alternative" | "declined") {
+    const sessionId = session?.sessionId ?? null;
+    setPlanOffer(null);
+    setTodayStage("queue");
+    // Start and an alternative both open a lesson; only "Not now" moves the plan on at once. It answers the offer and asks
+    // for nothing else, so a boundary held for an open problem stays held (IH6): Today says so, and no decision is drawn
+    // before that problem's answer exists.
+    if (response !== "declined" || !sessionId) return;
+    void api.nextPlanItem({ sessionId, serve: false })
+      .then((next) => (next.step?.kind === "item" ? servedForExplicitStep(sessionId, next.step) : next.step ?? null))
+      .then(
+        (step) => {
+          if (step && step.kind !== "lesson_offer") routePlanStep(step);
+        },
+        () => undefined
+      );
+  }
+
+  // IH2: the offer on the page has been superseded (a read crossed the boundary while it was up). Nothing on the page can
+  // answer it any more, so it closes and Today shows what the plan holds now.
+  function closeOfferPage() {
+    setPlanOffer(null);
+    setTodayStage("queue");
+  }
+
+  // IH3: "Something else would help" on the offer page was chosen and served. The offer it replaced has ended, so the page
+  // closes: a lesson opens as the learner's own start, anything else goes where the step it served goes.
+  function answerSomethingElseOnOffer(result: SomethingElseChosenDto) {
+    setPlanOffer(null);
+    setTodayStage("queue");
+    const entry = lessonEntryFor(result);
+    if (entry) {
+      setLessonEntry(entry);
+      return;
+    }
+    if (result.step) routePlanStep(result.step);
   }
 
   function openPrimedRetry(id: string) {
@@ -2077,6 +2147,23 @@ export function App() {
           />
         );
       }
+      if (todayStage === "offer" && planOffer && session) {
+        return (
+          <LessonOfferPage
+            key={planOffer.offer.decisionId ?? planOffer.blockId}
+            step={planOffer}
+            sessionId={session.sessionId}
+            {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
+            onAnswered={answerPlanOffer}
+            onGone={() => {
+              closeOfferPage();
+              void dailyPlanQuery.refetch().catch(() => undefined);
+            }}
+            onSomethingElse={answerSomethingElseOnOffer}
+            onError={onError}
+          />
+        );
+      }
       if (todayStage === "feedback" && attemptId) {
         // UX Phase 4 (§7.5): Next returns to where the attempt started; an
         // attempt opened from the Reader goes back to its passage. Classic
@@ -2102,6 +2189,7 @@ export function App() {
             onOpenNext={openPractice}
             nextPlan={session && planNext && !fromReader ? { sessionId: session.sessionId } : null}
             onPlanStep={routePlanStep}
+            {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
             onNext={fromReader ? () => backFromPractice({ showProblem: false }) : () => setTodayStage("queue")}
             onBack={() => backFromPractice()}
             onOpenNotes={() => gotoTab("library")}

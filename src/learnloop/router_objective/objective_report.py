@@ -101,6 +101,12 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
             "decisions": total, "interrupt_decisions": len(rows) - total,
             "stop_share": round(stops / total, 4) if total else None,
             "policy_share": _share(drawn, total),
+            # IH5: with a policy failed, the draw's component is the other policy from mvp-0.55 (staged before), so
+            # the share among such decisions is shown apart from the whole.
+            "policy_share_when_a_policy_failed": _share(Counter(
+                str(row["drawn_component"]) for row in blocks
+                if row["llm_status"] != "answered" or row["numeric_status"] != "answered"),
+                sum(1 for row in blocks if row["llm_status"] != "answered" or row["numeric_status"] != "answered")),
             "llm_policy": {"answered": sum(1 for row in blocks if row["llm_status"] == "answered"),
                            "timeout_rate": round(llm_timeouts / len(rows), 4) if rows else None,
                            "statuses": dict(Counter(str(row["llm_status"]) for row in blocks))},

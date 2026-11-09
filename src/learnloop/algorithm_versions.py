@@ -870,6 +870,19 @@ LESSON_OFFERS_ALGORITHM_VERSION = "mvp-0.53"
 # mvp-0.54 when main (TE3b's mvp-0.53) was merged in; ONE constant.
 PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"
 
+# mvp-0.55 (instruct hand-off IH5; owner decision 2026-11-08,
+# docs/specs/spec_instruct_handoff_v1.md §7a), on top of phone V3's mvp-0.54
+# (the chain stays linear). A failed policy's share in the router objective's
+# mix goes to the OTHER policy, no longer to staged: with the LLM policy failed
+# the numeric policy takes 1.0, with the numeric one failed the LLM policy takes
+# 1.0, with both failed staged keeps 1.0 (the floor epsilon applies in every
+# case, propensities stay exact, staged's pick is still logged and still orders
+# the support and breaks ties). The reason is that staged never picks a lesson.
+# Kill switch ``[router_objective] failure_share_to_other_policy`` (off, or below
+# the tag: mvp-0.54's mix byte for byte). No migration. Expected mvp-0.55 at
+# landing (ONE constant; renumber if another successor lands first).
+FAILURE_SHARE_ALGORITHM_VERSION = "mvp-0.55"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -923,6 +936,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
+    FAILURE_SHARE_ALGORITHM_VERSION,
 )
 
 
@@ -1180,6 +1194,12 @@ LESSON_OFFERS_VERSIONS: frozenset[str] = successors_from(LESSON_OFFERS_ALGORITHM
 # v2 V3, owner decision D3), behind the phone host's ``phone_probes``. Every
 # later successor keeps them; gates must use this set, never equality.
 PHONE_PROBES_VERSIONS: frozenset[str] = successors_from(PHONE_PROBES_ALGORITHM_VERSION)
+
+# Versions whose router objective gives a failed policy's share to the other
+# policy instead of staged (instruct hand-off IH5), behind
+# ``[router_objective] failure_share_to_other_policy``. Every later successor
+# keeps it; gates must use this set, never equality.
+FAILURE_SHARE_VERSIONS: frozenset[str] = successors_from(FAILURE_SHARE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

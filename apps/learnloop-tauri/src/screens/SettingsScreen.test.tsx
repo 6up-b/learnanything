@@ -35,7 +35,7 @@ function settings(enabled: boolean): SettingsDto {
     judges: [
       {
         route: "llm_probability_decider", judge: "decider", consumer: "llm_probability",
-        provider: "openrouter_decider", providerType: "decider", model: "perplexity/pplx-decider-v1.1-27b",
+        provider: "openrouter_decider", providerType: "decider", model: "perplexity/pplx-decider-v1.2",
         ready: true, disclosure: "Learner text goes to OpenRouter, which forwards it to Perplexity."
       },
       {

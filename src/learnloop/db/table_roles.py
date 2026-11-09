@@ -567,6 +567,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # router.payload_retention_days; the hashes stay on the decision row and
     # replay never reads it.
     ("router_decision_payloads", TableRole.WORKFLOW),
+    # Instruct hand-off IH3 (migration 251; spec_instruct_handoff_v1 §6): what the learner said would help at a
+    # boundary, with the options then and the decision that served it. The row is the only record of that statement
+    # (nothing derives it), append-only by trigger, self-selected and never evidence.
+    ("router_learner_preferences", TableRole.RAW_LEDGER),
     # Router R1: R_next / R_cold / S per decision, one replayer
     # (rebuild_orchestrator "router_outcomes"); pending outcomes right-censored.
     ("router_outcomes", TableRole.DERIVED),

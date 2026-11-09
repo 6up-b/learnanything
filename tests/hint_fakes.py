@@ -224,7 +224,7 @@ def prefer(option: str, weight: float = 0.9) -> Callable[[list[str]], dict[str, 
 class ChooserFake:
     provider_name = "fake_decider"
     provider_type = "decider"
-    model = "perplexity/pplx-decider-v1.1-27b"
+    model = "perplexity/pplx-decider-v1.2"
 
     def __init__(self, choice: Callable[[list[str]], dict[str, float]] | None = None, *,
                  horizon: dict[int, float] | None = None, delay: float = 0.0, error: Exception | None = None,

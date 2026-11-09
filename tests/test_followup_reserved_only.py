@@ -559,3 +559,23 @@ def test_f20_a_need_job_has_the_same_limit(tmp_path, monkeypatch):
     outcomes = run_jobs(vault, repository, clients=clients, clock=_after(2))
     assert fake.calls == 2
     assert [job.state for job in outcomes] == ["failed"] and outcomes[0].error == jobs.ATTEMPTS_EXHAUSTED
+
+
+def test_unreadable_reserved_questions_admit_nothing_and_log(tmp_path, monkeypatch, caplog):
+    """The fail-closed branch: when the reserved questions can't be read, the generated question is
+    refused and a warning is logged. It used to raise NameError on an undefined logger instead."""
+
+    import learnloop.diagnosis.probe_instance_generation as generation
+
+    paths, vault, repository = live_shape_vault(tmp_path)
+    vault = _with_reserved_question(paths, repository)
+    _reserve(monkeypatch)
+
+    def unreadable(*_args, **_kwargs):
+        raise RuntimeError("reserved store unreadable")
+
+    monkeypatch.setattr(generation, "reserved_questions", unreadable)
+    payload = {"prompt": "Something else entirely here.", "expected_answer": "x", "grading_rubric": {"criteria": []}}
+    with caplog.at_level("WARNING", logger=generation.__name__):
+        assert generation._reproduces_reserved(vault, repository, payload)
+    assert "reserved questions not read" in caplog.text

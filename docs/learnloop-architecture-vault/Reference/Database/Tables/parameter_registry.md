@@ -3,13 +3,13 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 250
+schema_head: 251
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -134,11 +134,11 @@ Indexes and uniqueness:
 - `tests/test_grading_cli.py`
 - `tests/test_help_fold_attach_successor.py`
 - `tests/test_hypothesis_marks.py`
-- `tests/test_kinship_feature.py`
-- `tests/test_library_exercises.py`
-- `tests/test_lp_claim_fixes.py`
-- `tests/test_open_world_gate.py`
-- `tests/test_p0_cutover_mvp08.py`
+- `tests/test_ih2_lessons_compete.py`
+- `tests/test_ih3_learner_preferences.py`
+- `tests/test_ih4_preferences_inform_router.py`
+- `tests/test_ih5_successor.py`
+- `tests/test_ih6_workbench_open_item.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

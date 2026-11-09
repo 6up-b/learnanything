@@ -95,10 +95,10 @@ def test_mvp035_is_one_constant_after_mvp034_and_the_latest():
     # The kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and
     # curriculum C1's mvp-0.40, teacher TE1's mvp-0.41, follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the
     # latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-22:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54")
-    assert TAG == "mvp-0.35" == SUCCESSOR_CHAIN[-20] and LATEST_ALGORITHM_VERSION == "mvp-0.54"
+    assert SUCCESSOR_CHAIN[-23:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55")
+    assert TAG == "mvp-0.35" == SUCCESSOR_CHAIN[-21] and LATEST_ALGORITHM_VERSION == "mvp-0.55"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.34"
-    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54"})
+    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
 
@@ -330,6 +330,9 @@ def _workbench_submit_shadow(tmp_path, *, opened: bool):
     _step(ctx, view["sessionId"])
     attempt = _call(ctx, "workbench.submit", {"sessionId": view["sessionId"], "practiceSessionId": session})["attempt"]
     assert _attempt(paths, attempt["attemptId"])["hints_used"] == (1 if opened else 0)
+    # The submit queued background post-attempt jobs. A shadow rebuild refuses a database that changes under it, so
+    # they stop first; otherwise the result depended on which thread won.
+    ctx.close()
     result = shadow_rebuild(load_vault(paths.root))
     assert result.live_database_unchanged
     return result.learner_state_diff

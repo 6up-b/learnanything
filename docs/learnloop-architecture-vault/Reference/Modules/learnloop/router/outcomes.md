@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/outcomes.py"
 source_paths:
   - "src/learnloop/router/outcomes.py"
-source_commit: "84b890f02cd674436ba3b9ce3ab22628680d0783"
-source_commit_timestamp: "2026-11-05T07:25:07-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/outcomes.py](../../../../../../src/learnloop/router/outcomes.py) |
-| Source lines | 1489 |
+| Source lines | 1496 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84b890f02cd674436ba3b9ce3ab22628680d0783` |
-| Commit timestamp | `2026-11-05T07:25:07-05:00` |
+| Source commit | `53222a3c7f94a77acea81ca9d7a02c0621e4badc` |
+| Commit timestamp | `2026-11-08T23:13:15-05:00` |
 
 ## Public API
 
@@ -66,7 +66,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `fold_measurement(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1099) — An objective's measurement as one plain record (this adapter's and the capture report's).
 - `answer_completion(connection: sqlite3.Connection, attempt_id: str, *, decided_at: str, reader_exposures: Iterable[tuple[str, str]]) -> DC.Completion | None` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1128) — What the shared definition makes of one attempt as the delayed retrieval of a decision taken at ``decided_at``: a measurement's check asks this of its answer.
 - `derive_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1242) — One outcome row per logged decision, from the ledgers alone (read-only).
-- `rebuild_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> int` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1446) — Replace the derived cache; the caller owns the transaction.
+- `rebuild_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> int` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1453) — Replace the derived cache; the caller owns the transaction.
 
 ### Module constants
 
@@ -168,7 +168,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `measurement_events`, `objectives`
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `all_bindings`; calls `all_bindings`
 - [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] — imports `presentations_for_blocks`; calls `presentations_for_blocks`
-- [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `replace_router_outcomes`; calls `replace_router_outcomes`
+- [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `OVERRIDE_KEY_PREFIX`, `replace_router_outcomes`; calls `replace_router_outcomes`
 - [[Reference/Modules/learnloop/delayed_completion|learnloop.delayed_completion]] — imports `module`; calls `Presentation`, `classify`, `help_question`, `other_exclusions`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `RETENTION_MIN_DELAY_SECONDS`, `retention_exclusions`; calls `retention_exclusions`
 
@@ -219,6 +219,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_a_released_hold_is_an_ordinary_outcome_again`
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
+  - `test_replay_gives_every_logged_decision_its_logged_mu`
+- [tests/test_ih3_learner_preferences.py](../../../../../../tests/test_ih3_learner_preferences.py) — direct import
+  - `test_an_override_serves_the_action_logs_both_rows_and_the_parent_reads_overridden`
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
+  - `test_a_phone_choosing_the_drawn_lesson_is_told_it_waits_and_it_stays_an_agreement`
 - [tests/test_reader_rw3a_landing.py](../../../../../../tests/test_reader_rw3a_landing.py) — direct import
   - `test_the_answer_to_a_check_binds_by_the_picks_presentation`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import

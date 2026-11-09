@@ -6,13 +6,15 @@
 // estimates or sums on its own. No overdue count, no backlog, no capture debt.
 
 import { useEffect, useState, type CSSProperties } from "react";
-import type { DailyPlanDto, PlanBlockDto, PlanLane, TodayHeadlineDto } from "../../api/dto";
+import type { DailyPlanDto, PlanBlockDto, PlanLane, SomethingElseChosenDto, TodayHeadlineDto } from "../../api/dto";
 import { COLOR, FONT_MONO, KeyBar } from "../../components/term";
-import { aboutMinutes, minutesPerDay, waitingLine, waitingMinutes, wholeMinutes } from "../../app/dailyPlan";
+import { aboutMinutes, minutesPerDay, questionInProgressLine, waitingLine, waitingMinutes, wholeMinutes } from "../../app/dailyPlan";
 import { screenLeavesKey } from "../../app/keymap";
 import { api } from "../../api/client";
 import type { LessonEntry } from "../LessonScreen";
 import { LessonOfferBlock } from "./LessonOfferBlock";
+import { QuestionInProgress } from "./QuestionInProgress";
+import { SomethingElse } from "./SomethingElse";
 
 const LANE_COLOR: Record<PlanLane, string> = {
   repair: COLOR.red,
@@ -216,6 +218,10 @@ export interface DailyPlanViewProps {
   onStartLesson?: (entry: LessonEntry) => void;
   onOfferAnswered?: () => void;
   onError?: (message: string) => void;
+  /** IH3: "Something else would help" was chosen and served at this plan boundary; Today opens what it served. */
+  onSomethingElse?: (result: SomethingElseChosenDto) => void;
+  /** IH6: open the question in progress again, when this Today can (a problem on an item). */
+  onResumeQuestion?: (practiceItemId: string) => void;
 }
 
 /** Today, during the plan and when it is done (§6.5, §6.7). */
@@ -235,7 +241,9 @@ export function DailyPlanView({
   sessionId = null,
   onStartLesson,
   onOfferAnswered,
-  onError
+  onError,
+  onSomethingElse,
+  onResumeQuestion
 }: DailyPlanViewProps) {
   const plan = data.plan;
   const done = plan ? plan.status !== "open" : false;
@@ -361,6 +369,28 @@ export function DailyPlanView({
                   skip this item
                 </button>
               ) : null}
+            </div>
+            {/* IH3: the quiet link at a plan boundary, only with a session (the choice is served into it). */}
+            {onSomethingElse && sessionId ? (
+              <div style={{ marginTop: 10 }}>
+                <SomethingElse sessionId={sessionId} surface="today" enabled={Boolean(data.somethingElse)}
+                               canStartLesson={Boolean(onStartLesson)} hidePlansPick={Boolean(current.lessonOffer)}
+                               onChosen={onSomethingElse} onError={onError ?? (() => undefined)} />
+              </div>
+            ) : null}
+          </div>
+        ) : plan.questionInProgress ? (
+          <div data-testid="plan-in-progress" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: COLOR.text }}>
+            {questionInProgressLine(plan.questionInProgress)}
+            <QuestionInProgress
+              question={plan.questionInProgress}
+              onResume={onResumeQuestion && plan.questionInProgress.practiceItemId ? () => onResumeQuestion(plan.questionInProgress!.practiceItemId!) : undefined}
+              onError={onError ?? (() => undefined)}
+            />
+            <div>
+              <button type="button" style={actionButton(true)} onClick={onContinue} disabled={busy}>
+                {busy ? "opening…" : "begin ↵"}
+              </button>
             </div>
           </div>
         ) : plan.waiting ? (

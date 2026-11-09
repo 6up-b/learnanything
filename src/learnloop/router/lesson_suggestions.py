@@ -7,7 +7,9 @@ client (the shell is ``learnloop.daily_plan.lesson_suggestion``).
 **The candidate** is ``instruct(lesson)`` on one learning object, proposed for
 one of the spec's three reasons (``new_goal``: an LO on an active goal the
 learner has not started; ``cold_failing``: its two latest cold checks were not
-right; ``below_band``: adaptive difficulty's posterior predicts the learner
+right (from instruct hand-off's mvp-0.55, with the owner's decision 4, ``cold_missed``: any cold check
+since its last lesson was not fully right, with no threshold on its size, count or error type);
+``below_band``: adaptive difficulty's posterior predicts the learner
 below its practice band, by AD's own out-of-band rule on ``P_band``). Declining costs nothing, so it is
 reversible and drawn.
 
@@ -89,7 +91,15 @@ SURFACE = "today_card"
 CANDIDATE_KIND = "instruct_lesson"
 #: The day's draw showed no card.
 NO_SUGGESTION = "no_suggestion"
-REASONS: tuple[str, ...] = ("new_goal", "cold_failing", "below_band")
+REASONS: tuple[str, ...] = ("new_goal", "cold_failing", "below_band", "cold_missed")
+#: The reasons that say a cold check on the topic didn't come out right, read by one effect, ``reason_cold_failing``
+#: (the owner's decision 4, spec_instruct_handoff_v1 §8). ``cold_missed`` replaced ``cold_failing``'s candidacy rule (any
+#: missed check since the last lesson, not the two latest) and its wording (the miss's date: "On Nov 3, a check on it wasn't
+#: fully right."),
+#: but it tells the learner the same thing, so a response to either card teaches the same effect: every earlier answer
+#: to a ``cold_failing`` card keeps informing it, and no new effect starts from a prior of its own. No prior changed, so
+#: the set keeps its name; a vault that never draws a ``cold_missed`` card computes TE1b's numbers bit for bit.
+COLD_MISS_REASONS: frozenset[str] = frozenset({"cold_failing", "cold_missed"})
 RESPONSES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored")
 
 #: The state vector, in order (``decline`` is ``D``, entered as ``−g_R(d)``).
@@ -114,6 +124,14 @@ LEGACY_DECLINED_SHOW = 0.01
 LEGACY_CADENCE_DAYS = 1.0
 #: Every effect's prior width (the LP spec's rule for legacy priors: >= 1 logit).
 PRIOR_SD = 1.0
+#: IH4 (spec_instruct_handoff_v1 §7 item 1): the offset of an unprompted request (the learner asked for a lesson with no
+#: offer on screen) from a response to an offer, one more effect of the same width (:data:`PRIOR_SD`, centre 0: no prior
+#: claim that the two differ). It exists only once a request is on record (:meth:`AcceptanceState.observe`), and a
+#: prediction for an offer never sets it, so how far a request moves ``P(accept)`` is the posterior's split between this
+#: offset and the effects an offer reads: no hand-set weight. A changed prior set is a successor (the playbook), so the
+#: set with the offset has its own name.
+UNPROMPTED_TERM = "unprompted"
+UNPROMPTED_PRIORS_VERSION = "suggestion_priors_v1+unprompted_v1"
 #: The recovery grid (days until a declined goal is back at its undeclined value): centred on
 #: revision 3's 7-day mute (basis legacy), a factor of two either side at half-octave steps;
 #: its weights start uniform and are learned.
@@ -205,6 +223,9 @@ class Candidate:
     title: str = ""
     #: ``below_band``: adaptive difficulty's prediction that put it there (``P_band``, ``p̄``, the band).
     band: Mapping[str, Any] | None = None
+    #: ``cold_missed``: when the latest missed cold check since the topic's last lesson was made (its ``created_at``), so
+    #: the reason's words can say what happened and when. Read only for the words, never by the model.
+    missed_at: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         out = {"ref": self.ref, "kind": CANDIDATE_KIND, "learning_object_ids": list(self.learning_object_ids),
@@ -214,6 +235,8 @@ class Candidate:
                                       else round(float(self.days_since_decline), 6))}
         if self.band is not None:
             out["band"] = dict(self.band)
+        if self.missed_at is not None:
+            out["missed_at"] = str(self.missed_at)
         return out
 
     @classmethod
@@ -225,7 +248,8 @@ class Candidate:
                    reason=str(value.get("reason") or "new_goal"),
                    predicted_success=None if p is None else float(p),
                    days_since_decline=None if d is None else float(d), title=str(value.get("title") or ""),
-                   band=dict(band) if isinstance(band, Mapping) else None)
+                   band=dict(band) if isinstance(band, Mapping) else None,
+                   missed_at=None if value.get("missed_at") is None else str(value["missed_at"]))
 
 
 def lesson_ref(learning_object_id: str) -> str:
@@ -267,7 +291,7 @@ def design_vector(context: Context, candidate: Candidate, recovery_days: float) 
         fits = min(max(float(context.minutes_left), 0.0), float(CARD_MINUTES)) / float(CARD_MINUTES)
         h[TERMS.index("minutes_short")] = fits - 1.0
     h[TERMS.index("reentry")] = 1.0 if context.reentry else 0.0
-    h[TERMS.index("reason_cold_failing")] = 1.0 if candidate.reason == "cold_failing" else 0.0
+    h[TERMS.index("reason_cold_failing")] = 1.0 if candidate.reason in COLD_MISS_REASONS else 0.0
     h[TERMS.index("reason_below_band")] = 1.0 if candidate.reason == "below_band" else 0.0
     h[TERMS.index("recent_suggestion")] = spacing_feature(context.days_since_last)
     h[TERMS.index("decline")] = -decline_shape(candidate.days_since_decline, recovery_days)
@@ -282,43 +306,74 @@ class AcceptanceState:
         _Bank(recovery_days=r, mean=_prior_mean(), cov=np.eye(len(TERMS)) * PRIOR_SD ** 2)
         for r in RECOVERY_DAYS_GRID])
     updates: int = 0
+    #: IH4: how many of ``updates`` were unprompted requests (0: the banks hold :data:`TERMS` alone, as before IH4).
+    unprompted_updates: int = 0
 
     def weights(self) -> np.ndarray:
         return normalized_log_weights(np.array([bank.log_w for bank in self.banks]))
 
+    def design(self, bank: _Bank, context: Context, candidate: Candidate, *, unprompted: bool = False) -> np.ndarray:
+        """``h`` in ``bank``'s terms. The unprompted offset's slot exists only once a request is on record; an offer's
+        ``h`` holds 0 there, so with none on record every array and number is the one TE1b computed, bit for bit."""
+
+        h = design_vector(context, candidate, bank.recovery_days)
+        return np.append(h, 1.0 if unprompted else 0.0) if bank.mean.shape[0] > h.shape[0] else h
+
     def p_accept(self, context: Context, candidate: Candidate) -> float:
-        """The posterior predictive ``P(accept)``: the grid mixture of ``E[σ(h · θ)]``."""
+        """The posterior predictive ``P(accept)`` of an offer: the grid mixture of ``E[σ(h · θ)]``."""
 
         total = 0.0
         for weight, bank in zip(self.weights(), self.banks):
-            h = design_vector(context, candidate, bank.recovery_days)
+            h = self.design(bank, context, candidate)
             total += float(weight) * gaussian_sigmoid_mean(float(h @ bank.mean), float(h @ bank.cov @ h))
         return min(max(total, 0.0), 1.0)
 
-    def observe(self, context: Context, candidate: Candidate, accepted: bool) -> None:
-        """One response: AD's assumed-density step in every bank, the grid weights by ``log Z``."""
+    def _open_unprompted(self) -> None:
+        """The offset's prior, independent of the rest: earlier responses never set its slot, so adding it now is the
+        same posterior as having held it from the start."""
+
+        for bank in self.banks:
+            size = bank.mean.shape[0]
+            cov = np.zeros((size + 1, size + 1), dtype=np.float64)
+            cov[:size, :size] = bank.cov
+            cov[size, size] = PRIOR_SD ** 2
+            bank.mean, bank.cov = np.append(bank.mean, 0.0), cov
+
+    def observe(self, context: Context, candidate: Candidate, accepted: bool, *, unprompted: bool = False) -> None:
+        """One response: AD's assumed-density step in every bank, the grid weights by ``log Z``. ``unprompted`` (IH4): a
+        request with no offer on screen, read through its own offset (:data:`UNPROMPTED_TERM`)."""
 
         y = 1.0 if accepted else 0.0
+        if unprompted and self.unprompted_updates == 0:
+            self._open_unprompted()
 
         def log_lik(eta: np.ndarray) -> np.ndarray:
             p = np.clip(sigmoid(eta), 1e-12, 1.0 - 1e-12)
             return y * np.log(p) + (1.0 - y) * np.log(1.0 - p)
 
         for bank in self.banks:
-            h = design_vector(context, candidate, bank.recovery_days)
+            h = self.design(bank, context, candidate, unprompted=unprompted)
             bank.mean, bank.cov, record = adf_update(bank.mean, bank.cov, h, log_lik)
             bank.log_w += record.log_z
         self.updates += 1
+        if unprompted:
+            self.unprompted_updates += 1
 
     def summary(self) -> dict[str, Any]:
         """Posterior means (grid-weighted) and the recovery grid's weights, for the decision row."""
 
         weights = self.weights()
         mean = sum(float(w) * bank.mean for w, bank in zip(weights, self.banks))
-        return {"priors_version": PRIORS_VERSION, "updates": self.updates,
-                "means": {term: round(float(value), 6) for term, value in zip(TERMS, mean)},
+        extra = {"unprompted_updates": self.unprompted_updates} if self.unprompted_updates else {}
+        terms = (*TERMS, UNPROMPTED_TERM) if self.unprompted_updates else TERMS
+        return {"priors_version": self.priors_version, "updates": self.updates, **extra,
+                "means": {term: round(float(value), 6) for term, value in zip(terms, mean)},
                 "recovery_days": [round(bank.recovery_days, 6) for bank in self.banks],
                 "recovery_weights": [round(float(w), 6) for w in weights]}
+
+    @property
+    def priors_version(self) -> str:
+        return UNPROMPTED_PRIORS_VERSION if self.unprompted_updates else PRIORS_VERSION
 
 
 # =============================================================================
@@ -332,6 +387,8 @@ class Observation:
     candidate: Candidate
     accepted: bool
     at: str
+    #: IH4: a request with no offer on screen (:func:`unprompted_observations`), never a response to one
+    unprompted: bool = False
 
 
 def observations(decisions: Mapping[str, Mapping[str, Any]],
@@ -367,10 +424,60 @@ def observations(decisions: Mapping[str, Mapping[str, Any]],
     return out
 
 
+#: The ``router_learner_preferences`` kind that names a lesson (``learner_action.LESSON``), and the key its row froze the
+#: acceptance model's replay inputs under (``learner_action.Options.offered``).
+LESSON_KIND = "lesson"
+LESSON_INPUTS = "lesson_inputs"
+#: The surfaces with no offer on them (``learner_action.PHONE_SURFACES``; a test pins the two).
+PHONE_SURFACES = ("phone_feedback", "phone_today")
+#: What the learner themselves said to an offer. ``ignored`` is not one: it is the plan reading a moved-on card.
+_ANSWERS = frozenset({"accepted", "chose_alternative", "declined"})
+
+
+def unprompted_observations(preferences: Iterable[Mapping[str, Any]], *, at: str | None = None,
+                            responses: Iterable[Mapping[str, Any]] = ()) -> list[Observation]:
+    """IH4 (spec_instruct_handoff_v1 §7 item 1): the learner's requests for a lesson as acceptance observations, oldest
+    first, as of ``at``. Each is a preference of the lesson kind with the replay inputs its row froze, so a replay never
+    depends on today's state, as for a response.
+
+    Left out: a choice on the desktop of the lesson the plan had itself drawn (an agreement, ``served_decision_id`` the
+    parent: an offer was on screen, and its own Start or "Not now" is the response, so counting this too would count it
+    twice) and a row with no frozen inputs (written with the switch off). A phone shows no offer, so an agreement there
+    was asked for with nothing on screen and counts as a request, until the learner answers that offer on the desktop:
+    from then on the answer is the one observation of that offer (``responses``, as of ``at``). A request is only ever
+    ``accepted``: nothing records the moments the learner could have asked and didn't, and they are not read as refusals."""
+
+    answered = {str(row["decision_id"]) for row in responses
+                if str(row["response"]) in _ANSWERS and (at is None or str(row["responded_at"]) <= at)}
+    out: list[Observation] = []
+    for row in sorted(preferences, key=lambda found: (str(found["created_at"]), str(found["id"]))):
+        created = str(row["created_at"])
+        if str(row.get("chosen_kind")) != LESSON_KIND or (at is not None and created > at):
+            continue
+        parent = row.get("decision_id")
+        if parent is not None and row.get("served_decision_id") == parent and (
+                str(row.get("surface")) not in PHONE_SURFACES or str(parent) in answered):
+            continue
+        inputs = json.loads(row.get("offered_json") or "{}").get(LESSON_INPUTS)
+        if not isinstance(inputs, Mapping) or not isinstance(inputs.get("candidate"), Mapping):
+            continue
+        out.append(Observation(Context.from_dict(inputs.get("context") or {}), Candidate.from_dict(inputs["candidate"]),
+                               True, created, unprompted=True))
+    return out
+
+
+def with_unprompted(observed: Sequence[Observation], requests: Sequence[Observation]) -> list[Observation]:
+    """The responses and the requests in one order (by time; a tie keeps a response first). No request: ``observed``,
+    untouched."""
+
+    return sorted([*observed, *requests], key=lambda row: row.at) if requests else list(observed)
+
+
 def replay(observed: Iterable[Observation]) -> AcceptanceState:
     state = AcceptanceState()
     for observation in observed:
-        state.observe(observation.context, observation.candidate, observation.accepted)
+        state.observe(observation.context, observation.candidate, observation.accepted,
+                      unprompted=observation.unprompted)
     return state
 
 
@@ -604,6 +711,7 @@ __all__ = [
     "POLICY",
     "PRIORS_VERSION",
     "REASONS",
+    "COLD_MISS_REASONS",
     "RECOVERY_DAYS_GRID",
     "RESPONSES",
     "SURFACE",

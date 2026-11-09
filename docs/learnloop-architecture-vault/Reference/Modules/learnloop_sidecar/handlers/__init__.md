@@ -233,6 +233,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hint_service.py](../../../../../../tests/test_hint_service.py) — direct import
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
 - [tests/test_host_queue_revision.py](../../../../../../tests/test_host_queue_revision.py) — direct import
+- [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
 - [tests/test_integration_daily_loop_field.py](../../../../../../tests/test_integration_daily_loop_field.py) — direct import
 - [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import

@@ -3,13 +3,13 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
   - "table daily_plans"
-schema_head: 250
+schema_head: 251
 table_name: "daily_plans"
 table_role: "workflow"
 functionality_status: "active"
@@ -139,8 +139,8 @@ None found by exact static reference scan.
 - `tests/test_exam_protection_identity.py`
 - `tests/test_followups_batch6_prefetch_decided_once.py`
 - `tests/test_followups_batch6_verify_fixes.py`
-- `tests/test_mcp_tools.py`
-- `tests/test_mobile_v2_landing_fixes.py`
+- `tests/test_ih2_one_open_offer.py`
+- `tests/test_ih6_workbench_open_item.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

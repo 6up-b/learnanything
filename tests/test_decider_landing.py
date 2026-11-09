@@ -180,7 +180,7 @@ def _decider_http(choice):
             probabilities = {option: (0.7 if option == choice else 0.1) for option in options}
             answers[name] = {"type": "choice", "choice": options[0], "probabilities": probabilities,
                              "confidence": 0.7}
-        payload = {"id": "gen-dec-1", "model": request["model"] + "-20261006", "provider": "Perplexity",
+        payload = {"id": "gen-dec-1", "model": request["model"] + "-20261016", "provider": "Perplexity",
                    "answers": answers, "usage": {"input_tokens": 400, "output_tokens": 3, "cost": 0.000008}}
         return 200, {}, json.dumps(payload).encode()
 

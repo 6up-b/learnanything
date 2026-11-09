@@ -2008,6 +2008,34 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch at the follow-up batch's successor mvp-0.50 (router speed stage 2 item 4, its Codex review F2): "
         "the objective job's thread reuses its SQLite connections (the same values; faster builds, so more draws "
         "within a deadline; in RO6's generator payload); off, a connection opened at every connect()."),
+    _ConfigRule(_exact("router_objective.lessons_compete_with_followups"), "structural", "operational",
+        "kill switch for instruct hand-off IH2 on mvp-0.55 (spec_instruct_handoff_v1 §5): a lesson offer and a follow-up "
+        "compete in one logged decision wherever a lesson is available; off, mvp-0.54's boundary and follow-up decisions."),
+    _ConfigRule(_exact("router_objective.learner_preferences"), "structural", "operational",
+        "kill switch for instruct hand-off IH3 on mvp-0.55 (spec_instruct_handoff_v1 §6): the \"Something else would "
+        "help\" link, the action the learner chooses there (served as a learner pick) and the preference ledger; off, "
+        "mvp-0.54: no link, nothing served or written."),
+    _ConfigRule(_exact("router_objective.workbench_is_open_item"), "structural", "operational",
+        "kill switch for instruct hand-off IH6 on mvp-0.55 (spec_instruct_handoff_v1 §7b): while a workbench problem of "
+        "the current practice session is open, a read of the plan writes no decision and starts no job, and an explicit "
+        "step still decides; off, mvp-0.54's reads."),
+    _ConfigRule(_exact("router_objective.lesson_candidate_after_cold_miss"), "structural", "operational",
+        "kill switch for instruct hand-off's owner decision 4 on mvp-0.55 (spec_instruct_handoff_v1 §8): a topic with a "
+        "missed cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or "
+        "error type, so the router decides with its own evidence; off, mvp-0.54's cold_failing rule and wording."),
+    _ConfigRule(_exact("router_objective.lesson_sources_follow_diagnosis"), "structural", "operational",
+        "kill switch for instruct hand-off IH7 on mvp-0.55 (spec_instruct_handoff_v1 §7c): a lesson opened from an offer "
+        "or a suggestion with a recent miss on its topics also loads the source sections matching the diagnosed "
+        "confusion (keyword retrieval, no model call); off, the brief is mvp-0.54's byte for byte."),
+    _ConfigRule(_exact("router_objective.preferences_inform_router"), "structural", "operational",
+        "kill switch for instruct hand-off IH4 on mvp-0.55 (spec_instruct_handoff_v1 §7): a learner's stated preferences "
+        "update the lesson offers' acceptance model, are frozen as a choice model's sensor, enter the numeric value "
+        "through a learned coefficient starting at zero, and go on the LLM's card as the learner's own statements; "
+        "staged reads nothing; off, as IH3 left them."),
+    _ConfigRule(_exact("router_objective.failure_share_to_other_policy"), "structural", "operational",
+        "kill switch for instruct hand-off IH5's successor mvp-0.55 (spec_instruct_handoff_v1 §7a): a failed policy's "
+        "share of the objective's mix goes to the other policy instead of staged (both failed: staged); off, mvp-0.54's "
+        "mix."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

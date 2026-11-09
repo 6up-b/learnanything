@@ -132,6 +132,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_grader_channel_prior_knobs.py](../../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_p0_replays_bulk_load_calibration_references_once`
+- [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import
+  - `test_each_bound_is_repeatable_for_its_own_seed`
+  - `test_the_bound_stays_inside_its_limits_on_every_seed_and_mass_with_it`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
 
 ## Modification guidance

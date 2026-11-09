@@ -12,7 +12,7 @@ source_paths:
   - "src/learnloop/followup_serve/queue.py"
   - "src/learnloop/followup_serve/workflow.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T01:07:18-05:00"
+source_commit_timestamp: "2026-11-09T11:20:01-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -50,11 +50,11 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/followup_serve/__init__|learnloop.followup_serve]] | [[Reference/Modules/learnloop/followup_serve/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 23 | 9 |
+| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 24 | 9 |
 | [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 19 | 16 |
-| [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] | [[Reference/Modules/learnloop/followup_serve/marks#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
-| [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
-| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 16 | 19 |
+| [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] | [[Reference/Modules/learnloop/followup_serve/marks#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
+| [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
+| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 16 | 22 |
 
 ## Cross-package dependencies
 
@@ -66,14 +66,14 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 15 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 16 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 13 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 5 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 4 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 3 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
@@ -95,9 +95,9 @@ flowchart LR
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_sidecar["learnloop_sidecar"]
+    n_learnloop_teacher["learnloop.teacher"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_db["learnloop.db"]
-    n_learnloop_followup_run -->|15| center
+    n_learnloop_followup_run -->|16| center
     n_learnloop_sidecar_handlers -->|13| center
     n_learnloop_diagnosis -->|11| center
     n_learnloop_diagnosis_split -->|7| center
@@ -106,8 +106,8 @@ flowchart LR
     n_learnloop_daily_plan -->|5| center
     center -->|5| n_learnloop_db_stores
     n_learnloop_sidecar -->|5| center
+    n_learnloop_teacher -->|4| center
     n_learnloop_attempts -->|3| center
-    center -->|3| n_learnloop_db
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -21,6 +21,7 @@ from typing import Any
 
 import pytest
 
+from learnloop.vault.loader import load_vault
 from learnloop_mobile import client_contract
 from learnloop_mobile.allowlist import ALLOWLIST, check_parameters, validate_envelope
 
@@ -195,7 +196,11 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     rpc("get_session", {"sessionId": session_id})
     queue = rpc("get_today_queue", {"sessionId": session_id, "limit": 20, "availableMinutes": 15})
     rows = [row for section in queue["sections"] for row in section["items"]]
-    first, second = rows[0], rows[1]
+    # The hint reveal below needs an item with an authored hint, and the queue's order among equals is not this
+    # journey's subject: taking rows[0] failed (422) whenever a hintless item sorted first.
+    items = load_vault(Path(repository.sqlite_path).parent).practice_items
+    first = next(row for row in rows if items[row["practiceItemId"]].hints)
+    second = next(row for row in rows if row is not first)
     rpc("get_practice_item", {"practiceItemId": first["practiceItemId"], "sessionId": session_id})
     rpc("get_probe_contract", {"practiceItemId": first["practiceItemId"], "sessionId": session_id})
     rpc("save_practice_draft", {"sessionId": session_id, "practiceItemId": first["practiceItemId"], "answerMd": "draft",
@@ -216,6 +221,11 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     rpc("followup_status", {"attemptId": attempt_id})
     # Mobile v2 V3: Next on a miss asks its workflow (none here: it goes on).
     rpc("followup_next", {"attemptId": attempt_id})
+    rpc("plan_prefetch", {"sessionId": session_id})
+    # Instruct hand-off IH3: the plan is off on this vault, so each says so.
+    rpc("plan_something_else_options", {"sessionId": session_id})
+    rpc("plan_something_else", {"sessionId": session_id, "kind": "new", "ref": None, "surface": "phone_today",
+                                "attemptId": None, "noteMd": None, "preferenceId": "pref_contract_1"})
     rpc("followup_continue_without", {"attemptId": attempt_id})
     rpc("followup_show_anyway", {"attemptId": attempt_id})
     rpc("record_hypothesis_exposure", {"attemptId": attempt_id, "surface": "marks_feedback", "hypothesisVersionIds": [],

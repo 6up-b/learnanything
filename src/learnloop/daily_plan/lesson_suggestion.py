@@ -6,7 +6,8 @@ acceptance model and the draw). Three steps, each its own call:
 * :func:`today_suggestion`: at Today's open, the day's card. The first call of
   a local day records any earlier shown card left unanswered as ``ignored``,
   builds the ``instruct(lesson)`` candidates (LOs new on an active goal, failing
-  their two latest cold checks, or predicted by adaptive difficulty's posterior
+  their two latest cold checks (from instruct hand-off's mvp-0.55, with the owner's
+  decision 4: any missed cold check since the last lesson), or predicted by adaptive difficulty's posterior
   well below its practice band; never one with an open lesson or taught since
   its last attempt), replays the response ledger into the acceptance model, draws the
   target the router's way (``router.mode``: the router's ``model_mixture`` with the
@@ -68,8 +69,32 @@ REASON_WORDS: Mapping[str, str] = {
     "new_goal": "It's on your goal and you haven't started it yet.",
     "cold_failing": "Your last two checks on it didn't come out right.",
     "below_band": "LearnLoop expects it to be hard for you right now.",
+    # The owner's decision 4 (Nov 9): any missed cold check since the topic's last lesson, however small (:func:`missed_since`).
+    # The words a candidate shows name the miss's date (:func:`reason_words`); these are for a record that carries none.
+    "cold_missed": "A check on it wasn't fully right.",
 }
 WHY_LABEL = "Suggested by LearnLoop's planner"
+
+
+def _local_day(at: str) -> datetime | None:
+    when = parse_utc(at)
+    return None if when is None else when.astimezone()
+
+
+def reason_words(entry: Mapping[str, Any] | LS.Candidate, *, as_of: str | None = None) -> str:
+    """A candidate's reason in plain words. ``cold_missed`` says what happened and when, from the miss itself: "On Nov 3,
+    a check on it wasn't fully right." (the year too when it isn't ``as_of``'s, the decision's). That holds for every
+    candidate the condition admits: a 0.9 and a 0.0 are both not fully right, and an old miss is dated as old, whatever
+    came after it. A record with no date (none is written without one) reads :data:`REASON_WORDS`'s dateless sentence."""
+
+    reason = str(entry.reason if isinstance(entry, LS.Candidate) else entry.get("reason"))
+    missed_at = entry.missed_at if isinstance(entry, LS.Candidate) else entry.get("missed_at")
+    when = _local_day(str(missed_at)) if reason == "cold_missed" and missed_at else None
+    if when is None:
+        return REASON_WORDS.get(reason, "")
+    now = _local_day(as_of) if as_of else None
+    day = f"{when:%b} {when.day}" if now is not None and now.year == when.year else f"{when:%b} {when.day}, {when.year}"
+    return f"On {day}, a check on it wasn't fully right."
 
 
 class SuggestionError(ValueError):
@@ -132,6 +157,19 @@ def _cold(row: Mapping[str, Any]) -> bool:
             and row["correctness"] is not None)
 
 
+def missed_since(cold: Sequence[Mapping[str, Any]], last_lesson: str | None) -> str | None:
+    """The owner's decision 4 (Nov 9, spec_instruct_handoff_v1 §8): a cold check since the topic's last lesson ended (or
+    ever, with none) that was not fully right; the latest one's ``created_at`` (for the words, :func:`reason_words`), None
+    when there is none. Structural only: whether a miss exists, never how large it was, how many there were or what kind
+    of error it was (a severe surprise, two mild ones and a trivial arithmetic slip are all candidates). The router, the
+    diagnosis and the teacher then decide through the algorithm, with their own evidence. ``cold`` is already only what
+    counts as an independent cold check (:func:`build_candidates`)."""
+
+    return next((str(row["created_at"]) for row in reversed(cold)
+                 if (last_lesson is None or str(row["created_at"]) > last_lesson)
+                 and float(row["correctness"]) < 1.0), None)
+
+
 def _predicted(vault: Any, repository: Any, learning_object_id: str, now_iso: str) -> float | None:
     """The mastery model's predicted unassisted success on the LO (its own prior while it has no evidence):
     the number the lesson brief shows (``teacher.brief.lo_prediction``; a test pins the two equal)."""
@@ -170,12 +208,28 @@ def _band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[s
 
 
 def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list[LS.Candidate], dict[str, list[str]]]:
-    """The ``instruct(lesson)`` candidates (without decline days) and why other LOs were left out."""
+    """The ``instruct(lesson)`` candidates (without decline days) and why other LOs were left out.
 
+    From the owner's decision 4 (``router_objective_switches.lesson_candidate_after_cold_miss_on``), a topic with any
+    missed cold check since its last lesson is a candidate (``cold_missed``, :func:`missed_since`); off, or below the tag,
+    mvp-0.54's ``cold_failing``: its two latest cold checks below full.
+
+    "Since its last lesson" is measured from when that lesson ended (review 3, M2), so a placement probe the lesson asked
+    while it was open is the lesson's, not a check after it; and an answer the system records as not independent (a lesson
+    probe answered after the lesson showed text on the topic, ``LESSON_PROBE_EXPOSED_SOURCE``, the rule
+    ``lesson_weight.qualifying_outcomes`` applies) is no cold check. Both are facts on record, not thresholds. A topic AD
+    already places below its band keeps ``below_band`` (review 3, m2): the miss is one more reason, not a relabel."""
+
+    from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
+    from learnloop.router_objective_switches import lesson_candidate_after_cold_miss_on
+
+    any_miss = lesson_candidate_after_cold_miss_on(vault.config)
     with repository.connection() as connection:
         attempts = store.attempts_by_learning_object(connection)
         open_los = store.open_lesson_learning_objects(connection)
         taught = store.last_lesson_opened_by_learning_object(connection)
+        ended = store.last_lesson_ended_by_learning_object(connection) if any_miss else {}
+        exposed = store.attempts_classified_by(connection, LESSON_PROBE_EXPOSED_SOURCE) if any_miss else set()
     goal_los = _goal_learning_objects(vault)
     excluded: dict[str, list[str]] = {"open_lesson": [], "taught_since_last_attempt": []}
     out: list[LS.Candidate] = []
@@ -195,7 +249,17 @@ def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list
             continue
         cold = [row for row in rows if _cold(row)]
         reason: str | None = None
-        if len(cold) >= 2 and all(float(row["correctness"]) < 1.0 for row in cold[-2:]):
+        missed_at: str | None = None
+        if any_miss:
+            if rows and (bands.get(lo) or {}).get("below"):
+                reason = "below_band"
+            else:
+                missed_at = missed_since([row for row in cold if str(row["id"]) not in exposed], ended.get(lo))
+                if missed_at is not None:
+                    reason = "cold_missed"
+                elif not rows and lo in goal_los:
+                    reason = "new_goal"
+        elif len(cold) >= 2 and all(float(row["correctness"]) < 1.0 for row in cold[-2:]):
             reason = "cold_failing"
         elif rows:
             # AD predicts success well below the band: AD's own out-of-band rule on P_band, below
@@ -211,7 +275,7 @@ def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list
         predicted = _predicted(vault, repository, lo, now_iso)
         out.append(LS.Candidate(ref=LS.lesson_ref(lo), learning_object_ids=(lo,), reason=reason,
                                 predicted_success=predicted, title=str(learning_object.title),
-                                band=bands.get(lo) if reason == "below_band" else None))
+                                band=bands.get(lo) if reason == "below_band" else None, missed_at=missed_at))
     return out, {key: value for key, value in excluded.items() if value}
 
 
@@ -258,8 +322,12 @@ def _context(env: PlanEnv, decisions: Sequence[Mapping[str, Any]]) -> LS.Context
                       reentry=bool(env.gap().due), days_since_last=since)
 
 
-def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, today: str, now_iso: str) -> int:
-    """Record each earlier day's shown card left unanswered as ``ignored`` (its day has ended)."""
+def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, config: Any, today: str,
+                   now_iso: str) -> int:
+    """Record each earlier day's shown card left unanswered as ``ignored`` (its day has ended). An offer the learner never
+    saw is released instead (IH2, review M5): this reaches a passed offer before the plan's own sweep can."""
+
+    from learnloop.daily_plan import lesson_offer as LO
 
     written = 0
     for decision in decisions:
@@ -268,6 +336,9 @@ def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, t
         if store.release_for(connection, decision["id"]) is not None:
             # TE3b: an offer the plan took back unanswered (``lesson_offer.withdraw``) is not ignored by the learner.
             # A daily card has a release only after its Start, so TE1b's sweep is unchanged.
+            continue
+        if LO.never_on_screen(config, connection, decision):
+            written += int(LO.release_never_shown(connection, decision, at=now_iso))
             continue
         primary = ((decision["detail"].get("card") or {}).get("candidates") or [{}])[0]
         written += int(store.insert_response(
@@ -282,9 +353,9 @@ def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, t
 # =============================================================================
 
 
-def _card_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
+def _card_entry(entry: Mapping[str, Any], *, as_of: str | None = None) -> dict[str, Any]:
     return {"ref": entry["ref"], "title": entry.get("title") or "", "learning_object_ids": list(entry["learning_object_ids"]),
-            "reason": entry["reason"], "why": REASON_WORDS.get(str(entry["reason"]), "")}
+            "reason": entry["reason"], "why": reason_words(entry, as_of=as_of)}
 
 
 def card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, Any] | None:
@@ -303,8 +374,9 @@ def card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, 
     base = {"decision_id": decision["id"], "day": decision["day"], "minutes": LS.CARD_MINUTES, "why_label": WHY_LABEL}
     response = store.response_for(connection, decision["id"])
     if response is None:
-        return {**base, "suggestion": _card_entry(entries[0]), "alternatives": [_card_entry(e) for e in entries[1:]],
-                "pending_lesson": None}
+        as_of = str(decision.get("created_at") or "") or None
+        return {**base, "suggestion": _card_entry(entries[0], as_of=as_of),
+                "alternatives": [_card_entry(e, as_of=as_of) for e in entries[1:]], "pending_lesson": None}
     lesson_id = response.get("lesson_id")
     if (response["response"] not in ("accepted", "chose_alternative") or not lesson_id
             or store.lesson_exists(connection, str(lesson_id))
@@ -315,7 +387,7 @@ def card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, 
     if any(opened.get(str(lo), "") >= str(response["responded_at"]) for lo in reserved):
         return None
     chosen = next((entry for entry in entries if entry["ref"] == response["candidate_ref"]), entries[0])
-    return {**base, "suggestion": _card_entry(chosen), "alternatives": [],
+    return {**base, "suggestion": _card_entry(chosen, as_of=str(decision.get("created_at") or "") or None), "alternatives": [],
             "pending_lesson": _response_view(response, chosen)["lesson"]}
 
 
@@ -395,7 +467,7 @@ def _recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tupl
             if not store.tables_present(connection):
                 return True, None
             # TE3b: with the day's drawn offers (none ever drawn: TE1b's decisions exactly).
-            _sweep_ignored(connection, store.all_decisions(connection), today=today, now_iso=now_iso)
+            _sweep_ignored(connection, store.all_decisions(connection), config=vault.config, today=today, now_iso=now_iso)
             existing = store.decision_for_day(connection, today)
             if existing is not None:
                 view = card_view(connection, existing)
@@ -614,9 +686,10 @@ def offer_card_view(block: Any) -> dict[str, Any]:
     if not entries:
         return {}
     minutes = max(1, int(round(float(getattr(block, "budget_minutes", LS.CARD_MINUTES) or LS.CARD_MINUTES))))
+    as_of = str(getattr(block, "created_at", None) or "") or None
     return {"decision_id": getattr(block, "decision_ref", None), "block_id": getattr(block, "id", None),
             "day": None, "minutes": minutes, "why_label": WHY_LABEL,
-            "suggestion": _card_entry(entries[0]), "alternatives": [_card_entry(e) for e in entries[1:]],
+            "suggestion": _card_entry(entries[0], as_of=as_of), "alternatives": [_card_entry(e, as_of=as_of) for e in entries[1:]],
             "pending_lesson": None, "answered": getattr(block, "outcome", None)}
 
 
@@ -658,6 +731,8 @@ __all__ = [
     "SuggestionError",
     "WHY_LABEL",
     "build_candidates",
+    "missed_since",
+    "reason_words",
     "card_view",
     "offer_card_view",
     "offers_in_objective",

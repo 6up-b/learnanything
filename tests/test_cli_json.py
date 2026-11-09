@@ -33,6 +33,8 @@ def test_doctor_json_contract(tmp_path):
         "deprecated_table_row_counts",
         "error_count",
         "issues",
+        # Decider v1.2 fix: each model route's last completed call and the failures since.
+        "model_routes",
         "root",
         "state_sync",
         "storage",

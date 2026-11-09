@@ -21,6 +21,8 @@ import json
 from datetime import timedelta
 from typing import Any
 
+import pytest
+
 from learnloop.daily_plan import engine as E
 from learnloop.daily_plan import reading_choice as RCH
 from learnloop.db.stores import reader_digests as RDG
@@ -90,6 +92,10 @@ def _today(c1, fake, monkeypatch) -> dict:
 # -- (i) the narrative job beside C1's reading ------------------------------------------------------------
 
 
+# Production's lane on purpose: a Today build holds AD's read snapshot while its background job commits the narrative.
+# In WAL a reader doesn't block that commit. The fast lane's rollback journal does, so there the job failed with
+# "database is locked" whenever the two overlapped, which connection reuse made every run.
+@pytest.mark.durability
 def test_i_the_narrative_lands_after_a_c1_plan_and_c1s_reading_does_not_move(tmp_path, monkeypatch):
     c1 = _c1(tmp_path, monkeypatch)
     _digest(c1)

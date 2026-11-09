@@ -2,7 +2,8 @@
 
 ``get_daily_plan``, ``set_plan_minutes``, ``next_plan_item``,
 ``plan_reading_ended``, ``plan_keep_going``, ``plan_more_new``,
-``plan_learner_pick`` and ``get_today_headline``. While the plan is off (a
+``plan_learner_pick``, ``get_today_headline``, ``plan_prefetch`` and IH3's ``plan_something_else_options`` and
+``plan_something_else``. While the plan is off (a
 pre-``mvp-0.14`` vault or ``plan.enabled = false``) every one of them answers
 ``enabled: false`` without building a queue or writing a row, and Today, Start
 and ``get_today_queue`` are mvp-0.13's (G1).
@@ -26,6 +27,7 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 import logging
 from dataclasses import replace as dataclass_replace
+import logging
 from typing import Any, Literal
 
 from pydantic import Field
@@ -41,12 +43,13 @@ from learnloop.daily_plan.engine import (
     picked_under,
     plan_active,
     plan_scheduler_session,
+    prefetch_boundary,
     reading_ended,
     set_minutes,
     stop_today,
 )
 from learnloop.daily_plan.headline import today_headline
-from learnloop.daily_plan.policy import policy_for
+from learnloop.daily_plan.policy import policy_for, prefetch_can_start
 from learnloop.daily_plan.engine import intent_view
 from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
 from learnloop.daily_plan.view import disabled_view, plan_view
@@ -71,6 +74,9 @@ DAILY_PLAN_RPCS = (
     "plan_more_new",
     "plan_learner_pick",
     "get_today_headline",
+    "plan_prefetch",
+    "plan_something_else_options",
+    "plan_something_else",
 )
 
 
@@ -84,6 +90,34 @@ class NextPlanItemInput(ParamsModel):
     #: the prefetch made while feedback shows (§6.5).
     serve: bool = False
     skip_practice_item_id: str | None = None
+
+
+class PlanPrefetchInput(ParamsModel):
+    session_id: str
+
+
+class PlanSomethingElseOptionsInput(ParamsModel):
+    session_id: str | None = None
+
+
+class PlanSomethingElseInput(ParamsModel):
+    """IH3: the learner's choice at "Something else would help". ``preference_id`` is the act's own key: the same id
+    sent again (a retry) is answered as it was made and writes nothing."""
+
+    kind: Literal["question", "review", "new", "read", "lesson", "stop"]
+    ref: str | None = Field(default=None, max_length=300)
+    surface: str = Field(max_length=40)
+    attempt_id: str | None = Field(default=None, max_length=100)
+    note_md: str | None = Field(default=None, max_length=4000)
+    preference_id: str | None = Field(default=None, max_length=100)
+    session_id: str | None = None
+
+
+class OfferShownInput(ParamsModel):
+    block_id: str
+    #: "today" (the card) or "offer_page" (the page feedback's Next opens).
+    surface: str
+    session_id: str | None = None
 
 
 class PlanMinutesInput(ParamsModel):
@@ -128,7 +162,11 @@ class PlanLearnerPickInput(ParamsModel):
     idempotency_key: str | None = Field(default=None, max_length=200)
 
 
-def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None, *, serve: bool = False) -> PlanEnv:
+def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None, *, serve: bool = False,
+         prefetch: bool = False) -> PlanEnv:
+    """``prefetch``: the phone's (:func:`plan_prefetch`): ``repository`` is read-only, the build persists nothing and
+    the chooser only starts its job."""
+
     def eligible(minutes: float) -> list[Any]:
         # Today's own build: the same scheduler call and teach-back filter as
         # get_today_queue, so a served plan item carries the candidate id of
@@ -144,6 +182,7 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
             repository,
             session=plan_scheduler_session(vault, session_id, minutes),
             limit=None,
+            persist_explanations=not prefetch,
         )
         return filter_unready_teach_back_items(
             vault, queue, grading_provider_override=ctx.grading_provider_override
@@ -158,7 +197,7 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
         repository=repository,
         session_id=session_id,
         eligible=eligible,
-        policy=policy_for(vault, repository, session_id=session_id, serve=serve),
+        policy=policy_for(vault, repository, session_id=session_id, serve=serve, start_only=prefetch),
         device=_step_filter(ctx, vault, repository, session_id),
     )
 
@@ -340,7 +379,16 @@ def _view(env: PlanEnv, record: Any, step: dict[str, Any] | None, context: Any) 
         reentry_panel=panel,
         streak=env.repository.session_day_streak(),
     )
-    return {**view, **_router_decision_line(env, record, step)}
+    return {**view, **_router_decision_line(env, record, step), **_preference_line(env)}
+
+
+def _preference_line(env: PlanEnv) -> dict[str, Any]:
+    """IH3: ``somethingElse`` says the quiet link may show. Absent with the switch off or below the tag, so the reply
+    is the predecessor's exactly."""
+
+    from learnloop.daily_plan import learner_action
+
+    return {"something_else": True} if learner_action.enabled(env) else {}
 
 
 def _router_decision_line(env: PlanEnv, record: Any, step: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -453,8 +501,6 @@ def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] |
             schedule_item_preparation(vault, sqlite_path, planned, clients=clients, builds=builds,
                                       live_vault=live_vault)
     except Exception:  # noqa: BLE001 - background scheduling never reaches the plan
-        import logging
-
         logging.getLogger(__name__).warning("AD1 background work not scheduled", exc_info=True)
 
 
@@ -525,6 +571,130 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
         bind_plan_step(env.repository, step)
         _schedule_ad(ctx, env, step=step)
     return result
+
+
+@method("plan_something_else_options", PlanSomethingElseOptionsInput)
+def plan_something_else_options(ctx: SidecarContext, params: PlanSomethingElseOptionsInput) -> dict[str, Any]:
+    """IH3 (spec_instruct_handoff_v1 §6): what the plan could do at this boundary, in plain words, for "Something else
+    would help". Chooses nothing and draws nothing: the router's own feasible candidates, one per kind, with the
+    probabilities the waiting decision logged (none when no draw is waiting)."""
+
+    from learnloop.daily_plan import learner_action
+
+    required = _require(ctx, params.session_id)
+    if required is None:
+        return versioned({"enabled": False})
+    _vault, _repository, env = required
+    return versioned(learner_action.options(env).view())
+
+
+def _standing_view(env: PlanEnv) -> dict[str, Any]:
+    """The plan as it stands, with no boundary crossed: a device's choice that serves nothing places nothing, and a read
+    at a finished block would draw its decision in the same call (§6, spec_mobile_frontend_v2 §4.5). Nothing is being
+    chosen because of this, so the reply doesn't say otherwise."""
+
+    from learnloop.daily_plan.engine import get_or_create_today
+
+    record = get_or_create_today(env, create=False)
+    if record is None:
+        return {"enabled": True, "plan": None}
+    view = _view(env, record, None, None)
+    view["plan"]["deciding"] = False
+    return view
+
+
+@method("plan_something_else", PlanSomethingElseInput)
+@host_mutation
+def plan_something_else(ctx: SidecarContext, params: PlanSomethingElseInput) -> dict[str, Any]:
+    """IH3: serve the action the learner chose and log it with the options then (one transaction, idempotent on
+    ``preference_id``). On the phone a lesson or a reading is logged and nothing is served: ``outcome`` says
+    ``waits_on_desktop``."""
+
+    from learnloop.daily_plan import learner_action
+
+    required = _require(ctx, params.session_id, writes=True)
+    if required is None:
+        return versioned({"enabled": False})
+    _vault, _repository, env = required
+    try:
+        chosen = learner_action.choose(env, kind=params.kind, ref=params.ref, surface=params.surface,
+                                       attempt_id=params.attempt_id, note_md=params.note_md,
+                                       preference_id=params.preference_id)
+    except learner_action.PreferenceError as exc:
+        raise SidecarError(exc.code if exc.code in ("validation_error", "not_found") else "invalid_request", str(exc),
+                           details={"reason": exc.code}) from exc
+    result = {
+        "enabled": True,
+        "preference": {"id": chosen.preference_id, "outcome": chosen.outcome, "kind": chosen.kind, "ref": chosen.ref,
+                       "served_decision_id": chosen.served_decision_id, "lesson": chosen.lesson,
+                       "replayed": chosen.replayed},
+        "step": chosen.step,
+        **(_standing_view(env) if env.device is not None and chosen.step is None else _current_view(env)),
+    }
+    if chosen.step is not None and chosen.outcome == "served":
+        _schedule_ad(ctx, env, step=chosen.step)
+    return versioned(result)
+
+
+@method("record_offer_shown", OfferShownInput)
+def record_offer_shown(ctx: SidecarContext, params: OfferShownInput) -> dict[str, Any]:
+    """Spec_instruct_handoff_v1 §4 item 6: the offer's card or page rendered. One ``offer_shown`` event on the offer's
+    block, at most once per block and surface; fire and forget, it never fails the page. Desktop only: it is not in
+    ``DAILY_PLAN_RPCS``, so the phone host denies it (the phone shows no offers)."""
+
+    try:
+        _vault, repository = ctx.require_vault()
+        from learnloop.daily_plan import lesson_offer
+
+        recorded = lesson_offer.record_shown(repository, block_id=params.block_id, surface=params.surface,
+                                             session_id=params.session_id)
+    except Exception:  # noqa: BLE001 - a receipt never blocks the page
+        logging.getLogger(__name__).warning("record_offer_shown failed", exc_info=True)
+        recorded = False
+    return versioned({"recorded": recorded})
+
+
+@method("plan_prefetch", PlanPrefetchInput)
+def plan_prefetch(ctx: SidecarContext, params: PlanPrefetchInput) -> dict[str, Any]:
+    """Spec_instruct_handoff_v1 §3a: start the next boundary's objective job while the phone shows feedback, and
+    return. Next's serve finds the job by its boundary key. Writes nothing, returns no step, and is not a host
+    mutation. ``reason`` says why nothing started; it is for logs and tests, and the phone ignores the reply."""
+
+    vault, repository = ctx.require_vault()
+    reason = _prefetch(ctx, vault, repository, params.session_id)
+    logging.getLogger(__name__).info("plan_prefetch: %s", reason)
+    return versioned({"started": reason == "started", "reason": reason})
+
+
+def _prefetch(ctx: SidecarContext, vault: Any, repository: Any, session_id: str) -> str:
+    if not plan_active(vault):
+        return "plan_off"
+    if not prefetch_can_start(vault):
+        return "no_model"
+    from learnloop.db.repositories import Repository
+
+    # Every read below goes through a read-only attach: a write fails at the database (``connect(read_only=True)``).
+    # The job runs on its own writable attach, as every prefetch's does (``_objective_job``).
+    reader = Repository.attach(repository.sqlite_path, read_only=True)
+    session = reader.fetch_session(session_id)
+    if session is None or session.get("ended_at") is not None:
+        return "no_session"
+    try:
+        refuse_moved_session(ctx, reader, session_id)
+    except SidecarError:
+        return "session_moved"
+    if reader.pending_live_diagnoses_for_session(session_id):
+        # The serve waits for these (``_wait_for_session_diagnoses``), and what they find can change its pool, so its
+        # key. The phone asks again once its diagnosis settles.
+        return "diagnosis_pending"
+    try:
+        return prefetch_boundary(_env(ctx, vault, reader, session_id, prefetch=True))
+    except Exception as exc:  # noqa: BLE001 - never reaches the learner; the serve decides as it always has
+        # A write on the path fails here (``attempt to write a readonly database``). Only its type at the default
+        # level: a traceback can quote what the plan read.
+        logging.getLogger(__name__).warning("plan_prefetch: nothing started (%s)", type(exc).__name__)
+        logging.getLogger(__name__).debug("plan_prefetch: nothing started", exc_info=True)
+        return "unavailable"
 
 
 def _abandon_phone_served(env: PlanEnv) -> None:

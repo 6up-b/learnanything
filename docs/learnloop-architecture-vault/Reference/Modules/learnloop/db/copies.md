@@ -158,6 +158,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_database_restored_at_the_same_path_forces_the_fold`
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_export_gives_up_on_a_source_locked_after_its_probe_and_removes_the_export`
+- [tests/test_connection_reuse.py](../../../../../../tests/test_connection_reuse.py) — direct import
+  - `test_the_durability_lane_runs_production_connections_copies_and_fsync`
 - [tests/test_curriculum_c1_fix_round4.py](../../../../../../tests/test_curriculum_c1_fix_round4.py) — direct import
   - `test_m3_a_database_restored_at_the_same_path_is_watched_as_the_new_file`
 - [tests/test_daily_loop_start_minutes.py](../../../../../../tests/test_daily_loop_start_minutes.py) — direct import

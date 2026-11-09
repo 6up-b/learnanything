@@ -121,7 +121,11 @@ def explain(row: Mapping[str, Any]) -> list[str]:
         label = (candidates.get(llm["favoured"]) or {}).get("label") or llm["favoured"]
         lines.append(f"The language model preferred: {label}.")
     elif llm.get("status") not in (None, "answered"):
-        lines.append("The language model did not answer in time, so the usual rule took its share.")
+        # IH5 (mvp-0.55): a lone failure's share goes to the other suggestion, not the usual rule.
+        if mixing.get("failure_rule") == "other_policy" and numeric.get("status") == "answered":
+            lines.append("The language model did not answer in time, so the estimate took its share.")
+        else:
+            lines.append("The language model did not answer in time, so the usual rule took its share.")
     rows = sorted(candidates.items(), key=lambda pair: -float((pair[1].get("terms") or {}).get("q") or 0.0))
     if rows:
         lines.append("What each option was expected to be worth (in uses of what you know, after effort):")

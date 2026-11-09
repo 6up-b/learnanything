@@ -204,6 +204,7 @@ def test_the_largest_legal_grid_is_verified_one_point_read_at_a_time():
     assert peak < 8 * 1024 * 1024, peak
 
 
+@pytest.mark.slow
 def test_scenes_at_the_point_cap_over_the_largest_grid_hit_the_output_budget():
     """F1: 1,458 scenes of 40,000 points (~1.5 MB each here, up to ~4 MB with
     longer numbers) would be gigabytes; the aggregate output budget refuses

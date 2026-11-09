@@ -18,9 +18,10 @@ the offer's sensor, never a gate: its posterior predictive's mean and spread (mo
 Nothing here is drawn: the offer is drawn by the objective's logged mix like any candidate (G3), and answered on that
 decision (:mod:`learnloop.daily_plan.lesson_suggestion`'s ``respond``; ``ignored`` at the next boundary's step). No
 offer: below the tag or switched off; at a boundary with forced items (a follow-up, a request, a check: never inside a
-cold check, a probe or a randomized-check block); while an accepted offer's lesson waits to open; once the day's
-shown offers and cards reach ``router.lesson_suggestions.ceiling_per_day`` (``keep``; the bind is logged on the
-decision); with no candidate.
+cold check, a probe or a randomized-check block; from IH2's tag follow-ups compete instead, spec_instruct_handoff_v1 §5);
+while an accepted offer's lesson waits to open; once the day's shown offers and cards reach
+``router.lesson_suggestions.ceiling_per_day`` (``keep``; the bind is logged on the decision; from IH2's tag an offer the
+learner never saw isn't shown, and a decision replacing an open offer isn't held back by it); with no candidate.
 
 The context is read at hour resolution (:data:`CONTEXT_RESOLUTION_DAYS`, numerical: a prefetch and its serve then
 share one boundary key) and frozen with the candidate; every number the value reads is in its annotations, so the
@@ -87,6 +88,8 @@ class Offer:
 
     candidate: BlockCandidate | None
     record: Mapping[str, Any] = field(default_factory=dict)
+    #: Spec_instruct_handoff_v1 §3a: a read-only boundary found what only a write settles (:func:`sweep_due`).
+    needs_write: bool = False
 
 
 # =============================================================================
@@ -101,7 +104,7 @@ def accept_moments(state: LS.AcceptanceState, context: LS.Context, candidate: LS
     weights = state.weights()
     first = second = 0.0
     for weight, bank in zip(weights, state.banks):
-        h = LS.design_vector(context, candidate, bank.recovery_days)
+        h = state.design(bank, context, candidate)
         m, v = float(h @ bank.mean), max(float(h @ bank.cov @ h), 0.0)
         p = sigmoid(m + math.sqrt(v) * NODES)
         first += float(weight) * float((WEIGHTS * p).sum())
@@ -214,9 +217,37 @@ def _quantized(context: LS.Context) -> LS.Context:
 
 
 def shown_today(decisions: Sequence[Mapping[str, Any]], today: str) -> int:
-    """The day's shown cards and drawn offers together (the ceiling's count)."""
+    """The day's shown cards and drawn offers together (the ceiling's count), among ``decisions``. From IH2's tag the
+    caller leaves out what :func:`never_on_screen` finds."""
 
     return sum(1 for decision in decisions if (decision.get("detail") or {}).get("shown") and decision["day"] == today)
+
+
+def on_screen(connection: Any, decision: Mapping[str, Any]) -> bool:
+    """A drawn offer reached the learner: its card or page rendered (IH1's ``offer_shown``), a step served it
+    (``block_started``), or they answered it. A draw alone is none of these: offers are drawn on background reads."""
+
+    if store.response_for(connection, str(decision["id"])) is not None:
+        return True
+    block_id = (decision.get("detail") or {}).get("block_id")
+    return bool(block_id) and connection.execute(
+        "SELECT 1 FROM attention_block_events WHERE block_id = ? AND kind IN (?, 'block_started') LIMIT 1",
+        (str(block_id), SHOWN_EVENT)).fetchone() is not None
+
+
+def never_on_screen(config: Any, connection: Any, decision: Mapping[str, Any]) -> bool:
+    """An offer the learner never saw, as far as the record can say: neither a seen offer against the day's ceiling nor a
+    decline. Only for an offer drawn at the tag with the switch on: a row from before ``offer_shown`` existed has no such
+    event, so it keeps its old reading (drawn is shown, unanswered is ``ignored``) and old days don't change meaning. A
+    TE1b card is not an offer: it is shown when its decision says so."""
+
+    from learnloop.algorithm_versions import FAILURE_SHARE_VERSIONS
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    return (bool((decision.get("detail") or {}).get("plan_offer"))
+            and lessons_compete_with_followups_on(config)
+            and str(decision.get("algorithm_version") or "") in FAILURE_SHARE_VERSIONS
+            and not on_screen(connection, decision))
 
 
 def pending_start(connection: Any, decisions: Sequence[Mapping[str, Any]]) -> bool:
@@ -233,8 +264,16 @@ def pending_start(connection: Any, decisions: Sequence[Mapping[str, Any]]) -> bo
 
 
 def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: float, minutes_left: float | None,
-          reentry: bool, forced: bool) -> Offer:
-    """This boundary's offer, or none with why (module docstring)."""
+          reentry: bool, forced: bool, learner_asked: bool = False, replacing: bool = False) -> Offer:
+    """This boundary's offer, or none with why (module docstring).
+
+    ``learner_asked`` (IH3, spec_instruct_handoff_v1 §6): the learner named a lesson through "Something else would
+    help", so the day's anti-nagging ceiling and a waiting lesson's reservation (both about offers the router makes
+    unasked) don't hide it. The candidate and its sensors are the router's own, read the same way.
+
+    ``replacing`` (IH2, §5 item 1): this decision replaces an open offer. It adds no card to the day: the card on offer
+    is contested by what became ready, so the ceiling, which limits new cards, doesn't end the open one with no contest.
+    The ceiling still counts whatever is seen, and binds at the next boundary with no open offer."""
 
     from learnloop.daily_plan import lesson_suggestion as LSS
 
@@ -251,26 +290,40 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
         decisions = store.all_decisions(connection)
         responses = store.responses(connection)
         releases = store.releases(connection)
-        shown = shown_today(decisions, today)
-        if shown >= ceiling:
+        # IH2 (review M3): what the learner never saw uses up nothing, and says nothing about when they last saw a card.
+        seen = [decision for decision in decisions if not never_on_screen(vault.config, connection, decision)]
+        shown = shown_today(seen, today)
+        if replacing:
+            base["ceiling"] = {"per_day": ceiling, "replacing": True}
+        if shown >= ceiling and not learner_asked and not replacing:
             # ``keep``: the anti-nagging ceiling binds across the day's offers and cards; each bind is logged.
             return Offer(None, {**base, "status": "none:ceiling_bound",
                                 "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": True}})
-        if pending_start(connection, decisions):
+        if pending_start(connection, decisions) and not learner_asked:
             return Offer(None, {**base, "status": "none:pending_start"})
     candidates, excluded = LSS.build_candidates(vault, repository, now_iso=now_iso)
     if not candidates:
         return Offer(None, {**base, "status": "none:no_candidate", "excluded": excluded,
-                            "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": False}})
+                            "ceiling": {**base["ceiling"], "shown_today": shown, "bound": False}})
     details = {str(d["id"]): d["detail"] for d in decisions}
-    state = LS.replay(LS.observations(details, responses))
+    observed = LS.observations(details, responses)
+    from learnloop.router_objective_switches import preferences_inform_router_on
+
+    if preferences_inform_router_on(vault.config):
+        # IH4 (spec_instruct_handoff_v1 §7 item 1): the learner's requests, flagged unprompted, through the model.
+        from learnloop.db.stores.router import learner_preference_rows
+
+        with repository.connection() as connection:
+            observed = LS.with_unprompted(observed, LS.unprompted_observations(
+                learner_preference_rows(connection), at=now_iso, responses=responses))
+    state = LS.replay(observed)
     now = parse_utc(now_iso)
-    shown_rows = [d for d in decisions if (d.get("detail") or {}).get("shown")]
+    shown_rows = [d for d in seen if (d.get("detail") or {}).get("shown")]
     since = None
     if shown_rows:
         since = LS.days_between(now, parse_utc(str(shown_rows[-1]["created_at"])))
-    elif decisions:
-        since = LS.days_between(now, parse_utc(str(decisions[0]["created_at"])))
+    elif seen:
+        since = LS.days_between(now, parse_utc(str(seen[0]["created_at"])))
     context = _quantized(LS.Context(local_hour=float(local_hour), minutes_left=minutes_left, reentry=bool(reentry),
                                     days_since_last=since))
     declined = LS.declines_by_learning_object(details, [*responses, *(r for r in releases
@@ -293,13 +346,13 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
     checks = [{"lo": lo, "purpose": "retention", "days": float(delayed.fallback_retention_days),
                "basis": "teacher.delayed.fallback_retention_days (the lesson's own date is set at its close)"}]
     record = {
-        **base, "status": "offered", "context": context.as_dict(), "priors_version": LS.PRIORS_VERSION,
+        **base, "status": "offered", "context": context.as_dict(), "priors_version": state.priors_version,
         "card": {"candidates": [top.as_dict(), *(entry.as_dict() for entry in alternatives)]},
         "reason": top.candidate.reason, "learning_object_id": lo,
         "p_accept": {"mean": round(mean, 9), "sd": round(sd, 9), "beta": [round(a, 9), round(b, 9)],
                      "basis": "TE1b's acceptance model's posterior predictive, moment-matched to a Beta"},
         "duration": duration, "mass": mass, "checks": checks, "model": state.summary(),
-        "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": False},
+        "ceiling": {**base["ceiling"], "shown_today": shown, "bound": False},
         "candidates_considered": len(candidates),
         "staged_value": round(top.value, 12),
     }
@@ -307,7 +360,7 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
     candidate = BlockCandidate(
         candidate_id=offer_ref(lo), lane="new", action="instruct", subtype=LESSON_OFFER_SUBTYPE,
         learning_object_ids=(lo,), item_ids=(), reading=None, est_minutes=float(duration["median_minutes"]),
-        planner_value=round(top.value, 12), reason=LSS.REASON_WORDS.get(top.candidate.reason, ""),
+        planner_value=round(top.value, 12), reason=LSS.reason_words(top.candidate, as_of=now_iso),
         annotations={"reversible": True, "reason_code": "lesson_offer", "topic": title,
                      "lesson_offer": json.loads(json.dumps(record, sort_keys=True))})
     return Offer(candidate, {key: value for key, value in record.items() if key not in ("model", "card")}
@@ -320,10 +373,17 @@ WITHDRAWN = "withdrawn"
 #: follow-up), or lesson offers no longer serve (the switch off, the objective off, below the tag).
 WITHDRAWN_FORCED = "forced_items"
 WITHDRAWN_OFF = "offers_off"
+#: IH2 (review M5): an offer whose boundary passed with no sign the learner saw it: taken back, never their ``ignored``.
+WITHDRAWN_NEVER_SHOWN = "never_shown"
 
 #: The offer block's ``block_ended`` outcomes: the learner's response, ``ignored`` (moved on without one), or
 #: ``withdrawn`` (taken back by the plan before an answer).
-ENDED_OUTCOMES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored", WITHDRAWN)
+ENDED_OUTCOMES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored", WITHDRAWN, "superseded")
+#: IH2 (spec_instruct_handoff_v1 §5 item 1): an unanswered offer a newer decision replaced: the block's outcome, and the
+#: key on its ``expired`` row and its ``block_ended`` naming that decision. The plan's act, as a withdrawal is: never the
+#: learner's answer, so the acceptance model and the decline recovery never read it.
+SUPERSEDED = "superseded"
+SUPERSEDED_BY = "superseded_by_decision"
 
 
 def _block_state(connection: Any, block_id: str | None) -> tuple[bool, str | None]:
@@ -340,7 +400,8 @@ def _block_state(connection: Any, block_id: str | None) -> tuple[bool, str | Non
     return ended, (str(plan[0]) if plan is not None else None)
 
 
-def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, reason: str | None = None) -> None:
+def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, reason: str | None = None,
+              extra: Mapping[str, Any] | None = None) -> None:
     """End the offer's block with the learner's response (once; a block already ended is left as it is)."""
 
     from learnloop.db.stores import daily_plans as plan_store
@@ -353,7 +414,7 @@ def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, r
         return
     plan_store.append_block_event(connection, event_id=new_ulid(), block_id=block_id, kind="block_ended",
                                   detail={"outcome": outcome, "minutes_counted": 0.0, "lesson_offer": True,
-                                          **({"reason": reason} if reason else {})},
+                                          **({"reason": reason} if reason else {}), **dict(extra or {})},
                                   created_at=at)
 
 
@@ -364,7 +425,7 @@ def withdrawn(connection: Any, decision_id: str) -> dict[str, Any] | None:
     if row is None or row["response"] != "expired":
         return None
     detail = json.loads(row.get("detail_json") or "{}")
-    return row if detail.get(WITHDRAWN) else None
+    return row if detail.get(WITHDRAWN) or detail.get(SUPERSEDED_BY) else None
 
 
 def withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool:
@@ -388,6 +449,52 @@ def withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool:
     return written
 
 
+def supersede(connection: Any, block: Any, *, at: str, by: str | None) -> bool:
+    """IH2 §5 item 1: a newer decision replaces an offer nobody answered, in that decision's own transaction. Its block
+    ends ``superseded`` and its decision gets an ``expired`` row naming the newer decision (``superseded_by_decision``).
+    As :func:`withdraw`, the plan's act: the acceptance model and the decline recovery never read it, the forecast stays
+    censored, and a late Start on the card is refused. Returns whether a row was written."""
+
+    decision = store.offer_decision(connection, str(block.decision_ref)) if getattr(block, "decision_ref", None) else None
+    written = False
+    if decision is not None and store.response_for(connection, str(decision["id"])) is None:
+        primary = ((decision.get("detail") or {}).get("card") or {}).get("candidates") or [{}]
+        written = store.insert_response(
+            connection, decision_id=str(decision["id"]), response="expired",
+            candidate_ref=str(primary[0].get("ref") or ""),
+            learning_object_ids=list(primary[0].get("learning_object_ids") or []), responded_at=at,
+            detail={SUPERSEDED_BY: by, "plan_offer": True, "block_id": getattr(block, "id", None),
+                    "shown_on": decision.get("day")})
+    end_block(connection, getattr(block, "id", None), SUPERSEDED, at=at, reason=SUPERSEDED_BY,
+              extra={SUPERSEDED_BY: by})
+    return written
+
+
+#: IH2: where a drawn offer stands for the follow-up it beat.
+OFFER_OPEN = "open"
+OFFER_TAKEN = "taken"
+OFFER_PASSED = "passed"
+
+
+def offer_standing(connection: Any, decision_id: str, *, today: str) -> str:
+    """Whether the lesson offer ``decision_id`` drew is still open, was taken (a Start or an alternative), or passed
+    (declined, ignored, taken back by the plan, its block ended or its day gone). A read of the ledger, whichever way
+    the answer came."""
+
+    response = store.response_for(connection, decision_id)
+    if response is not None:
+        return OFFER_TAKEN if response["response"] in ("accepted", "chose_alternative") else OFFER_PASSED
+    if store.release_for(connection, decision_id) is not None:
+        return OFFER_PASSED
+    decision = store.offer_decision(connection, decision_id)
+    if decision is None:
+        return OFFER_PASSED
+    ended, status = _block_state(connection, (decision.get("detail") or {}).get("block_id"))
+    if ended or status != "open" or str(decision.get("day") or "") < today:
+        return OFFER_PASSED
+    return OFFER_OPEN
+
+
 def record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why: str) -> bool:
     """The boundary passed with no answer (spec §15.1a): ``ignored`` on the offer's own decision, once (the ledger's
     one response a decision), its block ended so."""
@@ -401,13 +508,28 @@ def record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why
     return written
 
 
-def sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int:
+def release_never_shown(connection: Any, decision: Mapping[str, Any], *, at: str) -> bool:
+    """The boundary passed on an offer nobody saw (:func:`never_on_screen`): the plan's act, as :func:`withdraw` is. An
+    ``expired`` row, which the acceptance model and the decline recovery never read, and the block ended ``withdrawn``."""
+
+    detail = decision.get("detail") or {}
+    primary = (detail.get("card") or {}).get("candidates") or [{}]
+    written = store.insert_response(
+        connection, decision_id=str(decision["id"]), response="expired", candidate_ref=str(primary[0].get("ref") or ""),
+        learning_object_ids=list(primary[0].get("learning_object_ids") or []), responded_at=at,
+        detail={WITHDRAWN: WITHDRAWN_NEVER_SHOWN, "plan_offer": True, "block_id": detail.get("block_id"),
+                "shown_on": decision.get("day")})
+    end_block(connection, detail.get("block_id"), WITHDRAWN, at=at, reason=WITHDRAWN_NEVER_SHOWN)
+    return written
+
+
+def _sweep_decisions(connection: Any, *, today: str) -> list[Mapping[str, Any]]:
     """Every drawn offer left unanswered whose boundary has passed (its block ended, its plan no longer open, or an
-    earlier day): ``ignored`` (the next boundary's step)."""
+    earlier day)."""
 
     if not store.tables_present(connection):
-        return 0
-    written = 0
+        return []
+    due = []
     for decision in store.offer_decisions(connection):
         if store.response_for(connection, str(decision["id"])) is not None:
             continue
@@ -415,6 +537,25 @@ def sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int:
             continue  # taken back by the plan (F1, F2): never the learner's ``ignored``
         ended, status = _block_state(connection, (decision.get("detail") or {}).get("block_id"))
         if ended or status != "open" or str(decision.get("day") or "") < today:
+            due.append(decision)
+    return due
+
+
+def sweep_due(connection: Any, *, today: str) -> bool:
+    """:func:`sweep_ignored` has something to write (an ``ignored`` moves the acceptance model the offer is scored by)."""
+
+    return bool(_sweep_decisions(connection, today=today))
+
+
+def sweep_ignored(connection: Any, *, config: Any, today: str, now_iso: str) -> int:
+    """Every offer :func:`_sweep_decisions` finds (the next boundary's step): ``ignored`` if the learner saw it and moved
+    on; if they never did, released (:func:`release_never_shown`), since a draw on a background read is no refusal."""
+
+    written = 0
+    for decision in _sweep_decisions(connection, today=today):
+        if never_on_screen(config, connection, decision):
+            written += int(release_never_shown(connection, decision, at=now_iso))
+        else:
             written += int(record_ignored(connection, decision, at=now_iso, why="next_boundary_step"))
     return written
 
@@ -441,9 +582,59 @@ def action_inputs(candidate: BlockCandidate) -> dict[str, Any]:
                             for check in record.get("checks") or ())}
 
 
+# =============================================================================
+# IH1: the offer's card or page was on screen
+# =============================================================================
+
+#: The ``attention_block_events`` kind written when an offer's card or page actually rendered (spec_instruct_handoff_v1
+#: §4 item 6). ``block_started`` can't say so: a read of the plan serves nothing. The kind is free text in an existing
+#: column, and no reader of a block's events acts on it (the fold in ``daily_plan.records`` ignores kinds it doesn't know).
+SHOWN_EVENT = "offer_shown"
+#: Where the learner saw it: Today's card, or the full page that feedback's Next opens.
+SHOWN_SURFACES = ("today", "offer_page")
+
+
+def record_shown(repository: Any, *, block_id: str | None, surface: str, session_id: str | None = None,
+                 clock: Any = None) -> bool:
+    """Write ``offer_shown`` on the offer's block: at most once per block and surface, only on a lesson offer's
+    block that has not ended (an answered offer's card is not an offer any more). True when a row was written.
+    Never raises: a receipt must not disturb the page it describes."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores import daily_plans as plans
+    from learnloop.ids import new_ulid
+
+    if not block_id or surface not in SHOWN_SURFACES:
+        return False
+    try:
+        with repository.atomic(), repository.connection() as connection:
+            block = connection.execute("SELECT id, subtype, decision_ref FROM attention_blocks WHERE id = ?",
+                                       (block_id,)).fetchone()
+            if block is None or block["subtype"] != LESSON_OFFER_SUBTYPE:
+                return False
+            if _block_state(connection, block_id)[0]:
+                return False
+            seen = connection.execute(
+                "SELECT 1 FROM attention_block_events WHERE block_id = ? AND kind = ? "
+                "AND json_extract(detail_json, '$.surface') = ? LIMIT 1", (block_id, SHOWN_EVENT, surface)).fetchone()
+            if seen is not None:
+                return False
+            plans.append_block_event(
+                connection, event_id=new_ulid(), block_id=block_id, kind=SHOWN_EVENT,
+                detail={"surface": surface, "decision_id": block["decision_ref"],
+                        **({"session_id": session_id} if session_id else {})},
+                created_at=utc_now_iso(clock))
+            return True
+    except Exception:  # noqa: BLE001 - a receipt never blocks the page
+        LOG.warning("lesson offer: offer_shown was not recorded", exc_info=True)
+        return False
+
+
 __all__ = [
     "CONTEXT_RESOLUTION_DAYS", "DURATION_LOG_SD", "DURATION_MEDIAN_PRIOR_SD", "DURATION_PRIOR_MEDIAN",
-    "DURATION_VERSION", "OFFER_VERSION", "Offer", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_OFF", "accept_moments",
-    "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
-    "lesson_active_minutes", "offer_ref", "offers_on", "pending_start", "shown_today", "withdraw", "withdrawn",
+    "DURATION_VERSION", "OFFER_OPEN", "OFFER_PASSED", "OFFER_TAKEN", "OFFER_VERSION", "Offer", "SHOWN_EVENT", "SHOWN_SURFACES",
+    "SUPERSEDED", "SUPERSEDED_BY", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_NEVER_SHOWN", "WITHDRAWN_OFF",
+    "accept_moments", "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
+    "lesson_active_minutes", "never_on_screen", "offer_ref", "offer_standing", "offers_on", "on_screen", "pending_start",
+    "record_shown", "release_never_shown", "shown_today", "supersede", "withdraw", "withdrawn",
 ]

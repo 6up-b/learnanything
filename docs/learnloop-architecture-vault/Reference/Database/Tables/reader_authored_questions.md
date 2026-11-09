@@ -3,13 +3,13 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
   - "table reader_authored_questions"
-schema_head: 250
+schema_head: 251
 table_name: "reader_authored_questions"
 table_role: "workflow"
 functionality_status: "active"
@@ -157,6 +157,8 @@ Indexes and uniqueness:
 - `tests/test_salience_firewall.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad23_contract.py`
+- `tests/test_mobile_phone_contract.py`
+- `tests/test_mobile_v4_codex_review.py`
 - `tests/test_reader_quick_check.py`
 - `tests/test_reader_rw1b_review.py`
 - `tests/test_reading_hardening_landing.py`

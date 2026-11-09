@@ -84,6 +84,8 @@ pythonpath = ["src"]
 addopts = ["--strict-markers"]
 markers = [
   "durability: use production SQLite durability and fresh vault construction for the test and every fixture it first builds",
+  "slow: a long simulation, journey or render; runs in the full suite and every landing gate, and -m 'not slow' leaves it out while iterating",
+  "fresh_connections: runs production's connection opens and fresh-schema build in the fast lane instead of the lane's shortcuts (tests/connection_reuse.py); for a test about connection identity or open-time behaviour",
   "owner_vaults: reads backup-API copies of the owner's vaults that S0 removed from fixtures/; skipped unless LEARNLOOP_OWNER_VAULTS names their directory (tests/owner_vaults.py)",
   "gpu_smoke: trains a tiny random-initialised query student on the GPU under the GPU lock and the memory floors; skipped unless LEARNLOOP_GPU_SMOKE=1 (tests/test_query_student_gpu.py)",
 ]
@@ -655,6 +657,7 @@ source_modules = [
     "learnloop.lesson_opportunity_upgrade",
     "learnloop.lesson_offers_upgrade",
     "learnloop.phone_probes_upgrade",
+    "learnloop.failure_share_upgrade",
     "learnloop.route_rules_upgrade",
     "learnloop.scheduling",
     "learnloop.serve_eligibility",

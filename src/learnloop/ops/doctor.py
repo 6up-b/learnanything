@@ -112,6 +112,9 @@ class DoctorReport:
     #: Journal mode, ``-wal`` size and filesystem of the state database, read
     #: from the header, ``stat`` and the mount table without opening it.
     storage: DatabaseStorage | None = None
+    #: Per model route (call purpose), its last completed call and the
+    #: failures since (``learnloop.ops.model_routes``); None without receipts.
+    model_routes: list[dict[str, Any]] | None = None
 
     @property
     def clean(self) -> bool:
@@ -139,6 +142,7 @@ class DoctorReport:
             "deprecated_table_row_counts": self.deprecated_table_row_counts,
             "contract_reachability": self.contract_reachability,
             "storage": self.storage.as_dict() if self.storage else None,
+            "model_routes": self.model_routes,
         }
 
 
@@ -171,6 +175,10 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
             issues,
         )
         _check_retired_keep_local(repository, database_tables, issues)
+    model_routes = (
+        _check_model_routes(config, repository, issues)
+        if repository is not None and "model_call_receipts" in database_tables else None
+    )
     _recover_apply_intents(
         paths,
         repository,
@@ -201,6 +209,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
             ai_runtime=ai_runtime,
             deprecated_table_row_counts=deprecated_table_row_counts,
             storage=storage,
+            model_routes=model_routes,
         )
 
     issues.extend(_from_loader_issue(issue) for issue in vault.issues)
@@ -241,7 +250,29 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         deprecated_table_row_counts=deprecated_table_row_counts,
         contract_reachability=reachability,
         storage=storage,
+        model_routes=model_routes,
     )
+
+
+def _check_model_routes(
+    config: LearnLoopConfig, repository: Repository, issues: list[HealthIssue],
+) -> list[dict[str, Any]]:
+    """Each model route's last completed call and failures since, from receipts.
+
+    A warning only for a route that failed since its provider/model last
+    changed with nothing completed since (or never completed); the facts for
+    every route go in the report (``model_routes``). Read-only.
+    """
+
+    from learnloop.ops.model_routes import FINDING_CODE, check_model_routes
+
+    configured = {name: getattr(profile, "model", None) for name, profile in config.ai.providers.items()}
+    routes = check_model_routes(repository, configured)
+    for route in routes:
+        if route.flagged:
+            issues.append(_issue("warning", FINDING_CODE, route.message(), entity_id=route.purpose,
+                                 details=route.as_dict()))
+    return [route.as_dict() for route in routes]
 
 
 def _check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None:

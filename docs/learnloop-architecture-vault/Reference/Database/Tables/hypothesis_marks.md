@@ -3,13 +3,13 @@ title: "hypothesis_marks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
+source_commit_timestamp: "2026-11-09T14:25:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_marks"
   - "table hypothesis_marks"
-schema_head: 250
+schema_head: 251
 table_name: "hypothesis_marks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `tests/test_hypothesis_marks.py`
 - `tests/test_hypothesis_marks_context.py`
 - `tests/test_hypothesis_marks_migration.py`
+- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

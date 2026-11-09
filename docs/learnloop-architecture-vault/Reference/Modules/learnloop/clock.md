@@ -176,10 +176,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `parse_utc`; statically calls `parse_utc`
-- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]] — imports `parse_utc`; statically calls `parse_utc`
@@ -258,6 +258,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `parse_utc`; statically calls `parse_utc`
@@ -340,6 +341,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/ops/model_routes|learnloop.ops.model_routes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Clock`
@@ -406,6 +408,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/router_objective/combiner_data|learnloop.router_objective.combiner_data]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `Clock`
@@ -482,6 +485,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -545,7 +549,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 439 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 443 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -822,6 +826,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_configured_share_is_the_ledgers_cap_and_one_point_zero_disables_it`
   - `test_trace_evidence_report_surfaces_unexercised_cells_and_abstains_on_concentration`
   - `test_trace_evidence_turns_the_supporting_target_into_embedded_credit`
+- [tests/test_connection_reuse.py](../../../../../tests/test_connection_reuse.py) — direct import
+  - `test_a_copied_fresh_schema_matches_a_built_one_and_stamps_this_builds_clock`
 - [tests/test_constraint_engine.py](../../../../../tests/test_constraint_engine.py) — direct import
 - [tests/test_contamination_report.py](../../../../../tests/test_contamination_report.py) — direct import
   - `test_a_reader_reveal_before_the_assessment_was_taken_stays_in_the_report`
@@ -1199,6 +1205,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_identifiability_doctor.py](../../../../../tests/test_identifiability_doctor.py) — direct import
   - `test_graph_identifiability_report_and_probe_scheduling`
   - `test_pre_first_practice_doctor_watermark`
+- [tests/test_ih6_workbench_open_item.py](../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_days_start_is_local_midnight_on_daylight_saving_change_days`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_only_a_miss_since_the_last_lesson_counts`
 - [tests/test_import_split_parity.py](../../../../../tests/test_import_split_parity.py) — direct import
 - [tests/test_ingest_instrument_gates.py](../../../../../tests/test_ingest_instrument_gates.py) — direct import
   - `test_apply_stamps_coverage_boundary_and_later_rebuilds_add_nothing`
@@ -1211,6 +1222,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_runner.py](../../../../../tests/test_ingest_runner.py) — direct import
   - `test_goal_population_handler_generates_and_applies_practice`
 - [tests/test_init.py](../../../../../tests/test_init.py) — direct import
+- [tests/test_instruct_handoff_ih0.py](../../../../../tests/test_instruct_handoff_ih0.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
 - [tests/test_intent_checks.py](../../../../../tests/test_intent_checks.py) — direct import
   - `test_an_attempt_before_the_date_does_not_answer_the_check`

@@ -252,6 +252,12 @@ def plan_view(
         if next_step and next_step.get("kind") == "waiting" and record.is_open
         else None
     )
+    # IH6: a read held this boundary for an open workbench. No block is being chosen, so nothing here polls.
+    question = (
+        {key: next_step.get(key) for key in ("workbench_session_id", "practice_item_id", "learning_object_title")}
+        if next_step and next_step.get("kind") == "question_in_progress" and record.is_open
+        else None
+    )
     projected = project_blocks(record, context, env.policy)
     plan_blocks = [_block_row(env, record, block, current_id) for block in record.blocks]
     day = day_records(env)
@@ -309,7 +315,7 @@ def plan_view(
         "current_block_id": current_id,
         # Router R2b: the next block is being chosen (its models are still out
         # on a read); a serving step decides it, waiting a few seconds at most.
-        "deciding": bool(record.is_open and current is None and waiting is None
+        "deciding": bool(record.is_open and current is None and waiting is None and question is None
                          and not (device and next_step is not None)),
         # UX Phase 4 round 7: nothing to do until a hold lifts later today
         # (the waiting step: when, and on what).
@@ -325,6 +331,8 @@ def plan_view(
         "estimator_version": record.row.get("estimator_version"),
         "algorithm_version": record.row.get("algorithm_version"),
     }
+    if question is not None:
+        payload["question_in_progress"] = question
     if getattr(env.policy, "soft_budget", False):
         # Router objective RO4 (spec §8.2): the plan's minutes are a suggestion. minutes_left may go negative,
         # shown as minutes past the plan; the projected list stays the plan's finite list as first shown.

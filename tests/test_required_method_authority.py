@@ -227,7 +227,7 @@ class StatementDecider:
 
     provider_name = "openrouter_decider"
     provider_type = "decider"
-    model = "perplexity/pplx-decider-v1.1-27b"
+    model = "perplexity/pplx-decider-v1.2"
     settings = SimpleNamespace(price_per_million_input=0.02)
 
     def __init__(self, probabilities):

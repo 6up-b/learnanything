@@ -208,6 +208,32 @@ _V3 = (
     _v3_short("followup_next", retry_safe=False),
 )
 
+#: Spec_instruct_handoff_v1 §3a (IH0): start the next boundary's objective job while feedback shows. Writes nothing and
+#: returns no step, so it isn't the peek the phone doesn't make (mobile v2 §4.5). Short: it returns once the job is
+#: started, and the model calls run on the job's own threads. Not retried: the phone ignores a failure, and the serve
+#: decides as it did before.
+_IH0 = (
+    MobileMethod("plan_prefetch", "IH0", "short", False, _no_constraint),
+)
+
+def _preference_key_required(params: Mapping[str, Any]) -> None:
+    """IH3: the phone names its choice's own key (``preference_id``), so a retried send is answered as it was made and
+    writes once: that is what makes the method safe to retry."""
+
+    key = _fields(params).get("preference_id")
+    if not isinstance(key, str) or not key.strip():
+        raise ParamRejected("preference_id", "preference_id is required")
+
+
+#: Instruct hand-off IH3 (spec_instruct_handoff_v1 §6): "Something else would help". The options are a read of what the
+#: plan could do (it draws nothing); the choice is a plan write that names its own key, serves a practice block the
+#: phone can show and, for a lesson or a reading, only logs it (the phone's lessons are V6's, its reader V4's).
+_IH3 = (
+    MobileMethod("plan_something_else_options", "IH3", "short", True, _no_constraint),
+    MobileMethod("plan_something_else", "IH3", "short", True, _preference_key_required),
+)
+
+
 def _v4_short(name: str, *, retry_safe: bool, constraints=_no_constraint) -> MobileMethod:
     return MobileMethod(name, "V4", "short", retry_safe, constraints)
 
@@ -264,7 +290,7 @@ _V4 = (
     _v4_short("get_source_library", retry_safe=True),
 )
 
-ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2, *_V3, *_V4)})
+ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2, *_V3, *_V4, *_IH0, *_IH3)})
 
 #: Mobile v2 V4: what ``phone_reader`` off refuses (``phone_reader_off``): the phone is V3's.
 READER_METHODS = frozenset(entry.name for entry in _V4)
@@ -286,7 +312,8 @@ def check_probe_parameters(name: str, params: Mapping[str, Any], *, phone_probes
 #: (``phone_plan_off``), and the phone's Today is M2a's queue again.
 PLAN_METHODS = frozenset({
     "get_daily_plan", "get_today_headline", "get_start_summary", "next_plan_item", "set_plan_minutes",
-    "plan_keep_going", "plan_more_new", "plan_reading_ended", "plan_learner_pick",
+    "plan_keep_going", "plan_more_new", "plan_reading_ended", "plan_learner_pick", "plan_prefetch",
+    "plan_something_else_options", "plan_something_else",
 })
 
 #: The phone's API generation (mobile v2 §5.2). v2 adds methods and endpoints and changes no

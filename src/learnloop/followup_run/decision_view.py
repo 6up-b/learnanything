@@ -37,6 +37,8 @@ def _parsed(value: Any) -> Any:
 
 
 def _label(ref: str) -> str:
+    if ref.startswith("lesson_offer:"):
+        return "lesson"  # IH2: a lesson offer among the arms
     return _ARMS.get(ref, ref.replace("_", " "))
 
 

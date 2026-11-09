@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/reader.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/reader.py"
-source_commit: "10b97d10622459d0e8b9cf6ceb6fcc944f44b2e1"
-source_commit_timestamp: "2026-11-08T22:27:07-05:00"
+source_commit: "38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0"
+source_commit_timestamp: "2026-11-09T06:12:48-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `10b97d10622459d0e8b9cf6ceb6fcc944f44b2e1` |
-| Commit timestamp | `2026-11-08T22:27:07-05:00` |
+| Source commit | `38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0` |
+| Commit timestamp | `2026-11-09T06:12:48-05:00` |
 
 ## Public API
 

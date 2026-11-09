@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/db/storage.py"
   - "src/learnloop/db/table_roles.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-08T22:51:11-05:00"
+source_commit_timestamp: "2026-11-09T06:12:48-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db"
@@ -55,13 +55,13 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/db/__init__|learnloop.db]] | [[Reference/Modules/learnloop/db/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] | [[Reference/Modules/learnloop/db/checkpoint#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 180 | 226 |
-| [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 62 |
-| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 89 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 404 | 670 |
-| [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 4 |
+| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 180 | 230 |
+| [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 63 |
+| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 92 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 405 | 674 |
+| [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 5 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
-| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 75 |
+| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 77 |
 
 ## Child package maps
 
@@ -83,8 +83,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 29 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 26 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 26 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 25 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 25 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 21 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 19 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 19 static module edges
@@ -144,8 +144,8 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_substrate["learnloop.substrate"]
-    n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_ops["learnloop.ops"]
@@ -154,8 +154,8 @@ flowchart LR
     n_learnloop_scheduling -->|29| center
     n_learnloop_cli -->|27| center
     n_learnloop_substrate -->|26| center
+    n_learnloop_sidecar_handlers -->|26| center
     n_learnloop_instructional -->|25| center
-    n_learnloop_sidecar_handlers -->|25| center
     n_learnloop_learner -->|21| center
     n_learnloop_curriculum -->|19| center
     n_learnloop_ops -->|19| center

@@ -94,6 +94,8 @@ class LessonTurnInput(ParamsModel):
     # TE1b: a router suggestion's Start (the decision; ``lesson_id`` is the id its response recorded)
     origin: Literal["learner_pick", "router_suggestion"] = "learner_pick"
     suggestion_decision_id: str | None = None
+    # IH7 (the owner's decision 2, Nov 9): a topic's lesson the learner asked for with "learn this" names its preference
+    preference_id: str | None = Field(default=None, max_length=80)
     # reply / answers
     text: str | None = None
     answer: str | None = None
@@ -232,7 +234,8 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                 origin="router" if suggested else "learner_pick",
                 origin_ref=params.suggestion_decision_id if suggested else None,
                 lesson_id=params.lesson_id if suggested else None,
-                add_topics=params.add_topics, subject_id=params.subject_id)
+                add_topics=params.add_topics, subject_id=params.subject_id,
+                preference_id=None if suggested else params.preference_id)
         else:
             if not params.lesson_id:
                 raise SidecarError("validation_error", "lesson_id is required.")

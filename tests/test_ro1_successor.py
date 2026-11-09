@@ -53,8 +53,8 @@ def test_the_successor_is_one_constant_after_fg1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.45"
     # Router objective RO4 (mvp-0.47), RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2
     # (mvp-0.51) landed after it and keep it.
-    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.54"
-    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54"})
+    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-10] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.55"
+    assert INTERVAL_FACTOR_VERSIONS == frozenset({TAG, "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55"})
 
 
 def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
@@ -64,6 +64,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     # main's mvp-0.45 value at 90a2f430c9 (FG1c and RO0 landed), frozen here: dropping RO1's keys reproduces it.
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
+    from tests.test_ih5_successor import drop_ih5_keys
+
+    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
     section = dumped["router_objective"]
     assert (section.pop("available_at_reads"), section.pop("self_report_not_validated")) == (True, True)
     # Router objective RO4 (mvp-0.47): its switch and seeds are in every snapshot, inert below its tag.
@@ -89,6 +92,12 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_te3b_successor import drop_te3b_keys
 
     drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
+    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
+    assert dumped["router"]["timeout_seconds"] == 40.0
+    dumped["router"]["timeout_seconds"] = 8.0
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "ec22e2fc1e80ca9df220fe21ca66c5bb1166aedee8ce48b7eea38793e9ef83f7"
 
@@ -123,8 +132,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.phone_probes_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.phone_probes_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval(tmp_path):

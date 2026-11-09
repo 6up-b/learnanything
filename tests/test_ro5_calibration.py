@@ -208,6 +208,7 @@ def _grade_answers(env, day: int) -> None:
         connection.commit()
 
 
+@pytest.mark.slow
 def test_the_first_week_on_a_copy_shaped_synthetic_vault(tmp_path):
     """Seven days at the default arms (coin 0.05 each way, one embedded check a day), both policies answering, one
     day with no session. Printed for the stage record; the assertions are the arms' accounting."""

@@ -40,6 +40,15 @@ def binding(connection: Any, decision_id: str) -> dict[str, Any] | None:
         "SELECT response, candidate_ref, lesson_id, responded_at FROM router_suggestion_responses WHERE decision_id = ? "
         "AND response IN ('accepted', 'chose_alternative', 'declined', 'ignored')", (decision_id,)).fetchone()
     if response is None:
+        # IH2: taken back by the plan: a newer decision replaced it, or a withdrawal. Never the learner's answer.
+        taken_back = connection.execute(
+            "SELECT detail_json, responded_at FROM router_suggestion_responses WHERE decision_id = ? AND response = 'expired'",
+            (decision_id,)).fetchone()
+        detail = json.loads(taken_back[0] or "{}") if taken_back is not None else {}
+        if detail.get("superseded_by_decision"):
+            out["response"] = {"response": "superseded", "by": detail["superseded_by_decision"], "at": taken_back[1]}
+        elif detail.get("withdrawn") == "never_shown":
+            out["response"] = {"response": "never_shown", "at": taken_back[1]}
         return out
     out["response"] = {"response": response[0], "candidate_ref": response[1], "at": response[3]}
     if not response[2] or not _has(connection, "lessons"):
@@ -75,8 +84,8 @@ def build(connection: Any) -> dict[str, Any]:
     curve: Any = "placeholder"
     drawn_ids: list[str] = []
     for decision_id, chosen, raw in connection.execute(
-            "SELECT decision_id, chosen_ref, trace_json FROM router_objective_traces WHERE decision_kind = 'plan_block' "
-            "ORDER BY created_at, id"):
+            "SELECT decision_id, chosen_ref, trace_json FROM router_objective_traces "
+            "WHERE decision_kind IN ('plan_block', 'plan_interrupt') ORDER BY created_at, id"):
         trace = json.loads(raw)
         offers = {ref: entry for ref, entry in (trace.get("candidates") or {}).items() if str(ref).startswith(PREFIX)}
         if not offers:

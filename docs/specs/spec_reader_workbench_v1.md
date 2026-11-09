@@ -14,7 +14,7 @@
 - **Embeddings shortlist, judges decide** (`spec_embedding_consumers_v1.md` §1, R1–R6). No cosine cutoff is hand-set and no calibrator is built.
 - **Your questions and hints are the placement signal** (frictionless S5): they show where the learner is shaky, and asking never lowers the record.
 - **No artificial count caps** (owner, 2026-10-12): value of information, time and money bound how much LearnLoop does. Display limits that protect attention (the cue density) are labelled as such and the learner can change them.
-- **Codex on the owner's ChatGPT subscription** may run every paid LLM role, recorded as `estimated_only`. The Decider is `perplexity/pplx-decider-v1.1-27b` on OpenRouter (router R0, merged). The ChatGPT-plan provider (merged on `main` at `57d31c63`; the owner's sign-in pending) is the fast route for short structured calls.
+- **Codex on the owner's ChatGPT subscription** may run every paid LLM role, recorded as `estimated_only`. The Decider is `perplexity/pplx-decider-v1.2` on OpenRouter (router R0, merged; v1.1-27b until 2026-11-09). The ChatGPT-plan provider (merged on `main` at `57d31c63`; the owner's sign-in pending) is the fast route for short structured calls.
 
 **Relationship to other specs:**
 

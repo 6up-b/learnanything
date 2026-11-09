@@ -657,3 +657,17 @@ def create_daily_plan_vault(
         append_config_toml(paths.root, plan_toml)
     vault = load_vault(paths.root)
     return VaultPaths(vault.root, vault.config)
+
+
+def undo_decider_v12(dumped: dict) -> dict:
+    """Put back the decider model a frozen defaults digest was taken with.
+
+    Decider v1.2 (docs/reviews/decider-v1-2.md) moves the code-default
+    ``openrouter_decider`` profile's model in every defaults snapshot, with no
+    successor; digests frozen before it hold the v1.1 slug.
+    """
+
+    profile = dumped["ai"]["providers"]["openrouter_decider"]
+    assert profile["model"] == "perplexity/pplx-decider-v1.2"
+    profile["model"] = "perplexity/pplx-decider-v1.1-27b"
+    return dumped

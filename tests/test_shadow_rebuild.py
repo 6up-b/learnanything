@@ -17,7 +17,7 @@ from learnloop.vault.loader import load_vault
 
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_250"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_251"
 )
 
 
@@ -173,3 +173,30 @@ def test_legacy_rebuild_command_keeps_json_shape_and_writes_one_receipt(tmp_path
         "marker_id",
     }
     assert _receipt_count(database) == receipts_before + 1
+
+
+def test_a_live_database_that_changes_during_the_run_is_refused(tmp_path):
+    """The isolation guard itself. A shadow rebuild is trusted because it refuses to report over a live database that
+    moved under it, and every other test here only sees the guard stay silent."""
+
+    import sqlite3
+    from contextlib import closing
+
+    import pytest
+
+    from learnloop.substrate.shadow_rebuild import LiveDatabaseChangedError
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    live = Path(paths.sqlite_path)
+
+    def write_to_live(_vault, _repository):
+        with closing(sqlite3.connect(live)) as connection:
+            connection.execute("CREATE TABLE IF NOT EXISTS moved_under_the_shadow(n)")
+            connection.commit()
+
+    with pytest.raises(LiveDatabaseChangedError):
+        shadow_rebuild(vault, observe=write_to_live)
+    # The control: the same hook that only reads passes.
+    assert shadow_rebuild(vault, observe=lambda _vault, _repository: None).live_database_unchanged

@@ -303,7 +303,7 @@ It never refreshes a screen under an answer being typed (the desktop's R2 rule).
 - **Prefetch:**
   - the next reader section and its page images;
   - the feedback bundle the moment a submit completes;
-  - while feedback is being read, the next plan step as a **non-serving peek** (`next_plan_item{serve: false}`), *if* the V2 build confirms the peek writes nothing that depends on being shown. If it writes decision rows, there is no peek, and Next shows *Choosing what's next…*.
+  - while feedback is being read, the next plan step as a **non-serving peek** (`next_plan_item{serve: false}`), *if* the V2 build confirms the peek writes nothing that depends on being shown. If it writes decision rows, there is no peek, and Next shows *Choosing what's next…*. It does, so there is no peek. `plan_prefetch` (`spec_instruct_handoff_v1.md` §3a) starts the decision's model calls instead: it writes nothing and returns no step.
   - The router's decision depends on the outcome just graded, so it is never made before the grade.
 - **One warm connection.** A cheap `GET /healthz` on resume reopens the TLS connection while the screen renders from the cache.
 

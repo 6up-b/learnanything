@@ -385,6 +385,7 @@ def test_the_switch_off_is_the_landing_code_under_a_deadline(monkeypatch):
                          "on": (on.draws, _choice(on))})
 
 
+@pytest.mark.slow
 def test_the_switch_off_costs_the_landing_codes_work_on_every_shape(monkeypatch):
     """Off, every case and option evaluates exactly the landing code's sigmoid elements (so its time per draw) and
     gives its values bit for bit."""

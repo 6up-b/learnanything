@@ -1116,9 +1116,9 @@ class VoyageContextualEmbeddingProviderConfig(AIProviderConfig):
 DECIDER_PROFILE_TYPE = "decider"
 DEFAULT_DECIDER_PROVIDER = "openrouter_decider"
 DEFAULT_EMBEDDING_PROVIDER = "openrouter_embedding"
-DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.1-27b"
-# OpenRouter's listing for the model (checked 2026-10-12): $0.02 per million
-# input tokens, output free. Used for estimates; OpenRouter also reports cost.
+DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.2"  # pinned, never -latest; docs/reviews/decider-v1-2.md
+# OpenRouter's listing (checked 2026-11-09): $0.02 per million input tokens,
+# output free. Used for estimates; OpenRouter also reports cost.
 DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT = 0.02
 
 
@@ -4131,7 +4131,8 @@ class RouterConfig(BaseModel):
     k: int = Field(default=6, ge=2, le=64)
     epsilon_min: float = Field(default=0.02, ge=0.0, lt=0.5)
     ties_only: bool = False
-    timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
+    # Owner, Nov 8 2026: 40, up from 8. The LLM's calls took 11.6-15.8 s, so 8 discarded answers that were on the way.
+    timeout_seconds: float = Field(default=40.0, gt=0.0, le=120.0)
     prefetch_timeout_seconds: float = Field(default=45.0, gt=0.0, le=600.0)
     max_daily_cost_usd: float = Field(default=5.0, ge=0.0)
     sensors: bool = True
@@ -4208,6 +4209,40 @@ class RouterObjectiveConfig(BaseModel):
     switch (off, or below the tag, mvp-0.49 exactly). Router speed (at the same tag): ``held_ad_link`` (off, the
     batch's landing code exactly); its stage 2: ``held_reading_map`` and ``pooled_connections`` (off, main
     e9ceaf8d44's code exactly).
+
+    Instruct hand-off IH5 (mvp-0.55, spec_instruct_handoff_v1 §7a): ``failure_share_to_other_policy``: a failed
+    policy's share of the mix goes to the other policy instead of staged (both failed: staged, as before). Off, or
+    below the tag, mvp-0.54's mix exactly.
+
+    Instruct hand-off IH2 (the same tag, spec_instruct_handoff_v1 §5): ``lessons_compete_with_followups``: a lesson
+    offer and a follow-up compete in one logged decision wherever a lesson is available, at a block boundary and after
+    a miss. Off, or below the tag, mvp-0.54's boundary and follow-up decisions exactly.
+
+    Instruct hand-off IH3 (the same tag, spec_instruct_handoff_v1 §6): ``learner_preferences``: the quiet "Something
+    else would help" link, the learner's own pick of an action (served as a ``learner_pick`` decision) and the
+    ``router_learner_preferences`` ledger it writes. Off, or below the tag, the link is absent and nothing is served or
+    written, as mvp-0.54.
+
+    Instruct hand-off IH6 (the same tag, spec_instruct_handoff_v1 §7b): ``workbench_is_open_item``: while a workbench
+    problem of the plan's current practice session is open, a read of the plan writes no decision and starts no job, and
+    says a question is in progress; an explicit step still decides. Off, or below the tag, reads as mvp-0.54's.
+
+    Instruct hand-off IH7 (the same tag, spec_instruct_handoff_v1 §7c): ``lesson_sources_follow_diagnosis``: a lesson opened
+    from an offer or a suggestion with a recent miss on its topics also loads the source sections matching the diagnosed
+    confusion, beside the topic's linked ones. It changes what a lesson reads, not what the router decides. Off, or below
+    the tag, the brief is byte-identical to mvp-0.54's.
+
+    Instruct hand-off, the owner's decision 4 of Nov 9 (the same tag, spec_instruct_handoff_v1 §8):
+    ``lesson_candidate_after_cold_miss``: a topic with a missed cold check since its last lesson is a lesson candidate,
+    with no threshold on the miss's size, its count or its error type (the router decides with its own evidence), and its
+    reason says when ("On Nov 3, a check on it wasn't fully right."). Off, or below the tag, mvp-0.54's ``cold_failing`` rule
+    (the two latest cold checks below full) and its wording.
+
+    Instruct hand-off IH4 (the same tag, spec_instruct_handoff_v1 §7): ``preferences_inform_router``: what the learner said
+    would help updates the lesson offers' acceptance model (a request flagged unprompted), is frozen in each decision's
+    trace as a choice model's sensor, enters the numeric value through one coefficient learned from randomized draws
+    (``w_pref``, 0 until they support more), and goes on the LLM's card as the learner's own statements. Staged reads
+    nothing. Off, or below the tag, all of it as IH3 left it.
     """
 
     receipts: bool = True
@@ -4332,6 +4367,30 @@ class RouterObjectiveConfig(BaseModel):
     #: connections (``db.connection.reused_connections``); the same values, but faster input builds, so a deadline
     #: admits more draws (part of RO6's generator payload). Off: a connection opened at every ``connect()``.
     pooled_connections: bool = True
+    #: Instruct hand-off IH5 (mvp-0.55): with one policy failed the other takes the whole mix (the uniform floor
+    #: kept, propensities exact), instead of staged taking the failed policy's share. Off: mvp-0.54's mix.
+    failure_share_to_other_policy: bool = True
+    #: Instruct hand-off IH2 (mvp-0.55): lessons compete with follow-ups in one decision wherever a lesson is available
+    #: (the owner's decision of Nov 8). Off: forced follow-ups keep offers out and withdraw a drawn one, as mvp-0.54.
+    lessons_compete_with_followups: bool = True
+    #: Instruct hand-off IH3 (mvp-0.55): "Something else would help" (the owner's request of Nov 8): the learner may
+    #: choose the router's next action, which is served and logged as a learner pick beside the options then. Off: no
+    #: link, no write, as mvp-0.54.
+    learner_preferences: bool = True
+    #: Instruct hand-off IH6 (mvp-0.55): an open workbench is an open item (the owner's decision of Nov 8): a read of the
+    #: plan doesn't cross a boundary, or start its job, under one; Next, Begin and Continue still decide. Off: reads as
+    #: mvp-0.54.
+    workbench_is_open_item: bool = True
+    #: Instruct hand-off IH7 (mvp-0.55): a lesson opened from an offer or a suggestion with a recent miss on its topics
+    #: loads the sections matching the diagnosed confusion beside the topic's linked ones (the owner's decision of Nov 8).
+    #: Keyword retrieval only, no model call. Off: the brief is mvp-0.54's, byte for byte.
+    lesson_sources_follow_diagnosis: bool = True
+    #: The owner's decision 4 of Nov 9 (mvp-0.55): any missed cold check since the topic's last lesson makes it a lesson
+    #: candidate, with no threshold on size, count or error type; the router decides. Off: mvp-0.54's ``cold_failing`` rule.
+    lesson_candidate_after_cold_miss: bool = True
+    #: Instruct hand-off IH4 (mvp-0.55): preferences inform the acceptance model, the choice model's sensor, the numeric
+    #: value through a learned ``w_pref`` (no hand-set bonus) and the LLM's card (the owner's decisions of Nov 8).
+    preferences_inform_router: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

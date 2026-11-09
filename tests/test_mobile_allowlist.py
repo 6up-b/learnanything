@@ -24,6 +24,10 @@ V2_ALLOWED = frozenset({
 })
 #: Mobile v2 §8's V3 row (owner decision D3): a generated follow-up probe opened by Next on the phone.
 V3_ALLOWED = frozenset({"followup_next"})
+#: Spec_instruct_handoff_v1 §3a: the phone's start-only prefetch, gated with the plan's other methods.
+IH0_ALLOWED = frozenset({"plan_prefetch"})
+#: Spec_instruct_handoff_v1 §6 (IH3): "Something else would help": the options (a read) and the choice (a plan write).
+IH3_ALLOWED = frozenset({"plan_something_else_options", "plan_something_else"})
 #: Mobile v2 §8's V4 row (owner decision D4): the phone Reader (J7, J8 in the Reader, CA7's *as printed*), and the
 #: Read tab's book list.
 V4_ALLOWED = frozenset({
@@ -33,7 +37,7 @@ V4_ALLOWED = frozenset({
     # Codex review F9: a taken extra question is answered as the desktop's quick-check card answers it.
     "reader.authored_question_action",
 })
-PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED | V4_ALLOWED
+PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED | V4_ALLOWED | IH0_ALLOWED | IH3_ALLOWED
 
 
 def test_the_allowlist_is_the_m2_v2_v3_and_v4_rows_and_frozen():
@@ -104,10 +108,25 @@ def test_v3_a_probe_answer_is_the_hosts_switch():
     assert PROBE_METHODS == V3_ALLOWED and not ALLOWLIST["followup_next"].retry_safe
 
 
+def test_ih3_the_choice_names_its_own_key_so_a_retry_is_safe():
+    from learnloop_mobile.allowlist import PLAN_METHODS, ParamRejected, check_parameters
+
+    assert IH3_ALLOWED <= PLAN_METHODS
+    assert ALLOWLIST["plan_something_else_options"].retry_safe and ALLOWLIST["plan_something_else"].retry_safe
+    assert ALLOWLIST["plan_something_else"].kind == "short" and ALLOWLIST["plan_something_else"].milestone == "IH3"
+    base = {"kind": "new", "surface": "phone_today", "sessionId": "s"}
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["plan_something_else"], base)
+    with pytest.raises(ParamRejected):
+        check_parameters(ALLOWLIST["plan_something_else"], {**base, "preferenceId": "  "})
+    check_parameters(ALLOWLIST["plan_something_else"], {**base, "preferenceId": "k1"})
+
+
 def test_v2_constraints():
     from learnloop_mobile.allowlist import PLAN_METHODS, ParamRejected, check_parameters
 
-    assert PLAN_METHODS <= V2_ALLOWED
+    assert PLAN_METHODS <= V2_ALLOWED | IH0_ALLOWED | IH3_ALLOWED
+    assert "plan_prefetch" in PLAN_METHODS and ALLOWLIST["plan_prefetch"].kind == "short"
     assert ALLOWLIST["next_plan_item"].kind == "long"
     assert ALLOWLIST["trigger_regrade"].kind == "long"
     with pytest.raises(ParamRejected):
@@ -223,6 +242,9 @@ DAILY_PLAN_RPCS = (
     "plan_more_new",
     "plan_learner_pick",
     "get_today_headline",
+    "plan_prefetch",
+    "plan_something_else_options",
+    "plan_something_else",
 )
 DAILY_PLAN_EXTENDED_RPCS = ("get_today_queue", "reader.mark_section_progress")
 

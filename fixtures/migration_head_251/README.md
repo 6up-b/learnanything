@@ -37,6 +37,18 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Instruct hand-off IH3 (migration 251), `instruct/handoff`, 2026-11-08
+
+Renamed from `migration_head_250` on the instruct hand-off branch (base: IH2's commit on top of main at `ccb6573987`, head
+250). Numbered 251 here; renumbered at landing if another migration lands first (the number lives in the migration's file
+name, this directory's name, the head pins and `SCHEMA_HEAD` in the two reference scripts). `251_router_learner_preferences.sql`
+(one new table, `router_learner_preferences`, RAW_LEDGER, append-only by two triggers, three indexes; empty here) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked, sanitized `migration_head_250/state.sqlite`
+outside the checkout, under the test-helper upgrade allowance, which applied `[251]` only; `wal_checkpoint(TRUNCATE)`
+(0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; written into
+place from a backup-API copy in rollback mode, with no companion files. No row changes (only `schema_migrations` gains
+251); no existing object's definition changed. The head holds 229 through 251.
+
 ## Phone V3 (migration 250), `phone/v3-probes`, 2026-11-07
 
 Renamed from `migration_head_249` on phone V3's branch (base: main at `14b2ed09ab`, head 249). Numbered 250 while TE3b

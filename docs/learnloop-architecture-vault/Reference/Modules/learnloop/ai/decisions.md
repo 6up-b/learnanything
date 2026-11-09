@@ -185,6 +185,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt`
+  - `test_a_rejected_request_keeps_its_status_and_redacted_error_on_the_receipt`
+  - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
+  - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
   - `test_choice_answers_must_cover_the_asked_options`
   - `test_error_statuses_surface_without_parsing`
   - `test_fake_endpoint_answers_400_to_an_unknown_field_and_the_client_never_sends_one`

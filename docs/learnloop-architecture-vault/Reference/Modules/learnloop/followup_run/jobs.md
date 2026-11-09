@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/jobs.py"
 source_paths:
   - "src/learnloop/followup_run/jobs.py"
-source_commit: "dc5302d98cfcd397c2bb3678cdb2bf12f232164a"
-source_commit_timestamp: "2026-11-06T04:43:14-05:00"
+source_commit: "867897f2287300fc9267644fd4cb983021f5e273"
+source_commit_timestamp: "2026-11-08T21:16:02-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py) |
-| Source lines | 496 |
+| Source lines | 506 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `dc5302d98cfcd397c2bb3678cdb2bf12f232164a` |
-| Commit timestamp | `2026-11-06T04:43:14-05:00` |
+| Source commit | `867897f2287300fc9267644fd4cb983021f5e273` |
+| Commit timestamp | `2026-11-08T21:16:02-05:00` |
 
 ## Public API
 
@@ -67,7 +67,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reason: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 152) — §6.2: nothing passed.
 - `recover_workflow(vault: Any, repository: Repository, row: Mapping[str, Any], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 170) — §6.2's "Next never strands": a pending workflow whose diagnosis ended and whose job a crash lost gets that job; one whose job ended with the workflow still pending fails, with its failure line.
 - `recover_pending_workflows(vault: Any, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 194) — At startup: what a previous process committed and never handed off.
-- `reloaded(vault: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 477) — The vault with the item just written; its config stays the run's.
+- `reloaded(vault: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 487) — The vault with the item just written; its config stays the run's.
 
 ### Module constants
 
@@ -110,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None, attempt: int=MAX_GENERATION_ATTEMPTS) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 325)
 - `_author_client(vault: Any, clients: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 365) — The test seam's client, else the route's; never the Decider.
 - `_run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None, attempt: int=MAX_GENERATION_ATTEMPTS) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 374) — §5: the decision first and the item after it.
-- `_withdraw(repository: Repository, item_id: str | None, *, reason: str, workflow_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 487)
+- `_withdraw(repository: Repository, item_id: str | None, *, reason: str, workflow_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 497)
 
 ## Who imports or calls it
 
@@ -144,7 +144,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `retire_unbound`, `withdraw`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `module`; calls `enqueue_factor`, `enqueue_workflow`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `close_probe`, `finish`, `get`, `move`, `note`, `noted`, `release_feedback`, `set_fields`, `superseded`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `close_probe`, `finish`, `get`, `lose_to_lesson`, `move`, `note`, `noted`, `release_feedback`, `set_fields`, `superseded`
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `fulfil_need_from_sources`, `pending_causal_decision`; calls `fulfil_need_from_sources`, `pending_causal_decision`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 
@@ -188,6 +188,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
   - `test_r10_the_retry_is_the_workflows_one_so_no_third_call`
 - [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
 - [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
 
 ## Modification guidance

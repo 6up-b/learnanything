@@ -304,6 +304,7 @@ def _methods() -> list[str]:
     return sorted(name for name in METHOD_REGISTRY if name != "ai_use_fallback")
 
 
+@pytest.mark.slow
 def test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter(harness):
     """Over every registered RPC: nothing before any answer; after answering M's offer, only M."""
 

@@ -56,7 +56,7 @@ For system intent, use [[Learning System]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/sim/__init__|learnloop.sim]] | [[Reference/Modules/learnloop/sim/__init__#^module-purpose|purpose]] | `EVALUATION` | 0 | 0 |
-| [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]] | [[Reference/Modules/learnloop/sim/ad_gates#^module-purpose|purpose]] | `EVALUATION` | 0 | 1 |
+| [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]] | [[Reference/Modules/learnloop/sim/ad_gates#^module-purpose|purpose]] | `EVALUATION` | 0 | 2 |
 | [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] | [[Reference/Modules/learnloop/sim/ad_synthetic#^module-purpose|purpose]] | `EVALUATION` | 1 | 0 |
 | [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] | [[Reference/Modules/learnloop/sim/diagnostic_validation#^module-purpose|purpose]] | `EVALUATION` | 1 | 2 |
 | [[Reference/Modules/learnloop/sim/grader_confusion|learnloop.sim.grader_confusion]] | [[Reference/Modules/learnloop/sim/grader_confusion#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |

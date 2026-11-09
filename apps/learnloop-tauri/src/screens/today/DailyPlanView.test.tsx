@@ -243,6 +243,18 @@ it("while the next block is being chosen, says so and lets Begin decide it at on
   expect(props.onContinue).toHaveBeenCalledOnce();
 });
 
+it("IH6: says a question is in progress, never that a block is being chosen, and Begin still decides", () => {
+  const question = { workbenchSessionId: "wb", practiceItemId: "pi_q", learningObjectTitle: "ReLU" };
+  const onResumeQuestion = vi.fn();
+  const props = show(data(plan({ blocks: [], currentBlockId: null, deciding: false, firstBlock: null, questionInProgress: question })), { onResumeQuestion });
+  expect(screen.getByTestId("plan-in-progress").textContent).toContain("A question is in progress on ReLU.");
+  expect(screen.queryByTestId("plan-choosing")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "begin ↵" }));
+  expect(props.onContinue).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "resume ▸" }));
+  expect(onResumeQuestion).toHaveBeenCalledWith("pi_q");
+});
+
 it("offers no Begin while no block is being chosen", () => {
   show(data(plan({ blocks: [], currentBlockId: null, deciding: false, firstBlock: null })));
   expect(screen.getByTestId("plan-choosing")).toBeTruthy();
@@ -323,4 +335,17 @@ it("offers the router objective's trace on demand, in plain words (RO4)", async 
   });
   expect(explain).toHaveBeenCalledWith("dec_1");
   expect(screen.getByTestId("plan-block-objective-trace").textContent).toContain("what helps most");
+});
+
+it("IH3: one quiet link under the block's actions, only where the sidecar says so and a session is open", () => {
+  const onSomethingElse = vi.fn();
+  show(data(plan(), { somethingElse: true }), { sessionId: "sess1", onSomethingElse });
+  expect(screen.getByTestId("something-else-link").textContent).toBe("Something else would help");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  cleanup();
+  show(data(plan()), { sessionId: "sess1", onSomethingElse }); // the switch off: the plan carries no flag
+  expect(screen.queryByTestId("something-else")).toBeNull();
+  cleanup();
+  show(data(plan(), { somethingElse: true }), { onSomethingElse }); // no session to serve the choice into
+  expect(screen.queryByTestId("something-else")).toBeNull();
 });

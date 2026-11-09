@@ -108,7 +108,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `AITurnTimeout`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`; statically calls `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `AIInvalidOutput`, `AIProviderUnavailable`, `CodexUnavailable`; statically calls `AIInvalidOutput`, `AIProviderUnavailable`, `CodexUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/codex_lockdown|learnloop.ai.providers.codex_lockdown]] — imports `AIProviderUnavailable`
-- [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `AIInterrupted`, `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `AIInvalidOutput`, `AIOutputTruncated`, `CodexUnavailable`; statically calls `AIInvalidOutput`, `AIOutputTruncated`, `CodexUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]] — imports `AIProviderUnavailable`, `VideoGenerationFailed`, `VideoGenerationTimeout`; statically calls `AIProviderUnavailable`, `VideoGenerationFailed`, `VideoGenerationTimeout`
@@ -300,6 +300,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
+  - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
+  - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
   - `test_missing_key_and_oversized_state_refuse_before_any_request`
 - [tests/test_deliverable_codex_review.py](../../../../../../tests/test_deliverable_codex_review.py) — direct import
   - `test_f1_a_path_retry_after_protection_changed_is_never_sent`

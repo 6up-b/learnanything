@@ -260,6 +260,8 @@ sidecar_passthrough!(save_practice_draft, "save_practice_draft");
 // Adaptive hints H0: telemetry for an authored hint the practice screen revealed.
 sidecar_passthrough!(practice_record_hint_reveal, "practice.record_hint_reveal");
 sidecar_passthrough!(record_ask_availability, "record_ask_availability");
+// Instruct hand-off IH1: a lesson offer's card or page rendered (an `offer_shown` event on its block).
+sidecar_passthrough!(record_offer_shown, "record_offer_shown");
 // Router objective RO4: the "why" surface's trace on demand, and a goal's use weights.
 sidecar_passthrough!(router_objective_explain, "router_objective_explain");
 sidecar_passthrough!(set_goal_use_weight, "set_goal_use_weight");
@@ -1012,6 +1014,10 @@ sidecar_passthrough!(plan_keep_going, "plan_keep_going");
 sidecar_passthrough!(plan_more_new, "plan_more_new");
 
 sidecar_passthrough!(plan_learner_pick, "plan_learner_pick");
+
+// Instruct hand-off IH3: "Something else would help" (the options, then the chosen action).
+sidecar_passthrough!(plan_something_else_options, "plan_something_else_options");
+sidecar_passthrough!(plan_something_else, "plan_something_else");
 
 // Canonical sources (spec_source_practice_and_probes_v1): proposals, passages,
 // comparisons, textbook-exercise imports and the tutor's tool runs. Desktop only.

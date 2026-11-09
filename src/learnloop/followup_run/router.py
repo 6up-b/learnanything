@@ -24,9 +24,12 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
+from learnloop.followup_serve.gates import SERVING_SURFACE
 
 LOG = logging.getLogger(__name__)
 
+#: IH2: a drawn lesson offer's ref (``daily_plan.types.LESSON_OFFER_PREFIX``).
+LESSON_OFFER_PREFIX = "lesson_offer:"
 ASK_NOW = "insert_now"
 WAIT = "continue_current"
 NO_INTERVENTION = "no_intervention"
@@ -55,6 +58,13 @@ class FollowupDecision:
     plan_id: str | None = None
     plan_kind: str | None = None
     local_date: str | None = None
+    #: IH2 (spec_instruct_handoff_v1 §5 item 3): what a drawn lesson offer needs to become the plan's next step, in the
+    #: decision's transaction: ``(env, record id, candidate)``. None: no offer was drawn, or this is a recorded decision.
+    offer_placement: Any = None
+
+    @property
+    def lesson_offer(self) -> bool:
+        return self.chosen_ref.startswith(LESSON_OFFER_PREFIX)
 
     @property
     def refused(self) -> bool:
@@ -199,13 +209,22 @@ def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice
     # Waiting is a choice only when there is a block to finish and room after it (Codex review F8's rule).
     remaining = sum(entry.est_minutes for entry in block.items if not entry.resolved) if block is not None else 0.0
     wait_feasible = block is not None and record.minutes_left() - remaining > 0
+    # IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson available is one more arm of this decision. The phone serves no
+    # lesson until V6, so a miss on the phone's surface decides as before.
+    offer = None
+    if str(row.get("surface") or SERVING_SURFACE) == SERVING_SURFACE:
+        from learnloop.daily_plan.engine import interrupt_offer
+
+        offer = interrupt_offer(env, record, block)
     outcome = gate.decide_followup(record, block, row, wait_feasible=wait_feasible,
-                                   facts=_card_facts(vault, repository, choice, seen))
+                                   facts=_card_facts(vault, repository, choice, seen),
+                                   **({"offer": offer} if offer is not None else {}))
+    placement = (env, record.id, offer.candidate) if outcome.chosen_ref.startswith(LESSON_OFFER_PREFIX) else None
     return FollowupDecision(
         outcome.chosen_ref, outcome.chosen_ref, str(outcome.record.get("decided_by") or "mixture"),
         propensity=float(outcome.propensity), record=dict(outcome.record), why=outcome.why,
         wait_feasible=outcome.wait_feasible, decision_id=outcome.record.get("decision_id"), observational=seen,
-        **plan_fields,
+        offer_placement=placement, **plan_fields,
     )
 
 
@@ -241,6 +260,7 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
     row says stands, and nothing is written twice."""
 
     from learnloop.adaptive_difficulty.readiness import decision_state_fields
+    from learnloop.ids import new_ulid
     from learnloop.daily_plan import measurement as objectives
     from learnloop.data_capture.gates import serving_on
     from learnloop.followup_serve import workflow as wf
@@ -253,6 +273,9 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
         return decision
     decision_id: str | None = None
     now = utc_now_iso(clock)
+    # IH2: a follow-up that lost to a lesson is decided again later, on a receipt of its own naming that decision.
+    redraw_of = wf.lost_offer_decision(repository, str(row["id"]))
+    offer_block_id = new_ulid() if decision.lesson_offer else None
     # RO0 rows 9 and 13: the follow-up's LO, read before the transaction opens.
     state = decision_state.prepare(
         vault, repository, candidates=[{"learning_object_ids": [row["learning_object_id"]]}], session_id=row.get("session_id"),
@@ -260,7 +283,8 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
         clock=clock)
     try:
         with repository.atomic(), repository.connection() as connection:
-            logged = existing_followup_decision(connection, block_id=decision.block_id, workflow_id=str(row["id"]))
+            logged = existing_followup_decision(connection, block_id=decision.block_id, workflow_id=str(row["id"]),
+                                                redraw_of=redraw_of)
             if logged is not None:
                 decision = replace(decision, chosen_ref=str(logged["chosen_ref"]), propensity=float(logged["propensity"]))
                 store.update_workflow(connection, str(row["id"]), at=now, chosen_ref=decision.chosen_ref,
@@ -275,6 +299,8 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                 "refused": {"reasons": list(decision.refusals)} if decision.refusals else {},
                 "wait_feasible": decision.wait_feasible, "router_record": decision.record, "why": decision.why,
                 "observational": decision.observational, "decided_at": now, "config": vault.config,
+                **({"redraw_of": redraw_of} if redraw_of else {}),
+                **({"offer_block_id": offer_block_id} if offer_block_id else {}),
             })
             if decision_id is not None:
                 decision_state.record(connection, decision_id=decision_id, decision_kind="plan_interrupt", material=state,
@@ -287,7 +313,15 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                                        router_record=decision.record, config=vault.config,
                                        local_date=str(decision.local_date or ""), session_id=row.get("session_id"),
                                        at=now)
-            if decision_id is not None and serving_on(vault.config) and not decision.refused:
+            if decision_id is not None and decision.offer_placement is not None:
+                from learnloop.daily_plan.engine import place_interrupt_offer
+
+                env, record_id, candidate = decision.offer_placement
+                place_interrupt_offer(env, connection, record_id, candidate, decision_id=decision_id,
+                                      block_id=str(offer_block_id), why=decision.why,
+                                      why_kind=(decision.record or {}).get("offer_why_kind"),
+                                      propensity=decision.propensity)
+            if decision_id is not None and serving_on(vault.config) and not decision.refused and not decision.lesson_offer:
                 offered = (decision.record or {}).get("objective_followup")
                 # At the tag the frozen support is the objective decision's own (R5 (1), R8: the three arms, or
                 # ask-now alone with no room to wait); below it, FG1's arms as before.
@@ -305,6 +339,9 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
             return replace(decision, decision_id=decision_id)
     except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
         LOG.warning("follow-up decision not logged for %s", row["id"], exc_info=True)
+    if decision.lesson_offer:
+        # IH2: with no receipt there is no offer to answer, so the rules' pick, the follow-up, stands.
+        decision = replace(decision, chosen_ref=ASK_NOW, offer_placement=None)
     wf.set_fields(repository, str(row["id"]), chosen_ref=decision.chosen_ref, decision_id=None, clock=clock)
     return replace(decision, decision_id=None)
 

@@ -263,6 +263,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_registry_definition_change_is_a_new_bootstrap_and_repeats_reuse`
   - `test_revalidation_reuses_paid_vectors_and_makes_no_embedding_call`
 - [tests/test_guided_redo.py](../../../../../../tests/test_guided_redo.py) — direct import
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item`
 - [tests/test_inventory_merge_parallel.py](../../../../../../tests/test_inventory_merge_parallel.py) — direct import

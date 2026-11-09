@@ -157,6 +157,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_time_to_usable_wrong_prior`
   - `test_unrelated_topics_not_dragged`
   - `test_wrong_proposal_shrinks`
+- [tests/test_ad23_sim_smoke.py](../../../../../../tests/test_ad23_sim_smoke.py) — direct import
 
 ## Modification guidance
 
