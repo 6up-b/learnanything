@@ -2461,7 +2461,7 @@ export function FeedbackScreen({
     const showTier = f.criterionEvidence.some((row) => row.tier === "transfer");
     return (
       <div className="screen">
-        <div className="screen-scroll" style={{ padding: "14px 24px 20px" }}>
+        <div className="screen-scroll feedback-column">
           <IntentCheckFeedback check={f.intentCheck} onOpenStudied={onOpenStudied} />
           <ClaimCheckFeedback check={f.claimCheck} />
           {followup ? (
@@ -2753,7 +2753,7 @@ export function FeedbackScreen({
     // and one action on an error (the raw message stays in the log).
     return (
       <div className="screen">
-        <div className="screen-scroll" style={{ padding: "18px 24px", fontSize: 13 }}>
+        <div className="screen-scroll feedback-column" style={{ paddingTop: 18, paddingBottom: 18, fontSize: 13 }}>
           {feedbackLoadError ? (
             <div style={{ maxWidth: 720 }} role="alert">
               <div style={{ color: C.text, marginBottom: 12 }}>Couldn't load the feedback.</div>

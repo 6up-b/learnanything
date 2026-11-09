@@ -381,3 +381,14 @@ it("offers no dead link for a local source outside the library", async () => {
   await screen.findByText("guide.pdf");
   expect(screen.queryByText("open source")).toBeNull();
 });
+
+// Owner capture 2026-11-08: the feedback column stayed at the left edge of a
+// wide window. The scroll area's padding centres it; the class carries that
+// rule in app.css, and the real layout was checked in a browser.
+it("centres the feedback column in the window", async () => {
+  api.getTodayQueue.mockResolvedValue(queue([]));
+  api.getFeedback.mockResolvedValue(MISSED);
+  render(<FeedbackScreen {...props()} />);
+  const surface = await screen.findByTestId("feedback-surface");
+  expect(surface.closest(".screen-scroll")?.classList.contains("feedback-column")).toBe(true);
+});
