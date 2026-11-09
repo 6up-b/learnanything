@@ -72,18 +72,18 @@ only where opening episodes are ignored, so `placement.initial_probes = true` st
 
 ## The successor
 
-- **Tag** `mvp-0.56` (`UNEVIDENCED_RETURN_ALGORITHM_VERSION`, ONE constant), the next link after mvp-0.54 in
-  `SUCCESSOR_CHAIN`. Instruct/handoff claims mvp-0.55 and lands first. The chain has skipped a label before
-  (mvp-0.28). When IH lands, its merge puts mvp-0.55 between the two links; nothing here is renamed, only pins move.
+- **Tag** `mvp-0.56` (`UNEVIDENCED_RETURN_ALGORITHM_VERSION`, ONE constant), the next link after instruct/handoff's
+  mvp-0.55 in `SUCCESSOR_CHAIN` since the landing merge (built on a base where mvp-0.54 was the latest; nothing was
+  renamed, only pins moved: see "Landing onto main").
 - **Kill switch** `[placement] unevidenced_return` (default true; registry: structural/operational). Off, below the
-  tag, with placement off or with opening probes back on, every path is mvp-0.54's: the gate returns false, the
+  tag, with placement off or with opening probes back on, every path is the predecessor's (mvp-0.55 since the landing): the gate returns false, the
   return set is empty, no component is written, and the plan's branch reads only that component.
-- **Upgrade** `learnloop.unevidenced_return_upgrade`, the chain's journalled link (from mvp-0.54, or from mvp-0.9
-  onwards through the chain). The CLI and sidecar openers install it, and `learnloop upgrade` targets it by default.
+- **Upgrade** `learnloop.unevidenced_return_upgrade`, the chain's journalled link (from mvp-0.55 since the landing, or
+  from mvp-0.9 onwards through the chain). The CLI and sidecar openers install it, and `learnloop upgrade` targets it by default.
 - **No migration.** The change is serving only: nothing recorded changes meaning, and no replayer, projection or
   receipt reads the rule.
 - **Defaults**: every snapshot is recomputed, because the switch is a key of every effective config. Dropping the
-  key reproduces every snapshot recorded on main, and mvp-0.56's snapshot differs from mvp-0.54's by the tag alone.
+  key reproduces every snapshot recorded on main, and mvp-0.56's snapshot differs from its predecessor's by the tag alone.
 - **Receipt**: the returned item carries `components.unevidenced_return = 1.0` and the reason "back as learning: an
   earlier answer set no review and gave no evidence" in place of new material's.
 - **Logged propensities** stay exact. The build computes them over the queue as it stands, so a returned item is one
@@ -193,3 +193,102 @@ before each build. The cache itself is left for its own change.
   a returned item, as for new material). No test drives the router over one.
 - **Long-run behaviour.** After the returned item's next unprimed answer, it gets a review and its LO gets evidence,
   and the rule stops applying. This is tested on a synthetic vault only.
+
+## Landing onto main
+
+Landed onto main `0a6e8bda4e` (instruct/handoff's mvp-0.55, Decider v1.2, the test-suite audit, the refactor docs)
+by merge `a121b50fc6`, references regenerated in `f60df0bb89`.
+
+**The merge.** The chain is now mvp-0.54 -> mvp-0.55 (IH5's failure share) -> mvp-0.56. The upgrade link's
+predecessor is `failure_share_upgrade`; every gate stays "mvp-0.56 or later" (`UNEVIDENCED_RETURN_VERSIONS`), so with
+the switch off or below the tag serving is mvp-0.55's. All 47 defaults snapshots were recomputed from the merged tree
+(`defaults_fingerprint_for_version`). The frozen-digest tests keep every normalization from both sides
+(`drop_ih5_keys`, the 40 s router wait reset to 8.0, `undo_decider_v12`, `drop_unevidenced_return_keys`). Version pins
+moved so the latest tag is mvp-0.56; the pin conflicts and slice indexes were resolved by script (exact patterns), the
+rest with the editor. `tests/cli_surface.json`'s `upgrade --to` default is mvp-0.56. The new module joins the
+experiments-isolation import contract beside IH's. The references were regenerated, not hand-merged; two prose leaf
+counts (1192 -> 1193) were fixed by hand.
+
+### Gate
+
+| Step | Result |
+|---|---|
+| Targeted tests (204 files: placement, plan, every successor/upgrade, frozen-digest and defaults files, the IH tests, CLI surface and JSON, architecture, registry audit, public-tip guards) | first run 15 pin failures (merge slices and sets), fixed; the 15 files again: 329 passed, 6 skipped, 1 xfailed |
+| `lint-imports --no-cache` | 43 kept, 0 broken |
+| `db_generate_reference` / `db_validate_reference` | regenerated; errors `[]` (1193 configuration leaves) |
+| `module_generate` / `module_validate` | 1261 module notes; PASS |
+| `desktop_generate` / `desktop_validate` | 328 TS/TSX + 6 Rust; passed, reproducible |
+| `validate_vault.py` | passed (2260 notes) |
+| Config fingerprints | all 47 snapshots recomputed; the recomputation is idempotent |
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` | ok |
+| Full pytest (`-n 8 --dist worksteal`) | 30803 passed, 97 skipped, 47 xfailed, **2 failed, both reproduced on main `0a6e8bda4e` itself** (below) |
+| Durability lane (`-m durability -n 4`) | 417 passed, 1 skipped |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 91 passed, 4 skipped, 0 xfailed (main: 87 passed, 4 skipped, 1 xfailed; this change removes that xfail) |
+| Desktop / phone | no file under `apps/` changed: not run |
+
+The two full-suite failures, each rerun alone 3 times on this branch and 3 times on a clean export of main:
+
+- `test_codex_lockdown_round3.py::test_every_process_launch_site_is_approved`: fails 3/3 here and 3/3 on main. The
+  unreviewed launch sites are `scripts/refactor_measures.py` (`main`, `subprocess.run`), which main added (S0/Z2,
+  `db2c92aeda`) and this branch does not touch. It needs a launch-site review on main. It is not approved here.
+- `test_ro5_stop_coin.py::test_serving_records_each_coin_with_its_exact_probability_and_availability`: flaky, 1/3
+  fails here and 1/3 on main (a recorded probability rounded to 6 places against the exact one). It is not this
+  change.
+
+### Smoke
+
+In-process, on fresh backup-API copies of the Nov 9 backup (migration 250, mvp-0.54) in gitignored
+`fixtures-local/landing-placement-smoke/`. Each copy was opened (migration 251) and upgraded: with main's code to
+mvp-0.55 (`m55`), and with this branch to mvp-0.56 (`u56`; `off` is `u56` with `[placement] unevidenced_return =
+false`). Every AI route of each tree points at 127.0.0.1:9; the router LLM, the Decider, grading and diagnosis, the
+FG1 author and the lesson writer are the tests' in-process fakes. A socket guard logs every connection and refuses
+any that is not loopback. The drivers reuse the IH landing's (read-only copies).
+
+1. **Identity first: the switch off at mvp-0.56 equals main at mvp-0.55.** Set aside, on both sides alike: the
+   version label (mvp-0.55 / mvp-0.56) and the switch key `unevidenced_return` wherever a config record carries it.
+   The numeric policy's seed key drops its version field on both sides, as at earlier landings.
+   - Scheduler queue (no limit) and the plan's classified pool and new-material candidates, at the backup's noon and
+     three days later: equal on all three vaults at both moments.
+   - A served day at 2026-11-12 15:00 (the second item missed, FG1's follow-up authored, the first stop declined,
+     the mixture seed pinned): Today, the plan, every step, every submit and feedback, the router LLM and Decider
+     requests, the gates, the traces, and every written row are identical on arxiv_v2 (16 served), linear_algebra
+     (7) and probability (4).
+2. **The change.** On arxiv_v2, at the backup's noon nothing changes (the answers were shown within the cold
+   delay). Three days later the two stranded LOs' items return (`unevidenced_return = 1.0`): one takes the plan's
+   "new" lane and joins the new-material candidates, the other (an LO with an open diagnosed problem) takes the
+   repair lane. Nothing leaves the queue and no lane changes. The only other movement is the recorded knock-on: 12
+   new-material rows move one prerequisite layer later (`placement_layer` + 1), with equal priorities. The served day
+   at mvp-0.56 serves the returned repair item. linear_algebra and probability are unchanged at both moments, and
+   their served days at mvp-0.56 equal main's.
+3. **IH on a returned LO's topic** (arxiv_v2, 2026-11-12 15:00). The returned item was missed at mvp-0.56, and main
+   at mvp-0.55 missed a never-returned item at the same position. Both behave the same way. `plan_interrupt` holds
+   `insert_now` beside the lesson offer in one logged draw, with the same support and propensity (0.1181) for the
+   offer. The offer is the step right after feedback, `offer_shown` is written, and Start opens the lesson with
+   `sources_follow` recorded. With `insert_now` drawn, FG1 writes the follow-up on the returned LO's topic and opens
+   it. The boundary `followup_contest` decision was not reached by either tree in these scenarios (the follow-up
+   opens at once), so it was neither exercised nor changed.
+4. **Protection.** Both returned items were exam-reserved (an unreleased `exam_pool_items` row; learner protection
+   reads "exam or held-out material") on one copy, and held by a pending cold check ("a check waiting in the app") on
+   another. Then neither is in the queue, the plan's pool or the candidates, and neither is served in a 90-minute day
+   (12 and 13 items served).
+5. **`rebuild --shadow`** on fresh copies of m55, u56 and u56 after its served day, for all three vaults: exit 0 and
+   live unchanged every time. linear_algebra and probability show stamp-only mastery rows. arxiv_v2 shows
+   stamp-only mastery rows plus the pre-existing rows the IH landing noted: two mastery rows
+   (`lo_render_a_classifier_s_decision_regions`, `lo_trace_recursive_relu_folding`) and nine `pi_lesson_*` due dates.
+   They are the same at mvp-0.55 on main and at mvp-0.56 here. Nothing beyond them.
+6. **No real model call, no network.** Every receipt written by every smoke run is a fake's (`fake_decider`,
+   `fake_llm`, `fake`), so 0 are from a real model. The socket log shows no non-loopback connection and no name
+   lookup.
+
+### Owner steps
+
+1. Restart the desktop app and the phone host.
+2. Upgrade each vault to mvp-0.56: `learnloop upgrade --vault <path>` (the default target; from mvp-0.55, or from
+   mvp-0.9 onwards through the chain).
+3. To turn it off: `[placement] unevidenced_return = false` (serves mvp-0.55 exactly).
+
+### Open items
+
+- The `selection_rewards._SHAPE_CACHE` `id(vault)` bug stays a separate item.
+- Main's `scripts/refactor_measures.py` launch sites need a lockdown review (the persistent full-suite failure above).
+- `test_ro5_stop_coin`'s rounding flake, on main as here.
