@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/algorithm_versions.py"
 source_paths:
   - "src/learnloop/algorithm_versions.py"
-source_commit: "d602dc8472b09d92a6b854c9fbf969355b1ae1e0"
-source_commit_timestamp: "2026-11-08T20:56:56-05:00"
+source_commit: "4be77a51f600217467f5594eab9f98af4a2bd3e4"
+source_commit_timestamp: "2026-11-09T15:29:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,17 +50,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py) |
-| Source lines | 1207 |
+| Source lines | 1224 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `d602dc8472b09d92a6b854c9fbf969355b1ae1e0` |
-| Commit timestamp | `2026-11-08T20:56:56-05:00` |
+| Source commit | `4be77a51f600217467f5594eab9f98af4a2bd3e4` |
+| Commit timestamp | `2026-11-09T15:29:00-05:00` |
 
 ## Public API
 
-- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 943) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
+- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 955) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
 
 ### Module constants
 
@@ -112,55 +112,57 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LESSON_OFFERS_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 856)
 - `PHONE_PROBES_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 871)
 - `FAILURE_SHARE_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 884)
-- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 893)
-- `DIAGNOSIS_SPLIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 954)
-- `RECURRENCE_GROUP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 959)
-- `STUCK_PROMPT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 965)
-- `P0_SUCCESSOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 970)
-- `P0_PROJECTION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 971)
-- `CANONICAL_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 978)
-- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 985)
-- `DAILY_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 990)
-- `PROBE_TIE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 995)
-- `LEARNER_TEXT_GAP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1001)
-- `SOURCE_REFERENCE_GATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1005)
-- `SOURCE_FIRST_NEEDS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1009)
-- `ROUTE_RULES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1016)
-- `VOI_STOPPING_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1023)
-- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1027)
-- `ROUTER_STAGED_FRAME_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1032)
-- `ROUTER_MIXTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1038)
-- `METHOD_EXPLICIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1044)
-- `REGRADE_CONTRACT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1050)
-- `ELIGIBILITY_DECISION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1056)
-- `INTENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1061)
-- `ADAPTIVE_DIFFICULTY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1067)
-- `WORKBENCH_FIELD_SIGNALS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1073)
-- `READING_PATH_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1078)
-- `CLAIM_FIXES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1084)
-- `REPLAY_LEDGER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1089)
-- `ONE_ASK_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1095)
-- `SUPERSEDED_CLAIMS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1100)
-- `ATTEMPT_CONTENT_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1106)
-- `COLD_RETRY_RESCHEDULE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1111)
-- `READER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1116)
-- `DELIVERABLE_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1120)
-- `TEACHER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1123)
-- `HELP_FOLD_ATTACH_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1128)
-- `LESSON_SUGGESTIONS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1133)
-- `DATA_CAPTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1139)
-- `FOLLOWUP_SERVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1144)
-- `INTERVAL_FACTOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1151)
-- `ROUTER_OBJECTIVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1157)
-- `ROUTER_CALIBRATION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1163)
-- `ROUTER_LEARNED_TAIL_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1169)
-- `ROUTER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1174)
-- `TEACHER_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1179)
-- `LESSON_OPPORTUNITY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1186)
-- `LESSON_OFFERS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1192)
-- `PHONE_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1196)
-- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1202)
-- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1207)
+- `SLIP_GAP_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 895)
+- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 904)
+- `DIAGNOSIS_SPLIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 966)
+- `RECURRENCE_GROUP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 971)
+- `STUCK_PROMPT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 977)
+- `P0_SUCCESSOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 982)
+- `P0_PROJECTION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 983)
+- `CANONICAL_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 990)
+- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 997)
+- `DAILY_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1002)
+- `PROBE_TIE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1007)
+- `LEARNER_TEXT_GAP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1013)
+- `SOURCE_REFERENCE_GATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1017)
+- `SOURCE_FIRST_NEEDS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1021)
+- `ROUTE_RULES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1028)
+- `VOI_STOPPING_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1035)
+- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1039)
+- `ROUTER_STAGED_FRAME_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1044)
+- `ROUTER_MIXTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1050)
+- `METHOD_EXPLICIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1056)
+- `REGRADE_CONTRACT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1062)
+- `ELIGIBILITY_DECISION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1068)
+- `INTENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1073)
+- `ADAPTIVE_DIFFICULTY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1079)
+- `WORKBENCH_FIELD_SIGNALS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1085)
+- `READING_PATH_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1090)
+- `CLAIM_FIXES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1096)
+- `REPLAY_LEDGER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1101)
+- `ONE_ASK_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1107)
+- `SUPERSEDED_CLAIMS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1112)
+- `ATTEMPT_CONTENT_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1118)
+- `COLD_RETRY_RESCHEDULE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1123)
+- `READER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1128)
+- `DELIVERABLE_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1132)
+- `TEACHER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1135)
+- `HELP_FOLD_ATTACH_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1140)
+- `LESSON_SUGGESTIONS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1145)
+- `DATA_CAPTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1151)
+- `FOLLOWUP_SERVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1156)
+- `INTERVAL_FACTOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1163)
+- `ROUTER_OBJECTIVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1169)
+- `ROUTER_CALIBRATION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1175)
+- `ROUTER_LEARNED_TAIL_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1181)
+- `ROUTER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1186)
+- `TEACHER_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1191)
+- `LESSON_OPPORTUNITY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1198)
+- `LESSON_OFFERS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1204)
+- `PHONE_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1208)
+- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1214)
+- `SLIP_GAP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1219)
+- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1224)
 
 ## Internal implementation anchors
 
@@ -182,7 +184,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `REGRADE_CONTRACT_VERSIONS`, `SOURCE_REFERENCE_GATE_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `STUCK_PROMPT_VERSIONS`
 - [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `CLAIM_FIXES_ALGORITHM_VERSION`, `READING_PATH_PLAN_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`, `CLAIM_FIXES_ALGORITHM_VERSION`, `COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`, `DATA_CAPTURE_ALGORITHM_VERSION`, `DELIVERABLE_PLAN_ALGORITHM_VERSION`, `FAILURE_SHARE_ALGORITHM_VERSION`, `FOLLOWUP_SERVE_ALGORITHM_VERSION`, `HELP_FOLD_ATTACH_ALGORITHM_VERSION`, `INTERVAL_FACTOR_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LESSON_OFFERS_ALGORITHM_VERSION`, `LESSON_OPPORTUNITY_ALGORITHM_VERSION`, `LESSON_SUGGESTIONS_ALGORITHM_VERSION`, `ONE_ASK_ALGORITHM_VERSION`, `PHONE_PROBES_ALGORITHM_VERSION`, `READER_FOLLOWUPS_ALGORITHM_VERSION`, `READING_PATH_PLAN_ALGORITHM_VERSION`, `REPLAY_LEDGER_ALGORITHM_VERSION`, `ROUTER_CALIBRATION_ALGORITHM_VERSION`, `ROUTER_FOLLOWUPS_ALGORITHM_VERSION`, `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `ROUTER_OBJECTIVE_ALGORITHM_VERSION`, `SUPERSEDED_CLAIMS_ALGORITHM_VERSION`, `TEACHER_ALGORITHM_VERSION`, `TEACHER_PROBES_ALGORITHM_VERSION`, `WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`, `CLAIM_FIXES_ALGORITHM_VERSION`, `COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`, `DATA_CAPTURE_ALGORITHM_VERSION`, `DELIVERABLE_PLAN_ALGORITHM_VERSION`, `FAILURE_SHARE_ALGORITHM_VERSION`, `FOLLOWUP_SERVE_ALGORITHM_VERSION`, `HELP_FOLD_ATTACH_ALGORITHM_VERSION`, `INTERVAL_FACTOR_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LESSON_OFFERS_ALGORITHM_VERSION`, `LESSON_OPPORTUNITY_ALGORITHM_VERSION`, `LESSON_SUGGESTIONS_ALGORITHM_VERSION`, `ONE_ASK_ALGORITHM_VERSION`, `PHONE_PROBES_ALGORITHM_VERSION`, `READER_FOLLOWUPS_ALGORITHM_VERSION`, `READING_PATH_PLAN_ALGORITHM_VERSION`, `REPLAY_LEDGER_ALGORITHM_VERSION`, `ROUTER_CALIBRATION_ALGORITHM_VERSION`, `ROUTER_FOLLOWUPS_ALGORITHM_VERSION`, `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `ROUTER_OBJECTIVE_ALGORITHM_VERSION`, `SLIP_GAP_ALGORITHM_VERSION`, `SUPERSEDED_CLAIMS_ALGORITHM_VERSION`, `TEACHER_ALGORITHM_VERSION`, `TEACHER_PROBES_ALGORITHM_VERSION`, `WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`, `COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/config/template|learnloop.config.template]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `DAILY_PLAN_VERSIONS`, `DELIVERABLE_PLAN_VERSIONS`, `READING_PATH_PLAN_VERSIONS`
@@ -241,12 +243,13 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `ROUTER_FOLLOWUPS_ALGORITHM_VERSION`, `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `ROUTER_CALIBRATION_ALGORITHM_VERSION`, `ROUTER_LEARNED_TAIL_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `ROUTER_MIXTURE_ALGORITHM_VERSION`, `ROUTER_STAGED_FRAME_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `FAILURE_SHARE_VERSIONS`, `INTERVAL_FACTOR_VERSIONS`, `LESSON_OFFERS_VERSIONS`, `ROUTER_CALIBRATION_VERSIONS`, `ROUTER_FOLLOWUPS_VERSIONS`, `ROUTER_LEARNED_TAIL_VERSIONS`, `ROUTER_OBJECTIVE_VERSIONS`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `FAILURE_SHARE_VERSIONS`, `INTERVAL_FACTOR_VERSIONS`, `LESSON_OFFERS_VERSIONS`, `ROUTER_CALIBRATION_VERSIONS`, `ROUTER_FOLLOWUPS_VERSIONS`, `ROUTER_LEARNED_TAIL_VERSIONS`, `ROUTER_OBJECTIVE_VERSIONS`, `SLIP_GAP_VERSIONS`
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `INTERVAL_FACTOR_ALGORITHM_VERSION`, `ROUTER_OBJECTIVE_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `DECIDER_TIER1_ALGORITHM_VERSION`, `ROUTER_STAGED_FRAME_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `INTENT_VERSIONS`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `PROBE_TIE_VERSIONS`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `ELIGIBILITY_DECISION_VERSIONS`, `ONE_ASK_VERSIONS`
+- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `FAILURE_SHARE_ALGORITHM_VERSION`, `SLIP_GAP_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `PROOF_ROUTE_CHECK_ALGORITHM_VERSION`, `SOURCE_FIRST_NEEDS_ALGORITHM_VERSION`, `SOURCE_REFERENCE_GATE_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `DIAGNOSIS_SPLIT_ALGORITHM_VERSION`, `PLACEMENT_ALGORITHM_VERSION`, `RECURRENCE_GROUP_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`, `STUCK_PROMPT_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `REGRADE_CONTRACT_VERSIONS`
@@ -282,7 +285,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 83 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 84 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -632,6 +635,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_why_the_staged_chooser_writes_on_a_plan_is_plain`
 - [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor`
+- [tests/test_sg_slip_vs_gap.py](../../../../../tests/test_sg_slip_vs_gap.py) — direct import
+- [tests/test_sg_successor.py](../../../../../tests/test_sg_successor.py) — direct import
+  - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
+  - `test_the_successor_is_one_constant_after_instruct_handoff_and_the_latest`
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
   - `test_below_the_tag_and_with_the_switch_off_nothing_runs`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../tests/test_te3a_lesson_opportunity.py) — direct import

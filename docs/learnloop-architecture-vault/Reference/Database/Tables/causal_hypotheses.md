@@ -3,8 +3,8 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
-source_commit_timestamp: "2026-11-09T13:07:00-05:00"
+source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
@@ -143,6 +143,7 @@ Database triggers:
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/ops/capture_report.py`
 - `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/router_objective/miss_cause.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/substrate/recurrence_groups.py`
 - `src/learnloop/teacher/episodes.py`

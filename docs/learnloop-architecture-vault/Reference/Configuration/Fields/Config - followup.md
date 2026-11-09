@@ -3,8 +3,8 @@ title: "Config - followup"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
-source_commit_timestamp: "2026-11-09T13:07:00-05:00"
+source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml followup"
@@ -26,6 +26,7 @@ source_paths:
   - "tests/test_hypothesis_marks_context.py"
   - "tests/test_hypothesis_marks_migration.py"
   - "tests/test_ih7_lesson_sources_follow_diagnosis.py"
+  - "tests/test_sg_slip_vs_gap.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/followup"
@@ -46,8 +47,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `followup.generate_and_serve` | `true` | boolean | modeled default or validator seed | Turns generate and serve behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4424`; `src/learnloop/ai/plan_fallback.py:138` |
-| `followup.hypothesis_marks` | `true` | boolean | modeled default or validator seed | Turns hypothesis marks behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4425`; `src/learnloop/ai/plan_fallback.py:138` |
+| `followup.generate_and_serve` | `true` | boolean | modeled default or validator seed | Turns generate and serve behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4437`; `src/learnloop/ai/plan_fallback.py:138` |
+| `followup.hypothesis_marks` | `true` | boolean | modeled default or validator seed | Turns hypothesis marks behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4438`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -63,6 +64,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_hypothesis_marks_context.py`
 - `tests/test_hypothesis_marks_migration.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
+- `tests/test_sg_slip_vs_gap.py`
 
 ## Extension and modification guidance
 

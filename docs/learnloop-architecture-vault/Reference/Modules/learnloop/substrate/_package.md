@@ -82,7 +82,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] | [[Reference/Modules/learnloop/substrate/intervention_outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/substrate/item_fingerprints|learnloop.substrate.item_fingerprints]] | [[Reference/Modules/learnloop/substrate/item_fingerprints#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] | [[Reference/Modules/learnloop/substrate/model_usage#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] | [[Reference/Modules/learnloop/substrate/p0_projection#^module-purpose|purpose]] | `ACTIVE` | 42 | 2 |
+| [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] | [[Reference/Modules/learnloop/substrate/p0_projection#^module-purpose|purpose]] | `ACTIVE` | 43 | 2 |
 | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 6 | 82 |
 | [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] | [[Reference/Modules/learnloop/substrate/recurrence_groups#^module-purpose|purpose]] | `ACTIVE` | 12 | 17 |
 | [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] | [[Reference/Modules/learnloop/substrate/replay#^module-purpose|purpose]] | `ACTIVE` | 8 | 39 |
@@ -124,7 +124,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 43 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 44 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 19 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 19 static module edges
@@ -176,7 +176,7 @@ flowchart LR
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop -->|43| center
+    n_learnloop -->|44| center
     center -->|32| n_learnloop
     n_learnloop_diagnosis -->|22| center
     center -->|5| n_learnloop_diagnosis

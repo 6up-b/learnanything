@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/context.py"
 source_paths:
   - "src/learnloop_sidecar/context.py"
-source_commit: "38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0"
-source_commit_timestamp: "2026-11-09T06:12:48-05:00"
+source_commit: "4be77a51f600217467f5594eab9f98af4a2bd3e4"
+source_commit_timestamp: "2026-11-09T15:29:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0` |
-| Commit timestamp | `2026-11-09T06:12:48-05:00` |
+| Source commit | `4be77a51f600217467f5594eab9f98af4a2bd3e4` |
+| Commit timestamp | `2026-11-09T15:29:00-05:00` |
 
 ## Public API
 
@@ -226,7 +226,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `pending_review_instance_ids`; calls `pending_review_instance_ids`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`; calls `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`
-- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `help_kind_enabled`; calls `help_kind_enabled`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `recover_pending_workflows`; calls `recover_pending_workflows`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `pending_jobs`; calls `pending_jobs`
@@ -241,6 +240,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] — imports `module`; calls `sweep`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `workbench_is_open_item_on`; calls `workbench_is_open_item_on`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `help_converts_active`; calls `help_converts_active`
+- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `forget_fold_memo`, `refresh_canonical_projection_on_startup`; calls `forget_fold_memo`, `refresh_canonical_projection_on_startup`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `reconcile_practice_item_state`, `sync_vault_state`; calls `reconcile_practice_item_state`, `sync_vault_state`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `lessons_active`; calls `lessons_active`
@@ -617,6 +617,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_secondary_refuses_a_schema_it_would_have_to_migrate`
 - [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
 - [tests/test_session_ownership.py](../../../../../tests/test_session_ownership.py) — direct import
+- [tests/test_sg_successor.py](../../../../../tests/test_sg_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_sidecar_adjudication.py](../../../../../tests/test_sidecar_adjudication.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_configured_manual_grading_is_ready`

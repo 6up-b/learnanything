@@ -138,6 +138,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `BLOCK_MAX_MINUTES`, `BLOCK_MIN_MINUTES`, `BlockCandidate`, `LANES`, `LANE_ACTIONS`, `Lane`, `PlanState`, `ReadingTarget`; statically calls `BlockCandidate`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `BlockCandidate`, `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `BlockCandidate`, `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`; statically calls `BlockCandidate`
+- [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `LESSON_OFFER_SUBTYPE`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `BlockCandidate`, `BlockChoice`, `CONTINUE_CURRENT`, `DecisionPending`, `FOLLOWUP_CONTEST_NOTE`, `LESSON_OFFER_SUBTYPE`, `PlanState`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; statically calls `BlockChoice`, `DecisionPending`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `BlockCandidate`, `FOLLOWUP_CONTEST_NOTE`, `LESSON_OFFER_SUBTYPE`, `PlanState`, `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]] — imports `ReadingTarget`; statically calls `ReadingTarget`
@@ -168,7 +169,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 11 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -215,6 +216,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_malformed_choosers_fallback_block_gets_r1s_id`
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
 - [tests/test_router_r2c_teach_back.py](../../../../../../tests/test_router_r2c_teach_back.py) — direct import
+- [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
+  - `test_nothing_protected_or_answer_restating_reaches_the_card_and_probe_attempts_gain_the_cause`
+  - `test_off_and_below_the_tag_the_card_is_the_predecessors`
+  - `test_the_card_shows_offer_and_repair_topics_only_and_names_v4_only_with_an_entry`
+  - `test_the_interrupt_lines_fit_their_budget_heading_included`
+  - `test_the_whole_card_off_and_below_the_tag_is_byte_identical_and_on_differs_by_the_section_alone`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`
 - [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import

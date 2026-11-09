@@ -3,8 +3,8 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
-source_commit_timestamp: "2026-11-09T13:07:00-05:00"
+source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/hints/report_workbench.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/router_objective/miss_cause.py`
 - `src/learnloop/teacher/diagnosed_sources.py`
 - `src/learnloop/workbench/help_outcomes.py`
 
@@ -139,6 +140,7 @@ None found by exact static reference scan.
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_learner_text_gaps_flow.py`
+- `tests/test_sg_slip_vs_gap.py`
 - `tests/test_workbench_step_graph.py`
 - `tests/test_workbench_text_gaps.py`
 

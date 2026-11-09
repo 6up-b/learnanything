@@ -87,7 +87,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/learner/inference_precheck|learnloop.learner.inference_precheck]] | [[Reference/Modules/learnloop/learner/inference_precheck#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] | [[Reference/Modules/learnloop/learner/learner_profile#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] | [[Reference/Modules/learnloop/learner/learner_review_feed#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
-| [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] | [[Reference/Modules/learnloop/learner/lesson_weight#^module-purpose|purpose]] | `ACTIVE` | 10 | 8 |
+| [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] | [[Reference/Modules/learnloop/learner/lesson_weight#^module-purpose|purpose]] | `ACTIVE` | 12 | 8 |
 | [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] | [[Reference/Modules/learnloop/learner/mastery#^module-purpose|purpose]] | `ACTIVE` | 42 | 17 |
 | [[Reference/Modules/learnloop/learner/mastery_step_attribution|learnloop.learner.mastery_step_attribution]] | [[Reference/Modules/learnloop/learner/mastery_step_attribution#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/learner/measurement_state|learnloop.learner.measurement_state]] | [[Reference/Modules/learnloop/learner/measurement_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -143,6 +143,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 2 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 2 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 2 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 2 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge

@@ -3,8 +3,8 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
-source_commit_timestamp: "2026-11-09T13:07:00-05:00"
+source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/figures/prefetch.py`
 - `src/learnloop/router_objective/forecast_resolve.py`
+- `src/learnloop/router_objective/miss_cause.py`
 - `src/learnloop/router_objective/offer_report.py`
 - `src/learnloop/router_objective/preference_report.py`
 - `src/learnloop/teacher/report.py`
@@ -137,12 +138,12 @@ None found by exact static reference scan.
 - `tests/test_mobile_allowlist.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
+- `tests/test_sg_slip_vs_gap.py`
 - `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_te3b_binding.py`
 - `tests/test_te3b_clock.py`
 - `tests/test_te3b_population.py`
 - `tests/test_te3b_value.py`
-- `tests/test_teacher_te1_lesson.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

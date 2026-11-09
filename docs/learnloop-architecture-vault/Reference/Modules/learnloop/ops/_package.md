@@ -28,7 +28,7 @@ source_paths:
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T04:50:36-05:00"
+source_commit_timestamp: "2026-11-09T15:29:00-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -87,7 +87,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] | [[Reference/Modules/learnloop/ops/settings_store#^module-purpose|purpose]] | `ACTIVE` | 9 | 10 |
 | [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] | [[Reference/Modules/learnloop/ops/startup#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] | [[Reference/Modules/learnloop/ops/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] | [[Reference/Modules/learnloop/ops/vault_upgrade#^module-purpose|purpose]] | `ACTIVE` | 44 | 20 |
+| [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] | [[Reference/Modules/learnloop/ops/vault_upgrade#^module-purpose|purpose]] | `ACTIVE` | 45 | 20 |
 
 ## Child package maps
 
@@ -109,10 +109,10 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 4 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 4 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 3 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 2 static module edges
@@ -127,7 +127,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 42 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 43 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 17 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 10 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 8 static module edges
@@ -159,7 +159,7 @@ flowchart LR
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
-    n_learnloop -->|42| center
+    n_learnloop -->|43| center
     center -->|21| n_learnloop
     center -->|41| n_learnloop_ai
     center -->|41| n_learnloop_vault

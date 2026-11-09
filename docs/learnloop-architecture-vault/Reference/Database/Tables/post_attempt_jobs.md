@@ -3,8 +3,8 @@ title: "post_attempt_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
-source_commit_timestamp: "2026-11-09T13:07:00-05:00"
+source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite post_attempt_jobs"
@@ -101,6 +101,7 @@ None found by exact static reference scan.
 - `src/learnloop/placement/state.py`
 - `src/learnloop/remote/views.py`
 - `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/router_objective/miss_cause.py`
 - `src/learnloop/teacher/diagnosed_sources.py`
 
 ### Direct SQL writers
@@ -129,6 +130,7 @@ None found by exact static reference scan.
 - `tests/test_placement_split_grades.py`
 - `tests/test_post_attempt_worker.py`
 - `tests/test_reader_guidance.py`
+- `tests/test_sg_slip_vs_gap.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

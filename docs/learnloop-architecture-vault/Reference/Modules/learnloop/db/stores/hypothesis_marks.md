@@ -101,6 +101,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `module`; statically calls `attempt_of_item`, `latest_observation`, `marks_for_attempt`, `present`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `exposures_of_causes`, `link_probe_answer`, `present`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `module`; statically calls `all_exposures`, `all_marks`, `decode_ids`, `present`, `probe_links`
+- [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `module`; statically calls `marks_for_attempt`, `present`
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `module`; statically calls `marks_for_attempt`, `present`
 
 ## Dependencies
@@ -121,7 +122,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]], [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]], [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]], [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]], [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]], [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]], [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -132,6 +133,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_refused_row_rolls_back_alone_and_the_rest_of_the_transaction_stands`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_the_diagnosis_hypotheses_come_first_my_gap_first_then_the_learners_gaps`
+- [tests/test_sg_slip_vs_gap.py](../../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
+  - `test_a_my_gap_mark_is_recorded_beside_the_probabilities_never_folded_in`
 
 ## Modification guidance
 

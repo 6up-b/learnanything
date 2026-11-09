@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/runtime.py"
 source_paths:
   - "src/learnloop/cli/runtime.py"
-source_commit: "d602dc8472b09d92a6b854c9fbf969355b1ae1e0"
-source_commit_timestamp: "2026-11-08T20:56:56-05:00"
+source_commit: "4be77a51f600217467f5594eab9f98af4a2bd3e4"
+source_commit_timestamp: "2026-11-09T15:29:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `d602dc8472b09d92a6b854c9fbf969355b1ae1e0` |
-| Commit timestamp | `2026-11-08T20:56:56-05:00` |
+| Source commit | `4be77a51f600217467f5594eab9f98af4a2bd3e4` |
+| Commit timestamp | `2026-11-09T15:29:00-05:00` |
 
 ## Public API
 
@@ -163,7 +163,6 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `BACKFILL_SKIPPED_EXISTING`, `BACKFILL_SKIPPED_UNREGISTERED`, `backfill_discrimination_rows`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `rank_error_type_candidates`
-- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `calibration_report`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `reserve_exam_pool`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `ExamSeedingError`, `exam_ingest_instructions`, `parse_exam_outcomes`, `seed_exam_attempts`
@@ -176,6 +175,7 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `build_due_queue`, `explain_practice_item`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `coerce_override_value`, `prepare_run_vault`; calls `coerce_override_value`, `prepare_run_vault`
+- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_all_derived_state`, `rebuild_live_derived_state`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `ShadowRebuildError`, `shadow_rebuild`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `sync_vault_state`
@@ -233,6 +233,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro6_successor.py](../../../../../../tests/test_ro6_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
+- [tests/test_sg_successor.py](../../../../../../tests/test_sg_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`

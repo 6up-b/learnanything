@@ -218,6 +218,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
+- [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
 - [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
   - `test_deferred_projection_rebuild_is_deterministic_and_idempotent`
   - `test_diagnostic_and_assessment_write_no_practice_schedule`

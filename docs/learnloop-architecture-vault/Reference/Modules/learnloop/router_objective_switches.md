@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "9e7b2fdc2819048463e701742a937666bbdca669"
-source_commit_timestamp: "2026-11-09T12:12:32-05:00"
+source_commit: "4be77a51f600217467f5594eab9f98af4a2bd3e4"
+source_commit_timestamp: "2026-11-09T15:29:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,67 +50,73 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 491 |
+| Source lines | 539 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9e7b2fdc2819048463e701742a937666bbdca669` |
-| Commit timestamp | `2026-11-09T12:12:32-05:00` |
+| Source commit | `4be77a51f600217467f5594eab9f98af4a2bd3e4` |
+| Commit timestamp | `2026-11-09T15:29:00-05:00` |
 
 ## Public API
 
-- `interval_factor_removed(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 70) — §5.1: True when the FSRS interval carries no surprise factor (the tag and the switch).
-- `available_at_reads_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 78) — §5.3: True when decision-time attempt reads use the availability time.
-- `self_report_not_validated_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 85) — §5.4: True when a learner's pick is not counted as validated evidence.
-- `available_at(row: Mapping[str, Any]) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 92) — ``coalesce(received_at, created_at)``: when the attempt became known to the system.
-- `attempt_time_sql(config: Any, connection: Any=None, *, alias: str | None=None) -> str` ([source](../../../../../src/learnloop/router_objective_switches.py), line 105) — THE availability predicate's SQL form: the expression a decision-time read of ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
-- `known_at(row: Mapping[str, Any], config: Any) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 127) — THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time cutoff compares with.
-- `validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 142) — The resolution ids that count as validated evidence: all of them below the tag or with the switch off; otherwise all but a learner's own reports (§5.4).
-- `objective_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 152) — RO4 (§8): the vault is at the router objective's successor (mvp-0.47) or later.
-- `objective_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 159) — RO4 (§8.3): the objective serves: the tag and ``[router_objective] enabled``.
-- `objective_scores_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 167) — RO4 (§8.3, §8.7): a comparison score can be formed: the objective serves AND RO0's receipts are on (with receipts off the objective serves and no score forms).
-- `sensors_in_value_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 175) — RO4 (§8.4): the LLM's effect-slope correction enters the value (by hand off).
-- `calibration_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 182) — RO5 (§9): the vault is at the calibration successor (mvp-0.48) or later.
-- `stop_coin_rate(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 189) — RO5 §9 item 1: the stop coin's probability each way at a reversible boundary (0: no coin drawn).
-- `check_mode(config: Any) -> tuple[str, float]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 202) — RO5 §9 item 2: ``(mode, value)``: ``("embedded", checks per day)``, ``("rate", per topic per day)`` or ``("off", 0)``.
-- `calibrated_weight_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 218) — RO5 §9 item 2 into §8.7: the randomized checks' comparison scores move ``w``.
-- `pick_open_share(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 226) — RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag).
-- `fitted_models_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 234) — RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks.
-- `learned_tail_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 241) — RO6 (§10): the vault is at the learned tail's successor (mvp-0.49) or later.
-- `learned_tail_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 248) — RO6 (§10): the numeric policy values its candidates with the learned tail's residual (the tag, the objective serving and ``[router_objective] learned_tail``).
-- `followups_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 257) — The router objective's follow-up batch: the vault is at its successor (mvp-0.50) or later.
-- `followup_on(config: Any, key: str) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 264) — One part of the follow-up batch serves: the tag, the objective serving and its own ``[router_objective]`` switch ``key`` (default true).
-- `monotone_combiner_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 272) — The follow-up batch's landing ruling R6: the memory model's combiner is monotone in ability by construction (``memory.FORM_MONOTONE``), in its prior and its fit: the tag, the objective serving and ``[router_objective] monotone_combiner`` (a structural kill switch, default true);…
-- `followup_generator_switches(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 292) — R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None below it, so a predecessor's generator payload (and its trace) keeps its bytes.
-- `followup_switch_snapshot(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 319) — R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key keeps its predecessor's bytes).
-- `lesson_offers_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 328) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or later.
-- `lesson_offers_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 336) — Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on (``router.lesson_suggestions.enabled`` with the router and its dec…
-- `failure_share_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 352) — Instruct hand-off IH5 (spec_instruct_handoff_v1 §7a): the vault is at the failure-share successor (mvp-0.55) or later.
-- `failure_share_to_other_policy_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 360) — IH5: a failed policy's share of the objective's mix goes to the other policy, not staged: the tag, the objective serving and ``[router_objective] failure_share_to_other_policy`` (default true).
-- `lessons_compete_with_followups_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 370) — IH2 (spec_instruct_handoff_v1 §5, the same unreleased tag as IH5): a lesson offer and a follow-up compete in one logged decision wherever a lesson is available: the tag, lesson offers on (:func:`lesson_offers_on`: the objective serving and TE1b's suggestions) and ``[router_objec…
-- `learner_preferences_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 381) — IH3 (spec_instruct_handoff_v1 §6, the same unreleased tag as IH5): the learner may name what would help and have it served: the tag and ``[router_objective] learner_preferences`` (default true).
-- `workbench_is_open_item_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 391) — IH6 (spec_instruct_handoff_v1 §7b, the same unreleased tag as IH5): an open workbench is an open item for the plan: the tag, the workbench itself on (off, nothing can resume the problem, so it holds nothing) and ``[router_objective] workbench_is_open_item`` (default true).
-- `lesson_sources_follow_diagnosis_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 403) — IH7 (spec_instruct_handoff_v1 §7c, the same unreleased tag as IH5): a lesson opened from an offer or a suggestion reads the sections matching the diagnosed confusion beside the topic's linked ones: the tag and ``[router_objective] lesson_sources_follow_diagnosis`` (default true).
-- `lesson_candidate_after_cold_miss_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 413) — The owner's decision 4 of Nov 9 (spec_instruct_handoff_v1 §8, the same unreleased tag as IH5): a topic with a missed cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or error type (the router, the diagnosis and the teacher then…
-- `preferences_inform_router_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 425) — IH4 (spec_instruct_handoff_v1 §7, the same unreleased tag as IH5): what the learner said would help informs the objective's non-LLM parts and its LLM card: the tag, the objective serving and ``[router_objective] preferences_inform_router`` (default true).
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 436) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `interval_factor_removed(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 71) — §5.1: True when the FSRS interval carries no surprise factor (the tag and the switch).
+- `available_at_reads_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 79) — §5.3: True when decision-time attempt reads use the availability time.
+- `self_report_not_validated_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 86) — §5.4: True when a learner's pick is not counted as validated evidence.
+- `available_at(row: Mapping[str, Any]) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 93) — ``coalesce(received_at, created_at)``: when the attempt became known to the system.
+- `attempt_time_sql(config: Any, connection: Any=None, *, alias: str | None=None) -> str` ([source](../../../../../src/learnloop/router_objective_switches.py), line 106) — THE availability predicate's SQL form: the expression a decision-time read of ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
+- `known_at(row: Mapping[str, Any], config: Any) -> str | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 128) — THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time cutoff compares with.
+- `validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 143) — The resolution ids that count as validated evidence: all of them below the tag or with the switch off; otherwise all but a learner's own reports (§5.4).
+- `objective_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 153) — RO4 (§8): the vault is at the router objective's successor (mvp-0.47) or later.
+- `objective_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 160) — RO4 (§8.3): the objective serves: the tag and ``[router_objective] enabled``.
+- `objective_scores_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 168) — RO4 (§8.3, §8.7): a comparison score can be formed: the objective serves AND RO0's receipts are on (with receipts off the objective serves and no score forms).
+- `sensors_in_value_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 176) — RO4 (§8.4): the LLM's effect-slope correction enters the value (by hand off).
+- `calibration_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 183) — RO5 (§9): the vault is at the calibration successor (mvp-0.48) or later.
+- `stop_coin_rate(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 190) — RO5 §9 item 1: the stop coin's probability each way at a reversible boundary (0: no coin drawn).
+- `check_mode(config: Any) -> tuple[str, float]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 203) — RO5 §9 item 2: ``(mode, value)``: ``("embedded", checks per day)``, ``("rate", per topic per day)`` or ``("off", 0)``.
+- `calibrated_weight_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 219) — RO5 §9 item 2 into §8.7: the randomized checks' comparison scores move ``w``.
+- `pick_open_share(config: Any) -> float` ([source](../../../../../src/learnloop/router_objective_switches.py), line 227) — RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag).
+- `fitted_models_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 235) — RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks.
+- `learned_tail_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 242) — RO6 (§10): the vault is at the learned tail's successor (mvp-0.49) or later.
+- `learned_tail_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 249) — RO6 (§10): the numeric policy values its candidates with the learned tail's residual (the tag, the objective serving and ``[router_objective] learned_tail``).
+- `followups_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 258) — The router objective's follow-up batch: the vault is at its successor (mvp-0.50) or later.
+- `followup_on(config: Any, key: str) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 265) — One part of the follow-up batch serves: the tag, the objective serving and its own ``[router_objective]`` switch ``key`` (default true).
+- `monotone_combiner_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 273) — The follow-up batch's landing ruling R6: the memory model's combiner is monotone in ability by construction (``memory.FORM_MONOTONE``), in its prior and its fit: the tag, the objective serving and ``[router_objective] monotone_combiner`` (a structural kill switch, default true);…
+- `followup_generator_switches(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 293) — R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None below it, so a predecessor's generator payload (and its trace) keeps its bytes.
+- `followup_switch_snapshot(config: Any) -> dict[str, bool] | None` ([source](../../../../../src/learnloop/router_objective_switches.py), line 335) — R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key keeps its predecessor's bytes).
+- `lesson_offers_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 344) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or later.
+- `lesson_offers_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 352) — Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on (``router.lesson_suggestions.enabled`` with the router and its dec…
+- `failure_share_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 368) — Instruct hand-off IH5 (spec_instruct_handoff_v1 §7a): the vault is at the failure-share successor (mvp-0.55) or later.
+- `failure_share_to_other_policy_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 376) — IH5: a failed policy's share of the objective's mix goes to the other policy, not staged: the tag, the objective serving and ``[router_objective] failure_share_to_other_policy`` (default true).
+- `lessons_compete_with_followups_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 386) — IH2 (spec_instruct_handoff_v1 §5, the same unreleased tag as IH5): a lesson offer and a follow-up compete in one logged decision wherever a lesson is available: the tag, lesson offers on (:func:`lesson_offers_on`: the objective serving and TE1b's suggestions) and ``[router_objec…
+- `learner_preferences_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 397) — IH3 (spec_instruct_handoff_v1 §6, the same unreleased tag as IH5): the learner may name what would help and have it served: the tag and ``[router_objective] learner_preferences`` (default true).
+- `workbench_is_open_item_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 407) — IH6 (spec_instruct_handoff_v1 §7b, the same unreleased tag as IH5): an open workbench is an open item for the plan: the tag, the workbench itself on (off, nothing can resume the problem, so it holds nothing) and ``[router_objective] workbench_is_open_item`` (default true).
+- `lesson_sources_follow_diagnosis_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 419) — IH7 (spec_instruct_handoff_v1 §7c, the same unreleased tag as IH5): a lesson opened from an offer or a suggestion reads the sections matching the diagnosed confusion beside the topic's linked ones: the tag and ``[router_objective] lesson_sources_follow_diagnosis`` (default true).
+- `lesson_candidate_after_cold_miss_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 429) — The owner's decision 4 of Nov 9 (spec_instruct_handoff_v1 §8, the same unreleased tag as IH5): a topic with a missed cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or error type (the router, the diagnosis and the teacher then…
+- `preferences_inform_router_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 441) — IH4 (spec_instruct_handoff_v1 §7, the same unreleased tag as IH5): what the learner said would help informs the objective's non-LLM parts and its LLM card: the tag, the objective serving and ``[router_objective] preferences_inform_router`` (default true).
+- `slip_gap_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 452) — Slip or gap (spec_slip_vs_gap_v1): the vault is at its successor (``SLIP_GAP_ALGORITHM_VERSION``) or later.
+- `miss_cause_sensor_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 459) — SG1 (spec_slip_vs_gap_v1 §3): each candidate topic's ``miss_cause`` sensor is frozen in the objective's trace, on a lesson offer's card record and on the LLM policy's card: the tag, the objective serving and ``[router_objective] miss_cause_sensor`` (default true).
+- `miss_cause_in_value_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 469) — SG2 (spec_slip_vs_gap_v1 §3): the numeric policy's lesson and repair effect slopes split by the miss's cause, with the surprise calibrating ``p_gap``: SG1 on (it reads SG1's sensor) and ``[router_objective] miss_cause_in_value`` (default true).
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 478) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
-- `LEARNER_REPORT_PREFIX` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 51)
-- `AVAILABLE_AT_SQL` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 54)
-- `RECEIVED_AT_RECORDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 58)
-- `RECEIVED_AT_INFERRED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 59)
-- `INTERVAL_FACTOR_SNAPSHOT_KEY` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 62)
-- `CHECKS_EMBEDDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 197)
-- `CHECKS_RATE` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 198)
-- `CHECKS_OFF` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 199)
-- `FOLLOWUP_GENERATOR_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 287)
-- `FOLLOWUP_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 304)
-- `SEED_NEUTRAL_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 310)
-- `SEED_NEUTRAL_OBJECTIVE_KEYS` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 315)
-- `SEED_NEUTRAL_IDENTITY_KEYS` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 316)
+- `LEARNER_REPORT_PREFIX` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 52)
+- `AVAILABLE_AT_SQL` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 55)
+- `RECEIVED_AT_RECORDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 59)
+- `RECEIVED_AT_INFERRED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 60)
+- `INTERVAL_FACTOR_SNAPSHOT_KEY` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 63)
+- `CHECKS_EMBEDDED` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 198)
+- `CHECKS_RATE` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 199)
+- `CHECKS_OFF` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 200)
+- `FOLLOWUP_GENERATOR_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 288)
+- `FOLLOWUP_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 310)
+- `SEED_NEUTRAL_SWITCHES` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 316)
+- `SEED_NEUTRAL_OBJECTIVE_KEYS` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 321)
+- `SEED_NEUTRAL_IDENTITY_KEYS` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 322)
+- `COMMON_DRAW_OBJECTIVE_KEYS` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 330)
+- `COMMON_DRAW_IDENTITY_KEYS` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 331)
+- `MISS_CAUSE_OFFER_KEY` ([src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py), line 332)
 
 ### Explicit exports
 
@@ -156,6 +162,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `lesson_sources_follow_diagnosis_on`
 - `lesson_candidate_after_cold_miss_on`
 - `preferences_inform_router_on`
+- `COMMON_DRAW_IDENTITY_KEYS`
+- `COMMON_DRAW_OBJECTIVE_KEYS`
+- `MISS_CAUSE_OFFER_KEY`
+- `miss_cause_in_value_on`
+- `miss_cause_sensor_on`
+- `slip_gap_tag`
 - `known_at`
 - `objective_on`
 - `objective_scores_on`
@@ -167,8 +179,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_at_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 65)
-- `_has_received_at(connection: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 138)
+- `_at_tag(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 66)
+- `_has_received_at(connection: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 139)
 
 ## Who imports or calls it
 
@@ -183,11 +195,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHECKS_OFF`, `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`; statically calls `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `learner_preferences_on`, `preferences_inform_router_on`; statically calls `learner_preferences_on`, `preferences_inform_router_on`
-- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `lesson_offers_on`, `lessons_compete_with_followups_on`, `preferences_inform_router_on`; statically calls `lesson_offers_on`, `lessons_compete_with_followups_on`, `preferences_inform_router_on`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `MISS_CAUSE_OFFER_KEY`, `lesson_offers_on`, `lessons_compete_with_followups_on`, `miss_cause_sensor_on`, `preferences_inform_router_on`; statically calls `lesson_offers_on`, `lessons_compete_with_followups_on`, `miss_cause_sensor_on`, `preferences_inform_router_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `lesson_candidate_after_cold_miss_on`, `lesson_offers_on`; statically calls `lesson_candidate_after_cold_miss_on`, `lesson_offers_on`
-- [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `preferences_inform_router_on`; statically calls `preferences_inform_router_on`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `SEED_NEUTRAL_IDENTITY_KEYS`, `SEED_NEUTRAL_OBJECTIVE_KEYS`, `SEED_NEUTRAL_SWITCHES`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `failure_share_tag`, `failure_share_to_other_policy_on`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `lessons_compete_with_followups_on`, `objective_scores_on`, `preferences_inform_router_on`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `failure_share_tag`, `failure_share_to_other_policy_on`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `lessons_compete_with_followups_on`, `objective_scores_on`, `preferences_inform_router_on`, `stop_coin_rate`
-- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`; statically calls `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`
+- [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `miss_cause_sensor_on`, `preferences_inform_router_on`; statically calls `miss_cause_sensor_on`, `preferences_inform_router_on`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `COMMON_DRAW_IDENTITY_KEYS`, `COMMON_DRAW_OBJECTIVE_KEYS`, `MISS_CAUSE_OFFER_KEY`, `SEED_NEUTRAL_IDENTITY_KEYS`, `SEED_NEUTRAL_OBJECTIVE_KEYS`, `SEED_NEUTRAL_SWITCHES`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `failure_share_tag`, `failure_share_to_other_policy_on`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `lessons_compete_with_followups_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `objective_scores_on`, `preferences_inform_router_on`, `slip_gap_tag`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `failure_share_tag`, `failure_share_to_other_policy_on`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `lessons_compete_with_followups_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `objective_scores_on`, `preferences_inform_router_on`, `slip_gap_tag`, `stop_coin_rate`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`; statically calls `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `lesson_offers_on`, `lessons_compete_with_followups_on`, `objective_on`; statically calls `lesson_offers_on`, `lessons_compete_with_followups_on`, `objective_on`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `attempt_time_sql`, `objective_on`; statically calls `attempt_time_sql`, `objective_on`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
@@ -196,10 +208,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `calibration_tag`; statically calls `calibration_tag`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `objective_on`; statically calls `objective_on`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
-- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `calibration_tag`, `preferences_inform_router_on`; statically calls `calibration_tag`, `preferences_inform_router_on`
+- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `calibration_tag`, `miss_cause_sensor_on`, `preferences_inform_router_on`; statically calls `calibration_tag`, `miss_cause_sensor_on`, `preferences_inform_router_on`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `INTERVAL_FACTOR_SNAPSHOT_KEY`, `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `CHECKS_EMBEDDED`, `CHECKS_OFF`, `check_mode`; statically calls `check_mode`
+- [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `attempt_time_sql`, `preferences_inform_router_on`; statically calls `attempt_time_sql`, `preferences_inform_router_on`
 - [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `attempt_time_sql`, `lesson_offers_on`; statically calls `attempt_time_sql`, `lesson_offers_on`
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `followup_on`, `known_at`, `lesson_offers_on`; statically calls `followup_on`, `known_at`, `lesson_offers_on`
@@ -214,7 +227,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FAILURE_SHARE_VERSIONS`, `INTERVAL_FACTOR_VERSIONS`, `LESSON_OFFERS_VERSIONS`, `ROUTER_CALIBRATION_VERSIONS`, `ROUTER_FOLLOWUPS_VERSIONS`, `ROUTER_LEARNED_TAIL_VERSIONS`, `ROUTER_OBJECTIVE_VERSIONS`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FAILURE_SHARE_VERSIONS`, `INTERVAL_FACTOR_VERSIONS`, `LESSON_OFFERS_VERSIONS`, `ROUTER_CALIBRATION_VERSIONS`, `ROUTER_FOLLOWUPS_VERSIONS`, `ROUTER_LEARNED_TAIL_VERSIONS`, `ROUTER_OBJECTIVE_VERSIONS`, `SLIP_GAP_VERSIONS`
 
 ### Platform and third-party dependencies
 
@@ -228,7 +241,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] and 29 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] and 30 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -294,6 +307,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pool_and_the_held_map_follow_their_switches`
 - [tests/test_rospeed_ad_link.py](../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_switch_reaches_every_rollout_from_the_config`
+- [tests/test_sg_slip_vs_gap.py](../../../../../tests/test_sg_slip_vs_gap.py) — direct import
+  - `test_off_and_below_the_tag_the_card_is_the_predecessors`
+  - `test_the_gates_need_the_tag_the_objective_and_sg2_needs_sg1`
+- [tests/test_sg_successor.py](../../../../../tests/test_sg_successor.py) — direct import
+  - `test_sg2_is_in_ro6s_generator_payload_at_the_tag_and_sg1_is_not`
+  - `test_the_gates_read_off_below_the_tag`
+  - `test_the_prefetch_key_names_both_switches_at_the_tag_and_keeps_its_bytes_below`
 - [tests/test_te3b_successor.py](../../../../../tests/test_te3b_successor.py) — direct import
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_suggestions_or_the_objective_off`
 

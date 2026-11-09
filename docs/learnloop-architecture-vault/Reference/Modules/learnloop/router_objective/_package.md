@@ -19,6 +19,8 @@ source_paths:
   - "src/learnloop/router_objective/goal_read.py"
   - "src/learnloop/router_objective/learned_tail.py"
   - "src/learnloop/router_objective/memory.py"
+  - "src/learnloop/router_objective/miss_cause.py"
+  - "src/learnloop/router_objective/miss_cause_report.py"
   - "src/learnloop/router_objective/mix.py"
   - "src/learnloop/router_objective/objective_report.py"
   - "src/learnloop/router_objective/offer_report.py"
@@ -39,7 +41,7 @@ source_paths:
   - "src/learnloop/router_objective/value.py"
   - "src/learnloop/router_objective/weight.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T09:10:53-05:00"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -90,7 +92,9 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]] | [[Reference/Modules/learnloop/router_objective/goal_read#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] | [[Reference/Modules/learnloop/router_objective/learned_tail#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] | [[Reference/Modules/learnloop/router_objective/memory#^module-purpose|purpose]] | `ACTIVE` | 3 | 11 |
-| [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] | [[Reference/Modules/learnloop/router_objective/mix#^module-purpose|purpose]] | `ACTIVE` | 1 | 11 |
+| [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] | [[Reference/Modules/learnloop/router_objective/miss_cause#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
+| [[Reference/Modules/learnloop/router_objective/miss_cause_report|learnloop.router_objective.miss_cause_report]] | [[Reference/Modules/learnloop/router_objective/miss_cause_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] | [[Reference/Modules/learnloop/router_objective/mix#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
 | [[Reference/Modules/learnloop/router_objective/objective_report|learnloop.router_objective.objective_report]] | [[Reference/Modules/learnloop/router_objective/objective_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/router_objective/offer_report|learnloop.router_objective.offer_report]] | [[Reference/Modules/learnloop/router_objective/offer_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] | [[Reference/Modules/learnloop/router_objective/picks#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
@@ -107,26 +111,28 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] | [[Reference/Modules/learnloop/router_objective/tail_serve#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] | [[Reference/Modules/learnloop/router_objective/trace#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/router_objective/trajectory|learnloop.router_objective.trajectory]] | [[Reference/Modules/learnloop/router_objective/trajectory#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] | [[Reference/Modules/learnloop/router_objective/value#^module-purpose|purpose]] | `ACTIVE` | 2 | 23 |
+| [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] | [[Reference/Modules/learnloop/router_objective/value#^module-purpose|purpose]] | `ACTIVE` | 2 | 24 |
 | [[Reference/Modules/learnloop/router_objective/weight|learnloop.router_objective.weight]] | [[Reference/Modules/learnloop/router_objective/weight#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 23 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 19 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 5 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
+- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 25 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 29 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 13 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 3 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
@@ -153,17 +159,17 @@ flowchart LR
     n_learnloop_router["learnloop.router"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    n_learnloop_teacher["learnloop.teacher"]
-    n_learnloop_daily_plan -->|25| center
-    center -->|23| n_learnloop
-    center -->|16| n_learnloop_db_stores
+    n_learnloop_learner["learnloop.learner"]
+    n_learnloop_daily_plan -->|29| center
+    center -->|25| n_learnloop
+    center -->|19| n_learnloop_db_stores
     n_learnloop_sidecar_handlers -->|13| center
     n_learnloop_cli -->|6| center
     center -->|6| n_learnloop_data_capture
     center -->|5| n_learnloop_router
-    n_learnloop_ops -->|3| center
+    n_learnloop_ops -->|4| center
     n_learnloop_followup_run -->|2| center
-    n_learnloop_teacher -->|2| center
+    center -->|2| n_learnloop_learner
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

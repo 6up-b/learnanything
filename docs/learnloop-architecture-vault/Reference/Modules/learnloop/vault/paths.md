@@ -213,6 +213,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/source_retrieval/bench|learnloop.source_retrieval.bench]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/source_retrieval/recipes|learnloop.source_retrieval.recipes]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -262,7 +263,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 137 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 138 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -417,6 +418,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scheduler_scores_due_goal_item`
 - [tests/test_secondary_attach.py](../../../../../../tests/test_secondary_attach.py) — direct import
   - `test_load_secondary_writes_nothing_where_load_writes`
+- [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
 - [tests/test_sidecar_append.py](../../../../../../tests/test_sidecar_append.py) — direct import
   - `test_list_source_conflicts_enriches_extraction_ids`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import

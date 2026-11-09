@@ -3,8 +3,8 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "65789846c38e46b27a33739cfa0c8ef77dd96243"
-source_commit_timestamp: "2026-11-09T13:07:00-05:00"
+source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/router_objective/miss_cause.py`
 
 ### Direct SQL writers
 
@@ -175,6 +176,7 @@ Indexes and uniqueness:
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probability_prep.py`
 - `tests/test_reader_ca1_codex_review.py`
+- `tests/test_sg_slip_vs_gap.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_evsi_router_composition.py`
@@ -185,7 +187,6 @@ Indexes and uniqueness:
 - `tests/test_probe_audit.py`
 - `tests/test_probe_dialogue.py`
 - `tests/test_probe_episodes.py`
-- `tests/test_router_probe_ties.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

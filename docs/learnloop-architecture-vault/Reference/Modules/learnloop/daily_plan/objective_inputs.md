@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/objective_inputs.py"
 source_paths:
   - "src/learnloop/daily_plan/objective_inputs.py"
-source_commit: "7772c7c7a641838f699c1d5cde165c17dcbde0e3"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "1f9f56d046d309a903a4a45d868cff9b618bce30"
+source_commit_timestamp: "2026-11-09T15:51:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py) |
-| Source lines | 843 |
+| Source lines | 887 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `7772c7c7a641838f699c1d5cde165c17dcbde0e3` |
-| Commit timestamp | `2026-11-09T00:34:52-05:00` |
+| Source commit | `1f9f56d046d309a903a4a45d868cff9b618bce30` |
+| Commit timestamp | `2026-11-09T15:51:40-05:00` |
 
 ## Public API
 
@@ -66,7 +66,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclude: Any=()) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 483) — RO5 §9 item 2's eligibility rule, per LO in id order: unseen (never attempted), unrevealed (no reveal row at all), unassisted so far (no help row), not exam-reserved, held out or protected, nor in any routine serving exclusion, and servable (the delayed checks' candidate rule).
 - `check_sensors(vault: Any, repository: Any, lo: str, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 510) — RO5: a topic's sensors at a randomized check's administration (§9 item 7: the combiner is fitted on these against the check's outcome): AD's predictive on the logit scale and the FSRS retrievability of the LO's practised items (the decisions' own reads).
 - `action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practiced: set[str], spread: float) -> V.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 605) — §8.1's interface for one candidate block.
-- `build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float=0.0, kappa_how: str='unset', sequences: Mapping[str, Sequence[BlockCandidate]] | None=None) -> tuple[V.Inputs, list[V.Action], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 664) — The decision's frozen inputs, its actions in support order, and the sources the trace records.
+- `build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float=0.0, kappa_how: str='unset', sequences: Mapping[str, Sequence[BlockCandidate]] | None=None) -> tuple[V.Inputs, list[V.Action], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 682) — The decision's frozen inputs, its actions in support order, and the sources the trace records.
 
 ### Module constants
 
@@ -78,6 +78,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `FOLLOWUP_PROBE_NOTE` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 57)
 - `OFFER_DECLINED_STEPS` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 59)
 - `_DECISION_READS` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 327)
+- `MISS_CAUSE_SOURCE` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 658)
 
 ### Explicit exports
 
@@ -115,7 +116,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_duration_spread(connection: Any) -> tuple[float, int]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 564) — The pooled spread of the learner's own durations on the log scale (none observed: 0, the mean only).
 - `_reading_los(vault: Any, repository: Any, candidate: BlockCandidate) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 575)
 - `_reading_los_outside_ad(vault: Any, repository: Any, reading: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 595) — AD off: no AD operation, no reading curve; the plan's own mapping (the raw-loading wrapper, as every caller outside AD).
-- `_step(action: V.Action) -> V.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 657) — A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence, then the tail, is what uses the information), never a nested repair bundle.
+- `_miss_cause(connection: Any, config: Any, learning_object_ids: Sequence[str], now_iso: str) -> dict[str, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 661) — SG1: the candidate topics' miss-cause sensor (:func:`learnloop.router_objective.miss_cause.sensor`), or None off or below the tag (nothing is read).
+- `_step(action: V.Action) -> V.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 675) — A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence, then the tail, is what uses the information), never a nested repair bundle.
 
 ## Who imports or calls it
 
@@ -148,10 +150,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; calls `resolve`
 - [[Reference/Modules/learnloop/router_objective/combiner_data|learnloop.router_objective.combiner_data]] — imports `module`; calls `groups`, `rows`
 - [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] — imports `module`; calls `Combiner`, `Fsrs`, `fit_combiner`, `monotone_prior`
+- [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `module`; calls `sensor`, `value_inputs`
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`; calls `session_active_minutes`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; calls `fit_return_slope`, `return_rows`
-- [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `module`; calls `Action`, `AdLink`, `DatedUse`, `Inputs`, `Learning`, `LessonCurve`, `Price`, `Topic`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`; calls `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`
+- [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `module`; calls `Action`, `AdLink`, `CauseSplit`, `DatedUse`, `Inputs`, `Learning`, `LessonCurve`, `Price`, `Topic`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`; calls `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `routine_serving_exclusions`; calls `routine_serving_exclusions`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `learning_objects_for_section`; calls `learning_objects_for_section`
 

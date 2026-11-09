@@ -84,6 +84,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LESSON_PROBE_EVIDENCE_ORIGIN`, `LESSON_PROBE_EXPOSED_SOURCE`, `LESSON_PROBE_SOURCE`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `LESSON_PROBE_EXPOSED_SOURCE`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CAUSAL_ACTIVITY_POLICY_VERSION`, `CONTAMINATION_PRECEDENCE`, `policy_for_class`; statically calls `policy_for_class`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `CAUSAL_ACTIVITY_POLICY_VERSION`, `CONTAMINATION_CLASSES`, `CONTAMINATION_PRECEDENCE`, `CausalActivityPolicy`, `policy_for_class`; statically calls `CausalActivityPolicy`, `policy_for_class`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `DISCRIMINATING_OUTCOMES`
@@ -91,6 +92,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `LESSON_PROBE_EXPOSED_SOURCE`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `DISCRIMINATING_OUTCOMES`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `CONTAMINATION_PRECEDENCE`
+- [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `LESSON_PROBE_EXPOSED_SOURCE`
 
 ## Dependencies
 
@@ -110,7 +112,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -118,6 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_causal_activity_policy.py](../../../../../tests/test_causal_activity_policy.py) — direct import
   - `test_service_exports_share_the_dependency_neutral_policy_authority`
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
 
 ## Modification guidance
 

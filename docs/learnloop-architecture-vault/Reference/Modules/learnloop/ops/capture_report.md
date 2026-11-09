@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/capture_report.py"
 source_paths:
   - "src/learnloop/ops/capture_report.py"
-source_commit: "224700d26fdc3e8a31cb6a4fa481efff3ef1d939"
-source_commit_timestamp: "2026-11-09T04:50:36-05:00"
+source_commit: "4be77a51f600217467f5594eab9f98af4a2bd3e4"
+source_commit_timestamp: "2026-11-09T15:29:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py) |
-| Source lines | 641 |
+| Source lines | 653 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `224700d26fdc3e8a31cb6a4fa481efff3ef1d939` |
-| Commit timestamp | `2026-11-09T04:50:36-05:00` |
+| Source commit | `4be77a51f600217467f5594eab9f98af4a2bd3e4` |
+| Commit timestamp | `2026-11-09T15:29:00-05:00` |
 
 ## Public API
 
@@ -67,7 +67,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `floor_and_pick_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 194) — A5, A6, A8: the not_ready floor's draws, the delayed picks' ties, the thin supports.
 - `hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 484) — FG1c (spec §7) and row 6 of the router objective's logging: the exposure table's coverage, and how far the marks can be trusted, each labelled as conditional on being observed.
 - `build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 510)
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 546) — The plain-text report.
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 554) — The plain-text report.
 
 ### Module constants
 
@@ -124,10 +124,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`, `pfc_assessments`; calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] — imports `summary`, `trajectories`; calls `summary`, `trajectories`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`; calls `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/router_objective/miss_cause_report|learnloop.router_objective.miss_cause_report]] — imports `module`; calls `lines`, `section`
 - [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `module`; calls `section`
 - [[Reference/Modules/learnloop/router_objective/preference_report|learnloop.router_objective.preference_report]] — imports `module`; calls `lines`, `section`
 - [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]] — imports `module`; calls `lines`, `section`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `calibration_tag`, `preferences_inform_router_on`; calls `calibration_tag`, `preferences_inform_router_on`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `calibration_tag`, `miss_cause_sensor_on`, `preferences_inform_router_on`; calls `calibration_tag`, `miss_cause_sensor_on`, `preferences_inform_router_on`
 
 ### Platform and third-party dependencies
 

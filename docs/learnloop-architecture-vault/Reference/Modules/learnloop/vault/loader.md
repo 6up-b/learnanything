@@ -222,6 +222,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `settled_load_vault`; statically calls `settled_load_vault`
@@ -276,7 +277,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 134 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 135 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1744,6 +1745,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
   - `test_only_a_miss_since_the_last_lesson_counts`
+  - `test_the_offer_block_and_the_llms_row_carry_the_dated_words`
   - `test_the_switch_is_not_in_the_prefetch_key_and_moves_no_seed_by_itself`
   - `test_the_switch_needs_the_tag_defaults_on_and_is_registered`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
@@ -3126,6 +3128,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_the_gate_reads_the_version_and_the_switch`
   - `test_f4_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
 - [tests/test_settings_store.py](../../../../../../tests/test_settings_store.py) — direct import
+- [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
+  - `test_off_and_below_the_tag_the_card_is_the_predecessors`
+  - `test_the_gates_need_the_tag_the_objective_and_sg2_needs_sg1`
+  - `test_the_whole_card_off_and_below_the_tag_is_byte_identical_and_on_differs_by_the_section_alone`
+- [tests/test_sg_successor.py](../../../../../../tests/test_sg_successor.py) — direct import
+  - `test_sg2_is_in_ro6s_generator_payload_at_the_tag_and_sg1_is_not`
+  - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
+  - `test_the_gates_read_off_below_the_tag`
+  - `test_the_prefetch_key_names_both_switches_at_the_tag_and_keeps_its_bytes_below`
+  - `test_the_upgrade_chains_from_an_older_link`
+  - `test_the_upgrade_publishes_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import

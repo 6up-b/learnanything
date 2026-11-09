@@ -3273,6 +3273,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_skip_refuses_a_session_that_moved_and_came_back_while_the_queue_was_built`
   - `test_interleaved_starts_from_two_writers_leave_exactly_one_open_session`
   - `test_two_devices_adopting_at_once_leave_one_owner`
+- [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import

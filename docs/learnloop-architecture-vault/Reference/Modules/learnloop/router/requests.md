@@ -226,6 +226,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_the_offer_block_and_the_llms_row_carry_the_dated_words`
 - [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
   - `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace`
   - `test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged`

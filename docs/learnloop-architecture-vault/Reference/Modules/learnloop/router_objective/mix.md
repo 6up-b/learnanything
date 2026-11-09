@@ -177,6 +177,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_serving_records_each_coin_with_its_exact_probability_and_availability`
+- [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
+  - `test_sg2_moves_only_the_diagnosed_topics_values_and_the_logged_mu_replays`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_g3_mu_recomputes_with_an_offer_in_the_support_on_every_path`
 

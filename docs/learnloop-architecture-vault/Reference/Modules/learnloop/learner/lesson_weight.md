@@ -194,6 +194,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `COLD_ATTEMPT_TYPES`, `predicted_success`; statically calls `predicted_success`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `predicted_success`; statically calls `predicted_success`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `qualifying_outcomes`; statically calls `qualifying_outcomes`
+- [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `COLD_ATTEMPT_TYPES`, `qualifying_outcomes`; statically calls `qualifying_outcomes`
+- [[Reference/Modules/learnloop/router_objective/miss_cause_report|learnloop.router_objective.miss_cause_report]] — imports `qualifying_outcomes`; statically calls `qualifying_outcomes`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_lesson_weight_state`; statically calls `rebuild_lesson_weight_state`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `predicted_success`, `read_hedges`; statically calls `predicted_success`, `read_hedges`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `CheckSensitivity`, `confidence_term`, `pool_implied_mass`, `posterior_after`, `predicted_success`, `prediction_term`, `replay_state`
@@ -223,7 +225,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]], [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]], [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

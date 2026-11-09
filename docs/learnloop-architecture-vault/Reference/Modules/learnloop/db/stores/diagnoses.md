@@ -133,6 +133,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `DiagnosisStoreMixin`, `merge_causal_view_into_events`, `merge_causal_view_into_feedback`; statically calls `merge_causal_view_into_events`, `merge_causal_view_into_feedback`
 - [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] — imports `latest_blind_grade_rows`; statically calls `latest_blind_grade_rows`
+- [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `DiagnosisStoreMixin`
 
 ## Dependencies
 
@@ -153,7 +154,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]].
+Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]], [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
