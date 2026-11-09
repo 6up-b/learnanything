@@ -212,7 +212,7 @@ Fixed on `instruct/handoff` after this review. Each finding was reproduced first
 
 | Finding | Outcome | Commit |
 |---|---|---|
-| B1 | Fixed. `SomethingElse` reads no plan. `App` decides from the plan it holds (`peek`, no fetch) and `PlanToday` from its own read. Test: feedback makes no `get_daily_plan` call with and without the flag (3 against 2 before the fix). | `3217a11da4` |
+| B1 | Fixed. `SomethingElse` reads no plan. `App` decides from the plan it holds (`peek`, no fetch) and `PlanToday` from its own read. Test: feedback makes no `get_daily_plan` call with and without the flag (3 against 2 before the fix). | `3217a11da4`, `efe49488ae` |
 | M1 | Fixed. *Not now* serves through `servedForExplicitStep`, shared with feedback's Next. The test that pinned the bug now pins the serve. | `05e1f7dbe0` |
 | M2 | Fixed. `not_found` closes the page and re-reads, and a later plan read with another block current closes it. Today's card takes `not_found` the same way. | `05e1f7dbe0` |
 | M3 | Fixed, with a different rule for the open offer. An offer counts only if it was on screen or answered, and only for rows at the tag with the switch on. A decision replacing an open offer isn't held back by the ceiling at all, because leaving only that offer out of the count still ends the next replacement by rule. | `4a43accdee` |
@@ -227,7 +227,7 @@ Fixed on `instruct/handoff` after this review. Each finding was reproduced first
 | m6 | Fixed. `correctness IS NOT NULL`. | `3fff1f3022` |
 | m7 | Fixed. `TodayPlace` has the link with a session. | `4a43accdee` |
 | m8 | Fixed. An override writes `prefilter` and `decision_state` receipts with `decision_kind = learner_pick`. | `3fff1f3022` |
-| m9 | Fixed. `App.offerPage.test.tsx` corrected; IH3's replies checked against a real host with the plan on (`tests/test_ih3_phone_host.py`); the word-list guard now reads `engine.py` and `learner_action.py`, and its docstring says rules on other counts need behaviour tests; IH5 pinned through a real chooser; the IH6 test pins its draw. | `3fff1f3022` |
+| m9 | Fixed. `App.offerPage.test.tsx` corrected; IH3's replies checked against a real host with the plan on (`tests/test_ih3_phone_host.py`); the word-list guard now reads `engine.py` and `learner_action.py`, and its docstring says rules on other counts need behaviour tests; IH5 pinned through a real chooser; the IH6 test pins its draw, and so does the rest of that file, since `test_resuming_it_in_this_session_makes_it_count` failed the same way in a repeat scan. | `3fff1f3022`, `53be1788a5`, `db728fa40a` |
 
 **New in this pass, not in the review.** The old ceiling count was the only thing stopping a redraw loop. Two written probes that had each lost to a lesson passed each other's offer on every read, so reads alone would have drawn for ever once unseen offers stopped counting. Workflows an offer replaced had beaten now move to the newest offer (`engine._followups_lost`). Spec §5 "What bounds the draws" has the argument. The test fails without the change.
 
