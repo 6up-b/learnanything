@@ -23,7 +23,7 @@ const NOT_RPC: readonly Wrapper[] = ["queueRevision", "submissionStatus"];
 
 const SUBMIT: SubmitInput = {
   sessionId: "s1", practiceItemId: "i1", answerMd: "My answer", attemptType: "independent_attempt", submissionId: "k1",
-  latencySeconds: 42, schedulerCandidateId: "cand_i1", assessmentContractVersionId: "acv", hintsUsed: 0, authoredHints: 0, bookCounted: false
+  latencySeconds: 42, activeSeconds: 30, schedulerCandidateId: "cand_i1", assessmentContractVersionId: "acv", hintsUsed: 0, authoredHints: 0, bookCounted: false
 };
 
 /** Every shape each wrapper is called with on today's screens. */

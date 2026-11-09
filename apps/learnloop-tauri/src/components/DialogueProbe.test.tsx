@@ -51,6 +51,7 @@ it("turns Don't know into I'm stuck: one tap, then an empty answer may be commit
   expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
     answerMd: "", attemptType: "diagnostic_probe", probePresentationId: "pres-1", declaredStuck: true
   }));
+  expect(Number.isInteger(api.submitAttempt.mock.calls[0][0].activeSeconds)).toBe(true);
   expect(api.submitDontKnow).not.toHaveBeenCalled();
 });
 

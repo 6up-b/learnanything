@@ -673,6 +673,8 @@ export const api = {
     /** RW2b fix round 12: the count holds a book (see SubmitAttemptInput). */
     bookCounted?: boolean | null;
     latencySeconds?: number | null;
+    /** RE0: active seconds (see SubmitAttemptInput). */
+    activeSeconds?: number | null;
     probePresentationId?: string | null;
     answerConfidence?: number | null;
     assessmentContractVersionId?: string | null;

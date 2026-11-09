@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, PracticeItemDetail, ProbeContractDto, SessionSnapshot } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
+import { useAttemptClock } from "@desktop/screens/useAttemptClock";
 import { MathLiveEditor } from "@desktop/render/MathLiveEditor";
 import { committedAttempt, staleRefusal } from "../api/http";
 import { phone, type SubmitInput } from "../api/phone";
@@ -43,6 +44,11 @@ type PhoneProbeContract = ProbeContractDto & { readonly phoneAnswers?: boolean }
 
 /** The desktop's runtime guard (`PracticeScreen.activeProbeContract`): a malformed or incomplete contract never
  *  enables help or an ordinary submit during a probe. */
+/** The request's active seconds, left out (so stored as missing) before the clock was opened. */
+function activeSecondsField(seconds: number | null): { activeSeconds?: number } {
+  return seconds === null ? {} : { activeSeconds: seconds };
+}
+
 export function phoneProbe(contract: PhoneProbeContract | null): PhoneProbeContract | null {
   if (!contract || !contract.active || !contract.phoneAnswers) return null;
   const restrictions = contract.restrictions;
@@ -181,6 +187,9 @@ export function QuestionScreen({
   // landed, so no write yet (F11), and landing would discard only that revision (verify finding 1).
   const skipRevision = useRef<number | null>(opened.skipRevision ?? null);
   const shownAt = useRef(Date.now());
+  // Recognition and effort RE0: the attempt's active seconds, the desktop's own clock (the router objective's), kept
+  // under this draft's session and item so a resumed question carries them. Sent beside `latencySeconds`, never blended.
+  const activeClock = useAttemptClock();
   // Its own copy may hold what never reached the checkpoint, or the checkpoint may have moved on to
   // another item since. A request already sent settles that at the submit.
   const dirty = useRef(opened.own && !opened.sentInput);
@@ -226,6 +235,7 @@ export function QuestionScreen({
         setProbeActive(Boolean(contract.active));
         setProbe(answered);
         shownAt.current = Date.now();
+        activeClock.open(`phone:${sessionId}:${practiceItemId}`);
       })
       .catch((error: CommandError) => {
         if (cancelled) return;
@@ -360,6 +370,7 @@ export function QuestionScreen({
     dirty.current = false;
     rememberPendingSubmit(null);
     clearQuestionDraft(sessionId, practiceItemId);
+    activeClock.forget();
     await phone.acknowledge(sessionId, practiceItemId, key).catch(() => undefined);
     onFeedback(attemptId, practiceItemId);
   }
@@ -406,6 +417,7 @@ export function QuestionScreen({
         attemptType: "diagnostic_probe",
         submissionId: key,
         latencySeconds: Math.round((Date.now() - shownAt.current) / 1000),
+        ...activeSecondsField(activeClock.seconds()),
         schedulerCandidateId: schedulerCandidateId.current,
         assessmentContractVersionId: currentItem.assessmentContractVersionId,
         hintsUsed: 0,
@@ -423,6 +435,7 @@ export function QuestionScreen({
       attemptType: phoneAttemptType(currentItem.attemptTypesAllowed, hints),
       submissionId: key,
       latencySeconds: Math.round((Date.now() - shownAt.current) / 1000),
+      ...activeSecondsField(activeClock.seconds()),
       schedulerCandidateId: schedulerCandidateId.current,
       assessmentContractVersionId: currentItem.assessmentContractVersionId,
       hintsUsed: hints,

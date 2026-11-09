@@ -27,6 +27,7 @@ import { LearnerVoice, MeaningLabel, SourceVoice } from "../reader/voices";
 import { EXERCISE_COPY, keyStatusLine } from "../reader/exerciseCandidates";
 import { WORKBENCH_COPY, liveSteps, problemTitle, savedLabel, stepChain } from "./stepModel";
 import { useWorkbenchSession } from "./useWorkbenchSession";
+import { useAttemptClock } from "../useAttemptClock";
 import { algoConfig } from "../../app/algoConfig";
 import { CheckSummary, QuestionableNote, VerdictCell } from "./CheckColumn";
 import { HelpLadder } from "./HelpLadder";
@@ -143,6 +144,12 @@ export function Workbench(props: WorkbenchProps) {
   const [showVersions, setShowVersions] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const openedAt = useRef(Date.now());
+  // Recognition and effort RE0: the problem's active seconds, carried across resumes of this workbench session, sent
+  // beside `latencySeconds` and never blended with it.
+  const activeClock = useAttemptClock();
+  useEffect(() => {
+    activeClock.open(`workbench:${session.sessionId}`);
+  }, [activeClock, session.sessionId]);
 
   // "saved · 2 min ago" ages quietly (a text change, never a motion).
   useEffect(() => {
@@ -293,8 +300,10 @@ export function Workbench(props: WorkbenchProps) {
         practiceSessionId,
         ...(named ? { schedulerCandidateId: props.schedulerCandidateId ?? null, planPresentationId: props.planPresentationId ?? null } : {}),
         latencySeconds: Math.max(0, Math.round((Date.now() - openedAt.current) / 1000)),
+        activeSeconds: activeClock.seconds(),
         ...(helpOn && confidence !== null ? { answerConfidence: confidence } : {}),
       });
+      activeClock.forget();
       props.onSubmitted(result);
     } catch (error) {
       const command = getCommandError(error);
