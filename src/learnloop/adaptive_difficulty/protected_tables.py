@@ -428,7 +428,7 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "grader_confidence manual_review manual_review_reason created_at updated_at session_id "
                "scheduler_slate_id scheduler_candidate_id primed probe_presentation_id answer_confidence "
                "submission_id declared_dont_know collection_version entry_surface evidence_origin declared_stuck "
-               "reference_status difficulty_rating first_hint_progress received_at received_at_source"),
+               "reference_status difficulty_rating first_hint_progress received_at received_at_source active_seconds"),
     "practice_item_snapshots": _table({"content_hash": "self", "item_json": "self", "practice_item_id": "item"},
         values="created_at"),
     "proposed_patch_items": _table({

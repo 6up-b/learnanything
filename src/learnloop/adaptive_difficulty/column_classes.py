@@ -486,7 +486,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "probe_presentation_id answer_confidence submission_id declared_dont_know collection_version "
         "declared_stuck reference_status plan_presentation_id received_at received_at_source",
         "concept learner_answer_md evidence_facets_json evidence_weights_json manual_review_reason "
-        "entry_surface evidence_origin difficulty_rating first_hint_progress"),
+        "entry_surface evidence_origin difficulty_rating first_hint_progress active_seconds"),
     "practice_item_snapshots": (
         "content_hash practice_item_id created_at",
         "item_json"),

@@ -18821,6 +18821,14 @@ class Repository(
             f"VALUES ({', '.join('?' for _ in columns)})",
             values,
         )
+        if attempt.get("active_seconds") is not None:
+            # Recognition and effort RE0 (migration 252): the active seconds follow the row in their own savepoint, as
+            # RO0's columns do, so a refused write leaves the attempt standing with them null (and a vault below 252 has
+            # no such column). Null is never written: a surface that sends no clock reads as missing.
+            from learnloop.db.stores import router_objective as receipts
+
+            receipts.fill_receipt(connection, "practice_attempts", attempt["id"],
+                                  {"active_seconds": attempt["active_seconds"]})
 
     def _insert_grading_evidence(
         self,

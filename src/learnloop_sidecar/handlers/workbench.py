@@ -509,6 +509,8 @@ class WorkbenchSubmitInput(ParamsModel):
     practice_session_id: str | None = None
     answer_confidence: int | None = None
     latency_seconds: int | None = None
+    #: Recognition and effort RE0: active seconds on the problem (see ``SubmitAttemptInput``).
+    active_seconds: int | None = Field(default=None, ge=0)
     scheduler_candidate_id: str | None = None
     plan_presentation_id: str | None = None
 
@@ -1247,6 +1249,7 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         primed=plan.primed,
         assessment_contract_version_id=plan.assessment_contract_version_id,
         latency_seconds=params.latency_seconds,
+        active_seconds=params.active_seconds,
         answer_confidence=params.answer_confidence,
         submission_id=plan.submission_id,
         scheduler_candidate_id=scheduler_candidate_id,

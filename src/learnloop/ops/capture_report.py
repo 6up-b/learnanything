@@ -20,6 +20,7 @@ from learnloop.db.stores import data_capture as store
 from learnloop.db.stores import hypothesis_marks as marks_store
 from learnloop.followup_serve import marks as marks_rules
 from learnloop.followup_serve.gates import hypothesis_marks_on
+from learnloop.recognition import report as recognition_report
 from learnloop.held_grades import held_for_review_attempts, pfc_assessments
 from learnloop.router_objective import report as objective_report
 
@@ -534,6 +535,8 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
             "switch_on": hypothesis_marks_on(vault.config),
             **hypothesis_marks_section(connection, vault, repository, success_correctness=success_correctness),
         },
+        # Recognition and effort RE0 (spec_recognition_and_effort_v1 §4): results by cue, observational; reports only.
+        "recognition_and_effort": recognition_report.section(connection, vault, repository),
     }, **extra}
 
 
@@ -613,6 +616,7 @@ def lines(report: Mapping[str, Any]) -> list[str]:
         out.append(f"  by display position: {position['by_position']}; {position['label']}")
     else:
         out.append(f"Marks on possible causes: unavailable ({marks.get('reason')})")
+    out.extend(recognition_report.lines(report["recognition_and_effort"]))
     picks = report.get("open_picks")
     if picks is not None and picks.get("available"):
         out.append(f"Open picks (router objective RO5 §9 item 6): assigned {picks['assignments']}, eligibility "

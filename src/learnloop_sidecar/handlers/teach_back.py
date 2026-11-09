@@ -20,6 +20,8 @@ import json
 from collections.abc import Callable
 from typing import Any
 
+from pydantic import Field
+
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.vault.required_method import presented_prompt
 from learnloop.attempts.attempts import AttemptValidationError
@@ -128,6 +130,8 @@ class SubmitTeachBackTurnInput(ParamsModel):
     # Client-requested early finish: grade whatever has been asked so far.
     finish: bool = False
     latency_seconds: int | None = None
+    #: Recognition and effort RE0: active seconds over the conversation (see ``SubmitAttemptInput``).
+    active_seconds: int | None = Field(default=None, ge=0)
 
 
 @method("start_teach_back", StartTeachBackInput)
@@ -381,6 +385,7 @@ def _finish(
             client,
             session_id=params.session_id,
             latency_seconds=params.latency_seconds,
+            active_seconds=params.active_seconds,
             conversation_id=state.conversation_id,
             grading_source=grading_source_for_provider(provider_name),
             runtime=runtime,
