@@ -444,7 +444,9 @@ def _answer(env, *, questions_left: bool = True) -> dict[str, Any]:
             record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
                            session_id=env.session_id)
             env.clock.advance(1)
-            block = next(b for b in E.latest_today(env).blocks if b.id == step["block_id"])
+            # Reconciled, as the next step would: an answer can take a question out of its block (a check that waits).
+            record = E.reconcile(env, E.latest_today(env))
+            block = next(b for b in record.blocks if b.id == step["block_id"])
             if not questions_left or any(item.practice_item_id != step["practice_item_id"] and not item.resolved
                                          for item in block.items):
                 return step
@@ -602,7 +604,7 @@ def test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_less
 
 def test_no_lesson_available_the_followup_decision_is_the_predecessors(tmp_path, draw, monkeypatch):
     monkeypatch.setattr(SG, "build_candidates", lambda vault, repository, *, now_iso: ([], {}))
-    env, row = _miss_env(tmp_path)
+    env, row = _miss_env(tmp_path, questions_left=True)  # room to wait: the three arms, not ask-now alone
     draw.prefer = (INSERT_NOW,)
     _author_refuses(monkeypatch)
     _run_lane(env, row, monkeypatch)
@@ -632,7 +634,7 @@ def test_with_no_room_to_wait_a_lesson_makes_it_a_real_draw_and_with_none_it_sta
 
 
 def test_an_offer_never_interrupts_a_check_or_a_probe(tmp_path, draw):
-    env, _row = _miss_env(tmp_path)
+    env, _row = _miss_env(tmp_path, questions_left=True)
     record = E.latest_today(env)
     block = next(b for b in record.blocks if any(not i.resolved for i in b.items))
     assert E._offer_may_interrupt(env, block) is True
@@ -768,7 +770,7 @@ def test_a_phone_follow_up_stays_forced_beside_an_open_desktop_offer(tmp_path, d
 
 
 def test_a_miss_on_the_phones_surface_decides_with_no_lesson_arm(tmp_path, draw, monkeypatch):
-    env, row = _miss_env(tmp_path)
+    env, row = _miss_env(tmp_path, questions_left=True)
     with env.repository.atomic(), env.repository.connection() as connection:
         connection.execute("UPDATE followup_workflows SET surface = 'phone' WHERE id = 'fw_miss'")
     row = wf.get(env.repository, "fw_miss")
@@ -809,7 +811,7 @@ def test_off_or_below_the_tag_a_probe_withdraws_the_offer_as_the_predecessor(tmp
 
 @pytest.mark.parametrize("version,toml", [(TAG, OFF_NO_CHECKS), (OLD, NO_CHECKS)])
 def test_off_or_below_the_tag_the_followup_decision_is_the_predecessors(tmp_path, draw, monkeypatch, version, toml):
-    env, row = _miss_env(tmp_path, version=version, toml=toml)
+    env, row = _miss_env(tmp_path, version=version, toml=toml, questions_left=True)
     draw.prefer = (INSERT_NOW,)
     _author_refuses(monkeypatch)
     _run_lane(env, row, monkeypatch)
