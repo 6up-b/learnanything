@@ -45,7 +45,7 @@ OLD = PHONE_PROBES_ALGORITHM_VERSION
 #: IH5's key and IH2's, on the same unreleased tag (spec_instruct_handoff_v1 §5, §7a).
 IH5_KEYS = {"failure_share_to_other_policy": True, "lessons_compete_with_followups": True, "learner_preferences": True,
             "workbench_is_open_item": True, "lesson_sources_follow_diagnosis": True,
-            "preferences_inform_router": True}
+            "preferences_inform_router": True, "lesson_candidate_after_cold_miss": True}
 
 
 def drop_ih5_keys(dumped: dict) -> dict:

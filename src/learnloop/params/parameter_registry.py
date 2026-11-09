@@ -2019,6 +2019,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for instruct hand-off IH6 on mvp-0.55 (spec_instruct_handoff_v1 §7b): while a workbench problem of "
         "the current practice session is open, a read of the plan writes no decision and starts no job, and an explicit "
         "step still decides; off, mvp-0.54's reads."),
+    _ConfigRule(_exact("router_objective.lesson_candidate_after_cold_miss"), "structural", "operational",
+        "kill switch for instruct hand-off's owner decision 4 on mvp-0.55 (spec_instruct_handoff_v1 §8): a topic with a "
+        "missed cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or "
+        "error type, so the router decides with its own evidence; off, mvp-0.54's cold_failing rule and wording."),
     _ConfigRule(_exact("router_objective.lesson_sources_follow_diagnosis"), "structural", "operational",
         "kill switch for instruct hand-off IH7 on mvp-0.55 (spec_instruct_handoff_v1 §7c): a lesson opened from an offer "
         "or a suggestion with a recent miss on its topics also loads the source sections matching the diagnosed "

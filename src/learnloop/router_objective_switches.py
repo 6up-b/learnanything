@@ -410,6 +410,18 @@ def lesson_sources_follow_diagnosis_on(config: Any) -> bool:
     return failure_share_tag(config) and bool(getattr(section, "lesson_sources_follow_diagnosis", False))
 
 
+def lesson_candidate_after_cold_miss_on(config: Any) -> bool:
+    """The owner's decision 4 of Nov 9 (spec_instruct_handoff_v1 §8, the same unreleased tag as IH5): a topic with a missed
+    cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or error type (the
+    router, the diagnosis and the teacher then decide through the algorithm), and its reason reads "A recent check on it
+    didn't come out right": the tag and ``[router_objective] lesson_candidate_after_cold_miss`` (default true). It needs no
+    objective: it says what is offerable wherever lesson candidates are built (an offer, TE1b's card, IH3's options). Off,
+    or below the tag, mvp-0.54's ``cold_failing`` rule (the two latest cold checks below full) and its wording exactly."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and bool(getattr(section, "lesson_candidate_after_cold_miss", False))
+
+
 def preferences_inform_router_on(config: Any) -> bool:
     """IH4 (spec_instruct_handoff_v1 §7, the same unreleased tag as IH5): what the learner said would help informs the
     objective's non-LLM parts and its LLM card: the tag, the objective serving and ``[router_objective]
@@ -466,6 +478,7 @@ __all__ = [
     "stop_coin_rate",
     "workbench_is_open_item_on",
     "lesson_sources_follow_diagnosis_on",
+    "lesson_candidate_after_cold_miss_on",
     "preferences_inform_router_on",
     "known_at",
     "objective_on",

@@ -10634,7 +10634,8 @@ export interface LessonSuggestionEntryDto {
   ref: string;
   title: string;
   learningObjectIds: string[];
-  reason: "new_goal" | "cold_failing" | "below_band";
+  /** `cold_missed` (the owner's decision 4, mvp-0.55): any missed cold check since the topic's last lesson. */
+  reason: "new_goal" | "cold_failing" | "below_band" | "cold_missed";
   why: string;
 }
 

@@ -1,0 +1,242 @@
+"""Instruct hand-off, the owner's decision 4 (Nov 9; spec_instruct_handoff_v1 §1, §8): no gate on ``cold_failing``.
+
+"cold_failing can be from 1 severe bayesian surprise cold retrieval failure or 2 mild surprise cold retrieval failures, or
+none since the failures in the cold retrieval were insignificant/trivial arithmetic. This is something for the action
+router/diagnosis/teacher ensemble to decide through the learnloop algorithm." So a topic with a missed cold check since its
+last lesson is a lesson candidate (``cold_missed``), with no threshold on the miss's size, its count or its error type, and
+its reason says "A recent check on it didn't come out right." Off, or below the tag, mvp-0.54's ``cold_failing``.
+Fakes only; no model call.
+"""
+
+from __future__ import annotations
+
+import inspect
+import io
+import tokenize
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.clock import FrozenClock
+from learnloop.config import LearnLoopConfig
+from learnloop.daily_plan import lesson_suggestion as SG
+from learnloop.db.stores import router_suggestions as store
+from learnloop.params.parameter_registry import classify_config_path
+from learnloop.router import lesson_suggestions as LS
+from learnloop.router_objective_switches import lesson_candidate_after_cold_miss_on
+from learnloop.teacher import service as S
+from learnloop.vault.loader import load_vault
+from tests.helpers import append_config_toml
+from tests.teacher_fakes import TeacherFake, clients, plan_turn
+from tests.test_teacher_te1b_suggestions import LOS, _vault
+
+TAG = FAILURE_SHARE_ALGORITHM_VERSION
+OLD = PHONE_PROBES_ALGORITHM_VERSION
+OFF = "[router_objective]\nlesson_candidate_after_cold_miss = false\n"
+T0 = datetime(2026, 11, 9, 9, 0, tzinfo=UTC)
+NOW = "2026-11-09T09:00:00Z"
+#: Self-graded points out of the item's 4: 3 is the trivial slip (0.75), 0 the severe miss.
+SLIP, SEVERE, RIGHT = 3, 0, 4
+
+
+def _world(tmp_path, *, version: str = TAG, config: str = "", name: str = "vault"):
+    paths, repository = _vault(tmp_path, version=version, name=name)
+    if config:
+        append_config_toml(paths.root, config)
+    return paths, repository
+
+
+def _answer(paths, repository, item: str, points: int, *, days_ago: float) -> str:
+    attempt = complete_self_graded_attempt(
+        load_vault(paths.root), repository,
+        AttemptDraft(practice_item_id=item, learner_answer_md="my answer", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": points}, confidence=3),
+        clock=FrozenClock(T0 - timedelta(days=days_ago)))
+    return attempt.attempt_id
+
+
+def _candidates(paths, repository, now: str = NOW) -> dict[str, LS.Candidate]:
+    candidates, _excluded = SG.build_candidates(load_vault(paths.root), repository, now_iso=now)
+    return {candidate.learning_object_ids[0]: candidate for candidate in candidates}
+
+
+# -- the candidacy condition is structural ------------------------------------------------------------------------------
+
+
+def _names(source: str) -> list[str]:
+    return [token.string for token in tokenize.generate_tokens(io.StringIO(source).readline)
+            if token.type in (tokenize.NAME, tokenize.NUMBER, tokenize.OP)]
+
+
+def test_the_candidacy_condition_reads_no_score_magnitude_count_or_error_type():
+    """Static: the condition only asks whether a cold check since the last lesson was not fully right. No count (``len``,
+    a slice, ``sum``), no threshold below full, no error type, severity, surprise or stuck flag."""
+
+    body = inspect.getsource(SG.missed_since).split('"""')[2]
+    names = _names(body)
+    numbers = {name for name in names if name[:1].isdigit()}
+    assert numbers == {"1.0"}, numbers  # "not fully right": the definition of a miss, the only number
+    for word in ("len", "sum", "count", "max", "min", "error_type", "severity", "surprise", "stuck", "declared_stuck",
+                 "hints", "confidence", "diagnosis", ":"):
+        assert word not in names, word
+    # And nothing the candidates are built from carries an error type, a severity or a surprise.
+    reads = inspect.getsource(store.attempts_by_learning_object)
+    for word in ("error_type", "severity", "surprise", "diagnos", "stuck"):
+        assert word not in reads, word
+
+
+def test_a_trivial_slip_and_a_severe_miss_are_both_candidates_and_differ_only_through_the_routers_evidence(tmp_path):
+    """One slip on ``lo_det`` and one severe miss on ``lo_eigen``: both ``cold_missed``, read the same by the acceptance
+    model (the same reason feature), and their values differ only through the mastery model's predicted success (the room
+    to learn), which reads the graded answers. Nothing about either miss is in the candidate itself."""
+
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SLIP, days_ago=1)
+    _answer(paths, repository, "pi_eig_1", SEVERE, days_ago=1)
+    found = _candidates(paths, repository)
+    slip, severe = found["lo_det"], found["lo_eigen"]
+    assert slip.reason == severe.reason == "cold_missed"
+    strip = ("ref", "learning_object_ids", "title", "predicted_success")
+    assert {k: v for k, v in slip.as_dict().items() if k not in strip} == \
+        {k: v for k, v in severe.as_dict().items() if k not in strip}
+    context = LS.Context(local_hour=9.0, minutes_left=30.0, reentry=False, days_since_last=None)
+    state = LS.AcceptanceState()
+    assert state.p_accept(context, slip) == state.p_accept(context, severe), "the acceptance model reads the reason only"
+    assert slip.predicted_success > severe.predicted_success, "the graded answers move the mastery model"
+    scored = {entry.candidate.learning_object_ids[0]: entry.value for entry in LS.score(state, context, [slip, severe], k=2)}
+    assert scored["lo_eigen"] > scored["lo_det"], "more room to learn after the severe miss, by the model's own numbers"
+
+
+def test_one_miss_and_two_misses_are_the_same_candidacy(tmp_path):
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SEVERE, days_ago=2)
+    _answer(paths, repository, "pi_det_2", SEVERE, days_ago=1)
+    _answer(paths, repository, "pi_eig_1", SEVERE, days_ago=1)
+    found = _candidates(paths, repository)
+    assert found["lo_det"].reason == found["lo_eigen"].reason == "cold_missed"
+
+
+def test_a_miss_followed_by_a_right_answer_is_still_a_candidate(tmp_path):
+    """Whether the later right answer settles it is the router's to weigh (AD's posterior reads both), not a rule's."""
+
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SEVERE, days_ago=2)
+    _answer(paths, repository, "pi_det_2", RIGHT, days_ago=1)
+    assert _candidates(paths, repository)["lo_det"].reason == "cold_missed"
+
+
+def test_only_a_miss_since_the_last_lesson_counts(tmp_path):
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SEVERE, days_ago=3)
+    S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_det"],
+                  clients=clients(TeacherFake([plan_turn])), clock=FrozenClock(T0 - timedelta(days=2)))
+    with repository.connection() as connection:
+        connection.execute("UPDATE lessons SET closed_at = ?, close_reason = 'learner_stop' WHERE closed_at IS NULL",
+                           ((T0 - timedelta(days=2) + timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ"),))
+        connection.commit()
+    _answer(paths, repository, "pi_det_2", RIGHT, days_ago=1)
+    assert "lo_det" not in _candidates(paths, repository) or _candidates(paths, repository)["lo_det"].reason != "cold_missed"
+    _answer(paths, repository, "pi_det_1", SLIP, days_ago=0.5)
+    assert _candidates(paths, repository)["lo_det"].reason == "cold_missed"
+
+
+def test_an_unattempted_or_only_right_topic_is_no_cold_miss(tmp_path):
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", RIGHT, days_ago=1)
+    found = _candidates(paths, repository)
+    assert "lo_det" not in found or found["lo_det"].reason != "cold_missed"
+    assert found["lo_eigen"].reason == "new_goal"
+
+
+# -- the wording and the acceptance model ------------------------------------------------------------------------------
+
+
+def test_the_reason_reads_honestly(tmp_path):
+    assert SG.REASON_WORDS["cold_missed"] == "A recent check on it didn't come out right."
+    assert SG.REASON_WORDS["cold_failing"] == "Your last two checks on it didn't come out right."  # the predecessor's
+    paths, repository = _world(tmp_path)
+    _answer(paths, repository, "pi_det_1", SLIP, days_ago=1)
+    entry = SG._card_entry(_candidates(paths, repository)["lo_det"].as_dict())
+    assert entry["why"] == "A recent check on it didn't come out right."
+
+
+def test_the_renamed_reason_enters_the_acceptance_model_through_the_same_effect_with_its_history():
+    """No new effect and no hand-set number: ``cold_missed`` sets the ``reason_cold_failing`` effect as ``cold_failing``
+    did, so every earlier answer to a ``cold_failing`` card keeps teaching it, and the prior set is unchanged."""
+
+    context = LS.Context(local_hour=9.0, minutes_left=None, reentry=False, days_since_last=None)
+    old = LS.Candidate(ref="lesson:lo_a", learning_object_ids=("lo_a",), reason="cold_failing", predicted_success=0.3)
+    new = LS.Candidate(ref="lesson:lo_a", learning_object_ids=("lo_a",), reason="cold_missed", predicted_success=0.3)
+    for recovery in LS.RECOVERY_DAYS_GRID:
+        assert (LS.design_vector(context, old, recovery) == LS.design_vector(context, new, recovery)).all()
+    assert LS.PRIORS_VERSION == "suggestion_priors_v1" and "cold_missed" in LS.REASONS
+    # History: three declines of cold_failing cards lower P(accept) of a cold_missed card exactly as of a cold_failing one.
+    state = LS.AcceptanceState()
+    before = state.p_accept(context, new)
+    for _ in range(3):
+        state.observe(context, old, False)
+    assert state.p_accept(context, new) == state.p_accept(context, old) < before
+
+
+# -- the switch and the tag --------------------------------------------------------------------------------------------
+
+
+def _history(paths, repository) -> None:
+    _answer(paths, repository, "pi_det_1", SEVERE, days_ago=3)
+    _answer(paths, repository, "pi_det_2", SEVERE, days_ago=2)
+    _answer(paths, repository, "pi_eig_1", SLIP, days_ago=1)
+
+
+@pytest.mark.parametrize(("version", "config"), [(TAG, OFF), (OLD, "")], ids=["switch_off", "below_the_tag"])
+def test_off_or_below_the_tag_candidates_and_wording_are_the_predecessors(tmp_path, version, config):
+    paths, repository = _world(tmp_path, version=version, config=config, name="held")
+    _history(paths, repository)
+    found = _candidates(paths, repository)
+    assert found["lo_det"].reason == "cold_failing"  # its two latest cold checks below full
+    assert "lo_eigen" not in found, "one slip: not a candidate under mvp-0.54's rule"
+    assert SG._card_entry(found["lo_det"].as_dict())["why"] == "Your last two checks on it didn't come out right."
+    on_paths, on_repository = _world(tmp_path, name="on")
+    _history(on_paths, on_repository)
+    on = _candidates(on_paths, on_repository)
+    assert on["lo_det"].reason == on["lo_eigen"].reason == "cold_missed"
+    assert set(on) - set(found) == {"lo_eigen"}
+    # Everything else about the candidates is unchanged.
+    rest = set(found) - {"lo_det"}
+    assert {lo: found[lo].as_dict() for lo in rest} == {lo: on[lo].as_dict() for lo in rest}
+
+
+def test_the_switch_needs_the_tag_defaults_on_and_is_registered(tmp_path):
+    assert LearnLoopConfig().router_objective.lesson_candidate_after_cold_miss is True
+    on, _r = _world(tmp_path, name="on")
+    off, _r = _world(tmp_path, config=OFF, name="off")
+    below, _r = _world(tmp_path, version=OLD, name="below")
+    plain, _r = _world(tmp_path, config="[router_objective]\nenabled = false\n", name="plain")
+    assert lesson_candidate_after_cold_miss_on(load_vault(on.root).config)
+    assert not lesson_candidate_after_cold_miss_on(load_vault(off.root).config)
+    assert not lesson_candidate_after_cold_miss_on(load_vault(below.root).config)
+    # It needs no objective: it says what is offerable wherever lesson candidates are built.
+    assert lesson_candidate_after_cold_miss_on(load_vault(plain.root).config)
+    rule = classify_config_path("router_objective.lesson_candidate_after_cold_miss")
+    assert rule is not None and "kill switch" in rule.rationale and "decision 4" in rule.rationale
+
+
+def test_the_switch_is_not_in_the_prefetch_key_and_moves_no_seed_by_itself(tmp_path):
+    """It changes which candidates exist, and a boundary's identity already holds the offer it built (its log row and
+    annotations), so a flip that changes the offer changes the key, and one that changes nothing leaves the job right."""
+
+    from learnloop.daily_plan.objective_chooser import objective_settings
+    from learnloop.router_objective_switches import SEED_NEUTRAL_OBJECTIVE_KEYS, SEED_NEUTRAL_SWITCHES
+
+    on, _r = _world(tmp_path, name="on")
+    off, _r = _world(tmp_path, config=OFF, name="off")
+    assert objective_settings(load_vault(on.root).config) == objective_settings(load_vault(off.root).config)
+    assert "lesson_candidate_after_cold_miss" not in SEED_NEUTRAL_SWITCHES + SEED_NEUTRAL_OBJECTIVE_KEYS
+
+
+def test_every_lo_of_the_fixture_is_accounted_for(tmp_path):
+    """A guard on the fixture these tests read: six LOs, all on the goal."""
+
+    paths, repository = _world(tmp_path)
+    assert set(_candidates(paths, repository)) == set(LOS)

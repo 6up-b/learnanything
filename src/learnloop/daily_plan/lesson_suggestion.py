@@ -6,7 +6,8 @@ acceptance model and the draw). Three steps, each its own call:
 * :func:`today_suggestion`: at Today's open, the day's card. The first call of
   a local day records any earlier shown card left unanswered as ``ignored``,
   builds the ``instruct(lesson)`` candidates (LOs new on an active goal, failing
-  their two latest cold checks, or predicted by adaptive difficulty's posterior
+  their two latest cold checks (from instruct hand-off's mvp-0.55, with the owner's
+  decision 4: any missed cold check since the last lesson), or predicted by adaptive difficulty's posterior
   well below its practice band; never one with an open lesson or taught since
   its last attempt), replays the response ledger into the acceptance model, draws the
   target the router's way (``router.mode``: the router's ``model_mixture`` with the
@@ -68,6 +69,8 @@ REASON_WORDS: Mapping[str, str] = {
     "new_goal": "It's on your goal and you haven't started it yet.",
     "cold_failing": "Your last two checks on it didn't come out right.",
     "below_band": "LearnLoop expects it to be hard for you right now.",
+    # The owner's decision 4 (Nov 9): any missed cold check since the topic's last lesson, however small (:func:`missed_since`).
+    "cold_missed": "A recent check on it didn't come out right.",
 }
 WHY_LABEL = "Suggested by LearnLoop's planner"
 
@@ -132,6 +135,16 @@ def _cold(row: Mapping[str, Any]) -> bool:
             and row["correctness"] is not None)
 
 
+def missed_since(cold: Sequence[Mapping[str, Any]], last_lesson: str | None) -> bool:
+    """The owner's decision 4 (Nov 9, spec_instruct_handoff_v1 §8): a cold check since the topic's last lesson (or ever,
+    with none) that was not fully right. Structural only: whether a miss exists, never how large it was, how many there
+    were or what kind of error it was (a severe surprise, two mild ones and a trivial arithmetic slip are all candidates).
+    The router, the diagnosis and the teacher then decide through the algorithm, with their own evidence."""
+
+    return any(float(row["correctness"]) < 1.0 for row in cold
+               if last_lesson is None or str(row["created_at"]) > last_lesson)
+
+
 def _predicted(vault: Any, repository: Any, learning_object_id: str, now_iso: str) -> float | None:
     """The mastery model's predicted unassisted success on the LO (its own prior while it has no evidence):
     the number the lesson brief shows (``teacher.brief.lo_prediction``; a test pins the two equal)."""
@@ -170,8 +183,15 @@ def _band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[s
 
 
 def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list[LS.Candidate], dict[str, list[str]]]:
-    """The ``instruct(lesson)`` candidates (without decline days) and why other LOs were left out."""
+    """The ``instruct(lesson)`` candidates (without decline days) and why other LOs were left out.
 
+    From the owner's decision 4 (``router_objective_switches.lesson_candidate_after_cold_miss_on``), a topic with any
+    missed cold check since its last lesson is a candidate (``cold_missed``, :func:`missed_since`); off, or below the tag,
+    mvp-0.54's ``cold_failing``: its two latest cold checks below full."""
+
+    from learnloop.router_objective_switches import lesson_candidate_after_cold_miss_on
+
+    any_miss = lesson_candidate_after_cold_miss_on(vault.config)
     with repository.connection() as connection:
         attempts = store.attempts_by_learning_object(connection)
         open_los = store.open_lesson_learning_objects(connection)
@@ -195,7 +215,9 @@ def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list
             continue
         cold = [row for row in rows if _cold(row)]
         reason: str | None = None
-        if len(cold) >= 2 and all(float(row["correctness"]) < 1.0 for row in cold[-2:]):
+        if any_miss and missed_since(cold, last_taught):
+            reason = "cold_missed"
+        elif not any_miss and len(cold) >= 2 and all(float(row["correctness"]) < 1.0 for row in cold[-2:]):
             reason = "cold_failing"
         elif rows:
             # AD predicts success well below the band: AD's own out-of-band rule on P_band, below
@@ -665,6 +687,7 @@ __all__ = [
     "SuggestionError",
     "WHY_LABEL",
     "build_candidates",
+    "missed_since",
     "card_view",
     "offer_card_view",
     "offers_in_objective",

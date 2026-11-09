@@ -7,7 +7,9 @@ client (the shell is ``learnloop.daily_plan.lesson_suggestion``).
 **The candidate** is ``instruct(lesson)`` on one learning object, proposed for
 one of the spec's three reasons (``new_goal``: an LO on an active goal the
 learner has not started; ``cold_failing``: its two latest cold checks were not
-right; ``below_band``: adaptive difficulty's posterior predicts the learner
+right (from instruct hand-off's mvp-0.55, with the owner's decision 4, ``cold_missed``: any cold check
+since its last lesson was not fully right, with no threshold on its size, count or error type);
+``below_band``: adaptive difficulty's posterior predicts the learner
 below its practice band, by AD's own out-of-band rule on ``P_band``). Declining costs nothing, so it is
 reversible and drawn.
 
@@ -89,7 +91,14 @@ SURFACE = "today_card"
 CANDIDATE_KIND = "instruct_lesson"
 #: The day's draw showed no card.
 NO_SUGGESTION = "no_suggestion"
-REASONS: tuple[str, ...] = ("new_goal", "cold_failing", "below_band")
+REASONS: tuple[str, ...] = ("new_goal", "cold_failing", "below_band", "cold_missed")
+#: The reasons that say a cold check on the topic didn't come out right, read by one effect, ``reason_cold_failing``
+#: (the owner's decision 4, spec_instruct_handoff_v1 §8). ``cold_missed`` replaced ``cold_failing``'s candidacy rule (any
+#: missed check since the last lesson, not the two latest) and its wording ("A recent check on it didn't come out right."),
+#: but it tells the learner the same thing, so a response to either card teaches the same effect: every earlier answer
+#: to a ``cold_failing`` card keeps informing it, and no new effect starts from a prior of its own. No prior changed, so
+#: the set keeps its name; a vault that never draws a ``cold_missed`` card computes TE1b's numbers bit for bit.
+COLD_MISS_REASONS: frozenset[str] = frozenset({"cold_failing", "cold_missed"})
 RESPONSES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored")
 
 #: The state vector, in order (``decline`` is ``D``, entered as ``−g_R(d)``).
@@ -275,7 +284,7 @@ def design_vector(context: Context, candidate: Candidate, recovery_days: float) 
         fits = min(max(float(context.minutes_left), 0.0), float(CARD_MINUTES)) / float(CARD_MINUTES)
         h[TERMS.index("minutes_short")] = fits - 1.0
     h[TERMS.index("reentry")] = 1.0 if context.reentry else 0.0
-    h[TERMS.index("reason_cold_failing")] = 1.0 if candidate.reason == "cold_failing" else 0.0
+    h[TERMS.index("reason_cold_failing")] = 1.0 if candidate.reason in COLD_MISS_REASONS else 0.0
     h[TERMS.index("reason_below_band")] = 1.0 if candidate.reason == "below_band" else 0.0
     h[TERMS.index("recent_suggestion")] = spacing_feature(context.days_since_last)
     h[TERMS.index("decline")] = -decline_shape(candidate.days_since_decline, recovery_days)
@@ -695,6 +704,7 @@ __all__ = [
     "POLICY",
     "PRIORS_VERSION",
     "REASONS",
+    "COLD_MISS_REASONS",
     "RECOVERY_DAYS_GRID",
     "RESPONSES",
     "SURFACE",

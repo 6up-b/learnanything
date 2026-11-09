@@ -4232,6 +4232,12 @@ class RouterObjectiveConfig(BaseModel):
     confusion, beside the topic's linked ones. It changes what a lesson reads, not what the router decides. Off, or below
     the tag, the brief is byte-identical to mvp-0.54's.
 
+    Instruct hand-off, the owner's decision 4 of Nov 9 (the same tag, spec_instruct_handoff_v1 §8):
+    ``lesson_candidate_after_cold_miss``: a topic with a missed cold check since its last lesson is a lesson candidate,
+    with no threshold on the miss's size, its count or its error type (the router decides with its own evidence), and its
+    reason reads "A recent check on it didn't come out right." Off, or below the tag, mvp-0.54's ``cold_failing`` rule
+    (the two latest cold checks below full) and its wording.
+
     Instruct hand-off IH4 (the same tag, spec_instruct_handoff_v1 §7): ``preferences_inform_router``: what the learner said
     would help updates the lesson offers' acceptance model (a request flagged unprompted), is frozen in each decision's
     trace as a choice model's sensor, enters the numeric value through one coefficient learned from randomized draws
@@ -4379,6 +4385,9 @@ class RouterObjectiveConfig(BaseModel):
     #: loads the sections matching the diagnosed confusion beside the topic's linked ones (the owner's decision of Nov 8).
     #: Keyword retrieval only, no model call. Off: the brief is mvp-0.54's, byte for byte.
     lesson_sources_follow_diagnosis: bool = True
+    #: The owner's decision 4 of Nov 9 (mvp-0.55): any missed cold check since the topic's last lesson makes it a lesson
+    #: candidate, with no threshold on size, count or error type; the router decides. Off: mvp-0.54's ``cold_failing`` rule.
+    lesson_candidate_after_cold_miss: bool = True
     #: Instruct hand-off IH4 (mvp-0.55): preferences inform the acceptance model, the choice model's sensor, the numeric
     #: value through a learned ``w_pref`` (no hand-set bonus) and the LLM's card (the owner's decisions of Nov 8).
     preferences_inform_router: bool = True
