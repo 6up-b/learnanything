@@ -236,7 +236,7 @@ it("Not now under an open problem's hold stays a read: Today says so, nothing is
   nextPlanItem.mockImplementation(async () => ({
     ...PLAN, enabled: true,
     step: { kind: "question_in_progress", planId: "p1", workbenchSessionId: "wb", practiceItemId: "pi_8", learningObjectTitle: "ReLU" }
-  }));
+  }) as unknown as Awaited<ReturnType<typeof nextPlanItem>>);
   await toFeedbackNext();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Not now" })); });
   await flush();
