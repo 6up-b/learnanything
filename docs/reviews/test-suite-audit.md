@@ -42,7 +42,7 @@ Other measurements:
 
 ## 2. Speed: what changed
 
-Each row is one change. Seconds were measured alone on this machine, so read them as relative: the machine was loaded by other stages. Final before and after times are in §8.
+Each row is one change. Seconds were measured alone on this machine, so read them as relative: the machine was loaded by other stages. Before and after times are in §8.
 
 | Change | Measured | What still proves the behaviour |
 |---|---|---|
@@ -82,8 +82,10 @@ The same `refresh` cost is real in production: about 2 s per tag on an upgrade. 
 | **Grader time of day** | Already fixed on Nov 1 (`fix-grader-date-nov1.md`): a test mixed wall-clock writes with a frozen clock that had fallen into the past | No further change. Swept again with the clock moved: 157 test files naming a date from 2026-11 on, at 2027-03-01 | 3,403 passed. The only 2 failures are the next two rows: neither is a date bomb. Other dates and times of day were tried on those 2 tests only |
 | **Dont_know mass** (new; `test_stuck_prompt`, and very likely the failure seen in `test_stuck_prompt_replay`) | The builtin schema's id is a random ULID, which enters the calibration hash, which seeds the certainty bound. 1 hash in 600 gives a bound below certainty, so a dont_know reads 0.690, not 0.7 | Fixed id per slug in tests | Simulated over 600 hashes: min bound 0.649, 1 below certainty. The failing value itself wasn't captured, so the link is by magnitude and mechanism |
 | **`test_mobile_two_process` under time travel** | An artefact: the sweep's plugin warps only the main process, so the other process's day differs. It fails at every warped date and passes normally | None | Not a product or test bug |
-| **Thread leaks** | The guard (`tests/thread_guard.py`) reported none in the Nov 7 gate or in the targeted runs here, so `test_capture_route_recovery`'s listed leak is already gone | None | The final gate re-checks: a leak fails its test's teardown |
+| **Thread leaks** | The guard (`tests/thread_guard.py`) reported none in the Nov 7 gate, the targeted runs or the final gate, so `test_capture_route_recovery`'s listed leak is already gone | None | A leak fails its test's teardown: 0 errors in the final gate |
 | **Three races connection reuse exposed** (`test_batch3_landing`, `test_approach_map_replay`, `test_compare_sources_keep`) | Each read state while background work it had started was still writing. A slow main thread used to hide this | Each stops or waits for the work first | Batch 3 and the map fixture failed every run before the fix. Repeated runs pass |
+| **`test_reader_rw6b_p2_landing::test_i_the_narrative_lands...`** (the final gate's one failure; 3 of 3 alone) | A Today build holds AD's read snapshot while its background job commits the narrative. In WAL that's fine. In the fast lane's rollback journal the commit waits 5 s, then fails with "database is locked". With fresh connections the two rarely overlapped | The test runs in the durability lane, so it exercises production's concurrency | Found by listing the lock's holders at the failure. Passes 3 of 3 in that lane. **Not re-run in a full suite** |
+| **`test_voi_v2`** (2 tests, older gates called it a load flake) | Its golden seeds every ULID, schema ids included. The fixed schema ids changed its decisions, failing every run until `seed_ids` restored production's | Fixed in `voi_restore_scenarios` | 3 of 3 passes. The golden is unchanged. It may also explain the older flake, if the id stream was disturbed; not shown |
 
 **Load flakes in older gates** (`test_reading_hardening_2_fixes::test_f1_...`, `test_reading_request_sweep`, `test_voi_v2`, `test_apply_write_ahead`): none failed in the Nov 7 gate or here. No cause was established, so they aren't claimed as fixed. Halving the suite's CPU should help, since each waited on a worker under load.
 
@@ -225,4 +227,32 @@ None of this was changed here. Counts are from this branch's tests; they use the
 | `db/repositories.py:1094` `Repository.connection` | Reuse across a request or job, as `reused_connections` does for an objective job | Each connection costs about 3 ms of schema parsing and 1 ms to close, and an ordinary test opens about 200. The same cost applies per request in production |
 | `db/connection.py` | Decide whether a test-only DML-keeping pool should be production's rule too (R4 closes after any write) | Reads and writes alternate, so production's pool rarely reuses across a write |
 | `outcome_schemas` | Give the builtin schemas a content-derived id | The random id seeds the certainty bound, so two vaults with identical histories get different masses (§4) |
+
+## 8. Before and after
+
+| Command | Before | After | Note |
+|---|---:|---:|---|
+| **Full suite, `-n 8 --dist worksteal`, 10 GB scope, under the lock** | **59:22** (Nov 7 gate, 3,562 s); 57:32 on Nov 8's merged tree | **14:52** (892.8 s) | The after run had a nearly idle machine (load average under 1 when it ended); the before runs' load isn't recorded, so the wall-clock ratio may flatter this |
+| Test seconds, same run | 27,650 s | **6,701 s** | The fairer comparison: -76%. On the 30,322 tests in both: 27,130 s to 6,511 s |
+| **Serial, full suite** | **7:02:47** (25,367 s, a525dbcef4, the owner-approved overnight baseline) | **Not run.** About 1:50 if the test seconds carry over, **an estimate** | The owner's rule allows one full run per stage, and it was the `-n 8` one |
+| **Durability lane, serial** | **6:24** (384.6 s, 409 tests) | **6:54** (414 s, 411 tests) | No speed-up, by design: it still runs production's pragmas, WAL and fresh vaults. The small rise includes 2 new tests and other load |
+| Durability lane, `-n 4` | not measured | 2:22 | |
+| `-m "not slow"`, `-n 8` | no such lane | **Not run.** About 11 min (5,299 test seconds / 8), **an estimate** | 72 slow cases cost 1,401 test seconds |
+| Owner lane, `-n 4` on fresh copies | 83 passed, 4 skipped, **2 failed** (last landings) | **85 passed, 4 skipped, 1 xfailed, 0 failed** (92 s) | The xfail is the new pin in §3 |
+| One chain walk, alone | 138 s | 6.9 s | |
+
+**By family, test seconds in the gate (the map's overlapping filename families):** successor and upgrade 4,364 to 186; Reader 2,589 to 498; router 2,142 to 982; AD 1,953 to 1,151; sim 1,316 to 938. What's left is mostly real computation: the AD gates, the EVSI fits and the router's rollouts.
+
+**Worker balance after:** 6,701 s / 8 is 94% of the wall clock.
+
+**The final gate (`983035eb0e`):** 30,322 passed, 1 failed, 91 skipped, 47 xfailed. The failure is in §3 and its fix came after the run, so the tip's full-suite result is inferred from targeted runs: the fix's own file, 3 of 3. Import contracts: 43 kept. `-m durability` ran before the last two commits (411 passed, 1 skipped), and neither commit touches its path other than adding that one test to it.
+
+**Not verified:**
+
+- No full run with `--fresh-connections`, so that lane's agreement with the fast lane rests on the Nov 7 and baseline gates (the same tests, passing on real connections) and targeted runs.
+- The serial and `-m "not slow"` after-times, as noted.
+- The dont_know flake's link to the fixed schema id is by mechanism and magnitude. The failing value was never captured with its hash.
+- The phone contract's load failure from RE0 was never reproduced. Its cause is read from the code.
+- The seeded bugs are a hand-picked sample of 26.
+- The AD gates' figures weren't re-examined: they're unchanged apart from a BLAS thread limit, and strict xfails would have gone red.
 
