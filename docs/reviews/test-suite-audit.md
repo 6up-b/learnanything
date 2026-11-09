@@ -77,7 +77,7 @@ The same `refresh` cost is real in production: about 2 s per tag on an upgrade. 
 | **MCP `8841`** (`test_mcp_c1a_review`, `test_mcp_c1a_narrow`, `test_diagnosis_input_provenance`) | The same bug: four digits as a substring of random ids and hashes | `names_planted_key`, a whole-word match. It still catches a leak in a title or slug, and now also checks each output leaf in the schema test | Passes, and the leak tests still fail on a planted title |
 | **Phone contract row order** | The journey took `rows[0]` of the queue, then revealed a hint on it. A hintless item sorting first gave a 422 | The journey picks an item with an authored hint | Recorded cause in `phone-v2-codex-review.md` |
 | **Phone contract under load** (RE0's agent, -n 4) | **Likely, not confirmed from its log:** a method past the host's 15 s wait answers 202, and `Phone.rpc` requires 200 | The shared helper sets a long wait for all 16 host test files; `test_mobile_jobs` keeps its own short one | Mechanism read from `host.py:591`. Not reproduced |
-| **Grader time of day** | Fixed Nov 1 (`fix-grader-date-nov1.md`) | Swept again: 157 dated files at wall clock 2027-03-01, some at other dates and times of day | One product date bomb: none. Two failures, below |
+| **Grader time of day** | Already fixed on Nov 1 (`fix-grader-date-nov1.md`): a test mixed wall-clock writes with a frozen clock that had fallen into the past | No further change. Swept again with the clock moved: 157 test files naming a date from 2026-11 on, at 2027-03-01 | 3,403 passed. The only 2 failures are the next two rows: neither is a date bomb. Other dates and times of day were tried on those 2 tests only |
 | **Dont_know mass** (new; `test_stuck_prompt`, and very likely the failure seen in `test_stuck_prompt_replay`) | The builtin schema's id is a random ULID, which enters the calibration hash, which seeds the certainty bound. 1 hash in 600 gives a bound below certainty, so a dont_know reads 0.690, not 0.7 | Fixed id per slug in tests | Simulated over 600 hashes: min bound 0.649, 1 below certainty. The failing value itself wasn't captured, so the link is by magnitude and mechanism |
 | **`test_mobile_two_process` under time travel** | An artefact: the sweep's plugin warps only the main process, so the other process's day differs. It fails at every warped date and passes normally | None | Not a product or test bug |
 | **Thread leaks** | The guard (`tests/thread_guard.py`) reported none in the Nov 7 gate or in the targeted runs here, so `test_capture_route_recovery`'s listed leak is already gone | None | The final gate re-checks: a leak fails its test's teardown |
@@ -96,6 +96,89 @@ The same `refresh` cost is real in production: about 2 s per tag on an upgrade. 
 - **Under placement that LO never comes back,** at every tag from mvp-0.11 to mvp-0.54, on this mvp-0.35 copy. Below placement it's served.
 - A fix changes what the scheduler serves, so per the brief it stops here: no source change. The property still holds for every other LO, and a strict xfail pins the gap and goes red when it's fixed.
 - `linear_algebra` has one similar item, which is still served. `probability` has none.
+
+## 4. Critical behaviour: seeded bugs
+
+A name search can't show that a behaviour is tested, so I seeded one bug at a time in the source, ran the tests that name the subject (`-m "not slow"`, with `--maxfail=3`), and reverted it. The durability seeds ran the whole durability lane. **Survived** means no test noticed.
+
+| Area | Seeded bug | First result | Now |
+|---|---|---|---|
+| Propensity | The mix's draw logs probability 1 | Killed | |
+| Propensity | The stop coin's served probability is wrong | Killed | |
+| Propensity | `μ` loses its floor | Killed | |
+| Propensity | The chooser's trace logs the mix's probability under a coin | **Survived** 245 tests | Killed: `test_ro5_stop_coin` |
+| Propensity | AD's `Draw.propensity` returns 1 | **Survived** 210 tests | Killed: `test_ad2_serving` |
+| Propensity | A plan block logs probability 1 | Killed | |
+| Propensity | The pick experiment logs the wrong share | Killed | |
+| Propensity | A check slot logs probability 1, which the estimator divides by | **Survived** 145 tests | Killed: `test_ro5_checks` |
+| Propensity | `DoseDecision`'s returned distribution is wrong | Survived 414 tests | **Left open:** nothing reads the returned value, and the persisted row is checked |
+| Grading contract | The blind prompt carries `diagnostic_history` | Killed only by an unrelated flake (§3) | Killed: `test_blind_grading_contract` |
+| Grading contract | The contract hash is constant | Killed | |
+| Grading contract | `pinned_contracts` accepts another item's contract | Survived: **an equivalent bug,** because `pinned_contract_ids` checks too | See next row |
+| Grading contract | `pinned_contract_ids` accepts another item's contract | **Survived** 869 tests | Killed: `test_learner_protection_predicates` |
+| Grading contract | A route hold isn't honoured | Killed | |
+| Protection | A held grade shows as a score | Killed | |
+| Protection | Cold items aren't withheld | Killed | |
+| Protection | An ordinary item presented as a probe isn't withheld | **Survived** 3,844 tests | Killed: `test_learner_protection_predicates` |
+| Protection | Exam attempts aren't protected | Killed | |
+| Protection | A failed predicate fails open | Killed | |
+| Replay parity | Replay reads only the first evidence row | Killed | |
+| Replay parity | The shadow rebuild's snapshot is empty, so it sees no diff | Killed | |
+| Replay parity | The shadow rebuild ignores a live database that changed | **Survived** 503 tests | Killed: `test_shadow_rebuild` |
+| Migrations | The head migration loses an index | Killed | |
+| Migrations | A derived table is reclassified | Killed | |
+| Durability | Production stays in rollback mode | Killed by the durability lane | |
+| Durability | Production uses `synchronous=NORMAL` | Killed by the durability lane | |
+
+Of 26 distinct seeds, 6 survived and now fail a new assertion, 1 was equivalent, 1 has no reader, and 1 had been killed only by accident. This is a sample of 26 chosen by hand, not a coverage measure. Each area's other behaviours are unchecked.
+
+### Critical gaps still open
+
+These are known-failing behaviours, pinned by strict xfails. Each goes red when fixed, so none is forgotten by the test suite, but none has an owner. They need a successor or a design, so nothing changed here.
+
+| Pinned by | Gap | Status |
+|---|---|---|
+| `test_rebuild_closed_row_answer` (3) | An item retired outside the attempt ledger has no time replay can apply it at, so replay sees it active | Needs closures as ledger events |
+| `test_rebuild_equivalence_review` (1) | Two grades of one LO committed in one second in reverse id order replay in id order | Needs a persisted commit sequence |
+| `test_learner_report_superseded` (2) | A claim that never re-anchors, made after materialization, differs between live and replay | Open |
+| `test_diagnosis_input_provenance_landing` (2) | Two reopened provenance gaps (F2, F3) | Waits on the one-capture-point follow-up |
+| `test_placement_fixture_copies` (1, new; owner lane) | An answered LO with no due time never returns under placement | §3, the owner's call |
+| `test_rebuild_equivalence` (3) | Below mvp-0.36 only: fixed from that tag on | Goes with old tags (D3) |
+
+Other things never run in the gate:
+
+- 8 trainer tests skip because torch is absent (the `pdf` extra).
+- `test_the_real_sdk_has_the_seams_the_lockdown_replaces` skips because `openai_codex` isn't installed. **The seam it checks is a security boundary,** so it should run somewhere.
+- Node's `test_the_vendored_file_is_byte_for_byte...`, the GPU smoke test and the real-scope sandbox test skip by environment.
+- The 24 AD grid xfails and 8 other AD gate xfails are monitors by the owner's Oct 19 decision. They're kept, in the slow lane.
+
+## 5. Usefulness
+
+**A smaller problem than the brief feared, by these scans:**
+
+- **Mocking is light.** Only 4 of 1,382 test files use `MagicMock` or `mock.patch`. The suite drives real SQLite and real code with fake model clients.
+- **No test file is a literal duplicate.** The AST scan found 15 groups of identical test bodies (40 tests), but they call module-local helpers with different meanings, so they aren't duplicates. The real overlap is the per-tag successor families, which go with the upgrade modules (D3).
+- **Tests with no assertion:** the scan listed 40, and the ones read call a local `_refused`-style assertion helper. Not all 40 were read.
+- **Self-equal assertions** (`once() == once()`, 7 of them) are determinism checks, which is what they claim.
+
+**Findings acted on:**
+
+| Test | Problem | Action | What still proves it |
+|---|---|---|---|
+| `test_recursive_cli_help_matches_snapshot` | A hash of each help text, re-recorded in 211 commits, so a failure only meant "regenerate": reward-hackable | **Rewritten** into 3 tests | Names pinned in `tests/cli_surface.json`: a removed command or option fails, an added one needs no edit. Every help still renders (slow). Dropped: exact prose. Fail-first: below |
+| `test_router_reader_activity::test_it_is_a_pure_read` | Compared `total_changes` across two new connections: always 0 == 0 | **Rewritten** to compare the file's bytes | Fail-first: a seeded no-op write fails it |
+| `test_ad2_serving::test_propensity_recomputes_from_logged_row` | Compared a property with itself | **Strengthened** | §4 |
+| `test_ro0...test_receipts_hold_ids_and_numbers` | An `or` clause that never applied | **Rewritten** as a whole-word check | §3 |
+| `test_rofu_weeks` | 2 two-week journeys, 467 test seconds in the baseline, only asserting `transitions >= 0`, which can't fail. Its numbers were for a review written on Nov 5 | **Rewritten:** one journey at the tag it was for, with real assertions, in the slow lane. The mvp-0.49 arm is deleted | Removed arm: the comparison is recorded in `router-followups-nov5.md`, and `test_ro6_tail_data`'s journey runs at its own tag |
+
+**Reported, not changed:**
+
+- **`test_router_staged_p2:109`** asserts `counts.get("controller_ownership", 0) >= 0`, which can't fail. It sits in the P4 controller area on the deprecated inventory, so it goes with that code.
+- **About 20 other `>= 0` assertions** are mostly shape checks beside real ones. They're weak but harmless.
+- **158 test files read source text or parse an AST.** Many pin real boundaries, such as what code AD's operation may reach, but they name paths. The refactor will break them. Keep the ones that enforce a boundary, and delete the ones that only pin where a thing lives.
+- **Test files named for their review rounds** (`*_codex_review`, `*_fix_round3`, `test_reader_rw2b_fix4` to `fix15`). This hides what each proves. The refactor's removal steps will touch many of them; renaming by behaviour is cheap then.
+
+**Goldens:** besides the CLI hash, all are low-churn (1 to 3 commits each) and prove "switched off equals the predecessor", which is real parity. Kept.
 
 ## 7. Plumbing list for the refactor
 
