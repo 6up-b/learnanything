@@ -54,7 +54,7 @@ Each row is one change. Seconds were measured alone on this machine, so read the
 | **Template built only if a selected file mentions a vault** | 0.8 s per process, about 7 s of 27,650 s | A wrong guess is only slower: with no template, `create_basic_vault` builds the real vault |
 | **One BLAS thread** | AD sim CPU 6.24 s to 5.04 s | Same results: matrices this small don't use BLAS threads |
 | **CLI help no longer hashed** (§5) | Fast lane 60 s to under 1 s | §5 |
-| **Follow-ups journey cut to one arm, 8 days** (§5) | 467 test seconds in the baseline; 81 s alone | §6 |
+| **Follow-ups journey cut to one arm** (§5) | 467 test seconds in the baseline; 204 s alone | §6 |
 | **`slow` marker**: `-m "not slow"` while iterating; everything still runs in the gate. `test_ad23_sim`, the journeys, the CLI render and 13 others | No gate saving, by design | The marked tests are unchanged |
 
 ### The owner's priors
@@ -80,11 +80,11 @@ The same `refresh` cost is real in production: about 2 s per tag on an upgrade. 
 | **Phone contract row order** | The journey took `rows[0]` of the queue, then revealed a hint on it. A hintless item sorting first gave a 422 | The journey picks an item with an authored hint | Recorded cause in `phone-v2-codex-review.md` |
 | **Phone contract under load** (RE0's agent, -n 4) | **Likely, not confirmed from its log:** a method past the host's 15 s wait answers 202, and `Phone.rpc` requires 200 | The shared helper sets a long wait for all 16 host test files; `test_mobile_jobs` keeps its own short one | Mechanism read from `host.py:591`. Not reproduced |
 | **Grader time of day** | Already fixed on Nov 1 (`fix-grader-date-nov1.md`): a test mixed wall-clock writes with a frozen clock that had fallen into the past | No further change. Swept again with the clock moved: 157 test files naming a date from 2026-11 on, at 2027-03-01 | 3,403 passed. The only 2 failures are the next two rows: neither is a date bomb. Other dates and times of day were tried on those 2 tests only |
-| **Dont_know mass** (new; `test_stuck_prompt`, and very likely the failure seen in `test_stuck_prompt_replay`) | The builtin schema's id is a random ULID, which enters the calibration hash, which seeds the certainty bound. 1 hash in 600 gives a bound below certainty, so a dont_know reads 0.690, not 0.7 | Fixed id per slug in tests | Simulated over 600 hashes: min bound 0.649, 1 below certainty. The failing value itself wasn't captured, so the link is by magnitude and mechanism |
+| **Dont_know mass** (new; `test_stuck_prompt`, and very likely the failure seen in `test_stuck_prompt_replay`) | The builtin schema's id is a random ULID, which enters the calibration hash, which seeds the certainty bound. 1 hash in 600 gives a bound below certainty, so a dont_know reads 0.690, not 0.7 | In tests, only the id production mints is fixed, per slug; the real insert runs (§9, F1) | Simulated over 600 hashes: min bound 0.649, 1 below certainty. The failing value itself wasn't captured, so the link is by magnitude and mechanism |
 | **`test_mobile_two_process` under time travel** | An artefact: the sweep's plugin warps only the main process, so the other process's day differs. It fails at every warped date and passes normally | None | Not a product or test bug |
 | **Thread leaks** | The guard (`tests/thread_guard.py`) reported none in the Nov 7 gate, the targeted runs or the final gate, so `test_capture_route_recovery`'s listed leak is already gone | None | A leak fails its test's teardown: 0 errors in the final gate |
 | **Three races connection reuse exposed** (`test_batch3_landing`, `test_approach_map_replay`, `test_compare_sources_keep`) | Each read state while background work it had started was still writing. A slow main thread used to hide this | Each stops or waits for the work first | Batch 3 and the map fixture failed every run before the fix. Repeated runs pass |
-| **`test_reader_rw6b_p2_landing::test_i_the_narrative_lands...`** (the final gate's one failure; 3 of 3 alone) | A Today build holds AD's read snapshot while its background job commits the narrative. In WAL that's fine. In the fast lane's rollback journal the commit waits 5 s, then fails with "database is locked". With fresh connections the two rarely overlapped | The test runs in the durability lane, so it exercises production's concurrency | Found by listing the lock's holders at the failure. Passes 3 of 3 in that lane. **Not re-run in a full suite** |
+| **`test_reader_rw6b_p2_landing::test_i_the_narrative_lands...`** (the final gate's one failure; 3 of 3 alone) | A Today build holds AD's read snapshot while its background job commits the narrative. In WAL that's fine. In the fast lane's rollback journal the commit waits 5 s, then fails with "database is locked". With fresh connections the two rarely overlapped | The test runs in the durability lane, so it exercises production's concurrency. Rollback production is tested separately (§9, F3) | Found by listing the lock's holders at the failure. Passes 3 of 3 in that lane, and in the coordinator's gate at `1af4372fd0` |
 | **`test_voi_v2`** (2 tests, older gates called it a load flake) | Its golden seeds every ULID, schema ids included. The fixed schema ids changed its decisions, failing every run until `seed_ids` restored production's | Fixed in `voi_restore_scenarios` | 3 of 3 passes. The golden is unchanged. It may also explain the older flake, if the id stream was disturbed; not shown |
 
 **Load flakes in older gates** (`test_reading_hardening_2_fixes::test_f1_...`, `test_reading_request_sweep`, `test_voi_v2`, `test_apply_write_ahead`): none failed in the Nov 7 gate or here. No cause was established, so they aren't claimed as fixed. Halving the suite's CPU should help, since each waited on a worker under load.
@@ -98,7 +98,7 @@ The same `refresh` cost is real in production: about 2 s per tag on an upgrade. 
 - `pi_a_preprocessing_pipeline` is the only item of `lo_prepare_and_inspect_aligned_coordinate_tensors`. Its only answer is a `self_report` from Jul 21, with no evidence.
 - So it has `last_attempt_at`, no `due_at`, and an opening episode that placement ignores. It isn't new material (not never-attempted) and it isn't routinely due.
 - **Under placement that LO never comes back,** at every tag from mvp-0.11 to mvp-0.54, on this mvp-0.35 copy. Below placement it's served.
-- A fix changes what the scheduler serves, so per the brief it stops here: no source change. The property still holds for every other LO, and a strict xfail pins the gap and goes red when it's fixed.
+- A fix changes what the scheduler serves, so per the brief it stops here: no source change. The original expectations hold on every copy except this named LO on `arxiv_v2`. A separate test at the latest tag fails on a setup problem, on a newly stranded LO and on a fix, and xfails only for this LO (§9, F2).
 - `linear_algebra` has one similar item, which is still served. `probability` has none.
 
 ## 4. Critical behaviour: seeded bugs
@@ -146,7 +146,7 @@ These are known-failing behaviours, pinned by strict xfails. Each goes red when 
 | `test_rebuild_equivalence_review` (1) | Two grades of one LO committed in one second in reverse id order replay in id order | Needs a persisted commit sequence |
 | `test_learner_report_superseded` (2) | A claim that never re-anchors, made after materialization, differs between live and replay | Open |
 | `test_diagnosis_input_provenance_landing` (2) | Two reopened provenance gaps (F2, F3) | Waits on the one-capture-point follow-up |
-| `test_placement_fixture_copies` (1, new; owner lane) | An answered LO with no due time never returns under placement | §3, the owner's call |
+| `test_placement_fixture_copies` (1, new; owner lane; a scoped `pytest.xfail`, not a strict marker) | An answered LO with no due time never returns under placement | §3, the owner's call |
 | `test_rebuild_equivalence` (3) | Below mvp-0.36 only: fixed from that tag on | Goes with old tags (D3) |
 
 Other things never run in the gate:
@@ -169,11 +169,11 @@ Other things never run in the gate:
 
 | Test | Problem | Action | What still proves it |
 |---|---|---|---|
-| `test_recursive_cli_help_matches_snapshot` | A hash of each help text, re-recorded in 211 commits, so a failure only meant "regenerate": reward-hackable | **Rewritten** into 3 tests | Names pinned in `tests/cli_surface.json`: a removed command or option fails, an added one needs no edit. Every help still renders (slow). Dropped: exact prose. Fail-first: below |
+| `test_recursive_cli_help_matches_snapshot` | A hash of each help text, re-recorded in 211 commits, so a failure only meant "regenerate": reward-hackable | **Rewritten** into 3 tests | Parameter contracts pinned in `tests/cli_surface.json` (§9, F5): an incompatible change fails, a compatible addition needs no edit. Every help still renders (slow). Dropped: exact prose. Fail-first: a renamed flag fails, an added flag passes |
 | `test_router_reader_activity::test_it_is_a_pure_read` | Compared `total_changes` across two new connections: always 0 == 0 | **Rewritten** to compare the file's bytes | Fail-first: a seeded no-op write fails it |
 | `test_ad2_serving::test_propensity_recomputes_from_logged_row` | Compared a property with itself | **Strengthened** | §4 |
 | `test_ro0...test_receipts_hold_ids_and_numbers` | An `or` clause that never applied | **Rewritten** as a whole-word check | §3 |
-| `test_rofu_weeks` | 2 two-week journeys, 467 test seconds in the baseline, only asserting `transitions >= 0`, which can't fail. Its numbers were for a review written on Nov 5 | **Rewritten:** one journey at the tag it was for, with real assertions, in the slow lane. The mvp-0.49 arm is deleted | Removed arm: the comparison is recorded in `router-followups-nov5.md`, and `test_ro6_tail_data`'s journey runs at its own tag |
+| `test_rofu_weeks` | 2 two-week journeys, 467 test seconds in the baseline, only asserting `transitions >= 0`, which can't fail. Its numbers were for a review written on Nov 5 | **Rewritten:** one two-week journey at the tag it was for, with real assertions, in the slow lane. The mvp-0.49 arm is deleted | Removed arm: the comparison is recorded in `router-followups-nov5.md`, and `test_ro6_tail_data`'s journey runs at its own tag |
 
 **Reported, not changed:**
 
@@ -190,10 +190,10 @@ Nothing on the map's deprecated inventory was deleted. `test_ad23_sim` and `sim/
 
 | Test | What it proved | What proves that now, or why it was worthless |
 |---|---|---|
-| `test_recursive_cli_help_matches_snapshot` and `tests/cli_help_snapshot.json` (removed) | Every help exits 0, and each help's exact bytes | Exit 0: `test_every_command_prints_its_help`. Names: `test_no_command_or_option_disappeared`. Exact prose: worthless, it was re-recorded in 211 commits |
+| `test_recursive_cli_help_matches_snapshot` and `tests/cli_help_snapshot.json` (removed) | Every help exits 0, and each help's exact bytes | Exit 0: `test_every_command_prints_its_help`. Contracts: `test_no_command_or_parameter_changed_incompatibly`. Exact prose: worthless, it was re-recorded in 211 commits |
 | `test_two_weeks_before_and_after_the_batch[mvp-0.49]` (removed) | A two-week journey runs at mvp-0.49. It asserted nothing else, and `>= 0` can't fail | `test_ro6_tail_data::test_a_few_weeks...`: the same journey at the same tag, with real assertions. The comparison is in `router-followups-nov5.md` |
 
-**Counts:**
+**Counts** (before the fix round in §9, which added the tests it names):
 
 - **Removed:** 2 test cases (the CLI hash test, and the journey's mvp-0.49 arm).
 - **Merged:** 0. No real duplicates were found (§5).
@@ -235,7 +235,7 @@ None of this was changed here. Counts are from this branch's tests; they use the
 | **Full suite, `-n 8 --dist worksteal`, 10 GB scope, under the lock** | **59:22** (Nov 7 gate, 3,562 s); 57:32 on Nov 8's merged tree | **14:52** (892.8 s) | The after run had a nearly idle machine (load average under 1 when it ended); the before runs' load isn't recorded, so the wall-clock ratio may flatter this |
 | Test seconds, same run | 27,650 s | **6,701 s** | The fairer comparison: -76%. On the 30,322 tests in both: 27,130 s to 6,511 s |
 | **Serial, full suite** | **7:02:47** (25,367 s, a525dbcef4, the owner-approved overnight baseline) | **Not run.** About 1:50 if the test seconds carry over, **an estimate** | The owner's rule allows one full run per stage, and it was the `-n 8` one |
-| **Durability lane, serial** | **6:24** (384.6 s, 409 tests) | **6:54** (414 s, 411 tests) | No speed-up, by design: it still runs production's pragmas, WAL and fresh vaults. The small rise includes 2 new tests and other load |
+| **Durability lane, serial** | **6:24** (384.6 s, 410 tests: 409 passed, 1 skipped) | **6:54** (414 s, 411 tests) | No speed-up, by design: it still runs production's pragmas, WAL and fresh vaults. The small rise includes 2 new tests and other load |
 | Durability lane, `-n 4` | not measured | 2:22 | |
 | `-m "not slow"`, `-n 8` | no such lane | **Not run.** About 11 min (5,299 test seconds / 8), **an estimate** | 72 slow cases cost 1,401 test seconds |
 | Owner lane, `-n 4` on fresh copies | 83 passed, 4 skipped, **2 failed** (last landings) | **85 passed, 4 skipped, 1 xfailed, 0 failed** (92 s) | The xfail is the new pin in §3 |
@@ -245,14 +245,62 @@ None of this was changed here. Counts are from this branch's tests; they use the
 
 **Worker balance after:** 6,701 s / 8 is 94% of the wall clock.
 
-**The final gate (`983035eb0e`):** 30,322 passed, 1 failed, 91 skipped, 47 xfailed. The failure is in §3 and its fix came after the run, so the tip's full-suite result is inferred from targeted runs: the fix's own file, 3 of 3. Import contracts: 43 kept. `-m durability` ran before the last two commits (411 passed, 1 skipped), and neither commit touches its path other than adding that one test to it.
+**My gate (`983035eb0e`):** 30,322 passed, 1 failed, 91 skipped, 47 xfailed. The failure is in §3. **The coordinator's gate at `1af4372fd0`, as reported to me:** fast lane 30,322 passed, 92 skipped, 47 xfailed, 0 failed in 14:43; durability 412 passed, 1 skipped in 6:31. The fix round in §9 came after both, and only targeted runs back it: the coordinator runs the final gate on its tip.
 
 **Not verified:**
 
-- No full run with `--fresh-connections`, so that lane's agreement with the fast lane rests on the Nov 7 and baseline gates (the same tests, passing on real connections) and targeted runs.
+- I ran no full `--fresh-connections` run. The coordinator is running one in a separate checkout, and its result isn't in this record.
 - The serial and `-m "not slow"` after-times, as noted.
 - The dont_know flake's link to the fixed schema id is by mechanism and magnitude. The failing value was never captured with its hash.
 - The phone contract's load failure from RE0 was never reproduced. Its cause is read from the code.
 - The seeded bugs are a hand-picked sample of 26.
 - The AD gates' figures weren't re-examined: they're unchanged apart from a BLAS thread limit, and strict xfails would have gone red.
+
+## 9. Codex review of `1af4372fd0`: findings, rulings, fixes
+
+The verdict was "land after fixes". Each row is one commit, reproduced first where testable. No source, app or migration changed.
+
+| # | Finding | Coordinator's ruling | Fix and evidence |
+|---|---|---|---|
+| F1 | The lane pre-inserted and committed the schema row, so production's insert branch never ran in a new-schema test | Patch only the minted id; keep a test of the real random id, and one of the bound's limits over seeds | `ensure_outcome_schema` runs unchanged, and only `new_ulid` inside it returns the slug's id. `tests/test_outcome_schema_ids.py`: real random id; the insert branch mints exactly once (fails on the old pre-insert); the bound over 1,500 seeds stays above 0 and at or below the mean's certainty, so mass stays within (0, the type's mass]. `seed_ids` and `test_voi_v2`'s golden are unchanged and pass |
+| F2 | Placement subtracted a computed set from both expectations everywhere, and a strict xfail covered a whole test, so a setup failure passed as expected | Name the fixture and LO; restore both expectations elsewhere; scope the xfail to the predicate | `KNOWN_STRANDED` names one LO on `arxiv_v2`. On fresh owner copies: 8 passed, 1 xfailed. Emptying the known set fails both tests on `arxiv_v2`. A newly stranded LO or a fix fails |
+| F3 | Moving the narrative test to the durability lane hid what production's rollback mode does | Keep it there; record which versions stay in rollback; test a real rollback open with controlled overlap; xfail and report if the narrative is lost | See below: **a delay, not a loss.** 4 tests in `tests/test_narrative_rollback_overlap.py`, no xfail |
+| F4 | A kept connection could leak state through a raw handle, and the DML-keeping limit wasn't stated | Don't discard after DML. Proxy `cursor.connection`; let no untracked cursor or raw-registered function survive release; guard `src`; state the limit | Each reproduced first (9 tests failed). Every cursor is recorded on the raw connection, including those sqlite3's `execute` makes in C. Raw state calls, and blobs, mark the connection for good. Guard and docstring added. 1,537 passed on half the connection-sensitive files |
+| F5 | The surface pinned names only, so a changed type or default, or a reordered positional, passed | Record contracts; compatible additions pass; only incompatible changes fail; no prose | `cli_surface.json` records order, type, default, nargs, required, choices. 6 compatible and 11 incompatible cases are unit-tested. Seeded on the real CLI: a renamed flag fails, an added flag passes |
+| F6 | The YAML memo gave a repeated container the plain copy's text | Bypass on repeated identities, cycles included | Reproduced: `{"a": shared, "b": shared}` and `{"a": [1], "b": [1]}` share a repr and differ in YAML, and a cycle raised `RecursionError`. Any repeated container now takes the real dump |
+| F7 | The JSON-schema memo returned stale results after a rebuild or a config change | Key on them, or remove the patch | Kept. Reproduced on a forced rebuild, a changed `model_config` and a nested model's. The key now holds the core schema's identity and every reachable model's config; all 3 fail on the old key. In the sample, 50 of 754 calls regenerate |
+| F8 | Cutting the journey to 8 days wasn't justified | Back to 15 days, slow; removing the mvp-0.49 arm stands | Done: 204 s alone, 120 s more than at 8 days |
+| F9 | `--fresh-connections` failed its own harness tests | Build pools explicitly; honor the selected mode | Reproduced: 21 of 42 in `test_connection_reuse` failed in that mode, and none does now. An autouse fixture builds each test's pool in either mode, and one test asserts the mode itself. An unfiltered run's result is the coordinator's |
+
+**The 120-test sample,** same command under cProfile: 57.1 s before this round, 60.0 s after it. Both ran beside the coordinator's full run (load average 12 to 14), so the 3 s difference isn't a precise cost. Earlier figures in §2 came from a quieter machine.
+
+### F3: rollback in production
+
+`switch_to_wal` keeps a database in rollback mode only when `wal_unavailable_reason` says the linked SQLite has the WAL-reset bug:
+
+- **Stays in rollback:** below 3.44.6, 3.45.0 through 3.50.6, and 3.51.0 through 3.51.2.
+- **Moves to WAL:** 3.44.6 or a later 3.44, 3.50.7 or a later 3.50, 3.51.3 and later.
+- **The owner:** this worktree's uv-managed Python 3.12.14 links SQLite 3.53.1 (`wal_unavailable_reason()` is `None`), and the 3 permitted copies' headers are WAL. **I didn't open the live vaults,** and I checked no other machine. A system Python on an older SQLite would stay in rollback.
+
+On a real production rollback open (`synchronous=FULL`, journal `delete`, busy timeout shortened from 5 s for the past-timeout cases):
+
+| Overlap | What happens |
+|---|---|
+| No reader | The narrative lands |
+| A reader ending inside the busy timeout | A wait, then it lands |
+| A reader past the timeout, held before the job's claim | The job raises `database is locked`, no model is asked, and the next build lands it |
+| A reader arriving after the claim (the sidecar's real order) | Renewal and release both fail, so the claim stays. Builds get `claimed` until the lease lapses, no model is asked twice, and the first build after the lease lands it |
+
+**Production finding, not fixed:** on a rollback vault, a read longer than the 5 s busy timeout can delay a narrative by the claim's lease (5 minutes in this test's route). It isn't lost, and WAL vaults, like the owner's copies, aren't affected.
+
+### F4: corrections to the review's premise
+
+Checked in `src`, and consistent with the ruling:
+
+- `.lastrowid` is read in `learnloop_sidecar/handlers/sqlite_admin.py` (2 sites), on the cursor just used and on that module's own `sqlite3.connect`, never a pooled connection. The guard names it as the one exception and checks it still opens its own connection.
+- `total_changes` is also read at `db/repositories.py:20557`, as a delta within one checkout. That's safe on a kept connection, though it isn't a watcher's read.
+
+### Added in this round
+
+`test_outcome_schema_ids` 4 tests; `test_narrative_rollback_overlap` 4; `test_connection_reuse` 16 more cases (net of 1 moved to the new file); `test_cli_help_snapshot` 18 more cases; 1 more owner-lane parametrized test in place of the strict xfail.
 
