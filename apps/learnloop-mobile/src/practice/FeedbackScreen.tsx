@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommandError, DiagnosisCardDto, ElicitingResponseResultDto, FeedbackBundle, GradingClarificationDto } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { staleRefusal } from "../api/http";
-import { phone } from "../api/phone";
+import { phone, type PhoneSomethingElseDto } from "../api/phone";
+import { SomethingElse } from "./SomethingElse";
 import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
@@ -80,6 +81,7 @@ export function FeedbackScreen({
   onNext,
   onOpenFeedback,
   onSettled,
+  somethingElse = null,
   onError
 }: {
   attemptId: string;
@@ -92,6 +94,12 @@ export function FeedbackScreen({
   onOpenFeedback?: (attemptId: string) => void;
   /** The grade and its diagnosis are in, and no question of this miss comes next (spec_instruct_handoff_v1 §3a). */
   onSettled?: () => void;
+  /** IH3: the quiet "Something else would help" link, while the plan serves (absent: no link). */
+  somethingElse?: {
+    sessionId: string;
+    onServed: (reply: PhoneSomethingElseDto) => void;
+    onAgreed: () => void;
+  } | null;
   onError: (error: unknown) => void;
 }) {
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
@@ -258,6 +266,10 @@ export function FeedbackScreen({
       {choosing ? <p className="dim" role="status">Choosing what's next…</p> : null}
       <div className="actions">
         <button className="primary block" type="button" disabled={choosing} onClick={onNext}>Next</button>
+        {somethingElse ? (
+          <SomethingElse sessionId={somethingElse.sessionId} surface="phone_feedback" attemptId={attemptId}
+                         onServed={somethingElse.onServed} onAgreed={somethingElse.onAgreed} onError={onError} />
+        ) : null}
       </div>
     </div>
   );

@@ -772,6 +772,11 @@ function Phone({ credential }: { credential: Credential }) {
               onNext={() => void feedbackNext(view.attemptId)}
               onOpenFeedback={(attemptId) => { setFollowupWait(null); setView({ name: "feedback", attemptId, practiceItemId: null }); }}
               onSettled={planPrefetch}
+              somethingElse={session && planMode === "plan" ? {
+                sessionId: session.sessionId,
+                onServed: (reply) => openStep(reply, session.sessionId),
+                onAgreed: () => void planNext()
+              } : null}
               onError={reportError}
             />
           ) : planMode !== "queue" ? (
@@ -785,6 +790,7 @@ function Phone({ credential }: { credential: Credential }) {
               onKeepGoing={(stop) => void keepGoing(stop)}
               onEnd={() => void endSession()}
               onMode={setPlanMode}
+              onSomethingElse={(reply) => session && openStep(reply, session.sessionId)}
               onError={reportError}
             />
           ) : (

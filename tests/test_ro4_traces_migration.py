@@ -14,7 +14,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_250" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_251" / "state.sqlite"
 TABLE = "router_objective_traces"
 #: What 246 adds: earlier migrations' "nothing else changed" diffs on the way to head read this.
 RO4_ADDED_OBJECTS = frozenset({
@@ -30,13 +30,13 @@ _ROW = ("INSERT INTO router_objective_traces(id, decision_id, decision_kind, tra
 
 def test_246_is_the_head_and_its_table_a_receipt():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[246] == "246_router_objective_traces.sql" and max(names) == 250
+    assert names[246] == "246_router_objective_traces.sql" and max(names) == 251
     assert TABLE_ROLES[TABLE] is TableRole.RECEIPT
 
 
 def test_the_head_fixture_holds_246_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 250
+    assert max(applied_versions(HEAD)) == 251
     with closing(sqlite3.connect(HEAD)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert RO4_ADDED_OBJECTS <= names

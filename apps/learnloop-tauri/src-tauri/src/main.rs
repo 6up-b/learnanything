@@ -485,6 +485,8 @@ fn main() {
                 plan_keep_going,
                 plan_more_new,
                 plan_learner_pick,
+                plan_something_else_options,
+                plan_something_else,
                 find_practice,
                 record_practice_usage,
                 record_proposal_impressions,

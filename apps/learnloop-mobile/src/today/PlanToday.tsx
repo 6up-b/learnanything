@@ -7,7 +7,8 @@ import type { CommandError, SessionEndSummary, SessionSnapshot } from "@desktop/
 import { setQueryData } from "@desktop/api/queryCache";
 import { TAG } from "@desktop/api/queryTags";
 import { useCachedQuery } from "@desktop/api/useCachedQuery";
-import { phone, type PhonePlanDto } from "../api/phone";
+import { phone, type PhonePlanDto, type PhoneSomethingElseDto } from "../api/phone";
+import { SomethingElse } from "../practice/SomethingElse";
 import { RouterLine, WhyLink } from "../practice/RouterLine";
 import { currentWhy, doneLine, planSentence, stepOf, waitingForDesktop } from "./planWords";
 
@@ -31,6 +32,7 @@ export function PlanToday({
   onKeepGoing,
   onEnd,
   onMode,
+  onSomethingElse,
   onError
 }: {
   session: SessionSnapshot | null;
@@ -45,6 +47,8 @@ export function PlanToday({
   onEnd: () => void;
   /** What the read says Today is: the plan, or (the plan off) M2a's queue. */
   onMode: (mode: "plan" | "queue") => void;
+  /** IH3: "Something else would help" was chosen and served (the plan's reply: an item opens, or Today shows it). */
+  onSomethingElse?: (reply: PhoneSomethingElseDto) => void;
   onError: (error: unknown) => void;
 }) {
   const sessionId = session?.sessionId ?? null;
@@ -158,6 +162,10 @@ export function PlanToday({
           ) : null}
           {session ? <button className="plain" type="button" disabled={busy} onClick={onEnd}>End session</button> : null}
         </div>
+        {session && onSomethingElse ? (
+          <SomethingElse sessionId={session.sessionId} surface="phone_today" onServed={onSomethingElse}
+                         onAgreed={() => onNext()} onError={onError} />
+        ) : null}
       </div>
     </div>
   );

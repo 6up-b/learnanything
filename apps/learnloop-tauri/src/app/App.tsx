@@ -55,6 +55,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TodayPlace } from "../screens/today/TodayPlace";
 import { LessonOfferPage } from "../screens/today/LessonOfferPage";
+import { lessonEntryFor } from "../screens/today/SomethingElse";
 import { implicitSessionMinutes } from "./todayPlan";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
@@ -83,7 +84,7 @@ import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
-import type { IntentRestorationDto, PlanLessonOfferStepDto, PlanReadingDto, PlanStepDto, WorkbenchOpenProblemDto } from "../api/dto";
+import type { IntentRestorationDto, PlanLessonOfferStepDto, PlanReadingDto, PlanStepDto, SomethingElseChosenDto, WorkbenchOpenProblemDto } from "../api/dto";
 import {
   planPresentationForServe,
   proposalOriginForServe,
@@ -1265,6 +1266,19 @@ export function App() {
     );
   }
 
+  // IH3: "Something else would help" on the offer page was chosen and served. The offer it replaced has ended, so the page
+  // closes: a lesson opens as the learner's own start, anything else goes where the step it served goes.
+  function answerSomethingElseOnOffer(result: SomethingElseChosenDto) {
+    setPlanOffer(null);
+    setTodayStage("queue");
+    const entry = lessonEntryFor(result);
+    if (entry) {
+      setLessonEntry(entry);
+      return;
+    }
+    if (result.step) routePlanStep(result.step);
+  }
+
   function openPrimedRetry(id: string) {
     setPracticeOffer(null);
     if (!session && shellRef.current === "simple") {
@@ -2111,6 +2125,7 @@ export function App() {
             sessionId={session.sessionId}
             {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
             onAnswered={answerPlanOffer}
+            onSomethingElse={answerSomethingElseOnOffer}
             onError={onError}
           />
         );
@@ -2140,6 +2155,7 @@ export function App() {
             onOpenNext={openPractice}
             nextPlan={session && planNext && !fromReader ? { sessionId: session.sessionId } : null}
             onPlanStep={routePlanStep}
+            {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
             onNext={fromReader ? () => backFromPractice({ showProblem: false }) : () => setTodayStage("queue")}
             onBack={() => backFromPractice()}
             onOpenNotes={() => gotoTab("library")}

@@ -3,13 +3,13 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12698bf8b8283e7c427bdf677462d80d29050ec1"
-source_commit_timestamp: "2026-11-07T03:05:36-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
   - "table probe_presentations"
-schema_head: 250
+schema_head: 251
 table_name: "probe_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"

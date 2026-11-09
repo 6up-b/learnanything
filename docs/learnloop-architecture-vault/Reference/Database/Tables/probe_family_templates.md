@@ -3,13 +3,13 @@ title: "probe_family_templates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_family_templates"
   - "table probe_family_templates"
-schema_head: 250
+schema_head: 251
 table_name: "probe_family_templates"
 table_role: "raw_ledger"
 functionality_status: "active"

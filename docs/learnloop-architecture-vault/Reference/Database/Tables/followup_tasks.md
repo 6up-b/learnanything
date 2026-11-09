@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 250
+schema_head: 251
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -161,6 +161,7 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_curriculum_c0b_landing.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_instruct_handoff_ih0.py`
 - `tests/test_intent_fix_round4.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
@@ -173,7 +174,6 @@ Indexes and uniqueness:
 - `tests/test_voi_forecasts.py`
 - `tests/test_assumed_known.py`
 - `tests/test_causal_orchestrator.py`
-- `tests/test_certification_cold_probe.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

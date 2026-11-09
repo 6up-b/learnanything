@@ -3,13 +3,13 @@ title: "followup_generation_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_generation_jobs"
   - "table followup_generation_jobs"
-schema_head: 250
+schema_head: 251
 table_name: "followup_generation_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 - `tests/test_followup_generate_e2e.py`
 - `tests/test_followup_migration.py`
 - `tests/test_followup_reserved_only.py`
+- `tests/test_ih2_lessons_compete.py`
 - `tests/test_teacher_exam_question_guard.py`
 - `tests/test_teacher_te2_migration.py`
 - `tests/test_teacher_te2_probes.py`

@@ -1015,6 +1015,10 @@ sidecar_passthrough!(plan_more_new, "plan_more_new");
 
 sidecar_passthrough!(plan_learner_pick, "plan_learner_pick");
 
+// Instruct hand-off IH3: "Something else would help" (the options, then the chosen action).
+sidecar_passthrough!(plan_something_else_options, "plan_something_else_options");
+sidecar_passthrough!(plan_something_else, "plan_something_else");
+
 // Canonical sources (spec_source_practice_and_probes_v1): proposals, passages,
 // comparisons, textbook-exercise imports and the tutor's tool runs. Desktop only.
 sidecar_passthrough!(find_practice, "find_practice");

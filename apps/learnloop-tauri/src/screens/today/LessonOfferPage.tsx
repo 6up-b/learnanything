@@ -7,10 +7,11 @@
 // words, but only a model's rationale when its guard let it through (`whyKind === "model_written"`); otherwise the
 // plain reason for the lesson. Start answers the offer's own decision and opens the lesson at once, in one tap;
 // nothing else ever starts a lesson. Never a modal, and nothing on it starts anything by itself.
-import type { PlanLessonOfferStepDto } from "../../api/dto";
+import type { PlanLessonOfferStepDto, SomethingElseChosenDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import type { LessonEntry } from "../LessonScreen";
 import { useLessonOfferActions, useOfferShown, type OfferResponse } from "./LessonOfferBlock";
+import { SomethingElse } from "./SomethingElse";
 
 /** The page's one sentence, kept in one place so the wording is pinned by a test. */
 export function offerSentence(minutes: number, topic: string): string {
@@ -22,7 +23,8 @@ export function LessonOfferPage({
   sessionId,
   onStartLesson,
   onAnswered,
-  onError
+  onError,
+  onSomethingElse
 }: {
   step: PlanLessonOfferStepDto;
   sessionId: string | null;
@@ -31,6 +33,8 @@ export function LessonOfferPage({
   /** The offer was answered: the plan goes on (or, after Start, the lesson has opened). */
   onAnswered: (response: OfferResponse) => void;
   onError: (message: string) => void;
+  /** IH3: "Something else would help" was chosen and served (the offer ends superseded). The host opens what it served. */
+  onSomethingElse?: (result: SomethingElseChosenDto) => void;
 }) {
   const offer = step.offer;
   const { busy, respond } = useLessonOfferActions({ offer, sessionId, onStartLesson, onAnswered, onError });
@@ -58,8 +62,14 @@ export function LessonOfferPage({
           </button>
         ))}
       </div>
-      {/* IH3 (spec §6): the quiet "Something else would help" link goes here, under the actions. */}
-      <div data-testid="lesson-offer-something-else-slot" />
+      {/* IH3 (spec §6): the quiet "Something else would help" link, under the actions. The page is the plan's own
+          pick, so that option is left off it. */}
+      <div data-testid="lesson-offer-something-else-slot">
+        {onSomethingElse ? (
+          <SomethingElse sessionId={sessionId} surface="offer_page" hidePlansPick canStartLesson={Boolean(onStartLesson)}
+                         onChosen={onSomethingElse} onError={onError} />
+        ) : null}
+      </div>
     </section>
   );
 }

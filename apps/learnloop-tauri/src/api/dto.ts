@@ -8783,6 +8783,45 @@ export interface DailyPlanBodyDto {
   chooser: string | null;
 }
 
+/** IH3 (spec_instruct_handoff_v1 §6): "Something else would help". */
+export type SomethingElseKind = "question" | "review" | "new" | "read" | "lesson" | "stop";
+
+export interface SomethingElseOptionDto {
+  kind: SomethingElseKind;
+  ref: string;
+  /** Plain words ("Another question", "Learn Eigenvalues"). */
+  label: string;
+  minutes: number | null;
+  /** What the waiting decision logged for it, or null. Never shown as a promise. */
+  propensity: number | null;
+  /** The plan's own drawn pick (already what comes next). */
+  plansPick: boolean;
+  /** False on a phone for what only the desktop serves. */
+  servable: boolean;
+}
+
+export interface SomethingElseOptionsDto {
+  version: number;
+  enabled: boolean;
+  drawn?: boolean;
+  decisionId?: string | null;
+  device?: "desktop" | "phone";
+  options?: SomethingElseOptionDto[];
+}
+
+export interface SomethingElseChosenDto extends DailyPlanDto {
+  preference?: {
+    id: string;
+    /** served | agreed | stopped | lesson | waits_on_desktop | replayed */
+    outcome: "served" | "agreed" | "stopped" | "lesson" | "waits_on_desktop" | "replayed";
+    kind: SomethingElseKind | null;
+    ref: string | null;
+    servedDecisionId: string | null;
+    lesson: { learningObjectIds: string[]; title: string } | null;
+    replayed: boolean;
+  };
+}
+
 export interface DailyPlanDto {
   version: number;
   enabled: boolean;
@@ -8791,6 +8830,8 @@ export interface DailyPlanDto {
   /** Present when the plan is off: "plan_disabled" or "algorithm_version". */
   reason?: string;
   headlineEnabled?: boolean;
+  /** IH3: the quiet "Something else would help" link may show (absent with the switch off). */
+  somethingElse?: boolean;
   localDate?: string;
   plan: DailyPlanBodyDto | null;
   day?: PlanTotalsDto & { plans: number; kinds: string[]; complete: boolean };

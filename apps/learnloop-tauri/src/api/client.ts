@@ -206,6 +206,9 @@ import type {
   SessionSnapshot,
   StartSummaryDto,
   DailyPlanDto,
+  SomethingElseChosenDto,
+  SomethingElseKind,
+  SomethingElseOptionsDto,
   TodayHeadlineDto,
   IntentChoice,
   IntentScopeKind,
@@ -1309,6 +1312,19 @@ export const api = {
         }
       })
     ),
+  /** IH3: what the plan could do at this boundary, in plain words, for "Something else would help" (draws nothing). */
+  planSomethingElseOptions: (sessionId?: string | null) =>
+    call<SomethingElseOptionsDto>("plan_something_else_options", { input: { sessionId: sessionId ?? null } }),
+  /** IH3: serve the action the learner chose and log it with the options then (idempotent on `preferenceId`). */
+  planSomethingElse: (input: {
+    kind: SomethingElseKind;
+    ref?: string | null;
+    surface: "feedback" | "offer_page" | "today";
+    attemptId?: string | null;
+    noteMd?: string | null;
+    preferenceId: string;
+    sessionId?: string | null;
+  }) => mutating([TAG.queue], call<SomethingElseChosenDto>("plan_something_else", { input })),
   // ── Canonical sources: proposals, passages, comparisons and tool runs.
   // Tools propose; the plan's pick path serves (spec SC1).
   findPractice: (input: PracticeRequestDto["request"] & { caller: PracticeCallerDto }) =>

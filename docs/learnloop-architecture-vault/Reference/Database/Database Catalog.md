@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 250
-table_count: 395
+schema_head: 251
+table_count: 396
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_250/state.sqlite"
+  - "fixtures/migration_head_251/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-250"
+  - "learnloop/database/schema-head-251"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 395 user tables at migration head 250. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 396 user tables at migration head 251. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,7 +38,7 @@ This is the exhaustive map of the 395 user tables at migration head 250. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 165 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 166 |
 | [[Table Roles#Derived|`derived`]] | 26 |
 | [[Table Roles#Receipt|`receipt`]] | 95 |
 | [[Table Roles#Workflow|`workflow`]] | 99 |
@@ -48,7 +48,7 @@ This is the exhaustive map of the 395 user tables at migration head 250. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 382 |
+| `active` | 383 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -249,6 +249,7 @@ Queue selection, sessions, controller decisions, and policy evaluation. This is 
 - [[Reference/Database/Tables/router_decision_bindings|router_decision_bindings]] — `receipt` · `active` · Gives router decision binding a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `workflow_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/router_decision_payloads|router_decision_payloads]] — `workflow` · `active` · Gives router decision payload a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `decision_id`, `format_version`, `content_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/router_decisions|router_decisions]] — `raw_ledger` · `active` · Gives router decision a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It supplies replay-stable input rather than a disposable cache. Rows bind `session_id`, `parent_decision_id`, `scheduler_slate_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/router_learner_preferences|router_learner_preferences]] — `raw_ledger` · `active` · Gives router learner preference a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It supplies replay-stable input rather than a disposable cache. Rows bind `decision_id`, `attempt_id`, `session_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/router_objective_traces|router_objective_traces]] — `receipt` · `active` · Gives router objective trace a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `decision_state_id`, `session_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/router_outcomes|router_outcomes]] — `derived` · `active` · Records the measured outcome and lineage for router so queue and controller decisions can resume safely and explain why an activity was selected. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `decision_id`, `target_practice_item_id`, `target_learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/router_suggestion_responses|router_suggestion_responses]] — `raw_ledger` · `active` · Appends the learner's one response to a shown lesson suggestion (teacher TE1b, spec_teacher_v1 §15.1): accepted (Start), chose_alternative (one of the card's alternatives), declined ("Not now") or ignored (unanswered by the end of its day), the candidate and its learning objects, and the lesson id a Start reserved; and at most one release of a Start whose lesson never opened (released: "Not now" on the pending card; expired: it can no longer open on the current vault; landing ruling R2), nothing deleted. The acceptance model and the decline recovery replay it on every read (no derived table). It supplies replay-stable input rather than a disposable cache. Rows bind `decision_id`, `lesson_id`, `session_id`, making the operational relationship explicit.

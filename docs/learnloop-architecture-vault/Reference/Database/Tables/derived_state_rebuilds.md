@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 250
+schema_head: 251
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -103,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/deliverable_plan_upgrade.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
+- `src/learnloop/failure_share_upgrade.py`
 - `src/learnloop/followup_serve_upgrade.py`
 - `src/learnloop/help_fold_attach_upgrade.py`
 - `src/learnloop/lesson_offers_upgrade.py`

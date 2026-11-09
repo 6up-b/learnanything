@@ -3,13 +3,13 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 250
+schema_head: 251
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -129,6 +129,7 @@ None found by exact static reference scan.
 - `tests/test_followups_batch5_recap_dependencies.py`
 - `tests/test_followups_batch6_review_fixes.py`
 - `tests/test_followups_batch6_router_report.py`
+- `tests/test_ih2_lessons_compete.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
 - `tests/test_te3a_lesson_opportunity.py`
@@ -141,7 +142,6 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te1_successor.py`
 - `tests/test_teacher_te1b_review_fixes.py`
-- `tests/test_teacher_te1b_suggestions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
