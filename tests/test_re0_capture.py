@@ -314,3 +314,52 @@ def test_the_warmth_window_is_the_outcome_contracts_retention_minimum_not_a_new_
     from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS
 
     assert R.warmth_window_hours() == RETENTION_MIN_DELAY_SECONDS / 3600.0 == 24.0
+
+
+# -- review fixes ------------------------------------------------------------------------------------------------------
+
+#: Hashes of these requests as main's code (before RE0, ``6c8962ce95``) computed them: the validated model dumped and
+#: canonically hashed (``learnloop_mobile.adapter.canonical_hash``).
+_PRE_RE0_REQUEST = {"sessionId": "s1", "practiceItemId": "i1", "answerMd": "My answer", "attemptType": "independent_attempt",
+                    "submissionId": "k1", "latencySeconds": 42, "schedulerCandidateId": "cand_i1",
+                    "assessmentContractVersionId": "acv", "hintsUsed": 0, "authoredHints": 0, "bookCounted": False}
+_PRE_RE0_HASHES = {"submit_attempt": "4419a2a45eeacae4eb5130b3d65eef06ee38b9527adc1f83cd2c4418cae6096e",
+                   "submit_dont_know": "d0e60a1daff5c860a4f5b3f1f96c6e8944c7a4968f770197c6b5d148601bf8a4"}
+
+
+@pytest.mark.parametrize("name", ["submit_attempt", "submit_dont_know"])
+def test_a_request_without_active_seconds_hashes_as_it_did_before_re0(name):
+    from learnloop_mobile.adapter import canonical_hash
+    from learnloop_mobile.allowlist import ALLOWLIST
+    from learnloop_mobile.runtime import HostRuntime
+
+    params = {k: v for k, v in _PRE_RE0_REQUEST.items() if name == "submit_attempt" or k not in ("answerMd", "attemptType")}
+    runtime = HostRuntime.__new__(HostRuntime)
+    runtime.ensure_started = lambda: None
+    validated = runtime.validate(ALLOWLIST[name], params)
+    assert "active_seconds" not in validated
+    assert canonical_hash(validated) == _PRE_RE0_HASHES[name]
+    # A request that sends it is a different request, and says so.
+    sent = runtime.validate(ALLOWLIST[name], {**params, "activeSeconds": 30})
+    assert sent["active_seconds"] == 30 and canonical_hash(sent) != _PRE_RE0_HASHES[name]
+
+
+def test_an_unchanged_retry_accepted_before_re0_is_not_a_conflict(tmp_path):
+    from learnloop.capture.jobs import accept_job
+    from learnloop.db.repositories import Repository
+    from learnloop_mobile.adapter import canonical_hash
+    from learnloop_mobile.allowlist import ALLOWLIST
+    from learnloop_mobile.runtime import HostRuntime
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repo = Repository(paths.sqlite_path)
+    runtime = HostRuntime.__new__(HostRuntime)
+    runtime.ensure_started = lambda: None
+    validated = runtime.validate(ALLOWLIST["submit_attempt"], _PRE_RE0_REQUEST)
+    # The job as it was stored by a pre-RE0 host: the pre-RE0 hash.
+    accept_job(repo, device_id="d1", request_id="k1", method="submit_attempt", params=validated,
+               params_sha256=_PRE_RE0_HASHES["submit_attempt"], boot_id="b")
+    job, enqueue = accept_job(repo, device_id="d1", request_id="k1", method="submit_attempt", params=validated,
+                              params_sha256=canonical_hash(validated), boot_id="b")
+    assert enqueue is False and job["request_id"] == "k1"
