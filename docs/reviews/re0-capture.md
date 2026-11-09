@@ -65,7 +65,7 @@ Uncued = every field false. `label` is `uncued`, `cued` or `unlabelled` (an impo
 
 ## The report section
 
-`learnloop data-capture report` gains `recognition_and_effort` (JSON key and a text block): practice attempts by label, how often each cue was present, unreadable fields, `uncued_with_an_unreadable_field`, active seconds sent and missing by surface, and, for `method_selection`, the practice pool and the goal-date reads, each split uncued / cued / unlabelled with attempts, mean correctness, active seconds sent, missing and mean, and latency sent. Labelled **observational**: attempts were not randomized to cues. A null `active_seconds` is counted as missing, the mean is over what was sent, nothing is imputed. Read-only; no model call.
+`learnloop data-capture report` gains `recognition_and_effort` (JSON key and a text block): practice attempts by label, how often each cue was present, unreadable fields, `unlabelled_for_an_unreadable_field`, active seconds sent and missing by surface, and, for `method_selection`, the practice pool and the goal-date reads, each split uncued / cued / unlabelled with attempts, mean correctness, active seconds sent, missing and mean, and latency sent. Labelled **observational**: attempts were not randomized to cues. A null `active_seconds` is counted as missing, the mean is over what was sent, nothing is imputed. Read-only; no model call.
 
 ## Migration and what is left for the landing
 

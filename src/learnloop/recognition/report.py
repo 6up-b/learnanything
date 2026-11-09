@@ -80,12 +80,12 @@ def section(connection: sqlite3.Connection, vault: Any, repository: Any, *,
                 and row.get("attempt_type") != "exam_attempt"]
     fields = Counter()
     unreadable = Counter()
-    uncued_unreadable = 0
+    unlabelled_unreadable = 0
     for row in practice:
         label = labels[str(row["id"])]
         fields.update(label.present)
         unreadable.update(label.unreadable)
-        uncued_unreadable += 1 if label.label == C.UNCUED and label.unreadable else 0
+        unlabelled_unreadable += 1 if label.label == C.UNLABELLED and label.unreadable else 0
     by_surface: dict[str, Counter[str]] = {}
     for row in rows:
         by_surface.setdefault(str(row.get("entry_surface") or "unspecified"), Counter())[
@@ -102,7 +102,7 @@ def section(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         "labels": dict(Counter(labels[str(row["id"])].label for row in practice)),
         "cue_present": {name: fields[name] for name in C.FIELDS},
         "unreadable": dict(sorted(unreadable.items())),
-        "uncued_with_an_unreadable_field": uncued_unreadable,
+        "unlabelled_for_an_unreadable_field": unlabelled_unreadable,
         "active_seconds_by_surface": {name: dict(counts) for name, counts in sorted(by_surface.items())},
         "method_selection": _split([row for row in practice if row.get("practice_mode") == METHOD_SELECTION], labels),
         "practice_pool": _split(practice, labels),
@@ -132,8 +132,8 @@ def lines(report: Mapping[str, Any]) -> list[str]:
         return [f"Recognition and effort (RE0): unavailable ({report.get('reason')})"]
     out = [f"Recognition and effort (RE0, {report['cue_version']}): {report['practice_attempts']} practice attempts, "
            f"{report['labels']}; {report['label']}",
-           f"  cues present: {report['cue_present']}; unreadable: {report['unreadable']}; uncued with an unreadable "
-           f"field: {report['uncued_with_an_unreadable_field']}",
+           f"  cues present: {report['cue_present']}; unreadable: {report['unreadable']}; unlabelled for an unreadable "
+           f"field: {report['unlabelled_for_an_unreadable_field']}",
            f"  {report['active_seconds_label']}; by surface: {report['active_seconds_by_surface']}"]
     out += _cells("method_selection", report["method_selection"])
     out += _cells("practice pool", report["practice_pool"])

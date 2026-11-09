@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
+import json
 from pathlib import Path
 import sqlite3
 
@@ -122,7 +123,10 @@ def test_an_unreadable_field_is_listed_and_an_imported_answer_is_unlabelled_not_
     attempts = [_attempt("a1", 0), _attempt("e1", 1, lo="lo_b", concept="c_b", kind="exam_evidence"),
                 _attempt("a2", 2, lo="lo_b", concept="c_b")]
     labels = C.cues(attempts, _ledger(attempts, method_stated={"a1": None, "a2": False}))
-    assert labels["a1"].unreadable == ("method_stated",) and labels["a1"].label == C.UNCUED
+    # Not knowing a cue is not knowing there was none: unlabelled, never uncued; a known cue still makes it cued.
+    assert labels["a1"].unreadable == ("method_stated",) and labels["a1"].label == C.UNLABELLED
+    known = C.attempt_cue_v1(attempts[2], _ledger(attempts, method_stated={"a2": None}, followups=frozenset({"a2"})))
+    assert known.unreadable == ("method_stated",) and known.label == C.CUED
     assert labels["e1"].label == C.UNLABELLED and labels["e1"].imported and labels["e1"].unreadable == C.FIELDS
     # An import is never anyone's previous attempt.
     assert not labels["a2"].same_lo_before and not labels["a2"].same_concept_before
@@ -180,6 +184,20 @@ def test_a_database_below_252_records_the_attempt_and_the_fill_is_a_no_op():
 # -- the report ------------------------------------------------------------------------------------------------------
 
 
+def _pin_contract(connection, attempt_id: str, item: str = "pi_exam_q1", *, method: bool = False) -> None:
+    """Grade the attempt under a frozen contract, so its required method is readable (as every live attempt's is)."""
+
+    contract = {"required_method": {"name": "SVD", "criterion_ids": []}} if method else {}
+    connection.execute(
+        "INSERT OR IGNORE INTO assessment_contract_versions(id, practice_item_id, contract_hash, contract_json, "
+        "schema_version, created_at) VALUES (?, ?, ?, ?, 1, ?)",
+        (f"acv_{item}_{int(method)}", item, f"h{int(method)}", json.dumps(contract), _stamp(-1)))
+    connection.execute(
+        "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+        "assessment_contract_version_id) VALUES (?, ?, 'correctness', 1, 0, ?, ?)",
+        (f"ge_{attempt_id}", attempt_id, _stamp(-1), f"acv_{item}_{int(method)}"))
+
+
 def _insert(connection, row: dict, *, correctness: float | None, active: int | None, item: str = "pi_exam_q1") -> None:
     connection.execute(
         "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, subject, concept, practice_mode, "
@@ -202,6 +220,7 @@ def test_the_report_splits_method_selection_by_cue_reports_missing_and_never_imp
         ]
         for row, correctness, active in rows:
             _insert(connection, row, correctness=correctness, active=active)
+            _pin_contract(connection, row["id"])
         section = R.section(connection, loaded, repository, window_hours=WINDOW_HOURS)
     assert section["available"] and "observational" in section["label"]
     method = section["method_selection"]
@@ -363,3 +382,16 @@ def test_an_unchanged_retry_accepted_before_re0_is_not_a_conflict(tmp_path):
     job, enqueue = accept_job(repo, device_id="d1", request_id="k1", method="submit_attempt", params=validated,
                               params_sha256=canonical_hash(validated), boot_id="b")
     assert enqueue is False and job["request_id"] == "k1"
+
+
+def test_an_attempt_with_an_unreadable_cue_stays_out_of_the_uncued_mean(tmp_path):
+    _root, loaded, repository = _exam_vault(tmp_path)
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM practice_attempts")
+        # No grading evidence, so no pinned contract: method_stated is unknown for this correct first attempt.
+        _insert(connection, _attempt("o1", 0, lo="lo_svd_definition", mode="method_selection"), correctness=1.0, active=10)
+        section = R.section(connection, loaded, repository, window_hours=WINDOW_HOURS)
+    method = section["method_selection"]
+    assert method["uncued"]["attempts"] == 0 and method["uncued"]["scored"] == 0
+    assert method["unlabelled"]["attempts"] == 1 and method["unlabelled"]["mean_correctness"] == 1.0
+    assert section["unlabelled_for_an_unreadable_field"] == 1

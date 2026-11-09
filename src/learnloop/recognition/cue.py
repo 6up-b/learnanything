@@ -21,9 +21,10 @@ The seven fields (the spec's table):
 * ``randomized_check``: the attempt answered one of RO5's randomized daily checks, the closest thing to an uncued
   observation, which is why it is listed rather than excluded.
 
-**Uncued** is every field false. A field the records cannot speak to (an old attempt with no pinned contract, an
-imported exam answer with no session) is listed in ``unreadable`` and never read as false silently; an imported answer
-has no ledger at all, so its label is ``unlabelled``, not ``uncued``.
+**Uncued** is every field false and every field readable. A field the records cannot speak to (an old attempt with no
+pinned contract) is listed in ``unreadable``; such an attempt with no known cue is ``unlabelled``, never ``uncued``
+(the danger is a false uncued), and with a known cue it is ``cued``. An imported answer has no ledger at all, so it is
+``unlabelled`` too.
 
 A leaf: the standard library only. Observational: nothing here estimates an effect, and nothing serving, scoring,
 scheduling, replay or adaptive difficulty reads it (spec §4.1; ``tests/test_re0_capture.py``).
@@ -149,7 +150,10 @@ class AttemptCue:
     def label(self) -> str:
         if self.imported:
             return UNLABELLED
-        return CUED if self.present else UNCUED
+        if self.present:
+            return CUED  # a known cue is a cue, whatever else is unknown
+        # Every readable field is false, but not knowing a cue is not knowing there was none: never a false uncued.
+        return UNLABELLED if self.unreadable else UNCUED
 
 
 def _began(attempt: Mapping[str, object]) -> datetime:
