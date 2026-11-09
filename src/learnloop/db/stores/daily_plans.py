@@ -272,6 +272,24 @@ def open_learner_state_hypotheses(
     return open_rows
 
 
+def open_workbench_since(connection: sqlite3.Connection, started_at: str) -> dict[str, Any] | None:
+    """IH6 (spec_instruct_handoff_v1 §7b): the newest workbench problem a practice session that started at ``started_at``
+    holds open, or None. Read-only.
+
+    ``workbench_sessions.practice_session_id`` is only filled at submit, so an open problem names no session. It belongs
+    to this one when the learner opened, resumed or worked it since the session started. Status alone would not do: a
+    problem stays ``open`` for weeks after "Leave for now". One whose item was answered since (on the answer box, which
+    leaves the problem open and resumable) has no question in progress."""
+
+    row = connection.execute(
+        "SELECT w.id, w.practice_item_id FROM workbench_sessions w WHERE w.status = 'open' AND w.updated_at >= ? "
+        "AND NOT EXISTS (SELECT 1 FROM practice_attempts a WHERE a.practice_item_id = w.practice_item_id "
+        "AND a.created_at >= w.updated_at) ORDER BY w.updated_at DESC, w.id DESC LIMIT 1",
+        (started_at,),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def open_diagnosed_problem_learning_object_ids(connection: sqlite3.Connection) -> frozenset[str]:
     """LOs with an open diagnosed problem: what "repair" means (owner decision 2026-10-12).
 
@@ -336,6 +354,7 @@ def plan_served_origins(connection: sqlite3.Connection) -> dict[str, list[dict[s
 
 
 __all__ = [
+    "open_workbench_since",
     "abandon_open_plans_before",
     "all_plans",
     "append_block_event",

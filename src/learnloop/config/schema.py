@@ -4222,6 +4222,10 @@ class RouterObjectiveConfig(BaseModel):
     else would help" link, the learner's own pick of an action (served as a ``learner_pick`` decision) and the
     ``router_learner_preferences`` ledger it writes. Off, or below the tag, the link is absent and nothing is served or
     written, as mvp-0.54.
+
+    Instruct hand-off IH6 (the same tag, spec_instruct_handoff_v1 §7b): ``workbench_is_open_item``: while a workbench
+    problem of the plan's current practice session is open, a read of the plan writes no decision and starts no job, and
+    says a question is in progress; an explicit step still decides. Off, or below the tag, reads as mvp-0.54's.
     """
 
     receipts: bool = True
@@ -4356,6 +4360,10 @@ class RouterObjectiveConfig(BaseModel):
     #: choose the router's next action, which is served and logged as a learner pick beside the options then. Off: no
     #: link, no write, as mvp-0.54.
     learner_preferences: bool = True
+    #: Instruct hand-off IH6 (mvp-0.55): an open workbench is an open item (the owner's decision of Nov 8): a read of the
+    #: plan doesn't cross a boundary, or start its job, under one; Next, Begin and Continue still decide. Off: reads as
+    #: mvp-0.54.
+    workbench_is_open_item: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

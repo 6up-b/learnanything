@@ -382,6 +382,18 @@ def learner_preferences_on(config: Any) -> bool:
     return failure_share_tag(config) and bool(getattr(section, "learner_preferences", False))
 
 
+def workbench_is_open_item_on(config: Any) -> bool:
+    """IH6 (spec_instruct_handoff_v1 §7b, the same unreleased tag as IH5): an open workbench is an open item for the plan:
+    the tag, the workbench itself on (off, nothing can resume the problem, so it holds nothing) and
+    ``[router_objective] workbench_is_open_item`` (default true). It needs no objective: any chooser's boundary crosses on
+    a read. Off, or below the tag, mvp-0.54's reads exactly."""
+
+    section = getattr(config, "router_objective", None)
+    workbench = getattr(config, "workbench", None)
+    return failure_share_tag(config) and bool(getattr(workbench, "enabled", False)) and bool(
+        getattr(section, "workbench_is_open_item", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -423,6 +435,7 @@ __all__ = [
     "learned_tail_tag",
     "pick_open_share",
     "stop_coin_rate",
+    "workbench_is_open_item_on",
     "known_at",
     "objective_on",
     "objective_scores_on",

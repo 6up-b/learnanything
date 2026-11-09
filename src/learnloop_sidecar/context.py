@@ -27,6 +27,7 @@ from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
 from learnloop.learner.mastery import display_mastery
 from learnloop.ops.startup import run_startup_maintenance
 from learnloop.router_objective import goal_lifecycle
+from learnloop.router_objective_switches import workbench_is_open_item_on
 from learnloop.reader.reader_authoring import adopt_reference_questions
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.hashes import practice_item_hash
@@ -966,6 +967,9 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # exactly as before); ``bridge``: "compare with the book". The
             # ladder's hints need the hint service (the ``hints`` key below).
             **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days,
+                              # IH6: closing a problem re-reads the plan, which was holding its boundary for
+                              # it (present only while on: off, closing refetches nothing, as before).
+                              **({"open_item": True} if workbench_is_open_item_on(config) else {}),
                               **({"help": {"enabled": True, "bridge": bool(config.workbench.bridge_enabled),
                                            # RW2b fix round 13: the symbolic switch, so a
                                            # mounted workbench gates marks already shown.

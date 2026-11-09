@@ -774,6 +774,7 @@ export function TodayScreen({
           onStartLesson={onStartLesson}
           onOfferAnswered={() => void refetchPlan().catch(() => undefined)}
           onSomethingElse={afterSomethingElse}
+          onResumeQuestion={(practiceItemId) => onOpenPractice(practiceItemId, null)}
           onError={onError}
         />
       </div>

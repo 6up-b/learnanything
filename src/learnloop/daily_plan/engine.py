@@ -1606,8 +1606,8 @@ def _new_planned_today(day: Sequence[PlanRecord]) -> int:
 # -- building a plan --------------------------------------------------------------
 
 
-def get_or_create_today(env: PlanEnv, *, create: bool = True) -> PlanRecord | None:
-    """Today's latest plan, building the day's first one when there is none."""
+def get_or_create_today(env: PlanEnv, *, create: bool = True, first_block: bool = True) -> PlanRecord | None:
+    """Today's latest plan, building the day's first one when there is none (``first_block`` as :func:`build_plan`)."""
 
     if not plan_active(env.vault):
         raise PlanInactiveError("the daily plan is off")
@@ -1626,8 +1626,10 @@ def get_or_create_today(env: PlanEnv, *, create: bool = True) -> PlanRecord | No
     gap = env.gap()
     if gap.due:
         budget = float(min(minutes, int(env.plan_config.reentry_minutes)))
-        return build_plan(env, kind="reentry", budget=budget, remembered=minutes, minutes_source="carried")
-    return build_plan(env, kind="normal", budget=float(minutes), remembered=minutes, minutes_source="carried")
+        return build_plan(env, kind="reentry", budget=budget, remembered=minutes, minutes_source="carried",
+                          first_block=first_block)
+    return build_plan(env, kind="normal", budget=float(minutes), remembered=minutes, minutes_source="carried",
+                      first_block=first_block)
 
 
 @dataclass
@@ -2087,8 +2089,12 @@ def build_plan(
     parent_plan_id: str | None = None,
     override: str | None = None,
     with_insert: Callable[[], None] | None = None,
+    first_block: bool = True,
 ) -> PlanRecord:
     """Build one plan: classify, admit, split, then choose its first block.
+
+    ``first_block`` false (IH6, a read under an open workbench): the plan stands without a block and decides nothing, as
+    when the first block's models are still out; ``advance`` crosses the open boundary at the next call that may.
 
     ``with_insert`` (mobile v2 V3, the F9 class; landing ruling R3's rule): a write that belongs to this plan's
     making (a finished plan's stop-override receipt), committed in the transaction that inserts it, after the slow
@@ -2132,6 +2138,8 @@ def build_plan(
             with_insert()
         store.insert_plan(connection, {"id": plan_id, **prepared.row})
     record = _reload(env, plan_id)
+    if not first_block:
+        return record
     context = _context_from_build(env, record, prepared.built)
     try:
         _boundary(env, record, context, forced=prepared.forced, forced_origin=ORIGIN_REQUESTED)
@@ -4993,6 +5001,41 @@ def _held_step(env: PlanEnv, record: PlanRecord) -> dict[str, Any]:
     return step
 
 
+#: IH6: the step of a read that held its boundary for an open workbench. The plan view reports it.
+QUESTION_IN_PROGRESS_STEP = "question_in_progress"
+
+
+def open_workbench(env: PlanEnv) -> Mapping[str, Any] | None:
+    """IH6 (spec_instruct_handoff_v1 §7b): the workbench problem open in the plan's current practice session, or None
+    (always None off, or below the tag). The current session is the one this call names while it is open, else the
+    vault's open one (there is at most one: ``start_session_exclusive``). With none open, nothing holds."""
+
+    from learnloop.router_objective_switches import workbench_is_open_item_on
+
+    if not workbench_is_open_item_on(env.vault.config):
+        return None
+    session = env.repository.fetch_session(env.session_id) if env.session_id else None
+    if session is None or session.get("ended_at") is not None:
+        session = env.repository.most_recent_open_session()
+    if session is None:
+        return None
+    with env.repository.connection() as connection:
+        return store.open_workbench_since(connection, str(session["started_at"]))
+
+
+def _question_in_progress_step(env: PlanEnv, record: PlanRecord, workbench: Mapping[str, Any]) -> dict[str, Any]:
+    item_id = workbench.get("practice_item_id")
+    item = env.vault.practice_items.get(item_id) if item_id else None
+    learning_object = env.vault.learning_objects.get(item.learning_object_id) if item is not None else None
+    return {
+        "kind": QUESTION_IN_PROGRESS_STEP,
+        "plan_id": record.id,
+        "workbench_session_id": workbench["id"],
+        "practice_item_id": item_id,
+        "learning_object_title": learning_object.title if learning_object is not None else None,
+    }
+
+
 def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None) -> tuple[PlanRecord, dict[str, Any]]:
     """Reconcile, insert follow-ups, cross a boundary if needed, and name the next step.
 
@@ -5008,7 +5051,11 @@ def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = No
 def advance_with_context(
     env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None
 ) -> tuple[PlanRecord, dict[str, Any], PoolContext | None]:
-    record = get_or_create_today(env)
+    # IH6 (spec_instruct_handoff_v1 §7b): under an open workbench a read decides nothing and starts no job: not the day's
+    # first block, a follow-up's own decision, or the next block. It reports what the plan already holds. A serve always
+    # decides, so a problem left open can't strand the learner.
+    workbench = open_workbench(env) if not serve else None
+    record = get_or_create_today(env, first_block=workbench is None)
     assert record is not None
     record = reconcile(env, record)
     if skip_practice_item_id:
@@ -5025,7 +5072,8 @@ def advance_with_context(
         reentry=record.kind == "reentry",
         record=record,
     )
-    record, forced = _insert_followups(env, record, built)
+    # Held, what became ready waits with the rest: the first read after the workbench closes places it.
+    record, forced = (record, []) if workbench is not None else _insert_followups(env, record, built)
     context = _context(env, record, built, day=())
     block = record.current_block()
     device_item = None
@@ -5039,6 +5087,8 @@ def advance_with_context(
             # the device crosses no boundary, so no draw of a later decision (a stop) can leave it unanswered.
             # A stop already drawn past held work (F4) is not drawn again: the plan waits on it.
             return record, _held_step(env, record), context
+    if workbench is not None and block is None:
+        return record, _question_in_progress_step(env, record, workbench), context
     superseding = None
     competing = forced and _lessons_compete(env)
     if competing and block is not None and block.is_lesson_offer and record.block_below_offer() is None:
@@ -5239,6 +5289,8 @@ def prefetch_boundary(env: PlanEnv) -> str:
             return "held"
     if block is not None:
         return "not_a_boundary"
+    if open_workbench(env) is not None:
+        return "workbench_open"  # IH6: its key would go stale when the answer lands; the next read after it closes starts
     if _stop_pending(record) is not None:
         return "stop_pending"
     if not record.blocks and not record.receipts and _forced_rows(record.split):
@@ -6323,6 +6375,8 @@ __all__ = [
     "READING_RULE_FURTHEST",
     "advance",
     "advance_with_context",
+    "open_workbench",
+    "QUESTION_IN_PROGRESS_STEP",
     "build_plan",
     "day_records",
     "decide",

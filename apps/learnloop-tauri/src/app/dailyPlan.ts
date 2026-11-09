@@ -8,9 +8,10 @@
 import { useCallback, useMemo } from "react";
 import { api } from "../api/client";
 import type { DailyPlanDto, PlanItemStepDto, PlanReadingDto, PlanStepDto, SourceLibraryCard } from "../api/dto";
-import { getOrFetch, hashKey, isStale, peek, type QueryKey } from "../api/queryCache";
+import { getOrFetch, hashKey, invalidate, isStale, peek, type QueryKey } from "../api/queryCache";
 import { TAG } from "../api/queryTags";
 import { useCachedQuery } from "../api/useCachedQuery";
+import { algoConfig } from "./algoConfig";
 
 /** "about 8 min": estimates are always labelled as estimates (L1). */
 export function aboutMinutes(minutes: number | null | undefined): string {
@@ -124,6 +125,11 @@ export function useNextPlanStep(sessionId: string | null, prefetch: boolean): Ne
       const state = peek<DailyPlanDto>(key);
       if (isStale(state, Infinity)) continue;
       const next = (state.data ?? snapshot)?.step ?? null;
+      if (next && next.kind === "question_in_progress") {
+        // IH6: another problem is open, so the read held this boundary. Next is an explicit step: it decides.
+        const served = await api.nextPlanItem({ sessionId, serve: true });
+        return served.step ?? null;
+      }
       if (next && next.kind === "item" && !next.boundary) {
         // Inside the block: serve it now, with the offer that ranked it.
         const served = await api.nextPlanItem({ sessionId, serve: true });
@@ -153,6 +159,21 @@ export function waitingLine(waiting: { until: string; minutes: number; learningO
   return `Nothing to do right now. Back in ${minutes} min: ${what}.`;
 }
 
+/** IH6: the plan view's line while a read holds its boundary for an open workbench. */
+export function questionInProgressLine(question: { learningObjectTitle: string | null }): string {
+  const what = question.learningObjectTitle ? ` on ${question.learningObjectTitle}` : "";
+  return `A question is in progress${what}. What comes next is chosen when you finish it or go on.`;
+}
+
+/**
+ * IH6: a problem closed without an answer ("Set aside"). The plan may have been holding its boundary for it, and nothing
+ * else re-reads the plan (a submit invalidates the queue itself). The App's plan read is the read that lets the job start.
+ * Off (or below the tag) this refetches nothing, as before.
+ */
+export function rereadPlanAfterWorkbenchClosed(): void {
+  if (algoConfig().workbenchOpenItem) invalidate({ tags: [TAG.queue] });
+}
+
 /** The key bar's promise for Next under the plan. */
 export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): string {
   if (advancing) return "opening next…";
@@ -162,6 +183,7 @@ export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): 
   if (step.kind === "reading") return `next: continue reading ${step.reading.sectionTitle ?? ""}`.trim();
   // Teacher TE3b: a lesson offer's block (its card is on Today).
   if (step.kind === "lesson_offer") return `next: a lesson you could take on ${step.offer.suggestion.title}`;
+  if (step.kind === "question_in_progress") return "next";
   if (step.boundary) return "next block";
   return `next: ${(step as PlanItemStepDto).learningObjectTitle ?? "next item"}`;
 }

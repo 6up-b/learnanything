@@ -133,6 +133,10 @@ export function PlanToday({
       </p>
       <RouterLine decision={data.routerDecision} explainId={why.decisionId} />
       {waiting ? <p className="dim" role="status">{waiting}</p> : null}
+      {/* IH6: the desktop's open workbench holds what a read would decide; the phone's Next is an explicit step and decides. */}
+      {plan.questionInProgress && !choosing ? (
+        <p className="dim" role="status" data-testid="today-in-progress">A question is in progress on the desktop. Next here goes on without it.</p>
+      ) : null}
       {choosing ? <p className="dim" role="status">Choosing what's next…</p> : null}
       {!session && plan.minuteChoices.length ? (
         <div className="chips" aria-label="Minutes today">

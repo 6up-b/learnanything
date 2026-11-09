@@ -38,6 +38,7 @@ import type {
   WorkbenchSubmitDto,
   WorkbenchSubmitInput,
 } from "../../api/dto";
+import { rereadPlanAfterWorkbenchClosed } from "../../app/dailyPlan";
 import { useCloseWithFlush } from "../../app/useCloseWithFlush";
 import { registerVaultDraft } from "../../app/vaultTransition";
 import { errorMessage, getCommandError } from "../../errors";
@@ -502,6 +503,7 @@ export function useWorkbenchSession(
       await persist("this problem was not set aside");
       const sentIn = liveNow();
       const result = await api.workbenchAbandon({ sessionId: sessionRef.current.sessionId });
+      rereadPlanAfterWorkbenchClosed();
       if (stillLive(sentIn)) commitSession(result.session, false);
       return result.session;
     } catch (error) {

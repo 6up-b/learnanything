@@ -2015,6 +2015,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for instruct hand-off IH3 on mvp-0.55 (spec_instruct_handoff_v1 §6): the \"Something else would "
         "help\" link, the action the learner chooses there (served as a learner pick) and the preference ledger; off, "
         "mvp-0.54: no link, nothing served or written."),
+    _ConfigRule(_exact("router_objective.workbench_is_open_item"), "structural", "operational",
+        "kill switch for instruct hand-off IH6 on mvp-0.55 (spec_instruct_handoff_v1 §7b): while a workbench problem of "
+        "the current practice session is open, a read of the plan writes no decision and starts no job, and an explicit "
+        "step still decides; off, mvp-0.54's reads."),
     _ConfigRule(_exact("router_objective.failure_share_to_other_policy"), "structural", "operational",
         "kill switch for instruct hand-off IH5's successor mvp-0.55 (spec_instruct_handoff_v1 §7a): a failed policy's "
         "share of the objective's mix goes to the other policy instead of staged (both failed: staged); off, mvp-0.54's "

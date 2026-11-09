@@ -45,9 +45,10 @@ import { INTERACTIVE_SELECTOR, screenLeavesKey } from "../../app/keymap";
 import { algoConfig } from "../../app/algoConfig";
 import { LessonOfferBlock } from "./LessonOfferBlock";
 import { LessonSuggestionCard } from "./LessonSuggestionCard";
+import { QuestionInProgress } from "./QuestionInProgress";
 import type { LessonEntry } from "../LessonScreen";
 import { todayQueueInput } from "../../app/autoAdvance";
-import { aboutMinutes, planStepAction, useDailyPlan, waitingLine } from "../../app/dailyPlan";
+import { aboutMinutes, planStepAction, questionInProgressLine, useDailyPlan, waitingLine } from "../../app/dailyPlan";
 import {
   THREADS_SHOWN,
   dayPhrase,
@@ -566,6 +567,12 @@ export function TodayPlace({
   const done = plan ? plan.status !== "open" : false;
   const current = plan?.blocks.find((block) => block.id === plan.currentBlockId) ?? null;
   const waiting = plan && !done && !current && plan.waiting ? plan.waiting : null;
+  // IH6: a read held the boundary for an open workbench. `deciding` is false, so nothing polls: closing the problem
+  // invalidates the queue, and that refetch is the next read.
+  const inProgress = plan && !done && !current ? plan.questionInProgress ?? null : null;
+  const openProblems = useCachedQuery(inProgress ? ["workbench_open_problems"] : null, () => api.workbenchOpenProblems(), { tags: [TAG.queue] });
+  const inProgressProblem = inProgress ? openProblems.data?.problems.find((problem) => problem.sessionId === inProgress.workbenchSessionId) ?? null : null;
+  const inProgressItem = inProgress?.practiceItemId ?? null;
   const rows = plan && !done ? todayRows(plan) : [];
 
   // ── The plan's actions: exactly classic Start's and Today's RPCs ────────
@@ -816,11 +823,18 @@ export function TodayPlace({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text, lineHeight: 1.5 }}>
           {plan.kind === "keep_going" ? "Keep going. " : ""}
-          {waiting ? waitingLine(waiting) : sentence ?? (deciding ? "Choosing what's next…" : "Nothing planned for today.")}{" "}
+          {waiting ? waitingLine(waiting) : inProgress ? questionInProgressLine(inProgress) : sentence ?? (deciding ? "Choosing what's next…" : "Nothing planned for today.")}{" "}
           <button type="button" style={dimLink} aria-expanded={why} onClick={() => setWhy((open) => !open)}>
             why? {why ? "▾" : "▸"}
           </button>
         </div>
+        {inProgress ? (
+          <QuestionInProgress
+            question={inProgress}
+            onResume={inProgressProblem ? () => onResumeProblem(inProgressProblem) : inProgressItem ? () => onOpenPractice(inProgressItem) : undefined}
+            onError={onError}
+          />
+        ) : null}
         {why ? <PlanWhy data={data} /> : null}
         {current?.lessonOffer ? (
           <LessonOfferBlock offer={current.lessonOffer} sessionId={session?.sessionId ?? null}
@@ -851,14 +865,14 @@ export function TodayPlace({
             ))}
           </div>
         ) : null}
-        {!waiting && (rows.length > 0 || deciding) ? (
+        {!waiting && (rows.length > 0 || deciding || inProgress) ? (
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button type="button" data-testid="today-begin" style={actionButton(true)} disabled={busy} onClick={() => void begin()}>
               {busy ? "opening…" : current?.startedAt ? "Continue ↵" : "Begin ↵"}
             </button>
           </div>
         ) : null}
-        {!waiting && rows.length === 0 && !deciding ? (
+        {!waiting && rows.length === 0 && !deciding && !inProgress ? (
           <div style={{ display: "flex", gap: 10 }}>
             <button type="button" style={actionButton(true)} disabled={busy} onClick={() => void keepGoing()}>
               Keep going

@@ -8696,6 +8696,20 @@ export interface PlanWaitingStepDto {
   learningObjectTitle: string | null;
 }
 
+/** IH6: a read found a workbench problem open in this practice session, so it held the boundary: no decision yet, and no
+ *  job. An explicit step (Next, Begin, Continue) decides at once. */
+export interface PlanQuestionInProgressStepDto {
+  kind: "question_in_progress";
+  planId: string;
+  workbenchSessionId: string;
+  /** Null for a Reader problem whose import hasn't made it an item yet. */
+  practiceItemId: string | null;
+  learningObjectTitle: string | null;
+}
+
+/** The plan body's view of that step. */
+export type PlanQuestionInProgressDto = Pick<PlanQuestionInProgressStepDto, "workbenchSessionId" | "practiceItemId" | "learningObjectTitle">;
+
 /** The plan body's view of the waiting step. */
 export interface PlanWaitingDto {
   until: string;
@@ -8709,7 +8723,8 @@ export type PlanStepDto =
   | PlanReadingStepDto
   | PlanDoneStepDto
   | PlanWaitingStepDto
-  | PlanLessonOfferStepDto;
+  | PlanLessonOfferStepDto
+  | PlanQuestionInProgressStepDto;
 
 export interface PlanTotalsDto {
   plannedMinutes: number;
@@ -8772,6 +8787,8 @@ export interface DailyPlanBodyDto {
   deciding?: boolean;
   /** UX Phase 4 round 7: nothing to do until a hold lifts later today (null otherwise). */
   waiting?: PlanWaitingDto | null;
+  /** IH6: a question is in progress in the workbench, so nothing is being chosen yet (absent otherwise). */
+  questionInProgress?: PlanQuestionInProgressDto;
   projected: PlanProjectedBlockDto[];
   /** "Block 2 of about N": chosen plus projected. */
   blockCountEstimate: number;

@@ -28,6 +28,9 @@ export interface AlgoDisplayConfig {
    *  sends a `workbench` key only while it is on, so false until it says so,
    *  and off leaves every screen exactly as before RW2a. */
   workbench: boolean;
+  /** Instruct hand-off IH6 (`router_objective.workbench_is_open_item`): a read of the plan holds its boundary for an open
+   *  problem, so closing one re-reads the plan. False until the sidecar says so; off, closing refetches nothing. */
+  workbenchOpenItem: boolean;
   /** Reader workbench RW6a's kill switches (`recap.enabled`,
    *  `recap.wrap_up_enabled`): the sidecar sends a `recap` key only while
    *  one is on, so both false until it says so, and off leaves the Reader
@@ -110,6 +113,7 @@ const DEFAULTS: AlgoDisplayConfig = {
   practiceFeedback: "simple",
   shell: "simple",
   workbench: false,
+  workbenchOpenItem: false,
   recap: false,
   wrapUp: false,
   adaptiveHints: null,
@@ -132,7 +136,7 @@ export function setAlgoConfig(config: unknown): void {
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
     practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown; shell?: unknown };
-    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown; examples?: unknown; compareMethods?: unknown; passageDraw?: unknown } };
+    workbench?: { enabled?: unknown; openItem?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown; examples?: unknown; compareMethods?: unknown; passageDraw?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
@@ -149,6 +153,7 @@ export function setAlgoConfig(config: unknown): void {
     practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
     shell: root.ui?.shell === "classic" ? "classic" : "simple",
     workbench: root.workbench?.enabled === true,
+    workbenchOpenItem: root.workbench?.enabled === true && root.workbench.openItem === true,
     recap: root.recap?.enabled === true,
     wrapUp: root.recap?.wrapUpEnabled === true,
     adaptiveHints: root.hints?.adaptiveEnabled === true
