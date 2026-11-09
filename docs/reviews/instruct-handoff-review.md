@@ -488,3 +488,31 @@ Each finding was reproduced first: R1-R5 and the one-twin delay all gave the rev
 - No app was touched, so no vitest, typecheck or build was run.
 
 **Not verified:** anything in a running app; real-log frequencies (how often "learn this" meets a pending diagnosis; how often placement probes are missed); the durability lane; the full suite.
+
+## Landing handoff (Nov 9 2026)
+
+**Ready to land at the tip carrying this section.** Three independent reviews ran (IH0-IH7; the fixes; the owner-decision stage). Every blocker, major and minor finding is fixed and recorded above. No owner decision is pending (spec §1, §8).
+
+**Shape**
+- Successor `mvp-0.55` (one constant, `FAILURE_SHARE_ALGORITHM_VERSION`) and migration 251 (`router_learner_preferences`, RAW_LEDGER, head fixture `fixtures/migration_head_251`). Both were free on main at `a36da14a4a`, the last commit merged here; check again at landing.
+- Seven `[router_objective]` switches, default on, each restoring `mvp-0.54` when off: `failure_share_to_other_policy`, `lessons_compete_with_followups`, `learner_preferences`, `workbench_is_open_item`, `lesson_sources_follow_diagnosis`, `preferences_inform_router`, `lesson_candidate_after_cold_miss`.
+- `router.timeout_seconds` defaults to 40 (owner decision); every defaults snapshot was recomputed for it.
+
+**Merging main.** At handoff main was `9c770a43e7`, 10 commits past the last merge. `git merge-tree` shows conflicts in `src/learnloop/config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`), the frozen-digest successor tests (data_capture, ro1, ro4, ro5, ro6, rofu, te3a, te3b, teacher_te1, teacher_te1b_suggestions) and a few generated Reference notes.
+- Recompute the snapshots from the merged tree.
+- In the digest tests, keep both sides' normalizations; this side's are `drop_ih5_keys` and the 40 s wait restored to 8.0.
+- Regenerate references; don't hand-merge them.
+
+**Tests at the tip**
+- Targeted set (221 files): 12,427 passed, 11 skipped, 0 failed.
+- Defaults sweep: 380 passed. CLI surface: 21 passed. Durability on the files naming `migration_head_251`: 37 passed.
+- `lint-imports` and the four reference validators pass.
+- Not run in any stage: the full suite, the full durability lane, cargo.
+- Known not clean on main too: the `test_settings_sidecar.py` teardown error, and 4 text-recognition tests in `test_ux_phase1_usability_round1.py` and `round2.py`.
+
+**Main's working tree** holds an uncommitted copy of the 40 s change (schema.py, template.py, router_runtime.py, spec_action_router_v1.md, `Config - router.md`, about 15 tests) and a stale untracked `docs/specs/spec_instruct_handoff_v1.md`. The branch supersedes all of it, so both can be discarded once IH lands. `.gitignore` and `README.md` there are the owner's edits; leave them.
+
+**Owner steps after landing**
+- Rebuild the PWA and restart the phone host (the allowlist digest moved).
+- Upgrade each vault to `mvp-0.55`.
+- Smoke on an owner-lane copy: `plan_prefetch` fails closed to no prefetch on an unexpected write, and no stage touched real data.
