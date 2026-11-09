@@ -68,7 +68,8 @@ from learnloop.practice_index.paid import PaidCalls, PaidRoute, plan_route, reso
 from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnight
 
 AUTHOR_TASK = "figure_author"
-AUTHOR_PROMPT_VERSION = "figure_author.v1"
+#: v1.1, v2.1: a prediction's ``change`` is spelled out (the author read ``{param: value}`` literally).
+AUTHOR_PROMPT_VERSION = "figure_author.v1.1"
 ENVELOPE = "figures.max_daily_cost_usd"
 #: RW5d P2b: the rich author (``figure_rich_author``) shares the figure envelope.
 OWNER_KINDS = (AUTHOR_TASK, "figure_rich_author")
@@ -132,7 +133,8 @@ SPEC_TEXT = (
     "label}, readout {kind, label, expr, format: \"number\"|\"percent\"} (may use integral and sum); invariants "
     "[{kind, expr, var?, from?, to?, bound?, name?}] with kind finite | bounded | nonnegative | integrates_to_one "
     "| sums_to_one | monotone_nondecreasing (each over var from..to) | equals_source (name: the definition that "
-    "IS the passage's equation); predictions (usually one) [{prompt, change:{param: value}, observe:{kind: "
+    "IS the passage's equation); predictions (usually one) [{prompt, change: {<parameter name>: <number>} (the key is the "
+    "parameter's own name, e.g. {\"lam\": 1}, never {\"param\": \"lam\", \"value\": 1}), observe:{kind: "
     "\"direction\" (does expr rise, fall or stay the same when the change is made?) | \"area\" (which shaded "
     "area has the value of expr?), expr}}]; annotations [{target, text}]."
 )
@@ -156,7 +158,7 @@ AUTHOR_INSTRUCTIONS = (
 #: panels and may emit them; its own prompt version, so a figure built under
 #: one prompt is never reused for the other. Off, the prompt is RW5a's, byte
 #: for byte (``AUTHOR_PROMPT_VERSION``).
-ADVANCED_PROMPT_VERSION = "figure_author.v2-panels"
+ADVANCED_PROMPT_VERSION = "figure_author.v2.1-panels"
 
 ADVANCED_PANELS_TEXT = (
     " Four more panel kinds: heatmap_2d {kind, x:{var,min,max,cells?}, y:{var,min,max,cells?}, expr, "
@@ -256,8 +258,8 @@ SKETCH_TEXT = (
     "of the sample variance of what it averages); bindings [{element_id, probe}] (a drawn element that IS a "
     "probe's values: a polyline's, polygon's or points' x and y equal a pairs probe, or its y a series probe; a "
     "heat_cells' values a series probe; a circle's r a scalar probe; a segment's or arrow's ends a two-point pairs "
-    "probe; this is how a check speaks for what is drawn); predictions [{prompt, change: {param: value} or "
-    "{\"run_to\": t}, observe: {kind: \"direction\" (does the scalar probe rise, fall or stay the same?) | "
+    "probe; this is how a check speaks for what is drawn); predictions [{prompt, change: {<parameter name>: <number>} (the key is the parameter's own "
+    "name, e.g. {\"lam\": 1}, never {\"param\": \"lam\", \"value\": 1}) or {\"run_to\": t}, observe: {kind: \"direction\" (does the scalar probe rise, fall or stay the same?) | "
     "\"choice\" (which entry of a series probe is largest? choices: one label per entry), probe, choices?}}] "
     "(usually one); annotations [{target, text}]. Scene: {viewport: {x: [min, max], y: [min, max]}, axes?: "
     "{x_label, y_label}, elements: [...]} in data units, every number finite, at most {elements} elements and "

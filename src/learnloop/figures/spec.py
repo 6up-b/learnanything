@@ -37,7 +37,8 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Mapping, Sequence
+import re
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Union
 
@@ -796,6 +797,80 @@ def parse_spec(raw: str | Mapping[str, Any], *, advanced: bool = True) -> Compil
         raise SpecError(["an expression nests too deeply to check"]) from exc
 
 
+#: How both compilers name a prediction's own problem.
+_PREDICTION_PROBLEM = re.compile(r"^prediction (\d+):")
+
+
+def _flat_change(prediction: Any) -> Any:
+    """``{"param": "lam", "value": 1}``, the author's misreading, as ``{"lam": 1}``. A numeric ``param`` is left
+    alone: it can be a real parameter named ``param``."""
+
+    change = prediction.get("change") if isinstance(prediction, Mapping) else None
+    if not isinstance(change, Mapping) or set(change) != {"param", "value"} or not isinstance(change["param"], str):
+        return prediction
+    value = change["value"]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return prediction
+    return {**prediction, "change": {change["param"]: value}}
+
+
+def _prediction_note(prediction: Any, problem: str) -> str:
+    prompt = prediction.get("prompt") if isinstance(prediction, Mapping) else None
+    return f"{' '.join(str(prompt or 'a prediction').split())[:80]}: {problem}"[:300]
+
+
+def parse_salvaging_predictions(raw: Any, parse: Callable[[Any], Any], model: type[BaseModel],
+                                error: type[Exception]) -> tuple[Any, list[str]]:
+    """An author's answer parsed by ``parse``, keeping the figure when only an optional prediction is bad.
+
+    A prediction is one question beside the figure, so it alone never costs the figure or a second author call.
+    Stored figures still go through the strict parsers, and what is stored is the compiled figure, so the bad
+    prediction is gone from it. Returns the compiled figure and a note per prediction dropped, for the report.
+    Any other problem raises as before, without a dropped prediction's problems beside it."""
+
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (TypeError, ValueError):
+        return parse(raw), []
+    if not isinstance(data, dict) or "predictions" not in data:
+        return parse(raw), []
+    written = data["predictions"]
+    notes: list[str] = []
+    if not isinstance(written, list):
+        written, notes = [], ["predictions: not a list"]
+    kept = []
+    for prediction in map(_flat_change, written):
+        try:
+            model.model_validate(prediction)
+        except ValidationError as exc:
+            first = exc.errors()[0]
+            where = ".".join(str(part) for part in first.get("loc", ()))
+            notes.append(_prediction_note(prediction, f"{where}: {first.get('msg')}"))
+            continue
+        kept.append(prediction)
+    notes += [_prediction_note(prediction, f"more than {MAX_PREDICTIONS} predictions") for prediction in kept[MAX_PREDICTIONS:]]
+    kept = kept[:MAX_PREDICTIONS]
+    while True:
+        try:
+            return parse({**data, "predictions": kept}), notes
+        except error as exc:
+            failing: dict[int, str] = {}
+            for problem in getattr(exc, "problems", ()):
+                match = _PREDICTION_PROBLEM.match(problem)
+                if match and 0 < int(match.group(1)) <= len(kept):
+                    failing.setdefault(int(match.group(1)) - 1, problem)
+            if not failing:
+                raise
+            notes += [_prediction_note(kept[index], problem) for index, problem in failing.items()]
+            kept = [prediction for index, prediction in enumerate(kept) if index not in failing]
+
+
+def parse_author_spec(raw: Any, *, advanced: bool = True) -> tuple[CompiledFigure, list[str]]:
+    """:func:`parse_spec` for an author's answer (:func:`parse_salvaging_predictions`)."""
+
+    return parse_salvaging_predictions(raw, lambda value: parse_spec(value, advanced=advanced), Prediction, SpecError)
+
+
 # ---------------------------------------------------------------------------
 # Evaluation: the panels' data (the golden corpus's parity unit)
 # ---------------------------------------------------------------------------
@@ -1156,6 +1231,8 @@ __all__ = [
     "evaluate_panel",
     "expanded_free",
     "observed",
+    "parse_author_spec",
+    "parse_salvaging_predictions",
     "parse_spec",
     "prediction_outcome",
     "shade_value",
