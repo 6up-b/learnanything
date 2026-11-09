@@ -9,7 +9,7 @@ source_paths:
   - "src/learnloop_sidecar"
   - "apps/learnloop-tauri"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T05:06:18-05:00"
+source_commit_timestamp: "2026-11-09T05:33:51-05:00"
 generated: true
 generated_at: "2026-11-02"
 tags:

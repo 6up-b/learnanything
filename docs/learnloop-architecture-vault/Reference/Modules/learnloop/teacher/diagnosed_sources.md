@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/diagnosed_sources.py"
 source_paths:
   - "src/learnloop/teacher/diagnosed_sources.py"
-source_commit: "e79907584a31e88ee6c1f20792f2dc9642a671d3"
-source_commit_timestamp: "2026-11-09T03:56:19-05:00"
+source_commit: "0cd4a38533deb97d437aef4384c19a05c01d2cf3"
+source_commit_timestamp: "2026-11-09T05:33:51-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py) |
-| Source lines | 351 |
+| Source lines | 355 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e79907584a31e88ee6c1f20792f2dc9642a671d3` |
-| Commit timestamp | `2026-11-09T03:56:19-05:00` |
+| Source commit | `0cd4a38533deb97d437aef4384c19a05c01d2cf3` |
+| Commit timestamp | `2026-11-09T05:33:51-05:00` |
 
 ## Public API
 
@@ -66,7 +66,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `none(self, why: str) -> 'Follow'` (line 110; public)
   - `settle(self, library: Any, rendered: Sequence[Mapping[str, Any]]) -> dict[str, Any]` (line 114; public) — The record once the brief rendered the sections: what was added whole, what the outline holds and why.
   - `brief_entry(self) -> dict[str, Any] | None` (line 136; public) — What the teacher is told: each section, the statement that found it, and where it is listed instead.
-- `follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref: str | None, learning_object_ids: Sequence[str], in_hand: Collection[tuple[str, str]]) -> Follow | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 284) — The sections a lesson opened from this origin also reads, or None when the lesson is not one that applies (a learner's own start: nothing to say, so no record).
+- `follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref: str | None, learning_object_ids: Sequence[str], in_hand: Collection[tuple[str, str]]) -> Follow | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 288) — The sections a lesson opened from this origin also reads, or None when the lesson is not one that applies (a learner's own start: nothing to say, so no record).
 
 ### Module constants
 
@@ -103,9 +103,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_record_reason(past: Any, connection: Any, kind: str, record_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 158) — Why a text's write-time record names something protected, or None: no record is no more than the attempt itself (the router card reads a cause the same way); an incomplete one cannot be established (fail closed).
 - `_named(row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 182)
 - `_decision_time(connection: Any, decision_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 195)
-- `_miss(connection: Any, learning_object_ids: Sequence[str], decided_at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 200) — The latest attempt on the lesson's topics made at or before the offer's decision.
-- `_why_no_diagnosis(connection: Any, attempt_id: str) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 214) — Pending, failed, superseded or absent: the one plain reason the attempt has no diagnosis in force.
-- `_statements(vault: Any, repository: Any, connection: Any, past: Any, attempt: Mapping[str, Any]) -> list[Confusion]` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 236) — The miss's hypotheses, then its learner-text gaps, each passed through the shared protection.
+- `_miss(connection: Any, config: Any, learning_object_ids: Sequence[str], decided_at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 200) — The latest attempt on the lesson's topics known at the offer's decision (THE availability predicate: a backdated import that arrived later was not what the offer was made on).
+- `_why_no_diagnosis(connection: Any, attempt_id: str) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 218) — Pending, failed, superseded or absent: the one plain reason the attempt has no diagnosis in force.
+- `_statements(vault: Any, repository: Any, connection: Any, past: Any, attempt: Mapping[str, Any]) -> list[Confusion]` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 240) — The miss's hypotheses, then its learner-text gaps, each passed through the shared protection.
 
 ## Who imports or calls it
 
@@ -123,6 +123,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `stored_record`; calls `stored_record`
 - [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `module`; calls `latest_marks`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `hypothesis_answers`; calls `PastWork`, `hypothesis_answers`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `search_sections`
 
 ### Platform and third-party dependencies
@@ -143,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_the_miss_a_lesson_reads_is_what_was_known_at_the_decision`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_no_score_or_stuck_flag_selects_sections`
 

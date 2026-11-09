@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/teacher/topics.py"
   - "src/learnloop/teacher/visuals.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T03:56:19-05:00"
+source_commit_timestamp: "2026-11-09T05:33:51-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -67,7 +67,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] | [[Reference/Modules/learnloop/teacher/checks#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] | [[Reference/Modules/learnloop/teacher/contracts#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
 | [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] | [[Reference/Modules/learnloop/teacher/delayed#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] | [[Reference/Modules/learnloop/teacher/diagnosed_sources#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] | [[Reference/Modules/learnloop/teacher/diagnosed_sources#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/teacher/doctrines|learnloop.teacher.doctrines]] | [[Reference/Modules/learnloop/teacher/doctrines#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] | [[Reference/Modules/learnloop/teacher/episodes#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/teacher/exposure|learnloop.teacher.exposure]] | [[Reference/Modules/learnloop/teacher/exposure#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
@@ -84,7 +84,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 26 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 15 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 9 static module edges
@@ -132,7 +132,7 @@ flowchart LR
     n_learnloop_figures["learnloop.figures"]
     n_learnloop_followup_serve["learnloop.followup_serve"]
     n_learnloop_scheduling["learnloop.scheduling"]
-    center -->|26| n_learnloop
+    center -->|27| n_learnloop
     center -->|15| n_learnloop_db_stores
     center -->|11| n_learnloop_source_retrieval
     center -->|9| n_learnloop_ai

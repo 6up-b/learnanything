@@ -178,7 +178,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] | [[Reference/Modules/learnloop/router_followups_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] | [[Reference/Modules/learnloop/router_learned_tail_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] | [[Reference/Modules/learnloop/router_mixture_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] | [[Reference/Modules/learnloop/router_objective_switches#^module-purpose|purpose]] | `ACTIVE` | 33 | 24 |
+| [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] | [[Reference/Modules/learnloop/router_objective_switches#^module-purpose|purpose]] | `ACTIVE` | 34 | 24 |
 | [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] | [[Reference/Modules/learnloop/router_objective_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] | [[Reference/Modules/learnloop/router_staged_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/section_map|learnloop.section_map]] | [[Reference/Modules/learnloop/section_map#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
@@ -283,7 +283,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 32 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 27 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 26 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 27 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 24 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 23 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 23 static module edges
