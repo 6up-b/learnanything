@@ -157,7 +157,7 @@ The provisional grade reaches the ledger at submit, as A8's does, and a credited
 |---|---|---|
 | **The grade the learner sees** | Named criteria credited; score `y1`; *One part came from your follow-up*. It may read as right | The re-grade |
 | **Mastery and facet recall** | The observation at mass `ρ` instead of 1 | `ρ` below, recorded on the receipt and read through the seam lesson checks use (`learner/lesson_weight.py:901`, `attempts/attempts.py:4553`; `facet_evidence_timeline.py:650`'s override) |
-| **AD's state** | A soft factor: `ρ·P(Y=2 | η) + (1−ρ)·P(Y=1 | η)`, floored by §5.1 (D3) | The same `ρ`. AD's update already takes non-point factors: `CENSORED` reads `P(Y ≤ 1)` (`adaptive_difficulty/model.py:73`). No second `γ`; this is one presentation |
+| **AD's state** | A soft factor: `ρ·P(Y=2) + (1−ρ)·P(Y=1)` given `η`, floored by §5.1 (D3) | The same `ρ`. AD's update already takes non-point factors: `CENSORED` reads `P(Y ≤ 1)` (`adaptive_difficulty/model.py:73`). No second `γ`; this is one presentation |
 | **FSRS** | Rating from `y1`, at most Good, or the item's own one-hint cap if it has one (`fsrs_rating_cap_by_hint`) | Structural: a success with help isn't Easy. The default hint policy has no cap, so this is new. One helper at the five call sites (`attempts.py:4731`, `field/outcomes.py:668`, `instructional/reader_followups.py:582`, `scheduling/review_log.py:108`, `scheduling/evaluation.py:341`) |
 | **Certification** | Nothing, for the whole attempt | The existing rule: assisted attempts certify nothing (`causal_activity_policy.py:182`, `capability_mapping.py:263`). Cost: §11 D4 |
 | **Router's estimates** | Nothing directly. Its rollouts read AD's belief and FSRS memory, so they move as above. Nothing reads the reply or `ρ` | |
@@ -174,7 +174,7 @@ The provisional grade reaches the ledger at submit, as A8's does, and a credited
 
 **Three locks, any one of which is enough.**
 1. **Asked only below the success line.** `y0 < 0.8`, so the attempt's unaided label was already "not a success".
-2. **The category keeps that.** AD's category becomes `max(cat(y0, no help), cat(y1, help after work))` (`adaptive_difficulty/outcomes.py:87`), and `unassisted_success` returns 1 only for an unaided `Y = 2` (`:109`). Reading `y0` from the receipt means a follow-up can't lower a category either, in line with A10.
+2. **The category keeps that.** AD's category becomes `max(cat(y0, no help), cat(y1, help after work))` (`adaptive_difficulty/outcomes.py:87`), and `unassisted_success` returns 1 only for an unaided `Y = 2` (`:109`); the soft case is its own value, never 2. Reading `y0` from the receipt means a follow-up can't lower a category either, in line with A10.
 3. **The attempt becomes `hinted_attempt`.** In the re-grade's transaction, with the original type kept on the receipt. Every allow-list of unaided work fails closed: `QUALIFYING_ATTEMPT_TYPES` (`diagnosis/forecast_receipts.py:84`), `GRADED_RETRIEVAL_TYPES` (`field/outcomes.py:236`), `classify_attempt_activity`'s assisted arm (`causal_activity_policy.py:168-186`, read by `diagnosis/scoreboard.py:357`, `certification_cold_probe.py:1477`, `scheduling/intent/serving.py:111`), `goals/forecast_ledger.py:106`. Any reader the build misses treats it as help, not as a cold success.
 
 `hints_used` stays the truth: AD's category reads the receipt, so `help_timing` needs no faked hint.
