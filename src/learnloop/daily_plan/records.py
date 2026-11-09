@@ -309,7 +309,7 @@ class PlanRecord:
         """IH2: the unfinished block an open offer interrupted, or None. A follow-up arriving meanwhile joins it."""
 
         return next((block for block in sorted(self.blocks, key=lambda b: b.ordinal)
-                     if not block.finished and not block.interrupts), None)
+                     if not block.finished and not block.is_lesson_offer), None)
 
     def followups_lost_to_open_offer(self) -> set[str]:
         """IH2: what an unanswered offer's draw beat. No decision re-reads them until the offer is answered or passed."""

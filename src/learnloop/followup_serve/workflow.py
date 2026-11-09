@@ -393,7 +393,7 @@ def lose_to_lesson(repository: Repository, row: Mapping[str, Any], *, offer_ref:
     a probe nobody will serve, and a probe served later is labelled exposed. It stays open: a later decision has it once
     the offer is answered or has passed. False when the move lost the race."""
 
-    return move(repository, str(row["id"]), to_state=WAITING, reason=LESSON_OFFER_WON,
+    return move(repository, str(row["id"]), to_state="waiting", reason=LESSON_OFFER_WON,
                 from_states=(PENDING, READY, WAITING), release=RELEASE_LESSON_OFFER,
                 detail={"offer_decision_id": offer_decision_id, "offer": offer_ref},
                 clock=clock, chosen_ref=offer_ref, exposed_at=row.get("exposed_at") or _now(clock))
@@ -412,7 +412,7 @@ def reopen_after_lesson(repository: Repository, row: Mapping[str, Any], *, clock
     held stays released and the later probe stays labelled exposed."""
 
     with repository.atomic():
-        if not move(repository, str(row["id"]), to_state=PENDING, reason="lesson_offer_passed", from_states=(WAITING,),
+        if not move(repository, str(row["id"]), to_state="pending", reason="lesson_offer_passed", from_states=(WAITING,),
                     clock=clock, chosen_ref=None, decision_id=None):
             return False
         from learnloop.followup_serve.queue import requeue_workflow

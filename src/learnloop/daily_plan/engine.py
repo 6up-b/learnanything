@@ -3174,12 +3174,11 @@ def _lesson_already_competed(env: PlanEnv, practice_item_id: str) -> bool:
     """This follow-up's own decision held a lesson offer and drew it anyway: that draw stands, and no second draw re-runs
     the same contest. A follow-up that lost to a lesson since carries that lesson's ref, so it competes again."""
 
-    from learnloop.followup_run.router import ASK_NOW, WAIT
     from learnloop.followup_serve import workflow as followup_workflow
-    from learnloop.router.plan_log import held_a_lesson
+    from learnloop.router.plan_log import CONTINUE_REF, INSERT_REF, held_a_lesson
 
     row = followup_workflow.workflow_of_item(env.repository, practice_item_id)
-    if row is None or row.get("chosen_ref") not in {ASK_NOW, WAIT}:
+    if row is None or row.get("chosen_ref") not in {INSERT_REF, CONTINUE_REF}:
         return False
     with env.repository.connection() as connection:
         return held_a_lesson(connection, row.get("decision_id"))
@@ -3285,6 +3284,9 @@ def interrupt_offer(env: PlanEnv, record: PlanRecord, block: PlannedBlock | None
 
     if not _lessons_compete(env) or record.open_lesson_offer() is not None or not _offer_may_interrupt(env, block):
         return None
+    current = record.current_block()
+    if current is not None and current.is_reading:
+        return None  # the reader is open on it, and its close reads the plan's current block
     try:
         return env.policy.lesson_offer(env=env, record=record, forced=False)
     except Exception:  # noqa: BLE001 - an offer never blocks the plan
@@ -5039,9 +5041,10 @@ def advance_with_context(
             return record, _held_step(env, record), context
     superseding = None
     competing = forced and _lessons_compete(env)
-    if competing and block is not None and block.is_lesson_offer:
+    if competing and block is not None and block.is_lesson_offer and record.block_below_offer() is None:
         # IH2 (spec_instruct_handoff_v1 §5 item 1): a follow-up became ready while an offer waits. The offer isn't taken
         # back: this boundary makes a new decision whose support holds both, and it replaces the offer when it commits.
+        # An offer over a block with questions left stands: no boundary here, and it comes first, then that block.
         superseding, block = block, None
     if block is None and (pending := _stop_pending(record)) is not None:
         # Codex review of V2, F4: what a device left for the desktop is done; the plan closes on the

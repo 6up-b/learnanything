@@ -62,7 +62,7 @@ def draw(monkeypatch):
     holds); the uniforms are not reproduced, which no test here reads. Nothing named: the real draw."""
 
     real = mix.draw
-    control = SimpleNamespace(prefer=())
+    control = SimpleNamespace(prefer=(), never_stop=False)
 
     def fake(support, parts, weights, epsilon, seed):
         drawn = real(support, parts, weights, epsilon, seed)
@@ -70,6 +70,9 @@ def draw(monkeypatch):
             match = next((option for option in support if str(option).startswith(ref)), None)
             if match is not None:
                 return replace(drawn, chosen=match, propensity=drawn.pi[match])
+        if control.never_stop and drawn.chosen == "stop_for_today":
+            other = next(ref for ref in support if ref != "stop_for_today")
+            return replace(drawn, chosen=other, propensity=drawn.pi[other])
         return drawn
 
     monkeypatch.setattr(mix, "draw", fake)
@@ -186,6 +189,9 @@ def test_a_probe_arriving_during_an_open_offer_gets_a_new_decision_holding_both(
     assert all(value > 0.0 for value in mu.values())
     assert new[0]["chosen_ref"] == f"followup_contest:{probe}" and new[0]["propensity_kind"] == "exact"
     assert new[0]["detail_json"]["followup_contest"]["item_ids"] == [probe]
+    # The numeric policy answered on the contest (a failure there would be swallowed into a fallback).
+    assert "numeric" not in new[0]["detail_json"]["mixture"]["failed"]
+    assert new[0]["detail_json"]["mixture"]["numeric_choice"] in support
     # The unanswered offer records the newer decision, and it is the plan's act, not the learner's answer.
     with env.repository.connection() as connection:
         assert suggestions.response_for(connection, first_decision) is None
@@ -389,23 +395,49 @@ def test_taking_the_lesson_settles_the_followup_honestly(tmp_path, draw):
     assert after["state"] == wf.SETTLED and not serving.is_holding(after)
     with env.repository.connection() as connection:
         assert [event["reason"] for event in store.workflow_events(connection, "fw_test")][-1] == "lesson_taken"
-    assert E.followup_placement(E.latest_today(env), row["practice_item_id"]) == E.FOLLOWUP_DUE  # never placed
-    _record, served = advance(env, serve=True)
-    assert served is None or served.get("practice_item_id") != row["practice_item_id"]
+    # Never served as this follow-up (the stand-in item is an ordinary one, so the pool may still plan it as itself).
+    assert not any(item.practice_item_id == row["practice_item_id"] and item.origin == "followup"
+                   for item in E.latest_today(env).active_items())
 
 
 # -- item 3: after a miss the post-feedback Next is a real decision ------------------------------------------------------
 
 
-def _miss_env(tmp_path, *, version: str = TAG, toml: str = NO_CHECKS):
+def _answer(env, *, questions_left: bool = True) -> dict[str, Any]:
+    """Build the plan, then serve and answer a question, with no lesson available and no stop drawn on the way (the draws
+    are live, and what comes after is what the test is about). ``questions_left``: until an answer leaves questions in
+    its block, since a block may hold one."""
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(SG, "build_candidates", lambda vault, repository, *, now_iso: ([], {}))
+        real = mix.draw
+
+        def never_stop(support, parts, weights, epsilon, seed):
+            drawn = real(support, parts, weights, epsilon, seed)
+            if drawn.chosen != "stop_for_today":
+                return drawn
+            other = next(ref for ref in support if ref != "stop_for_today")
+            return replace(drawn, chosen=other, propensity=drawn.pi[other])
+
+        patch.setattr(mix, "draw", never_stop)
+        build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+        for _ in range(12):
+            _record, step = advance(env, serve=True)
+            assert step is not None and step["kind"] == "item"
+            env.clock.advance(1)
+            record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                           session_id=env.session_id)
+            env.clock.advance(1)
+            block = next(b for b in E.latest_today(env).blocks if b.id == step["block_id"])
+            if not questions_left or any(item.practice_item_id != step["practice_item_id"] and not item.resolved
+                                         for item in block.items):
+                return step
+    raise AssertionError("no block held a second question")
+
+
+def _miss_env(tmp_path, *, version: str = TAG, toml: str = NO_CHECKS, questions_left: bool = False):
     env = mixture_env(tmp_path, fake_runtime(), version=version, toml=toml, items=lambda: list(_wide_items()))
-    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-    _record, step = advance(env, serve=True)
-    assert step["kind"] == "item"
-    env.clock.advance(1)
-    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
-                   session_id=env.session_id)
-    env.clock.advance(1)
+    step = _answer(env, questions_left=questions_left)
     with env.repository.connection() as connection:
         attempt_id = connection.execute("SELECT id FROM practice_attempts ORDER BY created_at DESC, id DESC").fetchone()[0]
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -463,6 +495,7 @@ def test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_fr
     decision = rows(env, "plan_interrupt")[-1]
     assert decision["policy"] == mix.POLICY and decision["chosen_ref"] == OFFER and decision["propensity_kind"] == "exact"
     assert set(decision["detail_json"]["mixture"]["support"]) >= {INSERT_NOW, OFFER}
+    assert "numeric" not in decision["detail_json"]["mixture"]["failed"]
     _assert_exact_mu(decision)
     after = wf.get(env.repository, "fw_miss")
     assert after["state"] == wf.WAITING and not after["practice_item_id"] and after["chosen_ref"] == OFFER
@@ -479,7 +512,7 @@ def test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_fr
 
 
 def test_not_now_after_a_miss_goes_back_to_a_new_decision_and_the_block_resumes(tmp_path, draw, monkeypatch):
-    env, row = _miss_env(tmp_path)
+    env, row = _miss_env(tmp_path, questions_left=True)
     draw.prefer = (OFFER,)
     _run_lane(env, row, monkeypatch)
     lost = rows(env, "plan_interrupt")[-1]
@@ -495,6 +528,8 @@ def test_not_now_after_a_miss_goes_back_to_a_new_decision_and_the_block_resumes(
     reopened = wf.get(env.repository, "fw_miss")
     assert reopened["state"] == wf.PENDING and not reopened["chosen_ref"] and not reopened["decision_id"]
     assert reopened["exposed_at"] and not serving.is_holding(reopened)
+    action = serving.next_action(env.vault, env.repository, row["source_attempt_id"], plan_serves=True, clock=env.clock)
+    assert action.action == "continue", "nobody waits on a question whose feedback is already out"
     with env.repository.connection() as connection:
         job = store.generation_job(connection, "workflow:fw_miss")
     assert job["state"] == "queued" and int(job["attempt_count"]) == 0
@@ -531,8 +566,22 @@ def test_the_followup_decision_values_the_unwritten_probe_with_the_probe_interfa
         trace = _trace_of(connection, decision["id"])
     assert trace["candidates"][OFFER]["kind"] == "lesson"
     assert trace["candidates"][OFFER]["offer"]["sensors"]["p_accept"]["mean"] is not None
-    # In a sequence the probe is a step; the kinds are what the rollouts valued.
+    # The stand-in is valued by RO §8.1's probe interface: as the bundle, or a step of a sequence when questions are left.
     assert trace["candidates"][INSERT_NOW]["kind"] in {"sequence", PROBE}
+
+
+def test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support(tmp_path):
+    from learnloop.daily_plan import objective_inputs as OI
+    from learnloop.daily_plan.types import BlockCandidate
+
+    env = _env(tmp_path)
+    plain = BlockCandidate(candidate_id=INSERT_NOW, lane="repair", action="practice", subtype=None,
+                           learning_object_ids=("lo_diag",), item_ids=("followup:fw",), reading=None, est_minutes=2.0,
+                           planner_value=0.0, reason="r")
+    assert OI.action_for(env.vault, env.repository, plain, practiced=set(), spread=0.0).kind == REPAIR
+    marked = replace(plain, annotations={OI.FOLLOWUP_PROBE_NOTE: True})
+    action = OI.action_for(env.vault, env.repository, marked, practiced=set(), spread=0.0)
+    assert action.kind == PROBE and action.repair is not None and action.repair.kind == REPAIR
 
 
 def test_no_lesson_available_the_followup_decision_is_the_predecessors(tmp_path, draw, monkeypatch):
@@ -587,20 +636,11 @@ def test_while_an_offer_is_open_a_followups_decision_holds_no_second_offer(tmp_p
     assert E.interrupt_offer(env, record, record.current_block()) is None
 
 
-def test_the_need_paths_mid_block_decision_gains_the_lesson_arm(tmp_path, draw):
+def test_the_need_paths_mid_block_decision_gains_the_lesson_arm(tmp_path, draw, monkeypatch):
     live = list(_wide_items())
     env = _env(tmp_path, items=lambda: list(live), toml=NO_CHECKS)
-    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-    # Past the day's rule-placed first block, into a block with questions left.
-    _record, step = advance(env, serve=True)
-    env.clock.advance(1)
-    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
-                   session_id=env.session_id)
-    env.clock.advance(1)
-    record = E.latest_today(env)
-    current = record.current_block()
-    if current is None or not any(not item.resolved for item in current.items):
-        pytest.skip("this vault's first block has one question")
+    _answer(env)
+    current = E.latest_today(env).current_block()
     probe = _need_probe_arrives(live)
     draw.prefer = (OFFER,)
     _record, offer = advance(env, serve=True)
@@ -618,6 +658,42 @@ def test_the_need_paths_mid_block_decision_gains_the_lesson_arm(tmp_path, draw):
     assert served["practice_item_id"] == probe and served["block_id"] == current.id
     again = rows(env, "plan_interrupt")[-1]
     assert again["parent_decision_id"] == decision["id"] and again["chosen_ref"] == INSERT_NOW
+    assert again["id"] != decision["id"] and again["receipt_key"] != decision["receipt_key"]
+
+
+def test_a_followup_arriving_over_an_interrupting_offer_joins_the_block_below_and_the_offer_stands(tmp_path, draw, monkeypatch):
+    live = list(_wide_items())
+    env = _env(tmp_path, items=lambda: list(live), toml=NO_CHECKS)
+    _answer(env)
+    below = E.latest_today(env).current_block()
+    first = _need_probe_arrives(live)
+    draw.prefer = (OFFER,)
+    _record, offer = advance(env, serve=True)
+    second = "pi_later"
+    live.insert(0, scheduled("pi_diag_easy", "lo_diag", followup_kind="negative_surprise_followup"))
+    env.clock.advance(1)
+    _record, again = advance(env, serve=False)
+    assert again["kind"] == "lesson_offer" and again["block_id"] == offer["block_id"], second
+    record = E.latest_today(env)
+    assert record.open_lesson_offer().id == offer["block_id"] and record.current_block().interrupts
+    assert first not in {item.practice_item_id for item in below.items}
+    with env.repository.connection() as connection:
+        assert LO.withdrawn(connection, offer["offer"]["decision_id"]) is None
+
+
+def test_an_interrupting_offer_never_comes_over_an_open_item(tmp_path, draw, monkeypatch):
+    live = list(_wide_items())
+    env = _env(tmp_path, items=lambda: list(live), toml=NO_CHECKS)
+    _answer(env)
+    _need_probe_arrives(live)
+    draw.prefer = (OFFER,)
+    _record, offer = advance(env, serve=True)
+    record = E.latest_today(env)
+    below = record.block_below_offer()
+    open_item = next(item for item in below.items if not item.resolved)
+    assert record.current_block().id == offer["block_id"]
+    open_item.served_at = env.now_iso()  # served before the draw landed
+    assert record.current_block().id == below.id
 
 
 # -- a follow-up whose own decision already held a lesson -----------------------------------------------------------------
@@ -768,7 +844,11 @@ def test_replay_gives_every_logged_decision_its_logged_mu(tmp_path, draw, monkey
                     _assert_exact_mu(decision)
                     checked += 1
     assert checked >= 3
-    derive_router_outcomes(env2.repository, clock=env2.clock)  # an interrupt's offer joins no item: no outcome, no error
+    # An interrupt's offer joins no item: its outcome row has no action, and the derivation reads it without error.
+    with env2.repository.connection() as connection:
+        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection, reader_exposures=())}
+    drawn = next(row for row in rows(env2, "plan_interrupt") if row["chosen_ref"] == OFFER)
+    assert outcomes[drawn["id"]].get("action_attempt_id") is None
 
 
 # -- no rule from a score to an action ----------------------------------------------------------------------------------
@@ -827,3 +907,153 @@ def test_a_stuck_miss_changes_no_support_and_the_draw_is_the_mix(tmp_path, draw,
             assert support == ("followup_contest", "lesson_offer")
             outcomes.setdefault(label, set()).add(served["kind"])
     assert outcomes["zero"] == outcomes["full"] == {"item", "lesson_offer"}
+
+
+# -- the value of a real probe, and the job that runs again ---------------------------------------------------------------
+
+
+def test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle(tmp_path, draw, monkeypatch):
+    """RO §8.1's interface on the real path: the kind is ``probe``, its bundle's branches are in the trace, and the
+    numeric policy answered (its failure would be swallowed into a fallback)."""
+
+    from learnloop.daily_plan import objective_inputs as OI
+    from learnloop.router_objective import value as V
+
+    env = _env(tmp_path)
+    _open_offer(env, draw)
+    probe = _ready_probe(env)["practice_item_id"]
+    real = OI.action_for
+
+    def as_probe(vault, repository, candidate, *, practiced, spread):
+        if candidate.item_ids == (probe,):
+            lo = candidate.learning_object_ids[0]
+            repair = V.Action(ref=f"{candidate.candidate_id}:repair", kind=V.REPAIR, item_los=(lo,),
+                              minutes=candidate.est_minutes)
+            return V.Action(ref=candidate.candidate_id, kind=V.PROBE, item_los=(lo,), minutes=candidate.est_minutes,
+                            repair=repair)
+        return real(vault, repository, candidate, practiced=practiced, spread=spread)
+
+    monkeypatch.setattr(OI, "action_for", as_probe)
+    env.clock.advance(1)
+    draw.prefer = ("followup_contest:",)
+    advance(env, serve=True)
+    row = _objective_rows(env)[-1]
+    assert "numeric" not in row["detail_json"]["mixture"]["failed"]
+    with env.repository.connection() as connection:
+        entry = _trace_of(connection, row["id"])["candidates"][f"followup_contest:{probe}"]
+    assert entry["kind"] == PROBE
+    assert {"none", "repair", "on_result"} <= set(entry["branches"])
+
+
+def test_the_offers_declined_branch_is_the_followup_not_the_tail(tmp_path):
+    """Value: against a follow-up a "Not now" leads to that follow-up; with none named, the tail's block, as RO4's."""
+
+    from learnloop.router_objective import value as V
+    from tests.test_te3b_value import _inputs  # the value tests' own frozen belief
+
+    inputs = _inputs()
+    lo = inputs.topics[0].lo
+    offer = V.Action(ref="lesson_offer:x", kind=V.LESSON, item_los=(lo,), minutes=15.0, accept=(1.0, 1.0))
+    follow = V.Action(ref="follow", kind=V.REPAIR, item_los=(lo,), minutes=2.0)
+    plain = V._Model(inputs, 16, "seed").value(offer)[1]["branches"]
+    named = V._Model(inputs, 16, "seed").value(replace(offer, declined=follow))[1]["branches"]
+    assert named["accepted"] == pytest.approx(plain["accepted"])
+    assert named["declined"] != pytest.approx(plain["declined"])
+
+
+def test_the_workflows_one_job_runs_again_for_a_new_decision(tmp_path):
+    from learnloop.followup_serve import queue
+
+    env = _env(tmp_path)
+    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    _ready_probe(env)
+    wf.set_fields(env.repository, "fw_test", clock=env.clock)
+    assert queue.enqueue_workflow(env.repository, "fw_test", clock=env.clock)
+    with env.repository.atomic(), env.repository.connection() as connection:
+        job = store.lease_next_generation_job(connection, owner="t", now=env.now_iso(), lease_expires_at="2999-01-01T00:00:00Z")
+        # Out now: nothing changes (its own run is still deciding).
+        assert store.requeue_generation_job(connection, "workflow:fw_test", at=env.now_iso()) is False
+        assert store.finish_generation_job(connection, job, state="done", at=env.now_iso())
+    assert queue.requeue_workflow(env.repository, "fw_test", clock=env.clock) is True
+    with env.repository.connection() as connection:
+        again = store.generation_job(connection, "workflow:fw_test")
+        count = connection.execute("SELECT COUNT(*) FROM followup_generation_jobs WHERE dedupe_key = 'workflow:fw_test'").fetchone()[0]
+    assert again["state"] == "queued" and int(again["attempt_count"]) == 0 and count == 1
+
+
+# -- the whole journey, through the real diagnosis, worker and author doors --------------------------------------------------
+
+
+def test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question(tmp_path, draw, monkeypatch):
+    """A real miss in a blind vault with a plan: the lesson wins with nothing written and what was held released; the
+    page opens from the plan; "Not now" sends the workflow back to the worker, whose new decision generates exactly one
+    question, labelled exposed; and the plan serves it."""
+
+    from learnloop.daily_plan.policy import policy_for
+    from learnloop.vault.loader import load_vault
+    from tests.daily_plan_fakes import make_env
+    from tests.followup_serve_helpers import (
+        LIVE_ITEM,
+        BlindRivalClient,
+        author_clients,
+        live_miss,
+        live_shape_vault,
+        run_jobs,
+    )
+    from tests.test_causal_p2_acceptance import CLOCK
+
+    paths, vault, repository = live_shape_vault(tmp_path, version=TAG, config=NO_CHECKS, task_features=True)
+    lo = str(vault.practice_items[LIVE_ITEM].learning_object_id)
+    offer_ref = f"lesson_offer:{lo}"
+    monkeypatch.setattr(SG, "build_candidates", lambda _vault, _repository, *, now_iso: ([LS.Candidate(
+        ref=LS.lesson_ref(lo), learning_object_ids=(lo,), reason="cold_failing", predicted_success=0.3, title="Topic")], {}))
+    runtime = fake_runtime()
+    others = [scheduled(item_id, str(item.learning_object_id)) for item_id, item in vault.practice_items.items()
+              if item_id != LIVE_ITEM]
+    assert others, "the plan stays open past the first block"
+    env = make_env(paths.root, [scheduled(LIVE_ITEM, lo), *others], clock=CLOCK, session_id="s1")
+    env.policy = policy_for(env.vault, env.repository, session_id="s1", clock=CLOCK, runtime=runtime, serve=True)
+    draw.never_stop = True
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(SG, "build_candidates", lambda *_a, **_k: ([], {}))
+        build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    author = AuthorFake()
+    clients = author_clients(author)
+    clients.runtime = runtime
+    _result, outcome = live_miss(vault, repository, BlindRivalClient(), session_id="s1")
+    row = wf.get(repository, outcome.workflow_id)
+    assert row is not None and serving.is_holding(row)
+
+    draw.prefer = (offer_ref,)
+    run_jobs(vault, repository, clients=clients)
+    assert author.calls == 0
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.WAITING and row["chosen_ref"] == offer_ref and not row["practice_item_id"]
+    assert row["release_reason"] == wf.RELEASE_LESSON_OFFER and row["exposed_at"] and not serving.is_holding(row)
+    assert row["lane"] == wf.LANE_PROBE
+    lost = row["decision_id"]
+
+    action = serving.next_action(vault, repository, row["source_attempt_id"], plan_serves=True, clock=CLOCK)
+    assert action.action == "continue"
+    _record, page = advance(env, serve=True)
+    assert page["kind"] == "lesson_offer" and page["offer"]["decision_id"] == lost
+
+    SG.respond(env.vault, env.repository, decision_id=lost, response="declined", clock=CLOCK)
+    draw.prefer = (INSERT_NOW,)
+    advance(env, serve=False)
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.PENDING and not row["chosen_ref"]
+
+    run_jobs(vault, repository, clients=clients)
+    assert author.calls == 1, "one question, written after the new decision"
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.READY and row["practice_item_id"] and row["exposed_at"]
+    new = rows(env, "plan_interrupt")[-1]
+    assert new["id"] == row["decision_id"] != lost and new["parent_decision_id"] == lost and new["chosen_ref"] == INSERT_NOW
+
+    env.vault = load_vault(paths.root)
+    env.vault.config = vault.config
+    env.policy = policy_for(env.vault, env.repository, session_id="s1", clock=CLOCK, runtime=runtime, serve=True)
+    _record, served = advance(env, serve=True)
+    assert served["kind"] == "item" and served["practice_item_id"] == row["practice_item_id"]
+    assert wf.probe_answer_exposed(repository, str(row["presentation_id"])) == "followup_feedback_released_before_probe"

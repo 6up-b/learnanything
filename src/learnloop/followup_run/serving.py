@@ -176,6 +176,9 @@ def next_action(
         # §6.0: the router let it wait, and what was held is released, so nothing here waits for the
         # question being written. Whatever its job comes to, Next goes on.
         return NextAction("continue")
+    if row["state"] == wf.PENDING and not is_holding(row) and wf.lost_offer_decision(repository, str(row["id"])):
+        # IH2: a lesson beat it and passed, and its new decision is out on the generation slot: as for a wait.
+        return NextAction("continue")
     if row["state"] == wf.PENDING:
         from learnloop.followup_run.jobs import recover_workflow
 
