@@ -156,3 +156,13 @@ failed on `b7c01e13c1`:
 | `reader.capture` | the selection's nodes as sent (refused on any protected one) | the request itself |
 | `get_source_library`, the plan's reading blocks | the reading whole; the stored section's span ids | stored |
 | page and asset endpoints | `phone_media.page_refusal` / `asset_refusal`, every reading of the file (F3) | stored |
+
+## Landing smoke finding: a held-out section's heading as the section's label
+
+Found by the landing's smoke on the owner's `arxiv_v2` copy (not by Codex): `reader.guide_plan` at a phone origin
+sent each section's `label`, which is the section's heading (its first block). For a section whose first block is
+withheld, the heading is text the phone is not otherwise sent. Fixed in its own commit: such a section's label is
+`Section N` on the phone (the section, its id and its span ids stay, so the list, progress and place line up; the
+desktop, a `None` origin, is unchanged). Test: `test_landing_smoke_a_held_out_sections_heading_is_not_its_label_on_the_phone`
+in `tests/test_mobile_v4_codex_review.py`, which failed before the fix (`'3 Exam review' != '3 Exam review'`).
+Not checked beyond the guide plan: the section list the phone Reader builds comes from the same plan.
