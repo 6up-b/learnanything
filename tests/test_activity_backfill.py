@@ -211,17 +211,12 @@ def test_backfill_logs_attempt_duration_interaction_events(tmp_path):
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
     repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
-    # Give one attempt a recorded latency so the duration path is exercised.
+    # Give one attempt a recorded latency so the duration path is exercised. It must be legacy (no observation yet),
+    # and the owner's copies no longer hold one since practice began writing observations, so one is made legacy here.
     with connect(repo.sqlite_path) as connection:
-        target = connection.execute(
-            """
-            SELECT a.id
-              FROM practice_attempts a
-              LEFT JOIN activity_observations o ON o.attempt_id = a.id
-             WHERE o.id IS NULL
-             LIMIT 1
-            """
-        ).fetchone()["id"]
+        target = connection.execute("SELECT id FROM practice_attempts ORDER BY id LIMIT 1").fetchone()["id"]
+        connection.execute("PRAGMA foreign_keys = OFF")  # this copy only: later rows name the observation
+        connection.execute("DELETE FROM activity_observations WHERE attempt_id = ?", (target,))
         connection.execute(
             "UPDATE practice_attempts SET latency_seconds = 37 WHERE id = ?", (target,)
         )

@@ -87,6 +87,7 @@ from tests.mcp_world import (
     legacy_answer,
     live_diagnosis,
     misconception_row,
+    names_planted_key,
     no_model_calls,
     payload_text,
     pinned_answer,
@@ -880,7 +881,7 @@ def test_a_prerequisite_drafted_from_an_unpinned_answer_shows_neither_its_title_
     server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
     (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
     text = _text(result)
-    assert "8841" not in text and _slug(los["tainted"]) not in text and los["tainted"] not in text
+    assert not names_planted_key(text) and _slug(los["tainted"]) not in text and los["tainted"] not in text
     assert GENERATED_TITLE not in text and "Permutation parity basics" not in text
     context = result.structured_content
     gaps = {gap["gap_id"]: gap for gap in context["open_learner_text_gaps"]}
@@ -950,7 +951,7 @@ def test_text_a_model_wrote_on_a_generated_topic_is_held_back(world):
     trace = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_gen_pinned")
     assert trace["answer"] == "GEN_PINNED_7710 equal" and trace["topic"].startswith(TOPIC_WITHHELD)
     assert trace["stem"] is None and trace["stem_note"] == HELD_BACK
-    assert "8841" not in payload_text(context)
+    assert not names_planted_key(payload_text(context))
 
 
 @pytest.mark.parametrize("shown", ["failure", "success", "history", "citation", "named", "own"])
@@ -1047,7 +1048,7 @@ def test_a_diagnosis_shown_a_belief_on_a_generated_topic_is_held_back(world, sho
     server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
     (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
     text = _text(result)
-    assert "8841" not in text and _slug(los["tainted"]) not in text and los["tainted"] not in text
+    assert not names_planted_key(text) and _slug(los["tainted"]) not in text and los["tainted"] not in text
     assert los["safe"] not in text
     own = next(t for t in result.structured_content["recent_answer_traces"] if t["attempt_id"] == "att_own")
     assert own["diagnosis"]["summary"] is None and own["diagnosis"]["summary_note"] == HELD_BACK

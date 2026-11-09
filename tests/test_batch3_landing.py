@@ -330,6 +330,9 @@ def _workbench_submit_shadow(tmp_path, *, opened: bool):
     _step(ctx, view["sessionId"])
     attempt = _call(ctx, "workbench.submit", {"sessionId": view["sessionId"], "practiceSessionId": session})["attempt"]
     assert _attempt(paths, attempt["attemptId"])["hints_used"] == (1 if opened else 0)
+    # The submit queued background post-attempt jobs. A shadow rebuild refuses a database that changes under it, so
+    # they stop first; otherwise the result depended on which thread won.
+    ctx.close()
     result = shadow_rebuild(load_vault(paths.root))
     assert result.live_database_unchanged
     return result.learner_state_diff

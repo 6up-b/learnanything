@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import atexit
+import hashlib
 import os
+import shutil
 import sys
+import tempfile
+import threading
 from pathlib import Path
 import pytest
 
 # Fails a test that leaves a thread running (tests/thread_guard.py).
 pytest_plugins = ["tests.thread_guard"]
+
+# Small matrices gain nothing from OpenBLAS threads, and under xdist each worker's pool competes with the others
+# (the AD sims used 20% more CPU with them). Set before anything imports numpy.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 # Keep the 4,000+ fixture vaults off the capacity-constrained system temp
 # volume. PYTEST_DEBUG_TEMPROOT controls pytest's numbered tmp_path roots when
@@ -108,7 +118,10 @@ os.environ["LEARNLOOP_FIGURE_PREFETCH"] = "off"
 # databases keep a rollback header and the in-memory journal applies. The
 # durability lane (`durability` marker or --durable-sqlite) runs the production
 # path: the switch to WAL and synchronous=FULL.
+import sqlite3  # noqa: E402
+
 import learnloop.db.connection as _db_connection  # noqa: E402
+import learnloop.db.copies as _db_copies  # noqa: E402
 import learnloop.db.migrate as _db_migrate  # noqa: E402
 
 _durable_connect = _db_connection.connect
@@ -145,11 +158,202 @@ def _lane_switch_to_wal(connection, sqlite_path):
     return "fast test lane keeps the in-memory journal"
 
 
+# An explicit fsync pays what `PRAGMA synchronous=OFF` already stopped paying (about 12 ms on the btrfs test volume).
+# A test that spies on or fails os.fsync replaces this attribute as it did the real one.
+_real_fsync = os.fsync
+
+
+def _lane_fsync(fd):
+    if _durability_active:
+        return _real_fsync(fd)
+    os.fstat(fd)  # a bad descriptor still raises, as fsync would
+
+
+os.fsync = _lane_fsync
+
+
+# db.copies writes each copy on a plain sqlite3 connection, outside connect(): the connect patch does not reach it, so
+# in the fast lane every test's vault copy paid full fsyncs (about 90 ms against 3 ms on btrfs). The durability lane
+# keeps the production copy path.
+class _CopiesSqlite3:
+    def __getattr__(self, name):
+        return getattr(sqlite3, name)
+
+    @staticmethod
+    def connect(*args, **kwargs):
+        connection = sqlite3.connect(*args, **kwargs)
+        if not _durability_active:
+            connection.execute("PRAGMA synchronous=OFF")
+        return connection
+
+
+_db_copies.sqlite3 = _CopiesSqlite3()
+
+# A brand-new database costs 0.8 s (every migration's script) and about one test in twelve builds one. The first build
+# of each migration list in a process is the real one, and later ones in the fast lane copy it with this call's
+# applied_at. Durability-lane and `fresh_connections` tests always run the real path.
+_production_apply_fresh = _db_migrate._apply_fresh
+_built_schemas: dict[tuple, Path] = {}
+_real_open_paths = False
+
+
+def _lane_apply_fresh(sqlite_path, migrations, clock):
+    if _durability_active or _real_open_paths:
+        return _production_apply_fresh(sqlite_path, migrations, clock)
+    key = tuple((migration.version, migration.name, str(migration.path)) for migration in migrations)
+    built = _built_schemas.get(key)
+    if built is None:
+        applied = _production_apply_fresh(sqlite_path, migrations, clock)
+        cache = Path(tempfile.mkdtemp(prefix="fresh-schema-", dir=_TEMP_ROOT)) / "schema.sqlite"
+        owner = os.getpid()  # a forked child that exits normally must not delete its parent's copy
+        atexit.register(lambda: os.getpid() == owner and shutil.rmtree(cache.parent, ignore_errors=True))
+        _db_copies.backup_database(sqlite_path, cache)
+        _built_schemas[key] = cache
+        return applied
+    tmp_path = sqlite_path.with_name(sqlite_path.name + ".tmp")
+    _db_migrate._remove_companion_files(tmp_path, include_database=True)
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    _db_copies.backup_database(built, tmp_path)
+    with sqlite3.connect(tmp_path) as connection:
+        connection.execute("PRAGMA synchronous=OFF")
+        connection.execute("UPDATE schema_migrations SET applied_at = ?", (_db_migrate.utc_now_iso(clock),))
+    connection.close()
+    _db_migrate._remove_companion_files(sqlite_path, include_database=False)
+    tmp_path.replace(sqlite_path)
+    return list(migrations)
+
+
+_db_migrate._apply_fresh = _lane_apply_fresh
 _db_connection.connect = _fast_test_connect
 _db_migrate.switch_to_wal = _lane_switch_to_wal
 for _module in list(sys.modules.values()):
     if getattr(_module, "__name__", "").startswith("learnloop") and getattr(_module, "connect", None) is _durable_connect:
         _module.connect = _fast_test_connect
+
+
+# A vault mints its builtin outcome schemas' ids at random, those ids are in the calibration model's content hash, and
+# that hash seeds the certainty bound's draws. So a test's effective mass depended on the run: about 1 vault in 600 got a
+# bound below its certainty, and a dont_know read 0.690 instead of 0.7 (see docs/reviews/test-suite-audit.md). Production's
+# ensure_outcome_schema runs here unchanged, its real insert included; only the one id it mints is fixed, per slug, so
+# every test's draws are the same on every run. tests/test_outcome_schema_ids.py pins the real random id and the bound's
+# limits over many seeds. In production a vault's id, and so its draws, are fixed once minted.
+from learnloop.db import repositories as _repositories  # noqa: E402
+
+_production_ensure_outcome_schema = _repositories.Repository.ensure_outcome_schema
+_production_new_ulid = _repositories.new_ulid
+_minting_schema = threading.local()
+
+
+def _schema_id_for(slug: str) -> str:
+    digest = hashlib.sha256(slug.encode("utf-8")).hexdigest().upper()
+    return ("01SCHEMA" + digest.translate(str.maketrans("", "", "ILOU")))[:26]
+
+
+def _new_ulid_or_fixed_schema_id():
+    slug = getattr(_minting_schema, "slug", None)
+    return _production_new_ulid() if slug is None else _schema_id_for(slug)
+
+
+def _ensure_outcome_schema_fixed_id(self, *, slug, kind, clock=None):
+    _minting_schema.slug = slug
+    try:
+        return _production_ensure_outcome_schema(self, slug=slug, kind=kind, clock=clock)
+    finally:
+        _minting_schema.slug = None
+
+
+_repositories.new_ulid = _new_ulid_or_fixed_schema_id
+_repositories.Repository.ensure_outcome_schema = _ensure_outcome_schema_fixed_id
+
+
+# Two pure functions that cost 26% of a sample's time after the connection work, and repeat their inputs across tests.
+# Both remember only exact results of the real function, and the real function runs on every new input.
+#
+# yaml_io._dumped dumps and then re-parses (pure Python, 9 ms). Only plain data is remembered, keyed by its repr: a
+# round-trip CommentedMap carries comments its repr doesn't show, so it always runs for real. Failures aren't remembered.
+import copy  # noqa: E402
+
+import pydantic  # noqa: E402
+
+from learnloop.vault import yaml_io as _yaml_io  # noqa: E402
+
+_production_dumped = _yaml_io._dumped
+_dumped_texts: dict[str, str] = {}
+
+
+def _is_plain(value, seen: set[int] | None = None) -> bool:
+    """Exact scalars, dicts and lists in which no container appears twice: YAML writes a repeated container as an anchor
+    and an alias, which a repr can't show, and a cycle has no repr to key on."""
+
+    kind = type(value)
+    if kind is dict or kind is list:
+        seen = set() if seen is None else seen
+        if id(value) in seen:
+            return False
+        seen.add(id(value))
+        if kind is dict:
+            return all(type(key) is str and _is_plain(item, seen) for key, item in value.items())
+        return all(_is_plain(item, seen) for item in value)
+    return kind in (str, int, float, bool) or value is None
+
+
+def _remembered_dumped(data):
+    if not _is_plain(data):
+        return _production_dumped(data)
+    key = repr(data)
+    text = _dumped_texts.get(key)
+    if text is None:
+        text = _dumped_texts[key] = _production_dumped(data)
+    return text
+
+
+_yaml_io._dumped = _remembered_dumped
+
+# pydantic generates a model's JSON schema afresh on each call (8 ms), once or more per faked model request. The result
+# depends on the class, the arguments, its core schema (a rebuild replaces it) and the model_config of every model in that
+# schema (read when generating, not when building), so all of them are the key. Each caller gets its own copy.
+_production_json_schema = pydantic.BaseModel.model_json_schema.__func__
+_json_schemas: dict[tuple, dict] = {}
+_models_in_core_schema: dict[int, tuple[object, tuple[type, ...]]] = {}
+
+
+def _models_in(core_schema) -> tuple[type, ...]:
+    known = _models_in_core_schema.get(id(core_schema))
+    if known is not None:
+        return known[1]
+    models, seen, pending = set(), set(), [core_schema]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, dict):
+            if id(node) not in seen:
+                seen.add(id(node))
+                if node.get("type") == "model" and "cls" in node:
+                    models.add(node["cls"])
+                pending.extend(node.values())
+        elif isinstance(node, (list, tuple)):
+            pending.extend(node)
+    ordered = tuple(sorted(models, key=lambda model: f"{model.__module__}.{model.__qualname__}"))
+    _models_in_core_schema[id(core_schema)] = (core_schema, ordered)  # holds the schema, so its id stays its own
+    return ordered
+
+
+def _remembered_json_schema(cls, *args, **kwargs):
+    core_schema = cls.__dict__.get("__pydantic_core_schema__")
+    if not isinstance(core_schema, dict):  # not built: its own error, or its own rebuild, belongs to the real call
+        return _production_json_schema(cls, *args, **kwargs)
+    try:
+        key = (cls, id(core_schema), tuple(repr(model.model_config) for model in _models_in(core_schema)), args,
+               tuple(sorted(kwargs.items())))
+        hash(key)
+    except TypeError:
+        return _production_json_schema(cls, *args, **kwargs)
+    schema = _json_schemas.get(key)
+    if schema is None:
+        schema = _json_schemas[key] = _production_json_schema(cls, *args, **kwargs)
+    return copy.deepcopy(schema)
+
+
+pydantic.BaseModel.model_json_schema = classmethod(_remembered_json_schema)
 
 
 # Background owners (sidecar contexts, ingest hosts, post-attempt workers,
@@ -169,6 +373,7 @@ def close_test_background_owners():
 
 def pytest_addoption(parser):
     parser.addoption("--durable-sqlite", action="store_true", help="Use production SQLite durability for every selected test.")
+    parser.addoption("--fresh-connections", action="store_true", help="Open every SQLite connection for real instead of reusing idle ones in the fast lane (tests/connection_reuse.py).")
 
 
 # The SQLite mode is switched in runtest hooks rather than in a fixture because
@@ -269,6 +474,29 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+# The fast lane's connection reuse spans a test's setup, call and teardown (tests/connection_reuse.py).
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    from tests.connection_reuse import TestLanePool
+
+    fresh = (
+        _session_durable
+        or item.config.getoption("--fresh-connections")
+        or any(item.get_closest_marker(name) is not None for name in ("durability", "owner_vaults", "fresh_connections"))
+    )
+    global _real_open_paths
+    _real_open_paths = fresh
+    if fresh:
+        return (yield)
+    pool = TestLanePool()
+    token = _db_connection._REUSED.set(pool)
+    try:
+        return (yield)
+    finally:
+        _db_connection._REUSED.reset(token)
+        pool.close()
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     durable = _session_durable or item.get_closest_marker("durability") is not None
@@ -317,10 +545,21 @@ def migration_upgrade_allowed():
         yield
 
 
+def _selected_sources(session):
+    for path in {item.path for item in session.items}:
+        yield path.read_text(encoding="utf-8").lower()
+
+
 @pytest.fixture(scope="session", autouse=True)
-def basic_vault_template(tmp_path_factory):
+def basic_vault_template(request, tmp_path_factory):
     from tests import helpers
     global _durability_active
+    # A session of tests that never name a vault skips the 0.8 s build. It can't be built on first use instead: that
+    # first test's monkeypatches would end up inside every later copy. A wrong guess here is only slower, because
+    # create_basic_vault with no template builds the real vault itself.
+    if not any("vault" in source for source in _selected_sources(request.session)):
+        yield
+        return
     # Only fast-lane tests copy the template, so it is built in the session's
     # lane even when a durability test is the first to request it; otherwise
     # it would carry a WAL header into every fast-lane copy.

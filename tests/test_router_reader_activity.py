@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from pathlib import Path
 
 import pytest
 
@@ -97,14 +98,14 @@ def test_the_reader_activity_carries_what_the_spec_lists(reader_world):
 def test_it_is_a_pure_read(reader_world):
     vault, repo, *_rest = reader_world
     before = _table_counts(repo)
-    with repo.connection() as connection:
-        changes = connection.total_changes
+    # The whole file, change counter included: any committed write, even one that keeps the row counts, changes it.
+    # (This used to compare total_changes across two connections, which is 0 on each new one, so it could never fail.)
+    file_before = Path(repo.sqlite_path).read_bytes()
     first = RR.reader_activity_for_card(vault, repo, [LO], iso(400))
     second = RR.reader_activity_for_card(vault, repo, [LO], iso(400))
     assert json.dumps(first, sort_keys=True, default=str) == json.dumps(second, sort_keys=True, default=str)
     assert _table_counts(repo) == before
-    with repo.connection() as connection:
-        assert connection.total_changes == changes
+    assert Path(repo.sqlite_path).read_bytes() == file_before
 
 
 def test_it_reads_strictly_before_as_of_and_only_these_los(reader_world):

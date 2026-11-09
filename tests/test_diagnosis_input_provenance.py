@@ -50,6 +50,7 @@ from tests.mcp_world import (
     generated_world,
     hold_att_held,
     legacy_answer,
+    names_planted_key,
     no_model_calls,
     payload_text,
     pinned_answer,
@@ -230,7 +231,7 @@ def test_a_snapshot_diagnosis_records_the_export_entries_it_opened(tmp_path, cas
     context = _context(paths.root, repository)
     text = payload_text(context)
     trace = _trace(context, wrong.attempt_id)
-    assert LEGACY_KEY not in text and "8841" not in text
+    assert LEGACY_KEY not in text and not names_planted_key(text)
     if note is None:
         assert trace["diagnosis"]["summary"] == summary
     else:
@@ -475,7 +476,7 @@ def test_a_generated_topic_named_in_a_misconception_carries_what_it_was_drafted_
     belief = _belief(context, "mc_named")
     if which == "tainted":
         assert belief["statement"] is None and belief["statement_note"] == REVISION_UNKNOWN_BEHIND
-        assert lo_id not in payload_text(context) and "8841" not in payload_text(context)
+        assert lo_id not in payload_text(context) and not names_planted_key(payload_text(context))
         return
     assert belief["statement"] == statement
     gap = next(entry for entry in context["open_learner_text_gaps"] if entry["gap_id"] == "gap_gen_safe")

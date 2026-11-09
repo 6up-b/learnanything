@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 
 import pytest
@@ -105,7 +106,8 @@ def test_receipts_hold_ids_and_numbers(tmp_path):
     run(env, steps=3)
     for receipt in _states(env):
         for lo in env.vault.learning_objects.values():
-            assert lo.title not in str(receipt["state"]) or lo.title in env.vault.learning_objects
+            # A whole word: this vault's titles are two characters ("M2"), which random ULIDs in the state contain.
+            assert not re.search(rf"(?<![0-9A-Za-z_]){re.escape(lo.title)}(?![0-9A-Za-z_])", str(receipt["state"]))
         for item in env.vault.practice_items.values():
             assert item.prompt not in str(receipt["state"])
 
