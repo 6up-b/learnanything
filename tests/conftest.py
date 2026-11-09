@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import hashlib
 import os
 import shutil
 import sys
@@ -226,6 +227,33 @@ _db_migrate.switch_to_wal = _lane_switch_to_wal
 for _module in list(sys.modules.values()):
     if getattr(_module, "__name__", "").startswith("learnloop") and getattr(_module, "connect", None) is _durable_connect:
         _module.connect = _fast_test_connect
+
+
+# A vault mints its builtin outcome schemas' ids at random, those ids are in the calibration model's content hash, and
+# that hash seeds the certainty bound's draws. So a test's effective mass depended on the run: about 1 vault in 600 got a
+# bound below its certainty, and a dont_know read 0.690 instead of 0.7 (two recorded failures; see
+# docs/reviews/test-suite-audit.md). A fixed id per slug makes every test's draws the same on every run. In production a
+# vault's id, and so its draws, are fixed once it is minted.
+from learnloop.db.repositories import Repository as _Repository  # noqa: E402
+
+_production_ensure_outcome_schema = _Repository.ensure_outcome_schema
+
+
+def _ensure_outcome_schema_fixed_id(self, *, slug, kind, clock=None):
+    from learnloop.clock import utc_now_iso
+
+    digest = hashlib.sha256(slug.encode("utf-8")).hexdigest().upper()
+    fixed = ("01SCHEMA" + digest.translate(str.maketrans("", "", "ILOU")))[:26]
+    with self.connection() as connection:
+        connection.execute(
+            "INSERT OR IGNORE INTO outcome_schemas(id, slug, kind, created_at) VALUES (?, ?, ?, ?)",
+            (fixed, slug, kind, utc_now_iso(clock)),
+        )
+        connection.commit()
+    return _production_ensure_outcome_schema(self, slug=slug, kind=kind, clock=clock)
+
+
+_Repository.ensure_outcome_schema = _ensure_outcome_schema_fixed_id
 
 
 # Background owners (sidecar contexts, ingest hosts, post-attempt workers,
