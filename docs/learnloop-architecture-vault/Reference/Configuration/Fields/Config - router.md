@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
-source_commit_timestamp: "2026-11-09T09:10:53-05:00"
+source_commit: "e77ed0094d5614099d02c64e8c32572092801a85"
+source_commit_timestamp: "2026-11-09T11:20:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -35,13 +35,13 @@ source_paths:
   - "tests/chatgpt_plan_fakes.py"
   - "tests/codex_cli_fakes.py"
   - "tests/conftest.py"
+  - "tests/connection_reuse.py"
   - "tests/decider_fakes.py"
   - "tests/diagnosis_fakes.py"
   - "tests/exam_scope_fixtures.py"
   - "tests/facet_identity_fakes.py"
   - "tests/figure_corpus.py"
   - "tests/figure_property_corpus.py"
-  - "tests/helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router"
@@ -62,7 +62,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4124`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:3508` |
+| `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4124`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:3583` |
 | `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4125`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/scheduling/scheduler.py:986` |
 | `router.enabled` | `true` | boolean | modeled default or validator seed | Turns router behavior on or off within action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4126`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/lesson_suggestion.py:88` |
 | `router.mode` | `"mixture"` | string | modeled default or validator seed | Controls mode in action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4127`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/lesson_suggestion.py:430` |
@@ -100,13 +100,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/chatgpt_plan_fakes.py`
 - `tests/codex_cli_fakes.py`
 - `tests/conftest.py`
+- `tests/connection_reuse.py`
 - `tests/decider_fakes.py`
 - `tests/diagnosis_fakes.py`
 - `tests/exam_scope_fixtures.py`
 - `tests/facet_identity_fakes.py`
 - `tests/figure_corpus.py`
 - `tests/figure_property_corpus.py`
-- `tests/helpers.py`
 
 ## Extension and modification guidance
 

@@ -3,8 +3,8 @@ title: "Config - hypothesis"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
-source_commit_timestamp: "2026-11-09T09:10:53-05:00"
+source_commit: "e77ed0094d5614099d02c64e8c32572092801a85"
+source_commit_timestamp: "2026-11-09T11:20:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml hypothesis"
@@ -48,7 +48,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `hypothesis.session_card_budget` | `2` | integer | modeled default or validator seed | Controls session card budget in learner-facing hypothesis cards and re-entry signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:134`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/handlers/claims.py:58` |
 | `hypothesis.claim_cooldown_days` | `7` | integer | modeled default or validator seed | Sets the claim cooldown duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:135`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/handlers/claims.py:59` |
 | `hypothesis.overconfidence_min_evidence_mass` | `1.0` | number | modeled default or validator seed | Controls overconfidence min evidence mass in learner-facing hypothesis cards and re-entry signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:139`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/overconfidence.py:87` |
-| `hypothesis.reentry_gap_days` | `7` | integer | modeled default or validator seed | Sets the reentry gap duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:142`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:815` |
+| `hypothesis.reentry_gap_days` | `7` | integer | modeled default or validator seed | Sets the reentry gap duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:142`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:820` |
 | `hypothesis.decay_pressure_target_recall` | `0.8` | number | modeled default or validator seed | Controls decay pressure target recall in learner-facing hypothesis cards and re-entry signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:145`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/scheduling/decay_pressure.py:102` |
 | `hypothesis.decay_pressure_horizon_days` | `60` | integer | modeled default or validator seed | Sets the decay pressure horizon duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:146`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/scheduling/decay_pressure.py:104` |
 

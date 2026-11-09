@@ -3,8 +3,8 @@ title: "remediation_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
-source_commit_timestamp: "2026-11-09T09:10:53-05:00"
+source_commit: "e77ed0094d5614099d02c64e8c32572092801a85"
+source_commit_timestamp: "2026-11-09T11:20:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite remediation_episodes"
@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_common_repair_delivery.py`
+- `tests/test_learner_protection_predicates.py`
 - `tests/test_migrations.py`
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_causal_cold_outcomes.py`

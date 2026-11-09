@@ -315,3 +315,33 @@ With "Not now" on A, the same run gives B at once and `observations [False, Fals
 - The durability lane, the full suite, and the phone host racing the desktop.
 
 **For landing, not a defect.** `main` has moved to `bbb31ace19` (the test-suite audit). `git merge-tree` against it reports one conflict: `tests/cli_help_snapshot.json`, deleted on main and modified here.
+
+### Outcomes (fixes on `instruct/handoff`)
+
+Each finding was reproduced first with the review's `test_S*` cases, and each fix has a test that fails on the code before it. Commit `f837a8a7b4`.
+
+| Finding | Outcome |
+|---|---|
+| R2-M1 | Fixed. See below. |
+| R2-m1 | Fixed. *Not now* serves only an item inside the block, so under a hold it stays a read and Today says a question is in progress. Feedback's Next under a hold still decides, as IH6 says, and its served step now opens instead of leaving a presentation running behind the block line. |
+| R2-m2 | Fixed. Every open workflow that lost to a replaced offer moves to the new one, found through its `lesson_offer_won` event, with or without a question written. No job runs while the lesson stands. |
+| R2-m3 | Fixed. A phone's agreement counts as a request, on the drawn offer's own card, because no offer was on that screen. See "Double counting" below. |
+| R2-m4, closed plan | Fixed. A retry serves what it owes only while the block is open in an open plan. Otherwise it answers with no step, and the plan view says where things stand. The review named only the closed plan; a block that has ended is the same case. |
+| R2-m4, another option | Fixed. See "Why a new key" below. |
+
+**What now enforces at most one open offer.** Every offer's block is written through `engine._persist_block`, and `_replace_open_offers` runs there, inside the decision's `BEGIN IMMEDIATE` transaction. Any offer still open ends `superseded`, naming the new decision (§5 item 1's mechanism), so the newer draw stands. Each decision keeps the propensity it logged and the replaced offer gets an `expired` row, so the plan's act can't reach the acceptance model as an answer. `tests/test_ih2_one_open_offer.py` runs a read or a job inside another decision's wait across outer, inner and both draws, counts open blocks from the tables, repeats reads, and checks that one answer gives one observation. There's no database constraint: an offer's being open comes from its events, and a constraint would need a second migration.
+
+**Where this differs from the suggested fix.** The review suggested ending any open offer in `_boundary`'s transaction. Only a decision that writes an offer does that. A boundary decision that draws a block leaves a job's offer open, and the offer comes first. That decision may never have weighed that lesson, and a phone's decision must not end a desktop offer.
+
+**New in this pass, not in the review.**
+- **The reverse race fails the call.** The review expected a job's offer placed under a serve's `_boundary` to leave two open offers. In fact the block's stale ordinal hit the unique index on `(daily_plan_id, plan_ordinal)`, so the whole decision failed and Next or the read raised `IntegrityError`. That same failure was also the only thing stopping two boundary decisions from both landing. Reading the ordinal in the transaction would have removed that guard, so there is now an explicit one: a boundary is decided once (`_refuse_a_taken_boundary`, `BoundaryTaken`). The later decision is dropped with nothing logged, and the step is what took the boundary. A job's offer doesn't count as taking it. Its model calls are spent with no record, as they were on the failure.
+- **Off, or below the tag,** all of this is the predecessor's, including that `IntegrityError`, and a test pins it.
+- **An offer's place is read at its write.** One replacing an interrupting offer keeps that offer's place, where it would have fallen behind the block. One that finds a check block below it doesn't come first (§15.1a).
+
+**Double counting (R2-m3).** A phone's agreement and a later desktop answer to the same offer are one wish, so they give one observation: the request counts until the learner answers, and from then on the answer counts. Decisions drawn before the answer still read the request, and each has frozen what it read. `ignored` isn't an answer, since it's the plan reading a card passed over, so the request and the pass both stay. They are two acts, and one says the other's opposite. The review left this for the owner to rule on; this is the reading that follows §7's own reason for leaving agreements out, and it's one condition to change if the owner rules otherwise.
+
+**Why a new key (R2-m4).** The key names one act. A lost reply followed by a tap on another option means the learner changed their mind, and replaying the first choice would give them what they just left, with no message. Both clients now start a new key when the kind changes. If the first reply had in fact landed, both preferences are on record, which is true of what they did, and the first block stays planned as any pick's does. If the first choice was stop, the plan has closed and the second tap is told so. `choose` refuses a known key with another kind. Retrying the same option keeps its key, as before.
+
+**Left as it is: a lesson taken during the wait.** A read draws an offer, the learner taps Start, and a job whose decision started earlier then draws the same lesson. One offer is open, but it offers a lesson just taken. Reproduced with fakes: `open 1`, step `lesson_offer`, observations `[True]`, workflow still `waiting`. It needs the read, the page and the tap all inside one decision's wait. Dropping that draw would need a new rule on the offer's ledger, so I left it, and §5 names it.
+
+**Left for the owner, unchanged:** whether `w_pref` acts or stays report-only; whether a learner-asked lesson uses IH7's diagnosed sections; whether an open Reader problem holds decisions when no session is open; the `cold_failing` gate at `lesson_suggestion.py:198`; a decision replacing an open offer skipping the daily ceiling.

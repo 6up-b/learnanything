@@ -3,8 +3,8 @@ title: "outcome_schemas"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
-source_commit_timestamp: "2026-11-09T09:10:53-05:00"
+source_commit: "e77ed0094d5614099d02c64e8c32572092801a85"
+source_commit_timestamp: "2026-11-09T11:20:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite outcome_schemas"
@@ -106,6 +106,7 @@ Indexes and uniqueness:
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grader_channel_prior_knobs.py`
 - `tests/test_observation_ledger_bulk.py`
+- `tests/test_outcome_schema_ids.py`
 - `tests/test_teacher_te2_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
-source_commit_timestamp: "2026-11-09T09:10:53-05:00"
+source_commit: "e77ed0094d5614099d02c64e8c32572092801a85"
+source_commit_timestamp: "2026-11-09T11:20:39-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -26,12 +26,12 @@ source_paths:
   - "tests/ad_reachable_reads.py"
   - "tests/approach_map_fakes.py"
   - "tests/conftest.py"
+  - "tests/connection_reuse.py"
   - "tests/daily_plan_fakes.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/e0_fakes.py"
   - "tests/followup_serve_helpers.py"
   - "tests/helpers.py"
-  - "tests/hint_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -67,12 +67,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_reachable_reads.py`
 - `tests/approach_map_fakes.py`
 - `tests/conftest.py`
+- `tests/connection_reuse.py`
 - `tests/daily_plan_fakes.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/e0_fakes.py`
 - `tests/followup_serve_helpers.py`
 - `tests/helpers.py`
-- `tests/hint_fakes.py`
 
 ## Extension and modification guidance
 
