@@ -281,12 +281,19 @@ _production_dumped = _yaml_io._dumped
 _dumped_texts: dict[str, str] = {}
 
 
-def _is_plain(value) -> bool:
+def _is_plain(value, seen: set[int] | None = None) -> bool:
+    """Exact scalars, dicts and lists in which no container appears twice: YAML writes a repeated container as an anchor
+    and an alias, which a repr can't show, and a cycle has no repr to key on."""
+
     kind = type(value)
-    if kind is dict:
-        return all(type(key) is str and _is_plain(item) for key, item in value.items())
-    if kind is list:
-        return all(_is_plain(item) for item in value)
+    if kind is dict or kind is list:
+        seen = set() if seen is None else seen
+        if id(value) in seen:
+            return False
+        seen.add(id(value))
+        if kind is dict:
+            return all(type(key) is str and _is_plain(item, seen) for key, item in value.items())
+        return all(_is_plain(item, seen) for item in value)
     return kind in (str, int, float, bool) or value is None
 
 

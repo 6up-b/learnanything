@@ -478,3 +478,29 @@ def test_src_reads_no_rowid_counter_a_kept_connection_would_carry_over():
         "line 1: .lastrowid", "line 2: last_insert_rowid()"]
     own = (root / next(iter(_OWN_CONNECTION_FILES))).read_text(encoding="utf-8")
     assert "sqlite3.connect(" in own and "learnloop.db.connection" not in own
+
+
+def test_shared_containers_are_never_served_a_plain_copys_yaml():
+    """YAML writes a repeated container as an anchor and an alias, and its repr can't show that."""
+
+    from learnloop.vault import yaml_io
+
+    separate = {"a": [1], "b": [1]}
+    assert "&" not in yaml_io._dumped(separate)
+    shared_list = [1]
+    aliased = yaml_io._dumped({"a": shared_list, "b": shared_list})
+    assert "&" in aliased and "*" in aliased
+    assert yaml_io._dumped({"a": [1], "b": [1]}) == yaml_io._dumped(separate) != aliased
+    shared_map = {"k": 1}
+    assert "&" in yaml_io._dumped({"a": shared_map, "b": [shared_map]})
+
+
+def test_a_cycle_goes_to_the_real_dump():
+    from learnloop.vault import yaml_io
+    import tests.conftest as lane
+
+    cycle: dict = {"a": 1}
+    cycle["self"] = cycle
+    assert lane._is_plain({"ok": [1, 2]}) is True
+    assert lane._is_plain(cycle) is False  # no recursion error before the real function runs
+    assert "&" in yaml_io._dumped(cycle)
