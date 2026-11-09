@@ -204,7 +204,8 @@ def _lane_apply_fresh(sqlite_path, migrations, clock):
     if built is None:
         applied = _production_apply_fresh(sqlite_path, migrations, clock)
         cache = Path(tempfile.mkdtemp(prefix="fresh-schema-", dir=_TEMP_ROOT)) / "schema.sqlite"
-        atexit.register(shutil.rmtree, cache.parent, ignore_errors=True)
+        owner = os.getpid()  # a forked child that exits normally must not delete its parent's copy
+        atexit.register(lambda: os.getpid() == owner and shutil.rmtree(cache.parent, ignore_errors=True))
         _db_copies.backup_database(sqlite_path, cache)
         _built_schemas[key] = cache
         return applied

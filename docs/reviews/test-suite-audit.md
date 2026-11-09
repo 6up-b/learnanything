@@ -50,10 +50,12 @@ Each row is one change. Seconds were measured alone on this machine, so read the
 | **Copy targets skip fsync** (the owner's prior) | About 90 ms to 3 ms per vault copy on btrfs, 10 s of the sample | The durability lane keeps the production copy path, pinned |
 | **`os.fsync` is a no-op in the fast lane** (bad descriptors still raise) | 3.7 s of the sample | Tests that spy on or fail `os.fsync` replace it as before. Real in the durability lane, pinned |
 | **Fresh schema copied after the process's first real build** | 0.8 s per fresh vault, 8 s of the sample | The first build in each process is real. A test compares a copy to a real build. The durability lane always builds, pinned |
+| **`yaml_io._dumped` and `model_json_schema` remember exact results** | 120-test sample 65.7 s to 49.1 s, against 189.5 s before any of this. About 75% of YAML writes hit | Pure functions: the real one runs on every new input. YAML is keyed by repr and only for plain data, because a round-trip mapping has comments its repr hides. Pinned: order, types, comments, a long key's read-back, callers can't change a schema |
 | **Template built only if a selected file mentions a vault** | 0.8 s per process, about 7 s of 27,650 s | A wrong guess is only slower: with no template, `create_basic_vault` builds the real vault |
 | **One BLAS thread** | AD sim CPU 6.24 s to 5.04 s | Same results: matrices this small don't use BLAS threads |
 | **CLI help no longer hashed** (§5) | Fast lane 60 s to under 1 s | §5 |
-| **`slow` marker**: `-m "not slow"` while iterating; everything still runs in the gate | No gate saving, by design | The marked tests are unchanged |
+| **Follow-ups journey cut to one arm, 8 days** (§5) | 467 test seconds in the baseline; 81 s alone | §6 |
+| **`slow` marker**: `-m "not slow"` while iterating; everything still runs in the gate. `test_ad23_sim`, the journeys, the CLI render and 13 others | No gate saving, by design | The marked tests are unchanged |
 
 ### The owner's priors
 
@@ -179,6 +181,23 @@ Other things never run in the gate:
 - **Test files named for their review rounds** (`*_codex_review`, `*_fix_round3`, `test_reader_rw2b_fix4` to `fix15`). This hides what each proves. The refactor's removal steps will touch many of them; renaming by behaviour is cheap then.
 
 **Goldens:** besides the CLI hash, all are low-churn (1 to 3 commits each) and prove "switched off equals the predecessor", which is real parity. Kept.
+
+## 6. Deletions, rewrites and additions
+
+Nothing on the map's deprecated inventory was deleted. `test_ad23_sim` and `sim/ad_gates` aren't deprecated (strategy, Appendix A), so they were treated as live.
+
+| Test | What it proved | What proves that now, or why it was worthless |
+|---|---|---|
+| `test_recursive_cli_help_matches_snapshot` and `tests/cli_help_snapshot.json` (removed) | Every help exits 0, and each help's exact bytes | Exit 0: `test_every_command_prints_its_help`. Names: `test_no_command_or_option_disappeared`. Exact prose: worthless, it was re-recorded in 211 commits |
+| `test_two_weeks_before_and_after_the_batch[mvp-0.49]` (removed) | A two-week journey runs at mvp-0.49. It asserted nothing else, and `>= 0` can't fail | `test_ro6_tail_data::test_a_few_weeks...`: the same journey at the same tag, with real assertions. The comparison is in `router-followups-nov5.md` |
+
+**Counts:**
+
+- **Removed:** 2 test cases (the CLI hash test, and the journey's mvp-0.49 arm).
+- **Merged:** 0. No real duplicates were found (§5).
+- **Rewritten:** 4 (CLI surface, into 3 tests; pure read; RO0 receipts; the follow-ups journey).
+- **Corrected or strengthened in place:** 10 (AD's row, RO5's trace and check, backfill's setup, placement's property, phone contract's item choice, 3 background-work orderings, the planted-key checks across 3 files).
+- **Added:** 33 test functions, 51 cases: `test_connection_reuse` 23 functions, `test_learner_protection_predicates` 4, `test_ad23_sim_smoke` 1 (15 cases), and one each in `test_shadow_rebuild`, `test_blind_grading_contract`, `test_ad2_serving`, `test_mcp_c1a_narrow` and `test_placement_fixture_copies`.
 
 ## 7. Plumbing list for the refactor
 
