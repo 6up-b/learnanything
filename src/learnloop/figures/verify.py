@@ -32,7 +32,8 @@ other figure, whatever step 3 finds.
 
 **Outcomes:** 1 and 2 pass: ``illustrative`` (labelled "not checked against the
 book"). 1 or 2 fails: ``failed``, never shown. A prediction code cannot
-decide (no area matches, a value that is not finite) is dropped, not failed.
+decide (no area matches, a value that is not finite) is dropped, not failed;
+one the author wrote badly never gets here (``spec.parse_author_spec``).
 """
 
 from __future__ import annotations
@@ -82,6 +83,8 @@ class Report:
     shades: list[dict[str, Any]] = field(default_factory=list)
     claims: list[dict[str, Any]] = field(default_factory=list)
     dropped_predictions: list[int] = field(default_factory=list)
+    #: Predictions the author wrote badly, removed before the figure was compiled (``spec.parse_author_spec``).
+    author_predictions_dropped: list[str] = field(default_factory=list)
     grid_points: int = 0
     reason: str = ""
 
@@ -91,6 +94,8 @@ class Report:
             "invariant_problems": self.invariant_problems[:12], "shades": self.shades[:24],
             "claims": self.claims,
             "dropped_predictions": self.dropped_predictions, "grid_points": self.grid_points, "reason": self.reason,
+            **({"author_predictions_dropped": self.author_predictions_dropped[:12]}
+               if self.author_predictions_dropped else {}),
         }
 
 

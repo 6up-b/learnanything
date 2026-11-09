@@ -635,6 +635,12 @@ _ELEMENT_KEYS: dict[str, frozenset[str]] = {
 }
 
 
+def parse_author_sketch(raw: Any) -> tuple[CompiledSketch, list[str]]:
+    """:func:`parse_sketch` for an author's answer (:func:`.spec.parse_salvaging_predictions`)."""
+
+    return S.parse_salvaging_predictions(raw, parse_sketch, SketchPrediction, SketchError)
+
+
 def _finite(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
@@ -891,6 +897,7 @@ __all__ = [
     "element_index",
     "expression_steps",
     "impersonates",
+    "parse_author_sketch",
     "parse_sketch",
     "prediction_step",
     "probe_numbers",

@@ -113,6 +113,8 @@ class SketchReport:
     not_covered: list[str] = field(default_factory=list)
     unnamed_elements: int = 0
     dropped_predictions: list[int] = field(default_factory=list)
+    #: Predictions the author wrote badly, removed before validation (``sketch.parse_author_sketch``).
+    author_predictions_dropped: list[str] = field(default_factory=list)
     claims: list[dict[str, Any]] = field(default_factory=list)
     engine_sha256: str = ENGINE_SHA256
     verifier_version: str = field(default_factory=lambda: VERIFIER_REPORT_VERSION)
@@ -133,6 +135,8 @@ class SketchReport:
             "claims": self.claims, "engine_sha256": self.engine_sha256,
             "verifier_version": self.verifier_version, "runtime_error": self.runtime_error,
             "read_steps": self.read_steps, "tested": self.tested, "tier": "sketch",
+            **({"author_predictions_dropped": self.author_predictions_dropped[:12]}
+               if self.author_predictions_dropped else {}),
         }
 
 
