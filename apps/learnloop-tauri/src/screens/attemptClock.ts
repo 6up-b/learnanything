@@ -60,6 +60,22 @@ export function forgetActiveMs(storage: ActiveStorage | null, key: string): void
   }
 }
 
+/** Forget every carried clock whose key starts with `prefix` (a whole cache cleared at once). */
+export function forgetActiveMsWithPrefix(storage: ActiveStorage | null, prefix: string): void {
+  if (!storage || typeof (storage as Storage).length !== "number") return;
+  try {
+    const store = storage as Storage;
+    const doomed: string[] = [];
+    for (let i = 0; i < store.length; i += 1) {
+      const key = store.key(i);
+      if (key !== null && key.startsWith(KEY_PREFIX + prefix)) doomed.push(key);
+    }
+    for (const key of doomed) store.removeItem(key);
+  } catch {
+    // Nothing to do: a stale entry is read only under a key that is never reused.
+  }
+}
+
 export function defaultActiveStorage(): ActiveStorage | null {
   try {
     return typeof window !== "undefined" ? window.localStorage : null;

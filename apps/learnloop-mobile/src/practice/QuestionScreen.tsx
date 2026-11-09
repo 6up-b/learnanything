@@ -10,6 +10,7 @@ import { newUlid } from "../util/ulid";
 import {
   clearQuestionDraft,
   NO_ASSIST,
+  phoneClockKey,
   readQuestionDraft,
   rememberPendingSubmit,
   writeQuestionDraft,
@@ -235,7 +236,7 @@ export function QuestionScreen({
         setProbeActive(Boolean(contract.active));
         setProbe(answered);
         shownAt.current = Date.now();
-        activeClock.open(`phone:${sessionId}:${practiceItemId}`);
+        activeClock.open(phoneClockKey(sessionId, practiceItemId));
       })
       .catch((error: CommandError) => {
         if (cancelled) return;
@@ -347,6 +348,9 @@ export function QuestionScreen({
       sentInput.current = null;
       outcome.current = "none";
       dirty.current = true;
+      // A new draft: the skipped attempt's active time is not its.
+      activeClock.forget();
+      activeClock.open(phoneClockKey(sessionId, practiceItemId));
       remember();
       setFailure(null);
       onError(SKIP_LANDED_WRITTEN_SINCE);
@@ -360,7 +364,10 @@ export function QuestionScreen({
     if (skipInFlight.current) return;
     skipInFlight.current = true;
     const settled = await settleSkip();
-    if (settled === "landed") return;
+    if (settled === "landed") {
+      activeClock.forget();
+      return;
+    }
     skipInFlight.current = false;
     if (settled !== "unreachable") await saveDraft();
   }
@@ -455,6 +462,7 @@ export function QuestionScreen({
     try {
       if (skipRevision.current !== null) {
         const settled = await settleSkip();
+        if (settled === "landed") activeClock.forget();
         if (settled === "landed" || settled === "unreachable") return;
       }
       if (outcome.current === "unknown") {
@@ -540,7 +548,11 @@ export function QuestionScreen({
       }
     }
     // Landed, it stays set: the skip ended this draft, and a flush on the way out would put it back.
-    if (result === "recorded" || settled === "landed") return;
+    if (result === "recorded" || settled === "landed") {
+      // The skip ended this attempt: its active time goes with it, and an unmount must not write it back.
+      activeClock.forget();
+      return;
+    }
     skipInFlight.current = false;
     setSkipping(false);
     // The question stays open, so what the skip held back is due now, unless it may still have landed.
