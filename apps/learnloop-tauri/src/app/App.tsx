@@ -2109,6 +2109,7 @@ export function App() {
             onGuidedRedo={openGuidedRedo}
             onOpenPractice={openPractice}
             onOpenLibraryFile={openLibraryFile}
+            onOpenPassage={(sourceId, spanId, reading) => void openPassage(sourceId, spanId, reading)}
             onInspect={setInspectorId}
             onPaletteEntities={onPaletteEntities}
             onAsk={setAskTarget}

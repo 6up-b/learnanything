@@ -15,6 +15,7 @@ salience-only. Fakes only.
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 import tomllib
 
 import pytest
@@ -25,6 +26,7 @@ from learnloop.hints import service as hint_service
 from learnloop.hints import workbench as hint_workbench
 from learnloop.reader import workbench as WB
 from tests.hint_fakes import receipts
+from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -115,3 +117,108 @@ def test_help_events_are_salience_only(tmp_path):
         assert event["payload"]["authority_class"] == SF.SALIENCE_ONLY
         with pytest.raises(SF.SalienceEvidenceRejected):
             SF.reject_salience(event)
+
+
+def test_rung_2_with_no_steps_writes_a_question_instead_of_finding_nothing(tmp_path):
+    # Owner capture 2026-11-07: rung 2 points at a step that doesn't hold, so
+    # with no steps it used to answer "No hint fits this request" and call no
+    # writer. It lowers to a written approach question; no rung raises the help.
+    paths, ctx, _session = sidecar(tmp_path)
+    wb, _chains = open_problem(ctx, steps=())
+    hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 2}))
+    assert (hint["status"], hint["kind"], hint["level"], hint["shown"]) == ("ready", "approach_question", 1, True)
+    assert hint["hintMd"]
+    assert hint["labels"]["kind"] == "your first move?"
+    assert ctx.hint_writer_client.calls == 1
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "hint"]
+    assert (row["hint_kind"], row["level"], row["shown"]) == ("approach_question", 1, 1)
+
+
+# -- "show me the book's way" off the Reader (owner, 2026-11-08) ------------------------------
+
+
+class _Book:
+    """T6's provider stand-in: one verified passage, and every search it was asked for."""
+
+    def __init__(self, spans=({"span_id": "s9", "extraction_id": "ext", "label": "§3.4", "text": "the passage"},)):
+        self.spans, self.calls = list(spans), 0
+
+    def __call__(self, vault, repository, **kwargs):
+        self.calls += 1
+        return list(self.spans), {"basis": "retrieved_verified"}
+
+
+def _plan_problem(tmp_path, book):
+    paths, ctx, session = sidecar(tmp_path, "[workbench]\nexamples_enabled = false\n")
+    ctx.workbench_bridge_provider = book
+    wb, _chains = open_problem(ctx, origin="plan", entry="plan")
+    return paths, ctx, session, wb
+
+
+def _record(ctx, wb):
+    return call(ctx, "workbench.get", {"sessionId": wb})["session"]["record"]
+
+
+def _take(ctx, wb, **params):
+    return run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, **params}))
+
+
+def test_a_plain_hint_off_the_reader_never_looks_in_the_book(tmp_path):
+    book = _Book()
+    _paths, ctx, _session, wb = _plan_problem(tmp_path, book)
+    hint = _take(ctx, wb, takenLevel=3)
+    assert hint.get("bridgeJobId") is None and book.calls == 0
+    assert _record(ctx, wb)["bookCounted"] is False
+
+
+def test_the_books_way_off_the_reader_shows_a_passage_and_counts_the_book(tmp_path, grader):
+    book = _Book()
+    paths, ctx, session, wb = _plan_problem(tmp_path, book)
+    hint = _take(ctx, wb, takenLevel=3)
+    before = _record(ctx, wb)["hints"]
+
+    pressed = _take(ctx, wb, request="book_way", answeredAssistId=hint["assistId"])
+    # Counted when the passage is shown, not when it is asked for.
+    assert _record(ctx, wb)["bookCounted"] is False
+
+    bridge = call(
+        ctx, "workbench.help_job", {"jobId": pressed["bridgeJobId"]})["result"]
+    assert (bridge["status"], bridge["shown"], bridge["spanId"], bridge["extractionId"]) == ("ready", True, "s9", "ext")
+    assert bridge["record"]["bookCounted"] is True
+    assert bridge["record"]["hints"] == before + 2  # the book's-way hint and the book
+
+    # Read again: one row shown, and the book counted once.
+    again = call(ctx, "workbench.help_job", {"jobId": pressed["bridgeJobId"]})["result"]
+    assert again["record"]["hints"] == bridge["record"]["hints"]
+
+    attempt = call(ctx, "workbench.submit", {"sessionId": wb, "practiceSessionId": session})["attempt"]
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        hints_used, attempt_type = connection.execute(
+            "SELECT hints_used, attempt_type FROM practice_attempts WHERE id = ?", (attempt["attemptId"],)).fetchone()
+    assert hints_used == bridge["record"]["hints"] and attempt_type == "hinted_attempt"
+
+
+def test_a_book_with_no_passage_counts_nothing(tmp_path):
+    book = _Book(spans=())
+    _paths, ctx, _session, wb = _plan_problem(tmp_path, book)
+    hint = _take(ctx, wb, takenLevel=3)
+    pressed = _take(ctx, wb, request="book_way", answeredAssistId=hint["assistId"])
+    bridge = call(ctx, "workbench.help_job", {"jobId": pressed["bridgeJobId"]})["result"]
+    assert bridge["status"] == "none" and book.calls == 1
+    assert _record(ctx, wb)["bookCounted"] is False
+
+
+def test_in_the_reader_the_books_way_leaves_the_books_own_count_alone(tmp_path):
+    _paths, ctx, _session = sidecar(tmp_path, "[workbench]\nexamples_enabled = false\n")
+    ctx.workbench_bridge_provider = _Book()
+    wb, _chains = open_problem(ctx, origin="reader", entry="work_through")
+    hint = _take(ctx, wb, takenLevel=3)
+    shown_at = WB.session_row(Repository.attach(_paths.sqlite_path), wb)["source_shown_at"]
+    pressed = _take(ctx, wb, request="book_way", answeredAssistId=hint["assistId"])
+    assert call(ctx, "workbench.help_job", {"jobId": pressed["bridgeJobId"]})["result"]["status"] == "ready"
+    # The book's switch already counted it (shown beside the first step); the
+    # press neither moves that nor logs a second counting.
+    repository = Repository.attach(_paths.sqlite_path)
+    assert WB.session_row(repository, wb)["source_shown_at"] == shown_at
+    assert not [event for event in repository.reader_interaction_events(kind="reader_action_invoked")
+                if event["payload"].get("via") == "book_way"]

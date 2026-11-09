@@ -1039,9 +1039,10 @@ function timeRangeLabel(video: { startSeconds: number; endSeconds: number | null
     : fmtTimestamp(video.startSeconds);
 }
 
-function SourceRefCard({ sourceRef, onOpenLibraryFile, onError }: {
+function SourceRefCard({ sourceRef, onOpenLibraryFile, onOpenPassage, onError }: {
   sourceRef: ResolvedSourceRefDto;
   onOpenLibraryFile?: (path: string) => void;
+  onOpenPassage?: (sourceId: string, spanId: string | null, reading: string | null) => void;
   onError: (message: string) => void;
 }) {
   // The player is never mounted until asked for: no request leaves the app on
@@ -1061,6 +1062,11 @@ function SourceRefCard({ sourceRef, onOpenLibraryFile, onError }: {
   const externalVideoUrl = video
     ? `https://www.youtube.com/watch?v=${video.videoId}&t=${Math.max(0, Math.floor(video.startSeconds))}s`
     : sourceRef.externalUrl;
+  // A local file has no web address, so it opens in the Reader at the cited block.
+  const { sourceId } = sourceRef;
+  const openInReader = !externalVideoUrl && sourceId && onOpenPassage
+    ? () => onOpenPassage(sourceId, sourceRef.spanId, sourceRef.extractionId)
+    : null;
   // Start the embed a few seconds early: cue boundaries rarely coincide with
   // the start of the explanation.
   const embedUrl = video
@@ -1095,6 +1101,12 @@ function SourceRefCard({ sourceRef, onOpenLibraryFile, onError }: {
           >
             {video ? `open on YouTube at ${fmtTimestamp(video.startSeconds)}` : "open source"}
           </span>
+        )}
+        {openInReader && (
+          <span
+            style={{ color: C.amberLink, textDecoration: "underline", cursor: "pointer", fontFamily: MONO, fontSize: 12 }}
+            onClick={openInReader}
+          >open source</span>
         )}
       </div>
       {sourceRef.sourceChanged && (
@@ -1132,10 +1144,11 @@ function SourceRefCard({ sourceRef, onOpenLibraryFile, onError }: {
   );
 }
 
-function SourceReviewPanel({ f, onPrimedRetry, onOpenLibraryFile, onNoteCapture, startingRetry, onError }: {
+function SourceReviewPanel({ f, onPrimedRetry, onOpenLibraryFile, onOpenPassage, onNoteCapture, startingRetry, onError }: {
   f: FeedbackBundle;
   onPrimedRetry: () => void;
   onOpenLibraryFile?: (path: string) => void;
+  onOpenPassage?: (sourceId: string, spanId: string | null, reading: string | null) => void;
   onNoteCapture: () => void;
   startingRetry: boolean;
   onError: (message: string) => void;
@@ -1157,6 +1170,7 @@ function SourceReviewPanel({ f, onPrimedRetry, onOpenLibraryFile, onNoteCapture,
               key={`${ref.notePath ?? ref.title}:${ref.locator ?? index}`}
               sourceRef={ref}
               onOpenLibraryFile={onOpenLibraryFile}
+              onOpenPassage={onOpenPassage}
               onError={onError}
             />
           ))}
@@ -1475,6 +1489,7 @@ export function FeedbackScreen({
   onOpenPractice,
   onOpenRepair,
   onOpenLibraryFile,
+  onOpenPassage,
   onInspect,
   onPaletteEntities,
   onAsk,
@@ -1517,6 +1532,8 @@ export function FeedbackScreen({
   onOpenRepair?: (misconceptionId: string) => void;
   /** Open a vault file in the Library (source panel "view in Library"). */
   onOpenLibraryFile?: (path: string) => void;
+  /** Open a local source in the Reader, at the block the question cites. */
+  onOpenPassage?: (sourceId: string, spanId: string | null, reading: string | null) => void;
   onInspect: (id: string) => void;
   onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
   onAsk: (target: { context: "feedback"; attemptId: string; practiceItemId?: string; answerVisibleNow?: boolean }) => void;
@@ -2444,7 +2461,7 @@ export function FeedbackScreen({
     const showTier = f.criterionEvidence.some((row) => row.tier === "transfer");
     return (
       <div className="screen">
-        <div className="screen-scroll" style={{ padding: "14px 24px 20px" }}>
+        <div className="screen-scroll feedback-column">
           <IntentCheckFeedback check={f.intentCheck} onOpenStudied={onOpenStudied} />
           <ClaimCheckFeedback check={f.claimCheck} />
           {followup ? (
@@ -2673,6 +2690,7 @@ export function FeedbackScreen({
                 f={f}
                 onPrimedRetry={() => void handlePrimedRetry()}
                 onOpenLibraryFile={onOpenLibraryFile}
+                onOpenPassage={onOpenPassage}
                 onNoteCapture={openNoteCapture}
                 startingRetry={startingRetry}
                 onError={onError}
@@ -2735,7 +2753,7 @@ export function FeedbackScreen({
     // and one action on an error (the raw message stays in the log).
     return (
       <div className="screen">
-        <div className="screen-scroll" style={{ padding: "18px 24px", fontSize: 13 }}>
+        <div className="screen-scroll feedback-column" style={{ paddingTop: 18, paddingBottom: 18, fontSize: 13 }}>
           {feedbackLoadError ? (
             <div style={{ maxWidth: 720 }} role="alert">
               <div style={{ color: C.text, marginBottom: 12 }}>Couldn't load the feedback.</div>
@@ -3374,6 +3392,7 @@ export function FeedbackScreen({
           f={f}
           onPrimedRetry={() => void handlePrimedRetry()}
           onOpenLibraryFile={onOpenLibraryFile}
+          onOpenPassage={onOpenPassage}
           onNoteCapture={openNoteCapture}
           startingRetry={startingRetry}
           onError={onError}

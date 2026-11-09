@@ -128,6 +128,15 @@ def test_preconditions_remove_what_cannot_apply(tmp_path):
     assert options.excluded["worked_parallel@L3"] == "no_example"
 
 
+def test_a_taken_rung_2_with_no_work_lowers_to_the_approach_question(tmp_path):
+    _paths, vault, repository = _setup(tmp_path)
+    _state, options = _options(vault, repository, work="", taken_level=2)
+    assert options.ids == ["approach_question@L1"]
+    assert options.excluded["localize@L2"] == "no_work"
+    _state, options = _options(vault, repository, taken_level=2)
+    assert options.ids == ["localize@L2"]
+
+
 def test_another_instance_in_the_family_offers_a_worked_parallel(tmp_path):
     from tests.approach_map_fakes import write_item
 
