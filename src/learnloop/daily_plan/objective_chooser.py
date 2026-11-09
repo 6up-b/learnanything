@@ -80,6 +80,7 @@ from learnloop.daily_plan.router_runtime import (
 from learnloop.daily_plan.staged_frame import StagedChooser
 from learnloop.daily_plan.types import (
     CONTINUE_CURRENT,
+    FOLLOWUP_CONTEST_NOTE,
     LESSON_OFFER_SUBTYPE,
     STOP_FOR_TODAY,
     STOP_OFFER_MINUTES,
@@ -131,6 +132,7 @@ def objective_settings(config: Any) -> dict[str, Any]:
         failure_share_tag,
         failure_share_to_other_policy_on,
         followup_switch_snapshot,
+        lessons_compete_with_followups_on,
     )
 
     section = config.router_objective
@@ -147,6 +149,8 @@ def objective_settings(config: Any) -> dict[str, Any]:
     # prefetch and its serve starts a new job; below the tag the key keeps its predecessor's bytes.
     if failure_share_tag(config):
         out["failure_share_to_other_policy"] = failure_share_to_other_policy_on(config)
+        # IH2: which decisions hold a lesson offer, likewise.
+        out["lessons_compete_with_followups"] = lessons_compete_with_followups_on(config)
     return out
 
 
@@ -918,6 +922,19 @@ def _offer_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.Bl
         p_accept=float(p_accept) if p_accept is not None else None))
 
 
+def _is_contest(candidate: BlockCandidate) -> bool:
+    return bool((candidate.annotations or {}).get(FOLLOWUP_CONTEST_NOTE))
+
+
+def _contest_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption:
+    """IH2 (spec_instruct_handoff_v1 §5 item 2): the boundary's follow-ups, as the LLM policy reads them beside the offer."""
+
+    topic = ", ".join(dict.fromkeys(titles.get(lo, lo) for lo in candidate.learning_object_ids))
+    return rq.BlockOption(ref=candidate.candidate_id, description=(
+        f"Ask the follow-up question now, on {topic}, from the learner's last answer (about "
+        f"{max(1, round(candidate.est_minutes))} min). If the lesson is chosen instead, this question stays for later."))
+
+
 def _offer_trace(candidate: BlockCandidate, valued: Any, action: Any, inputs: Any,
                  topic_by_lo: Mapping[str, Any], terms: Mapping[str, Any] | None) -> dict[str, Any]:
     """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a, "what the trace records"): for a lesson offer, its sensors
@@ -1165,6 +1182,8 @@ class ObjectiveChooser(RouterChooser):
         offers = [candidate for candidate in feasible if candidate.subtype == LESSON_OFFER_SUBTYPE]
         if offers:
             feasible = [candidate for candidate in feasible if candidate.subtype != LESSON_OFFER_SUBTYPE]
+        # IH2 (spec_instruct_handoff_v1 §5 item 2): follow-ups against a lesson offer: these two are the decision.
+        contest = next((candidate for candidate in feasible if _is_contest(candidate)), None)
         staged = StagedChooser(card_builder=None).choose(state, feasible)
         config = self.vault.config
         settings = router_settings(config)
@@ -1181,9 +1200,10 @@ class ObjectiveChooser(RouterChooser):
             return deterministic("single_option")
         if not (staged_candidate.annotations or {}).get("reversible", True):
             return deterministic("irreversible")
-        support = support_order(state, feasible, staged.candidate_id, k=settings["k"], stop_offered=True,
-                                ties_only=settings["ties_only"])
-        if len(support) <= 1:
+        support = ([contest.candidate_id] if contest is not None else
+                   support_order(state, feasible, staged.candidate_id, k=settings["k"], stop_offered=True,
+                                 ties_only=settings["ties_only"]))
+        if len(support) <= 1 and not (contest is not None and offers):
             return deterministic("single_option")
         if offers:
             # The offer joins the support after the blocks and before stop (ties go to staged's order first).
@@ -1193,7 +1213,8 @@ class ObjectiveChooser(RouterChooser):
             support = [*support[:at], offer.candidate_id, *support[at:]]
         # The staged rule's own pick: its lane-quota choice, or stop once the plan's minutes are used (§8.2: the
         # minutes are a suggestion the failure fallback keeps).
-        staged_ref = STOP_FOR_TODAY if state.minutes_left < STOP_OFFER_MINUTES else staged.candidate_id
+        staged_ref = (contest.candidate_id if contest is not None else
+                      STOP_FOR_TODAY if state.minutes_left < STOP_OFFER_MINUTES else staged.candidate_id)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
         key = _hash({
@@ -1289,6 +1310,7 @@ class ObjectiveChooser(RouterChooser):
         card = _build_card(self.card_builder, state, feasible)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         options = [_offer_option(by_id[ref], titles) if ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE
+                   else _contest_option(by_id[ref], titles) if ref in by_id and _is_contest(by_id[ref])
                    else _option(by_id[ref], titles) if ref in by_id
                    else rq.BlockOption(ref=ref, description=rq.STOP_OFFER_DESCRIPTION)
                    for ref in support]
@@ -1393,6 +1415,11 @@ class ObjectiveChooser(RouterChooser):
                        guard=guard_state, stop_in_support=STOP_FOR_TODAY in support, card_version=card.version)
         from learnloop.router_objective_switches import calibration_tag
 
+        contested = next((ref for ref in support if ref in by_id and _is_contest(by_id[ref])), None)
+        if contested is not None:
+            # IH2 §5: a lesson offer against the boundary's follow-ups: the offer's declined branch is the follow-up.
+            trace["followup_contest"] = {"candidate_id": contested, "item_ids": list(by_id[contested].item_ids),
+                                         "offer_declined_branch": "the follow-up (it stays available)"}
         if calibration_tag(config):
             # RO5 §9 item 3 (Codex review F7): every active dated goal's frozen forecast, for the goal-date read,
             # whatever its distance; the policy comparison's uses keep only the window's.
@@ -1521,15 +1548,23 @@ class ObjectiveRestraintGate(RestraintGate):
     block now and as the current block's remaining questions with the follow-up at the next boundary. The Decider's
     ``P(yes)`` is logged as advice; refusals and ``wait_feasible = False`` stay deterministic."""
 
-    def decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool = True) -> RestraintOutcome:
+    def decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool = True,
+               offer: Any = None) -> RestraintOutcome:
+        """``offer`` (IH2, spec_instruct_handoff_v1 §5 item 3): the lesson offer this decision may hold (``offer.candidate``
+        None: none available, and ``offer.record`` says why). None: the predecessor's decision exactly."""
+
         refusals = self._refusals(item)
         if refusals:
             return self.declined(refusals)
         config = self.vault.config
         settings = router_settings(config)
         state, candidates = self._state(record, current, item)
+        lesson = getattr(offer, "candidate", None)
+        if lesson is not None:
+            return _with_offer_record(self._decide_with_lesson(record, current, item, state, candidates, lesson,
+                                                               wait_feasible=wait_feasible), offer)
         if not wait_feasible:
-            return self._no_room(state, candidates)
+            return _with_offer_record(self._no_room(state, candidates), offer)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
         key = _hash({"v": KEY_VERSION, "kind": "objective_interrupt", "plan_id": record.id, "block": current.id,
@@ -1541,8 +1576,39 @@ class ObjectiveRestraintGate(RestraintGate):
         options = [rq.BlockOption(INSERT_NOW, f"Ask the follow-up on {topic} now, inside the current block."),
                    rq.BlockOption(CONTINUE_CURRENT, "Finish the current block first; the follow-up then opens the next block.")]
         extra = [f"A follow-up question on {topic} came out of the learner's last answer."]
+        return _with_offer_record(self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic,
+                                              options=options, extra=extra), offer)
+
+    def _decide_with_lesson(self, record: Any, current: Any, item: Any, state: PlanState,
+                            candidates: list[BlockCandidate], lesson: BlockCandidate, *,
+                            wait_feasible: bool) -> RestraintOutcome:
+        """The need path's arms with the offer among them: a probability per option, the follow-up valued as its item
+        says (a probe's bundle, or a repair), the offer's "Not now" leading to the follow-up, which stays available."""
+
+        config = self.vault.config
+        settings = router_settings(config)
+        readiness = self.runtime.readiness(self.vault)
+        ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
+        insert, cont = candidates
+        support = [INSERT_NOW, *([CONTINUE_CURRENT] if wait_feasible else []), lesson.candidate_id]
+        key = _hash({"v": KEY_VERSION, "kind": "objective_interrupt_lesson", "plan_id": record.id, "block": current.id,
+                     "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
+                     "offer": lesson.log_row(), "support": support, "version": config.algorithms.algorithm_version,
+                     "settings": settings, "objective": objective_settings(config), "ready": ready})
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        topic = titles.get(item.learning_object_id, item.learning_object_id)
+        options = [rq.BlockOption(INSERT_NOW, f"Ask the follow-up on {topic} now, inside the current block."),
+                   *([rq.BlockOption(CONTINUE_CURRENT, "Finish the current block first; the follow-up then opens the "
+                                                       "next block.")] if wait_feasible else []),
+                   _offer_option(lesson, titles)]
+        rest = (cont,) if cont.item_ids else ()
+        sequences = {INSERT_NOW: (insert, *rest), CONTINUE_CURRENT: (*rest, insert),
+                     OI.OFFER_DECLINED_STEPS: (*rest, insert)}
         return self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic, options=options,
-                           extra=extra)
+                           extra=[f"A follow-up question on {topic} came out of the learner's last answer."],
+                           valued={INSERT_NOW: insert, CONTINUE_CURRENT: cont, lesson.candidate_id: lesson},
+                           support=support, sequences=sequences, start=self._start_choice,
+                           llm_schema=rq.LLM_POLICY_SCHEMA)
 
     def _no_room(self, state: PlanState, candidates: list[BlockCandidate]) -> RestraintOutcome:
         """``wait_feasible = False``: waiting would drop the follow-up from today's plan, so it joins now,
@@ -1650,6 +1716,19 @@ class ObjectiveRestraintGate(RestraintGate):
             payloads=_payloads(results), objective_trace=trace, **_card_fields(card),
         )
         why = router_why.FOLLOWUP_WAITS if drawn.chosen == CONTINUE_CURRENT else ""
+        offer_drawn = values.get(drawn.chosen)
+        if offer_drawn is not None and offer_drawn.subtype == LESSON_OFFER_SUBTYPE:
+            # IH2 (spec_instruct_handoff_v1 §5 item 3): the offer page's words for this draw, under the block's guard.
+            _code, rule = _rule_sentence(offer_drawn, state)
+            cited = tuple(getattr(llm.parsed, "evidence_ids", ()) or ()) if llm_dist is not None else ()
+            guard = (router_why.rationale_guard(rationale, cited, set(rq.evidence_from_card(card.json)))
+                     if rationale is not None else "absent")
+            if guard is None and drawn.component == mix.LLM and max(llm_dist, key=lambda ref: llm_dist[ref]) != drawn.chosen:
+                guard = "another_option"
+            why, why_kind = router_why.objective_why(drawn.component, rule, option_count=len(support), rationale=rationale,
+                                                     rationale_shown=drawn.component == mix.LLM and guard is None)
+            base["offer_why_kind"] = why_kind
+            base["lesson_offer_card"] = dict((offer_drawn.annotations or {}).get("lesson_offer") or {})
         return RestraintOutcome(drawn.chosen, 1.0 if drawn.deterministic else drawn.propensity, base, why=why)
 
     def _numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str,
@@ -1707,73 +1786,6 @@ class ObjectiveRestraintGate(RestraintGate):
                                   material=material, components=ready, job=job)
 
 
-# -- FG1's generated probe on the mix (RO4's open item 1, landing ruling R5 (1)) ------------------------------
-
-#: The valued insert's stand-in item: the probe does not exist yet when the gate decides, so ``π_Q`` values one
-#: question on the workflow's LO (no vault item has this id, so the rollouts read the candidate's LO).
-FOLLOWUP_PLACEHOLDER_PREFIX = "followup:"
-
-
-@dataclass
-class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
-    """§8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item
-    exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable
-    (``mix.recompute``). Its support is ``{insert_now, continue_current, no_intervention}`` (landing ruling R8: the
-    owner's FG1 decision of Nov 3, the router may choose no intervention for weak cases). ``π_L`` is the LLM policy's
-    probability per option (``router_llm_choice_v3`` over the three, a reference row for the block's rest; R2b's
-    ``RouterLLMAnswerV1`` request is not sent); ``π_Q`` values the three as one repair question on the workflow's LO
-    before the current block's remaining questions, after them, or none at all (no probe served, the workflow's
-    hypotheses left as they are). The Decider's ``P(yes)`` (the restraint request) is advice.
-    ``wait_feasible = False`` asks now deterministically, no model asked; FG1's hard
-    refusals come first (``followup_run.router.hard_refusal``), and its serve-at-once and single-use rules follow
-    the chosen arm as before. Below the tag, or with ``[router_objective] enabled = false``, FG1's
-    :class:`~learnloop.daily_plan.router_chooser.FollowupGate` serves exactly as before
-    (``followup_run.router._plan_context``)."""
-
-    def decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool,
-                        facts: Sequence[str] = ()) -> RestraintOutcome:
-        state, candidates = self._followup_state(record, current, workflow)
-        support = [INSERT_NOW, CONTINUE_CURRENT, NO_INTERVENTION]
-        offered = {"support": support if wait_feasible else [INSERT_NOW],
-                   "workflow_id": workflow.get("id"), "version": "ro5_followup_objective_v2"}
-        if not wait_feasible:
-            outcome = self._no_room(state, candidates)
-            outcome.record["objective_followup"] = offered
-            return outcome
-        config = self.vault.config
-        settings = router_settings(config)
-        readiness = self.runtime.readiness(self.vault)
-        ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        key = _hash({"v": KEY_VERSION, "kind": "objective_followup", "plan_id": record.id,
-                     "workflow": workflow.get("id"), "block": current.id if current is not None else None,
-                     "version": config.algorithms.algorithm_version, "settings": settings,
-                     "objective": objective_settings(config), "ready": ready})
-        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        lo = str(workflow["learning_object_id"])
-        topic = titles.get(lo, lo)
-        insert, cont = candidates
-        options = [
-            rq.BlockOption(INSERT_NOW, f"Ask a new follow-up question on {topic} now, written to tell the possible "
-                                       "causes apart."),
-            rq.BlockOption(CONTINUE_CURRENT, (
-                f"Finish the current block first ({len(cont.item_ids)} questions left, about "
-                f"{max(1, round(cont.est_minutes))} min); the new question then opens the next block, and the "
-                "learner sees the answer now, so it can no longer settle the cause.")),
-            rq.BlockOption(NO_INTERVENTION, rq.NO_INTERVENTION_DESCRIPTION),
-        ]
-        extra = [f"A question on {topic} was just missed.", *facts]
-        probe = replace(insert, item_ids=(f"{FOLLOWUP_PLACEHOLDER_PREFIX}{workflow.get('id')}",),
-                        est_minutes=self._followup_minutes(workflow, current))
-        rest = replace(cont, candidate_id=NO_INTERVENTION, reason="the current block's remaining questions, no "
-                                                                  "follow-up question")
-        valued = {INSERT_NOW: probe, CONTINUE_CURRENT: cont, NO_INTERVENTION: rest}
-        sequences = {INSERT_NOW: (probe, cont), CONTINUE_CURRENT: (cont, probe), NO_INTERVENTION: (rest,)}
-        outcome = self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic,
-                              options=options, extra=extra, valued=valued, support=support, sequences=sequences,
-                              start=self._start_choice, llm_schema=rq.LLM_POLICY_SCHEMA)
-        outcome.record["objective_followup"] = offered
-        return replace(outcome, wait_feasible=True)
-
     def _start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
                       options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
         """The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and
@@ -1815,6 +1827,105 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
 
         return self.runtime.start(self.scope, key, kind="plan_interrupt", budget=float(config.router.prefetch_timeout_seconds),
                                   material=material, components=ready, job=job)
+
+
+def _with_offer_record(outcome: RestraintOutcome, offer: Any) -> RestraintOutcome:
+    """IH2: the boundary's offer on the decision's record: its sensors, or why there was none (a ceiling bind logged)."""
+
+    if offer is not None and getattr(offer, "record", None):
+        outcome.record["lesson_offers"] = dict(offer.record)
+    return outcome
+
+
+# -- FG1's generated probe on the mix (RO4's open item 1, landing ruling R5 (1)) ------------------------------
+
+#: The valued insert's stand-in item: the probe does not exist yet when the gate decides, so ``π_Q`` values one
+#: question on the workflow's LO (no vault item has this id, so the rollouts read the candidate's LO).
+FOLLOWUP_PLACEHOLDER_PREFIX = "followup:"
+
+
+@dataclass
+class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
+    """§8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item
+    exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable
+    (``mix.recompute``). Its support is ``{insert_now, continue_current, no_intervention}`` (landing ruling R8: the
+    owner's FG1 decision of Nov 3, the router may choose no intervention for weak cases). ``π_L`` is the LLM policy's
+    probability per option (``router_llm_choice_v3`` over the three, a reference row for the block's rest; R2b's
+    ``RouterLLMAnswerV1`` request is not sent); ``π_Q`` values the three as one repair question on the workflow's LO
+    before the current block's remaining questions, after them, or none at all (no probe served, the workflow's
+    hypotheses left as they are). The Decider's ``P(yes)`` (the restraint request) is advice.
+    ``wait_feasible = False`` asks now deterministically, no model asked; FG1's hard
+    refusals come first (``followup_run.router.hard_refusal``), and its serve-at-once and single-use rules follow
+    the chosen arm as before. Below the tag, or with ``[router_objective] enabled = false``, FG1's
+    :class:`~learnloop.daily_plan.router_chooser.FollowupGate` serves exactly as before
+    (``followup_run.router._plan_context``)."""
+
+    def decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool,
+                        facts: Sequence[str] = (), offer: Any = None) -> RestraintOutcome:
+        """``offer`` (IH2, spec_instruct_handoff_v1 §5 item 3): the lesson offer this decision may hold; with one, the
+        support gains it, and no room to wait no longer makes the decision deterministic: ``{insert_now, lesson}``, a real
+        draw, before anything is generated. None, or no candidate in it: the predecessor's decision exactly."""
+
+        state, candidates = self._followup_state(record, current, workflow)
+        support = [INSERT_NOW, CONTINUE_CURRENT, NO_INTERVENTION]
+        lesson = getattr(offer, "candidate", None)
+        offered = {"support": support if wait_feasible else [INSERT_NOW],
+                   "workflow_id": workflow.get("id"), "version": "ro5_followup_objective_v2"}
+        if lesson is not None:
+            support = [*(support if wait_feasible else [INSERT_NOW]), lesson.candidate_id]
+            offered["support"] = support
+        if not wait_feasible and lesson is None:
+            outcome = _with_offer_record(self._no_room(state, candidates), offer)
+            outcome.record["objective_followup"] = offered
+            return outcome
+        config = self.vault.config
+        settings = router_settings(config)
+        readiness = self.runtime.readiness(self.vault)
+        ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
+        key = _hash({"v": KEY_VERSION, "kind": "objective_followup", "plan_id": record.id,
+                     "workflow": workflow.get("id"), "block": current.id if current is not None else None,
+                     "version": config.algorithms.algorithm_version, "settings": settings,
+                     "objective": objective_settings(config), "ready": ready,
+                     # IH2: only with an offer in the support, so every other key keeps its bytes.
+                     **({"offer": lesson.log_row(), "as_of": _latest_attempt(self.repository)} if lesson is not None
+                        else {})})
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        lo = str(workflow["learning_object_id"])
+        topic = titles.get(lo, lo)
+        insert, cont = candidates
+        options = [
+            rq.BlockOption(INSERT_NOW, f"Ask a new follow-up question on {topic} now, written to tell the possible "
+                                       "causes apart."),
+            rq.BlockOption(CONTINUE_CURRENT, (
+                f"Finish the current block first ({len(cont.item_ids)} questions left, about "
+                f"{max(1, round(cont.est_minutes))} min); the new question then opens the next block, and the "
+                "learner sees the answer now, so it can no longer settle the cause.")),
+            rq.BlockOption(NO_INTERVENTION, rq.NO_INTERVENTION_DESCRIPTION),
+        ]
+        extra = [f"A question on {topic} was just missed.", *facts]
+        probe = replace(insert, item_ids=(f"{FOLLOWUP_PLACEHOLDER_PREFIX}{workflow.get('id')}",),
+                        est_minutes=self._followup_minutes(workflow, current))
+        rest = replace(cont, candidate_id=NO_INTERVENTION, reason="the current block's remaining questions, no "
+                                                                  "follow-up question")
+        valued = {INSERT_NOW: probe, CONTINUE_CURRENT: cont, NO_INTERVENTION: rest}
+        sequences = {INSERT_NOW: (probe, cont), CONTINUE_CURRENT: (cont, probe), NO_INTERVENTION: (rest,)}
+        if lesson is not None:
+            options = [option for option in options if option.ref in support] + [_offer_option(lesson, titles)]
+            # IH2 §5 item 4: against a lesson the question that doesn't exist yet is valued by RO §8.1's probe bundle, on
+            # its LO (the kind and its terms are in the trace; no new number). A "Not now" leads back to it.
+            probe = replace(probe, annotations={**dict(probe.annotations or {}), OI.FOLLOWUP_PROBE_NOTE: True})
+            left = (cont,) if cont.item_ids else ()
+            valued = {INSERT_NOW: probe, lesson.candidate_id: lesson,
+                      **({CONTINUE_CURRENT: cont, NO_INTERVENTION: rest} if wait_feasible else {})}
+            sequences = {**({INSERT_NOW: (probe, *left)} if left else {}),
+                         **({CONTINUE_CURRENT: (cont, probe), NO_INTERVENTION: (rest,)} if wait_feasible else {}),
+                         OI.OFFER_DECLINED_STEPS: (*left, probe)}
+        outcome = self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic,
+                              options=options, extra=extra, valued=valued, support=support, sequences=sequences,
+                              start=self._start_choice, llm_schema=rq.LLM_POLICY_SCHEMA)
+        outcome = _with_offer_record(outcome, offer)
+        outcome.record["objective_followup"] = offered
+        return replace(outcome, wait_feasible=wait_feasible)
 
     def _followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float:
         """The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on

@@ -178,6 +178,18 @@ def enqueue_generation_job(connection: sqlite3.Connection, *, kind: str, dedupe_
     return job_id if cursor.rowcount > 0 else None
 
 
+def requeue_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, at: str) -> bool:
+    """IH2 (spec_instruct_handoff_v1 §5): the workflow's one job runs again for a new decision, with a new attempt count;
+    the row stays one per key. False when it has none or it is out now (nothing changes)."""
+
+    cursor = connection.execute(
+        "UPDATE followup_generation_jobs SET state = 'queued', attempt_count = 0, not_before = NULL, last_error = NULL, "
+        "lease_owner = NULL, lease_expires_at = NULL, updated_at = ? WHERE dedupe_key = ? AND state != 'leased'",
+        (at, dedupe_key),
+    )
+    return cursor.rowcount > 0
+
+
 def lease_next_generation_job(connection: sqlite3.Connection, *, owner: str, now: str, lease_expires_at: str
                               ) -> dict[str, Any] | None:
     """Lease the oldest runnable job, or reclaim one whose lease lapsed. A serial

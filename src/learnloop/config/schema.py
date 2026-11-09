@@ -4212,6 +4212,10 @@ class RouterObjectiveConfig(BaseModel):
     Instruct hand-off IH5 (mvp-0.55, spec_instruct_handoff_v1 §7a): ``failure_share_to_other_policy``: a failed
     policy's share of the mix goes to the other policy instead of staged (both failed: staged, as before). Off, or
     below the tag, mvp-0.54's mix exactly.
+
+    Instruct hand-off IH2 (the same tag, spec_instruct_handoff_v1 §5): ``lessons_compete_with_followups``: a lesson
+    offer and a follow-up compete in one logged decision wherever a lesson is available, at a block boundary and after
+    a miss. Off, or below the tag, mvp-0.54's boundary and follow-up decisions exactly.
     """
 
     receipts: bool = True
@@ -4330,6 +4334,9 @@ class RouterObjectiveConfig(BaseModel):
     #: Instruct hand-off IH5 (mvp-0.55): with one policy failed the other takes the whole mix (the uniform floor
     #: kept, propensities exact), instead of staged taking the failed policy's share. Off: mvp-0.54's mix.
     failure_share_to_other_policy: bool = True
+    #: Instruct hand-off IH2 (mvp-0.55): lessons compete with follow-ups in one decision wherever a lesson is available
+    #: (the owner's decision of Nov 8). Off: forced follow-ups keep offers out and withdraw a drawn one, as mvp-0.54.
+    lessons_compete_with_followups: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

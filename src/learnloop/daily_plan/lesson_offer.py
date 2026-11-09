@@ -325,7 +325,12 @@ WITHDRAWN_OFF = "offers_off"
 
 #: The offer block's ``block_ended`` outcomes: the learner's response, ``ignored`` (moved on without one), or
 #: ``withdrawn`` (taken back by the plan before an answer).
-ENDED_OUTCOMES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored", WITHDRAWN)
+ENDED_OUTCOMES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored", WITHDRAWN, "superseded")
+#: IH2 (spec_instruct_handoff_v1 §5 item 1): an unanswered offer a newer decision replaced: the block's outcome, and the
+#: key on its ``expired`` row and its ``block_ended`` naming that decision. The plan's act, as a withdrawal is: never the
+#: learner's answer, so the acceptance model and the decline recovery never read it.
+SUPERSEDED = "superseded"
+SUPERSEDED_BY = "superseded_by_decision"
 
 
 def _block_state(connection: Any, block_id: str | None) -> tuple[bool, str | None]:
@@ -342,7 +347,8 @@ def _block_state(connection: Any, block_id: str | None) -> tuple[bool, str | Non
     return ended, (str(plan[0]) if plan is not None else None)
 
 
-def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, reason: str | None = None) -> None:
+def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, reason: str | None = None,
+              extra: Mapping[str, Any] | None = None) -> None:
     """End the offer's block with the learner's response (once; a block already ended is left as it is)."""
 
     from learnloop.db.stores import daily_plans as plan_store
@@ -355,7 +361,7 @@ def end_block(connection: Any, block_id: str | None, outcome: str, *, at: str, r
         return
     plan_store.append_block_event(connection, event_id=new_ulid(), block_id=block_id, kind="block_ended",
                                   detail={"outcome": outcome, "minutes_counted": 0.0, "lesson_offer": True,
-                                          **({"reason": reason} if reason else {})},
+                                          **({"reason": reason} if reason else {}), **dict(extra or {})},
                                   created_at=at)
 
 
@@ -366,7 +372,7 @@ def withdrawn(connection: Any, decision_id: str) -> dict[str, Any] | None:
     if row is None or row["response"] != "expired":
         return None
     detail = json.loads(row.get("detail_json") or "{}")
-    return row if detail.get(WITHDRAWN) else None
+    return row if detail.get(WITHDRAWN) or detail.get(SUPERSEDED_BY) else None
 
 
 def withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool:
@@ -388,6 +394,52 @@ def withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool:
                     "shown_on": decision.get("day")})
     end_block(connection, getattr(block, "id", None), WITHDRAWN, at=at, reason=why)
     return written
+
+
+def supersede(connection: Any, block: Any, *, at: str, by: str | None) -> bool:
+    """IH2 §5 item 1: a newer decision replaces an offer nobody answered, in that decision's own transaction. Its block
+    ends ``superseded`` and its decision gets an ``expired`` row naming the newer decision (``superseded_by_decision``).
+    As :func:`withdraw`, the plan's act: the acceptance model and the decline recovery never read it, the forecast stays
+    censored, and a late Start on the card is refused. Returns whether a row was written."""
+
+    decision = store.offer_decision(connection, str(block.decision_ref)) if getattr(block, "decision_ref", None) else None
+    written = False
+    if decision is not None and store.response_for(connection, str(decision["id"])) is None:
+        primary = ((decision.get("detail") or {}).get("card") or {}).get("candidates") or [{}]
+        written = store.insert_response(
+            connection, decision_id=str(decision["id"]), response="expired",
+            candidate_ref=str(primary[0].get("ref") or ""),
+            learning_object_ids=list(primary[0].get("learning_object_ids") or []), responded_at=at,
+            detail={SUPERSEDED_BY: by, "plan_offer": True, "block_id": getattr(block, "id", None),
+                    "shown_on": decision.get("day")})
+    end_block(connection, getattr(block, "id", None), SUPERSEDED, at=at, reason=SUPERSEDED_BY,
+              extra={SUPERSEDED_BY: by})
+    return written
+
+
+#: IH2: where a drawn offer stands for the follow-up it beat.
+OFFER_OPEN = "open"
+OFFER_TAKEN = "taken"
+OFFER_PASSED = "passed"
+
+
+def offer_standing(connection: Any, decision_id: str, *, today: str) -> str:
+    """Whether the lesson offer ``decision_id`` drew is still open, was taken (a Start or an alternative), or passed
+    (declined, ignored, taken back by the plan, its block ended or its day gone). A read of the ledger, whichever way
+    the answer came."""
+
+    response = store.response_for(connection, decision_id)
+    if response is not None:
+        return OFFER_TAKEN if response["response"] in ("accepted", "chose_alternative") else OFFER_PASSED
+    if store.release_for(connection, decision_id) is not None:
+        return OFFER_PASSED
+    decision = store.offer_decision(connection, decision_id)
+    if decision is None:
+        return OFFER_PASSED
+    ended, status = _block_state(connection, (decision.get("detail") or {}).get("block_id"))
+    if ended or status != "open" or str(decision.get("day") or "") < today:
+        return OFFER_PASSED
+    return OFFER_OPEN
 
 
 def record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why: str) -> bool:
@@ -508,7 +560,9 @@ def record_shown(repository: Any, *, block_id: str | None, surface: str, session
 
 __all__ = [
     "CONTEXT_RESOLUTION_DAYS", "DURATION_LOG_SD", "DURATION_MEDIAN_PRIOR_SD", "DURATION_PRIOR_MEDIAN",
-    "DURATION_VERSION", "OFFER_VERSION", "Offer", "SHOWN_EVENT", "SHOWN_SURFACES", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_OFF", "accept_moments",
+    "DURATION_VERSION", "OFFER_OPEN", "OFFER_PASSED", "OFFER_TAKEN", "OFFER_VERSION", "Offer", "SHOWN_EVENT", "SHOWN_SURFACES",
+    "SUPERSEDED", "SUPERSEDED_BY", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_OFF", "accept_moments",
     "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
-    "lesson_active_minutes", "offer_ref", "offers_on", "pending_start", "record_shown", "shown_today", "withdraw", "withdrawn",
+    "lesson_active_minutes", "offer_ref", "offer_standing", "offers_on", "pending_start", "record_shown", "shown_today",
+    "supersede", "withdraw", "withdrawn",
 ]

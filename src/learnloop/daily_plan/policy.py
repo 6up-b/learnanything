@@ -183,6 +183,13 @@ def _lesson_offer_builder(vault: Any, repository: Any) -> Any:
             with repository.atomic(), repository.connection() as connection:
                 if suggestions.tables_present(connection):
                     LO.sweep_ignored(connection, today=today, now_iso=now_iso)
+        if getattr(env, "device", None) is not None:
+            from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+            if lessons_compete_with_followups_on(vault.config):
+                # IH2 (spec_instruct_handoff_v1 §5): the phone serves no lesson until V6, so an offer in its support would
+                # give a share of its decision to something it can only hold: no offers at all; the desktop draws them.
+                return LO.Offer(None, {"version": LO.OFFER_VERSION, "status": "none:device_serves_no_lesson"})
         local = env.now().astimezone()
         minutes_left = float(record.minutes_left()) if record is not None and record.is_open else None
         return LO.build(vault, repository, today=today, now_iso=now_iso, local_hour=local.hour + local.minute / 60.0,

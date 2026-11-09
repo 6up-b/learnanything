@@ -35,7 +35,13 @@ import threading
 from typing import Any
 
 from learnloop.clock import parse_utc
-from learnloop.daily_plan.types import LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY, BlockCandidate, PlanState
+from learnloop.daily_plan.types import (
+    FOLLOWUP_CONTEST_NOTE,
+    LESSON_OFFER_SUBTYPE,
+    STOP_FOR_TODAY,
+    BlockCandidate,
+    PlanState,
+)
 from learnloop.router_objective import memory as M
 from learnloop.router_objective import value as V
 
@@ -47,6 +53,10 @@ TOPIC_LIMIT = 120
 RETURN_GAP_LIMIT = 60
 DURATION_LIMIT = 500
 _PROBE_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "probe"})
+#: IH2: the annotation of a valued stand-in for a generated probe that doesn't exist yet.
+FOLLOWUP_PROBE_NOTE = "followup_probe"
+#: IH2: the key in ``sequences`` for what follows a "Not now" on the decision's lesson offer.
+OFFER_DECLINED_STEPS = "lesson_offer_declined"
 
 
 def _lessons_on(config: Any) -> bool:
@@ -600,6 +610,15 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
         return V.Action(ref=candidate.candidate_id, kind=V.LESSON, item_los=(offer["lo"],), minutes=offer["minutes"],
                         minutes_log_sd=offer["log_sd"], mass=offer["mass"], accept=offer["accept"],
                         commitments=offer["checks"])
+    if (candidate.annotations or {}).get(FOLLOWUP_PROBE_NOTE):
+        # IH2 (spec_instruct_handoff_v1 §5 item 4): a generated probe not yet written (its decision comes first), against
+        # a lesson offer: RO §8.1's probe bundle on its LO, as any probe. No new number: the same draws and sensors.
+        lo = candidate.learning_object_ids[0] if candidate.learning_object_ids else ""
+        minutes = float(candidate.est_minutes)
+        repair = V.Action(ref=f"{candidate.candidate_id}:repair", kind=V.REPAIR, item_los=(lo,), minutes=minutes,
+                          minutes_log_sd=spread)
+        return V.Action(ref=candidate.candidate_id, kind=V.PROBE, item_los=(lo,), minutes=minutes,
+                        minutes_log_sd=spread, repair=repair)
     items = getattr(vault, "practice_items", {})
     modes = [getattr(items.get(item), "practice_mode", None) for item in candidate.item_ids]
     item_los = tuple(str(getattr(items.get(item), "learning_object_id", None) or
@@ -746,6 +765,19 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                                     minutes=sum(step.minutes for step in steps)))
         elif ref in candidates:
             actions.append(action_for(vault, repository, candidates[ref], practiced=practiced_set, spread=spread_used))
+    # IH2 (spec_instruct_handoff_v1 §5): against a follow-up, an offer's declined branch is that follow-up, which stays
+    # available, never the tail's next block as if it had gone.
+    contest = next((candidates[ref] for ref in support if ref in candidates
+                    and (candidates[ref].annotations or {}).get(FOLLOWUP_CONTEST_NOTE)), None)
+    declined_steps = (sequences or {}).get(OFFER_DECLINED_STEPS) or ((contest,) if contest is not None else None)
+    if declined_steps:
+        steps = tuple(_step(action_for(vault, repository, part, practiced=practiced_set, spread=spread_used))
+                      for part in declined_steps)
+        after_decline = (steps[0] if len(steps) == 1 else V.Action(
+            ref="lesson_offer:declined", kind=V.SEQUENCE, steps=steps, item_los=tuple(lo for step in steps for lo in step.item_los),
+            minutes=sum(step.minutes for step in steps)))
+        actions = [replace(action, declined=after_decline) if action.accept is not None and action.kind == V.LESSON else action
+                   for action in actions]
     # The tail's block is the support's practice and reading blocks (TE3b: never a lesson offer's card).
     blocks = [candidates[ref] for ref in support if ref in candidates
               and candidates[ref].subtype != LESSON_OFFER_SUBTYPE]

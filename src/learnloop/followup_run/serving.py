@@ -65,6 +65,8 @@ def held_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
 
 def _line(vault: Any, row: Mapping[str, Any]) -> str | None:
     state = row["state"]
+    if wf.lost_to_lesson(row):
+        return None  # IH2: nobody waits on it: the lesson offer comes next, and a later decision has the question
     if state == wf.PENDING:
         return PREPARING
     if state == wf.WAITING:
@@ -89,7 +91,7 @@ def view(vault: Any, repository: Repository, attempt_id: str, *, phone: bool = F
         return None
     holding = is_holding(row)
     line = _line(vault, row)
-    if phone and row["state"] in {wf.READY, wf.WAITING}:
+    if phone and row["state"] in {wf.READY, wf.WAITING} and not wf.lost_to_lesson(row):
         line = PHONE_HANDOFF_LINE
     out: dict[str, Any] = {
         "workflow_id": row["id"],

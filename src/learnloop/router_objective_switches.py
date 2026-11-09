@@ -353,6 +353,17 @@ def failure_share_to_other_policy_on(config: Any) -> bool:
         getattr(section, "failure_share_to_other_policy", False))
 
 
+def lessons_compete_with_followups_on(config: Any) -> bool:
+    """IH2 (spec_instruct_handoff_v1 §5, the same unreleased tag as IH5): a lesson offer and a follow-up compete in one
+    logged decision wherever a lesson is available: the tag, lesson offers on (:func:`lesson_offers_on`: the objective
+    serving and TE1b's suggestions) and ``[router_objective] lessons_compete_with_followups`` (default true). Off, or
+    below the tag, mvp-0.54's boundary exactly: forced items keep offers out and take a drawn one back."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and lesson_offers_on(config) and bool(
+        getattr(section, "lessons_compete_with_followups", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -382,6 +393,7 @@ __all__ = [
     "failure_share_tag",
     "failure_share_to_other_policy_on",
     "followup_on",
+    "lessons_compete_with_followups_on",
     "lesson_offers_on",
     "lesson_offers_tag",
     "monotone_combiner_on",

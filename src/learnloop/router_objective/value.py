@@ -377,6 +377,9 @@ class Action:
     #: action's end)``: each is a graded attempt on its LO at the first session day at or past its date, so its
     #: information enters through ``E[V(x′)]`` (empty for every other action: the rollouts are unchanged)
     commitments: tuple[tuple[str, float], ...] = ()
+    #: IH2 (spec_instruct_handoff_v1 §5): an offer's declined branch when the decision says what follows a "Not now": the
+    #: follow-up it competes with, which stays available. None: the tail's next non-offer block, as RO4's interface.
+    declined: "Action | None" = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -1340,8 +1343,11 @@ class _Model:
             a, b = action.accept
             p = _beta_draw(self.streams.offer_u, float(a), float(b))
             accepted, _state, _minutes = self._do(replace(action, accept=None))
-            declined, _s2, _m2 = self._do(self.tail_action(), stream=1) if float(self.inputs.session_minutes) < self.mbar \
-                else (self._stop_accepted(), None, None)
+            if action.declined is not None:
+                declined, _s2, _m2 = self._do(action.declined, stream=1)
+            else:
+                declined, _s2, _m2 = self._do(self.tail_action(), stream=1) \
+                    if float(self.inputs.session_minutes) < self.mbar else (self._stop_accepted(), None, None)
             extra["branches"] = {"accepted": float(accepted.q.mean()), "declined": float(declined.q.mean()),
                                  "p_accept": float(p.mean())}
             if action.kind == LESSON:

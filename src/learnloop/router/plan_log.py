@@ -304,6 +304,9 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
     if detail.get("lesson_offer"):
         # The drawn offer's card (its context and candidates as scored): the acceptance model replays from it.
         row_detail["lesson_offer"] = dict(detail["lesson_offer"])
+    if detail.get("followup_contest"):
+        # IH2 (spec_instruct_handoff_v1 §5): the follow-ups a lesson offer competed with in this decision.
+        row_detail["followup_contest"] = dict(detail["followup_contest"])
     if mixture:
         # R2b: the draw's own record (support, staged pick, effective weights,
         # epsilon, drawn component, uniforms), each model's status, latency,
@@ -513,6 +516,57 @@ def log_plan_block_decision(connection: Any, decision: Any) -> str | None:
 INTERRUPT_KIND = "plan_interrupt"
 INSERT_REF = "insert_now"
 DECLINE_REF = "decline"
+#: Instruct hand-off IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson offer among a ``plan_interrupt`` decision's arms
+#: (``daily_plan.types.LESSON_OFFER_PREFIX``; this module is the router's leaf and imports no plan).
+OFFER_PREFIX = "lesson_offer:"
+
+
+def _offer_arm(mixture: Mapping[str, Any], candidate_propensity: Any, record: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The offer's row among the decision's candidates, when its support holds one (none: the predecessor's rows)."""
+
+    offered = (record.get("lesson_offers") or {})
+    return [{"ref": str(ref), "kind": "lesson_offer", "item_ids": [],
+             "learning_object_ids": [offered.get("learning_object_id")] if offered.get("learning_object_id") else [],
+             "feasible": True, "propensity": candidate_propensity(str(ref))}
+            for ref in mixture.get("support") or () if str(ref).startswith(OFFER_PREFIX)]
+
+
+def _offer_detail(decision: Mapping[str, Any], record: Mapping[str, Any], chosen_ref: str) -> dict[str, Any]:
+    """IH2: what an offer among the arms adds to a ``plan_interrupt`` row: the offer's record (or why there was none),
+    and on a drawn offer its card and its own block (what the acceptance model and the card read back)."""
+
+    out: dict[str, Any] = {}
+    if record.get("lesson_offers"):
+        out["lesson_offers"] = dict(record["lesson_offers"])
+    if chosen_ref.startswith(OFFER_PREFIX):
+        out["lesson_offer"] = dict(record.get("lesson_offer_card") or {})
+        out["offer_block_id"] = decision.get("offer_block_id")
+    return out
+
+
+def drawn_lesson_on(connection: Any, block_id: Any, key: str) -> str | None:
+    """IH2: the latest decision on this block and follow-up that drew a lesson, or None. A follow-up that lost to a
+    lesson gets a new decision later: its receipt key and ``parent_decision_id`` name this one."""
+
+    if not _ledger_present(connection):
+        return None
+    prefix = f"{INTERRUPT_KIND}:{block_id or ''}:{key}"
+    row = connection.execute(
+        "SELECT id FROM router_decisions WHERE (receipt_key = ? OR receipt_key LIKE ?) AND chosen_ref LIKE ? "
+        "ORDER BY created_at DESC, id DESC LIMIT 1", (prefix, f"{prefix}:%", f"{OFFER_PREFIX}%")).fetchone()
+    return str(row[0]) if row is not None else None
+
+
+def held_a_lesson(connection: Any, decision_id: str | None) -> bool:
+    """IH2: this decision's support held a lesson offer, so the lesson has already had its chance against what it drew."""
+
+    if not decision_id or not _ledger_present(connection):
+        return False
+    row = connection.execute("SELECT detail_json FROM router_decisions WHERE id = ?", (str(decision_id),)).fetchone()
+    if row is None:
+        return False
+    support = ((json.loads(row[0] or "{}").get("mixture") or {}).get("support")) or ()
+    return any(str(ref).startswith(OFFER_PREFIX) for ref in support)
 
 
 def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
@@ -557,6 +611,7 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
          "propensity": candidate_propensity(CONTINUE_REF)},
         {"ref": DECLINE_REF, "kind": "decline", "item_ids": [], "feasible": feasible[DECLINE_REF],
          "propensity": candidate_propensity(DECLINE_REF)},
+        *_offer_arm(mixture, candidate_propensity, record),
     ]
     named: dict[str, list[str]] = {}
     for reason in refused.get("reasons") or ():
@@ -589,11 +644,13 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
         ],
         **({"router": dict(decision["summary"])} if decision.get("summary") else {}),
         **({"mixture": {key: value for key, value in mixture.items() if key != "pi"}} if mixture else {}),
+        **_offer_detail(decision, record, chosen_ref),
     }
     sampled = bool(mixture) and propensity_kind == "exact"
+    redraw_of = decision.get("redraw_of")
     return {
         "id": str(record.get("decision_id") or new_ulid()),
-        "receipt_key": f"{INTERRUPT_KIND}:{decision.get('block_id')}:{item_id}",
+        "receipt_key": f"{INTERRUPT_KIND}:{decision.get('block_id')}:{item_id}" + (f":{redraw_of}" if redraw_of else ""),
         "decision_kind": INTERRUPT_KIND,
         "surface": _surface(decision.get("device")),
         "mode": str(record.get("mode") or "mixture"),
@@ -696,6 +753,7 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
          "propensity": candidate_propensity(NO_INTERVENTION_REF)},
         {"ref": DECLINE_REF, "kind": "decline", "item_ids": [], "feasible": bool(refused),
          "propensity": candidate_propensity(DECLINE_REF)},
+        *_offer_arm(mixture, candidate_propensity, record),
     ]
     config = decision.get("config")
     algorithms = getattr(config, "algorithms", None)
@@ -719,11 +777,12 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
         **({} if wait_feasible or refused else {"wait": {"feasible": False, "reason": "no_room_after_block"}}),
         "refused": [dict(reason) for reason in refused.get("reasons") or ()],
         **({"mixture": {key: value for key, value in mixture.items() if key != "pi"}} if mixture else {}),
+        **_offer_detail(decision, record, chosen_ref),
     }
     sampled = bool(mixture) and propensity_kind == "exact"
     return {
         "id": str(record.get("decision_id") or new_ulid()),
-        "receipt_key": _followup_receipt_key(decision.get("block_id"), workflow.get("id")),
+        "receipt_key": _followup_receipt_key(decision.get("block_id"), workflow.get("id"), decision.get("redraw_of")),
         "decision_kind": INTERRUPT_KIND,
         "surface": SURFACE,
         "mode": str(record.get("mode") or "mixture"),
@@ -731,7 +790,7 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
         "algorithm_version": algorithm_version,
         "log_version": ROUTER_LOG_VERSION,
         "session_id": decision.get("session_id"),
-        "parent_decision_id": None,
+        "parent_decision_id": decision.get("redraw_of"),
         "scheduler_slate_id": None,
         "controller_decision_id": None,
         "snapshot_hash": _hash(inputs),
@@ -756,18 +815,21 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _followup_receipt_key(block_id: Any, workflow_id: Any) -> str:
-    return f"{INTERRUPT_KIND}:{block_id or ''}:{workflow_id}"
+def _followup_receipt_key(block_id: Any, workflow_id: Any, redraw_of: Any = None) -> str:
+    """``redraw_of`` (IH2): the lesson's decision this follow-up lost to; a later decision is a new receipt."""
+
+    return f"{INTERRUPT_KIND}:{block_id or ''}:{workflow_id}" + (f":{redraw_of}" if redraw_of else "")
 
 
-def existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str) -> Mapping[str, Any] | None:
+def existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str,
+                               redraw_of: Any = None) -> Mapping[str, Any] | None:
     """The decision this workflow already logged on this block, or None: its immutable receipt."""
 
     if not _ledger_present(connection):
         return None
     row = connection.execute(
         "SELECT id, chosen_ref, propensity FROM router_decisions WHERE receipt_key = ?",
-        (_followup_receipt_key(block_id, workflow_id),),
+        (_followup_receipt_key(block_id, workflow_id, redraw_of),),
     ).fetchone()
     return dict(row) if row is not None else None
 
@@ -800,7 +862,9 @@ __all__ = [
     "build_plan_block_decision",
     "log_followup_decision",
     "build_plan_interrupt_decision",
+    "drawn_lesson_on",
     "existing_followup_decision",
+    "held_a_lesson",
     "log_plan_block_decision",
     "log_plan_interrupt_decision",
 ]

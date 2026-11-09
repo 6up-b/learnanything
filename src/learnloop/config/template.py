@@ -4150,7 +4150,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # (all of them recomputed). failure_share_to_other_policy = false serves mvp-0.54's mix exactly. Existing vaults
     # reach it by `learnloop upgrade` (default target) from mvp-0.54, or from mvp-0.9 onwards through the chain. New
     # vaults start here. ONE constant (FAILURE_SHARE_ALGORITHM_VERSION), renumbered at landing if another successor
-    # lands first.
+    # lands first. Instruct hand-off IH2 (§5) shares this unreleased tag: [router_objective]
+    # lessons_compete_with_followups (default true), in every snapshot and inert below the tag; false serves mvp-0.54's
+    # boundary and follow-up decisions exactly.
     "mvp-0.55": "0d0688ca9d39c51fccaab5ea6df59a8a72ed4018b4270b8cb0771b93c560cb5b",
 }
 
