@@ -4,7 +4,7 @@ Phase A, job 2. **Status: for the owner's review. No step starts until the owner
 
 ## Summary for the owner
 
-The refactor has 64 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
+The refactor has 65 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
 
 **What gets smaller**
 
@@ -58,7 +58,7 @@ When its step comes (recommendations and evidence in §2.13):
 
 Settled since the map: RE2 is a firm step (owner, Nov 9) and RE0 lands before step 1. Not settled: RE1's placement (§2.1).
 
-**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 64 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
+**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 65 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
 
 **Where to stop if you need to.** After arc A (4% of the cost; every later change is cheaper). After B4 (10%; your four cases are answerable). After arc C (27%; dead code gone). After arc D (47%; history gone, tests on the real path). §2.14 lists them all.
 
@@ -549,6 +549,13 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 
 **Z2. Close** (S). Rerun every §6 measure with `scripts/refactor_measures.py` and the S0 commands. Report seconds saved per removal. **Then:** later feature work (§2.16).
 
+**Z3. Archive the old specs** (S). Owner, Nov 9: "Within the refactor after documentation is finished we should also archive all of the old specs." It runs after the documentation rewrite (§5's last stage, by Codex, after the UX overhaul), so it's the one step that waits past Z2; Z2's measures don't wait for it.
+- **Problem:** `docs/specs` holds every spec since July, and as-built, superseded and live ones sit side by side.
+- **Does:** moves every spec that's implemented and superseded, or abandoned, into `docs/specs/archive/`. It leaves the live ones (specs still being built, or still the reference for current behaviour), with a short index (`docs/specs/README.md`): each live spec, then each archived one with what superseded it.
+- **Keeps:** links working. Every reference in `docs/`, the architecture vault, `CLAUDE.md`, tests and code comments is updated, and the vault validators run.
+- **Owner:** reviews the live/archive list before the move.
+- **Proof:** no broken link (a check script or `validate_vault.py`); nothing deleted, only moved (`git diff --stat -M` shows renames only, plus the index and the updated references).
+
 ### 2.13 Evidence for the owner's calls
 
 | Row | Evidence | Recommendation |
@@ -573,7 +580,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 | F and I | 74% | Next faster where it can be; retrievability one function; grading and queue cores testable alone. |
 | G6 | 83% | One probe decider; protection one predicate. |
 | H6 | 92% | Scalar retired, reported first. |
-| J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures. |
+| J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures; old specs archived once the docs rewrite is done (Z3). |
 
 Each arc's steps also land one at a time, so an interruption mid-arc leaves a working system, with the exception noted at H.
 
@@ -581,7 +588,7 @@ Each arc's steps also land one at a time, so an interruption mid-arc leaves a wo
 
 | | Count | Rough size each | Total |
 |---|---|---|---:|
-| Small steps | 9 | 0.2-0.4M tokens | about 3M |
+| Small steps | 10 | 0.2-0.4M tokens | about 3M |
 | Medium | 32 | 0.5-1M | about 24M |
 | Large | 21 | 1.5-3M | about 46M |
 
@@ -598,6 +605,7 @@ About **45-90M Opus tokens including re-read context** (revised, owner, Nov 9: C
 | RE3-RE8 | E6, RE2, I1 | New action kind; one read function for `S_eff`; RE7 is an `objective.py` term. RE's spec places RE3-RE8 between the refactor and the UX audit; the brief says beside the audit. Either works here. |
 | UX audit and overhaul | C3-C5, B9 | Fewer backends; `why.get` for the glass-box view; the UX list this strategy collects |
 | Codex docs, last | all | Describes the final screens |
+| Z3, the spec archive | Codex docs | Archives what the rewritten docs no longer cite as live |
 
 ## 3. The decision record
 
