@@ -42,8 +42,10 @@ const OPTIONS = {
 };
 
 async function toFeedback(flag: boolean) {
-  answers.get_daily_plan = reply(flag ? { somethingElse: true } : {});
-  answers.next_plan_item = reply({ step: itemStep() });
+  // As the real host: every plan reply says it, the read's and the step's.
+  const line = flag ? { somethingElse: true } : {};
+  answers.get_daily_plan = reply(line);
+  answers.next_plan_item = reply({ step: itemStep(), ...line });
   answers.plan_something_else_options = OPTIONS;
   render(<App />);
   fireEvent.click(await screen.findByRole("button", { name: "Begin" }));
@@ -56,6 +58,26 @@ async function toFeedback(flag: boolean) {
 }
 
 describe("the quiet link on the phone's feedback", () => {
+  // Review B1. A plan read at a finished block crosses the boundary and writes its decision (spec_mobile_frontend_v2 §4.5),
+  // so the link must take the flag from the plan the phone already holds, whatever the flag says.
+  it.each([[true], [false]])("feedback reads no plan (flag %s): the link is decided from the plan already held", async (flag) => {
+    answers.get_daily_plan = reply(flag ? { somethingElse: true } : {});
+    answers.next_plan_item = reply({ step: itemStep(), ...(flag ? { somethingElse: true } : {}) });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Begin" }));
+    await screen.findByText("Define it.");
+    const before = called("get_daily_plan").length;
+    const editor = screen.getByRole("textbox", { name: "Your answer" });
+    editor.textContent = "My answer";
+    fireEvent.input(editor);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await screen.findByText("3 / 4");
+    await waitFor(() => expect(called("plan_prefetch").length).toBeGreaterThan(0));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(called("get_daily_plan").length).toBe(before);
+    expect(screen.queryByTestId("something-else-link") !== null).toBe(flag);
+  });
+
   it("is absent unless the host says it may show, and the plan is as it was", async () => {
     await toFeedback(false);
     expect(screen.queryByTestId("something-else-link")).toBeNull();
@@ -136,7 +158,7 @@ describe("the quiet link on the phone's feedback", () => {
 describe("the quiet link on the phone's Today", () => {
   it("shows beside Next once a session is open, with the phone_today surface", async () => {
     answers.get_daily_plan = reply({ somethingElse: true });
-    answers.next_plan_item = reply({ step: itemStep() });
+    answers.next_plan_item = reply({ step: itemStep(), somethingElse: true });
     answers.plan_something_else_options = OPTIONS;
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Begin" }));

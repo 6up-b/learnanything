@@ -166,7 +166,7 @@ export function PlanToday({
           ) : null}
           {session ? <button className="plain" type="button" disabled={busy} onClick={onEnd}>End session</button> : null}
         </div>
-        {session && onSomethingElse ? (
+        {session && onSomethingElse && query.data?.somethingElse ? (
           <SomethingElse sessionId={session.sessionId} surface="phone_today" onServed={onSomethingElse}
                          onAgreed={() => onNext()} onError={onError} />
         ) : null}

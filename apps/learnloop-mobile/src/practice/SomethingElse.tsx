@@ -4,11 +4,13 @@
 // What the phone can serve is served (another question, a review, something new, stop). A lesson or a reading it can't
 // serve is still kept as the learner's own pick, and the phone says so plainly: it waits on the desktop. The note and
 // the choice are what the learner would take, never counted as knowing something.
+//
+// The caller decides whether the link shows, from the plan it already holds. This never reads the plan: on the phone a read
+// at a finished block crosses the boundary and writes its decision (spec_mobile_frontend_v2 §4.5), which is the peek the
+// phone was built not to make.
 import { useRef, useState } from "react";
 import type { SomethingElseOptionDto } from "@desktop/api/dto";
-import { TAG } from "@desktop/api/queryTags";
-import { useCachedQuery } from "@desktop/api/useCachedQuery";
-import { phone, type PhonePlanDto, type PhoneSomethingElseDto } from "../api/phone";
+import { phone, type PhoneSomethingElseDto } from "../api/phone";
 import { newUlid } from "../util/ulid";
 
 export const SOMETHING_ELSE_LINK = "Something else would help";
@@ -37,17 +39,13 @@ export function SomethingElse({
   onAgreed: () => void;
   onError: (error: unknown) => void;
 }) {
-  // The plan read says whether the link may show (absent with the switch off or below the tag).
-  const plan = useCachedQuery<PhonePlanDto>(sessionId ? ["get_daily_plan", sessionId] : null, () => phone.getDailyPlan(sessionId), {
-    tags: [TAG.queue]
-  });
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<SomethingElseOptionDto[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const key = useRef<string | null>(null);
-  if (!sessionId || !plan.data?.somethingElse) return null;
+  if (!sessionId) return null;
 
   async function show() {
     setOpen(true);
