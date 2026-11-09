@@ -14,7 +14,7 @@ source_paths:
   - "src/learnloop/capture/report.py"
   - "src/learnloop/capture/routing.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T06:12:48-05:00"
+source_commit_timestamp: "2026-11-07T06:50:40-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.capture"
@@ -55,7 +55,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]] | [[Reference/Modules/learnloop/capture/devices#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop/capture/errors|learnloop.capture.errors]] | [[Reference/Modules/learnloop/capture/errors#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
 | [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] | [[Reference/Modules/learnloop/capture/inbox#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] | [[Reference/Modules/learnloop/capture/jobs#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
+| [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] | [[Reference/Modules/learnloop/capture/jobs#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/capture/maintenance|learnloop.capture.maintenance]] | [[Reference/Modules/learnloop/capture/maintenance#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/capture/report|learnloop.capture.report]] | [[Reference/Modules/learnloop/capture/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/capture/routing|learnloop.capture.routing]] | [[Reference/Modules/learnloop/capture/routing#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |

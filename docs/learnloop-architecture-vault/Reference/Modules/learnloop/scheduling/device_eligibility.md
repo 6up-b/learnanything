@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0"
-source_commit_timestamp: "2026-11-09T06:12:48-05:00"
+source_commit: "9aa88d8c5b312a132348c1a8b1fe98d1aad9a05a"
+source_commit_timestamp: "2026-11-07T07:08:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0` |
-| Commit timestamp | `2026-11-09T06:12:48-05:00` |
+| Source commit | `9aa88d8c5b312a132348c1a8b1fe98d1aad9a05a` |
+| Commit timestamp | `2026-11-07T07:08:52-05:00` |
 
 ## Public API
 

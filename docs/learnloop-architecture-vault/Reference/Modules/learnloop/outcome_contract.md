@@ -114,6 +114,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `GRADE_HELD_FOR_REVIEW`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `GRADE_CONTRACT_UNRECORDED`, `HELD_ROW_KEY`, `PFC_NOTHING_ASSESSED`, `PFC_PARTIALLY_ASSESSED`, `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`; statically calls `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `HELD_ROW_KEY`
+- [[Reference/Modules/learnloop/recognition/report|learnloop.recognition.report]] — imports `RETENTION_MIN_DELAY_SECONDS`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `RETENTION_MIN_DELAY_SECONDS`, `retention_exclusions`; statically calls `retention_exclusions`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `GRADE_HELD_FOR_REVIEW`, `unverified_evidence_row`; statically calls `unverified_evidence_row`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `LABEL_VERSION`, `retention_exclusions`; statically calls `retention_exclusions`
@@ -143,7 +144,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 26 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 27 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -172,6 +173,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retention_exclusions_keep_the_pfc_state_and_the_review_independent`
 - [tests/test_pfc_unverified_unassessed.py](../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
   - `test_the_stamped_block_is_read_from_text_or_mapping`
+- [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
+  - `test_the_warmth_window_is_the_outcome_contracts_retention_minimum_not_a_new_constant`
 - [tests/test_regrade_contract_successor.py](../../../../../tests/test_regrade_contract_successor.py) — direct import
   - `test_a_first_grade_made_before_contracts_keeps_its_compatibility_reading`
   - `test_a_regrade_in_its_pre_contract_grades_second_is_held_not_read_as_its_only_grade`

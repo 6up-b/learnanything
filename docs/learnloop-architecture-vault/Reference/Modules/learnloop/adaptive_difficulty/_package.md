@@ -53,7 +53,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/successor.py"
   - "src/learnloop/adaptive_difficulty/switches.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T06:25:22-05:00"
+source_commit_timestamp: "2026-11-09T01:27:28-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -95,7 +95,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]] | [[Reference/Modules/learnloop/adaptive_difficulty/backfill#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]] | [[Reference/Modules/learnloop/adaptive_difficulty/background#^module-purpose|purpose]] | `ACTIVE` | 3 | 9 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]] | [[Reference/Modules/learnloop/adaptive_difficulty/claims#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/column_classes|learnloop.adaptive_difficulty.column_classes]] | [[Reference/Modules/learnloop/adaptive_difficulty/column_classes#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/column_classes|learnloop.adaptive_difficulty.column_classes]] | [[Reference/Modules/learnloop/adaptive_difficulty/column_classes#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]] | [[Reference/Modules/learnloop/adaptive_difficulty/data_check#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/denial_log|learnloop.adaptive_difficulty.denial_log]] | [[Reference/Modules/learnloop/adaptive_difficulty/denial_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] | [[Reference/Modules/learnloop/adaptive_difficulty/dose#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |

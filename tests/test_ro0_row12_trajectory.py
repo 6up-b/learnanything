@@ -74,7 +74,7 @@ def test_a_view_would_break_the_rebuild_the_ledgers_migrations_use(tmp_path):
 
 
 def test_the_read_runs_on_the_head_schema(tmp_path):
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_251" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
     with closing(sqlite3.connect(head)) as connection:
         connection.row_factory = sqlite3.Row
         assert isinstance(T.rows(connection), list)

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/data_capture.py"
 source_paths:
   - "src/learnloop/cli/data_capture.py"
-source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
-source_commit_timestamp: "2026-11-04T18:38:52-05:00"
+source_commit: "30b71186d0e5337f3d4926f8428bc46875d218cd"
+source_commit_timestamp: "2026-11-09T01:27:28-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -52,13 +52,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/data_capture.py](../../../../../../src/learnloop/cli/data_capture.py) |
-| Source lines | 54 |
+| Source lines | 55 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2ffac8021ab164e5294b86f628c3747099919ac0` |
-| Commit timestamp | `2026-11-04T18:38:52-05:00` |
+| Source commit | `30b71186d0e5337f3d4926f8428bc46875d218cd` |
+| Commit timestamp | `2026-11-09T01:27:28-05:00` |
 
 ## Public API
 

@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/DialogueProbe.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/DialogueProbe.tsx"
-source_commit: "dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032"
-source_commit_timestamp: "2026-11-03T16:08:07-05:00"
+source_commit: "3d6205a33e36c3014eb4b9a48382ee128a8fc5b1"
+source_commit_timestamp: "2026-11-09T01:32:24-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/DialogueProbe.tsx](../../../../../../apps/learnloop-tauri/src/components/DialogueProbe.tsx) |
-| Source lines | 382 |
+| Source lines | 389 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032` |
-| Commit timestamp | `2026-11-03T16:08:07-05:00` |
+| Source commit | `3d6205a33e36c3014eb4b9a48382ee128a8fc5b1` |
+| Commit timestamp | `2026-11-09T01:32:24-05:00` |
 
 ## Activation and status evidence
 
@@ -60,28 +60,29 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function DialogueProbePanel(` — function, line 33
+- `export function DialogueProbePanel(` — function, line 34
 
 ## Internal implementation anchors
 
-- `const TURN_KIND_LABEL: Record<string, string> =` — const, line 18
-- `interface SubmittedTurn` — interface, line 25
-- `type Phase = "starting" | "asking" | "submitting" | "ending" | "done"` — type, line 31
-- `const turnOpenedAtMs = useRef(Date.now())` — const, line 53
-- `const elapsedSeconds = ()` — const, line 54
-- `const stuckPrompt = algoConfig().stuckPrompt` — const, line 60
-- `const dialogueState = useRef<string | null>(null)` — const, line 64
-- `const textareaRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 65
-- `const fail = useCallback( (error: unknown)` — const, line 67
-- `const endBlock = useCallback(async ()` — const, line 75
-- `const result = await api.endProbeDialogue(dialogueState.current)` — const, line 82
-- `const advance = useCallback(async ()` — const, line 90
-- `const next = await api.nextProbeDialogueTurn(dialogueState.current)` — const, line 93
-- `const started = useRef(false)` — const, line 115
-- `const submitTurn = useCallback( async (dontKnow: boolean)` — const, line 132
-- `const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId)` — const, line 162
-- `const stopAndTeach = useCallback(async ()` — const, line 193
-- `const onKey = (event: KeyboardEvent)` — const, line 207
+- `const TURN_KIND_LABEL: Record<string, string> =` — const, line 19
+- `interface SubmittedTurn` — interface, line 26
+- `type Phase = "starting" | "asking" | "submitting" | "ending" | "done"` — type, line 32
+- `const turnOpenedAtMs = useRef(Date.now())` — const, line 54
+- `const activeClock = useAttemptClock()` — const, line 57
+- `const elapsedSeconds = ()` — const, line 58
+- `const stuckPrompt = algoConfig().stuckPrompt` — const, line 64
+- `const dialogueState = useRef<string | null>(null)` — const, line 68
+- `const textareaRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 69
+- `const fail = useCallback( (error: unknown)` — const, line 71
+- `const endBlock = useCallback(async ()` — const, line 79
+- `const result = await api.endProbeDialogue(dialogueState.current)` — const, line 86
+- `const advance = useCallback(async ()` — const, line 94
+- `const next = await api.nextProbeDialogueTurn(dialogueState.current)` — const, line 97
+- `const started = useRef(false)` — const, line 120
+- `const submitTurn = useCallback( async (dontKnow: boolean)` — const, line 137
+- `const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId)` — const, line 169
+- `const stopAndTeach = useCallback(async ()` — const, line 200
+- `const onKey = (event: KeyboardEvent)` — const, line 214
 
 ## Who imports or calls it
 
@@ -102,6 +103,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `Card`, `Pill`, `SectionHeader`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/screens/useAttemptClock|src/screens/useAttemptClock.ts]] — import-or-re-export; imports `useAttemptClock`
 
 ### Assets, platform, and third-party dependencies
 

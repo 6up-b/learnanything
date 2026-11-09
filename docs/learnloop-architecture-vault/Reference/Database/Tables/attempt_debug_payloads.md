@@ -3,13 +3,13 @@ title: "attempt_debug_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9bdfbd0b030dcf12da15c70fc433bd945a261e63"
-source_commit_timestamp: "2026-11-09T14:25:22-05:00"
+source_commit: "5bd724f845135d3e000d9608aa5ff2f953f65b0d"
+source_commit_timestamp: "2026-11-09T15:28:11-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_debug_payloads"
   - "table attempt_debug_payloads"
-schema_head: 251
+schema_head: 252
 table_name: "attempt_debug_payloads"
 table_role: "raw_ledger"
 functionality_status: "active"

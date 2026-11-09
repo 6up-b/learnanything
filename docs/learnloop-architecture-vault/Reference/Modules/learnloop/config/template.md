@@ -97,6 +97,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `module`
 - [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] — imports `write_default_config`
 
+### Repository tooling consumers
+
+- [scripts/refactor_measures.py](../../../../../../scripts/refactor_measures.py)
+
 ## Dependencies
 
 ### LearnLoop dependencies

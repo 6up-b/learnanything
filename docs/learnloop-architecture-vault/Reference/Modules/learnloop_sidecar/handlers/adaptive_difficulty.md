@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/adaptive_difficulty.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/adaptive_difficulty.py"
-source_commit: "38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0"
-source_commit_timestamp: "2026-11-09T06:12:48-05:00"
+source_commit: "c61150f982e9b7910573adf87ad5fbce3c77ae6c"
+source_commit_timestamp: "2026-11-07T06:50:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0` |
-| Commit timestamp | `2026-11-09T06:12:48-05:00` |
+| Source commit | `c61150f982e9b7910573adf87ad5fbce3c77ae6c` |
+| Commit timestamp | `2026-11-07T06:50:40-05:00` |
 
 ## Public API
 

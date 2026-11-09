@@ -57,7 +57,7 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/LibraryPlace|LibraryPlace.tsx]] | `ACTIVE` | Implements the `LibraryPlace` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/screens/LibraryScreen|LibraryScreen.tsx]] | `ACTIVE` | Implements the `LibraryScreen` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 2 |
 | [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|MaintenanceScreen.tsx]] | `ACTIVE` | Implements the `MaintenanceScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
-| [[Reference/Desktop/TypeScript/screens/PracticeScreen|PracticeScreen.tsx]] | `ACTIVE` | Implements the `PracticeScreen` routed desktop screen and coordinates its learner-facing workflow state. | 30 | 1 |
+| [[Reference/Desktop/TypeScript/screens/PracticeScreen|PracticeScreen.tsx]] | `ACTIVE` | Implements the `PracticeScreen` routed desktop screen and coordinates its learner-facing workflow state. | 31 | 1 |
 | [[Reference/Desktop/TypeScript/screens/ProposalsScreen|ProposalsScreen.tsx]] | `ACTIVE` | Implements the `ProposalsScreen` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
 | [[Reference/Desktop/TypeScript/screens/ReaderScreen|ReaderScreen.tsx]] | `ACTIVE` | Implements the `ReaderScreen` routed desktop screen and coordinates its learner-facing workflow state. | 80 | 1 |
 | [[Reference/Desktop/TypeScript/screens/RegistryReviewScreen|RegistryReviewScreen.tsx]] | `ACTIVE` | Implements the `RegistryReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
@@ -68,9 +68,11 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/StartScreen|StartScreen.tsx]] | `ACTIVE` | Implements the `StartScreen` routed desktop screen and coordinates its learner-facing workflow state. | 18 | 1 |
 | [[Reference/Desktop/TypeScript/screens/TodayScreen|TodayScreen.tsx]] | `ACTIVE` | Implements the `TodayScreen` routed desktop screen and coordinates its learner-facing workflow state. | 29 | 1 |
 | [[Reference/Desktop/TypeScript/screens/UnderTheHoodScreen|UnderTheHoodScreen.tsx]] | `ACTIVE` | Implements the `UnderTheHoodScreen` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
+| [[Reference/Desktop/TypeScript/screens/attemptClock|attemptClock.ts]] | `ACTIVE` | Provides `openAttemptClock`, `touchAttempt`, `attemptActiveSeconds`, `ActiveStorage` and related exports within the desktop's TypeScript/screens ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/knowledgeNeighbors|knowledgeNeighbors.ts]] | `ACTIVE` | Provides `neighborCaption` within the desktop's TypeScript/screens ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/lessonActivity|lessonActivity.ts]] | `ACTIVE` | Provides `LessonActivityBatch`, `LessonActivityTracker`, `createLessonActivity` within the desktop's TypeScript/screens ownership area. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/scrollZoom|scrollZoom.ts]] | `ACTIVE` | Provides `SCROLL_ZOOM`, `ScrollZoomOptions`, `ScrollZoom`, `useScrollZoom` within the desktop's TypeScript/screens ownership area. | 0 | 1 |
+| [[Reference/Desktop/TypeScript/screens/useAttemptClock|useAttemptClock.ts]] | `ACTIVE` | Provides `AttemptClock`, `useAttemptClock` within the desktop's TypeScript/screens ownership area. | 2 | 3 |
 | [[Reference/Desktop/TypeScript/screens/wire3d|wire3d.ts]] | `ACTIVE` | Provides `Cam`, `Viewport`, `Projected`, `project` and related exports within the desktop's TypeScript/screens ownership area. | 0 | 3 |
 
 ## Modification guidance

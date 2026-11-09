@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/recognition/ledger.py"
 source_paths:
   - "src/learnloop/recognition/ledger.py"
-source_commit: "workspace/uncommitted @ HEAD cd6759fcb9e7c6a3877c0dd019a9c37b7305f90d"
-source_commit_timestamp: "2026-11-09T01:34:53-05:00"
-source_worktree_state: "modified"
+source_commit: "1a0a3b9e9f1472da1fd69e2720165d669f73013d"
+source_commit_timestamp: "2026-11-09T02:21:55-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.recognition"
@@ -50,18 +50,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/recognition/ledger.py](../../../../../../src/learnloop/recognition/ledger.py) |
-| Source lines | 146 |
+| Source lines | 148 |
 | Owning package | [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD cd6759fcb9e7c6a3877c0dd019a9c37b7305f90d` |
-| Commit timestamp | `2026-11-09T01:34:53-05:00` |
+| Worktree state | `clean` |
+| Source commit | `1a0a3b9e9f1472da1fd69e2720165d669f73013d` |
+| Commit timestamp | `2026-11-09T02:21:55-05:00` |
 
 ## Public API
 
 - `attempt_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 39) — Every attempt with what the label and the report read; ``active_seconds`` is None on a database below 252.
-- `build(connection: sqlite3.Connection, vault: Any, repository: Any, *, window_hours: float, session_gap_minutes: float, attempts: list[dict[str, Any]] | None=None) -> CueLedger` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 133) — The ledger of ``connection``'s records.
+- `build(connection: sqlite3.Connection, vault: Any, repository: Any, *, window_hours: float, session_gap_minutes: float, attempts: list[dict[str, Any]] | None=None) -> CueLedger` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 135) — The ledger of ``connection``'s records.
 
 ### Module constants
 
@@ -73,9 +73,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_columns(connection: sqlite3.Connection, table: str) -> set[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 35)
 - `_reveals(connection: sqlite3.Connection) -> list[Exposure]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 50)
 - `_lessons(connection: sqlite3.Connection) -> list[Exposure]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 59)
-- `_methods(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> dict[str, bool | None]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 72) — Whether each attempt's pinned contract froze a required method; None where it has no pinned contract.
-- `_followups(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 97) — The attempts bound to a follow-up of an earlier miss.
-- `_checks(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 122) — The attempts RO5's randomized daily checks resolved to (whatever the grade later did with them).
+- `_methods(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> dict[str, bool | None]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 74) — Whether each attempt's pinned contract froze a required method; None where it has no pinned contract.
+- `_followups(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 99) — The attempts bound to a follow-up of an earlier miss.
+- `_checks(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 124) — The attempts RO5's randomized daily checks resolved to (whatever the grade later did with them).
 
 ## Who imports or calls it
 
@@ -113,6 +113,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
+  - `test_closing_a_lesson_later_does_not_change_an_earlier_attempts_label`
 
 ## Modification guidance
 

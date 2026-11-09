@@ -386,6 +386,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
+- [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
+  - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
   - `test_golden_path_completes_with_reader_never_invoked`
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import

@@ -326,6 +326,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 ### Repository tooling consumers
 
 - [scripts/benchmark_chatgpt_plan_latency.py](../../../../../../scripts/benchmark_chatgpt_plan_latency.py); calls `ChatGPTPlanProviderConfig`
+- [scripts/refactor_measures.py](../../../../../../scripts/refactor_measures.py)
 
 ## Dependencies
 

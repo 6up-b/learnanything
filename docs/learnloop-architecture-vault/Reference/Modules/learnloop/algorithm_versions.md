@@ -262,6 +262,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Repository tooling consumers
 
+- [scripts/refactor_measures.py](../../../../../scripts/refactor_measures.py)
 - [scripts/voi_cap_report.py](../../../../../scripts/voi_cap_report.py)
 
 ## Dependencies

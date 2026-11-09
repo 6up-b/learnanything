@@ -340,6 +340,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_027_rebuild_preserves_existing_rows`
   - `test_learner_claims_accepts_tutor_gap_declaration_source`
   - `test_question_promotions_schema_available_on_fresh_db`
+- [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
+  - `test_252_on_the_downgraded_head_adds_its_column_keeps_every_row_and_changes_nothing_else`
+  - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
+  - `test_the_head_fixture_holds_252_in_rollback_mode_with_no_active_seconds`
 - [tests/test_reader_ca2_fix_orchestrator.py](../../../../../../tests/test_reader_ca2_fix_orchestrator.py) — direct import
   - `test_223_adds_only_the_earlier_opening_column`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import

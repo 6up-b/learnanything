@@ -29,7 +29,7 @@ source_paths:
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T13:20:47-05:00"
+source_commit_timestamp: "2026-11-09T15:28:11-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -68,7 +68,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/ops/__init__|learnloop.ops]] | [[Reference/Modules/learnloop/ops/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] | [[Reference/Modules/learnloop/ops/capture_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 8 |
+| [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] | [[Reference/Modules/learnloop/ops/capture_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
 | [[Reference/Modules/learnloop/ops/content_fixes|learnloop.ops.content_fixes]] | [[Reference/Modules/learnloop/ops/content_fixes#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] | [[Reference/Modules/learnloop/ops/debug_time#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] | [[Reference/Modules/learnloop/ops/debug_time_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -126,6 +126,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 1 static module edge
+- [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] — 1 static module edge
 
 ### Packages that import this package
 

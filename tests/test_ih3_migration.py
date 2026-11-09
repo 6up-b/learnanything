@@ -16,7 +16,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_251" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
 TABLE = "router_learner_preferences"
 MIGRATION = next(m for m in discover_migrations() if m.name == "router_learner_preferences")
 OBJECTS = frozenset({TABLE, "router_learner_preferences_decision", "router_learner_preferences_session",
@@ -29,13 +29,14 @@ COLUMNS = ["id", "decision_id", "attempt_id", "session_id", "surface", "offered_
 
 
 def test_the_migration_is_the_head_and_the_table_is_a_raw_ledger():
-    assert MIGRATION.version == max(m.version for m in discover_migrations())
+    # RE0's 252 (practice_attempts.active_seconds) is the head since its landing.
+    assert MIGRATION.version == 251 and max(m.version for m in discover_migrations()) == 252
     assert TABLE_ROLES[TABLE] is TableRole.RAW_LEDGER
 
 
 def test_the_head_fixture_holds_it_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == MIGRATION.version
+    assert MIGRATION.version in applied_versions(HEAD) and max(applied_versions(HEAD)) == 252
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert [row[1] for row in connection.execute(f"PRAGMA table_info({TABLE})")] == COLUMNS
         assert connection.execute(f"SELECT COUNT(*) FROM {TABLE}").fetchone()[0] == 0
@@ -99,4 +100,4 @@ def test_it_applies_under_production_pragmas(tmp_path):
     _downgraded(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         assert [m.version for m in apply_migrations(database)] == [MIGRATION.version]
-    assert max(applied_versions(database)) == MIGRATION.version
+    assert MIGRATION.version in applied_versions(database) and max(applied_versions(database)) == 252

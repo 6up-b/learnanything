@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/recognition/cue.py"
 source_paths:
   - "src/learnloop/recognition/cue.py"
-source_commit: "workspace/uncommitted @ HEAD cd6759fcb9e7c6a3877c0dd019a9c37b7305f90d"
-source_commit_timestamp: "2026-11-09T01:34:53-05:00"
-source_worktree_state: "modified"
+source_commit: "1a0a3b9e9f1472da1fd69e2720165d669f73013d"
+source_commit_timestamp: "2026-11-09T02:21:55-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.recognition"
@@ -50,38 +50,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py) |
-| Source lines | 199 |
+| Source lines | 203 |
 | Owning package | [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD cd6759fcb9e7c6a3877c0dd019a9c37b7305f90d` |
-| Commit timestamp | `2026-11-09T01:34:53-05:00` |
+| Worktree state | `clean` |
+| Source commit | `1a0a3b9e9f1472da1fd69e2720165d669f73013d` |
+| Commit timestamp | `2026-11-09T02:21:55-05:00` |
 
 ## Public API
 
-- `parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/recognition/cue.py), line 54)
-- `class Exposure` ([source](../../../../../../src/learnloop/recognition/cue.py), line 59) — One exposure to a learning object: a Reader exposure or a reveal (``reading``), or a lesson's end (``lesson``).
-- `class CueLedger` ([source](../../../../../../src/learnloop/recognition/cue.py), line 70) — What the label reads, as plain records.
-  - `__post_init__(self) -> None` (line 89; internal)
-  - `previous(self, attempt: Mapping[str, object]) -> Mapping[str, object] | None` (line 108; public) — The previous practice attempt in the attempt's session, or None.
-  - `exposures_of(self, learning_object_id: str) -> tuple[Exposure, ...]` (line 124; public)
-- `class AttemptCue` ([source](../../../../../../src/learnloop/recognition/cue.py), line 129) — The label: the seven fields, the fields the records could not speak to, and the cue version.
-  - `present(self) -> tuple[str, ...]` (line 145; public)
-  - `label(self) -> str` (line 149; public)
-- `attempt_cue_v1(attempt: Mapping[str, object], ledger: CueLedger) -> AttemptCue` ([source](../../../../../../src/learnloop/recognition/cue.py), line 161) — The cues present on ``attempt`` (module docstring).
-- `cues(attempts: Iterable[Mapping[str, object]], ledger: CueLedger) -> dict[str, AttemptCue]` ([source](../../../../../../src/learnloop/recognition/cue.py), line 196) — The label of each attempt, by id.
+- `parse(stamp: str) -> datetime` ([source](../../../../../../src/learnloop/recognition/cue.py), line 55)
+- `class Exposure` ([source](../../../../../../src/learnloop/recognition/cue.py), line 60) — One exposure to a learning object: a Reader exposure or a reveal (``reading``), or a lesson's end (``lesson``).
+- `class CueLedger` ([source](../../../../../../src/learnloop/recognition/cue.py), line 71) — What the label reads, as plain records.
+  - `__post_init__(self) -> None` (line 90; internal)
+  - `previous(self, attempt: Mapping[str, object]) -> Mapping[str, object] | None` (line 109; public) — The previous practice attempt in the attempt's session, or None.
+  - `exposures_of(self, learning_object_id: str) -> tuple[Exposure, ...]` (line 125; public)
+- `class AttemptCue` ([source](../../../../../../src/learnloop/recognition/cue.py), line 130) — The label: the seven fields, the fields the records could not speak to, and the cue version.
+  - `present(self) -> tuple[str, ...]` (line 146; public)
+  - `label(self) -> str` (line 150; public)
+- `attempt_cue_v1(attempt: Mapping[str, object], ledger: CueLedger) -> AttemptCue` ([source](../../../../../../src/learnloop/recognition/cue.py), line 165) — The cues present on ``attempt`` (module docstring).
+- `cues(attempts: Iterable[Mapping[str, object]], ledger: CueLedger) -> dict[str, AttemptCue]` ([source](../../../../../../src/learnloop/recognition/cue.py), line 200) — The label of each attempt, by id.
 
 ### Module constants
 
-- `CUE_VERSION` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 40)
-- `FIELDS` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 41)
-- `NOT_PRACTICE` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 48)
-- `IMPORTED` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 49)
+- `CUE_VERSION` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 41)
+- `FIELDS` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 42)
+- `NOT_PRACTICE` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 49)
+- `IMPORTED` ([src/learnloop/recognition/cue.py](../../../../../../src/learnloop/recognition/cue.py), line 50)
 
 ## Internal implementation anchors
 
-- `_began(attempt: Mapping[str, object]) -> datetime` ([source](../../../../../../src/learnloop/recognition/cue.py), line 155)
+- `_began(attempt: Mapping[str, object]) -> datetime` ([source](../../../../../../src/learnloop/recognition/cue.py), line 159)
 
 ## Who imports or calls it
 
@@ -116,8 +116,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
+  - `test_a_later_event_never_changes_an_existing_attempts_label`
   - `test_a_synthetic_trace_with_no_cues_present_is_uncued`
   - `test_an_unreadable_field_is_listed_and_an_imported_answer_is_unlabelled_not_uncued`
+  - `test_closing_a_lesson_later_does_not_change_an_earlier_attempts_label`
   - `test_each_cue_alone_makes_an_attempt_cued`
   - `test_the_cue_window_counts_what_happened_before_the_attempt_began_and_not_help_during_it`
   - `test_the_previous_attempt_is_the_sessions_and_a_session_less_one_reads_the_routers_gap`

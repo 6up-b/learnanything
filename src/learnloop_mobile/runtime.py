@@ -167,10 +167,6 @@ SUBMIT_METHODS = frozenset(capture.SUBMIT_METHODS)
 OPTIONAL_SINCE_RE0: tuple[str, ...] = ("active_seconds",)
 
 
-#: Request fields added after jobs were first hashed, left out of a request's canonical form while unset (``validate``).
-OPTIONAL_SINCE_RE0: tuple[str, ...] = ("active_seconds",)
-
-
 class HostRuntime:
     """The two workers and the jobs they run, for one pinned vault."""
 

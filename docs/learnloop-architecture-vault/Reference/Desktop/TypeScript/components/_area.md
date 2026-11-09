@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components"
-source_commit: "ec988ae03e20db860136ef7dc97571476f44e364"
-source_commit_timestamp: "2026-11-05T06:05:03-05:00"
+source_commit: "3d6205a33e36c3014eb4b9a48382ee128a8fc5b1"
+source_commit_timestamp: "2026-11-09T01:32:24-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -59,7 +59,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/ConceptAnimationSection|ConceptAnimationSection.tsx]] | `ACTIVE` | Provides the reusable `ConceptAnimationSection` interaction surface used by one or more desktop workflows. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/components/ConnectAI|ConnectAI.tsx]] | `ACTIVE` | Provides the reusable `ConnectAI` interaction surface used by one or more desktop workflows. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/components/DiagnosisCard|DiagnosisCard.tsx]] | `ACTIVE` | Provides the reusable `DiagnosisCard` interaction surface used by one or more desktop workflows. | 6 | 3 |
-| [[Reference/Desktop/TypeScript/components/DialogueProbe|DialogueProbe.tsx]] | `ACTIVE` | Provides the reusable `DialogueProbe` interaction surface used by one or more desktop workflows. | 8 | 1 |
+| [[Reference/Desktop/TypeScript/components/DialogueProbe|DialogueProbe.tsx]] | `ACTIVE` | Provides the reusable `DialogueProbe` interaction surface used by one or more desktop workflows. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/components/DockedAsk|DockedAsk.tsx]] | `ACTIVE` | Provides the reusable `DockedAsk` interaction surface used by one or more desktop workflows. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/components/ExemplarConfirmDialog|ExemplarConfirmDialog.tsx]] | `ACTIVE` | Provides the reusable `ExemplarConfirmDialog` interaction surface used by one or more desktop workflows. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/components/FacetIdentityPanel|FacetIdentityPanel.tsx]] | `ACTIVE` | Provides the reusable `FacetIdentityPanel` interaction surface used by one or more desktop workflows. | 3 | 1 |

@@ -519,6 +519,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
 - [tests/test_rbeq_pr2_landing.py](../../../../../tests/test_rbeq_pr2_landing.py) — direct import
+- [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
+  - `test_the_sidecar_carries_active_seconds_into_the_attempt_beside_its_latency`
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import
   - `test_a_card_written_from_a_photo_shows_the_photo_outside_a_check`
   - `test_a_purged_photo_is_not_offered`

@@ -1635,6 +1635,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_virtual_open_state_for_questioned_facet_without_row`
 - [tests/test_quick_add.py](../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_randomization_layer.py](../../../../../tests/test_randomization_layer.py) — direct import
+- [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
+  - `test_active_seconds_is_a_nullable_attempt_column_filled_after_the_row_and_never_blended_with_latency`
 - [tests/test_reader_active_reading.py](../../../../../tests/test_reader_active_reading.py) — direct import
 - [tests/test_reader_authoring.py](../../../../../tests/test_reader_authoring.py) — direct import
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import

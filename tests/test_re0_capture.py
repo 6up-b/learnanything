@@ -15,7 +15,7 @@ import pytest
 
 from learnloop.attempts.attempts import AttemptDraft, AttemptValidationError, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
-from learnloop.db.migrate import applied_versions, discover_migrations
+from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.stores import router_objective as receipts
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.vault.paths import VaultPaths
@@ -26,7 +26,10 @@ from learnloop.recognition import report as R
 from tests.test_exam_seeding import _exam_vault
 
 ROOT = Path(__file__).resolve().parents[1]
-NOW = datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
+HEAD = ROOT / "fixtures" / "migration_head_252" / "state.sqlite"
+#: What 252 alters (one column on a ledger table): earlier migrations' "nothing else changed" diffs on the way to head read this.
+RE0_ALTERED_TABLES = frozenset({"practice_attempts"})
+NOW =datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
 WINDOW_HOURS = 6.0
 SESSION_GAP = 60.0
 
@@ -167,6 +170,36 @@ def test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table(tmp_pa
         definition = connection.execute("SELECT sql FROM sqlite_master WHERE name = 'practice_attempts'").fetchone()[0]
         assert "active_seconds IS NULL OR active_seconds >= 0" in definition  # the CHECK that refuses a negative
     assert 252 in applied_versions(VaultPaths(loaded.root, loaded.config).sqlite_path)
+
+
+def test_the_head_fixture_holds_252_in_rollback_mode_with_no_active_seconds():
+    assert HEAD.read_bytes()[18:20] == b"\x01\x01"
+    assert max(applied_versions(HEAD)) == 252
+    with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
+        assert "active_seconds" in {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+        assert connection.execute("SELECT COUNT(*) FROM practice_attempts WHERE active_seconds IS NOT NULL").fetchone()[0] == 0
+
+
+def test_252_on_the_downgraded_head_adds_its_column_keeps_every_row_and_changes_nothing_else(tmp_path):
+    database = tmp_path / "state.sqlite"
+    with closing(sqlite3.connect(HEAD)) as source, closing(sqlite3.connect(database)) as target:
+        source.backup(target)
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute("ALTER TABLE practice_attempts DROP COLUMN active_seconds")
+        connection.execute("DELETE FROM schema_migrations WHERE version = 252")
+        connection.commit()
+        before = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
+        rows_before = connection.execute("SELECT * FROM practice_attempts ORDER BY id").fetchall()
+    with upgrade_allowance(UPGRADE_TEST_HELPER):
+        assert [migration.version for migration in apply_migrations(database)] == [252]
+    with closing(sqlite3.connect(database)) as connection:
+        after = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
+        assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        rows_after = connection.execute("SELECT * FROM practice_attempts ORDER BY id").fetchall()
+    assert set(after) == set(before)
+    assert {name for name in before if before[name] != after[name]} == RE0_ALTERED_TABLES
+    assert [row[:-1] for row in rows_after] == rows_before and all(row[-1] is None for row in rows_after)
 
 
 def test_a_database_below_252_records_the_attempt_and_the_fill_is_a_no_op():

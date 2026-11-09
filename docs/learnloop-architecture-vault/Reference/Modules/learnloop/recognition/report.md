@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/recognition/report.py"
 source_paths:
   - "src/learnloop/recognition/report.py"
-source_commit: "workspace/uncommitted @ HEAD cd6759fcb9e7c6a3877c0dd019a9c37b7305f90d"
-source_commit_timestamp: "2026-11-09T01:34:53-05:00"
-source_worktree_state: "modified"
+source_commit: "6999db60ab5a82143e3d6488193ebc9b96589ac4"
+source_commit_timestamp: "2026-11-09T02:21:17-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.recognition"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD cd6759fcb9e7c6a3877c0dd019a9c37b7305f90d` |
-| Commit timestamp | `2026-11-09T01:34:53-05:00` |
+| Worktree state | `clean` |
+| Source commit | `6999db60ab5a82143e3d6488193ebc9b96589ac4` |
+| Commit timestamp | `2026-11-09T02:21:17-05:00` |
 
 ## Public API
 
@@ -112,6 +112,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
+  - `test_an_attempt_with_an_unreadable_cue_stays_out_of_the_uncued_mean`
   - `test_the_capture_report_carries_the_section_and_stays_read_only`
   - `test_the_report_reads_imported_exam_answers_as_unlabelled_goal_date_reads`
   - `test_the_report_splits_method_selection_by_cue_reports_missing_and_never_imputes`
