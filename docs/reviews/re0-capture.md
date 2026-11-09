@@ -84,3 +84,12 @@ Migration **252** (`migrations/252_attempt_active_seconds.sql`): `ALTER TABLE pr
 ## Tests
 
 See the end of this file for the run numbers.
+
+### Run numbers (this branch, tip below)
+
+- `tests/test_re0_capture.py`: 31 passed with the catalog inventory (21 original + 1 window test + capture/inventory neighbours); alone 22.
+- Targeted Python (each `-n 4`, memory-capped): architecture, data-capture report, AD protected tables, table roles, RO migration, display-label audit (`test_sidecar_measurement`, `test_router_why_copy`, `test_key_ladder_labels`, `test_measurement_state_labels`, `test_rw5c_labels`), RPC contract, config refactor, sqlite file copies, mobile allowlist, registry audit, module catalog, serializer snapshot: 585 passed. Attempts, RO0 report/receipt files, teach-back, daily-plan RPC, phone contract and sidecar contract: 286 passed, 5 skipped.
+- **Head-pinned set** (91 files naming `migration_head_250`, `discover_migrations`, `applied_versions`): 1095 passed, 94 failed, 4 skipped, 2 xfailed. Every failure I inspected fails with `UncoordinatedMigrationError ... is at migration 250 and this LearnLoop needs migration 252`, or a pin of 250; I saved only the last 45 lines of the failure list, so the full list is the set above minus the passes, and only the first-listed 45 were individually named. They all clear with the head step. The same set at the base would be expected to pass; I did not run it at base.
+- `lint-imports --no-cache`: 43 kept, 0 broken.
+- CLI help snapshot: regenerated, passes.
+- Vitest, desktop: 277 files, 2794 passed. Phone: 29 files, 337 passed. Typecheck clean for both.
