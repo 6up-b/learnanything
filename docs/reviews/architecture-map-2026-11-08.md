@@ -9,9 +9,9 @@ LearnLoop is 1,268 Python files and 436,042 code lines (624,515 raw), up from ab
 **The five most costly findings:**
 
 1. **"Why x and not y" stops at failures, exclusions and joins (§4).** No id links input to reasoning to behaviour. The records that exist can be excellent: `ad_selections` and the router objective's trace store alternatives and probabilities. But a chooser crash drops the models' answers with no log line (`src/learnloop/daily_plan/engine.py:2671`), a timeout leaves no payload, model calls precede their decision's id and join only through JSON, and most exclusions aren't recorded. None of your four real cases can be fully answered from stored rows. "Why pre-builds started after 12 skips" can only be reconstructed: there is no 12 in the code.
-2. **Plumbing dwarfs the change (§9).** The 40 s timeout was 1 behaviour line, 46 digests and 12 test files. Router speed 2 touched 9 source files and 615 files in all, 593 of them generated notes. A new table renames a 48-file fixture and edits 68 pinned test files. A one-constant successor pins 36.
+2. **Plumbing dwarfs the change (§9).** The 40 s timeout was 1 behaviour line, 46 digests and 12 test files. Router speed 2 touched 9 source files and 615 files in all, 593 of them generated notes. A new table renames a 24-file fixture (22 files unchanged) and edits 68 pinned test files. A one-constant successor pins 36.
 3. **The top layer isn't a layer yet (§3.3, §5).** Choosing, job control, seeds, trace assembly and the wall clock share `daily_plan/objective_chooser.py`, and the objective's form shares an 860-line class with the rollouts. Swapping the mixing rule touched 13 source files for 47 lines of rule, and adding an action touched 20. Six sites answer "should we probe?", and two belief updates over locked hypotheses can disagree with nothing reconciling them (§4.4).
-4. **History costs more than it protects (§7.3, §11).** 40 root `*_upgrade.py` modules (replay imports none of them), 4,302 `mvp-0.N` literals, about 40 tag gates constant at any tag your vaults hold, and clones of the same upgrade helpers in about 20 modules. Tests that walk the chain from mvp-0.9 are the slowest family, 16% of test time, and grow with each tag. The whole suite took 59 minutes at `-n 8`.
+4. **History costs more than it protects (§7.3, §11).** 40 root `*_upgrade.py` modules (replay imports none of them), 4,302 `mvp-0.N` literals (285 in code; the rest are comments and docstrings), 79 tag gates constant at any tag your vaults hold, and clones of the same upgrade helpers in about 20 modules. Tests that walk the chain from mvp-0.9 are the slowest family, 16% of test time, and grow with each tag. The whole suite took 59 minutes at `-n 8`.
 5. **Persistence and imports defeat local reasoning (§1).** `Repository` has 943 methods and 406 importing modules. A 191-module import cycle spans 19 packages, and 2,949 of 9,262 import edges are hidden inside functions. Protection has one named authority and several other decision sites (B3).
 
 **Also worth your attention:**
@@ -25,6 +25,18 @@ LearnLoop is 1,268 Python files and 436,042 code lines (624,515 raw), up from ab
 **Deprecated inventory (§7.4):** 23 dead rows, plus 44 client methods with no caller and 64 unreferenced definitions; 7 superseded; 14 legacy-only; 3 owner-call. **Tables (§10):** 345 live, 26 derived and rebuildable, 24 retired but still read, 1 dead.
 
 **Limits (§13):** all four real cases postdate the only permitted copy (Nov 3), so those answers come from code, not rows. Deep and shallow are size heuristics, reachability is by name, and several rows were read by outline only. No test or model was run.
+
+## Corrections made in job 2 (Nov 9)
+
+The strategy (`docs/specs/refactor_strategy_v3.md`) checked the claims its steps rest on against the code, and corrected these rows in place, each marked "Corrected Nov 9". Its Appendix A has the full list:
+- the head fixture's rename is 24 files, not 48 (§9);
+- the `mvp-0.N` literals are mostly comments (§7.1);
+- `substrate_cutover` and several other "dead" modules are imported at runtime through the parameter registry (§7.4);
+- `ad_gates` and `client_contract` aren't dead (§7.4);
+- the default test vault runs at mvp-0.6 (§7.3), which this map missed;
+- the upgrade modules' importers, and S1 and D5's detail.
+
+Rows not listed were not re-checked unless the strategy's Appendix A says so.
 
 ## How to read this
 
@@ -229,7 +241,7 @@ Not traced: where router and AD outcomes are written after an attempt. They're r
 | D2 | medium | "Next" has several blocking waits stacked up: diagnoses, then the router job, then all components including advisory ones. A learner-visible delay can't be attributed from one record. | `src/learnloop_sidecar/handlers/queue.py:305`, `src/learnloop/daily_plan/router_runtime.py:165` |
 | D3 | medium | Two frontends reach the same domain code through different seams. MCP uses `remote/` and its own attach; the phone reuses sidecar handlers. Each has its own protection checks. | `src/learnloop/remote/runtime.py:99`, `src/learnloop_mobile/runtime.py:250` |
 | D4 | high | **Router speed target still unmet.** Next right after feedback stays above 2 s on the large copies (a pinned week on linear_algebra: median 2,676 ms, 16 of 21 above 2 s, against mvp-0.49's 2,250 ms and 25 of 30). The remainder is the numeric policy's per-draw arithmetic (about 468k draw-evaluator calls in about 34 profiled jobs), then SQLite reads (about 13 s of 110 s). After a 3 s dwell no Next is above 2 s on any copy. | `docs/reviews/router-speed2.md:380`, `:388`, `:458`; `src/learnloop/router_objective/value.py:1512` |
-| D5 | medium | **R4's cost.** A pooled connection on which a PRAGMA with an argument ran is closed at release, and `PRAGMA table_info(t)` is such a PRAGMA. There are 53 `table_info` sites in 39 files, including the objective's own paths, so each column check inside a job throws away a pooled connection. Measured opens per job went from 5 to 17 after R1-R4. Column checks are themselves compatibility code for older schemas. | `src/learnloop/db/connection.py:310`; `docs/reviews/router-speed2-codex-review.md:259`; `src/learnloop/router_objective/scores.py:199`, `src/learnloop/router_objective/checks.py:563`, `src/learnloop/daily_plan/router_card.py:447` |
+| D5 | medium | **R4's cost.** A pooled connection on which a PRAGMA with an argument ran is closed at release, and `PRAGMA table_info(t)` is such a PRAGMA. There are 54 `table_info` sites in 40 files (corrected Nov 9 from 53 and 39), including the objective's own paths, so each column check inside a job throws away a pooled connection. Measured opens per job went from 5 to 17 after R1-R4. Column checks are themselves compatibility code for older schemas. | `src/learnloop/db/connection.py:310`; `docs/reviews/router-speed2-codex-review.md:259`; `src/learnloop/router_objective/scores.py:199`, `src/learnloop/router_objective/checks.py:563`, `src/learnloop/daily_plan/router_card.py:447` |
 
 ## 3. Boundary crossings
 
@@ -346,7 +358,7 @@ Key: **R** a persisted row, **L** a log line only, **M** memory only, **-** noth
 
 | ID | Site | What's lost |
 |---|---|---|
-| S1 | `src/learnloop/daily_plan/engine.py:2671` | Any chooser exception, including a mixture error after the models answered, becomes `<error: Type>`. `router_record` is then `None`, so answers, trace and payloads are dropped. No log line. |
+| S1 | `src/learnloop/daily_plan/engine.py:2671` | Any chooser exception, including a mixture error after the models answered, becomes `<error: Type>`. `router_record` is then `None`, so the mix, trace and payloads are dropped, and the exception's message with them. No log line. **Corrected Nov 9:** a fallback row with `chooser_error` is written, and a finished call's answer survives in `model_call_receipts`. |
 | S2 | `src/learnloop/daily_plan/router_runtime.py:173` | An unanswered component becomes a synthetic timeout with no model or request payload. No log line. |
 | S3 | `src/learnloop/daily_plan/router_runtime.py:605`, `:695` | A provider failure stays in the result object. It persists only if a decision is drawn from that entry. |
 | S4 | `src/learnloop/daily_plan/router_chooser.py:304`, `src/learnloop/daily_plan/engine.py:2667` | A read whose key changes before serving leaves receipts with no decision row. |
@@ -558,7 +570,7 @@ The Oct 15 audit's scripts weren't in its backup directory, and radon and vultur
 | All four Python packages, code lines | about 291,000 | 436,042 | same definition of "code" |
 | Functions over 200 lines | 62 | 81 | |
 | Root `*_upgrade.py` | 12 (about 20 by the prompt) | 40, 8,215 lines | |
-| `mvp-0.N` literals in `src` | about 2,000 | 4,302, in 220 files | |
+| `mvp-0.N` literals in `src` | about 2,000 | 4,302, in 220 files | **Corrected Nov 9:** by tokenizer 3,070 are in comments (2,319 in `config/template.py`), 949 in docstrings, 285 in code strings |
 | Version-gate sites | about 397 | about 401 (regex, narrower than before) | not strictly comparable |
 | `*_active(` references | about 245 | 239 | |
 | Exact structural clone groups, functions of at least 8 lines | 105 groups, 4,068 redundant lines | 157 groups, 7,696 redundant lines | 107 outside `db/`, 6,336 lines, led by the `*_upgrade.py` modules |
@@ -619,7 +631,7 @@ The empirical-Bayes `item_parameter_state.b_mean` (migration 016) is the scalar'
 
 ### 7.3 Item 9: upgrade modules and version gates. Are they dead?
 
-**Replay doesn't need the upgrade modules. Upgrading an old vault does.** No `*_upgrade` module is imported by `substrate/`, `attempts/` or `db/`. Production importers are `src/learnloop/cli/app.py`, the next chain link, and two callers of `phone_probes_upgrade`.
+**Replay doesn't need the upgrade modules. Upgrading an old vault does.** No `*_upgrade` module is imported by `substrate/`, `attempts/` or `db/`. Production importers are `src/learnloop/cli/app.py`, the next chain link, and two callers of `phone_probes_upgrade`. **Corrected Nov 9:** 42 modules with `src/learnloop/ops/vault_upgrade.py` and `src/learnloop/diagnosis/recurrence/upgrade.py`; `src/learnloop/learner/recall_calibration.py:16` also imports two constants. An AST closure over every import, function-local included, from `substrate/rebuild_orchestrator`, `substrate/shadow_rebuild`, `substrate/canonical_projection`, `attempts/attempts`, `daily_plan/engine` and `ops/doctor` reaches none of the 42. But the CLI and sidecar install the chain's completion on every writing open (`src/learnloop/cli/runtime.py:138`, `src/learnloop_sidecar/context.py:810`), and a journal naming an earlier link walks the chain.
 
 | Modules | Tags | Needed by a vault at mvp-0.43 or later? |
 |---|---|---|
@@ -634,14 +646,14 @@ The empirical-Bayes `item_parameter_state.b_mean` (migration 016) is the scalar'
 
 **Coupling any removal must handle:**
 - Links import their predecessor at module top, and every version set is built from `SUCCESSOR_CHAIN` (`src/learnloop/algorithm_versions.py:880`). Old tag names are therefore also vocabulary for stored data (`src/learnloop/substrate/recurrence_groups.py:447`).
-- Tests start from old tags: `fixtures/migration_head_250/learnloop.toml` is at mvp-0.6, and 30 test files mention it.
+- Tests start from old tags: `fixtures/migration_head_250/learnloop.toml` is at mvp-0.6, and 30 test files mention it. **Added Nov 9, and larger:** `AlgorithmsConfig.algorithm_version` defaults to mvp-0.6 (`src/learnloop/config/schema.py:18`) and `create_basic_vault` pins it (`tests/helpers.py:79`). 437 test files use that vault, and 271 of them name no version, so they run a path below every real vault's tag.
 - The playbook requires the predecessor-to-successor path to be exercised.
 - `src/learnloop/substrate/compat/substrate_cutover.py:3` records a July 19 owner decision that pre-mvp-0.8 vaults aren't migrated, yet `upgrade_to_mvp07` and `upgrade_to_mvp08` remain (`src/learnloop/cli/app.py:303`, `:305`).
 
 **Does replay branch below mvp-0.43? Yes in code, but on the vault's current tag, not the row's tag.** On a vault at mvp-0.43 or later those branches are constant.
 - 79 tests use `in` or `not in` on a set whose floor is at or below 0.43, plus a tuple form at `src/learnloop/field/outcomes.py:290`.
 - About 40 are pure tag gates, whose else-branch can only run below the floor. Examples: `src/learnloop/substrate/canonical_projection.py:309`, `:652`; `src/learnloop/substrate/rebuild_orchestrator.py:443`; `src/learnloop/attempts/attempts.py:1430`, `:3607`, `:4526`; `src/learnloop/attempts/regrade.py:463`; `src/learnloop/ops/doctor.py:407`; `src/learnloop/learner/mastery.py:203`.
-- About 38 pair the tag with a kill switch, so the off-branch stays reachable at any tag (`src/learnloop/daily_plan/engine.py:145`, `src/learnloop/daily_plan/policy.py:42`, `src/learnloop/attempts/attempts.py:1385`). The hand count of these two groups is approximate.
+- About 38 pair the tag with a kill switch, so the off-branch stays reachable at any tag (`src/learnloop/daily_plan/engine.py:145`, `src/learnloop/daily_plan/policy.py:42`, `src/learnloop/attempts/attempts.py:1385`). The hand count of these two groups is approximate. **Corrected Nov 9:** the 79 and the 11 are confirmed by AST against the real chain (36 sets constant at 0.43 or later, 11 varying), but this split isn't reproducible: a syntactic pass finds about 10 paired and misses some (`src/learnloop/daily_plan/policy.py:42`). Read each site.
 - 11 tests on sets with floors above 0.43 can still be false at 0.43 to 0.53, 6 of them in `src/learnloop/router_objective_switches.py`.
 - `src/learnloop/substrate/shadow_rebuild.py:195` accepts `algorithms.algorithm_version=mvp-0.9`, so a shadow rebuild can be forced to a low tag.
 
@@ -671,14 +683,14 @@ The empirical-Bayes `item_parameter_state.b_mean` (migration 016) is the scalar'
 |---|---|---|---|---|---|---|
 | `eval_command` (undecorated copy) | utility | `src/learnloop/cli/app.py:4040` | 0 | `cli/field.py`, `cli/evaluation.py` | 0c63463ad4 Oct 12 | no |
 | `card_outcome_replay` | module, 261 lines | `src/learnloop/substrate/compat/card_outcome_replay.py:1` | 0; 2 test files | none | b322ef2e9b Aug 20 | not imported by rebuild; ADR-012 froze it |
-| `substrate_cutover` | module, 721 lines | `src/learnloop/substrate/compat/substrate_cutover.py:66` | 0 imports; path strings in `src/learnloop/params/parameter_registry.py:107`; 3 test files | canonical substrate | b322ef2e9b Aug 20 | not imported by rebuild; the registry names it |
+| `substrate_cutover` | module, 721 lines | `src/learnloop/substrate/compat/substrate_cutover.py:66` | **Corrected Nov 9: not 0.** `src/learnloop/params/parameter_registry.py:107` is an inventory that `_resolve_module_constant` (`:3150`) imports through `importlib`, so a deletion must remove its 2 `_reg_const` entries first; 3 test files | canonical substrate | b322ef2e9b Aug 20 | not imported by rebuild; the registry imports it at runtime |
 | `causal_migration` | module, 121 lines | `src/learnloop/diagnosis/causal_migration.py:42` | 0; 1 test file | none named | b322ef2e9b Aug 20 | no import |
 | `remediation_intake` | module, 34 lines | `src/learnloop/diagnosis/remediation_intake.py:1` | 0; 1 test file | none named | b322ef2e9b Aug 20 | no import |
 | `prequential` | module, 276 lines, "DESCOPED, U-025" | `src/learnloop/scheduling/prequential.py:1` | 0 imports | none | b322ef2e9b Aug 20 | no import |
-| `ad_gates` | module, 395 lines | `src/learnloop/sim/ad_gates.py:1` | 0; 1 test file | none named | 04d1b40e19 Nov 6 | no |
+| `ad_gates` | module, 395 lines | `src/learnloop/sim/ad_gates.py:1` | **Corrected Nov 9: not dead.** It and `src/learnloop/sim/ad_synthetic.py` (1,289 lines) are the library of `tests/test_ad23_sim.py`, the slowest test file (734 s). A test-usefulness question, not a removal | none named | 04d1b40e19 Nov 6 | no |
 | `interval_width_viability` | module, 150 lines | `src/learnloop/sim/interval_width_viability.py:1` | 0; 1 test file | none named | b322ef2e9b Aug 20 | no |
-| `progression_policy` | module | `src/learnloop/scheduling/progression_policy.py:1` | every def unreachable by name scan | none | not checked | not checked |
-| `client_contract` | module, 74 lines | `src/learnloop_mobile/client_contract.py:1` | 0; 1 test file, may be a pin by design | - | 7b11b0d67c Nov 6 | no |
+| `progression_policy` | module | `src/learnloop/scheduling/progression_policy.py:1` | **Corrected Nov 9:** imported at runtime by the registry (3 entries), as `substrate_cutover` is. Also unreachable by any static import from an entry, and missing from this table: `scheduling/progression.py` (3 entries), `scheduling/reentry_adapter.py` (2), `scheduling/predictive_targets.py` (1), `scheduling/short_session.py` (0) | none | not checked | not checked |
+| `client_contract` | module, 74 lines | `src/learnloop_mobile/client_contract.py:1` | **Corrected Nov 9: live as a tool.** `tests/test_mobile_phone_contract.py:49` generates and compares committed files with it | - | 7b11b0d67c Nov 6 | no |
 | Legacy HTTP transport | provider, 248 lines | `src/learnloop/ai/providers/codex_http.py:59` | Refused first at `src/learnloop/ai/client.py:82`; contradicts ADR-011's "retain" | chatgpt_plan | cfa028fa90 Oct 21 | replay doesn't read the provider |
 | RPCs with no frontend caller: `curriculum.cover`, `curriculum.cover_job` | RPC | `src/learnloop_sidecar/handlers/correspondents.py:367`, `:413` | tests only | none in UI | 52756865db Nov 4 | no |
 | `reader.followups_plan` | RPC | `src/learnloop_sidecar/handlers/reader_followups.py:221` | tests only | background `prepare_followups` | fe0ac0f01b Nov 1 | no |
@@ -883,11 +895,11 @@ Counted from git, comparing the commits named. **Digest and pin churn is separat
 | New input to model contexts, `4d995af688` (TE0) | signal | 565 lines | 11, across hints, tutor, diagnosis, router | 0 | not split | 0 | |
 | Feature indicator, `6681b88cea` (TE3b (3)) | signal | 130 lines | 5 | 0 | 1 | 0 | |
 | Merge pins, `dab159b1d1` | pure plumbing | 0 | 0 | 0 | 1 | **13** ("the pins the merge's first pass missed (14 tests)") | |
-| A new table, `53222a3c7f` + `2437f516e5` (IH3) | new table | about 830 lines | 10 | 95 lines | 2 | **68** | fixtures renamed and rebuilt: **48 files, 4,510 lines**; **481 generated notes**; 15 frontend files |
+| A new table, `53222a3c7f` + `2437f516e5` (IH3) | new table | about 830 lines | 10 | 95 lines | 2 | **68** | fixtures renamed and rebuilt: **24 files, of which 22 are unchanged (corrected Nov 9: `--no-renames` counted each twice as 48 files, 4,510 lines)**; **481 generated notes**; 15 frontend files |
 
 **For a one-line default:** 1 behaviour line, 46 digests, 12 test files. That's the owner's example, confirmed. The tests do `dumped["router"]["timeout_seconds"] = 8.0` before hashing, so each frozen test accumulates a growing preamble that undoes later defaults (`IH:tests/test_ro4_successor.py:90`).
 
-**Why it happens.** 49 test files reference a frozen snapshot or digest. `DEFAULTS_SNAPSHOT_BY_ALGORITHM` holds one digest per tag (`src/learnloop/config/template.py:845`), and any default change moves all of them. A successor's tag literal lives in `tests/test_mvp024_upgrade.py` and others: 193 test files mention a recent tag or `LATEST`, and 70 files name the fixture head's path, while CLAUDE.md says 5 such paths. The bare number `250` appears 102 times in 51 test files, though not all of those are the head.
+**Why it happens.** 49 test files reference a frozen snapshot or digest. `DEFAULTS_SNAPSHOT_BY_ALGORITHM` holds one digest per tag (`src/learnloop/config/template.py:845`), and any default change moves all of them. A successor's tag literal lives in `tests/test_mvp024_upgrade.py` and others: 193 test files mention a recent tag or `LATEST`, and 68 test files (70 lines) plus 3 scripts name the fixture head's path (corrected Nov 9 from "70 files"), while CLAUDE.md says 5 such paths. The bare number `250` appears 102 times in 51 test files, though not all of those are the head.
 
 **Who else is hit.** Each merged branch inherits this: router speed 2 merged main and needed its own golden re-record, and TE3a's merge needed `dab159b1d1`.
 
@@ -908,7 +920,7 @@ Counted from git, comparing the commits named. **Digest and pin churn is separat
 | Phone V4 (`5fe3a22558`..`phone/v4-reader`) | 150 | 22 | 51 | 0 | 9 | 1 | 0 | 61 | 4 | 1,857 |
 | IH, so far (`880e76deca`..`instruct/handoff`) | 711 | 39 | 23 | 1 | 21 | 87 | 48 | 481 | 8 | 2,512 |
 
-**Router speed 2 is the clearest case: 9 source files and 615 files in all, 593 of them generated vault notes, with no version change and no migration.** The landing commits say "provenance-only churn left out", which means the churn is frequent enough to need managing.
+**Corrected Nov 9:** each "48" in the Fixtures column is 24 files counted twice. **Router speed 2 is the clearest case: 9 source files and 615 files in all, 593 of them generated vault notes (499 of those changed only commit stamps), with no version change and no migration.** The landing commits say "provenance-only churn left out", which means the churn is frequent enough to need managing.
 
 ### 9.3 By kind of change
 
@@ -918,7 +930,7 @@ Counted from git, comparing the commits named. **Digest and pin churn is separat
 | A new switch | `schema.py`, `template.py`, `router_objective_switches.py`, `parameter_registry.py`; the reference's leaf count (`bf84a858c9` edits "the two prose leaf counts 1182 -> 1183") | Digests; if a serving switch, RO6's generator payload and a seed exclusion (B8) |
 | A prompt | 1 file plus a version bump | A golden for each switch-off parity test |
 | A new signal to a model | A reader, then each context builder separately: 11 files for TE0 | Input hash changes where inputs are hashed. Protection lists if it reads a guarded table |
-| A new table | Migration, roles, AD's two lists, store | The fixture renamed (48 files), 68 pinned tests, 481 generated notes |
+| A new table | Migration, roles, AD's two lists, store | The fixture renamed (24 files, 22 unchanged), 68 pinned tests, 481 generated notes |
 | A new algorithm tag | Constant, upgrade module, CLI dispatch, sidecar context, journal | 36 pinned tests, 46 plus one digests |
 | A new step in a pipeline | FG1 and IH2 each span many commits; not reduced to one number here | |
 | A model route | **Not measured.** `src/learnloop/ai/routing.py:34` holds 74 task names and `:178` 90 operations. No recent commit changes one route alone, so I can't count it from history. The plan-first transport changed routes wholesale (`b60e146f05`, 87 files) | |
@@ -928,7 +940,7 @@ Counted from git, comparing the commits named. **Digest and pin churn is separat
 | ID | Sev | Finding |
 |---|---|---|
 | H1 | high | Frozen digests make a one-line default a 20-file change, and this cost recurs at each merge, not only at the change. |
-| H2 | high | Migration and successor bookkeeping is the largest single share of many stages: the head fixture (48 files per migration), 36 to 87 pinned test files and hundreds of generated notes. Router speed 2's review needs reading past 593 generated files. |
+| H2 | high | Migration and successor bookkeeping is the largest single share of many stages: the head fixture (24 files per migration), 36 to 87 pinned test files and hundreds of generated notes. Router speed 2's review needs reading past 593 generated files. |
 | H3 | medium | A new model input has no common path: each context builder is separate (`src/learnloop/diagnosis/split/context.py`, `src/learnloop/tutor/tutor_qa.py:2090`, `src/learnloop/daily_plan/router_card.py:551`, `src/learnloop/hints/service.py:775`). |
 | H4 | medium | Goldens and digests detect a change after the fact, sometimes only at someone else's landing gate. |
 

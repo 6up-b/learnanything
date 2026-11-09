@@ -81,7 +81,7 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 
 | # | Problem | Evidence I checked myself | Arc |
 |---|---|---|---|
-| 1 | **Failures, exclusions and joins leave no answer to "why x and not y".** No id links input to reasoning to behaviour. | `daily_plan/engine.py:2671` turns any chooser exception into `<error: Type>` with no log and no message. `Prefetch.results` (`router_runtime.py:173`) writes a timeout with no payload. `objective_chooser.py:1371` mints the decision id after the model calls. `figures/prefetch_model.py:465`'s reason never reaches the row (`prefetch.py:1090`, no reason column), and `filter_candidates` (`prefetch.py:937`) drops candidates with a bare `continue`. O1-O3, S1-S15. | B |
+| 1 | **Failures, exclusions and joins leave no answer to "why x and not y".** No id links input to reasoning to behaviour. | `daily_plan/engine.py:2671` turns any chooser exception into `<error: Type>` with no log and no message. `Prefetch.results` (`router_runtime.py:173`) writes a timeout with no payload. `objective_chooser.py:1371` mints the decision id after the model calls. `figures/prefetch_model.py:465`'s reason never reaches the row (the row at `prefetch.py:1093` has no reason column), and `filter_candidates` (`prefetch.py:937`) drops candidates with a bare `continue`. O1-O3, S1-S15. | B |
 | 2 | **The plumbing is larger than the change, and most of it isn't protecting anything.** | All 46 snapshot digests are computed from today's schema with only the tag replaced (`config/template.py:4182`), so they hold one bit between them. Nothing in `src` reads them. 499 of router speed 2's 593 generated notes changed only commit stamps. 3,070 of the 4,304 `mvp-0.N` literals are comments, 2,319 of them in `template.py`; 285 are in code. H1, H2. | A, D |
 | 3 | **History is kept alive at a cost, and the test suite mostly checks it.** | No upgrade module is reachable from replay, even through function-local imports (proof in §2.5). Yet 90 tag gates exist, and 79 of them are constant at mvp-0.43 or later. **New finding:** `AlgorithmsConfig.algorithm_version` defaults to `mvp-0.6` (`config/schema.py:18`) and `create_basic_vault` pins it (`tests/helpers.py:79`). 437 test files use that vault, and 271 of them never mention a version. Much of the suite tests a path no vault of yours has. | D |
 | 4 | **The router's top layer isn't a layer.** | `_decide_objective` (`objective_chooser.py:1331`) reads the DB, mints ids, seeds, draws, flips the coin, assembles the trace and registers a background carry. `_Model` (`value.py:602`) holds the objective's ledger and the rollouts together. F1, F2, §3.3. | E |
@@ -471,7 +471,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 
 **G6. Protection: one predicate** (M) `[V4]`.
 - **Problem:** B3; D3. Figures, phone, plan and chat each carry their own checks. V4's landing needed a ruling because a check had drifted.
-- **Files:** `learner_protection.py:190`, `figures/prefetch.py:947`, `scheduling/device_eligibility.py:330`, `reader/phone_media.py:64`, `scheduling/serving_exclusions.py:131`, the 27 callers.
+- **Files:** `learner_protection.py:190`, `figures/prefetch.py:947`, `V4:scheduling/device_eligibility.py:330`, `V4:reader/phone_media.py:64`, `scheduling/serving_exclusions.py:131`, the 27 callers.
 - **Does:** each site asks `learner_protection` the "is this withheld" question, and adds only its own surface rule beside it. Fails closed everywhere. No new concept. The eligibility decision for serves stays separate, as it answers a different question.
 - **Proof:** the protection tests; a parity test of every site on a protected fixture, before and after. **Verify:** Codex adversarially, on leaks only. **Vault:** Privacy and Trust; a note on protection.
 
@@ -832,7 +832,7 @@ Measured at S0 and Z2 with one script and the same commands.
 | Upgrade and successor family | 4,364 test seconds, 16% (Nov 7) | under 3% |
 | Tests run on the served path | 271 files default to mvp-0.6 | 0 |
 
-The order: removals first (C1-C7, each with its tests), then D3 (the chain tests, the largest family), then D7 (predecessor-exact tests), then Z2. Nothing that a test proves is dropped without a named replacement, and each landing note says what still proves it.
+The order: removals first (C1-C7, each with its tests), then D3 (the chain tests, the largest family), then D7 (predecessor-exact tests), then Z2. Nothing that a test proves is dropped without a named replacement, and each landing note says what still proves it. The test branch has already run by then, so a second usefulness pass over what's left is the owner's call at Z2, not a planned step.
 
 **Inspectability**
 
