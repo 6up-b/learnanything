@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 import pytest
 
@@ -184,6 +187,40 @@ class _CopiesSqlite3:
 
 _db_copies.sqlite3 = _CopiesSqlite3()
 
+# A brand-new database costs 0.8 s (every migration's script) and about one test in twelve builds one. The first build
+# of each migration list in a process is the real one, and later ones in the fast lane copy it with this call's
+# applied_at. Durability-lane and `fresh_connections` tests always run the real path.
+_production_apply_fresh = _db_migrate._apply_fresh
+_built_schemas: dict[tuple, Path] = {}
+_real_open_paths = False
+
+
+def _lane_apply_fresh(sqlite_path, migrations, clock):
+    if _durability_active or _real_open_paths:
+        return _production_apply_fresh(sqlite_path, migrations, clock)
+    key = tuple((migration.version, migration.name, str(migration.path)) for migration in migrations)
+    built = _built_schemas.get(key)
+    if built is None:
+        applied = _production_apply_fresh(sqlite_path, migrations, clock)
+        cache = Path(tempfile.mkdtemp(prefix="fresh-schema-", dir=_TEMP_ROOT)) / "schema.sqlite"
+        atexit.register(shutil.rmtree, cache.parent, ignore_errors=True)
+        _db_copies.backup_database(sqlite_path, cache)
+        _built_schemas[key] = cache
+        return applied
+    tmp_path = sqlite_path.with_name(sqlite_path.name + ".tmp")
+    _db_migrate._remove_companion_files(tmp_path, include_database=True)
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    _db_copies.backup_database(built, tmp_path)
+    with sqlite3.connect(tmp_path) as connection:
+        connection.execute("PRAGMA synchronous=OFF")
+        connection.execute("UPDATE schema_migrations SET applied_at = ?", (_db_migrate.utc_now_iso(clock),))
+    connection.close()
+    _db_migrate._remove_companion_files(sqlite_path, include_database=False)
+    tmp_path.replace(sqlite_path)
+    return list(migrations)
+
+
+_db_migrate._apply_fresh = _lane_apply_fresh
 _db_connection.connect = _fast_test_connect
 _db_migrate.switch_to_wal = _lane_switch_to_wal
 for _module in list(sys.modules.values()):
@@ -319,6 +356,8 @@ def pytest_runtest_protocol(item, nextitem):
         or item.config.getoption("--fresh-connections")
         or any(item.get_closest_marker(name) is not None for name in ("durability", "owner_vaults", "fresh_connections"))
     )
+    global _real_open_paths
+    _real_open_paths = fresh
     if fresh:
         return (yield)
     pool = TestLanePool()
@@ -378,10 +417,21 @@ def migration_upgrade_allowed():
         yield
 
 
+def _selected_sources(session):
+    for path in {item.path for item in session.items}:
+        yield path.read_text(encoding="utf-8").lower()
+
+
 @pytest.fixture(scope="session", autouse=True)
-def basic_vault_template(tmp_path_factory):
+def basic_vault_template(request, tmp_path_factory):
     from tests import helpers
     global _durability_active
+    # A session of tests that never name a vault skips the 0.8 s build. It can't be built on first use instead: that
+    # first test's monkeypatches would end up inside every later copy. A wrong guess here is only slower, because
+    # create_basic_vault with no template builds the real vault itself.
+    if not any("vault" in source for source in _selected_sources(request.session)):
+        yield
+        return
     # Only fast-lane tests copy the template, so it is built in the session's
     # lane even when a durability test is the first to request it; otherwise
     # it would carry a WAL header into every fast-lane copy.

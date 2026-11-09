@@ -286,3 +286,54 @@ def test_the_fast_lanes_copy_target_and_fsync_skip_the_disk(tmp_path, monkeypatc
     copy = lane._db_copies.sqlite3.connect(tmp_path / "copy.sqlite")
     assert copy.execute("PRAGMA synchronous").fetchone()[0] == 0
     copy.close()
+
+
+def _schema_and_migrations(path: Path):
+    with closing(sqlite3.connect(path)) as connection:
+        return (
+            connection.execute("SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name").fetchall(),
+            connection.execute("SELECT version, name, applied_at FROM schema_migrations ORDER BY version").fetchall(),
+            connection.execute("PRAGMA journal_mode").fetchone()[0],
+        )
+
+
+def test_a_copied_fresh_schema_matches_a_built_one_and_stamps_this_builds_clock(tmp_path, monkeypatch):
+    """The lane's fresh-schema shortcut against the real build, on the same migrations and the same clock."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.clock import FrozenClock
+    from learnloop.db import migrate
+    import tests.conftest as lane
+
+    clock = FrozenClock(datetime(2031, 2, 3, 4, 5, tzinfo=UTC))
+    migrate.create_or_attach_current(tmp_path / "first.sqlite", clock=clock)  # may itself be the process's real build
+    migrate.create_or_attach_current(tmp_path / "copied.sqlite", clock=clock)
+    assert lane._built_schemas, "the second build must have a schema to copy"
+    copied = _schema_and_migrations(tmp_path / "copied.sqlite")
+    monkeypatch.setattr(lane, "_real_open_paths", True)
+    migrate.create_or_attach_current(tmp_path / "built.sqlite", clock=clock)
+    assert copied == _schema_and_migrations(tmp_path / "built.sqlite")
+    assert {row[2] for row in copied[1]} == {"2031-02-03T04:05:00Z"}
+    assert not (tmp_path / "copied.sqlite.tmp").exists()
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["built.sqlite", "copied.sqlite", "first.sqlite"]
+
+
+@pytest.mark.durability
+def test_the_durability_lane_builds_every_fresh_schema_for_real(tmp_path, monkeypatch):
+    from learnloop.db import migrate
+    import tests.conftest as lane
+
+    calls: list[Path] = []
+    production = lane._production_apply_fresh
+
+    def counted(path, migrations, clock):
+        calls.append(path)
+        return production(path, migrations, clock)
+
+    monkeypatch.setattr(lane, "_production_apply_fresh", counted)
+    migrate.create_or_attach_current(tmp_path / "a.sqlite")
+    migrate.create_or_attach_current(tmp_path / "b.sqlite")
+    assert len(calls) == 2
+    with closing(sqlite3.connect(tmp_path / "b.sqlite")) as connection:
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
