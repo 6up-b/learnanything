@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/App.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/app/App.tsx"
-source_commit: "73b4784e41d80a7cf71e7ce7892859b029c098ac"
-source_commit_timestamp: "2026-11-06T06:43:18-05:00"
+source_commit: "880e76decaed1c003c13535091d302f83dcf8cbe"
+source_commit_timestamp: "2026-11-08T18:32:35-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/App.tsx](../../../../../../apps/learnloop-tauri/src/app/App.tsx) |
-| Source lines | 2592 |
+| Source lines | 2593 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `73b4784e41d80a7cf71e7ce7892859b029c098ac` |
-| Commit timestamp | `2026-11-06T06:43:18-05:00` |
+| Source commit | `880e76decaed1c003c13535091d302f83dcf8cbe` |
+| Commit timestamp | `2026-11-08T18:32:35-05:00` |
 
 ## Activation and status evidence
 
@@ -280,17 +280,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId)` — const, line 2084
 - `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 2085
 - `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 2088
-- `const today = ( <TodayScreen key=` — const, line 2127
-- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2168
-- `function renderIngest()` — function, line 2193
-- `function renderProposals()` — function, line 2210
-- `function renderRegistry()` — function, line 2226
-- `function renderGolden()` — function, line 2241
-- `function renderMaintain()` — function, line 2264
-- `function renderUthTool(tool: UthToolId)` — function, line 2276
-- `function renderAfterGolden()` — function, line 2307
-- `const shellTree = ( <> <TerminalFrame active=` — const, line 2336
-- `function unique(values: Array<string | null>): string[]` — function, line 2590
+- `const today = ( <TodayScreen key=` — const, line 2128
+- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2169
+- `function renderIngest()` — function, line 2194
+- `function renderProposals()` — function, line 2211
+- `function renderRegistry()` — function, line 2227
+- `function renderGolden()` — function, line 2242
+- `function renderMaintain()` — function, line 2265
+- `function renderUthTool(tool: UthToolId)` — function, line 2277
+- `function renderAfterGolden()` — function, line 2308
+- `const shellTree = ( <> <TerminalFrame active=` — const, line 2337
+- `function unique(values: Array<string | null>): string[]` — function, line 2591
 
 ## Who imports or calls it
 

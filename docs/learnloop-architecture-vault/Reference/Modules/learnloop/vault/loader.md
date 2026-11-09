@@ -1113,7 +1113,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import
   - `test_a_nonsense_candidate_statement_is_never_rejected`
   - `test_an_eliciting_response_after_a_reveal_is_recorded_but_not_independent`
+  - `test_an_eliciting_response_after_the_factor_was_resolved_is_recorded`
   - `test_an_empty_eliciting_response_is_refused`
+  - `test_answering_the_question_first_leaves_the_one_tap_card_open`
   - `test_submit_eliciting_response_records_a_factor_response`
 - [tests/test_difficulty_band_guards.py](../../../../../../tests/test_difficulty_band_guards.py) — direct import
   - `test_diagnostic_plan_band_is_never_degenerate`

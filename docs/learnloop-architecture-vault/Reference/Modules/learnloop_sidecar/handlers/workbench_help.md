@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/workbench_help.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/workbench_help.py"
-source_commit: "5825048f775dc44bf0dc7d1a4b5bcaa1b0bf7b9f"
-source_commit_timestamp: "2026-10-22T16:23:31-04:00"
+source_commit: "5fe3a22558905593434e76e97a9375a41bf0354f"
+source_commit_timestamp: "2026-11-08T19:24:01-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,31 +53,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/workbench_help.py](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py) |
-| Source lines | 712 |
+| Source lines | 724 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5825048f775dc44bf0dc7d1a4b5bcaa1b0bf7b9f` |
-| Commit timestamp | `2026-10-22T16:23:31-04:00` |
+| Source commit | `5fe3a22558905593434e76e97a9375a41bf0354f` |
+| Commit timestamp | `2026-11-08T19:24:01-05:00` |
 
 ## Public API
 
-- `class WorkbenchCheckInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 176)
-- `workbench_check(ctx: SidecarContext, params: WorkbenchCheckInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 181) — "Check my work" (``Ctrl+K``, a job): the steps' verdicts, counted as one hint once shown.
-- `class SuggestHelpInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 208)
-- `suggest_help(ctx: SidecarContext, params: SuggestHelpInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 229) — Help opened (``Ctrl+H``): the five rungs at once, and the suggested rung when the chooser returns (a job; the ladder works without it).
-- `class RequestHelpInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 266)
-- `request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 285) — Take a rung (choose and take are separate keys on the ladder), reply to a hint or pick the book's way or a smaller step (a job).
-- `class HelpJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 357)
-- `help_job(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 533) — A check, suggestion, hint or bridge job's state, at once (never a wait).
-- `cancel_help(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 558) — Cancel a check or hint before it is shown: never delivered, its row stays unshown and counts nothing.
-- `class WorkbenchDiscriminateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 627)
-- `answer_discriminating(ctx: SidecarContext, params: WorkbenchDiscriminateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 634) — The learner's answer to a question before a hint (§5.8): an assist row on the question's step, never a step and never the submitted answer; it moves no posterior and writes no probe observation.
-- `class WorkbenchHelpStyleInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 652)
-- `set_help_style(ctx: SidecarContext, params: WorkbenchHelpStyleInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 658) — The header's help style for this problem only (D31); null follows the stored preference again.
-- `class WorkbenchHelpStateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 670)
-- `help_state(ctx: SidecarContext, params: WorkbenchHelpStateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 675) — What a resumed problem restores (§5.1 "the same assistance history"): the last shown check and every shown hint under its step.
+- `class WorkbenchCheckInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 179)
+- `workbench_check(ctx: SidecarContext, params: WorkbenchCheckInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 184) — "Check my work" (``Ctrl+K``, a job): the steps' verdicts, counted as one hint once shown.
+- `class SuggestHelpInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 211)
+- `suggest_help(ctx: SidecarContext, params: SuggestHelpInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 232) — Help opened (``Ctrl+H``): the five rungs at once, and the suggested rung when the chooser returns (a job; the ladder works without it).
+- `class RequestHelpInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 269)
+- `request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 288) — Take a rung (choose and take are separate keys on the ladder), reply to a hint or pick the book's way or a smaller step (a job).
+- `class HelpJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 360)
+- `help_job(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 540) — A check, suggestion, hint or bridge job's state, at once (never a wait).
+- `cancel_help(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 565) — Cancel a check or hint before it is shown: never delivered, its row stays unshown and counts nothing.
+- `class WorkbenchDiscriminateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 639)
+- `answer_discriminating(ctx: SidecarContext, params: WorkbenchDiscriminateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 646) — The learner's answer to a question before a hint (§5.8): an assist row on the question's step, never a step and never the submitted answer; it moves no posterior and writes no probe observation.
+- `class WorkbenchHelpStyleInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 664)
+- `set_help_style(ctx: SidecarContext, params: WorkbenchHelpStyleInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 670) — The header's help style for this problem only (D31); null follows the stored preference again.
+- `class WorkbenchHelpStateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 682)
+- `help_state(ctx: SidecarContext, params: WorkbenchHelpStateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 687) — What a resumed problem restores (§5.1 "the same assistance history"): the last shown check and every shown hint under its step.
 
 ### Module constants
 
@@ -94,27 +94,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `class _JobMeta` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 72)
-- `_jobs(ctx: SidecarContext) -> HintJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 78)
-- `_meta(ctx: SidecarContext) -> dict[str, _JobMeta]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 86)
-- `_guard(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 94) — The common switch guard of all eight RPCs: with ``workbench.help_enabled`` (or ``workbench.enabled``) off, refuse ``help_disabled`` before anything is read or changed (fix round 4, item 7: ``workbench.cancel_help`` too).
-- `_live_symbolic_switch(ctx: SidecarContext) -> Callable[[], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 105) — Fix round 12: the sidecar's CURRENT ``workbench.symbolic_checks_enabled`` (after a reload too), for a job that outlives a switch change.
-- `_require(ctx: SidecarContext, session_id: str, *, bound: bool=True, open_: bool=True)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 118)
-- `_start(ctx: SidecarContext, kind: str, session: dict[str, Any], item: Any, work: Callable[[Any, Callable[[], bool]], dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 140)
-- `_diagnostic_block(repository: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 147)
-- `_queue_stuck(ctx: SidecarContext, vault: Any, repository: Any, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 153) — In-session updates (§5.2): the stuck steps' newest text to learner-text gaps.
-- `_queue_text(ctx: SidecarContext, vault: Any, repository: Any, source_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 163)
-- `_hint_clients(ctx: SidecarContext) -> tuple[Any, Any, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 214)
-- `_context_labels(context: hint_workbench.WorkbenchHintContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 221)
-- `_immediate(result: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 361)
-- `class _RevealNotRecorded(Exception)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 365)
-- `_deliver(ctx: SidecarContext, meta: _JobMeta, assist_id: str, *, hint: bool) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 369) — Show a prepared workbench row; a hint's key overlap goes to the reveal ledger in the same transaction (a failed reveal shows nothing).
-- `_check_payload(ctx: SidecarContext, meta: _JobMeta, result: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 398)
-- `_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 413)
-- `_rw2c_fields_now(vault: Any, kind: str, result: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 506) — RW2c fix round 2 (3): a cached job result carries RW2c's fields only while their switches are on NOW (a reload may have turned them off since the job finished): a hint's example job, a bridge's draw and book, an example's draw.
-- `_record(ctx: SidecarContext, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 525)
-- `_start_bridge(ctx: SidecarContext, meta: _JobMeta, hint_assist_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 579) — "Compare with the book" (§5.2 bridging): in the background after a hint is shown in the Reader, never delaying it.
-- `_show_bridge(repository: Any, assist_id: str, *, kind: str=BRIDGE) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 615)
-- `_example_state(vault: Any, repository: Any, session: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 702)
+- `_jobs(ctx: SidecarContext) -> HintJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 81)
+- `_meta(ctx: SidecarContext) -> dict[str, _JobMeta]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 89)
+- `_guard(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 97) — The common switch guard of all eight RPCs: with ``workbench.help_enabled`` (or ``workbench.enabled``) off, refuse ``help_disabled`` before anything is read or changed (fix round 4, item 7: ``workbench.cancel_help`` too).
+- `_live_symbolic_switch(ctx: SidecarContext) -> Callable[[], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 108) — Fix round 12: the sidecar's CURRENT ``workbench.symbolic_checks_enabled`` (after a reload too), for a job that outlives a switch change.
+- `_require(ctx: SidecarContext, session_id: str, *, bound: bool=True, open_: bool=True)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 121)
+- `_start(ctx: SidecarContext, kind: str, session: dict[str, Any], item: Any, work: Callable[[Any, Callable[[], bool]], dict[str, Any]], *, book_way: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 143)
+- `_diagnostic_block(repository: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 150)
+- `_queue_stuck(ctx: SidecarContext, vault: Any, repository: Any, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 156) — In-session updates (§5.2): the stuck steps' newest text to learner-text gaps.
+- `_queue_text(ctx: SidecarContext, vault: Any, repository: Any, source_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 166)
+- `_hint_clients(ctx: SidecarContext) -> tuple[Any, Any, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 217)
+- `_context_labels(context: hint_workbench.WorkbenchHintContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 224)
+- `_immediate(result: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 364)
+- `class _RevealNotRecorded(Exception)` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 368)
+- `_deliver(ctx: SidecarContext, meta: _JobMeta, assist_id: str, *, hint: bool) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 372) — Show a prepared workbench row; a hint's key overlap goes to the reveal ledger in the same transaction (a failed reveal shows nothing).
+- `_check_payload(ctx: SidecarContext, meta: _JobMeta, result: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 401)
+- `_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 416)
+- `_rw2c_fields_now(vault: Any, kind: str, result: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 513) — RW2c fix round 2 (3): a cached job result carries RW2c's fields only while their switches are on NOW (a reload may have turned them off since the job finished): a hint's example job, a bridge's draw and book, an example's draw.
+- `_record(ctx: SidecarContext, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 532)
+- `_start_bridge(ctx: SidecarContext, meta: _JobMeta, hint_assist_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 586) — "Compare with the book" (§5.2 bridging): in the background after a hint is shown in the Reader, never delaying it.
+- `_show_bridge(repository: Any, assist_id: str, *, kind: str=BRIDGE, book_session_id: str | None=None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 624)
+- `_example_state(vault: Any, repository: Any, session: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/workbench_help.py), line 714)
 
 ## Who imports or calls it
 
@@ -137,7 +137,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/hints/state|learnloop.hints.state]] — imports `assemble_state`; calls `assemble_state`
 - [[Reference/Modules/learnloop/hints/workbench|learnloop.hints.workbench]] — imports `module`; calls `apply_context`, `current_map_for`, `deliver_workbench`, `reveal_basis`, `step_labels`, `suggest`, `symbolic_enabled`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
-- [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `module`; calls `log_help_offered`, `session_row`, `set_help_style`, `submission_id_for`
+- [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `module`; calls `count_book_passage`, `log_help_offered`, `session_row`, `set_help_style`, `submission_id_for`
 - [[Reference/Modules/learnloop/symbolic_view|learnloop.symbolic_view]] — imports `hint_result_view`, `switch`; calls `hint_result_view`, `switch`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `bridge_for_hint`; calls `bridge_for_hint`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `module`; calls `check_view`, `daily_envelope`, `hint_claim_verifier`, `run_check`, `session_calls`

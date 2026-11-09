@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/content/sources/source_refs.py"
 source_paths:
   - "src/learnloop/content/sources/source_refs.py"
-source_commit: "c040c980318012a2f941bd79741d340857125fad"
-source_commit_timestamp: "2026-10-13T22:15:42-04:00"
+source_commit: "880e76decaed1c003c13535091d302f83dcf8cbe"
+source_commit_timestamp: "2026-11-08T18:32:35-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,19 +51,19 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/source_refs.py](../../../../../../../src/learnloop/content/sources/source_refs.py) |
-| Source lines | 239 |
+| Source lines | 242 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c040c980318012a2f941bd79741d340857125fad` |
-| Commit timestamp | `2026-10-13T22:15:42-04:00` |
+| Source commit | `880e76decaed1c003c13535091d302f83dcf8cbe` |
+| Commit timestamp | `2026-11-08T18:32:35-05:00` |
 
 ## Public API
 
 - `class SourceRefPresentation` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 28) — Resolved source identity suitable for UI and CLI presentation.
-- `source_ref_presentation(vault, repository, ref) -> SourceRefPresentation` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 38) — Resolve one ref without changing its persisted provenance identity.
-- `source_ref_display_dto(vault, repository, ref) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 118) — Return a source-ref payload augmented with its human-facing name.
+- `source_ref_presentation(vault, repository, ref) -> SourceRefPresentation` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 40) — Resolve one ref without changing its persisted provenance identity.
+- `source_ref_display_dto(vault, repository, ref) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 121) — Return a source-ref payload augmented with its human-facing name.
 
 ### Module constants
 
@@ -73,16 +73,16 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_revision_for_ref(repository, ref) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 136)
-- `_note_for_ref(vault, ref, revision: Mapping[str, Any] | None)` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 157)
-- `_canonical_metadata(note) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 173)
-- `_is_file_source(kind: str | None, uri: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 181)
-- `_file_name(uri: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 192)
-- `_uri_label(uri: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 200)
-- `_first_heading(body: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 212)
-- `_text_field(value: Any, field: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 220)
-- `_clean_text(value: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 226)
-- `_repo_call(repository, method: str, *args)` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 233)
+- `_revision_for_ref(repository, ref) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 139)
+- `_note_for_ref(vault, ref, revision: Mapping[str, Any] | None)` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 160)
+- `_canonical_metadata(note) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 176)
+- `_is_file_source(kind: str | None, uri: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 184)
+- `_file_name(uri: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 195)
+- `_uri_label(uri: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 203)
+- `_first_heading(body: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 215)
+- `_text_field(value: Any, field: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 223)
+- `_clean_text(value: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 229)
+- `_repo_call(repository, method: str, *args)` ([source](../../../../../../../src/learnloop/content/sources/source_refs.py), line 236)
 
 ## Who imports or calls it
 
