@@ -640,6 +640,7 @@ source_modules = [
     "learnloop.reader",
     "learnloop.reader_learner_state",
     "learnloop.reading_path_plan_upgrade",
+    "learnloop.recognition",
     "learnloop.recurrence",
     "learnloop.regrade_contract_upgrade",
     "learnloop.replay_ledger_upgrade",
