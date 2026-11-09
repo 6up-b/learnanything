@@ -286,12 +286,12 @@ class _DownLLM(FakeLLM):
         super().__init__(answer=down)
 
 
-@pytest.mark.parametrize("version,toml,numeric,staged,rule,component", [
-    (TAG, "", 1.0, 0.0, "other_policy", "numeric"),
-    (TAG, "failure_share_to_other_policy = false\n", 0.2, 0.8, None, "staged"),
-    (OLD, "", 0.2, 0.8, None, "staged"),
+@pytest.mark.parametrize("version,toml,numeric,staged,rule,components", [
+    (TAG, "", 1.0, 0.0, "other_policy", {"numeric"}),
+    (TAG, "failure_share_to_other_policy = false\n", 0.2, 0.8, None, {"numeric", "staged"}),
+    (OLD, "", 0.2, 0.8, None, {"numeric", "staged"}),
 ])
-def test_a_real_chooser_with_the_llm_failing_logs_the_rule_it_drew_under(tmp_path, version, toml, numeric, staged, rule, component):
+def test_a_real_chooser_with_the_llm_failing_logs_the_rule_it_drew_under(tmp_path, version, toml, numeric, staged, rule, components):
     """The review's m9: the table above, through a real chooser and a logged decision, not only the mix's own functions."""
 
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=_DownLLM()), version=version,
@@ -309,7 +309,8 @@ def test_a_real_chooser_with_the_llm_failing_logs_the_rule_it_drew_under(tmp_pat
     weights = logged["effective_weights"]
     assert weights.get("numeric", 0.0) == pytest.approx(numeric) and weights.get("staged", 0.0) == pytest.approx(staged)
     assert logged.get("failure_rule") == rule
-    assert logged["drawn_component"] in (component, "uniform")  # the seed may land on the floor, which every row keeps
+    # The seed is fresh each run, so it may land on either share or the floor, which every row keeps; never on the LLM.
+    assert logged["drawn_component"] in {*components, "uniform"}
     recomputed = mix.recompute(logged)
     for entry in decided[-1]["candidates_json"]:
         if entry["ref"] in recomputed:
