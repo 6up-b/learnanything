@@ -242,10 +242,86 @@ def test_resuming_it_in_this_session_makes_it_count(tmp_path):
     assert step["kind"] == E.QUESTION_IN_PROGRESS_STEP and step["workbench_session_id"] == old["id"]
 
 
-def test_with_no_session_open_nothing_holds(tmp_path):
+def test_with_no_session_open_a_practice_screens_problem_holds_nothing(tmp_path):
+    """A practice screen's problem belongs to a practice session: with none open it holds nothing (decision 3 is about a
+    Reader problem)."""
+
     env = _env(tmp_path, toml=QUIET, session_id=None)
     env.session_id = None
     _open_workbench(env, sorted(env.vault.practice_items)[0])
+    _record, step = advance(env, serve=False)
+    assert step["kind"] != E.QUESTION_IN_PROGRESS_STEP and rows(env, "plan_block")
+
+
+def _reader_problem(env) -> dict[str, Any]:
+    row, _resumed = WB.open_session(env.repository, origin="reader", entry="work_through", stem_md="Selected words.",
+                                    extraction_id="ext1", span_ids=["s1"], import_status="pending", clock=env.clock)
+    return row
+
+
+def test_with_no_session_open_a_reader_problem_touched_today_holds(tmp_path):
+    """The owner's decision 3 (Nov 9): with no practice session open, an open Reader problem holds a read, if it was
+    touched on the plan's current day."""
+
+    env = _env(tmp_path, toml=QUIET, session_id=None)
+    env.session_id = None
+    row = _reader_problem(env)
+    counts = _counts(env)
+    record, step = advance(env, serve=False)
+    assert step["kind"] == E.QUESTION_IN_PROGRESS_STEP and step["workbench_session_id"] == row["id"]
+    # The day's first read builds a plan with no block (the shape a pending decision leaves) and decides nothing.
+    assert not record.blocks and not rows(env, "plan_block")
+    assert {k: v for k, v in _counts(env).items() if k != "daily_plans"} == \
+        {k: v for k, v in counts.items() if k != "daily_plans"}
+
+
+def test_with_no_session_open_a_reader_problem_from_an_earlier_day_holds_nothing(tmp_path):
+    """The plan's own day boundary (its ``local_date``'s start), not a new time constant."""
+
+    env = _env(tmp_path, toml=QUIET, session_id=None)
+    env.session_id = None
+    _reader_problem(env)
+    env.clock.advance(24 * 60 + 1)
+    assert E.open_workbench(env) is None
+    _record, step = advance(env, serve=False)
+    assert step["kind"] != E.QUESTION_IN_PROGRESS_STEP and rows(env, "plan_block")
+
+
+def test_with_no_session_open_working_an_earlier_days_reader_problem_today_makes_it_count(tmp_path):
+    env = _env(tmp_path, toml=QUIET, session_id=None)
+    env.session_id = None
+    row = _reader_problem(env)
+    env.clock.advance(24 * 60 + 1)
+    WB.resume_session(env.repository, row["id"], origin="reader", entry="resume", clock=env.clock)
+    assert (E.open_workbench(env) or {}).get("id") == row["id"]
+
+
+def test_with_no_session_open_a_serve_still_decides_over_a_reader_problem(tmp_path):
+    env = _env(tmp_path, toml=QUIET, session_id=None)
+    env.session_id = None
+    _reader_problem(env)
+    _record, step = advance(env, serve=True)
+    assert step["kind"] != E.QUESTION_IN_PROGRESS_STEP and rows(env, "plan_block")
+
+
+def test_with_a_session_open_a_reader_problem_from_before_it_still_holds_nothing(tmp_path):
+    """Decision 3 is only for no session open: with one open, membership stays the session's (§7b item 5)."""
+
+    env = _env(tmp_path, toml=QUIET, session_id=None)
+    env.session_id = None
+    _reader_problem(env)
+    env.clock.advance(5)
+    _start_session(env)
+    assert E.open_workbench(env) is None
+
+
+@pytest.mark.parametrize(("version", "toml"), [(TAG, OFF), (OLD, "[router_objective]\nstop_coin = 0.0\n")],
+                         ids=["switch_off", "below_the_tag"])
+def test_off_or_below_the_tag_a_reader_problem_with_no_session_holds_nothing(tmp_path, version, toml):
+    env = _env(tmp_path, version=version, toml=toml, session_id=None)
+    env.session_id = None
+    _reader_problem(env)
+    assert E.open_workbench(env) is None
     _record, step = advance(env, serve=False)
     assert step["kind"] != E.QUESTION_IN_PROGRESS_STEP and rows(env, "plan_block")
 

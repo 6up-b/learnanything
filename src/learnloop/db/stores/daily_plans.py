@@ -293,20 +293,25 @@ def open_learner_state_hypotheses(
     return open_rows
 
 
-def open_workbench_since(connection: sqlite3.Connection, started_at: str) -> dict[str, Any] | None:
+def open_workbench_since(connection: sqlite3.Connection, started_at: str, *,
+                         origin: str | None = None) -> dict[str, Any] | None:
     """IH6 (spec_instruct_handoff_v1 §7b): the newest workbench problem a practice session that started at ``started_at``
     holds open, or None. Read-only.
 
     ``workbench_sessions.practice_session_id`` is only filled at submit, so an open problem names no session. It belongs
     to this one when the learner opened, resumed or worked it since the session started. Status alone would not do: a
     problem stays ``open`` for weeks after "Leave for now". One whose item was answered since (on the answer box, which
-    leaves the problem open and resumable) has no question in progress."""
+    leaves the problem open and resumable) has no question in progress.
+
+    ``origin`` (the owner's decision 3 of Nov 9): only a problem worked there now (``'reader'``: a Reader problem), for
+    the read with no practice session open, where ``started_at`` is the start of the plan's day."""
 
     row = connection.execute(
         "SELECT w.id, w.practice_item_id FROM workbench_sessions w WHERE w.status = 'open' AND w.updated_at >= ? "
-        "AND NOT EXISTS (SELECT 1 FROM practice_attempts a WHERE a.practice_item_id = w.practice_item_id "
+        + ("AND w.origin = ? " if origin is not None else "")
+        + "AND NOT EXISTS (SELECT 1 FROM practice_attempts a WHERE a.practice_item_id = w.practice_item_id "
         "AND a.created_at >= w.updated_at) ORDER BY w.updated_at DESC, w.id DESC LIMIT 1",
-        (started_at,),
+        (started_at, *((origin,) if origin is not None else ())),
     ).fetchone()
     return dict(row) if row is not None else None
 

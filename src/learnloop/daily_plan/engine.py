@@ -5100,7 +5100,12 @@ QUESTION_IN_PROGRESS_STEP = "question_in_progress"
 def open_workbench(env: PlanEnv) -> Mapping[str, Any] | None:
     """IH6 (spec_instruct_handoff_v1 §7b): the workbench problem open in the plan's current practice session, or None
     (always None off, or below the tag). The current session is the one this call names while it is open, else the
-    vault's open one (there is at most one: ``start_session_exclusive``). With none open, nothing holds."""
+    vault's open one (there is at most one: ``start_session_exclusive``).
+
+    With none open (the owner's decision 3 of Nov 9), an open Reader problem holds, but only one touched on the plan's
+    current day: opened, resumed or worked since the start of the plan's ``local_date`` (:func:`local_day_start_iso`, the
+    day the plan already uses). No new time constant: a problem from an earlier day holds nothing, and a practice
+    screen's problem belongs to a session, so with none open it holds nothing either."""
 
     from learnloop.router_objective_switches import workbench_is_open_item_on
 
@@ -5109,9 +5114,9 @@ def open_workbench(env: PlanEnv) -> Mapping[str, Any] | None:
     session = env.repository.fetch_session(env.session_id) if env.session_id else None
     if session is None or session.get("ended_at") is not None:
         session = env.repository.most_recent_open_session()
-    if session is None:
-        return None
     with env.repository.connection() as connection:
+        if session is None:
+            return store.open_workbench_since(connection, local_day_start_iso(env.clock), origin="reader")
         return store.open_workbench_since(connection, str(session["started_at"]))
 
 
