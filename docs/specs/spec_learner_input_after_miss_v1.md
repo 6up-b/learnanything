@@ -21,7 +21,7 @@ A miss can now produce one extra question, of one of two kinds, and never both.
 
 Items that keep needing the first question get proposed for rewording. Marks and the learner's own words start to weigh on what the router expects each cause to be, by a learned amount that starts at nothing.
 
-No screen is added on most misses. On the rest, one question is added and takes one tap to skip.
+On any miss, at most one question is added, and it takes one tap to skip.
 
 ## 3. The direct prompt
 
@@ -34,7 +34,7 @@ No screen is added on most misses. On the rest, one question is added and takes 
 - FG1's workflow owns the attempt, so there is something held and a diagnosis to feed;
 - no rubric follow-up was asked on this attempt (§8's one-question rule).
 
-**Why the grader and not the diagnoser.** The diagnoser runs afterwards in a strictly ordered worker (`post_attempt_worker.py:3`), and it is the consumer of these words. Reading first with the diagnoser would mean two diagnoser calls, or a box that appears late. The grader's call has already happened, and the reading is an output of that call, so nothing about the learner reaches the grader.
+**Why the grader and not the diagnoser.** The diagnoser runs afterwards in a strictly ordered worker (`learnloop_sidecar/post_attempt_worker.py`), and it is the consumer of these words. Reading first with the diagnoser would mean two diagnoser calls, or a box that appears late. The grader's call has already happened, and the reading is an output of that call, so nothing about the learner reaches the grader.
 
 **It isn't asked** on:
 
@@ -51,37 +51,30 @@ An embedded cold check does get the box. It can't change the measurement, since 
 
 The prompt appears on the feedback screen, below the verdict and criteria, while FG1 §6.0 holds the worked answer, causes and repairs. To keep them held for as long as the box is open, **a pending prompt defers the diagnosis**: the job releases itself with a new reason, `learner_input_pending`, through the worker's existing not-ready path (`diagnosis/split/jobs.py:405`, `:758`), refunding the budget as that path does. With no hypotheses yet, the workflow stays pending and holds what it holds. So the diagnoser reads the words on its first and only pass, and no re-diagnosis is needed.
 
-The prompt settles on the first of: Send; *Not now*; Next (which also sends any text typed, so nothing is lost); any later serve on any device; the startup sweep (beside `expire_clarifications`, `ops/startup.py:53`). No timer. If the learner walks away, nothing is waiting on the job. FG1's `next_item_wait_seconds` starts at settlement, so Next never waits on the learner's own box.
+The prompt settles on the first of: Send; *Not now*; Next (which also sends any text typed, so nothing is lost); any later serve on any device; the startup sweep (beside `expire_clarifications`, `ops/startup.py:53`). No timer. If the learner walks away, nothing is waiting on the job. FG1's `next_item_wait_seconds` starts at settlement, so Next never waits on the learner's own box. Criteria on screen may shape the words. That's acceptable: the words are an opinion, not a measurement.
 
-Criteria are already on screen and may shape the words. That is acceptable: the words are an opinion, not a measurement.
-
-### 3.3 What it looks like, and what a first-time learner sees
-
-One line, one box, two ways out:
+**What it looks like, including to a first-time learner:** one line, one box, two ways out.
 
 > What do you think went wrong, or what isn't clear yet? *Optional. This doesn't change your grade.*
 
 *Not now* is one tap, and Next works too. First-time learners see exactly this: there is no tutorial, and nothing says "hypothesis" or "diagnoser".
 
-### 3.4 Where the words go
+### 3.3 Where the words go
 
 - **Stored** in a new RAW_LEDGER table `learner_stated_reasons`: attempt, text, surface, disposition (`answered`, `dismissed`, `ignored`), time.
 - **To the diagnoser** as an attributed block, in the shape of `learner_marks` (`diagnosis/split/context.py:119`, `:164`; `split/live.py:199-213`), on this attempt and as history on later ones.
-- **To the learner-text gaps pipeline** as a new source (`diagnosis/text_gaps/sources.py`), per the Oct 12 rule.
-- **To the hypothesis weights** through the diagnoser's fit reading (§7).
-- **To the router's LLM card** as the learner's own statement, beside marks (`daily_plan/router_card.py:703`).
-- **Never to the grader.** `BlindGradingContext` has no field for it (`attempts/blind_grading.py:1-17`). A test pins the payload's bytes with and without a stated reason.
-- **Never to AD's state, evidence or certification.** A12 limit 1 keeps answer text out of AD's state, and this is answer text.
+- **To the learner-text gaps pipeline** as a new source (`diagnosis/text_gaps/sources.py`), per the Oct 12 rule; **to the hypothesis weights** through the diagnoser's fit reading (§7); **to the router's LLM card** as the learner's own statement, beside marks (`daily_plan/router_card.py:703`).
+- **Never to the grader.** `BlindGradingContext` has no field for it (`attempts/blind_grading.py:1-17`). **Never to AD's state, evidence or certification:** A12 limit 1 keeps answer text out of AD's state, and this is answer text.
 
-### 3.5 Other questions on the same screen
+### 3.4 Other questions on the same screen
 
 - **Stuck text** stays as it is, and its `stuck_confusion` signal is unchanged.
 - **The eliciting question** (`FeedbackScreen.tsx:280`) is a repair, so it is held until release. The prompt settles before diagnosis, so the two can't share a screen.
 - **IH3's "Something else would help"** stays one quiet link. It asks what would help next; this asks what went wrong. They write to different tables, and neither pre-fills the other.
 
-### 3.6 Watching the skip rate
+### 3.5 Watching the skip rate
 
-`learnloop data-capture report` gains a section (`ops/capture_report.py`): asked, answered, dismissed and ignored; by device; by position in the session, which is the nearest thing to "tired" we record; and, for answered ones, how often the words' fit agreed with a discriminating probe. There is no throttle. A rate rule would be a made-up number, and hiding the box would hide the signal, which is `clarification.py:61-66`'s reasoning too. The response to a bad number is the owner's: the kill switch or a change of wording.
+`learnloop data-capture report` gains a section (`ops/capture_report.py`): asked, answered, dismissed and ignored; by device; by position in the session, which is the nearest thing to "tired" we record; and, for answered ones, how often the words' fit agreed with a discriminating probe. There is no throttle. A rate rule would be a made-up number, and hiding the box would hide the signal, which is `clarification.py:60-65`'s reasoning too. The response to a bad number is the owner's: the kill switch or a change of wording.
 
 ## 4. The rubric follow-up
 
@@ -102,7 +95,7 @@ One line, one box, two ways out:
 | `wording_quote`, if given, is verbatim in the question | Item | Item repair reads it (§6) |
 | The question passes §4.2 | Text | |
 
-Each drop writes a record with its rule (§9.6), so "why wasn't I asked?" has an answer. The A8 validator's silent drop stays for its own triggers.
+Each drop writes a record with its rule (§9.5), so "why wasn't I asked?" has an answer. The A8 validator's silent drop stays for its own triggers.
 
 ### 4.2 Not giving the answer away
 
@@ -115,13 +108,11 @@ Each drop writes a record with its rule (§9.6), so "why wasn't I asked?" has an
 
 ### 4.3 When
 
-Before feedback, not on the feedback card, so the learner hasn't been told the answer is wrong. This is a new step between submit and the feedback route (desktop `app/App.tsx:2094`; phone `apps/learnloop-mobile/src/App.tsx:792`, `practice/QuestionScreen.tsx:364`). Submit's reply carries the question and nothing else about the grade. The step doesn't call `get_feedback`, the door that writes display exposures (`learnloop_sidecar/handlers/feedback.py:270`, `:829`).
-
-The first `get_feedback` on the attempt settles a pending follow-up as `ignored`, because the grade is about to be shown and a question after it would be primed. A later serve and the startup sweep settle it too. A pending follow-up defers diagnosis and the workflow as §3.2 does, so neither runs on a grade that's about to change. A8's hedged-grade questions stay on the feedback card (`FeedbackScreen.tsx:1392`).
+Before feedback, not on the feedback card, so the learner hasn't been told the answer is wrong. This is a new step between submit and the feedback route (desktop `app/App.tsx:2094`; phone `apps/learnloop-mobile/src/App.tsx:792`, `practice/QuestionScreen.tsx:364`). Submit's reply carries the question and nothing else about the grade. The step doesn't call `get_feedback`, the door that writes display exposures (`learnloop_sidecar/handlers/feedback.py:270`, `:829`). The first `get_feedback` on the attempt settles a pending follow-up as `ignored`, because the grade is about to be shown and a question after it would be primed. A later serve and the startup sweep settle it too. A pending follow-up holds back the rest of the post-attempt pipeline (`run_post_attempt_pipeline`, `attempts/post_attempt.py:89`: the workflow at `:165` and the diagnosis) until settlement, under the existing resumable completion record, so neither runs on a grade that's about to change. A skipped follow-up then opens the workflow as usual, and §8's rule stops the prompt. A8's hedged-grade questions stay on the feedback card (`FeedbackScreen.tsx:1392`).
 
 ### 4.4 How many
 
-**One, from structure.** The proposal has one `clarification_request` field, the table has `UNIQUE(attempt_id)` (migration 142), and the re-grade's prompt says not to ask again (`blind_grading.py:403`), so a second request is dropped (`clarification.py:159-165`). A8 and this channel share that one slot. One question may name several criteria only when one wording gap explains them. A second, separate gap stays missed, with no made-up cap to tune.
+**One, from structure.** The proposal has one `clarification_request` field, the table has `UNIQUE(attempt_id)` (migration 142), and the re-grade's prompt says not to ask again (`blind_grading.py:403`), so a second request is dropped (`clarification.py:162-166`). A8 and this channel share that one slot. One question may name several criteria only when one wording gap explains them. A second, separate gap stays missed, with no made-up cap to tune.
 
 ### 4.5 Appending, and the re-grade
 
@@ -135,11 +126,10 @@ The first `get_feedback` on the attempt settles a pending follow-up as `ignored`
 | Answer earns nothing | No epoch is published. Outcome `no_credit`, and the provisional grade stands. The reply still reaches the diagnoser, so a wrong reply is information, not a second penalty |
 | *Skip this* | Outcome `dismissed`. Provisional stands; no grade is written |
 | Ignored (leaves; first feedback, later serve, sweep) | Outcome `ignored`. Same, as A8's timeout arm does (`clarification.py:424-433`) |
-| Grader down when sent | The reply is saved first (`clarification.py:238-246`), state `awaiting_regrade`. Feedback shows the provisional grade and *Your reply is saved; the grade updates when grading is back*. `resolve_awaiting_regrades` drains it at startup |
-| Re-grade fails | `regrade_failed`, same line, same queue. Next is never blocked |
+| Grader down when sent, or re-grade fails | The reply is saved first (`clarification.py:252`), state `awaiting_regrade` or `regrade_failed`. Feedback shows the provisional grade and *Your reply is saved; the grade updates when grading is back*. `resolve_awaiting_regrades` drains it at startup. Next is never blocked |
 | Re-grade lands after feedback was shown | The grade updates. The superseding blind record retires the old diagnosis and queues a new one (`regrade.py:478-483`). FG1 §5's rule holds: a late result adds no second intervention |
 
-The provisional grade reaches the ledger at submit, as A8's does, and a credited re-grade replays the topic. The window is seconds, unless the regrade queue holds it.
+The provisional grade reaches the ledger at submit, as A8's does, and a credited re-grade replays the topic.
 
 ### 4.6 Where it is off
 
@@ -161,61 +151,51 @@ The provisional grade reaches the ledger at submit, as A8's does, and a credited
 
 ## 5. Credit
 
-**The learner's grade shows one thing; the records say another.** Everything below reads one learned number, `ρ`, and §5.2 shows why none of it can become a cold success.
-
-### 5.1 What each part receives
+**The learner's grade shows one thing; the records say another.** Everything below reads one learned number, `ρ`, and §5.1 shows why none of it can become a cold success.
 
 | Part | Receives on a credited follow-up | Source of the value |
 |---|---|---|
 | **The grade the learner sees** | Named criteria credited; score `y1`; *One part came from your follow-up*. It may read as right | The re-grade |
 | **Mastery and facet recall** | The observation at mass `ρ` instead of 1 | `ρ` below, recorded on the receipt and read through the seam lesson checks use (`learner/lesson_weight.py:901`, `attempts/attempts.py:4553`; `facet_evidence_timeline.py:650`'s override) |
-| **AD's state** | A soft factor: `ρ·P(Y=2 | η) + (1−ρ)·P(Y=1 | η)`, floored by §5.2 (D3) | The same `ρ`. AD's update already takes non-point factors: `CENSORED` reads `P(Y ≤ 1)` (`adaptive_difficulty/model.py:73`). No second `γ`; this is one presentation |
-| **FSRS** | Rating from `y1`, at most Good, or the item's own one-hint cap if it has one (`fsrs_rating_cap_by_hint`) | Structural: a success with help isn't Easy. Default hint policy is empty (`vault/models.py:396-400`), so without this it would be uncapped. One helper at the five call sites (`attempts.py:4731`, `field/outcomes.py:668`, `reader_followups.py:582`, `review_log.py:108`, `evaluation.py:341`) |
+| **AD's state** | A soft factor: `ρ·P(Y=2 | η) + (1−ρ)·P(Y=1 | η)`, floored by §5.1 (D3) | The same `ρ`. AD's update already takes non-point factors: `CENSORED` reads `P(Y ≤ 1)` (`adaptive_difficulty/model.py:73`). No second `γ`; this is one presentation |
+| **FSRS** | Rating from `y1`, at most Good, or the item's own one-hint cap if it has one (`fsrs_rating_cap_by_hint`) | Structural: a success with help isn't Easy. The default hint policy has no cap, so this is new. One helper at the five call sites (`attempts.py:4731`, `field/outcomes.py:668`, `instructional/reader_followups.py:582`, `scheduling/review_log.py:108`, `scheduling/evaluation.py:341`) |
 | **Certification** | Nothing, for the whole attempt | The existing rule: assisted attempts certify nothing (`causal_activity_policy.py:182`, `capability_mapping.py:263`). Cost: §11 D4 |
 | **Router's estimates** | Nothing directly. Its rollouts read AD's belief and FSRS memory, so they move as above. Nothing reads the reply or `ρ` | |
-| **Forecast scoring** | The label is unchanged (§5.2) | |
+| **Forecast scoring** | The label is unchanged (§5.1) | |
 | **Nothing credited, or skipped** | Exactly the provisional grade, at full mass, as an unaided answer | |
 
 **`ρ`: seeded, then learned.** `ρ = σ(η)`, `η = η₀ + u_L`.
 
-- **Seed.** `η₀ ~ N(logit 0.8, 1²)`, basis `legacy`: the centre is `teach_back`'s configured mass (`config/schema.py:1836`), the existing value for "high-quality generative evidence, but in a dialogue, so less than a full independent attempt". The width is the LP spec's rule for legacy priors (≥ 1 logit). I passed over the hint values: the default dampening is empty, so there's no real number to seed from, and `reconstruction_after_walkthrough`'s 0.5 follows being taught the answer.
-- **`u_L`** is the per-LO offset, with the τ grid exactly as `spec_teacher_v1.md` §12.1 has it.
-- **Learned** with that section's estimator, as a second family in `learner/lesson_weight.py`, with its own posterior: only from later cold, unassisted, unprimed first attempts on unseen items of the same LO. Prequential and filtering: the mass applied is the posterior mean as of the re-grade, recorded on the receipt, so replay reproduces it and a past attempt's mass never moves.
+- **Seed.** `η₀ ~ N(logit 0.8, 1²)`, basis `legacy`: the centre is `teach_back`'s configured mass (`config/schema.py:1836`), the existing value for "high-quality generative evidence, but in a dialogue, so less than a full independent attempt". The width is the LP spec's rule for legacy priors. I passed over the hint values: the default dampening is empty (`vault/models.py:396-400`), and `reconstruction_after_walkthrough`'s 0.5 follows being taught the answer. `u_L` is the per-LO offset with the τ grid of `spec_teacher_v1.md` §12.1.
+- **Learned** with that section's estimator, as a second family with its own posterior in `learner/lesson_weight.py`: only from later cold, unassisted, unprimed first attempts on unseen items of the same LO. The mass applied is the posterior mean as of the re-grade, recorded on the receipt, so replay reproduces it and a past attempt's mass never moves. With rare follow-ups, `ρ` stays near the seed for a long time.
 - **"Not exactly" is structural.** The logistic link makes `ρ < 1` with no cap.
-- **It will move slowly.** Follow-ups will be rare and cold outcomes rarer, so `ρ` stays near the seed for a long time. That is the rule working, not a fault.
 
-### 5.2 Why it can't count as a cold success
+### 5.1 Why it can't count as a cold success
 
 **Three locks, any one of which is enough.**
-
 1. **Asked only below the success line.** `y0 < 0.8`, so the attempt's unaided label was already "not a success".
-2. **The category keeps that.** AD's category becomes `max(cat(y0, no help), cat(y1, help after work))` (`adaptive_difficulty/outcomes.py:82`), and `unassisted_success` returns 1 only for an unaided `Y = 2` (`:109`). Reading `y0` from the receipt means a follow-up can't lower a category either, in line with A10.
+2. **The category keeps that.** AD's category becomes `max(cat(y0, no help), cat(y1, help after work))` (`adaptive_difficulty/outcomes.py:87`), and `unassisted_success` returns 1 only for an unaided `Y = 2` (`:109`). Reading `y0` from the receipt means a follow-up can't lower a category either, in line with A10.
 3. **The attempt becomes `hinted_attempt`.** In the re-grade's transaction, with the original type kept on the receipt. Every allow-list of unaided work fails closed: `QUALIFYING_ATTEMPT_TYPES` (`diagnosis/forecast_receipts.py:84`), `GRADED_RETRIEVAL_TYPES` (`field/outcomes.py:236`), `classify_attempt_activity`'s assisted arm (`causal_activity_policy.py:168-186`, read by `diagnosis/scoreboard.py:357`, `certification_cold_probe.py:1477`, `scheduling/intent/serving.py:111`), `goals/forecast_ledger.py:106`. Any reader the build misses treats it as help, not as a cold success.
 
-`hints_used` stays the truth: this wasn't a hint button. AD's category reads the receipt rather than the count, so `help_timing` needs no faked hint.
+`hints_used` stays the truth: AD's category reads the receipt, so `help_timing` needs no faked hint.
 
 | `y0` | What happened | `y1` | AD's `Y` | Forecast label |
 |---|---|---|---|---|
 | ≥ 0.8 | Never asked | | 2 | 1 |
-| 0.4–0.8 | Asked, skipped or ignored | | 1 | 0 |
-| 0.4–0.8 | Answered, no credit | `= y0` | 1 | 0 |
+| 0.4–0.8 | Asked; skipped, ignored or no credit | `= y0` | 1 | 0 |
 | 0.4–0.8 | Answered, credited | ≥ 0.8 | soft (1 or 2 in `ρ`) | 0 |
 | 0.4–0.8 | Answered, credited | < 0.8 | 1 | 0 |
-| < 0.4 | Asked, skipped or ignored | | 0 | 0 |
+| < 0.4 | Asked; skipped, ignored or no credit | `= y0` | 0 | 0 |
 | < 0.4 | Answered, credited | ≥ 0.8 | soft | 0 |
 | < 0.4 | Answered, credited | < 0.8 | 0 | 0 |
 
 **The forecast label never differs from what it would have been with no question asked.** So `item_unassisted_success`, `lo_cold_success` (both bindings) and RO's calibration can't be flattered by this channel. They also can't be excused by it: a wording-caused miss still scores as "not an unassisted success", which is literally true.
 
-The attempt stays an exposure to its LO, as any attempt is (`history_resolve.py:26-29`).
-
 ## 6. Item repair
 
 **Into suspicion.** A credited follow-up counts as `assessment_side_error` in the item's quality state (`attempts/attempts.py:4897`, `learner/recall_coverage.py:689`), with its own reason `rubric_followup_credited` and the existing +0.08. The state reads `y0` for its success and failure terms, so `y1` doesn't also earn `clean_success_on_item`. Skips and `no_credit` add nothing: only credit says the learner knew it and the wording got in the way.
 
-**A finding on the threshold.** The flag needs suspicion ≥ 0.65 and three events (`recall_coverage.py:708-713`), which at +0.08 takes about nine credited follow-ups on one item. One learner won't reach that, so the flag can't be what triggers a proposal.
-
-**So the proposal has a direct trigger:** the **second credited follow-up on the same item revision** writes one proposal, deduplicated per revision. Two is the smallest count that means the owner's "repeated", not a tuned value.
+**A finding on the threshold.** The flag needs suspicion ≥ 0.65 and three events (`recall_coverage.py:708-713`), which at +0.08 takes about nine credited follow-ups on one item. One learner won't reach that, so the flag can't be what triggers a proposal. **So the proposal has a direct trigger:** the **second credited follow-up on the same item revision** writes one proposal, deduplicated per revision. Two is the smallest count that means the owner's "repeated", not a tuned value.
 
 **Through the existing path.** A `practice_item` / `update` row in a pending batch, the shape `content/proposals/method_phrasing.py:879` writes, for the owner to accept or reject. Nothing is applied automatically. The writer gets the item, the named criteria, both `wording_quote`s and the exchanges, on a plan route under the existing spend envelope. A statement decided as a source's own isn't rewritten (`rewrites_decided_statement`, `vault/required_method.py`), and for those items the proposal narrows the criterion instead. Past answers keep the contract they were graded under (playbook, Oct 16 rule).
 
@@ -258,52 +238,39 @@ Follow-up or prompt, never both. Probe or lesson, never both. A credited follow-
 
 ```
 Worst path (skip or no credit):       answer -> [follow-up] -> feedback -> [probe] -> feedback -> next
-Ordinary miss, nothing licensed:      answer -> feedback + [box] -> [probe or lesson] -> feedback -> next
+Ordinary miss, nothing licensed:      answer -> feedback + [box] -> [probe, lesson or nothing; rest released] -> next
 Credited, at or above the line:       answer -> [follow-up] -> feedback ("one part from your follow-up") -> next
-Practice lane or no intervention:     answer -> feedback + [box] -> (box settles, diagnosis runs, rest released) -> next
 ```
 
-**Desktop, the follow-up step.** It replaces the practice answer area, with the question and the learner's answer still visible:
+**Desktop.** The follow-up step replaces the practice answer area, with the question and the learner's answer still visible:
 
 ```
 +------------------------------------------------------------+
-|  Question 3 of the block           (question stays visible) |
-|  Your answer:  ...their words, read-only...                 |
-|                                                             |
+|  ...question and their answer, read-only...                 |
 |  One more thing before the feedback                         |
 |  Your answer didn't say what has to hold for this to work.  |
 |  What has to hold?                                          |
-|  +--------------------------------------------------------+ |
-|  |  a sentence is plenty                                  | |
-|  +--------------------------------------------------------+ |
+|  [ a sentence is plenty                                  ]  |
 |  [ Send ]   Skip this                                       |
 |  Answer it and this part can count. Skip and your answer    |
 |  is graded as written.                                      |
 +------------------------------------------------------------+
 Send: "Checking..." then feedback. Grading down: feedback, with the saved-reply line.
-```
 
-**Desktop, feedback on an ordinary miss:**
-
-```
+Feedback on an ordinary miss:
 +------------------------------------------------------------+
 |  Not yet                                                    |
 |  criterion rows ...                                         |
-|                                                             |
 |  What do you think went wrong, or what isn't clear yet?     |
 |  [ box                                                 ]    |
 |  Optional. This doesn't change your grade.  Send · Not now  |
-|                                                             |
 |  Preparing a question on this...                            |
 |  The answer comes after the question.        Show anyway    |
 |  Router: ... details            Something else would help   |
 |                                                [ Next ]     |
 +------------------------------------------------------------+
-```
 
-**Phone,** the same steps in one column:
-
-```
+Phone, the same steps in one column:
 +----------------------+     +----------------------+
 | One more thing       |     | Not yet              |
 | ...question text...  |     | criterion rows       |
@@ -334,22 +301,13 @@ Tags are claimed at landing, after whatever IH and the refactor have added.
 
 Past rows keep their meaning whatever the switch: replay reads receipts and rows, never config. Turning a switch off settles open items as `ignored`, like FG1's `settle_open_when_off` (`followup_serve/workflow.py:483`). These tags sit above arc D's floor, so D's pruning doesn't touch them.
 
-### 9.2 No retroactive change
+**No retroactive change.** History has no follow-ups and no stated reasons, so the successor replays history unchanged. **The upgrade needs no whole-vault rebuild.** `learnloop rebuild --shadow --json` on a copy must report zero mastery, facet and scheduling deltas: that's the playbook's item 7, and it is expected to be empty. Effective-default fingerprints as usual.
 
-History has no follow-ups and no stated reasons, so the successor replays history unchanged. **The upgrade needs no whole-vault rebuild.** `learnloop rebuild --shadow --json` on a copy must report zero mastery, facet and scheduling deltas: that's the playbook's item 7, and it is expected to be empty. Effective-default fingerprints as usual.
+### 9.2 Proof: four ways, then the shadow
 
-### 9.3 Proof: four ways, then the shadow
+A seeded fixture vault, one topic, an item with a skippable criterion, with fake graders, run four ways: **A**, switches off; **B**, on, with no qualifying miss; **C**, on, asked, skipped; **D**, on, asked, credited. Asserted: A and B are byte-identical in grades, evidence, FSRS, AD state and replies. C differs from A only in receipts. D differs only as §5's table lists. All four give the same forecast labels. Each way is run live and then rebuilt, and the rebuild equals the live state. Owner-vault copies at the landing smoke (`learnloop.db.copies`, never live) show zero deltas; those copies have no follow-ups, so **no real-data proof of §5's effect exists until after landing**.
 
-A seeded fixture vault, one topic, an item with a skippable criterion, with fake graders, run four ways:
-
-- **A:** switches off.
-- **B:** on, with no qualifying miss.
-- **C:** on, asked, skipped.
-- **D:** on, asked, credited.
-
-Asserted: A and B are byte-identical in grades, evidence, FSRS, AD state and replies. C differs from A only in receipts. D differs only as §5.1 lists. All four give the same forecast labels. Each way is run live and then rebuilt, and the rebuild equals the live state. Owner-vault copies at the landing smoke (`learnloop.db.copies`, never live) show zero deltas per §9.2; those copies have no follow-ups, so **no real-data proof of §5's effect exists until after landing**.
-
-### 9.4 Migrations
+### 9.3 Migrations
 
 Following `CLAUDE.md`'s migration note, with the `migration_head_<N>` fixture upgraded and its paths updated:
 
@@ -358,35 +316,29 @@ Following `CLAUDE.md`'s migration note, with the `migration_head_<N>` fixture up
 | `grading_clarifications` | RAW_LEDGER | Rebuilt for the closed vocabularies: reason `unaddressed_rubric_item`, trigger `unaddressed_criterion`; new columns `criterion_ids_json`, `wording_quote`. Its no-update trigger is recreated |
 | `grading_clarification_responses` | RAW_LEDGER | Outcome gains `credited`, `no_credit` |
 | `rubric_followup_outcomes` | RECEIPT | One per clarification: disposition, provisional correctness and points, original attempt type, `mass_applied`, re-grade revision |
-| `learner_stated_reasons` | RAW_LEDGER | §3.4 |
+| `learner_stated_reasons` | RAW_LEDGER | §3.3 |
 | `followup_credit_weight_state`, `_trace` | DERIVED | Exactly one replayer, as `lesson_weight_state` has (`db/table_roles.py:396`) |
 | `narrowing_weight_state`, `_trace` | DERIVED | LI4; one replayer |
-| Fit values | | On the diagnosis proposal; no new table |
 
 Changing `practice_attempts.attempt_type` at credit is an update to a raw ledger column. Regrades already do this for the score (`update_attempt_grade`), and the receipt keeps the original, which is the correction event the playbook's item 2 asks for. I'm naming it because that item's wording says ledgers stay immutable.
 
-### 9.5 Tests
+### 9.4 Tests
 
 Fakes only; no paid or live calls; the full suite only in the landing gate.
 
-- **Validator:** one case per row of §4.1, each dropping alone and writing its rule; a confident grade licensed under the new trigger only; the old triggers unchanged.
-- **Never-wrong:** a verbatim wrong claim anywhere in the answer stops the request, whatever the model says; a fabricated quote doesn't count as located.
-- **Giveaway:** a question quoting the expected answer or a distinctive number is dropped; a reply echoing only the question earns nothing.
-- **One per attempt:** a request on the re-grade is dropped; A8 and the follow-up can't both exist.
-- **Pin:** a re-grade that moves an unnamed criterion keeps its provisional points; `y1 ≥ y0`.
-- **Failures:** each row of §4.5, with Next working in each; the reply survives a provider outage and a restart.
-- **Blindness:** the grader's payload has no stated reason, no history; with a stated reason present, its bytes are unchanged.
-- **Cold labels:** §5.2's table, row by row, through `category`, `unassisted_success`, `history_resolve`, `forecast_ledger`, `scoreboard`, `forecast_receipts` and `lesson_weight`'s qualifying outcome. Twin vaults (asked and not asked) give identical labels.
-- **Credit:** the mass recorded equals the posterior mean as of the re-grade and doesn't move on rebuild; `ρ < 1` under extreme data; AD's soft factor at `ρ = 0` equals `Y = 1`, at `ρ = 1` equals `Y = 2`; no second `γ`.
-- **Off-list:** each row of §4.6 gets no question, including a follow-up request from the model.
-- **Prompt:** asked when the reading says unsaid; not asked for stuck, exam, block or probe; diagnosis is deferred while pending and runs once; held stays held; Next with text sends it.
-- **Screens (vitest, desktop and phone):** the step precedes `get_feedback`; no call writes an exposure before it; §8's four paths; never two questions.
-- **Item repair:** the second credit writes one pending proposal, the third none; a rejected proposal isn't re-proposed for that revision.
-- **Narrowing:** at `β = 0`, `p′ = p`; no weight reaches 0; factor support and certification byte-identical with weights on.
-- **Switch-off:** golden prompt hash and reply bytes equal the predecessor, in RW5c's style.
-- **Rate watch:** A8's rate unchanged by follow-up rows.
+- **Validator:** one case per row of §4.1, each dropping alone and writing its rule; a verbatim wrong claim anywhere stops the request whatever the model says; a fabricated quote doesn't count as located; old triggers unchanged.
+- **Giveaway and count:** a question quoting the expected answer or a distinctive number is dropped; a reply echoing only the question earns nothing; a request on the re-grade is dropped; A8 and the follow-up can't both exist.
+- **Re-grade:** a re-grade moving an unnamed criterion keeps its provisional points, `y1 ≥ y0`; each row of §4.5 leaves Next working; the reply survives an outage and a restart.
+- **Blindness:** the grader's payload has no history or stated reason; its bytes are unchanged with a stated reason present.
+- **Cold labels:** §5.1's table row by row through `category`, `unassisted_success`, `history_resolve`, `forecast_ledger`, `scoreboard`, `forecast_receipts` and `lesson_weight`'s qualifying outcome; twin vaults, asked and not asked, give identical labels.
+- **Credit:** recorded mass equals the posterior mean as of the re-grade and doesn't move on rebuild; `ρ < 1` under extreme data; the soft factor equals `Y = 1` at `ρ = 0` and `Y = 2` at `ρ = 1`; no second `γ`.
+- **Off-list:** each row of §4.6 gets no question, even if the model asks.
+- **Prompt:** asked when the reading says unsaid; not for stuck, exam, block or probe; diagnosis deferred while pending and run once; held stays held; Next with text sends it.
+- **Screens (vitest, both devices):** the step precedes `get_feedback`, and no exposure is written before it; §8's paths; never two questions.
+- **Item repair and narrowing:** the second credit writes one pending proposal, the third none, and a rejected one isn't re-proposed for that revision; at `β = 0`, `p′ = p`; no weight reaches 0; factor support and certification byte-identical with weights on.
+- **Switch-off and watch:** golden prompt hash and reply bytes equal the predecessor, in RW5c's style; A8's rate unchanged by follow-up rows.
 
-### 9.6 Why x and not y
+### 9.5 Why x and not y
 
 If arc B has landed, each writes a `DecisionRecord` (`refactor_strategy_v3.md` §3.2), with codes only and never learner text. If not, the same codes go on the receipts and B's inventory picks them up.
 
@@ -397,7 +349,7 @@ If arc B has landed, each writes a `DecisionRecord` (`refactor_strategy_v3.md` �
 | `followup_credit` | `chosen` | Facts: `y0`, `y1`, `mass_applied`, posterior version |
 | `reword_proposal` | `chosen`, `excluded` | `second_credit`, `already_proposed` |
 
-### 9.7 Stages
+### 9.6 Stages
 
 | Stage | Size | Contents |
 |---|---|---|
@@ -413,14 +365,13 @@ LI1 and LI2 may land in either order. If LI2 lands first, §8's rule still holds
 
 | Rule | Where | Conflict and resolution |
 |---|---|---|
-| "A confident grade can never produce a question" | `clarification.py:25-26`, `grading.py:1750`, `ai_contracts.py:254-256`, migration 142's comment, spec_measurement_efficiency §3.A8 Bounds, §10's line 1251 | **Owner amends it** for this trigger only. All are updated at LI2; the three old triggers keep the bound |
+| "A confident grade can never produce a question" | `clarification.py:25-26`, `grading.py:1750`, `ai_contracts.py:254-256`, migration 142's comment, `spec_measurement_efficiency_v1.md` §3.A8 Bounds and `:1251` | **Owner amends it** for this trigger only. All are updated at LI2; the three old triggers keep the bound |
 | Principle 8: machine-side uncertainty, including "a missing item contract", is never paid for with learner effort | `spec_causal_attribution_v1.md` principle 8, spec_measurement_efficiency §3.A8 | **Real tension.** Unclear wording is an item-side fault, and the owner's rule spends a learner's question on it. Resolved in the owner's favour, and narrowed: a defect the machine can see (`item_contract`) still goes to machine review with no question; only "could plausibly be why" (`interaction_context`) asks. The note is added to principle 8 |
-| A8's revert criterion: a high rate is a grader fault | §3.A8, `clarification.py:61-66` | Split by trigger (§4.7) |
-| "The verdict never waits" | `spec_blind_grading_diagnosis_split_v1.md` §444 (as amended by FG1); FG1 §6.0, `ux_learnloop_v1.md` Feedback | **The owner's "before feedback" holds the verdict** while a follow-up is on screen. The line gains that one exception |
-| "Grade first and correct afterwards, rather than confirm then grade"; "never add a learner step just to protect the model" | Oct 11 owner rules | Not violated: the grade still comes first and the step is the owner's own, protects the learner rather than the model, and is one tap to skip. Noted because it looks close |
+| A8's revert criterion: a high rate is a grader fault | §3.A8, `clarification.py:60-65` | Split by trigger (§4.7) |
+| "The verdict never waits" | `spec_blind_grading_diagnosis_split_v1.md:444` (as amended by FG1); FG1 §6.0, `ux_learnloop_v1.md` Feedback | **The owner's "before feedback" holds the verdict** while a follow-up is on screen. The line gains that one exception |
 | A12: no answer text in AD's state; A10: help never penalized | `spec_adaptive_difficulty_v1.md` | Kept. §5.3's category table gains the follow-up row and the `y0` floor, and §5.5 the soft factor; A5 holds, as `ρ` is learned |
 | FG1 §7: marks move "no probability until measured" | `spec_followup_generate_serve_v1.md` §7 | Consistent: this is the measuring. `p′` reads only the router's branches |
-| "Raw ledgers stay immutable" | Playbook item 2 | §9.4's type change; named there |
+| "Raw ledgers stay immutable" | Playbook item 2 | §9.3's type change; named there |
 
 ## 11. Decisions for the owner
 
@@ -433,17 +384,13 @@ LI1 and LI2 may land in either order. If LI2 lands first, §8's rule still holds
 
 ## 12. Checked, and not checked
 
-**Checked in code** (read at `6c8962ce95`; nothing was run): the A8 channel, validator, lifecycle and table; blind context and validity scopes; regrade's publication; AD's categories and factor shape; the allow-lists in §5.2; `lesson_weight`'s mass seam; quality-state arithmetic; the marks report; job release; proposal row shape; both feedback routes.
-
-**Only read as specs, not checked against code:** IH (not built here), `spec_teacher_v1.md` §12.1's estimator detail, A12's text, `refactor_strategy_v3.md` (arcs B, D, G are unbuilt).
-
+**Checked in code** (read at `6c8962ce95`; nothing was run): the A8 channel, validator, lifecycle and table; blind context and validity scopes; regrade's publication; AD's categories and factor shape; §5.1's allow-lists; `lesson_weight`'s mass seam; quality-state arithmetic; the marks report; job release; proposal row shape; both feedback routes.
+**Only read as specs:** IH (not built here), `spec_teacher_v1.md` §12.1's estimator detail, A12's text, `refactor_strategy_v3.md` (arcs B, D, G are unbuilt).
 **Unverified, and the build must check (LI0):**
 
-- **Model behaviour.** Whether the grader tells "never addressed" and "wording could be why" apart reliably, and how often it asks, are unknown. No live or paid call was made. Fakes prove the validator, not the judgment. The rate first appears in §4.7's watch after landing.
-- **The giveaway check** catches copied wording and numbers. How much a paraphrased question cues is unmeasured, and `ρ` absorbs it only slowly.
+- **Model behaviour.** Whether the grader tells "never addressed" and "wording could be why" apart reliably, and how often it asks, are unknown. No live or paid call was made. Fakes prove the validator, not the judgment. The rate first appears in §4.7's watch after landing. How much a paraphrased question cues is unmeasured too, and `ρ` absorbs it only slowly.
 - **Validation of quotes from the reply:** the first-divergence check reads the answer (`grading.py`, `learner_answer_md`), and only the route rule was seen to read the reply. A credited row's quote from the reply may need the same allowance.
 - **Other readers of `hinted_attempt`:** `attempts/ability_transition.py:25`, `diagnosis/remediation.py:1355`, `diagnosis/split/history.py:65`, `hints/state.py:352`, and `field/outcomes.py:296, 597` (which treats the type as an independent attempt plus hint factor) were listed, not traced. Field's research arms may need the receipt's mass.
 - **Whether the reveal rules hold back any criteria shown at once:** §4.2 assumes the eligibility check can read this; the predicate wasn't found by name.
 - **AD soft factor cost:** the update's quadrature takes any one-dimensional likelihood by its form, but I didn't trace its joint factor with rating and timing (`model.py:559`). The soft case may need those sub-arms off, as `CENSORED` has.
-- **Latency of the follow-up's re-grade** on the screen, and of the longer grader output, is unmeasured. The build reports both.
-- **The fixed values kept** (`SUCCESS = 0.8`, `+0.08`, the 0.65 flag, A8's 0.15) are existing and hand-set. This spec reads them and adds no new one, but doesn't fix them.
+- **Latency** of the follow-up's re-grade on screen, and of the longer grader output, is unmeasured. The build reports both. **The fixed values kept** (`SUCCESS = 0.8`, `+0.08`, the 0.65 flag, A8's 0.15) are existing and hand-set: this spec adds no new one, but doesn't fix them.
