@@ -183,6 +183,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_owner_decisions.py](../../../../../../tests/test_ad23_owner_decisions.py) — direct import
   - `test_the_owner_defaults_of_2026_10_19`
 - [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — direct import
+  - `test_a_draws_propensity_is_the_probability_of_what_it_chose`
   - `test_calibrate_mode_prefers_overlap_band`
   - `test_calibrate_with_empty_overlap_picks_nearest_to_band`
   - `test_empty_overlap_sets_q_zero`

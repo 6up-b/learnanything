@@ -106,6 +106,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/ad23_fakes.py](../../../../../../../tests/ad23_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/ad_ingest_fakes.py](../../../../../../../tests/ad_ingest_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/approach_map_fakes.py](../../../../../../../tests/approach_map_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/conftest.py](../../../../../../../tests/conftest.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/daily_plan_fakes.py](../../../../../../../tests/daily_plan_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/deliverable_fixtures.py](../../../../../../../tests/deliverable_fixtures.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/diagnosis_split_helpers.py](../../../../../../../tests/diagnosis_split_helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
@@ -114,7 +115,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/followup_serve_helpers.py](../../../../../../../tests/followup_serve_helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/helpers.py](../../../../../../../tests/helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/hint_fakes.py](../../../../../../../tests/hint_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/intent_fakes.py](../../../../../../../tests/intent_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 
 ## Modification guidance
 

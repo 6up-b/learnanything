@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/records.py"
 source_paths:
   - "src/learnloop/daily_plan/records.py"
-source_commit: "38b546e6ac075ca258ddc41896bdce585924fe41"
-source_commit_timestamp: "2026-11-08T21:46:02-05:00"
+source_commit: "f837a8a7b4070a36aa3288598d59a614f603e47a"
+source_commit_timestamp: "2026-11-09T11:20:01-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py) |
-| Source lines | 559 |
+| Source lines | 564 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38b546e6ac075ca258ddc41896bdce585924fe41` |
-| Commit timestamp | `2026-11-08T21:46:02-05:00` |
+| Source commit | `f837a8a7b4070a36aa3288598d59a614f603e47a` |
+| Commit timestamp | `2026-11-09T11:20:01-05:00` |
 
 ## Public API
 
@@ -95,16 +95,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `block_below_offer(self) -> PlannedBlock | None` (line 308; public) — IH2: the unfinished block an open offer interrupted, or None.
   - `followups_lost_to_open_offer(self) -> set[str]` (line 314; public) — IH2: what an unanswered offer's draw beat.
   - `open_lesson_offer(self) -> PlannedBlock | None` (line 319; public)
-  - `next_ordinal(self) -> int` (line 322; public)
-  - `refused_followups(self) -> set[str]` (line 325; public) — Follow-ups a hard constraint refused in this plan (R2c): never placed again in it.
-  - `planned_ids(self) -> set[str]` (line 332; public) — Items this plan has taken (displaced items go back to the pool).
-  - `ad_deferrals(self) -> dict[str, dict[str, Any]]` (line 337; public) — Adaptive difficulty's active deferrals (spec §6.1 step 0), folded from the plan's own events: an item displaced with ``ad_ineligible`` joins, a later boundary that re-read its checks and cleared it (``block_chosen`` detail ``ad_deferrals.cleared``) releases it.
-  - `exclusion_ids(self) -> set[str]` (line 355; public) — What a pool source never offers this plan whatever the switches say: its planned and skipped items.
-  - `item_count(self) -> int` (line 366; public)
-  - `ledger(self) -> tuple[dict[str, float], dict[str, float]]` (line 369; public) — (allotment, spent) per lane, §6.2 / §6.8 rule 1.
-  - `lane_left(self) -> dict[str, float]` (line 426; public)
-- `assemble(plan_rows: Sequence[Mapping[str, Any]], block_rows: Sequence[Mapping[str, Any]], event_rows: Sequence[Mapping[str, Any]]) -> list[PlanRecord]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 431) — Fold persisted rows into records (events in ordinal order).
-- `day_items(records: Iterable[PlanRecord]) -> list[PlannedItem]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 538)
+  - `open_lesson_offers(self) -> list[PlannedBlock]` (line 322; public) — Every unanswered offer's block.
+  - `next_ordinal(self) -> int` (line 327; public)
+  - `refused_followups(self) -> set[str]` (line 330; public) — Follow-ups a hard constraint refused in this plan (R2c): never placed again in it.
+  - `planned_ids(self) -> set[str]` (line 337; public) — Items this plan has taken (displaced items go back to the pool).
+  - `ad_deferrals(self) -> dict[str, dict[str, Any]]` (line 342; public) — Adaptive difficulty's active deferrals (spec §6.1 step 0), folded from the plan's own events: an item displaced with ``ad_ineligible`` joins, a later boundary that re-read its checks and cleared it (``block_chosen`` detail ``ad_deferrals.cleared``) releases it.
+  - `exclusion_ids(self) -> set[str]` (line 360; public) — What a pool source never offers this plan whatever the switches say: its planned and skipped items.
+  - `item_count(self) -> int` (line 371; public)
+  - `ledger(self) -> tuple[dict[str, float], dict[str, float]]` (line 374; public) — (allotment, spent) per lane, §6.2 / §6.8 rule 1.
+  - `lane_left(self) -> dict[str, float]` (line 431; public)
+- `assemble(plan_rows: Sequence[Mapping[str, Any]], block_rows: Sequence[Mapping[str, Any]], event_rows: Sequence[Mapping[str, Any]]) -> list[PlanRecord]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 436) — Fold persisted rows into records (events in ordinal order).
+- `day_items(records: Iterable[PlanRecord]) -> list[PlannedItem]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 543)
 
 ### Module constants
 
@@ -144,7 +145,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 471)
+- `_apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 476)
 
 ## Who imports or calls it
 

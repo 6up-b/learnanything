@@ -227,6 +227,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_a_statement_whose_inputs_cannot_be_established_is_not_searched`
 - [tests/test_learner_data_relax_2.py](../../../../../../../tests/test_learner_data_relax_2.py) — direct import
+- [tests/test_learner_protection_predicates.py](../../../../../../../tests/test_learner_protection_predicates.py) — direct import
+  - `test_an_answer_graded_against_another_items_contract_has_no_pinned_question`
 
 ## Modification guidance
 

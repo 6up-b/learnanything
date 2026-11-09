@@ -261,6 +261,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_data_relax_2.py](../../../../../tests/test_learner_data_relax_2.py) — direct import
   - `test_protection_unreadable_sends_no_answer_and_no_statement`
   - `test_protection_unreadable_withholds_reading_derived_gaps_too`
+- [tests/test_learner_protection_predicates.py](../../../../../tests/test_learner_protection_predicates.py) — direct import
+  - `test_a_predicate_that_fails_withholds_everything`
+  - `test_an_answer_graded_against_another_items_contract_has_no_pinned_question`
+  - `test_an_item_held_as_a_repairs_cold_retry_is_withheld_until_the_repair_ends`
+  - `test_an_ordinary_item_presented_as_a_probe_is_withheld`
 - [tests/test_mcp_c1a_landing.py](../../../../../tests/test_mcp_c1a_landing.py) — direct import
   - `test_a_statement_written_from_protected_work_is_withheld_by_both`
   - `test_no_reader_keeps_a_protection_of_its_own`

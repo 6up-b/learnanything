@@ -191,6 +191,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_the_kinds_are_the_plans_own_names`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+  - `test_the_lesson_ref_prefix_is_the_plans`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f6_the_chooser_takes_the_master_block_first_in_re_entry`
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import

@@ -308,6 +308,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resuming_it_in_this_session_makes_it_count`
   - `test_the_days_first_read_builds_a_plan_with_no_block_and_a_serve_decides_it`
   - `test_the_nov_8_shape_draws_after_the_attempt_with_that_attempt_in_its_evidence`
+  - `test_with_no_session_open_working_an_earlier_days_reader_problem_today_makes_it_count`
 - [tests/test_reader_ca1_codex_review.py](../../../../../../tests/test_reader_ca1_codex_review.py) — direct import
   - `test_the_workbench_session_carries_the_region_it_was_imported_with`
 - [tests/test_reader_ca2_astra_handoff.py](../../../../../../tests/test_reader_ca2_astra_handoff.py) — direct import

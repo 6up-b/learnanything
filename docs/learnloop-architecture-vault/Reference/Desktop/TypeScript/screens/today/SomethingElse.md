@@ -10,8 +10,8 @@ area: "TypeScript/screens/today"
 source_path: "apps/learnloop-tauri/src/screens/today/SomethingElse.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today/SomethingElse.tsx"
-source_commit: "f837a8a7b4070a36aa3288598d59a614f603e47a"
-source_commit_timestamp: "2026-11-09T11:20:01-05:00"
+source_commit: "fb0b1dc801f2dd925d9f48c997e7de4fd77def8e"
+source_commit_timestamp: "2026-11-09T12:07:21-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/SomethingElse.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/SomethingElse.tsx) |
-| Source lines | 158 |
+| Source lines | 161 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `f837a8a7b4070a36aa3288598d59a614f603e47a` |
-| Commit timestamp | `2026-11-09T11:20:01-05:00` |
+| Source commit | `fb0b1dc801f2dd925d9f48c997e7de4fd77def8e` |
+| Commit timestamp | `2026-11-09T12:07:21-05:00` |
 
 ## Activation and status evidence
 
@@ -64,21 +64,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const SOMETHING_ELSE_LINK = "Something else would help"` — const, line 19
 - `export function useSomethingElseOn(sessionId: string | null, enabled?: boolean): boolean` — function, line 22
 - `export function lessonEntryFor(result: SomethingElseChosenDto): LessonEntry | null` — function, line 28
-- `export function SomethingElse(` — function, line 45
+- `export function SomethingElse(` — function, line 48
 
 ## Internal implementation anchors
 
 - `const plan = useDailyPlan(sessionId, enabled === undefined && Boolean(sessionId))` — const, line 23
 - `const lesson = result.preference?.outcome === "lesson" ? result.preference.lesson : null` — const, line 29
-- `function newKey(): string` — function, line 35
-- `const c = (globalThis as` — const, line 36
-- `const linkStyle =` — const, line 40
-- `const on = useSomethingElseOn(sessionId, enabled)` — const, line 69
-- `const key = useRef<` — const, line 77
-- `async function show()` — function, line 80
-- `async function choose(option: SomethingElseOptionDto)` — function, line 94
-- `const result = await api.planSomethingElse(` — const, line 99
-- `const shown = (options?.options ?? []).filter( (option)` — const, line 114
+- `function newKey(): string` — function, line 38
+- `const c = (globalThis as` — const, line 39
+- `const linkStyle =` — const, line 43
+- `const on = useSomethingElseOn(sessionId, enabled)` — const, line 72
+- `const key = useRef<` — const, line 80
+- `async function show()` — function, line 83
+- `async function choose(option: SomethingElseOptionDto)` — function, line 97
+- `const result = await api.planSomethingElse(` — const, line 102
+- `const shown = (options?.options ?? []).filter( (option)` — const, line 117
 
 ## Who imports or calls it
 

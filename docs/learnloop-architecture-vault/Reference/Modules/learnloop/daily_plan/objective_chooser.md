@@ -213,6 +213,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_the_switch_defaults_on_is_classified_and_names_itself_in_the_prefetch_key`
   - `test_with_no_room_to_wait_a_lesson_makes_it_a_real_draw_and_with_none_it_stays_deterministic`
+- [tests/test_ih2_one_open_offer.py](../../../../../../tests/test_ih2_one_open_offer.py) — direct import
+  - `test_a_job_that_draws_the_followup_leaves_the_read_offer_alone`
+  - `test_a_need_decision_replacing_an_interrupting_offer_keeps_its_place_and_what_it_beat`
+  - `test_at_most_one_open_offer_across_read_and_job_interleavings`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_a_new_preference_starts_a_new_job_and_moves_no_seed`
   - `test_the_key_names_the_switch_only_while_it_serves_and_the_seed_never`
@@ -224,6 +228,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below`
 - [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
   - `test_the_switch_is_not_in_the_prefetch_key_so_it_moves_no_seed`
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_the_switch_is_not_in_the_prefetch_key_and_moves_no_seed_by_itself`
 - [tests/test_ih_numeric_seed.py](../../../../../../tests/test_ih_numeric_seed.py) — direct import
   - `test_an_offer_changes_the_identity_and_so_the_seed`
   - `test_the_serve_without_a_prefetch_starts_the_same_job_the_prefetch_would`

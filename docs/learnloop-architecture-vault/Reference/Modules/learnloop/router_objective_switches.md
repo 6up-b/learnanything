@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "224700d26fdc3e8a31cb6a4fa481efff3ef1d939"
-source_commit_timestamp: "2026-11-09T04:50:36-05:00"
+source_commit: "9e7b2fdc2819048463e701742a937666bbdca669"
+source_commit_timestamp: "2026-11-09T12:12:32-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 478 |
+| Source lines | 491 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `224700d26fdc3e8a31cb6a4fa481efff3ef1d939` |
-| Commit timestamp | `2026-11-09T04:50:36-05:00` |
+| Source commit | `9e7b2fdc2819048463e701742a937666bbdca669` |
+| Commit timestamp | `2026-11-09T12:12:32-05:00` |
 
 ## Public API
 
@@ -92,8 +92,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `learner_preferences_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 381) — IH3 (spec_instruct_handoff_v1 §6, the same unreleased tag as IH5): the learner may name what would help and have it served: the tag and ``[router_objective] learner_preferences`` (default true).
 - `workbench_is_open_item_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 391) — IH6 (spec_instruct_handoff_v1 §7b, the same unreleased tag as IH5): an open workbench is an open item for the plan: the tag, the workbench itself on (off, nothing can resume the problem, so it holds nothing) and ``[router_objective] workbench_is_open_item`` (default true).
 - `lesson_sources_follow_diagnosis_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 403) — IH7 (spec_instruct_handoff_v1 §7c, the same unreleased tag as IH5): a lesson opened from an offer or a suggestion reads the sections matching the diagnosed confusion beside the topic's linked ones: the tag and ``[router_objective] lesson_sources_follow_diagnosis`` (default true).
-- `preferences_inform_router_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 413) — IH4 (spec_instruct_handoff_v1 §7, the same unreleased tag as IH5): what the learner said would help informs the objective's non-LLM parts and its LLM card: the tag, the objective serving and ``[router_objective] preferences_inform_router`` (default true).
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 424) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `lesson_candidate_after_cold_miss_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 413) — The owner's decision 4 of Nov 9 (spec_instruct_handoff_v1 §8, the same unreleased tag as IH5): a topic with a missed cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or error type (the router, the diagnosis and the teacher then…
+- `preferences_inform_router_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 425) — IH4 (spec_instruct_handoff_v1 §7, the same unreleased tag as IH5): what the learner said would help informs the objective's non-LLM parts and its LLM card: the tag, the objective serving and ``[router_objective] preferences_inform_router`` (default true).
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 436) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
@@ -153,6 +154,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `stop_coin_rate`
 - `workbench_is_open_item_on`
 - `lesson_sources_follow_diagnosis_on`
+- `lesson_candidate_after_cold_miss_on`
 - `preferences_inform_router_on`
 - `known_at`
 - `objective_on`
@@ -182,7 +184,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHECKS_OFF`, `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`; statically calls `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `learner_preferences_on`, `preferences_inform_router_on`; statically calls `learner_preferences_on`, `preferences_inform_router_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `lesson_offers_on`, `lessons_compete_with_followups_on`, `preferences_inform_router_on`; statically calls `lesson_offers_on`, `lessons_compete_with_followups_on`, `preferences_inform_router_on`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `lesson_offers_on`; statically calls `lesson_offers_on`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `lesson_candidate_after_cold_miss_on`, `lesson_offers_on`; statically calls `lesson_candidate_after_cold_miss_on`, `lesson_offers_on`
 - [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `preferences_inform_router_on`; statically calls `preferences_inform_router_on`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `CHECKS_OFF`, `SEED_NEUTRAL_IDENTITY_KEYS`, `SEED_NEUTRAL_OBJECTIVE_KEYS`, `SEED_NEUTRAL_SWITCHES`, `calibrated_weight_on`, `calibration_tag`, `check_mode`, `failure_share_tag`, `failure_share_to_other_policy_on`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `lessons_compete_with_followups_on`, `objective_scores_on`, `preferences_inform_router_on`, `stop_coin_rate`; statically calls `calibrated_weight_on`, `calibration_tag`, `check_mode`, `failure_share_tag`, `failure_share_to_other_policy_on`, `followup_generator_switches`, `followup_on`, `followup_switch_snapshot`, `learned_tail_on`, `lessons_compete_with_followups_on`, `objective_scores_on`, `preferences_inform_router_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`; statically calls `fitted_models_on`, `followup_on`, `followups_tag`, `known_at`, `lesson_offers_on`, `monotone_combiner_on`, `stop_coin_rate`
@@ -249,6 +251,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_is_not_in_the_prefetch_key_so_it_moves_no_seed`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_the_switch_needs_the_tag_and_defaults_on`
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_the_switch_is_not_in_the_prefetch_key_and_moves_no_seed_by_itself`
+  - `test_the_switch_needs_the_tag_defaults_on_and_is_registered`
 - [tests/test_ro1_availability.py](../../../../../tests/test_ro1_availability.py) — direct import
   - `test_available_at_is_received_at_else_created_at`
   - `test_exam_seeding_records_the_import_time_and_replay_keeps_it`

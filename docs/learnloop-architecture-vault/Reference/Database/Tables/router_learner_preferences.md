@@ -3,8 +3,8 @@ title: "router_learner_preferences"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
-source_commit_timestamp: "2026-11-09T09:10:53-05:00"
+source_commit: "66fedb471c522823888366b7fb65ea42afde2cac"
+source_commit_timestamp: "2026-11-09T12:16:35-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_learner_preferences"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/router/lesson_suggestions.py"
   - "src/learnloop/router_objective/preferences.py"
+  - "src/learnloop/teacher/diagnosed_sources.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,6 +116,7 @@ None found by exact static reference scan.
 - `tests/test_ih3_migration.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_ih4_preferences_inform_router.py`
+- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

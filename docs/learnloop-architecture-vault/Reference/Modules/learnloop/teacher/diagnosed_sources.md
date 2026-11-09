@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/diagnosed_sources.py"
 source_paths:
   - "src/learnloop/teacher/diagnosed_sources.py"
-source_commit: "0cd4a38533deb97d437aef4384c19a05c01d2cf3"
-source_commit_timestamp: "2026-11-09T05:33:51-05:00"
+source_commit: "fb0b1dc801f2dd925d9f48c997e7de4fd77def8e"
+source_commit_timestamp: "2026-11-09T12:07:21-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,43 +50,46 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py) |
-| Source lines | 355 |
+| Source lines | 437 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0cd4a38533deb97d437aef4384c19a05c01d2cf3` |
-| Commit timestamp | `2026-11-09T05:33:51-05:00` |
+| Source commit | `fb0b1dc801f2dd925d9f48c997e7de4fd77def8e` |
+| Commit timestamp | `2026-11-09T12:07:21-05:00` |
 
 ## Public API
 
-- `class Confusion` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 74) — One statement the sections were searched with.
-  - `as_dict(self) -> dict[str, Any]` (line 86; public)
-- `class Follow` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 100) — What :func:`follow` found: the sections to add (in the order they are tried against the budget), the statement indexes that found each, and the record (``status`` and ``why`` always; the rest when searched).
-  - `none(self, why: str) -> 'Follow'` (line 110; public)
-  - `settle(self, library: Any, rendered: Sequence[Mapping[str, Any]]) -> dict[str, Any]` (line 114; public) — The record once the brief rendered the sections: what was added whole, what the outline holds and why.
-  - `brief_entry(self) -> dict[str, Any] | None` (line 136; public) — What the teacher is told: each section, the statement that found it, and where it is listed instead.
-- `follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref: str | None, learning_object_ids: Sequence[str], in_hand: Collection[tuple[str, str]]) -> Follow | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 288) — The sections a lesson opened from this origin also reads, or None when the lesson is not one that applies (a learner's own start: nothing to say, so no record).
+- `class Confusion` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 87) — One statement the sections were searched with.
+  - `as_dict(self) -> dict[str, Any]` (line 99; public)
+- `class Follow` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 113) — What :func:`follow` found: the sections to add (in the order they are tried against the budget), the statement indexes that found each, and the record (``status`` and ``why`` always; the rest when searched).
+  - `none(self, why: str) -> 'Follow'` (line 123; public)
+  - `settle(self, library: Any, rendered: Sequence[Mapping[str, Any]]) -> dict[str, Any]` (line 127; public) — The record once the brief rendered the sections: what was added whole, what the outline holds and why.
+  - `brief_entry(self) -> dict[str, Any] | None` (line 149; public) — What the teacher is told: each section, the statement that found it, and where it is listed instead.
+- `follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref: str | None, learning_object_ids: Sequence[str], in_hand: Collection[tuple[str, str]], preference_ref: str | None=None, at: str | None=None) -> Follow | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 343) — The sections a lesson opened from this origin also reads, or None when the lesson is not one that applies (a learner's own start: nothing to say, so no record).
 
 ### Module constants
 
-- `_LOG` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 48)
-- `VERSION` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 50)
-- `_SET_ASIDE` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 53)
-- `_NAMING_KINDS` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 55)
-- `STATEMENT_CHARS` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 57)
-- `NO_ORIGIN` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 59)
-- `NO_MISS` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 60)
-- `PENDING` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 61)
-- `FAILED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 62)
-- `SUPERSEDED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 63)
-- `ABSENT` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 64)
-- `NO_CONFUSION` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 65)
-- `NOTHING_MATCHED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 66)
-- `PROTECTED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 67)
-- `UNREADABLE` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 68)
-- `OVER_BUDGET` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 69)
-- `TOPIC_FILLS_BUDGET` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 70)
+- `_LOG` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 55)
+- `VERSION` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 57)
+- `_SET_ASIDE` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 60)
+- `_NAMING_KINDS` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 62)
+- `STATEMENT_CHARS` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 64)
+- `LESSON_OFFER_PREFIX` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 67)
+- `NO_ORIGIN` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 69)
+- `NO_MISS` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 70)
+- `NO_REQUEST` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 72)
+- `NO_DIAGNOSED_MISS` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 73)
+- `PENDING` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 74)
+- `FAILED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 75)
+- `SUPERSEDED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 76)
+- `ABSENT` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 77)
+- `NO_CONFUSION` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 78)
+- `NOTHING_MATCHED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 79)
+- `PROTECTED` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 80)
+- `UNREADABLE` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 81)
+- `OVER_BUDGET` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 82)
+- `TOPIC_FILLS_BUDGET` ([src/learnloop/teacher/diagnosed_sources.py](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 83)
 
 ### Explicit exports
 
@@ -98,14 +101,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_clip(text: Any) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 148)
-- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 153)
-- `_record_reason(past: Any, connection: Any, kind: str, record_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 158) — Why a text's write-time record names something protected, or None: no record is no more than the attempt itself (the router card reads a cause the same way); an incomplete one cannot be established (fail closed).
-- `_named(row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 182)
-- `_decision_time(connection: Any, decision_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 195)
-- `_miss(connection: Any, config: Any, learning_object_ids: Sequence[str], decided_at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 200) — The latest attempt on the lesson's topics known at the offer's decision (THE availability predicate: a backdated import that arrived later was not what the offer was made on).
-- `_why_no_diagnosis(connection: Any, attempt_id: str) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 218) — Pending, failed, superseded or absent: the one plain reason the attempt has no diagnosis in force.
-- `_statements(vault: Any, repository: Any, connection: Any, past: Any, attempt: Mapping[str, Any]) -> list[Confusion]` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 240) — The miss's hypotheses, then its learner-text gaps, each passed through the shared protection.
+- `_clip(text: Any) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 161)
+- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 166)
+- `_record_reason(past: Any, connection: Any, kind: str, record_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 171) — Why a text's write-time record names something protected, or None: no record is no more than the attempt itself (the router card reads a cause the same way); an incomplete one cannot be established (fail closed).
+- `_named(row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 195)
+- `_decision_time(connection: Any, decision_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 208)
+- `_miss(connection: Any, config: Any, learning_object_ids: Sequence[str], decided_at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 213) — The latest attempt on the lesson's topics known at the offer's decision (THE availability predicate: a backdated import that arrived later was not what the offer was made on).
+- `_why_no_diagnosis(connection: Any, attempt_id: str) -> str` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 231) — Pending, failed, superseded or absent: the one plain reason the attempt has no diagnosis in force.
+- `_statements(vault: Any, repository: Any, connection: Any, past: Any, attempt: Mapping[str, Any]) -> list[Confusion]` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 253) — The miss's hypotheses, then its learner-text gaps, each passed through the shared protection.
+- `_asked_lesson(connection: Any, preference_id: str, learning_object_ids: Sequence[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 301) — The learner's "learn this" (IH3's ``router_learner_preferences`` row) when it names a lesson on exactly these topics, else None: the client names the preference, and the ledger is what says it was a request for this lesson.
+- `_latest_diagnosed_miss(connection: Any, repository: Any, config: Any, learning_object_ids: Sequence[str], at: str) -> tuple[dict[str, Any], dict[str, Any]] | None` ([source](../../../../../../src/learnloop/teacher/diagnosed_sources.py), line 317) — The owner's decision 2 (Nov 9): the latest miss on the lesson's topics, for a lesson the learner asked for.
 
 ## Who imports or calls it
 
@@ -118,8 +123,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `marks_for_attempt`, `present`
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `module`; calls `gaps_for_attempt`, `reversals`
+- [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; calls `learner_preference`, `preferences_present`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `stored_record`; calls `stored_record`
 - [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `module`; calls `latest_marks`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `hypothesis_answers`; calls `PastWork`, `hypothesis_answers`
@@ -148,6 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_miss_a_lesson_reads_is_what_was_known_at_the_decision`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_no_score_or_stuck_flag_selects_sections`
+  - `test_the_lesson_ref_prefix_is_the_plans`
 
 ## Modification guidance
 

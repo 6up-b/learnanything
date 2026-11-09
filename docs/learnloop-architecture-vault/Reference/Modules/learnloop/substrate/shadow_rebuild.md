@@ -176,6 +176,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_shadow_rebuild_reports_the_upgrades_schedule_effects`
   - `test_with_the_factor_kept_the_shadow_reports_no_schedule_change`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
+  - `test_a_live_database_that_changes_during_the_run_is_refused`
   - `test_shadow_rebuild_rejects_unknown_override_without_touching_live_db`
   - `test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import

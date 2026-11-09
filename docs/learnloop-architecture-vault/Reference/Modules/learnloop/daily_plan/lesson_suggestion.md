@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/lesson_suggestion.py"
 source_paths:
   - "src/learnloop/daily_plan/lesson_suggestion.py"
-source_commit: "4a43accdeee73f40cfc87496be678e016f93b3b3"
-source_commit_timestamp: "2026-11-09T08:57:15-05:00"
+source_commit: "9e7b2fdc2819048463e701742a937666bbdca669"
+source_commit_timestamp: "2026-11-09T12:12:32-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,32 +50,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/lesson_suggestion.py](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py) |
-| Source lines | 676 |
+| Source lines | 699 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4a43accdeee73f40cfc87496be678e016f93b3b3` |
-| Commit timestamp | `2026-11-09T08:57:15-05:00` |
+| Source commit | `9e7b2fdc2819048463e701742a937666bbdca669` |
+| Commit timestamp | `2026-11-09T12:12:32-05:00` |
 
 ## Public API
 
-- `class SuggestionError(ValueError)` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 75)
-  - `__init__(self, code: str, message: str) -> None` (line 76; internal)
-- `suggestions_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 81) — TE1b's suggestions are on: the successor's tag, its switch, the router and its log, and lessons.
-- `offers_in_objective(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 95) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the objective serves the day's offers as plan blocks, so Today's open draws no card (``lesson_offer.offers_on``).
-- `suggestions_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 104) — Today may draw a suggestion card at its open: TE1b's suggestions on (:func:`suggestions_enabled`), and, from TE3b's tag with its switch on, only where the objective does not serve the plan (§15.1a: TE1b exactly there).
-- `build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list[LS.Candidate], dict[str, list[str]]]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 172) — The ``instruct(lesson)`` candidates (without decline days) and why other LOs were left out.
-- `card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 297) — The card a decision shows while it is unanswered; None when it showed none or was answered.
-- `reservation_problem(vault: Any, repository: Any, view: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 364) — Why a pending card's reserved lesson can no longer open on the current vault, or None.
-- `today_suggestion(vault: Any, repository: Any, *, clock: Clock | None=None, session_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 439) — Today's suggestion card, drawing the day's decision on the first call; None when there is none.
-- `respond(vault: Any, repository: Any, *, decision_id: str, response: str, candidate_ref: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 554) — Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
-- `offer_card_view(block: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 615) — Teacher TE3b: a plan block's offer card (the step's and the plan view's), from the card its decision drew: "Learn *X* now?
+- `class SuggestionError(ValueError)` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 78)
+  - `__init__(self, code: str, message: str) -> None` (line 79; internal)
+- `suggestions_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 84) — TE1b's suggestions are on: the successor's tag, its switch, the router and its log, and lessons.
+- `offers_in_objective(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 98) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the objective serves the day's offers as plan blocks, so Today's open draws no card (``lesson_offer.offers_on``).
+- `suggestions_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 107) — Today may draw a suggestion card at its open: TE1b's suggestions on (:func:`suggestions_enabled`), and, from TE3b's tag with its switch on, only where the objective does not serve the plan (§15.1a: TE1b exactly there).
+- `missed_since(cold: Sequence[Mapping[str, Any]], last_lesson: str | None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 138) — The owner's decision 4 (Nov 9, spec_instruct_handoff_v1 §8): a cold check since the topic's last lesson (or ever, with none) that was not fully right.
+- `build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list[LS.Candidate], dict[str, list[str]]]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 185) — The ``instruct(lesson)`` candidates (without decline days) and why other LOs were left out.
+- `card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 319) — The card a decision shows while it is unanswered; None when it showed none or was answered.
+- `reservation_problem(vault: Any, repository: Any, view: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 386) — Why a pending card's reserved lesson can no longer open on the current vault, or None.
+- `today_suggestion(vault: Any, repository: Any, *, clock: Clock | None=None, session_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 461) — Today's suggestion card, drawing the day's decision on the first call; None when there is none.
+- `respond(vault: Any, repository: Any, *, decision_id: str, response: str, candidate_ref: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 576) — Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
+- `offer_card_view(block: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 637) — Teacher TE3b: a plan block's offer card (the step's and the plan view's), from the card its decision drew: "Learn *X* now?
 
 ### Module constants
 
-- `REASON_WORDS` ([src/learnloop/daily_plan/lesson_suggestion.py](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 67)
-- `WHY_LABEL` ([src/learnloop/daily_plan/lesson_suggestion.py](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 72)
+- `REASON_WORDS` ([src/learnloop/daily_plan/lesson_suggestion.py](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 68)
+- `WHY_LABEL` ([src/learnloop/daily_plan/lesson_suggestion.py](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 75)
 
 ### Explicit exports
 
@@ -85,6 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SuggestionError`
 - `WHY_LABEL`
 - `build_candidates`
+- `missed_since`
 - `card_view`
 - `offer_card_view`
 - `offers_in_objective`
@@ -96,23 +98,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_goal_learning_objects(vault: Any) -> set[str]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 117)
-- `_cold(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 130)
-- `_predicted(vault: Any, repository: Any, learning_object_id: str, now_iso: str) -> float | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 135) — The mastery model's predicted unassisted success on the LO (its own prior while it has no evidence): the number the lesson brief shows (``teacher.brief.lo_prediction``; a test pins the two equal).
-- `_band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 153) — Adaptive difficulty's prediction against the practice band per LO (``below_band``; codex review F6): AD's posterior, never the mastery model.
-- `_shown(decision: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 223)
-- `_model(connection: Any, *, with_offers: bool) -> tuple[LS.AcceptanceState, list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 227) — The daily draw's acceptance model, its decisions and responses.
-- `_days(now: datetime, at: str | None) -> float | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 240)
-- `_context(env: PlanEnv, decisions: Sequence[Mapping[str, Any]]) -> LS.Context` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 245)
-- `_sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, config: Any, today: str, now_iso: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 261) — Record each earlier day's shown card left unanswered as ``ignored`` (its day has ended).
-- `_card_entry(entry: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 292)
-- `_pending_from_earlier_day(connection: Any, decisions: Sequence[Mapping[str, Any]], *, today: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 329) — The newest earlier day's Start whose lesson never opened, as its card (codex re-review F2).
-- `_protection_readable(vault: Any, repository: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 347) — The exam material can be checked: what a lesson's opening needs before its brief (``teacher.brief.protection_state`` is None otherwise and the opening refuses; read here without importing the teacher; a test pins the two equal).
-- `_expire(connection: Any, view: Mapping[str, Any], problem: str, *, now_iso: str) -> None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 380) — Let an unopenable reservation go: an ``expired`` row on its decision (nothing deleted).
-- `_recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tuple[bool, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 392) — Today's card before any draw: ``(True, card)`` when the day already has its decision or an earlier day's Start still waits to open (validated first; R2), else ``(False, None)`` (draw).
-- `_target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.Target` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 420) — The day's target, drawn the router's way (spec §15.1, codex re-review F5).
-- `_release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 630) — Let a pending card's reservation go (the learner's "Not now" on it); idempotent.
-- `_response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 653)
+- `_goal_learning_objects(vault: Any) -> set[str]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 120)
+- `_cold(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 133)
+- `_predicted(vault: Any, repository: Any, learning_object_id: str, now_iso: str) -> float | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 148) — The mastery model's predicted unassisted success on the LO (its own prior while it has no evidence): the number the lesson brief shows (``teacher.brief.lo_prediction``; a test pins the two equal).
+- `_band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 166) — Adaptive difficulty's prediction against the practice band per LO (``below_band``; codex review F6): AD's posterior, never the mastery model.
+- `_shown(decision: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 245)
+- `_model(connection: Any, *, with_offers: bool) -> tuple[LS.AcceptanceState, list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 249) — The daily draw's acceptance model, its decisions and responses.
+- `_days(now: datetime, at: str | None) -> float | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 262)
+- `_context(env: PlanEnv, decisions: Sequence[Mapping[str, Any]]) -> LS.Context` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 267)
+- `_sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, config: Any, today: str, now_iso: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 283) — Record each earlier day's shown card left unanswered as ``ignored`` (its day has ended).
+- `_card_entry(entry: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 314)
+- `_pending_from_earlier_day(connection: Any, decisions: Sequence[Mapping[str, Any]], *, today: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 351) — The newest earlier day's Start whose lesson never opened, as its card (codex re-review F2).
+- `_protection_readable(vault: Any, repository: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 369) — The exam material can be checked: what a lesson's opening needs before its brief (``teacher.brief.protection_state`` is None otherwise and the opening refuses; read here without importing the teacher; a test pins the two equal).
+- `_expire(connection: Any, view: Mapping[str, Any], problem: str, *, now_iso: str) -> None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 402) — Let an unopenable reservation go: an ``expired`` row on its decision (nothing deleted).
+- `_recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tuple[bool, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 414) — Today's card before any draw: ``(True, card)`` when the day already has its decision or an earlier day's Start still waits to open (validated first; R2), else ``(False, None)`` (draw).
+- `_target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.Target` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 442) — The day's target, drawn the router's way (spec §15.1, codex re-review F5).
+- `_release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 652) — Let a pending card's reservation go (the learner's "Not now" on it); idempotent.
+- `_response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 675)
 
 ## Who imports or calls it
 
@@ -146,7 +148,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] — imports `module`; calls `Candidate`, `Context`, `canonical_hash`, `days_between`, `declines_by_learning_object`, `draw`, `lesson_ref`, `mixture_target`, `observations`, `replay`, `score`, `seed_for`, `tiebreak_target`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `prepare`, `record`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `lesson_offers_on`; calls `lesson_offers_on`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `lesson_candidate_after_cold_miss_on`, `lesson_offers_on`; calls `lesson_candidate_after_cold_miss_on`, `lesson_offers_on`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `module`; calls `epsilon_tiebreak`, `tied_set`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `CoverageError`, `read_protection`; calls `read_protection`
@@ -192,8 +194,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_ceiling_still_binds_on_seen_offers_at_a_boundary_with_none_open`
   - `test_the_todays_card_sweep_agrees`
   - `test_what_counts_as_on_screen`
+- [tests/test_ih2_one_open_offer.py](../../../../../../tests/test_ih2_one_open_offer.py) — direct import
+  - `test_a_boundary_drawing_a_block_leaves_the_jobs_offer_first_and_its_own_block_next`
+  - `test_a_need_decision_replacing_an_interrupting_offer_keeps_its_place_and_what_it_beat`
+  - `test_a_read_drawing_an_offer_during_a_jobs_decision_leaves_one_offer`
+  - `test_an_unwritten_workflow_waits_on_the_offer_that_replaced_the_one_it_lost_to`
+  - `test_at_most_one_open_offer_across_read_and_job_interleavings`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_a_learner_asked_lesson_reaches_p_accept_flagged_unprompted`
+  - `test_an_answer_on_the_desktop_to_what_the_phone_asked_for_counts_once`
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_off_or_below_the_tag_candidates_and_wording_are_the_predecessors`
+  - `test_the_candidacy_condition_reads_no_score_magnitude_count_or_error_type`
+  - `test_the_reason_reads_honestly`
 - [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_offer_shown_is_ignored_by_the_plan_and_changes_no_decision`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import

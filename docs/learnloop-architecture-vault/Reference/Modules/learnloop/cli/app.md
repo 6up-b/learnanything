@@ -414,6 +414,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_populate_goal_uses_a_15_minute_provider_timeout`
   - `test_rejecting_review_required_diagnostic_reopens_need_for_regeneration`
 - [tests/test_cli_help_snapshot.py](../../../../../../tests/test_cli_help_snapshot.py) — direct import
+  - `test_every_command_prints_its_help`
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — direct import
   - `test_cli_ingest_reports_windows_path_escape_hint`
   - `test_cli_ingest_runs_canonical_endpoint_and_reports_json`

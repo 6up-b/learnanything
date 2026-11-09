@@ -116,7 +116,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] | [[Reference/Modules/learnloop/adaptive_difficulty/outcomes#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] | [[Reference/Modules/learnloop/adaptive_difficulty/outside#^module-purpose|purpose]] | `ACTIVE` | 6 | 20 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] | [[Reference/Modules/learnloop/adaptive_difficulty/predict#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] | [[Reference/Modules/learnloop/adaptive_difficulty/priors#^module-purpose|purpose]] | `ACTIVE` | 16 | 11 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] | [[Reference/Modules/learnloop/adaptive_difficulty/priors#^module-purpose|purpose]] | `ACTIVE` | 16 | 12 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/projection|learnloop.adaptive_difficulty.projection]] | [[Reference/Modules/learnloop/adaptive_difficulty/projection#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/protected_tables|learnloop.adaptive_difficulty.protected_tables]] | [[Reference/Modules/learnloop/adaptive_difficulty/protected_tables#^module-purpose|purpose]] | `ACTIVE` | 2 | 23 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]] | [[Reference/Modules/learnloop/adaptive_difficulty/protection#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |

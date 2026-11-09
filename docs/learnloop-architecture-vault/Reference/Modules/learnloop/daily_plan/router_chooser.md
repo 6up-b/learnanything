@@ -203,6 +203,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_followups_draw_stands_only_while_no_offer_has_been_drawn_since`
   - `test_a_need_followups_draw_stands_at_the_boundary`
   - `test_an_offer_drawn_after_the_followups_decision_is_contested`
+- [tests/test_ih2_one_open_offer.py](../../../../../../tests/test_ih2_one_open_offer.py) — direct import
+  - `test_a_job_that_draws_the_followup_leaves_the_read_offer_alone`
+  - `test_at_most_one_open_offer_across_read_and_job_interleavings`
 - [tests/test_ih_numeric_seed.py](../../../../../../tests/test_ih_numeric_seed.py) — direct import
   - `test_the_need_paths_decision_with_no_lesson_seeds_from_its_identity`
   - `test_the_workflows_arm_with_no_room_to_wait_seeds_from_its_identity`

@@ -177,6 +177,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_phone_choosing_the_drawn_lesson_is_told_it_waits_and_it_stays_an_agreement`
   - `test_a_reading_is_servable_where_the_phones_reader_shows_it`
   - `test_with_no_reader_a_reading_waits`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
 - [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import

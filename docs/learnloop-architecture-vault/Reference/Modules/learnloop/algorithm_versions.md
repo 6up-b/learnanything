@@ -359,6 +359,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_phone_v3_and_the_latest`
 - [tests/test_ih6_workbench_open_item.py](../../../../../tests/test_ih6_workbench_open_item.py) — direct import
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
 - [tests/test_instruct_handoff_ih0.py](../../../../../tests/test_instruct_handoff_ih0.py) — direct import
 - [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f2_the_chain_ends_at_the_intent_successor`
@@ -445,6 +446,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_mixture_successor_follows_the_staged_frame_and_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_latest`
 - [tests/test_pfc_unverified_unassessed.py](../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
+- [tests/test_placement_fixture_copies.py](../../../../../tests/test_placement_fixture_copies.py) — direct import
+  - `test_no_lo_answered_without_a_due_time_leaves_the_queue_at_the_latest_tag`
 - [tests/test_plan_determinism.py](../../../../../tests/test_plan_determinism.py) — direct import
   - `test_every_defaults_snapshot_records_the_switch_on`
   - `test_replay_never_reads_the_switch`
@@ -590,7 +593,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_switch_key.py](../../../../../tests/test_rofu_switch_key.py) — direct import
   - `test_below_the_tag_the_key_names_no_switch`
 - [tests/test_rofu_weeks.py](../../../../../tests/test_rofu_weeks.py) — direct import
-  - `test_two_weeks_before_and_after_the_batch`
+  - `test_two_weeks_after_the_batch`
 - [tests/test_rospeed2_connections.py](../../../../../tests/test_rospeed2_connections.py) — direct import
   - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
   - `test_the_pool_and_the_held_map_follow_their_switches`

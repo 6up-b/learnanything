@@ -176,9 +176,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_off_or_below_the_tag_every_drawn_offer_counts_and_an_unseen_one_is_ignored`
   - `test_offers_nobody_saw_use_up_nothing_and_a_lesson_keeps_competing_past_the_ceiling`
   - `test_the_todays_card_sweep_agrees`
+- [tests/test_ih2_one_open_offer.py](../../../../../../../tests/test_ih2_one_open_offer.py) — direct import
+  - `test_a_boundary_drawing_an_offer_replaces_the_jobs_offer_placed_under_it`
+  - `test_a_read_drawing_an_offer_during_a_jobs_decision_leaves_one_offer`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
 - [tests/test_ih6_workbench_open_item.py](../../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
   - `test_a_drawn_offer_stays_as_it_is_when_a_workbench_opens`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_the_candidacy_condition_reads_no_score_magnitude_count_or_error_type`
 - [tests/test_te3b_codex_review.py](../../../../../../../tests/test_te3b_codex_review.py) — direct import
 - [tests/test_te3b_offers.py](../../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`

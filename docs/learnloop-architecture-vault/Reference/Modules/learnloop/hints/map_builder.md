@@ -341,6 +341,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_metered_route_needs_a_price_and_joins_the_maps_envelope`
   - `test_it_runs_in_the_background_after_submit_with_an_injected_client`
   - `test_no_call_in_tests_without_an_injected_client`
+- [tests/test_narrative_rollback_overlap.py](../../../../../../tests/test_narrative_rollback_overlap.py) — direct import
+  - `test_a_reader_arriving_after_the_claim_delays_the_narrative_by_the_lease_and_doesnt_lose_it`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
   - `test_the_background_build_launcher_never_uses_the_grant`
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import

@@ -140,6 +140,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
@@ -190,6 +191,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_concepts.py](../../../../../../tests/test_concepts.py) — direct import
   - `test_merge_concepts_rewrites_vault_references`
 - [tests/test_conjunctive_instruments.py](../../../../../../tests/test_conjunctive_instruments.py) — direct import
+- [tests/test_connection_reuse.py](../../../../../../tests/test_connection_reuse.py) — direct import
+  - `test_a_cycle_goes_to_the_real_dump`
+  - `test_remembered_yaml_is_the_real_dump_and_comments_and_order_are_never_mixed_up`
+  - `test_shared_containers_are_never_served_a_plain_copys_yaml`
 - [tests/test_contract_commissioning.py](../../../../../../tests/test_contract_commissioning.py) — direct import
   - `test_authoring_at_the_contract_capability_makes_the_cell_reachable`
   - `test_max_los_truncates_by_queue_priority`

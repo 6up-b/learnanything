@@ -10,8 +10,8 @@ area: "TypeScript/api"
 source_path: "apps/learnloop-tauri/src/api/dto.ts"
 source_paths:
   - "apps/learnloop-tauri/src/api/dto.ts"
-source_commit: "3fff1f3022217d06c78dc20963746a11650aad19"
-source_commit_timestamp: "2026-11-09T09:03:50-05:00"
+source_commit: "9e7b2fdc2819048463e701742a937666bbdca669"
+source_commit_timestamp: "2026-11-09T12:12:32-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
-| Source lines | 10798 |
+| Source lines | 10802 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `3fff1f3022217d06c78dc20963746a11650aad19` |
-| Commit timestamp | `2026-11-09T09:03:50-05:00` |
+| Source commit | `9e7b2fdc2819048463e701742a937666bbdca669` |
+| Commit timestamp | `2026-11-09T12:12:32-05:00` |
 
 ## Activation and status evidence
 
@@ -926,21 +926,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface WorkbenchCompareJobResultDto` — interface, line 10576
 - `export interface WorkbenchRequestHelpInput` — interface, line 10584
 - `export interface LessonTurnInput` — interface, line 10601
-- `export interface LessonSuggestionEntryDto` — interface, line 10630
-- `export interface LessonSuggestionDto` — interface, line 10639
-- `export interface LessonSuggestionResponseDto` — interface, line 10653
-- `export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable"` — type, line 10663
-- `export type LessonFeedEntryDto = |` — type, line 10665
-- `export interface LessonViewDto` — interface, line 10682
-- `export interface LessonProbeDto` — interface, line 10709
-- `export interface LessonGoalDto` — interface, line 10718
-- `export interface OpenLessonDto` — interface, line 10729
-- `export interface LessonActivityIntervalDto` — interface, line 10738
-- `export interface RouterDecisionDto` — interface, line 10750
-- `export interface FollowupDto` — interface, line 10764
-- `export type HypothesisMark = "my_gap" | "partly" | "not_it"` — type, line 10778
-- `export interface HypothesisMarksDto` — interface, line 10780
-- `export interface FollowupNextDto` — interface, line 10792
+- `export interface LessonSuggestionEntryDto` — interface, line 10633
+- `export interface LessonSuggestionDto` — interface, line 10643
+- `export interface LessonSuggestionResponseDto` — interface, line 10657
+- `export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable"` — type, line 10667
+- `export type LessonFeedEntryDto = |` — type, line 10669
+- `export interface LessonViewDto` — interface, line 10686
+- `export interface LessonProbeDto` — interface, line 10713
+- `export interface LessonGoalDto` — interface, line 10722
+- `export interface OpenLessonDto` — interface, line 10733
+- `export interface LessonActivityIntervalDto` — interface, line 10742
+- `export interface RouterDecisionDto` — interface, line 10754
+- `export interface FollowupDto` — interface, line 10768
+- `export type HypothesisMark = "my_gap" | "partly" | "not_it"` — type, line 10782
+- `export interface HypothesisMarksDto` — interface, line 10784
+- `export interface FollowupNextDto` — interface, line 10796
 
 ## Internal implementation anchors
 

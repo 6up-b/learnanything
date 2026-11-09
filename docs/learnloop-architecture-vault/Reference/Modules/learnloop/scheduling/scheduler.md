@@ -375,6 +375,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_first_serving_build_with_the_split_off_records_the_hold`
   - `test_the_kill_switch_ignores_diagnosis_decided_outcomes`
 - [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
+  - `test_no_lo_answered_without_a_due_time_leaves_the_queue_at_the_latest_tag`
   - `test_placement_ignores_unanswered_opening_episodes_on_fixture_copies`
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_answered_opening_episode_is_not_ignored`

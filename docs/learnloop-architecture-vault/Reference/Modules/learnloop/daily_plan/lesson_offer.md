@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/lesson_offer.py"
 source_paths:
   - "src/learnloop/daily_plan/lesson_offer.py"
-source_commit: "4a43accdeee73f40cfc87496be678e016f93b3b3"
-source_commit_timestamp: "2026-11-09T08:57:15-05:00"
+source_commit: "f837a8a7b4070a36aa3288598d59a614f603e47a"
+source_commit_timestamp: "2026-11-09T11:20:01-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4a43accdeee73f40cfc87496be678e016f93b3b3` |
-| Commit timestamp | `2026-11-09T08:57:15-05:00` |
+| Source commit | `f837a8a7b4070a36aa3288598d59a614f603e47a` |
+| Commit timestamp | `2026-11-09T11:20:01-05:00` |
 
 ## Public API
 
@@ -223,8 +223,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rows_from_before_the_record_keep_their_reading`
   - `test_the_block_of_an_offer_nobody_saw_ends_taken_back`
   - `test_the_todays_card_sweep_agrees`
+- [tests/test_ih2_one_open_offer.py](../../../../../../tests/test_ih2_one_open_offer.py) — direct import
+  - `test_a_read_drawing_an_offer_during_a_jobs_decision_leaves_one_offer`
+  - `test_a_superseded_offer_passing_a_later_day_is_not_read_as_a_decline`
+  - `test_two_reads_contesting_one_offer_decide_it_once`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_a_card_passed_over_is_no_answer_so_the_phones_request_still_counts`
   - `test_a_learner_asked_lesson_reaches_p_accept_flagged_unprompted`
+  - `test_a_phone_agreement_is_a_request_it_reaches_the_model_on_the_drawn_offers_card`
 - [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_offer_shown_is_ignored_by_the_plan_and_changes_no_decision`
   - `test_offer_shown_is_written_once_per_block_and_surface`

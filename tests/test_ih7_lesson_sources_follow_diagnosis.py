@@ -478,6 +478,34 @@ def test_a_lesson_whose_request_is_not_on_record_or_names_another_topic_adds_not
         assert record["why"] == "the learner's request for this lesson is not on record", preference
 
 
+def test_the_sidecar_passes_the_learn_this_preference_to_the_opening(world, monkeypatch):
+    """The desktop's ``lesson.turn`` ``open`` names the preference (camelCase on the wire), and only a learner's own start
+    carries it on."""
+
+    from learnloop_sidecar.handlers import lesson as H
+
+    class _Ctx:
+        grading_provider_override = None
+
+        def require_vault(self):
+            return world.vault, world.repository
+
+        def reload(self, maintenance: bool = True):
+            pass
+
+    attempt = world.miss()
+    world.diagnose(attempt)
+    preference = world.ask()
+    monkeypatch.setattr(H, "_clients", lambda ctx, vault: clients(TeacherFake([plan_turn])))
+    params = H.LessonTurnInput.model_validate({"action": "open", "entry": "learning_object", "learningObjectIds": [LO],
+                                               "preferenceId": preference})
+    assert params.preference_id == preference
+    opened = H.lesson_turn(_Ctx(), params)
+    payload = _open_payload(world.repository, opened["lessonId"])
+    assert payload["sources_follow"]["asked"]["preference_id"] == preference
+    assert payload["sources_follow"]["status"] == "added"
+
+
 def test_a_reader_selection_or_a_typed_topic_ignores_a_preference(world):
     """Reader-selection and typed-topic lessons stay unchanged: the service passes the preference only for a learner's
     own start on a topic."""

@@ -248,7 +248,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_served_cached_answer_names_the_generator_that_produced_it`
   - `test_flipping_a_switch_between_prefetch_and_serve_starts_a_new_job`
 - [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
-  - `test_two_weeks_before_and_after_the_batch`
+  - `test_two_weeks_after_the_batch`
 - [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
   - `test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_point`
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import

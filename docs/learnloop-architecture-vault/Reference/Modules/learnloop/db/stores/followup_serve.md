@@ -170,6 +170,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_taking_the_lesson_settles_the_followup_honestly`
   - `test_the_workflows_one_job_runs_again_for_a_new_decision`
 - [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
+- [tests/test_ih2_one_open_offer.py](../../../../../../../tests/test_ih2_one_open_offer.py) — direct import
+  - `test_an_unwritten_workflow_waits_on_the_offer_that_replaced_the_one_it_lost_to`
 
 ## Modification guidance
 

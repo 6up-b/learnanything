@@ -219,7 +219,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_review_draw.py](../../../../../../../tests/test_rofu_review_draw.py) — direct import
   - `test_the_numeric_policy_draws_consistently_only_at_the_tag_with_its_switch`
 - [tests/test_rofu_weeks.py](../../../../../../../tests/test_rofu_weeks.py) — direct import
-  - `test_two_weeks_before_and_after_the_batch`
+  - `test_two_weeks_after_the_batch`
 - [tests/test_rospeed_join.py](../../../../../../../tests/test_rospeed_join.py) — direct import
 - [tests/test_te3b_offers.py](../../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`

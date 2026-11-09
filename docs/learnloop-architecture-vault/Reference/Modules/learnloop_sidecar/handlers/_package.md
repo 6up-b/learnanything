@@ -84,7 +84,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/workbench_help.py"
   - "src/learnloop_sidecar/handlers/workbench_rw2c.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T09:03:50-05:00"
+source_commit_timestamp: "2026-11-09T12:07:21-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -167,7 +167,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/knowledge_model|learnloop_sidecar.handlers.knowledge_model]] | [[Reference/Modules/learnloop_sidecar/handlers/knowledge_model#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/ladder|learnloop_sidecar.handlers.ladder]] | [[Reference/Modules/learnloop_sidecar/handlers/ladder#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps|learnloop_sidecar.handlers.learner_gaps]] | [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
-| [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] | [[Reference/Modules/learnloop_sidecar/handlers/lesson#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
+| [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] | [[Reference/Modules/learnloop_sidecar/handlers/lesson#^module-purpose|purpose]] | `ACTIVE` | 1 | 10 |
 | [[Reference/Modules/learnloop_sidecar/handlers/library|learnloop_sidecar.handlers.library]] | [[Reference/Modules/learnloop_sidecar/handlers/library#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] | [[Reference/Modules/learnloop_sidecar/handlers/library_ask#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |

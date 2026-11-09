@@ -334,6 +334,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_the_switch_is_registered_as_an_operational_kill_switch`
   - `test_the_switch_needs_the_tag_and_defaults_on`
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_the_switch_needs_the_tag_defaults_on_and_is_registered`
 - [tests/test_ingest_m3.py](../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_acquisition_preview_audio_is_always_external`
   - `test_acquisition_preview_flags_potential_external_consent`

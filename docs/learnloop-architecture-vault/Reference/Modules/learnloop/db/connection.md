@@ -308,6 +308,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ad_ingest_fakes.py](../../../../../../tests/ad_ingest_fakes.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
+- [tests/connection_reuse.py](../../../../../../tests/connection_reuse.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/query_student_fakes.py](../../../../../../tests/query_student_fakes.py) — direct import
@@ -444,6 +445,29 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_compare_methods.py](../../../../../../tests/test_compare_methods.py) — direct import
 - [tests/test_compare_sources_keep.py](../../../../../../tests/test_compare_sources_keep.py) — direct import
   - `test_a_comparison_holding_exam_material_is_refused`
+- [tests/test_connection_reuse.py](../../../../../../tests/test_connection_reuse.py) — direct import
+  - `test_a_backup_onto_a_pooled_target_works_and_the_target_is_not_kept`
+  - `test_a_blob_handle_cant_survive_release`
+  - `test_a_commit_by_another_connection_is_seen`
+  - `test_a_connection_api_call_that_changes_state_is_not_kept`
+  - `test_a_connection_that_changed_any_setting_or_schema_is_never_handed_out_again`
+  - `test_a_cursor_left_mid_read_keeps_no_snapshot_or_lock`
+  - `test_a_cursors_connection_is_the_proxy_not_the_raw_handle`
+  - `test_a_database_deleted_is_gone_for_a_read_only_open`
+  - `test_a_database_replaced_by_rename_is_read_afresh`
+  - `test_a_pool_reuses_one_connection_after_a_read_and_after_dml`
+  - `test_a_raw_handles_cursor_cant_keep_a_lock_past_release`
+  - `test_a_raw_registered_state_never_reaches_the_next_user`
+  - `test_a_shortened_busy_timeout_reaches_the_next_connection`
+  - `test_a_test_that_forbids_opening_a_connection_is_not_satisfied_by_an_idle_one`
+  - `test_a_wal_database_is_never_kept`
+  - `test_an_uncommitted_write_is_discarded_at_close_and_holds_no_lock`
+  - `test_another_thread_opens_its_own_and_the_pool_closes_with_the_test`
+  - `test_bytes_edited_in_place_are_read_afresh_even_with_the_change_counter_untouched`
+  - `test_state_registered_on_a_kept_raw_handle_while_idle_ends_its_reuse`
+  - `test_the_durability_lane_runs_production_connections_copies_and_fsync`
+  - `test_the_marker_opens_real_connections`
+  - `test_two_users_at_once_get_two_connections_and_a_closed_handle_stays_closed`
 - [tests/test_coordinated_migrations.py](../../../../../../tests/test_coordinated_migrations.py) — direct import
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
   - `test_migration_180_widens_the_field_serving_origins_and_keeps_its_rows`
@@ -680,6 +704,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_head_fixture_predecessor_to_successor_path`
 - [tests/test_mvp09_upgrade.py](../../../../../../tests/test_mvp09_upgrade.py) — direct import
   - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
+- [tests/test_narrative_rollback_overlap.py](../../../../../../tests/test_narrative_rollback_overlap.py) — direct import
+  - `test_a_reader_arriving_after_the_claim_delays_the_narrative_by_the_lease_and_doesnt_lose_it`
+  - `test_a_reader_past_the_busy_timeout_doesnt_lose_the_narrative`
 - [tests/test_notes_vault_search.py](../../../../../../tests/test_notes_vault_search.py) — direct import
   - `test_c2b_f1_a_note_under_a_protected_section_header_is_no_note`
 - [tests/test_openai_embedding_client.py](../../../../../../tests/test_openai_embedding_client.py) — direct import
