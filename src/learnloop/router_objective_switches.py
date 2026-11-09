@@ -41,6 +41,7 @@ from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_VERSIONS,
     LESSON_OFFERS_VERSIONS,
     FAILURE_SHARE_VERSIONS,
+    SLIP_GAP_VERSIONS,
     ROUTER_CALIBRATION_VERSIONS,
     ROUTER_FOLLOWUPS_VERSIONS,
     ROUTER_LEARNED_TAIL_VERSIONS,
@@ -295,7 +296,12 @@ def followup_generator_switches(config: Any) -> dict[str, bool] | None:
 
     if not followups_tag(config):
         return None
-    return {key: followup_on(config, key) for key in FOLLOWUP_GENERATOR_SWITCHES}
+    out = {key: followup_on(config, key) for key in FOLLOWUP_GENERATOR_SWITCHES}
+    if slip_gap_tag(config):
+        # Slip or gap SG2 changes a logged decision's values (R8's rule), so it is part of the generator payload and a
+        # flip is a change point. SG1 changes none, so it is not. Below the tag, the payload keeps its bytes.
+        out["miss_cause_in_value"] = miss_cause_in_value_on(config)
+    return out
 
 
 #: The follow-up batch's landing ruling R12: every switch of the batch, as part of the prefetch boundary key, so a
@@ -314,6 +320,16 @@ SEED_NEUTRAL_SWITCHES: tuple[str, ...] = ("held_reading_map", "pooled_connection
 #: both out, as it takes :data:`SEED_NEUTRAL_SWITCHES` out of the follow-up batch's snapshot.
 SEED_NEUTRAL_OBJECTIVE_KEYS: tuple[str, ...] = ("preferences_inform_router",)
 SEED_NEUTRAL_IDENTITY_KEYS: tuple[str, ...] = ("preferences",)
+#: Slip or gap (spec_slip_vs_gap_v1 §7): what the boundary identity names so a flip, or a change in a topic's miss
+#: sensor (a diagnosis landing, a probe answered), starts a new job: both switches in ``objective_settings``, the
+#: sensor's mark beside them, and the sensor on a lesson offer's card record (:data:`MISS_CAUSE_OFFER_KEY`).
+#: ``objective_chooser.numeric_seed`` takes them out, so a decision is valued on the same draws whatever they are
+#: (common random numbers). SG1 moves no value at all. SG2 does move values, but only through its inputs (a diagnosed
+#: topic's lesson and repair slopes), never through the draws: with it on, a decision whose topics have no diagnosed
+#: miss is the predecessor's bit for bit, and one that has differs from it by the split alone.
+COMMON_DRAW_OBJECTIVE_KEYS: tuple[str, ...] = ("miss_cause_sensor", "miss_cause_in_value")
+COMMON_DRAW_IDENTITY_KEYS: tuple[str, ...] = ("miss_cause",)
+MISS_CAUSE_OFFER_KEY = "miss_cause"
 
 
 def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
@@ -433,6 +449,32 @@ def preferences_inform_router_on(config: Any) -> bool:
     return failure_share_tag(config) and objective_on(config) and bool(getattr(section, "preferences_inform_router", False))
 
 
+def slip_gap_tag(config: Any) -> bool:
+    """Slip or gap (spec_slip_vs_gap_v1): the vault is at its successor (``SLIP_GAP_ALGORITHM_VERSION``) or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in SLIP_GAP_VERSIONS
+
+
+def miss_cause_sensor_on(config: Any) -> bool:
+    """SG1 (spec_slip_vs_gap_v1 §3): each candidate topic's ``miss_cause`` sensor is frozen in the objective's trace, on a
+    lesson offer's card record and on the LLM policy's card: the tag, the objective serving and ``[router_objective]
+    miss_cause_sensor`` (default true). No numeric value moves. Off, or below the tag, the trace, the offer's record and
+    the card are the predecessor's byte for byte."""
+
+    section = getattr(config, "router_objective", None)
+    return slip_gap_tag(config) and objective_on(config) and bool(getattr(section, "miss_cause_sensor", False))
+
+
+def miss_cause_in_value_on(config: Any) -> bool:
+    """SG2 (spec_slip_vs_gap_v1 §3): the numeric policy's lesson and repair effect slopes split by the miss's cause, with
+    the surprise calibrating ``p_gap``: SG1 on (it reads SG1's sensor) and ``[router_objective] miss_cause_in_value``
+    (default true). Off, or below the tag, every value is the predecessor's."""
+
+    section = getattr(config, "router_objective", None)
+    return miss_cause_sensor_on(config) and bool(getattr(section, "miss_cause_in_value", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -480,6 +522,12 @@ __all__ = [
     "lesson_sources_follow_diagnosis_on",
     "lesson_candidate_after_cold_miss_on",
     "preferences_inform_router_on",
+    "COMMON_DRAW_IDENTITY_KEYS",
+    "COMMON_DRAW_OBJECTIVE_KEYS",
+    "MISS_CAUSE_OFFER_KEY",
+    "miss_cause_in_value_on",
+    "miss_cause_sensor_on",
+    "slip_gap_tag",
     "known_at",
     "objective_on",
     "objective_scores_on",

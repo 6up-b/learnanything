@@ -883,6 +883,17 @@ PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"
 # landing (ONE constant; renumber if another successor lands first).
 FAILURE_SHARE_ALGORITHM_VERSION = "mvp-0.55"
 
+# mvp-0.57 (slip or gap SG1 + SG2; docs/specs/spec_slip_vs_gap_v1.md; owner decisions 2026-11-09), on top of instruct
+# hand-off's mvp-0.55 (the chain stays linear). SG1: a per-topic ``miss_cause`` sensor (the latest missed cold check's
+# diagnosis cause-class probabilities, its stored surprise and its status) frozen in the router objective's trace, on the
+# lesson offer's card record and on the LLM policy's card, with no change to any numeric value. SG2: the numeric
+# policy's lesson and repair effect slopes split by the miss's cause, ``p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ``,
+# with ``p_gap`` calibrated by a learned surprise coefficient (prior 0). Kill switches ``[router_objective]
+# miss_cause_sensor`` and ``miss_cause_in_value`` (SG2 needs SG1; off, or below the tag: mvp-0.55's trace, card and
+# values byte for byte). No migration. Built on instruct/handoff (mvp-0.55) as mvp-0.57, ONE constant: the placement
+# fix (mvp-0.56) lands before it and becomes its predecessor at the landing.
+SLIP_GAP_ALGORITHM_VERSION = "mvp-0.57"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -937,6 +948,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LESSON_OFFERS_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
     FAILURE_SHARE_ALGORITHM_VERSION,
+    SLIP_GAP_ALGORITHM_VERSION,
 )
 
 
@@ -1200,6 +1212,11 @@ PHONE_PROBES_VERSIONS: frozenset[str] = successors_from(PHONE_PROBES_ALGORITHM_V
 # ``[router_objective] failure_share_to_other_policy``. Every later successor
 # keeps it; gates must use this set, never equality.
 FAILURE_SHARE_VERSIONS: frozenset[str] = successors_from(FAILURE_SHARE_ALGORITHM_VERSION)
+
+# Versions whose router objective reads the slip-or-gap sensor (SG1, behind ``[router_objective] miss_cause_sensor``)
+# and splits a lesson's and a repair's slope by the miss's cause (SG2, behind ``miss_cause_in_value``). Every later
+# successor keeps them; gates must use this set, never equality.
+SLIP_GAP_VERSIONS: frozenset[str] = successors_from(SLIP_GAP_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

@@ -64,8 +64,8 @@ def drop_rospeed2_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_ro6_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.49"
     # Teacher TE2 (mvp-0.51) landed after it and keeps it.
-    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-6] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.55"
-    assert ROUTER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55"})
+    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-7] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert ROUTER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.57"})
 
 
 def test_the_switches_default_on():
@@ -85,6 +85,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_ih5_successor import drop_ih5_keys
 
     drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
+    from tests.test_sg_successor import drop_sg_keys
+
+    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
     for key in FOLLOWUP_KEYS:
         dumped["router_objective"].pop(key)
     from tests.test_teacher_te2_successor import drop_te2_keys
@@ -130,8 +133,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop import router_followups_upgrade, teacher_probes_upgrade
 
     # Teacher TE2's link (mvp-0.51) is the chain's latest; it hands earlier journals to this link.
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.router_followups_upgrade import complete_interrupted_activation" in inspect.getsource(
         teacher_probes_upgrade)
     # It hands an earlier link's journal to RO6's completion, which hands it on in turn.

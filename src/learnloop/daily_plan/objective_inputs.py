@@ -654,6 +654,24 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
     return V.Action(ref=candidate.candidate_id, kind=kind, item_los=item_los, minutes=minutes, minutes_log_sd=spread)
 
 
+#: Where :func:`build` puts the slip-or-gap sensor in its sources (the trace reads it from there, never as an input).
+MISS_CAUSE_SOURCE = "miss_cause"
+
+
+def _miss_cause(connection: Any, config: Any, learning_object_ids: Sequence[str],
+                now_iso: str) -> dict[str, dict[str, Any]] | None:
+    """SG1: the candidate topics' miss-cause sensor (:func:`learnloop.router_objective.miss_cause.sensor`), or None off
+    or below the tag (nothing is read)."""
+
+    from learnloop.router_objective_switches import miss_cause_sensor_on
+
+    if not miss_cause_sensor_on(config):
+        return None
+    from learnloop.router_objective import miss_cause as MC
+
+    return MC.sensor(connection, config, learning_object_ids, now_iso)
+
+
 def _step(action: V.Action) -> V.Action:
     """A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence,
     then the tail, is what uses the information), never a nested repair bundle."""
@@ -705,6 +723,9 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                                       *lesson_los]))
         kept = ordered[:TOPIC_LIMIT]
         mastery = _mastery(connection, kept)
+        # Slip or gap SG1 (spec_slip_vs_gap_v1 §3): each candidate topic's miss-cause sensor, read on this connection at
+        # the decision (nothing at all off, or below the tag).
+        miss_records = _miss_cause(connection, config, candidate_los, now_iso)
     from learnloop.router_objective_switches import fitted_models_on
 
     fitted = fitted_models_on(config)
@@ -789,6 +810,23 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
               and candidates[ref].subtype != LESSON_OFFER_SUBTYPE]
     block_minutes = (sum(float(block.est_minutes) for block in blocks) / len(blocks)) if blocks else max(remembered, 1.0)
     block_items = max(int(round(sum(max(len(block.item_ids), 1) for block in blocks) / len(blocks))), 1) if blocks else 1
+    learning = _learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES)
+    split_record: dict[str, Any] | None = None
+    if miss_records is not None:
+        from learnloop.router_objective_switches import miss_cause_in_value_on
+
+        if miss_cause_in_value_on(config):
+            # SG2: the lesson's and the repair's slopes by the miss's cause, on diagnosed topics only.
+            from learnloop.router_objective import miss_cause as MC
+
+            with repository.connection() as connection:
+                weights, split_record = MC.value_inputs(connection, config, miss_records, learning.gamma, now_iso)
+            slopes = split_record["slopes"]
+            valued = {topic.lo for topic in topics}
+            learning = replace(learning, causes=V.CauseSplit(
+                gap=(float(slopes["gap"][0]), float(slopes["gap"][1])),
+                slip=(float(slopes["slip"][0]), float(slopes["slip"][1])),
+                weights={lo: split for lo, split in weights.items() if lo in valued}))
     inputs = V.Inputs(
         topics=tuple(topics), dated=tuple(use for use in dated if use.lo in {t.lo for t in topics}),
         session_minutes=float(session_minutes),
@@ -798,7 +836,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         horizon_days=float(section.horizon_days), fsrs_weights=tuple(resolve_fsrs_weights(repository)),
         return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,
         combiner=_combiner(repository, now_iso, vault) if fitted else _combiner_prior(vault),
-        learning=_learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES),
+        learning=learning,
         ad_link=_ad_link(vault),
     )
     sources = {
@@ -828,6 +866,10 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                                    "prior_mean": list(curve.prior_mean) if curve.prior_mean else None,
                                    "prior_cov": [list(row) for row in curve.prior_cov] if curve.prior_cov else None,
                                    "effect": "RO4's placeholder plus the curve's learned shift from its prior"}
+    if miss_records is not None:
+        # SG1: the sensor as the decision read it (the trace freezes it per topic); SG2: how the value used it.
+        sources[MISS_CAUSE_SOURCE] = {"version": "miss_cause_v1", "topics": miss_records,
+                                      **({"in_value": split_record} if split_record is not None else {})}
     from learnloop.router_objective_switches import followups_tag
 
     if followups_tag(config):

@@ -42,8 +42,8 @@ def test_the_successor_is_one_constant_after_ro4_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.47"
     # Router objective RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51) landed after it and
     # keep it.
-    assert TAG == "mvp-0.48" == SUCCESSOR_CHAIN[-8] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.55"
-    assert ROUTER_CALIBRATION_VERSIONS == frozenset({TAG, "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55"})
+    assert TAG == "mvp-0.48" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert ROUTER_CALIBRATION_VERSIONS == frozenset({TAG, "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.57"})
 
 
 def test_the_seeds_are_the_specs_and_validated():
@@ -70,6 +70,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_ih5_successor import drop_ih5_keys
 
     drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
+    from tests.test_sg_successor import drop_sg_keys
+
+    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
     # Router objective RO6's keys (mvp-0.49; tests/test_ro6_successor.py) are in every snapshot, inert below it.
     from tests.test_ro6_successor import RO6_KEYS
     from tests.test_rofu_successor import FOLLOWUP_KEYS
@@ -132,8 +135,8 @@ def test_the_openers_install_this_links_completion():
     # link, which hands it to RO6's, which hands it to this link's completion.
     from learnloop import router_learned_tail_upgrade
 
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.router_calibration_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_learned_tail_upgrade)
 

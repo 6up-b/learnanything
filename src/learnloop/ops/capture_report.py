@@ -524,6 +524,14 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         from learnloop.router_objective import preference_report
 
         extra["learner_preferences"] = preference_report.section(connection)
+    from learnloop.router_objective_switches import miss_cause_sensor_on
+
+    if miss_cause_sensor_on(vault.config):
+        # Slip or gap SG1 (spec §3 item 4): cause classes among offers, how often the lesson was drawn by class, later
+        # cold results by class (observational), and where beta and the cause slopes stand.
+        from learnloop.router_objective import miss_cause_report
+
+        extra["miss_causes"] = miss_cause_report.section(connection)
     return {**{
         "report_version": REPORT_VERSION,
         "as_of": as_of,
@@ -598,6 +606,10 @@ def lines(report: Mapping[str, Any]) -> list[str]:
         from learnloop.router_objective import preference_report
 
         out.extend(preference_report.lines(report["learner_preferences"]))
+    if "miss_causes" in report:
+        from learnloop.router_objective import miss_cause_report
+
+        out.extend(miss_cause_report.lines(report["miss_causes"]))
     marks = report["hypothesis_marks"]
     if marks.get("available"):
         coverage = marks["exposure_coverage"]

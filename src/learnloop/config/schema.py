@@ -4243,6 +4243,13 @@ class RouterObjectiveConfig(BaseModel):
     trace as a choice model's sensor, enters the numeric value through one coefficient learned from randomized draws
     (``w_pref``, 0 until they support more), and goes on the LLM's card as the learner's own statements. Staged reads
     nothing. Off, or below the tag, all of it as IH3 left it.
+
+    Slip or gap SG1 (mvp-0.57, spec_slip_vs_gap_v1 §3): ``miss_cause_sensor``: each candidate topic's latest missed cold
+    check's diagnosis (its cause-class probabilities: gap, slip, unknown), stored surprise and status, frozen in the
+    objective's trace, on the lesson offer's card record and on the LLM's card. No numeric value moves. SG2:
+    ``miss_cause_in_value`` (needs ``miss_cause_sensor``): a lesson's and a repair's effect slope splits by the miss's
+    cause, ``p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ`` (``γ_slip``'s seeded prior centred at 0), with ``p_gap``
+    calibrated by a learned surprise coefficient (prior 0). Off, or below the tag, mvp-0.55's trace, card and values.
     """
 
     receipts: bool = True
@@ -4391,6 +4398,12 @@ class RouterObjectiveConfig(BaseModel):
     #: Instruct hand-off IH4 (mvp-0.55): preferences inform the acceptance model, the choice model's sensor, the numeric
     #: value through a learned ``w_pref`` (no hand-set bonus) and the LLM's card (the owner's decisions of Nov 8).
     preferences_inform_router: bool = True
+    #: Slip or gap SG1 (mvp-0.57): the per-topic miss-cause sensor in the trace, the offer's card record and the LLM's
+    #: card; no numeric value moves. Off: mvp-0.55's trace and card, byte for byte.
+    miss_cause_sensor: bool = True
+    #: Slip or gap SG2 (mvp-0.57; needs ``miss_cause_sensor``): the lesson's and the repair's effect slopes split by the
+    #: miss's cause, ``p_gap`` calibrated by a learned surprise coefficient. Off: mvp-0.55's numeric values.
+    miss_cause_in_value: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

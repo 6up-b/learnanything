@@ -61,8 +61,9 @@ def drop_ih5_keys(dumped: dict) -> dict:
 
 def test_the_successor_is_one_constant_after_phone_v3_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.54"
-    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
-    assert FAILURE_SHARE_VERSIONS == frozenset({TAG})
+    # Slip or gap's successor (mvp-0.57) follows it and keeps it.
+    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.57"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -78,9 +79,10 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     # mvp-0.54's value on the branch at IH5's base (19a812ae46), frozen here: dropping IH5's key reproduces it (and router
     # speed stage 2's switches, in every snapshot, which landed after that base).
     from tests.test_rofu_successor import drop_rospeed2_keys
+    from tests.test_sg_successor import drop_sg_keys
 
-    dumped = drop_rospeed2_keys(drop_ih5_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)))
+    dumped = drop_sg_keys(drop_rospeed2_keys(drop_ih5_keys(LearnLoopConfig.model_validate(tomllib.loads(
+        default_config_text(OLD))).model_dump(mode="json", exclude_none=False))))
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP054_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
@@ -133,8 +135,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to phone V3's completion, which hands it on in turn.
     assert "learnloop.phone_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
         failure_share_upgrade)

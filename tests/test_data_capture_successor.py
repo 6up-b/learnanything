@@ -58,6 +58,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_ih5_successor import drop_ih5_keys
 
     drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
+    from tests.test_sg_successor import drop_sg_keys
+
+    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
     assert dumped.pop("data_capture") == {"receipts": True, "serving": True}
     # FG1's keys, in every snapshot and inert below its tag.
     dumped.pop("followup")
@@ -164,8 +167,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
 
     # The chain's latest completion hands an earlier link's journal on.
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
     assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
 

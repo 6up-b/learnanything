@@ -356,6 +356,16 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
         "candidates_considered": len(candidates),
         "staged_value": round(top.value, 12),
     }
+    from learnloop.router_objective_switches import MISS_CAUSE_OFFER_KEY, miss_cause_sensor_on
+
+    if miss_cause_sensor_on(vault.config):
+        # Slip or gap SG1 (spec_slip_vs_gap_v1 §3 item 2): the offer's topic's miss sensor on its card record (None: no
+        # missed cold check since its last lesson). Nothing reads it to pick the offer: the acceptance model and the
+        # staged value are unchanged. It is the record SG2's cause slopes later learn from.
+        from learnloop.router_objective import miss_cause as MC
+
+        with repository.connection() as connection:
+            record[MISS_CAUSE_OFFER_KEY] = MC.sensor(connection, vault.config, [lo], now_iso).get(lo)
     title = top.candidate.title or lo
     candidate = BlockCandidate(
         candidate_id=offer_ref(lo), lane="new", action="instruct", subtype=LESSON_OFFER_SUBTYPE,

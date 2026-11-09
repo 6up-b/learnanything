@@ -37,8 +37,8 @@ OLD = LESSON_OFFERS_ALGORITHM_VERSION
 def test_the_successor_is_one_constant_after_te3b_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.53"
     # IH5's successor (mvp-0.55) follows it and keeps it.
-    assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.55"
-    assert PHONE_PROBES_VERSIONS == frozenset({TAG, "mvp-0.55"})
+    assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert PHONE_PROBES_VERSIONS == frozenset({TAG, "mvp-0.55", "mvp-0.57"})
 
 
 def test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone():
@@ -77,8 +77,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to TE3b's completion, which hands it on in turn.
     assert "learnloop.lesson_offers_upgrade import complete_interrupted_activation" in inspect.getsource(
         phone_probes_upgrade)

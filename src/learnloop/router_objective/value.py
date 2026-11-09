@@ -319,15 +319,39 @@ class LessonCurve:
 
 
 @dataclass(frozen=True)
+class CauseSplit:
+    """Slip or gap SG2 (``docs/specs/spec_slip_vs_gap_v1.md`` §3): on a topic whose latest miss has a diagnosis, a
+    lesson's and a repair's effect slope is the mixture over the miss's cause, ``p_gap·γ_gap + p_slip·γ_slip +
+    p_unknown·γ``, instead of ``γ``.
+
+    ``gap`` and ``slip`` are ``γ_gap``'s and ``γ_slip``'s posterior (mean, variance); ``weights`` each diagnosed topic's
+    calibrated ``(p_gap, p_slip, p_unknown)``. A topic not in ``weights`` keeps ``γ`` exactly. Each slope's draw is taken
+    along ``γ``'s own stream (common random numbers), so where ``γ_gap``'s posterior is ``γ``'s a pure gap is the
+    predecessor's value draw for draw, and at the seeded priors a slip and a gap differ by the priors' means only."""
+
+    gap: tuple[float, float]
+    slip: tuple[float, float]
+    weights: Mapping[str, tuple[float, float, float]] = field(default_factory=dict)
+    version: str = "miss_cause_slopes_v1"
+
+    def at_mean(self) -> "CauseSplit":
+        """The believed parameters (each posterior's mean, no parameter draw), as the belief's own world reads γ."""
+
+        return replace(self, gap=(self.gap[0], 0.0), slip=(self.slip[0], 0.0))
+
+
+@dataclass(frozen=True)
 class Learning:
     """AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose
-    curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder)."""
+    curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder); from slip or
+    gap SG2, the lesson's and the repair's slope by the miss's cause (None: ``γ`` on every topic, the predecessor)."""
 
     gamma: tuple[float, float] = (0.2, 0.01)
     gbar: tuple[tuple[float, float], tuple[float, float]] = ((0.10, 0.0049), (0.20, 0.01))
     dose_scales: tuple[float, float] = (1.0, 4.0)
     source: str = "adaptive_difficulty.priors"
     lesson: LessonCurve | None = None
+    causes: CauseSplit | None = None
 
 
 @dataclass(frozen=True)
@@ -661,6 +685,11 @@ class _Model:
         self.dated = sorted(inputs.dated, key=lambda use: use.at_days)
         self.dated_weight = np.zeros(self.n)
         self.effect_on = inputs.effect is not None
+        #: SG2: each diagnosed topic's index -> its calibrated (p_gap, p_slip, p_unknown); empty with no split
+        causes = inputs.learning.causes
+        self.cause_weights: dict[int, tuple[float, ...]] = (
+            {self.index[lo]: tuple(float(p) for p in split) for lo, split in causes.weights.items()
+             if lo in self.index} if causes is not None else {})
         #: RO5: whether the return model moved any draw's day of return (False: it dropped out of V), and a
         #: switch the stop branch's return-effect display turns it off with.
         self.return_days_moved = False
@@ -867,8 +896,28 @@ class _Model:
         var = 1.0 / (1.0 / bel_var + slope * slope * p_bel * (1 - p_bel))
         return good, bel + var * slope * (good.astype(np.float64) - p_bel), var
 
-    def _practice(self, state: _State, lo: int, at: np.ndarray, u: np.ndarray, mask: np.ndarray, mass: float) -> None:
-        """One practice opportunity on topic ``lo`` for the draws in ``mask``: a graded attempt."""
+    def _cause_gain(self, lo: int, mass: float) -> tuple[np.ndarray, float] | None:
+        """SG2: a lesson's or a repair's learning on topic ``lo`` at evidence mass ``mass``, per draw and as believed,
+        when the topic's miss has a diagnosis: ``(p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ)·mass``, each slope drawn
+        along γ's stream (:class:`CauseSplit`). None: the topic keeps ``γ`` (the predecessor's expression, untouched)."""
+
+        split = self.cause_weights.get(lo)
+        causes = self.inputs.learning.causes
+        if split is None or causes is None:
+            return None
+        p_gap, p_slip, p_unknown = split
+        z = self.streams.gamma_z
+        gap = causes.gap[0] + math.sqrt(max(causes.gap[1], 0.0)) * z
+        slip = causes.slip[0] + math.sqrt(max(causes.slip[1], 0.0)) * z
+        true = (p_gap * gap + p_slip * slip + p_unknown * self.theta.gamma) * mass
+        believed = (p_gap * causes.gap[0] + p_slip * causes.slip[0]
+                    + p_unknown * float(self.inputs.learning.gamma[0])) * mass
+        return true, believed
+
+    def _practice(self, state: _State, lo: int, at: np.ndarray, u: np.ndarray, mask: np.ndarray, mass: float,
+                  gain: tuple[np.ndarray, float] | None = None) -> None:
+        """One practice opportunity on topic ``lo`` for the draws in ``mask``: a graded attempt. ``gain`` (SG2, a
+        repair on a diagnosed topic): its learning per draw and as believed, in place of ``γ·mass``."""
 
         elapsed = at - state.last[:, lo]
         # The belief observes the graded attempt (a one-step Laplace update), then learns as the model predicts.
@@ -881,8 +930,12 @@ class _Model:
         state.s[:, lo] = np.where(mask, s, state.s[:, lo])
         state.practiced[:, lo] = np.where(mask, True, state.practiced[:, lo])
         state.last[:, lo] = np.where(mask, at, state.last[:, lo])
-        state.eta[:, lo] = np.where(mask, state.eta[:, lo] + self.theta.gamma * mass, state.eta[:, lo])
-        state.bel[:, lo] = np.where(mask, bel + gm * mass, state.bel[:, lo])
+        if gain is None:
+            state.eta[:, lo] = np.where(mask, state.eta[:, lo] + self.theta.gamma * mass, state.eta[:, lo])
+            state.bel[:, lo] = np.where(mask, bel + gm * mass, state.bel[:, lo])
+        else:
+            state.eta[:, lo] = np.where(mask, state.eta[:, lo] + gain[0], state.eta[:, lo])
+            state.bel[:, lo] = np.where(mask, bel + gain[1], state.bel[:, lo])
         state.bel_var[:, lo] = np.where(mask, var, state.bel_var[:, lo])
         state.lesson[:, lo] = np.where(mask, 0.0, state.lesson[:, lo])  # a graded attempt closes the lesson window
 
@@ -947,14 +1000,21 @@ class _Model:
         los = [self.index[lo] for lo in action.item_los if lo in self.index]
         if action.kind in PRACTICE_KINDS:
             for slot, lo in enumerate(los):
-                self._practice(state, lo, at, u[:, slot % u.shape[1]], mask, float(action.mass))
+                # SG2: a repair on a diagnosed topic learns by the miss's cause (None everywhere else).
+                gain = self._cause_gain(lo, float(action.mass)) if action.kind == REPAIR else None
+                self._practice(state, lo, at, u[:, slot % u.shape[1]], mask, float(action.mass), gain)
         elif action.kind == LESSON:
             # RO4's placeholder: AD's γ at the lesson's learned mass (as the decision read both).
             gm, gv = float(self.inputs.learning.gamma[0]), float(self.inputs.learning.gamma[1])
             curve = self.inputs.learning.lesson
             for lo in dict.fromkeys(los):
-                true = self.theta.gamma * action.mass
-                believed = gm * action.mass
+                split = self._cause_gain(lo, float(action.mass))
+                if split is None:
+                    true = self.theta.gamma * action.mass
+                    believed = gm * action.mass
+                else:
+                    # SG2: the slope by the miss's cause, at the same mass (TE3a's learned shift then adds as before).
+                    true, believed = split
                 if curve is not None:
                     # Teacher TE3a (Codex review F2, F3): plus what lessons taught AD's lesson curve beyond its
                     # seeded prior, one landed dose from the topic's place on its lesson window (carried through
@@ -1375,7 +1435,9 @@ class _Model:
                 inputs,
                 combiner=inputs.combiner.at_mean(),
                 learning=replace(learning, gamma=(learning.gamma[0], 0.0),
-                                 gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0)), lesson=lesson),
+                                 gbar=((learning.gbar[0][0], 0.0), (learning.gbar[1][0], 0.0)), lesson=lesson,
+                                 # SG2: the cause slopes' means only, as γ's (None stays None).
+                                 causes=learning.causes.at_mean() if learning.causes is not None else None),
                 effect=None, stop_accept=(1.0, 1.0))
             self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried,
                                   merged_sessions=self.merged, consistent_review_draw=self.consistent,

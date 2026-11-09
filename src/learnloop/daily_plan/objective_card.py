@@ -31,6 +31,11 @@ from typing import Any
 CARD_VERSION = "router-policy-card-v2 (ad-forecast-state-v3 H3, decision level)"
 #: v3 (IH4): v2 with the learner's own statements. Named only on a card that holds some.
 CARD_VERSION_STATEMENTS = "router-policy-card-v3 (ad-forecast-state-v3 H3, decision level, the learner's own statements)"
+#: Slip or gap SG1 (spec_slip_vs_gap_v1 §3 item 3): v2 or v3 with the miss-cause section. Named only on a card that holds
+#: an entry, so a card with none keeps its predecessor's version and bytes.
+CARD_VERSION_MISS_CAUSES = ("router-policy-card-v4 (ad-forecast-state-v3 H3, decision level, the learner's own statements, "
+                            "miss causes)")
+MISS_CAUSES = "miss_causes"
 STATEMENTS = "learner_statements"
 STATEMENTS_NOTE = ("Each entry of history.learner_statements is the learner's own statement of what they thought would "
                    "help, in their words where there is a note. It is context to read, not evidence of what they know "
@@ -38,7 +43,7 @@ STATEMENTS_NOTE = ("Each entry of history.learner_statements is the learner's ow
                    "about what they wanted.")
 #: H3's sections, every rung's (RO2's ladder), in its order.
 _SECTION_ORDER: tuple[str, ...] = (
-    "learner_statements", "recent_attempts", "whole_answers", "help", "questions", "reveals", "reading", "inquiries", "self_checks",
+    "miss_causes", "learner_statements", "recent_attempts", "whole_answers", "help", "questions", "reveals", "reading", "inquiries", "self_checks",
     "digests", "other_topics", "teach_backs", "gaps", "exams", "goals",
 )
 
@@ -149,6 +154,60 @@ def learner_statements(vault: Any, repository: Any, connection: Any, *, served_a
     return out, len(rows) >= limit
 
 
+def _card_topics(candidates: Sequence[Any]) -> list[str]:
+    """SG1: the topics the card shows a miss's cause for: a lesson offer's and each repair candidate's."""
+
+    from learnloop.daily_plan.types import LESSON_OFFER_SUBTYPE
+
+    out: list[str] = []
+    for candidate in candidates:
+        if getattr(candidate, "subtype", None) == LESSON_OFFER_SUBTYPE or getattr(candidate, "lane", None) == "repair":
+            out.extend(str(lo) for lo in getattr(candidate, "learning_object_ids", ()) or () if str(lo) not in out)
+    return out
+
+
+def miss_cause_entries(vault: Any, connection: Any, candidates: Sequence[Any], *, served_at: str) -> list[dict[str, Any]]:
+    """SG1 (spec_slip_vs_gap_v1 §3 item 3): for the offer's topic and each repair candidate's, the latest miss's cause
+    class probabilities, its surprise in words and its status (:func:`learnloop.router_objective.miss_cause.card_entry`),
+    probe attempts included. Never a hypothesis's statement or the answer. Empty off, below the tag, or with none."""
+
+    from learnloop.adaptive_difficulty import history_card as HC
+    from learnloop.router_objective import miss_cause as MC
+    from learnloop.router_objective_switches import miss_cause_sensor_on
+
+    if not miss_cause_sensor_on(vault.config):
+        return []
+    topics = _card_topics(candidates)
+    if not topics:
+        return []
+    records = MC.sensor(connection, vault.config, topics, served_at)
+    if not records:
+        return []
+    reference = MC.surprise_reference(connection, vault.config, served_at)
+    days = HC._Days(served_at)
+    return [MC.card_entry(records[lo], topic=HC._topic(vault, lo), days_before=days(records[lo]["attempt_at"]),
+                          reference=reference) for lo in topics if lo in records]
+
+
+def miss_cause_lines(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, budget: int) -> list[str]:
+    """The same entries for the mid-block ``plan_interrupt`` request, whose state is text (the LLM's request only, never
+    the Decider's), oldest dropped first to fit ``budget``. None: no line, so the request is the predecessor's."""
+
+    from learnloop.db.connection import connect
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        entries = miss_cause_entries(vault, connection, candidates, served_at=served_at)
+    entries.sort(key=lambda entry: -(entry.get("days_before") or 0.0))
+    while entries and _size({"entries": entries}) > int(budget):
+        entries.pop(0)
+    if not entries:
+        return []
+    from learnloop.router_objective.miss_cause import CARD_NOTE
+
+    return ["# What the last miss on each topic was", CARD_NOTE.replace("Each entry of history.miss_causes", "Each line below"),
+            *(json.dumps(entry, sort_keys=True, ensure_ascii=False, default=str) for entry in entries)]
+
+
 def statement_lines(vault: Any, repository: Any, *, served_at: str, budget: int) -> list[str]:
     """The same statements for the mid-block ``plan_interrupt`` request, whose state is text: lines for the LLM's request
     only (never the Decider's), oldest dropped first to fit ``budget``. Nothing on record or switched off: no line, so the
@@ -179,16 +238,23 @@ def decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, ser
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         built = HC.decision_sections_entry(vault, repository, connection, asked, served_at=served_at)
         statements, statements_limited = learner_statements(vault, repository, connection, served_at=served_at)
+        causes = miss_cause_entries(vault, connection, candidates, served_at=served_at)
     picked = {one["lo"]: one["item"] for one in built}
     history, limits, scope = _merged(built)
     if statements:
         history[STATEMENTS] = statements
     if statements_limited:
         limits = sorted({*limits, STATEMENTS})
+    if causes:
+        # SG1: oldest first, as every section (the budget trims the oldest of a section first).
+        history[MISS_CAUSES] = sorted(causes, key=lambda entry: -(entry.get("days_before") or 0.0))
     titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
+    from learnloop.router_objective.miss_cause import CARD_NOTE
+
     state: dict[str, Any] = {
-        "card": CARD_VERSION_STATEMENTS if statements else CARD_VERSION,
+        "card": (CARD_VERSION_MISS_CAUSES if causes else CARD_VERSION_STATEMENTS if statements else CARD_VERSION),
         **({"learner_statements_are": STATEMENTS_NOTE} if statements else {}),
+        **({"miss_causes_are": CARD_NOTE} if causes else {}),
         "topics": [titles.get(lo, lo) for lo in scope],
         "history": history,
         "row_limits_reached": limits,
@@ -201,9 +267,13 @@ def decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, ser
     state["left_out"] = left_out
     evidence = sorted({str(entry["evidence_id"]) for entries in history.values() for entry in entries
                        if entry.get("evidence_id")})
-    return {"state": state, "evidence_ids": evidence, "left_out": left_out, "bytes": _size(state),
-            "items": dict(picked), "statements": len(history.get(STATEMENTS) or ())}
+    out = {"state": state, "evidence_ids": evidence, "left_out": left_out, "bytes": _size(state),
+           "items": dict(picked), "statements": len(history.get(STATEMENTS) or ())}
+    if causes:
+        out["miss_causes"] = len(history.get(MISS_CAUSES) or ())
+    return out
 
 
-__all__ = ["CARD_VERSION", "CARD_VERSION_STATEMENTS", "STATEMENTS", "STATEMENTS_NOTE", "decision_card",
-           "learner_statements", "statement_lines"]
+__all__ = ["CARD_VERSION", "CARD_VERSION_MISS_CAUSES", "CARD_VERSION_STATEMENTS", "MISS_CAUSES", "STATEMENTS",
+           "STATEMENTS_NOTE", "decision_card", "learner_statements", "miss_cause_entries", "miss_cause_lines",
+           "statement_lines"]

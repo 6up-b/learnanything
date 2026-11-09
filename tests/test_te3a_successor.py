@@ -46,8 +46,8 @@ def drop_te3a_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_te2_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.51"
     # Teacher TE3b's router successor (mvp-0.53) landed after it and keeps it.
-    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.55"
-    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53", "mvp-0.54", "mvp-0.55"})
+    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
+    assert LESSON_OPPORTUNITY_VERSIONS == frozenset({TAG, "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.57"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -70,6 +70,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     from tests.test_ih5_successor import drop_ih5_keys
 
     drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
+    from tests.test_sg_successor import drop_sg_keys
+
+    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
     for key in TE3A_KEYS:
         dumped["adaptive_difficulty"].pop(key)
     from tests.test_te3b_successor import drop_te3b_keys
@@ -114,8 +117,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to TE2's completion, which hands it on in turn.
     assert "learnloop.teacher_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_opportunity_upgrade)

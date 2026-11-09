@@ -158,6 +158,13 @@ def objective_settings(config: Any) -> dict[str, Any]:
         # IH4: named only while it serves, so off the key keeps its bytes (a flip still starts a new job).
         if preferences_inform_router_on(config):
             out["preferences_inform_router"] = True
+    from learnloop.router_objective_switches import miss_cause_in_value_on, miss_cause_sensor_on, slip_gap_tag
+
+    if slip_gap_tag(config):
+        # Slip or gap: both switches as they serve, so a flip starts a new job; below the tag the key keeps its bytes.
+        # Never in the numeric policy's seed (``COMMON_DRAW_OBJECTIVE_KEYS``, :func:`numeric_seed`).
+        out["miss_cause_sensor"] = miss_cause_sensor_on(config)
+        out["miss_cause_in_value"] = miss_cause_in_value_on(config)
     return out
 
 
@@ -185,7 +192,60 @@ def numeric_seed(identity: Mapping[str, Any]) -> str:
                                               if key not in SEED_NEUTRAL_OBJECTIVE_KEYS}}
     if any(key in identity for key in SEED_NEUTRAL_IDENTITY_KEYS):
         identity = {key: value for key, value in identity.items() if key not in SEED_NEUTRAL_IDENTITY_KEYS}
+    identity = _without_miss_cause(identity)
     return _hash({"numeric": _hash(dict(identity))})
+
+
+def _without_miss_cause(identity: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Slip or gap: the identity less what it names only so a flip or a changed sensor starts a new job (both switches,
+    the sensor's mark, the sensor on an offer's card record): a decision is valued on the same draws whatever they are
+    (``router_objective_switches.COMMON_DRAW_OBJECTIVE_KEYS``). Below the tag, or with nothing of it present, the
+    identity itself (so the seed keeps the predecessor's bytes)."""
+
+    from learnloop.router_objective_switches import (
+        COMMON_DRAW_IDENTITY_KEYS,
+        COMMON_DRAW_OBJECTIVE_KEYS,
+        MISS_CAUSE_OFFER_KEY,
+    )
+
+    def bare_row(row: Any) -> Any:
+        annotations = row.get("annotations") if isinstance(row, Mapping) else None
+        offer = annotations.get("lesson_offer") if isinstance(annotations, Mapping) else None
+        if not (isinstance(offer, Mapping) and MISS_CAUSE_OFFER_KEY in offer):
+            return row
+        bare = {key: value for key, value in offer.items() if key != MISS_CAUSE_OFFER_KEY}
+        return {**row, "annotations": {**annotations, "lesson_offer": bare}}
+
+    objective = identity.get("objective")
+    if isinstance(objective, Mapping) and any(key in objective for key in COMMON_DRAW_OBJECTIVE_KEYS):
+        identity = {**identity, "objective": {key: value for key, value in objective.items()
+                                              if key not in COMMON_DRAW_OBJECTIVE_KEYS}}
+    if any(key in identity for key in COMMON_DRAW_IDENTITY_KEYS):
+        identity = {key: value for key, value in identity.items() if key not in COMMON_DRAW_IDENTITY_KEYS}
+    if isinstance(identity.get("support"), list):
+        support = [bare_row(row) for row in identity["support"]]
+        if support != identity["support"]:
+            identity = {**identity, "support": support}
+    if isinstance(identity.get("offer"), Mapping):
+        offer = bare_row(identity["offer"])
+        if offer is not identity["offer"]:
+            identity = {**identity, "offer": offer}
+    return identity
+
+
+def _miss_cause_mark(repository: Any, config: Any, candidates: Sequence[Any], now_iso: str) -> dict[str, Any]:
+    """Slip or gap: what a boundary's identity names so a change in a candidate topic's miss sensor (a diagnosis landing,
+    a probe answered) starts a new job (``miss_cause.mark``). Nothing off, or below the tag."""
+
+    from learnloop.router_objective_switches import miss_cause_sensor_on
+
+    if not miss_cause_sensor_on(config):
+        return {}
+    from learnloop.router_objective import miss_cause as MC
+
+    los = [lo for candidate in candidates for lo in (getattr(candidate, "learning_object_ids", ()) or ())]
+    with repository.connection() as connection:
+        return {"miss_cause": MC.mark(MC.sensor(connection, config, los, now_iso))}
 
 
 def _preference_mark(repository: Any, config: Any) -> dict[str, Any]:
@@ -1132,6 +1192,9 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
     llm_parsed = getattr(llm, "parsed", None) if llm is not None and llm.status == ANSWERED else None
     residual_record = numeric.residual if numeric is not None else None
     residual_applied = bool(residual_record) and residual_record.get("status") == "applied"  # type: ignore[union-attr]
+    # Slip or gap SG1: the sensor the numeric policy's inputs read (absent off, or below the tag: no key anywhere).
+    miss_cause = ((numeric.sources if numeric is not None else {}) or {}).get(OI.MISS_CAUSE_SOURCE)
+    miss_topics = dict((miss_cause or {}).get("topics") or {})
     candidates: dict[str, Any] = {}
     for ref in support:
         valued = rows.get(ref)
@@ -1145,6 +1208,13 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                            "fsrs_elapsed_days": topic.elapsed_days, "practiced": topic.practiced,
                            "source": ((numeric.sources if numeric is not None else {}).get("topics") or {}).get(lo),
                            "reached_qbar": True}
+            if lo in miss_topics:
+                # SG1 (spec_slip_vs_gap_v1 §3 item 2): beside RO's per-topic sensors. It reaches Q̄ only with SG2 on
+                # and a diagnosis in force (the split's record, ``miss_cause.in_value``, says how).
+                sensors[lo]["miss_cause"] = {
+                    **dict(miss_topics[lo]),
+                    "reached_qbar": bool((miss_cause or {}).get("in_value"))
+                    and lo in (((miss_cause or {}).get("in_value") or {}).get("topics") or {})}
         if isinstance(llm_parsed, rq.ParsedPolicy) and ref in llm_parsed.forecasts:
             sensors["llm_forecast"] = {**dict(llm_parsed.forecasts[ref]), "schema": rq.LLM_POLICY_SCHEMA,
                                        "model": getattr(llm, "model", None),
@@ -1218,6 +1288,9 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                                                                     rows[ref].q if ref in rows else None)}
                 for ref, entry in (residual_record.get("candidates") or {}).items()}
         extra["residual"] = section_record
+    if miss_cause is not None:
+        # SG1/SG2: the whole sensor and, with SG2, beta's fit, each topic's calibration and the cause slopes.
+        extra["miss_cause"] = dict(miss_cause)
     preference_record = numeric.preference if numeric is not None else None
     if preference_record is not None:
         # IH4 (spec_instruct_handoff_v1 §7 item 2): the choice model's sensor and w_pref, frozen, with V_pref at this Q̄.
@@ -1269,7 +1342,8 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                        "objective_version": V.OBJECTIVE_VERSION,
                        "score": _score_note(config)},
         "frontier": dict(numeric.frontier) if numeric is not None else {},
-        "inputs_sources": {key: value for key, value in sources.items() if key != "population"},
+        "inputs_sources": {key: value for key, value in sources.items()
+                           if key not in ("population", OI.MISS_CAUSE_SOURCE)},
         "versions": {"objective": V.OBJECTIVE_VERSION, "tail": V.TAIL_VERSION, "terminal": V.TERMINAL_VERSION,
                      "horizon_days": float(section.horizon_days), "memory_model": inputs.combiner.as_dict()
                      if inputs is not None else None, "kappa": price,
@@ -1352,6 +1426,9 @@ class ObjectiveChooser(RouterChooser):
             "objective": objective_settings(config), "ready": ready,
             # IH4: the card reads preferences, so a new one starts a new job; no value moves with it (numeric_seed).
             **_preference_mark(self.repository, config),
+            # Slip or gap: the candidate topics' miss sensors, likewise (never in the seed).
+            **_miss_cause_mark(self.repository, config, [by_id[ref] for ref in support if ref in by_id],
+                               self._now_iso()),
         }
         key = _hash(identity)
         # Landing ruling R2: the numeric policy's seed from the identity less the seed-neutral speed switches.
@@ -1705,7 +1782,9 @@ class ObjectiveRestraintGate(RestraintGate):
                     "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
                     "version": config.algorithms.algorithm_version, "settings": settings,
                     "objective": objective_settings(config), "ready": ready,
-                    **_preference_mark(self.repository, config)}
+                    **_preference_mark(self.repository, config),
+                    **_miss_cause_mark(self.repository, config, candidates,
+                                       __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock))}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         topic = titles.get(item.learning_object_id, item.learning_object_id)
@@ -1731,7 +1810,9 @@ class ObjectiveRestraintGate(RestraintGate):
                     "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
                     "offer": lesson.log_row(), "support": support, "version": config.algorithms.algorithm_version,
                     "settings": settings, "objective": objective_settings(config), "ready": ready,
-                    **_preference_mark(self.repository, config)}
+                    **_preference_mark(self.repository, config),
+                    **_miss_cause_mark(self.repository, config, [insert, cont, lesson],
+                                       __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock))}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         topic = titles.get(item.learning_object_id, item.learning_object_id)
@@ -1791,7 +1872,10 @@ class ObjectiveRestraintGate(RestraintGate):
         if ready:
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:
-                entry = (start or self._start_policy)(key, state, candidates, topic, options, extra, ready)
+                # SG1: an offer among the valued arms (never on the shared card) gets its miss's cause on the LLM's state.
+                offers = [part for part in values.values() if getattr(part, "subtype", None) == LESSON_OFFER_SUBTYPE]
+                entry = (start or self._start_policy)(key, state, candidates, topic, options, extra, ready,
+                                                      **({"offers": offers} if offers else {}))
             from learnloop.daily_plan.router_chooser import _await as await_entry
 
             await_entry(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
@@ -1885,26 +1969,37 @@ class ObjectiveRestraintGate(RestraintGate):
                            clock=self.runtime.clock,
                            sequences={INSERT_NOW: (insert, cont), CONTINUE_CURRENT: (cont, insert)})
 
-    def _policy_state(self, card: Any, options: Sequence[Any], extra: Sequence[str], state_text: str) -> str:
+    def _policy_state(self, card: Any, options: Sequence[Any], extra: Sequence[str], state_text: str,
+                      candidates: Sequence[Any] = ()) -> str:
         """The LLM policy's state on a mid-block decision: the shared state, plus (IH4, §7 item 6) the learner's own
-        statements, for the LLM alone: the Decider's request keeps ``state_text``. None on record: ``state_text`` itself."""
+        statements and (slip or gap SG1, §3 item 3) the last miss's cause on the follow-up's and any offer's topic
+        (``candidates``), for the LLM alone: the Decider's request keeps ``state_text``. None of either: ``state_text``
+        itself."""
 
         from learnloop.clock import utc_now_iso
-        from learnloop.daily_plan.objective_card import statement_lines
+        from learnloop.daily_plan.objective_card import miss_cause_lines, statement_lines
 
         config = self.vault.config
+        budget = int(config.router_objective.llm_card_token_budget)
         try:
-            lines = statement_lines(self.vault, self.repository, served_at=utc_now_iso(self.clock),
-                                    budget=int(config.router_objective.llm_card_token_budget))
+            lines = statement_lines(self.vault, self.repository, served_at=utc_now_iso(self.clock), budget=budget)
         except Exception:  # noqa: BLE001 - context never blocks the decision: the LLM reads what it read before
             LOG.warning("router objective: the learner's statements were not read", exc_info=True)
+            lines = []
+        try:
+            causes = miss_cause_lines(self.vault, self.repository, candidates, served_at=utc_now_iso(self.clock),
+                                      budget=budget)
+        except Exception:  # noqa: BLE001 - likewise: the request is the predecessor's without them
+            LOG.warning("router objective: the miss causes were not read", exc_info=True)
+            causes = []
+        if not lines and not causes:
             return state_text
-        if not lines:
-            return state_text
-        return rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=[*extra, *lines])
+        return rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json),
+                             extra=[*extra, *lines, *causes])
 
     def _start_policy(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
-                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
+                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...],
+                      offers: Sequence[BlockCandidate] = ()) -> Prefetch:
         """The two models' prefetch: the Decider's R2c restraint request (advice) and the LLM policy's v3 one."""
 
         config = self.vault.config
@@ -1912,7 +2007,7 @@ class ObjectiveRestraintGate(RestraintGate):
         options = list(options)
         state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
         material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
-        policy_state = self._policy_state(card, options, extra, state_text)
+        policy_state = self._policy_state(card, options, extra, state_text, [*candidates, *offers])
 
         def job(entry: Prefetch) -> None:
             from learnloop.daily_plan.router_chooser import _run_components
@@ -1947,7 +2042,8 @@ class ObjectiveRestraintGate(RestraintGate):
 
 
     def _start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
-                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
+                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...],
+                      offers: Sequence[BlockCandidate] = ()) -> Prefetch:
         """The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and
         the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current
         block's rest, the continuation ``π_Q``'s tail assumes)."""
@@ -1957,7 +2053,7 @@ class ObjectiveRestraintGate(RestraintGate):
         options = list(options)
         state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
         material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
-        policy_state = self._policy_state(card, options, extra, state_text)
+        policy_state = self._policy_state(card, options, extra, state_text, [*candidates, *offers])
         reference = rq.BlockOption(V.REFERENCE_REF, "the current block's remaining questions, then the plan's usual "
                                                     "next step, with no follow-up question")
 
@@ -2050,7 +2146,9 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
                     # IH2: only with an offer in the support, so every other key keeps its bytes.
                     **({"offer": lesson.log_row(), "as_of": _latest_attempt(self.repository)} if lesson is not None
                        else {}),
-                    **_preference_mark(self.repository, config)}
+                    **_preference_mark(self.repository, config),
+                    **_miss_cause_mark(self.repository, config, [*candidates, *([lesson] if lesson is not None else [])],
+                                       __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock))}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         lo = str(workflow["learning_object_id"])

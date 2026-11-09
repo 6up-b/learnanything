@@ -22,6 +22,7 @@ from learnloop.algorithm_versions import (
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     FAILURE_SHARE_ALGORITHM_VERSION,
+    SLIP_GAP_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
@@ -127,8 +128,8 @@ def upgrade(
                 f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
                 f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
                 f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-                f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION} or "
-                f"{FAILURE_SHARE_ALGORITHM_VERSION}); "
+                f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
+                f"{FAILURE_SHARE_ALGORITHM_VERSION} or {SLIP_GAP_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -483,6 +484,10 @@ def upgrade(
         from learnloop.failure_share_upgrade import upgrade_to_failure_share
 
         result = upgrade_to_failure_share(_root(vault))
+    elif to == SLIP_GAP_ALGORITHM_VERSION:
+        from learnloop.slip_gap_upgrade import upgrade_to_slip_gap
+
+        result = upgrade_to_slip_gap(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -499,8 +504,8 @@ def upgrade(
             f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
             f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
             f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-            f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION} or "
-            f"{FAILURE_SHARE_ALGORITHM_VERSION}."
+            f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
+            f"{FAILURE_SHARE_ALGORITHM_VERSION} or {SLIP_GAP_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
