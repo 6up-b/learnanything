@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/routes.py"
 source_paths:
   - "src/learnloop/figures/routes.py"
-source_commit: "32a29ab77536c3217559a2f4ca5d2f780719ba10"
-source_commit_timestamp: "2026-11-01T16:50:10-05:00"
+source_commit: "214c206ff1962566773d30b8b44f586d62ca383b"
+source_commit_timestamp: "2026-11-08T22:42:42-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,71 +50,71 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py) |
-| Source lines | 611 |
+| Source lines | 613 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `32a29ab77536c3217559a2f4ca5d2f780719ba10` |
-| Commit timestamp | `2026-11-01T16:50:10-05:00` |
+| Source commit | `214c206ff1962566773d30b8b44f586d62ca383b` |
+| Commit timestamp | `2026-11-08T22:42:42-05:00` |
 
 ## Public API
 
-- `models_off() -> bool` ([source](../../../../../../src/learnloop/figures/routes.py), line 79)
-- `class FigureAuthorOutputV1(WireModel)` ([source](../../../../../../src/learnloop/figures/routes.py), line 83)
-- `class FigureAuthorOutputV2(WireModel)` ([source](../../../../../../src/learnloop/figures/routes.py), line 94) — RW5d P2: the author's answer with the sketch tier on (spec §8.4).
-- `advanced_panels_text() -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 180)
-- `sketch_text() -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 277)
-- `class FigureAuthorOutputV3(WireModel)` ([source](../../../../../../src/learnloop/figures/routes.py), line 289) — RW5d P2b: the author's answer with a rich tier on the menu (spec §8.4): the medium chosen by what best explains the idea, with ``why_this_tier``.
-- `rich_status_text(tiers: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 334) — How the status names the medium (only the media on the menu).
-- `tier_menu_text(tiers: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 358) — The media the author may answer with (spec §8.4): one neutral sentence each, in order.
-- `rich_text() -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 365)
-- `rich_menu(tiers: Sequence[str] | None) -> tuple[str, ...] | None` ([source](../../../../../../src/learnloop/figures/routes.py), line 390) — The menu when it includes a rich tier (V3), else None (V1/V2 exactly).
-- `author_instructions(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 398)
-- `author_prompt_version(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 428)
-- `author_prompt(context: dict[str, Any], *, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 438)
-- `output_model(*, sketch: bool=False, tiers: Sequence[str] | None=None) -> type[WireModel]` ([source](../../../../../../src/learnloop/figures/routes.py), line 448) — The author's output contract: RW5b's V1 off, V2 with the sketch tier on, V3 (RW5d P2b) with a rich tier on the menu.
-- `class FigureUnavailable(Exception)` ([source](../../../../../../src/learnloop/figures/routes.py), line 457) — A figure route cannot be called (``reason``: ``models_off`` | ``unrouted`` | ``unpriced`` | ``capped`` | ``unavailable`` | ``no_image_input``); ``message`` is the learner's line.
-  - `__init__(self, reason: str, message: str) -> None` (line 462; internal)
-- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/figures/routes.py), line 468)
-- `class FigureRoute` ([source](../../../../../../src/learnloop/figures/routes.py), line 475) — The author route pinned for one request, with its call cap.
-  - `__init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None, envelope: Any, owner_id: str, max_calls: int) -> None` (line 484; internal)
-  - `bind_owner(self, owner_id: str) -> None` (line 498; public) — Name the request the calls' receipts belong to (known only once the input is hashed, after the route was asked whether it reads images).
-  - `subscription(self) -> bool` (line 507; public)
-  - `problem(self) -> FigureUnavailable | None` (line 510; public)
-  - `resolve(self) -> Any` (line 526; public)
-  - `reads_images(self) -> bool` (line 553; public)
-  - `ask(self, prompt: str, result_model: type[WireModel], *, images: tuple[tuple[str, bytes], ...]=(), metadata: dict[str, Any] | None=None) -> Any` (line 560; public)
-  - `model(self) -> str | None` (line 574; public)
+- `models_off() -> bool` ([source](../../../../../../src/learnloop/figures/routes.py), line 80)
+- `class FigureAuthorOutputV1(WireModel)` ([source](../../../../../../src/learnloop/figures/routes.py), line 84)
+- `class FigureAuthorOutputV2(WireModel)` ([source](../../../../../../src/learnloop/figures/routes.py), line 95) — RW5d P2: the author's answer with the sketch tier on (spec §8.4).
+- `advanced_panels_text() -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 182)
+- `sketch_text() -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 279)
+- `class FigureAuthorOutputV3(WireModel)` ([source](../../../../../../src/learnloop/figures/routes.py), line 291) — RW5d P2b: the author's answer with a rich tier on the menu (spec §8.4): the medium chosen by what best explains the idea, with ``why_this_tier``.
+- `rich_status_text(tiers: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 336) — How the status names the medium (only the media on the menu).
+- `tier_menu_text(tiers: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 360) — The media the author may answer with (spec §8.4): one neutral sentence each, in order.
+- `rich_text() -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 367)
+- `rich_menu(tiers: Sequence[str] | None) -> tuple[str, ...] | None` ([source](../../../../../../src/learnloop/figures/routes.py), line 392) — The menu when it includes a rich tier (V3), else None (V1/V2 exactly).
+- `author_instructions(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 400)
+- `author_prompt_version(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 430)
+- `author_prompt(context: dict[str, Any], *, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 440)
+- `output_model(*, sketch: bool=False, tiers: Sequence[str] | None=None) -> type[WireModel]` ([source](../../../../../../src/learnloop/figures/routes.py), line 450) — The author's output contract: RW5b's V1 off, V2 with the sketch tier on, V3 (RW5d P2b) with a rich tier on the menu.
+- `class FigureUnavailable(Exception)` ([source](../../../../../../src/learnloop/figures/routes.py), line 459) — A figure route cannot be called (``reason``: ``models_off`` | ``unrouted`` | ``unpriced`` | ``capped`` | ``unavailable`` | ``no_image_input``); ``message`` is the learner's line.
+  - `__init__(self, reason: str, message: str) -> None` (line 464; internal)
+- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/figures/routes.py), line 470)
+- `class FigureRoute` ([source](../../../../../../src/learnloop/figures/routes.py), line 477) — The author route pinned for one request, with its call cap.
+  - `__init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None, envelope: Any, owner_id: str, max_calls: int) -> None` (line 486; internal)
+  - `bind_owner(self, owner_id: str) -> None` (line 500; public) — Name the request the calls' receipts belong to (known only once the input is hashed, after the route was asked whether it reads images).
+  - `subscription(self) -> bool` (line 509; public)
+  - `problem(self) -> FigureUnavailable | None` (line 512; public)
+  - `resolve(self) -> Any` (line 528; public)
+  - `reads_images(self) -> bool` (line 555; public)
+  - `ask(self, prompt: str, result_model: type[WireModel], *, images: tuple[tuple[str, bytes], ...]=(), metadata: dict[str, Any] | None=None) -> Any` (line 562; public)
+  - `model(self) -> str | None` (line 576; public)
 
 ### Module constants
 
 - `AUTHOR_TASK` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 70)
-- `AUTHOR_PROMPT_VERSION` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 71)
-- `ENVELOPE` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 72)
-- `OWNER_KINDS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 74)
-- `MODELS_ENV` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 75)
-- `MAX_AUTHOR_ATTEMPTS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 76)
-- `GRAMMAR_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 110)
-- `SPEC_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 121)
-- `AUTHOR_INSTRUCTIONS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 140)
-- `ADVANCED_PROMPT_VERSION` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 159)
-- `ADVANCED_PANELS_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 161)
-- `_UNSUPPORTED_V1` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 192)
-- `_UNSUPPORTED_V2` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 193)
-- `SHOW_ME_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 200)
-- `SHOW_ME_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 202)
-- `SKETCH_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 216)
-- `_STATUS_V1` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 219)
-- `_STATUS_V1_PANELS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 224)
-- `STATUS_V2` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 227)
-- `SKETCH_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 235)
-- `RICH_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 312)
-- `TIER_SENTENCES` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 316)
-- `RICH_CHOICE_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 328)
-- `RICH_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 348)
-- `LEARNER_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 376)
-- `LEARNER_STATE_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 378)
+- `AUTHOR_PROMPT_VERSION` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 72)
+- `ENVELOPE` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 73)
+- `OWNER_KINDS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 75)
+- `MODELS_ENV` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 76)
+- `MAX_AUTHOR_ATTEMPTS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 77)
+- `GRAMMAR_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 111)
+- `SPEC_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 122)
+- `AUTHOR_INSTRUCTIONS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 142)
+- `ADVANCED_PROMPT_VERSION` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 161)
+- `ADVANCED_PANELS_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 163)
+- `_UNSUPPORTED_V1` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 194)
+- `_UNSUPPORTED_V2` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 195)
+- `SHOW_ME_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 202)
+- `SHOW_ME_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 204)
+- `SKETCH_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 218)
+- `_STATUS_V1` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 221)
+- `_STATUS_V1_PANELS` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 226)
+- `STATUS_V2` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 229)
+- `SKETCH_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 237)
+- `RICH_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 314)
+- `TIER_SENTENCES` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 318)
+- `RICH_CHOICE_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 330)
+- `RICH_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 350)
+- `LEARNER_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 378)
+- `LEARNER_STATE_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 380)
 
 ### Explicit exports
 
@@ -200,6 +200,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
 - [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
+- [tests/test_figure_author_predictions.py](../../../../../../tests/test_figure_author_predictions.py) — direct import
+  - `test_both_prompts_spell_the_shape_out_under_new_versions`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
   - `test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build`
   - `test_a_selection_build_does_not_stop_for_the_offers_switch`
