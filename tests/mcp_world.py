@@ -312,7 +312,7 @@ _PLANTED_KEY_NUMBER = re.compile(r"(?<![0-9A-Za-z.])8841(?![0-9A-Za-z])")
 def names_planted_key(text: str) -> bool:
     """Whether ``text`` names the planted key's number: as a word of a title (``key 8841:``) or of a slug
     (``legacy_key_8841_a_row``). A substring check also matched random ids and hashes that happen to contain the four
-    digits (a known flake: about one run in ten across the MCP files)."""
+    digits (the known '8841' flake)."""
 
     return _PLANTED_KEY_NUMBER.search(text) is not None
 
