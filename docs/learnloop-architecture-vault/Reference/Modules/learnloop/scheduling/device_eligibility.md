@@ -167,6 +167,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phones_decision_names_the_rules_and_the_desktops_does_not`
   - `test_what_the_renderer_resolves_is_still_kept_for_the_desktop`
   - `test_what_the_renderer_shows_as_text_or_a_web_link_stays_eligible`
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
+  - `test_a_phone_decision_holds_no_offer_and_serves_what_it_can`
+  - `test_a_phone_follow_up_stays_forced_beside_an_open_desktop_offer`
+- [tests/test_ih3_learner_preferences.py](../../../../../../tests/test_ih3_learner_preferences.py) — direct import
+  - `test_a_phone_surface_is_for_the_phone_only`
+  - `test_the_phone_logs_a_lesson_pick_and_hands_it_to_the_desktop`
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
+  - `test_a_phone_choosing_the_drawn_lesson_is_told_it_waits_and_it_stays_an_agreement`
+  - `test_a_reading_is_servable_where_the_phones_reader_shows_it`
+  - `test_with_no_reader_a_reading_waits`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
 - [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import

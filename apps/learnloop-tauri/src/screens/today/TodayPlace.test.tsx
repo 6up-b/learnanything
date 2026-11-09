@@ -9,7 +9,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, WorkbenchOpenProblemDto } from "../../api/dto";
 import { clear, invalidateAll } from "../../api/queryCache";
-import { setRenderedShell } from "../../app/algoConfig";
+import { setAlgoConfig, setRenderedShell } from "../../app/algoConfig";
 import { findJargon } from "../../copy/denyList";
 
 const { fns, inbox } = vi.hoisted(() => ({ fns: {} as Record<string, ReturnType<typeof vi.fn>>, inbox: { real: false } }));
@@ -319,6 +319,135 @@ afterEach(() => {
   setRenderedShell(null);
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+describe("a question in progress (IH6)", () => {
+  const QUESTION = { workbenchSessionId: "wb_1", practiceItemId: "pi_q", learningObjectTitle: "ReLU" };
+  const held = () => body({ blocks: [], currentBlockId: null, projected: [], firstBlock: null, deciding: false, questionInProgress: QUESTION });
+
+  it("says so plainly, never 'Choosing what's next…', and offers Begin rather than Keep going", async () => {
+    apis(dto(held()));
+    show();
+    const sentence = await screen.findByTestId("today-sentence");
+    expect(sentence.textContent).toContain("A question is in progress on ReLU.");
+    expect(surface()).not.toContain("Choosing what's next");
+    expect(surface()).not.toContain("Nothing planned for today");
+    expect(screen.getByTestId("today-begin").textContent).toContain("Begin");
+    expect(screen.queryByRole("button", { name: "Keep going" })).toBeNull();
+    expect(findJargon(surface())).toEqual([]);
+  });
+
+  it("does not poll: a read that held its boundary would answer the same 40 times", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    apis(dto(held()));
+    show();
+    await flush();
+    const reads = fns.getDailyPlan.mock.calls.length;
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(fns.getDailyPlan.mock.calls.length).toBe(reads);
+  });
+
+  it("while a block really is being chosen it still polls (the control for the test above)", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    apis(dto(body({ blocks: [], currentBlockId: null, projected: [], firstBlock: null, deciding: true })));
+    show();
+    await flush();
+    const reads = fns.getDailyPlan.mock.calls.length;
+    await act(async () => {
+      vi.advanceTimersByTime(3_100);
+    });
+    expect(fns.getDailyPlan.mock.calls.length).toBeGreaterThan(reads);
+  });
+
+  it("Begin and Enter are explicit steps: they serve, which decides", async () => {
+    apis(dto(held()), { nextPlanItem: vi.fn(async () => dto(body(), { step: { kind: "item", planId: "plan_1", blockId: "b", position: 1, practiceItemId: "pi_n", learningObjectId: "lo", learningObjectTitle: "T", estMinutes: 2, lane: "new", origin: "chooser", boundary: true, schedulerCandidateId: null, presentationId: "pp" } as never })) });
+    const props = show({ session: { sessionId: "s1", availableMinutes: 25 } as SessionSnapshot });
+    fireEvent.click(await screen.findByTestId("today-begin"));
+    await waitFor(() => expect(fns.nextPlanItem).toHaveBeenCalledWith({ sessionId: "s1", serve: true }));
+    await waitFor(() => expect(props.onOpenPractice).toHaveBeenCalledWith("pi_n", null, null, "pp"));
+  });
+
+  it("resume opens a problem on an item in practice, and a Reader problem in its book", async () => {
+    apis(dto(held()));
+    const props = show();
+    fireEvent.click(await screen.findByRole("button", { name: "resume ▸" }));
+    expect(props.onOpenPractice).toHaveBeenCalledWith("pi_q");
+    cleanup();
+    clear();
+    const open = problem("wb_1");
+    apis(dto(held()), { workbenchOpenProblems: vi.fn(async () => ({ version: 1, problems: [open] })) });
+    const reader = show();
+    await flush();
+    fireEvent.click(within(await screen.findByTestId("question-in-progress-actions")).getByRole("button", { name: "resume ▸" }));
+    expect(reader.onResumeProblem).toHaveBeenCalledWith(open);
+  });
+
+  it("set it aside closes the problem and the plan is read again", async () => {
+    setAlgoConfig({ workbench: { enabled: true, openItem: true } } as never);
+    apis(dto(held()), { workbenchAbandon: vi.fn(async () => ({ version: 1, session: {} })) });
+    show();
+    const aside = await screen.findByRole("button", { name: "set it aside" });
+    const reads = fns.getDailyPlan.mock.calls.length;
+    fireEvent.click(aside);
+    await waitFor(() => expect(fns.workbenchAbandon).toHaveBeenCalledWith({ sessionId: "wb_1" }));
+    await waitFor(() => expect(fns.getDailyPlan.mock.calls.length).toBeGreaterThan(reads));
+    setAlgoConfig({} as never);
+  });
+});
+
+describe("'Something else would help' on the default Today (IH3, review m7)", () => {
+  const SESSION = { sessionId: "s1", availableMinutes: 25 } as SessionSnapshot;
+  const OPTIONS = {
+    version: 1, enabled: true, drawn: false, decisionId: null, device: "desktop",
+    options: [{ kind: "question", ref: "cand_q", label: "Another question", minutes: 5, propensity: null, plansPick: false, servable: true }]
+  };
+
+  it("shows with a session where the plan says it may; never without one or without the flag", async () => {
+    apis(dto(body(), { somethingElse: true }));
+    show({ session: SESSION });
+    expect((await screen.findByTestId("something-else-link")).textContent).toBe("Something else would help");
+    cleanup();
+    clear();
+    apis(dto(body()));
+    show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    expect(screen.queryByTestId("something-else-link")).toBeNull();
+    cleanup();
+    clear();
+    apis(dto(body(), { somethingElse: true }));
+    show();
+    await screen.findByTestId("today-sentence");
+    expect(screen.queryByTestId("something-else-link")).toBeNull();
+  });
+
+  it("a served choice opens its step", async () => {
+    const step = { kind: "item", planId: "plan_1", blockId: "b", position: 1, practiceItemId: "pi_n", learningObjectId: "lo", learningObjectTitle: "T",
+                   estMinutes: 2, lane: "new", origin: "learner_pick", boundary: false, schedulerCandidateId: null, presentationId: "pp" };
+    apis(dto(body(), { somethingElse: true }), {
+      planSomethingElseOptions: vi.fn(async () => OPTIONS),
+      planSomethingElse: vi.fn(async () => ({ ...dto(body()), step, preference: { id: "k", outcome: "served", kind: "question", ref: "cand_q", servedDecisionId: "d", lesson: null, replayed: false } }))
+    });
+    const props = show({ session: SESSION });
+    fireEvent.click(await screen.findByTestId("something-else-link"));
+    fireEvent.click(await screen.findByTestId("something-else-option-question"));
+    await waitFor(() => expect(fns.planSomethingElse).toHaveBeenCalledWith(expect.objectContaining({ surface: "today", sessionId: "s1", kind: "question" })));
+    await waitFor(() => expect(props.onOpenPractice).toHaveBeenCalledWith("pi_n", null, null, "pp"));
+  });
+
+  it("the plan's own pick, chosen, is served as Begin serves it", async () => {
+    apis(dto(body(), { somethingElse: true }), {
+      planSomethingElseOptions: vi.fn(async () => ({ ...OPTIONS, options: [{ ...OPTIONS.options[0], plansPick: true }] })),
+      planSomethingElse: vi.fn(async () => ({ ...dto(body()), step: null, preference: { id: "k", outcome: "agreed", kind: "question", ref: "cand_q", servedDecisionId: "d", lesson: null, replayed: false } }))
+    });
+    show({ session: SESSION });
+    fireEvent.click(await screen.findByTestId("something-else-link"));
+    fireEvent.click(await screen.findByTestId("something-else-option-question"));
+    await waitFor(() => expect(fns.nextPlanItem).toHaveBeenCalledWith({ sessionId: "s1", serve: true }));
+  });
 });
 
 describe("the plan as one sentence and Enter (3.1)", () => {

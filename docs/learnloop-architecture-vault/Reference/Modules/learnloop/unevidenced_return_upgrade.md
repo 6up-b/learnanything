@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/unevidenced_return_upgrade.py"
 source_paths:
   - "src/learnloop/unevidenced_return_upgrade.py"
-source_commit: "8c888737dc814b16cb01feb86ef4dec8d58ee540"
-source_commit_timestamp: "2026-11-09T11:47:41-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `8c888737dc814b16cb01feb86ef4dec8d58ee540` |
-| Commit timestamp | `2026-11-09T11:47:41-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
+| Commit timestamp | `2026-11-09T12:16:08-05:00` |
 
 ## Public API
 
@@ -99,12 +99,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] — imports `module`; calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `PHONE_PROBES_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `UNEVIDENCED_RETURN_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FAILURE_SHARE_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `UNEVIDENCED_RETURN_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `write_activation_journal`; calls `write_activation_journal`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
+- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_failure_share`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `UpgradeResult`; calls `UpgradeResult`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `module`; calls `freeze_manifest`, `refresh`
-- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_phone_probes`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `publish_algorithm_version`; calls `publish_algorithm_version`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `activate_p0_projection`; calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`

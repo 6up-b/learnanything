@@ -4,7 +4,7 @@
 // sit on the screen; `App.test.tsx` and `src/api/contract.test.ts` pin that nothing else did.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, ScheduledItemDto, SessionEndSummary, SessionSnapshot } from "@desktop/api/dto";
-import { invalidate, setQueryData, clear as clearQueries } from "@desktop/api/queryCache";
+import { invalidate, peek, setQueryData, clear as clearQueries } from "@desktop/api/queryCache";
 import { TAG } from "@desktop/api/queryTags";
 import { committedAttempt, pollJob, refusedOutright } from "./api/http";
 import { phone, type OwnerSnapshot } from "./api/phone";
@@ -557,6 +557,14 @@ function Phone({ credential }: { credential: Credential }) {
     }
   }
 
+  /** Spec_instruct_handoff_v1 §3a: while feedback shows, the next boundary's model calls start, so Next finds their
+   *  answer. Nothing depends on this call: a failure is ignored, and Next decides as it did before. */
+  function planPrefetch() {
+    const open = sessionRef.current;
+    if (!open || planModeRef.current !== "plan") return;
+    void phone.planPrefetch(open.sessionId).catch(() => undefined);
+  }
+
   /** A plan read says whether Today is the plan (the first read, from wherever the app opened). */
   async function learnPlanMode(): Promise<"plan" | "queue"> {
     if (planModeRef.current !== "unknown") return planModeRef.current;
@@ -808,6 +816,14 @@ function Phone({ credential }: { credential: Credential }) {
               waitLine={followupWait}
               onNext={() => void feedbackNext(view.attemptId)}
               onOpenFeedback={(attemptId) => { setFollowupWait(null); setView({ name: "feedback", attemptId, practiceItemId: null }); }}
+              onSettled={planPrefetch}
+              // IH3: from the plan the phone already holds, never a read here: a read at a finished block crosses the
+              // boundary (§4.5). No plan held, or the host's flag absent: no link.
+              somethingElse={session && planMode === "plan" && peek<PhonePlanDto>(planKey(session.sessionId)).data?.somethingElse ? {
+                sessionId: session.sessionId,
+                onServed: (reply) => openStep(reply, session.sessionId),
+                onAgreed: () => void planNext()
+              } : null}
               onError={reportError}
             />
           ) : planMode !== "queue" ? (
@@ -821,6 +837,7 @@ function Phone({ credential }: { credential: Credential }) {
               onKeepGoing={(stop) => void keepGoing(stop)}
               onEnd={() => void endSession()}
               onMode={setPlanMode}
+              onSomethingElse={(reply) => session && openStep(reply, session.sessionId)}
               onError={reportError}
             />
           ) : (

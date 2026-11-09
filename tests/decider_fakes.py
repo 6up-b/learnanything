@@ -140,7 +140,7 @@ class FakeDecisionsServer:
                     "usage": {"input_tokens": input_tokens, "output_tokens": 3},
                 }
                 if fake.dialect == "openrouter":
-                    payload["model"] = body["model"] + "-20261006"
+                    payload["model"] = body["model"] + "-20261016"
                     payload["id"] = f"gen-dec-{len(fake.requests)}"
                     payload["provider"] = "Perplexity"
                     payload["usage"]["cost"] = input_tokens * 0.02 / 1_000_000

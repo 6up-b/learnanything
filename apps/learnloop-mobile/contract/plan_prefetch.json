@@ -1,0 +1,15 @@
+{
+  "method": "plan_prefetch",
+  "requests": [
+    {
+      "wrapper": "planPrefetch",
+      "envelope": {
+        "method": "plan_prefetch",
+        "params": {
+          "sessionId": "s1"
+        }
+      }
+    }
+  ],
+  "reads": []
+}

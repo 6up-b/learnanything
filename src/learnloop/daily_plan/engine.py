@@ -36,7 +36,7 @@ import logging
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from typing import TYPE_CHECKING, Any
 
 from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, DELIVERABLE_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
@@ -91,6 +91,9 @@ from learnloop.daily_plan.types import (
     CONTINUE_CURRENT,
     LANE_ACTIONS,
     LANES,
+    FOLLOWUP_CONTEST_NOTE,
+    FOLLOWUP_CONTEST_PREFIX,
+    LESSON_OFFER_PREFIX,
     LESSON_OFFER_SUBTYPE,
     PICK_DEDUCTION_ORDER,
     REENTRY_LANES,
@@ -136,6 +139,11 @@ class PlanWaiting(Exception):
     def __init__(self, step: dict[str, Any]) -> None:
         super().__init__(step.get("until"))
         self.step = step
+
+
+class BoundaryTaken(Exception):
+    """Another decision placed this boundary's block while this one's models were out (:func:`_refuse_a_taken_boundary`).
+    Nothing was written: the next step is what took it."""
 
 
 def plan_active(vault: Any) -> bool:
@@ -602,10 +610,14 @@ def local_date(clock: Clock | None = None) -> str:
 
 
 def local_day_start_iso(clock: Clock | None = None) -> str:
-    """The start of the plan's day (local midnight), as a UTC timestamp."""
+    """The start of the plan's day (local midnight), as a UTC timestamp.
+
+    Midnight takes its own UTC offset, not the current one: on a daylight-saving change day the two differ by an hour
+    (review 3, m4), so the naive midnight of the local date is resolved in the local zone (``astimezone`` on a naive
+    value), never ``now``'s offset with the hour set to 0."""
 
     local_now = (clock or SystemClock()).now().astimezone()
-    midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    midnight = datetime.combine(local_now.date(), time()).astimezone()
     return midnight.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -1603,8 +1615,8 @@ def _new_planned_today(day: Sequence[PlanRecord]) -> int:
 # -- building a plan --------------------------------------------------------------
 
 
-def get_or_create_today(env: PlanEnv, *, create: bool = True) -> PlanRecord | None:
-    """Today's latest plan, building the day's first one when there is none."""
+def get_or_create_today(env: PlanEnv, *, create: bool = True, first_block: bool = True) -> PlanRecord | None:
+    """Today's latest plan, building the day's first one when there is none (``first_block`` as :func:`build_plan`)."""
 
     if not plan_active(env.vault):
         raise PlanInactiveError("the daily plan is off")
@@ -1623,8 +1635,10 @@ def get_or_create_today(env: PlanEnv, *, create: bool = True) -> PlanRecord | No
     gap = env.gap()
     if gap.due:
         budget = float(min(minutes, int(env.plan_config.reentry_minutes)))
-        return build_plan(env, kind="reentry", budget=budget, remembered=minutes, minutes_source="carried")
-    return build_plan(env, kind="normal", budget=float(minutes), remembered=minutes, minutes_source="carried")
+        return build_plan(env, kind="reentry", budget=budget, remembered=minutes, minutes_source="carried",
+                          first_block=first_block)
+    return build_plan(env, kind="normal", budget=float(minutes), remembered=minutes, minutes_source="carried",
+                      first_block=first_block)
 
 
 @dataclass
@@ -2084,8 +2098,12 @@ def build_plan(
     parent_plan_id: str | None = None,
     override: str | None = None,
     with_insert: Callable[[], None] | None = None,
+    first_block: bool = True,
 ) -> PlanRecord:
     """Build one plan: classify, admit, split, then choose its first block.
+
+    ``first_block`` false (IH6, a read under an open workbench): the plan stands without a block and decides nothing, as
+    when the first block's models are still out; ``advance`` crosses the open boundary at the next call that may.
 
     ``with_insert`` (mobile v2 V3, the F9 class; landing ruling R3's rule): a write that belongs to this plan's
     making (a finished plan's stop-override receipt), committed in the transaction that inserts it, after the slow
@@ -2129,6 +2147,8 @@ def build_plan(
             with_insert()
         store.insert_plan(connection, {"id": plan_id, **prepared.row})
     record = _reload(env, plan_id)
+    if not first_block:
+        return record
     context = _context_from_build(env, record, prepared.built)
     try:
         _boundary(env, record, context, forced=prepared.forced, forced_origin=ORIGIN_REQUESTED)
@@ -2141,6 +2161,8 @@ def build_plan(
         # UX Phase 4 round 7: nothing to do until a hold lifts later today.
         # The plan stands open without a block; ``advance`` says what it waits for.
         pass
+    except BoundaryTaken:
+        pass  # another read decided it first, and that block stands
     return _reload(env, plan_id)
 
 
@@ -2628,6 +2650,7 @@ def decide(
     forced_allotment: Mapping[str, float] | None = None,
     forced_spent: Mapping[str, float] | None = None,
     offer: BlockCandidate | None = None,
+    contest: BlockCandidate | None = None,
 ) -> Decision:
     """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure.
 
@@ -2641,6 +2664,11 @@ def decide(
     the source's when the source has a feasible one (the objective's chooser
     adds it to its support; a fallback never picks it). None: the predecessor's
     boundary exactly.
+
+    ``contest`` (instruct hand-off IH2, spec_instruct_handoff_v1 §5): the boundary's
+    follow-ups as one candidate against ``offer``, and these two are the decision:
+    the owner's decision of Nov 8 sets a lesson against a follow-up, and no other
+    block displaces a follow-up. A fallback places the follow-ups.
     """
 
     computed = _feasibility(
@@ -2654,12 +2682,18 @@ def decide(
     )
     state, source, candidates, feasible = computed.state, computed.source, computed.candidates, computed.feasible
     plain_feasible = feasible
-    if offer is not None and feasible:
+    if contest is not None and offer is not None:
+        candidates = [contest, offer]
+        feasible = [contest, offer]
+        plain_feasible = [contest]
+    elif offer is not None and feasible:
         candidates = [*candidates, offer]
         feasible = [*feasible, offer]
     minutes_left, redistribution = computed.minutes_left, computed.redistribution
     # Router objective RO4 (§8.2): stop is supported at every reversible boundary under the soft frame.
     stop_offered = minutes_left < STOP_OFFER_MINUTES or not feasible or bool(getattr(policy, "soft_budget", False))
+    if contest is not None:
+        stop_offered = False  # IH2: as with any forced item, a stop can't take a follow-up's place
     describe = getattr(source, "decision_record", None)
     source_record = describe() if callable(describe) else None
     reason: str | None = None
@@ -2747,6 +2781,66 @@ def _state_row(state: PlanState) -> dict[str, Any]:
     }
 
 
+def _replace_open_offers(env: PlanEnv, connection: Any, plan_id: str, detail: Mapping[str, Any], *,
+                         decision_ref: str | None) -> Mapping[str, Any]:
+    """IH2 §5, review R2-M1: at most one open offer. Every offer's block is written through :func:`_persist_block`, in its
+    decision's transaction (``BEGIN IMMEDIATE``), so what this reads can't change before the block commits, whatever was
+    true when the decision started: its models can be out for 40 s, and a plan read or a job can draw an offer meanwhile.
+
+    The newer decision stands, with §5 item 1's mechanism: each offer still open ends ``superseded`` naming it. That row
+    is the plan's act (``expired``), so the acceptance model never reads it as an answer, and each decision's logged
+    probabilities stay what was drawn. What the old offer had beaten waits on this one: its items join ``followups_lost``
+    and its workflows move, with or without a question written, or they would come back while this offer stands.
+    Off, or below the tag, the predecessor's writes."""
+
+    from learnloop.daily_plan import lesson_offer as LO
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    if not lessons_compete_with_followups_on(env.vault.config):
+        return detail
+    standing = _reload(env, plan_id).open_lesson_offers()
+    if not standing:
+        return detail
+    from learnloop.followup_serve import workflow as followup_workflow
+
+    lost = list(detail.get("followups_lost") or ())
+    for block in standing:
+        LO.supersede(connection, block, at=env.now_iso(), by=decision_ref)
+        lost.extend(block.followups_lost)
+        for row in followup_workflow.lost_to(env.repository, block.decision_ref):
+            followup_workflow.lose_to_lesson(env.repository, row, offer_ref=str(detail["candidate_id"]),
+                                             offer_decision_id=decision_ref, clock=env.clock)
+    return {**detail, "followups_lost": list(dict.fromkeys(lost))} if lost else detail
+
+
+def _next_ordinal(env: PlanEnv, connection: Any, record: PlanRecord) -> int:
+    """Read in the block's transaction: a decision's models can be out for 40 s, and an offer a job placed meanwhile holds
+    the ordinal ``record`` would give. Off, or below the tag, ``record``'s, as the predecessor."""
+
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    if not lessons_compete_with_followups_on(env.vault.config):
+        return record.next_ordinal()
+    return max(record.next_ordinal(), store.next_plan_ordinal(connection, record.id))
+
+
+def _refuse_a_taken_boundary(env: PlanEnv, record: PlanRecord) -> None:
+    """In the boundary decision's transaction: a boundary is decided once. If another decision of this boundary, or a pick,
+    placed a block while this one's models were out, this one is dropped whole, with nothing logged: its draw never served
+    anything (:class:`BoundaryTaken`). The ordinal's unique index stopped this before, as a failed Next. A job's
+    ``plan_interrupt`` offer isn't this boundary's decision, so it doesn't take the boundary: it decided a follow-up, and
+    both draws stand (:func:`_replace_open_offers`). Off, or below the tag, the predecessor's failure, unchanged."""
+
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    if not lessons_compete_with_followups_on(env.vault.config):
+        return
+    known = {block.id for block in record.blocks}
+    if any(block.id not in known and (block.chosen or {}).get("source") != "plan_interrupt"
+           for block in _reload(env, record.id).blocks):
+        raise BoundaryTaken()
+
+
 def _persist_block(
     env: PlanEnv,
     connection: Any,
@@ -2770,6 +2864,8 @@ def _persist_block(
 ) -> str:
     block_id = block_id or new_ulid()
     now = env.now_iso()
+    if subtype == LESSON_OFFER_SUBTYPE and reading is None:
+        detail = _replace_open_offers(env, connection, record.id, detail, decision_ref=decision_ref)
     reading_row = None
     if reading is not None:
         reading_row = {
@@ -2794,7 +2890,7 @@ def _persist_block(
             "content_hash": hashlib.sha256(hash_material.encode("utf-8")).hexdigest(),
             "created_at": now,
             "daily_plan_id": record.id,
-            "plan_ordinal": ordinal if ordinal is not None else record.next_ordinal(),
+            "plan_ordinal": ordinal if ordinal is not None else _next_ordinal(env, connection, record),
             "lane": lane,
             "chosen_by": chosen_by,
             "decision_ref": decision_ref,
@@ -2839,18 +2935,12 @@ def _persist_block(
     return block_id
 
 
-def _boundary(
-    env: PlanEnv,
-    record: PlanRecord,
-    context: PoolContext,
-    *,
-    forced: Sequence[PoolItem] = (),
-    forced_origin: str = ORIGIN_REQUESTED,
-    ad_deferrals: Mapping[str, Any] | None = None,
-) -> str | None:
-    """Choose and persist the next block, or close the plan. Returns the block id."""
+def _forced_charges(
+    record: PlanRecord, context: PoolContext, forced: Sequence[PoolItem], forced_origin: str
+) -> tuple[PoolContext, float, dict[str, dict[str, Any] | None], dict[str, float], dict[str, float]]:
+    """What a boundary's forced items take before its choice: the context without them, their minutes, the lane
+    releases, and the allotment and spend each lane's choice sees."""
 
-    forced = list(forced)
     forced_ids = {item.practice_item_id for item in forced}
     if forced_ids:
         # Forced items (requests, follow-ups) are placed whatever is chosen, so
@@ -2879,34 +2969,66 @@ def _boundary(
             forced_spent[lane] += item.est_minutes
             lefts[lane] = max(lefts[lane] - item.est_minutes, 0.0)
             minutes_left = max(minutes_left - item.est_minutes, 0.0)
+    return context, forced_minutes, releases, forced_allotment, forced_spent
+
+
+def _boundary(
+    env: PlanEnv,
+    record: PlanRecord,
+    context: PoolContext,
+    *,
+    forced: Sequence[PoolItem] = (),
+    forced_origin: str = ORIGIN_REQUESTED,
+    ad_deferrals: Mapping[str, Any] | None = None,
+    superseding: PlannedBlock | None = None,
+) -> str | None:
+    """Choose and persist the next block, or close the plan. Returns the block id.
+
+    ``superseding`` (IH2, spec_instruct_handoff_v1 §5 item 1): an unanswered lesson offer this decision replaces, ended
+    in this decision's own transaction with the decision's id on its row."""
+
+    forced = list(forced)
+    forced_ids = {item.practice_item_id for item in forced}
+    context, forced_minutes, releases, forced_allotment, forced_spent = _forced_charges(
+        record, context, forced, forced_origin)
     # Router objective RO5 (spec §9 item 2): the day's randomized checks are drawn before any action draw of the
     # day and independent of it (once a day, idempotent; off, below the tag or with the objective off, nothing).
     _draw_randomized_checks(env, record, context)
     # Codex re-review F2: the day's check is administered at this boundary before its decision, whatever the
     # decision would draw, as its own block placed by the rules (none pending: nothing, the boundary as RO4's).
     check_block = _randomized_check_block(env, record, context, forced=forced, forced_origin=forced_origin,
-                                          releases=releases)
+                                          releases=releases, superseding=superseding)
     if check_block is not None:
         return check_block
     # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, a candidate of the objective's support
     # (none with forced items: never beside a follow-up, a request or a check). No builder: the predecessor exactly.
     offer = None
+    # IH2 (spec_instruct_handoff_v1 §5 item 2): follow-ups a lesson hasn't yet competed with don't keep it out. Requested
+    # items and randomized checks stay forced: the learner's act and the experiment's design.
+    competing = _followups_compete(env, forced, forced_origin, plan_id=record.id, superseding=superseding)
     builder = getattr(env.policy, "lesson_offer", None)
     if builder is not None:
         try:
-            offer = builder(env=env, record=record, forced=bool(forced))
+            # A decision replacing an open offer contests the card already on offer, so the day's ceiling doesn't end it.
+            offer = builder(env=env, record=record, forced=bool(forced) and not competing,
+                            **({"replacing": True} if superseding is not None else {}))
         except Exception:  # noqa: BLE001 - an offer never blocks the plan
             logging.getLogger(__name__).warning("teacher TE3b: the boundary's lesson offer was not built", exc_info=True)
             offer = None
+    contest = _followup_contest(env, forced) if competing and getattr(offer, "candidate", None) is not None else None
+    if contest is not None:
+        # Nothing is placed whatever is chosen: the follow-ups are a candidate, charged only if drawn.
+        forced_minutes, forced_allotment, forced_spent = 0.0, None, None
     decision = decide(
         record,
         context,
         env.policy,
         forced_minutes=forced_minutes,
-        forced_items=len(forced),
+        forced_items=0 if contest is not None else len(forced),
         forced_allotment=forced_allotment,
         forced_spent=forced_spent,
         offer=getattr(offer, "candidate", None),
+        contest=contest,
     )
     choice = decision.choice
     frozen = _frozen_objective(env, record, decision)
@@ -2930,9 +3052,12 @@ def _boundary(
         "forced": [
             {"practice_item_id": item.practice_item_id, "origin": forced_origin, "est_minutes": round(item.est_minutes, 4)}
             for item in forced
-        ],
+        ] if contest is None else [],
         **_device_detail(env),
     }
+    if contest is not None:
+        detail["followup_contest"] = {"candidate_id": contest.candidate_id, "item_ids": list(contest.item_ids),
+                                      "origin": forced_origin, "version": FOLLOWUP_CONTEST_VERSION}
     if offer is not None:
         # Teacher TE3b: the boundary's lesson offer (its candidate id and sensors), or why there was none (a ceiling
         # bind is logged here, on the decision).
@@ -3009,7 +3134,13 @@ def _boundary(
             frozen=frozen, decision_state=state_receipt,
         )
         return None
-    items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
+    # IH2: an offer that beat the follow-ups holds nothing, and they stay available to a later decision.
+    offer_won = contest is not None and candidate is not None and candidate.subtype == LESSON_OFFER_SUBTYPE
+    items: list[tuple[PoolItem | PlannedItem, str]] = [] if offer_won else [(item, forced_origin) for item in forced]
+    if offer_won:
+        # What an offer it replaces had already beaten waits on this one too, or it would replace this one in turn.
+        detail["followups_lost"] = list(dict.fromkeys(
+            [*(item.practice_item_id for item in forced), *(superseding.followups_lost if superseding else ())]))
     by_id = {item.practice_item_id: item for item in context.pool}  # forced ids are not in it
     if candidate is not None:
         items.extend(
@@ -3051,6 +3182,7 @@ def _boundary(
     for item, origin in items[: len(forced)]:
         los = list(dict.fromkeys([item.learning_object_id, *los]))
     with env.repository.atomic(), env.repository.connection() as connection:
+        _refuse_a_taken_boundary(env, record)
         block_id = new_ulid()
         # Router R1's hook (owner decision 2026-10-12): the decision is logged
         # as a ``plan_block`` router decision in this block's transaction.
@@ -3075,9 +3207,14 @@ def _boundary(
         if decision_ref is None and logged is not None:
             decision_ref = logged
             detail["decision_ref"] = logged
-        arm = objectives.ARM_READING if reading is not None else objectives.ARM_PRACTICE
         # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
         is_offer = subtype == LESSON_OFFER_SUBTYPE
+        if superseding is not None and not is_offer:
+            _supersede_offer(env, connection, superseding, by=decision_ref)  # a new offer ends it in ``_persist_block``
+        if offer_won:
+            _followups_lost(env, detail["followups_lost"], offer_ref=candidate.candidate_id,
+                            offer_decision_id=decision_ref)
+        arm = objectives.ARM_READING if reading is not None else objectives.ARM_PRACTICE
         if logged is not None and chosen_by != "learner_pick" and not is_offer and objectives.applies(frozen, arm):
             # Never an item this decision's block serves now, nor another of the plan's.
             objectives.record(env.vault, env.repository, connection, decision_id=logged, decision_kind="plan_block",
@@ -3103,6 +3240,190 @@ def _boundary(
         )
     _record_probe_value_forecasts(env, detail, block_id=block_id, decision_ref=decision_ref)
     return block_id
+
+
+# -- instruct hand-off IH2: lessons and follow-ups in one decision (spec_instruct_handoff_v1 §5) ------------------------
+
+FOLLOWUP_CONTEST_VERSION = "ih2_followup_contest_v1"
+
+
+def _lessons_compete(env: PlanEnv) -> bool:
+    """IH2's gate at a decision of this device. Only the desktop: the phone serves no lesson until V6, so its decisions
+    hold no offer (:func:`learnloop.daily_plan.policy._lesson_offer_builder`) and a follow-up it can serve is served."""
+
+    if env.device is not None or getattr(env.policy, "lesson_offer", None) is None:
+        return False
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    return lessons_compete_with_followups_on(env.vault.config)
+
+
+def _lesson_already_competed(env: PlanEnv, practice_item_id: str, *, plan_id: str | None = None) -> bool:
+    """This follow-up's own decision held a lesson offer and drew it anyway: that draw stands, and no second draw re-runs
+    the same contest, while no offer has been drawn since. A later offer is a lesson that decision never weighed, and a
+    follow-up that lost to a lesson since carries that lesson's ref, so either competes again. The decision is the
+    workflow's, or for a follow-up from a recorded need the ``plan_interrupt`` that let it wait."""
+
+    from learnloop.db.stores import router_suggestions as suggestions
+    from learnloop.followup_serve import workflow as followup_workflow
+    from learnloop.router.plan_log import CONTINUE_REF, INSERT_REF, held_a_lesson
+
+    row = followup_workflow.workflow_of_item(env.repository, practice_item_id)
+    if row is not None and row.get("chosen_ref") not in {INSERT_REF, CONTINUE_REF}:
+        return False
+    with env.repository.connection() as connection:
+        decision_id = row.get("decision_id") if row is not None else (
+            store.deferred_followup_decision(connection, plan_id, practice_item_id) if plan_id else None)
+        return held_a_lesson(connection, decision_id) and not suggestions.offer_drawn_since(connection, str(decision_id))
+
+
+def _followups_compete(env: PlanEnv, forced: Sequence[PoolItem], forced_origin: str, *, plan_id: str | None = None,
+                       superseding: PlannedBlock | None = None) -> bool:
+    """IH2 §5 item 2: these forced items are follow-ups a lesson may compete with at this boundary. With an open offer
+    being replaced they always do: the owner's decision, and the offer is one their own decision never weighed."""
+
+    if forced_origin != ORIGIN_FOLLOWUP or not forced or not _lessons_compete(env):
+        return False
+    if any(item.requested or item.check_kind for item in forced):
+        return False
+    if superseding is not None:
+        return True
+    return not all(_lesson_already_competed(env, item.practice_item_id, plan_id=plan_id) for item in forced)
+
+
+def _followup_contest(env: PlanEnv, forced: Sequence[PoolItem]) -> BlockCandidate:
+    """The boundary's follow-ups as one candidate: a repair block holding them and nothing else. A probe is valued by
+    RO §8.1's bundle and any other follow-up as a repair, by its item's own mode (``objective_inputs.action_for``)."""
+
+    lane = forced[0].lane or "repair"
+    action, subtype = LANE_ACTIONS.get(lane, ("maintain", None))
+    los = tuple(dict.fromkeys(item.learning_object_id for item in forced))
+    title = getattr(env.vault.learning_objects.get(los[0]), "title", None) if los else None
+    return BlockCandidate(
+        candidate_id=f"{FOLLOWUP_CONTEST_PREFIX}{forced[0].practice_item_id}", lane=lane, action=action, subtype=subtype,
+        learning_object_ids=los, item_ids=tuple(item.practice_item_id for item in forced), reading=None,
+        est_minutes=float(sum(item.est_minutes for item in forced)), planner_value=0.0,
+        reason="a follow-up from this session's answer",
+        item_minutes=tuple(float(item.est_minutes) for item in forced),
+        annotations={"reversible": True, "reason_code": "repair_followup", "topic": title or (los[0] if los else ""),
+                     FOLLOWUP_CONTEST_NOTE: {"version": FOLLOWUP_CONTEST_VERSION}},
+    )
+
+
+def _supersede_offer(env: PlanEnv, connection: Any, block: PlannedBlock, *, by: str | None) -> None:
+    from learnloop.daily_plan import lesson_offer as LO
+
+    LO.supersede(connection, block, at=env.now_iso(), by=by)
+
+
+def _followups_lost(env: PlanEnv, item_ids: Sequence[str], *, offer_ref: str, offer_decision_id: str | None) -> None:
+    """IH2 §5: each workflow whose probe lost to the offer (in the offer's transaction): what it held is released now and
+    it waits, open, on the answer. That includes what an offer it replaced had beaten: left on the old offer, which has
+    now passed, it would replace this one in turn, and two follow-ups would redraw for ever on reads alone. A workflow with
+    nothing written moves by its decision (:func:`_replace_open_offers`). A follow-up from a recorded need has nothing to
+    move: it stays in the pool, and ``followups_lost`` keeps it out meanwhile."""
+
+    from learnloop.followup_serve import workflow as followup_workflow
+
+    for item_id in item_ids:
+        row = followup_workflow.workflow_of_item(env.repository, item_id)
+        if row is not None and row["state"] in followup_workflow.OPEN_STATES:
+            followup_workflow.lose_to_lesson(env.repository, row, offer_ref=offer_ref, offer_decision_id=offer_decision_id,
+                                             clock=env.clock)
+
+
+def _settle_lost_followups(env: PlanEnv, rows: Sequence[Mapping[str, Any]]) -> set[str]:
+    """IH2 §5: workflows that lost to a lesson, read against the offer's ledger whichever way it was answered. Taken: it
+    settles. Passed: a probe already written goes on as any wait does; with nothing written, a new decision on the
+    generation slot. Open: nothing moves. Returns the items that wait on an open offer."""
+
+    from learnloop.daily_plan import lesson_offer as LO
+    from learnloop.db.stores import router_suggestions as suggestions
+    from learnloop.followup_serve import workflow as followup_workflow
+
+    parked: set[str] = set()
+    for row in rows:
+        if not followup_workflow.lost_to_lesson(row):
+            continue
+        decision_id = followup_workflow.lost_offer_decision(env.repository, str(row["id"]))
+        with env.repository.connection() as connection:
+            standing = (LO.offer_standing(connection, decision_id, today=env.today())
+                        if decision_id and suggestions.tables_present(connection) else LO.OFFER_PASSED)
+        if standing == LO.OFFER_OPEN:
+            if row.get("practice_item_id"):
+                parked.add(str(row["practice_item_id"]))
+        elif standing == LO.OFFER_TAKEN:
+            followup_workflow.lesson_taken(env.repository, row, clock=env.clock)
+        elif not row.get("practice_item_id"):
+            followup_workflow.reopen_after_lesson(env.repository, row, clock=env.clock)
+    return parked
+
+
+def _offer_may_interrupt(env: PlanEnv, block: PlannedBlock | None) -> bool:
+    """Spec_teacher_v1 §15.1a: a card never appears during a cold check, a probe or a randomized-check block."""
+
+    if block is None:
+        return True
+    if (block.chosen or {}).get("ro5_check_block"):
+        return False
+    from learnloop.daily_plan.objective_inputs import _PROBE_MODES
+
+    origin = ro5_check_origin()
+    for item in block.items:
+        if item.resolved:
+            continue
+        mode = getattr(env.vault.practice_items.get(item.practice_item_id), "practice_mode", None)
+        if item.origin == origin or item.check_kind or mode in _PROBE_MODES:
+            return False
+    return True
+
+
+def interrupt_offer(env: PlanEnv, record: PlanRecord, block: PlannedBlock | None) -> Any:
+    """IH2 §5 item 3: the lesson offer a follow-up's ``plan_interrupt`` decision may hold, or None. None too while an offer
+    is open: a follow-up arriving then meets it at the next boundary, in a decision holding both (item 1)."""
+
+    if not _lessons_compete(env) or record.open_lesson_offer() is not None or not _offer_may_interrupt(env, block):
+        return None
+    current = record.current_block()
+    if current is not None and current.is_reading:
+        return None  # the reader is open on it, and its close reads the plan's current block
+    try:
+        return env.policy.lesson_offer(env=env, record=record, forced=False)
+    except Exception:  # noqa: BLE001 - an offer never blocks the plan
+        logging.getLogger(__name__).warning("IH2: the lesson offer of a follow-up's decision was not built", exc_info=True)
+        return None
+
+
+def place_interrupt_offer(env: PlanEnv, connection: Any, record_id: str, candidate: BlockCandidate, *, decision_id: str,
+                          block_id: str, why: str = "", why_kind: str | None = None, propensity: float | None = None,
+                          followups_lost: Sequence[str] = ()) -> bool:
+    """IH2 §5 item 3: a lesson offer a ``plan_interrupt`` decision drew becomes the plan's next step, in the decision's
+    transaction, as a block of its own (the offer page opens from it). With questions left in the block below, it comes
+    first and they resume after its answer (:meth:`PlanRecord.current_block`). False on a plan that has closed."""
+
+    record = _reload(env, record_id)
+    if not record.is_open:
+        return False
+    # Read here, in the decision's transaction, since either can have changed while its models were out: the block below
+    # (an offer this one replaces keeps its place), and whether that block may be interrupted (a check drawn meanwhile).
+    below = record.block_below_offer()
+    interrupts = (below is not None and any(not item.resolved for item in below.items)
+                  and _offer_may_interrupt(env, below))
+    card = dict((candidate.annotations or {}).get("lesson_offer") or {})
+    detail = {
+        "source": "plan_interrupt", "chooser": "router_objective_v1", "chosen_by": "mixture",
+        "candidate_id": candidate.candidate_id, "propensity": propensity, "why": why, "why_kind": why_kind,
+        "decision_ref": decision_id, "fallback": False, "fallback_from": None, "fallback_reason": None,
+        "stop_offered": False, "candidate_set": [candidate.log_row()], "feasible_ids": [candidate.candidate_id],
+        "state": None, "redistribution": None, "forced": [], "lesson_offer": card,
+        **({"interrupts": True} if interrupts else {}),
+        **({"followups_lost": list(dict.fromkeys(followups_lost))} if followups_lost else {}),
+    }
+    _persist_block(env, connection, record, lane=candidate.lane, action=candidate.action, subtype=candidate.subtype,
+                   chosen_by="mixture", est_minutes=float(candidate.est_minutes), reading=None, reading_full=None,
+                   learning_object_ids=list(candidate.learning_object_ids), detail=detail, items=[],
+                   decision_ref=decision_id, block_id=block_id)
+    return True
 
 
 def ro5_check_origin() -> str:
@@ -3143,8 +3464,22 @@ def _draw_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolConte
 RO5_CHECK_WHY = "One question to start with."
 
 
+def _checks_to_place(env: PlanEnv, record: PlanRecord, context: PoolContext) -> list[Any]:
+    """The day's undelivered checks this boundary administers (``checks.place``)."""
+
+    from learnloop.daily_plan import objective_inputs
+    from learnloop.router_objective import checks
+
+    return checks.place(env.vault, env.repository, local_date=str(record.row.get("local_date") or env.today()),
+                        session_id=env.session_id, pool=context.pool, planned=record.planned_ids(),
+                        chooser_items=(), lane=None,
+                        eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
+                            env.vault, env.repository, los, exclude))
+
+
 def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolContext, *, forced: Sequence[PoolItem],
-                            forced_origin: str, releases: Mapping[str, Mapping[str, Any] | None]) -> str | None:
+                            forced_origin: str, releases: Mapping[str, Mapping[str, Any] | None],
+                            superseding: PlannedBlock | None = None) -> str | None:
     """RO5 §9 item 2 (Codex re-review F2): the day's undelivered checks, administered at this boundary BEFORE its
     decision, as their own block placed by the rules, so whether a check is administered never depends on what the
     decision would draw (a practice block, a reading, a stop: the day's first session's first boundary serves the
@@ -3160,13 +3495,8 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
         return None
     try:
         from learnloop.daily_plan import objective_inputs
-        from learnloop.router_objective import checks
 
-        placed = checks.place(env.vault, env.repository, local_date=str(record.row.get("local_date") or env.today()),
-                              session_id=env.session_id, pool=context.pool, planned=record.planned_ids(),
-                              chooser_items=(), lane=None,
-                              eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
-                                  env.vault, env.repository, los, exclude))
+        placed = _checks_to_place(env, record, context)
         if not placed:
             return None
         now = env.now_iso()
@@ -3202,6 +3532,7 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
         **_device_detail(env),
     }
     with env.repository.atomic(), env.repository.connection() as connection:
+        _refuse_a_taken_boundary(env, record)
         block_id = new_ulid()
         decision_ref = _log_plan_decision(
             connection,
@@ -3216,6 +3547,8 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
         )
         if decision_ref is not None:
             detail["decision_ref"] = decision_ref
+        if superseding is not None:
+            _supersede_offer(env, connection, superseding, by=decision_ref)
         _persist_block(env, connection, record, lane=lane, action=action, subtype=subtype, chosen_by="lane_quota",
                        est_minutes=sum(float(item.est_minutes) for item, _origin in items), reading=None,
                        reading_full=None,
@@ -3462,6 +3795,28 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
     whichever surface served it (the plan, the full list, the TUI).
     """
 
+    writes, path_split, now = _reconcile_changes(env, record)
+    if writes or path_split is not None:
+        with env.repository.atomic(), env.repository.connection() as connection:
+            for block_id, kind, detail in writes:
+                _event(connection, block_id, kind, detail, now)
+            if path_split is not None:
+                if _path_split_reopens(path_split):
+                    # Fix round 2: the plan closed only for want of the reading
+                    # the path left out; it reopens with the predecessor's.
+                    store.update_plan(connection, record.id, split_json=path_split, status="open",
+                                      stop_reason=None, completed_at=None, updated_at=now)
+                else:
+                    store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
+        return _reload(env, record.id)
+    return record
+
+
+def _reconcile_changes(
+    env: PlanEnv, record: PlanRecord
+) -> tuple[list[tuple[str, str, dict[str, Any]]], dict[str, Any] | None, str]:
+    """What :func:`reconcile` would write, unwritten: the events, a moved reading's new split, and their time."""
+
     from learnloop.vault.lifecycle import practice_item_servable
     from learnloop.substrate.instrument_serving import unservable_reason
 
@@ -3586,20 +3941,7 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
             _end_reading_out_of_intent(env, block, intent, now, writes)
     else:
         path_split = _reading_path_switched_off(env, record, now, writes)
-    if writes or path_split is not None:
-        with env.repository.atomic(), env.repository.connection() as connection:
-            for block_id, kind, detail in writes:
-                _event(connection, block_id, kind, detail, now)
-            if path_split is not None:
-                if _path_split_reopens(path_split):
-                    # Fix round 2: the plan closed only for want of the reading
-                    # the path left out; it reopens with the predecessor's.
-                    store.update_plan(connection, record.id, split_json=path_split, status="open",
-                                      stop_reason=None, completed_at=None, updated_at=now)
-                else:
-                    store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
-        return _reload(env, record.id)
-    return record
+    return writes, path_split, now
 
 
 def _end_reading_out_of_intent(
@@ -4046,6 +4388,7 @@ def _pending_followups(record: PlanRecord, built: _Pool) -> list[PoolItem]:
 
     at_build = set(record.split.get("followups_at_build") or [])
     taken = {item.practice_item_id for item in record.items()}
+    taken |= record.followups_lost_to_open_offer()  # IH2: they wait on its answer
     return [
         item
         for item in built.pool
@@ -4091,6 +4434,9 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
             return record, []
     cap = record.split.get("items_cap")
     current = record.current_block()
+    if current is not None and current.interrupts:
+        # IH2: an offer drawn after a miss sits over the block it interrupted, and a follow-up arriving joins that block.
+        current = record.block_below_offer() or current
     # TE3b (Codex review F1): a lesson offer's block holds no items: a follow-up arriving while it waits is forced into
     # the next block, and the offer is taken back for it (``advance_with_context``).
     if current is None or current.is_reading or current.is_lesson_offer:
@@ -4197,7 +4543,12 @@ def _place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tu
 
     if not generate_and_serve_on(env.vault.config) or env.session_id is None or not record.is_open:
         return record, []
-    rows = [row for row in followup_workflow.session_rows(env.repository, env.session_id) if row.get("practice_item_id")]
+    rows = followup_workflow.session_rows(env.repository, env.session_id)
+    # IH2: whatever lost to a lesson offer, read against the offer's ledger (rows with none: nothing changes).
+    parked = _settle_lost_followups(env, rows)
+    if any(followup_workflow.lost_to_lesson(row) for row in rows):
+        rows = followup_workflow.session_rows(env.repository, env.session_id)
+    rows = [row for row in rows if row.get("practice_item_id") and str(row["practice_item_id"]) not in parked]
     if not rows:
         return record, []
     forced: list[PoolItem] = []
@@ -4205,6 +4556,8 @@ def _place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tu
     now = env.now_iso()
     changed = False
     current = record.current_block()
+    if current is not None and current.interrupts:
+        current = record.block_below_offer() or current  # IH2: as in ``_insert_followups``
     for row in rows:
         item_id = str(row["practice_item_id"])
         if followup_placement(record, item_id) != FOLLOWUP_DUE:
@@ -4340,6 +4693,8 @@ def _restrained_followups(
     protected = {item.practice_item_id for item in record.items() if item.origin == ORIGIN_FOLLOWUP}
     position = max((item.position for item in current.items), default=0)
     decided: list[tuple[PoolItem, Any, list[PlannedItem], str | None, dict[str, Any] | None, int | None]] = []
+    # IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson available is one more arm of this decision; none: the predecessor.
+    offer = interrupt_offer(env, record, current)
     for item in followups:
         if item.practice_item_id in deferred:
             continue
@@ -4355,9 +4710,12 @@ def _restrained_followups(
         # it after the current block's own items (Codex review F8).
         wait_room = item.est_minutes <= free + _EPS and (cap is None or count + 1 <= int(cap))
         try:
-            outcome = gate.decide(record, current, item, wait_feasible=wait_room)
+            outcome = gate.decide(record, current, item, wait_feasible=wait_room, **({"offer": offer} if offer else {}))
         except DecisionPending:
             continue
+        if outcome.chosen_ref.startswith(LESSON_OFFER_PREFIX):
+            decided.append((item, outcome, [], None, None, None))
+            break  # the offer is the next step, and these follow-ups wait on its answer
         if outcome.insert:
             position += 1
             lane, release = _place_followup(record, current, item, victims, position=position, now=now)
@@ -4373,8 +4731,17 @@ def _restrained_followups(
     ad = _interrupt_ad_fields(env, [entry[0] for entry in decided])
     with env.repository.atomic(), env.repository.connection() as connection:
         for item, outcome, victims, lane, release, placed_at in decided:
+            offer_won = outcome.chosen_ref.startswith(LESSON_OFFER_PREFIX)
             decision_ref = _log_interrupt(env, connection, record, current, item, outcome, material=material,
-                                          estimator=estimator, ad=ad)
+                                          estimator=estimator, ad=ad, offer_block_id=new_ulid() if offer_won else None)
+            if offer_won:
+                if decision_ref is not None:
+                    place_interrupt_offer(
+                        env, connection, record.id, offer.candidate, decision_id=decision_ref,
+                        block_id=_logged_offer_block(connection, decision_ref), why=outcome.why,
+                        why_kind=outcome.record.get("offer_why_kind"), propensity=outcome.propensity,
+                        followups_lost=[entry.practice_item_id for entry in followups])
+                continue
             if not outcome.insert:
                 _event(
                     connection,
@@ -4389,6 +4756,13 @@ def _restrained_followups(
             _write_followup(connection, current, item, victims, lane=str(lane), release=release,
                             position=int(placed_at or 0), decision_ref=decision_ref, now=now)
     return _reload(env, record.id), []
+
+
+def _logged_offer_block(connection: Any, decision_id: str) -> str:
+    """The block a logged ``plan_interrupt`` offer named for itself."""
+
+    row = connection.execute("SELECT detail_json FROM router_decisions WHERE id = ?", (decision_id,)).fetchone()
+    return str(json.loads(row[0])["offer_block_id"])
 
 
 def _interrupt_ad_fields(env: PlanEnv, items: Sequence[PoolItem]) -> Mapping[str, Any] | None:
@@ -4406,21 +4780,26 @@ def _interrupt_ad_fields(env: PlanEnv, items: Sequence[PoolItem]) -> Mapping[str
 def _log_interrupt(
     env: PlanEnv, connection: Any, record: PlanRecord, current: PlannedBlock, item: PoolItem, outcome: Any,
     *, material: Any = None, estimator: Any = None, ad: Mapping[str, Any] | None = None,
+    offer_block_id: str | None = None,
 ) -> str | None:
     """Router R2c: the follow-up's ``plan_interrupt`` row, on the write's own connection, and this
     build's prefilter linked to it (data capture A1)."""
 
-    from learnloop.router.plan_log import log_plan_interrupt_decision
+    from learnloop.router.plan_log import drawn_lesson_on, log_plan_interrupt_decision
 
     try:
+        # IH2: a follow-up that lost to a lesson on this block gets a new receipt, naming the decision it lost.
+        redraw_of = drawn_lesson_on(connection, current.id, item.practice_item_id) if _lessons_compete(env) else None
         decision_ref = log_plan_interrupt_decision(
             connection,
             {
+                **({"redraw_of": redraw_of} if redraw_of else {}),
+                **({"offer_block_id": offer_block_id} if offer_block_id else {}),
                 "plan_id": record.id,
                 "plan_kind": record.kind,
                 "local_date": str(record.row.get("local_date") or ""),
                 "block_id": current.id,
-                "parent_decision_id": None,
+                "parent_decision_id": redraw_of,
                 "session_id": env.session_id,
                 "followup": {
                     "practice_item_id": item.practice_item_id,
@@ -4456,7 +4835,7 @@ def _log_interrupt(
                                    router_record=outcome.record, config=env.vault.config,
                                    local_date=str(record.row.get("local_date") or ""), session_id=env.session_id,
                                    at=env.now_iso())
-            if serving_on(env.vault.config) and not outcome.refused and outcome.wait_feasible:
+            if serving_on(env.vault.config) and not outcome.refused and outcome.wait_feasible and not offer_block_id:
                 # Data capture A2: the follow-up's own LO, whichever arm was drawn; its check never
                 # takes an item this plan holds or the follow-up itself.
                 objectives.record(
@@ -4539,6 +4918,10 @@ def _lesson_offer_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, *,
         "block_id": block.id,
         "block_ordinal": block.ordinal,
         "offer": offer_card_view(block),
+        # IH1: the router's own words for this draw, as the block row carries them (the guard already ran: a model's
+        # rationale is here only when it passed, ``why_kind == "model_written"``).
+        "why": str(block.chosen.get("why") or ""),
+        "why_kind": block.chosen.get("why_kind"),
         "est_minutes": round(float(block.budget_minutes), 4),
         "boundary": boundary,
     }
@@ -4717,6 +5100,46 @@ def _held_step(env: PlanEnv, record: PlanRecord) -> dict[str, Any]:
     return step
 
 
+#: IH6: the step of a read that held its boundary for an open workbench. The plan view reports it.
+QUESTION_IN_PROGRESS_STEP = "question_in_progress"
+
+
+def open_workbench(env: PlanEnv) -> Mapping[str, Any] | None:
+    """IH6 (spec_instruct_handoff_v1 §7b): the workbench problem open in the plan's current practice session, or None
+    (always None off, or below the tag). The current session is the one this call names while it is open, else the
+    vault's open one (there is at most one: ``start_session_exclusive``).
+
+    With none open (the owner's decision 3 of Nov 9), an open Reader problem holds, but only one touched on the plan's
+    current day: opened, resumed or worked since the start of the plan's ``local_date`` (:func:`local_day_start_iso`, the
+    day the plan already uses). No new time constant: a problem from an earlier day holds nothing, and a practice
+    screen's problem belongs to a session, so with none open it holds nothing either."""
+
+    from learnloop.router_objective_switches import workbench_is_open_item_on
+
+    if not workbench_is_open_item_on(env.vault.config):
+        return None
+    session = env.repository.fetch_session(env.session_id) if env.session_id else None
+    if session is None or session.get("ended_at") is not None:
+        session = env.repository.most_recent_open_session()
+    with env.repository.connection() as connection:
+        if session is None:
+            return store.open_workbench_since(connection, local_day_start_iso(env.clock), origin="reader")
+        return store.open_workbench_since(connection, str(session["started_at"]))
+
+
+def _question_in_progress_step(env: PlanEnv, record: PlanRecord, workbench: Mapping[str, Any]) -> dict[str, Any]:
+    item_id = workbench.get("practice_item_id")
+    item = env.vault.practice_items.get(item_id) if item_id else None
+    learning_object = env.vault.learning_objects.get(item.learning_object_id) if item is not None else None
+    return {
+        "kind": QUESTION_IN_PROGRESS_STEP,
+        "plan_id": record.id,
+        "workbench_session_id": workbench["id"],
+        "practice_item_id": item_id,
+        "learning_object_title": learning_object.title if learning_object is not None else None,
+    }
+
+
 def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None) -> tuple[PlanRecord, dict[str, Any]]:
     """Reconcile, insert follow-ups, cross a boundary if needed, and name the next step.
 
@@ -4732,7 +5155,11 @@ def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = No
 def advance_with_context(
     env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None
 ) -> tuple[PlanRecord, dict[str, Any], PoolContext | None]:
-    record = get_or_create_today(env)
+    # IH6 (spec_instruct_handoff_v1 §7b): under an open workbench a read decides nothing and starts no job: not the day's
+    # first block, a follow-up's own decision, or the next block. It reports what the plan already holds. A serve always
+    # decides, so a problem left open can't strand the learner.
+    workbench = open_workbench(env) if not serve else None
+    record = get_or_create_today(env, first_block=workbench is None)
     assert record is not None
     record = reconcile(env, record)
     if skip_practice_item_id:
@@ -4749,7 +5176,8 @@ def advance_with_context(
         reentry=record.kind == "reentry",
         record=record,
     )
-    record, forced = _insert_followups(env, record, built)
+    # Held, what became ready waits with the rest: the first read after the workbench closes places it.
+    record, forced = (record, []) if workbench is not None else _insert_followups(env, record, built)
     context = _context(env, record, built, day=())
     block = record.current_block()
     device_item = None
@@ -4763,6 +5191,15 @@ def advance_with_context(
             # the device crosses no boundary, so no draw of a later decision (a stop) can leave it unanswered.
             # A stop already drawn past held work (F4) is not drawn again: the plan waits on it.
             return record, _held_step(env, record), context
+    if workbench is not None and block is None:
+        return record, _question_in_progress_step(env, record, workbench), context
+    superseding = None
+    competing = forced and _lessons_compete(env)
+    if competing and block is not None and block.is_lesson_offer and record.block_below_offer() is None:
+        # IH2 (spec_instruct_handoff_v1 §5 item 1): a follow-up became ready while an offer waits. The offer isn't taken
+        # back: this boundary makes a new decision whose support holds both, and it replaces the offer when it commits.
+        # An offer over a block with questions left stands: no boundary here, and it comes first, then that block.
+        superseding, block = block, None
     if block is None and (pending := _stop_pending(record)) is not None:
         # Codex review of V2, F4: what a device left for the desktop is done; the plan closes on the
         # stop drawn while it was open (never with an open record at a None origin otherwise).
@@ -4794,7 +5231,9 @@ def advance_with_context(
                 context = _context(env, record, built, day=(), released=cleared)
         try:
             block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin,
-                                 ad_deferrals=ad_deferrals)
+                                 ad_deferrals=ad_deferrals, superseding=superseding)
+        except BoundaryTaken:
+            return advance_with_context(env, serve=serve)  # what took it is the next step now
         except DecisionPending:
             # Router R2b: the decision's models are still out on a read. No
             # step yet: the view says the next block is being chosen.
@@ -4807,6 +5246,10 @@ def advance_with_context(
         if block_id is None:
             return record, _done_step(record), context
         block = next(b for b in record.blocks if b.id == block_id)
+        if not block.is_lesson_offer and _lessons_compete(env) and record.open_lesson_offer() is not None:
+            # Review R2-M1: a job's decision placed an offer while this one's models were out. Both draws stand, and the
+            # plan's order is the offer first, then this block: its item isn't served under an offer.
+            block = record.current_block()
         if env.device is not None:
             # One boundary per step: a block the device can't show waits for the desktop.
             if block.is_reading:
@@ -4832,7 +5275,7 @@ def advance_with_context(
         withdrawal = None
         if not LO.offers_on(env.vault):
             withdrawal = LO.WITHDRAWN_OFF  # Codex review F2: off, the predecessor's boundary decides instead
-        elif forced:
+        elif forced and not competing:
             withdrawal = LO.WITHDRAWN_FORCED  # Codex review F1: a probe or follow-up became ready while it waited
         if withdrawal is not None:
             # Taken back unanswered (an answered offer's block has already ended): the next boundary decides, with
@@ -4907,6 +5350,102 @@ def advance_with_context(
         step["presentation_id"] = _serve(env, block, item, candidate_id=candidate_id)
         record = _reload(env, record.id)
     return record, step, context
+
+
+def _reconcile_view(env: PlanEnv, record: PlanRecord) -> PlanRecord | None:
+    """The plan as :func:`reconcile` would leave it, with nothing written: its events folded over the stored ones,
+    exactly as the reload after its commit folds them. None when it would move the plan's reading (not an event)."""
+
+    writes, path_split, now = _reconcile_changes(env, record)
+    if path_split is not None:
+        return None
+    if not writes:
+        return record
+    with env.repository.connection() as connection:
+        rows = [store.plan_by_id(connection, record.id)]
+        blocks = store.plan_blocks(connection, [record.id])
+        events = store.block_events_for(connection, [block["id"] for block in blocks])
+    ordinals: dict[str, int] = {}
+    for event in events:
+        ordinals[str(event["block_id"])] = max(ordinals.get(str(event["block_id"]), 0), int(event["event_ordinal"]))
+    for block_id, kind, detail in writes:
+        ordinals[block_id] = ordinals.get(block_id, 0) + 1
+        events.append({"block_id": block_id, "event_ordinal": ordinals[block_id], "kind": kind, "detail": detail,
+                       "created_at": now})
+    (view,) = assemble(rows, blocks, events)
+    return view
+
+
+def prefetch_boundary(env: PlanEnv) -> str:
+    """Spec_instruct_handoff_v1 §3a: start the next boundary's objective job, and write nothing.
+
+    The phone's Next starts its decision's model calls too late (§3a), and a peek (``advance_with_context`` without
+    ``serve``) crosses the boundary and writes its decision. This walks :func:`advance_with_context`'s path to the
+    chooser over the same inputs, so the serve computes the same boundary key and finds the job. ``env`` is read-only
+    (its repository is attached ``read_only``, so a write fails at the database), and its chooser is ``start_only``.
+
+    Returns ``"started"`` (the job runs, or was already running), or why nothing was started. Anything on that path
+    only a write can settle ends it here: the serve then decides as it always has."""
+
+    record = latest_today(env)
+    if record is None:
+        return "no_plan"
+    record = _reconcile_view(env, record)
+    if record is None:
+        return "needs_write"
+    if not record.is_open:
+        return "plan_closed"
+    block = record.current_block()
+    if env.device is not None and block is not None:
+        block, _item = _device_block(env, record)
+        if block is None and _check_held(env, record):
+            return "held"
+    if block is not None:
+        return "not_a_boundary"
+    if open_workbench(env) is not None:
+        return "workbench_open"  # IH6: its key would go stale when the answer lands; the next read after it closes starts
+    if _stop_pending(record) is not None:
+        return "stop_pending"
+    if not record.blocks and not record.receipts and _forced_rows(record.split):
+        return "needs_write"
+    day = [record if plan.id == record.id else plan for plan in day_records(env)]
+    built = _classified_pool(env, minutes=record.budget, lanes_allowed=record.lanes_allowed, day=day,
+                             reentry=record.kind == "reentry", record=record)
+    current = record.current_block()
+    if (current is not None and not current.is_reading and not current.is_lesson_offer
+            and _pending_followups(record, built)):
+        return "followups_pending"  # a mid-block follow-up has its own decision first (``_restrained_followups``)
+    record, forced = _insert_followups(env, record, built)
+    if forced and _lessons_compete(env):
+        return "followups_compete"  # IH2: the desktop's serve decides these; the phone's walk never reaches here
+    if _ad_selection(env) and day_ad_deferrals(env, record):
+        return "ad_deferrals"  # re-read under AD's write-lock guard (``_ad_deferrals_cleared``)
+    context = _context(env, record, built, day=())
+    from learnloop.router_objective_switches import CHECKS_OFF, check_mode
+
+    if check_mode(env.vault.config)[0] != CHECKS_OFF:
+        from learnloop.router_objective import assignments, checks
+
+        with env.repository.connection() as connection:
+            drawn = not assignments.present(connection) or checks.day_record(
+                connection, str(record.row.get("local_date") or env.today())) is not None
+        if not drawn:
+            return "needs_write"  # the day's first draw
+        if _checks_to_place(env, record, context):
+            return "randomized_check"  # the boundary administers it instead of deciding
+    context, forced_minutes, _releases, forced_allotment, forced_spent = _forced_charges(
+        record, context, forced, ORIGIN_FOLLOWUP)
+    builder = getattr(env.policy, "lesson_offer", None)
+    offer = builder(env=env, record=record, forced=bool(forced), read_only=True) if builder is not None else None
+    if getattr(offer, "needs_write", False):
+        return "needs_write"
+    try:
+        decide(record, context, env.policy, forced_minutes=forced_minutes, forced_items=len(forced),
+               forced_allotment=forced_allotment, forced_spent=forced_spent,
+               offer=getattr(offer, "candidate", None))
+    except DecisionPending:
+        return "started"
+    return "no_job"  # one option, or an irreversible one: nothing for a model to answer
 
 
 #: ``_ad_slot_serve``'s answer when AD cannot decide the slot safely (the held-out predicate or
@@ -5967,6 +6506,8 @@ __all__ = [
     "READING_RULE_FURTHEST",
     "advance",
     "advance_with_context",
+    "open_workbench",
+    "QUESTION_IN_PROGRESS_STEP",
     "build_plan",
     "day_records",
     "decide",
@@ -5986,6 +6527,7 @@ __all__ = [
     "more_new",
     "note_reading_progress",
     "plan_active",
+    "prefetch_boundary",
     "plan_scheduler_session",
     "reading_from_furthest_active",
     "reading_path_plan_active",

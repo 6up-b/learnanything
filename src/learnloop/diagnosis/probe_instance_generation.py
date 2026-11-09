@@ -18,6 +18,7 @@ episode advancement waits.
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 import re
 from dataclasses import dataclass, field
@@ -59,6 +60,8 @@ from learnloop.diagnosis.probe_families import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LearningObject, LoadedVault
 from learnloop.vault.writer import upsert_practice_item
+
+LOG = logging.getLogger(__name__)
 
 GENERATOR_ID = "probe_family_parametric"
 GENERATOR_VERSION = "1"

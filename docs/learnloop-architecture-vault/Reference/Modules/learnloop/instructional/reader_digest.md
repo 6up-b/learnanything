@@ -227,6 +227,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_switched_off_the_narrative_prompt_is_todays_exactly`
   - `test_the_narrative_may_quote_the_learners_inquiry_words_under_the_same_checks`
+- [tests/test_narrative_rollback_overlap.py](../../../../../../tests/test_narrative_rollback_overlap.py) — direct import
+  - `test_a_reader_arriving_after_the_claim_delays_the_narrative_by_the_lease_and_doesnt_lose_it`
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_a_citation_outside_the_summary_or_none_at_all_is_refused`
   - `test_a_holder_that_stops_renewing_is_taken_over_only_after_its_request_timed_out`

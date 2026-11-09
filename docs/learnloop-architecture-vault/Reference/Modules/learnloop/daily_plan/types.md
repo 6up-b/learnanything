@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/types.py"
 source_paths:
   - "src/learnloop/daily_plan/types.py"
-source_commit: "e4131322b0676d232c53ccd2d25fb8ded32f6ea6"
-source_commit_timestamp: "2026-11-06T13:48:58-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -50,29 +50,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py) |
-| Source lines | 241 |
+| Source lines | 247 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `e4131322b0676d232c53ccd2d25fb8ded32f6ea6` |
-| Commit timestamp | `2026-11-06T13:48:58-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
+| Commit timestamp | `2026-11-09T12:16:08-05:00` |
 
 ## Public API
 
-- `class IntentView` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 63) — An LO's intent as the chooser may read it (§5).
-- `class PlanState` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 78) — Everything a chooser may read (§6.8).
-- `class ReadingTarget` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 108) — A reading block's section (§6.10).
-  - `as_dict(self) -> dict[str, Any]` (line 125; public)
-- `class BlockCandidate` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 133)
-  - `log_row(self) -> dict[str, Any]` (line 159; public)
-- `class BlockSource(Protocol)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 174)
-  - `candidates(self, state: PlanState) -> list[BlockCandidate]` (line 177; public)
-- `class BlockChoice` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 181)
-- `class BlockChooser(Protocol)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 199)
-  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 202; public)
-- `class DecisionPending(Exception)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 205) — Router R2b: a chooser that may not wait (a read, a prefetch) found the decision's models still out.
-  - `__init__(self, key: str='') -> None` (line 210; internal)
+- `class IntentView` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 67) — An LO's intent as the chooser may read it (§5).
+- `class PlanState` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 82) — Everything a chooser may read (§6.8).
+- `class ReadingTarget` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 112) — A reading block's section (§6.10).
+  - `as_dict(self) -> dict[str, Any]` (line 129; public)
+- `class BlockCandidate` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 137)
+  - `log_row(self) -> dict[str, Any]` (line 163; public)
+- `class BlockSource(Protocol)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 178)
+  - `candidates(self, state: PlanState) -> list[BlockCandidate]` (line 181; public)
+- `class BlockChoice` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 185)
+- `class BlockChooser(Protocol)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 203)
+  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 206; public)
+- `class DecisionPending(Exception)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 209) — Router R2b: a chooser that may not wait (a read, a prefetch) found the decision's models still out.
+  - `__init__(self, key: str='') -> None` (line 214; internal)
 
 ### Module constants
 
@@ -86,9 +86,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `STOP_FOR_TODAY` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 47)
 - `LESSON_OFFER_SUBTYPE` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 52)
 - `LESSON_OFFER_PREFIX` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 53)
-- `STOP_OFFER_MINUTES` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 56)
-- `BLOCK_MAX_MINUTES` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 58)
-- `BLOCK_MIN_MINUTES` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 59)
+- `FOLLOWUP_CONTEST_PREFIX` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 56)
+- `FOLLOWUP_CONTEST_NOTE` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 57)
+- `STOP_OFFER_MINUTES` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 60)
+- `BLOCK_MAX_MINUTES` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 62)
+- `BLOCK_MIN_MINUTES` ([src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py), line 63)
 
 ### Explicit exports
 
@@ -108,6 +110,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `IntentView`
 - `LANES`
 - `LANE_ACTIONS`
+- `FOLLOWUP_CONTEST_NOTE`
+- `FOLLOWUP_CONTEST_PREFIX`
 - `LESSON_OFFER_PREFIX`
 - `LESSON_OFFER_SUBTYPE`
 - `Lane`
@@ -130,11 +134,12 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `BlockCandidate`, `BlockChoice`, `LANES`, `PlanState`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; statically calls `BlockChoice`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `AFTER_REENTRY_LANE_PRIORITY`, `BLOCK_MAX_MINUTES`, `BlockCandidate`, `BlockChoice`, `BlockChooser`, `BlockSource`, `CONTINUE_CURRENT`, `DecisionPending`, `IntentView`, `LANES`, `LANE_ACTIONS`, `LESSON_OFFER_SUBTYPE`, `PICK_DEDUCTION_ORDER`, `PlanState`, `REENTRY_LANES`, `ReadingTarget`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; statically calls `BlockChoice`, `IntentView`, `PlanState`, `ReadingTarget`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `AFTER_REENTRY_LANE_PRIORITY`, `BLOCK_MAX_MINUTES`, `BlockCandidate`, `BlockChoice`, `BlockChooser`, `BlockSource`, `CONTINUE_CURRENT`, `DecisionPending`, `FOLLOWUP_CONTEST_NOTE`, `FOLLOWUP_CONTEST_PREFIX`, `IntentView`, `LANES`, `LANE_ACTIONS`, `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`, `PICK_DEDUCTION_ORDER`, `PlanState`, `REENTRY_LANES`, `ReadingTarget`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; statically calls `BlockCandidate`, `BlockChoice`, `IntentView`, `PlanState`, `ReadingTarget`
 - [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `BLOCK_MAX_MINUTES`, `BLOCK_MIN_MINUTES`, `BlockCandidate`, `LANES`, `LANE_ACTIONS`, `Lane`, `PlanState`, `ReadingTarget`; statically calls `BlockCandidate`
+- [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `BlockCandidate`, `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `BlockCandidate`, `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`; statically calls `BlockCandidate`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `BlockCandidate`, `BlockChoice`, `CONTINUE_CURRENT`, `LESSON_OFFER_SUBTYPE`, `PlanState`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; statically calls `BlockChoice`
-- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `BlockCandidate`, `LESSON_OFFER_SUBTYPE`, `PlanState`, `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `BlockCandidate`, `BlockChoice`, `CONTINUE_CURRENT`, `DecisionPending`, `FOLLOWUP_CONTEST_NOTE`, `LESSON_OFFER_SUBTYPE`, `PlanState`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; statically calls `BlockChoice`, `DecisionPending`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `BlockCandidate`, `FOLLOWUP_CONTEST_NOTE`, `LESSON_OFFER_SUBTYPE`, `PlanState`, `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]] — imports `ReadingTarget`; statically calls `ReadingTarget`
 - [[Reference/Modules/learnloop/daily_plan/records|learnloop.daily_plan.records]] — imports `LANES`, `LESSON_OFFER_SUBTYPE`, `ReadingTarget`; statically calls `ReadingTarget`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `BlockCandidate`, `PlanState`
@@ -163,7 +168,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -181,6 +186,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_split.py](../../../../../../tests/test_daily_plan_split.py) — direct import
   - `test_reentry_plans_use_only_repair_and_maintain`
 - [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
+  - `test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support`
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_the_kinds_are_the_plans_own_names`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+  - `test_the_lesson_ref_prefix_is_the_plans`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f6_the_chooser_takes_the_master_block_first_in_re_entry`
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import

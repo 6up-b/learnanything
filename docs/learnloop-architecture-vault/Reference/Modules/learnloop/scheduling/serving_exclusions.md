@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
   - `test_r1_every_gate_of_the_build_is_the_admission_predicates`
+- [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
   - `test_no_protected_or_exam_reserved_item_is_ever_eligible`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import

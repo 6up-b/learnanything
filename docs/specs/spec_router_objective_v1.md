@@ -376,6 +376,8 @@ Ties: candidates whose `Q̄` are within the reported paired precision of the max
 
 **Failure.** `π_L^op` is `π_L` if the request completes validly in time, else `π_S`, and likewise for `π_Q^op`. Each failure moves only that policy's share. With both failed, `μ_i = (1 − k·ε)·π_S + ε`, drawn and logged like any other decision, so the existing floor is kept (Q7). A deterministic staged choice happens only where the code already makes one: an irreversible staged pick, a single-option support, or a refused follow-up. The logged probability describes the distribution actually used, after redistribution. Both "successful LLM calls" and "the deployed policy with its fallbacks" are reported, since dropping failures would flatter it.
 
+*Amended 2026-11-08 (instruct hand-off IH5, mvp-0.55): the paragraph above is the rule through mvp-0.54 and with `[router_objective] failure_share_to_other_policy` off. From mvp-0.55, with that switch on, a lone failure moves its share to the other policy (LLM failed: numeric 1.0; numeric failed: LLM 1.0); both failed still gives staged 1.0, and the floor and the exact logged probability are unchanged. See `spec_instruct_handoff_v1.md` §7a.*
+
 **The weight.**
 
 ```
@@ -794,6 +796,8 @@ y_i = R_i + Σ_{a′} π_ref(a′ | x′_i) Q̂(x′_i, a′)        with the ti
 **Its claim is narrow:** the logger's value plus one small improvement step. A coin followed by the logger tests `Q^{π_b}(a) − Q^{π_b}(a′)`. More data doesn't lift this.
 
 **How it enters.** As a residual on RO4's tail, inside `π_Q`'s value: `Ṽ = V_tail + ŵ·V_residual`, with `ŵ` a learned weight starting at zero and moved by how well frozen predicted contrasts match realized randomized ones, by slope and rank (report T10). So it phases in on its own, with no promotion step, and the trace shows `ŵ`. `Ṽ` is an approximate critic, not the exact value of any policy. Never fitted to TD loss alone. Refit after every mixture change, with generator versions as change points. Partial-history weights are reported beside it as the cross-check near the logger.
+
+*Amended 2026-11-09 (instruct hand-off IH4, mvp-0.55): with `[router_objective] preferences_inform_router` on, `π_Q`'s argmax reads `Ṽ = V_tail + ŵ·V_residual + w_pref·V_pref`, with `w_pref` learned from the mix's randomized draws by this section's slope, rank and bound, and exactly 0 until they support more. `Q̄` stays the tail's. See `spec_instruct_handoff_v1.md` §7.*
 
 **No improvement guarantee is claimed.** A `2δ` per-decision bound needs a uniform `Q` error bound and an expected-value update whose feasible set contains the baseline. Calibration slopes and rank agreement don't establish those, so the report keeps showing §8.9's evaluations.
 

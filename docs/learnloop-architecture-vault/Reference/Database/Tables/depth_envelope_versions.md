@@ -3,13 +3,13 @@ title: "depth_envelope_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite depth_envelope_versions"
   - "table depth_envelope_versions"
-schema_head: 250
+schema_head: 251
 table_name: "depth_envelope_versions"
 table_role: "raw_ledger"
 functionality_status: "active"

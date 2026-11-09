@@ -28,6 +28,9 @@ import type {
   ReaderRenderViewDto,
   SessionEndSummary,
   SessionSnapshot,
+  SomethingElseChosenDto,
+  SomethingElseKind,
+  SomethingElseOptionsDto,
   SourceLibraryCard
 } from "@desktop/api/dto";
 import { call, getJson, rpcOnce, runLong, type AcceptedJob, type JobState, type RpcOutcome } from "./http";
@@ -87,6 +90,11 @@ export type FollowupStatusDto = { enabled: false } | ({ enabled: true } & Follow
 export interface PhonePlanDto extends Omit<DailyPlanDto, "step"> {
   readonly step?: PhoneStepDto | null;
   readonly device?: { readonly surface: string; readonly deferredCount: number; readonly readingsWaiting: number };
+}
+
+/** IH3: what a phone choice came to (the plan's reply, with the preference it kept). */
+export interface PhoneSomethingElseDto extends Omit<SomethingElseChosenDto, "step"> {
+  readonly step?: PhoneStepDto | null;
 }
 
 export interface OwnerSnapshot {
@@ -176,6 +184,24 @@ export const phone = {
       { sessionId, serve: true, ...(skipPracticeItemId ? { skipPracticeItemId } : {}) },
       requestId
     ),
+  /** Spec_instruct_handoff_v1 §3a: starts the next boundary's model calls while feedback shows, and returns. It
+   *  writes nothing and returns no step, so it isn't a peek. Next's serve finds the job. */
+  planPrefetch: (sessionId: string) => call<{ started: boolean; reason: string }>("plan_prefetch", { sessionId }),
+  /** Spec_instruct_handoff_v1 §6 (IH3): what the plan could do at this boundary, in plain words, for "Something else
+   *  would help". Draws nothing. A lesson or a reading comes back `servable: false` (the phone logs it, the desktop serves it). */
+  planSomethingElseOptions: (sessionId: string | null) =>
+    call<SomethingElseOptionsDto>("plan_something_else_options", { sessionId }),
+  /** IH3: serve the action the learner chose and keep it with the options then. `preferenceId` is the act's own key: a
+   *  retried send is answered as it was made and writes once. */
+  planSomethingElse: (input: {
+    sessionId: string | null;
+    kind: SomethingElseKind;
+    ref: string | null;
+    surface: "phone_feedback" | "phone_today";
+    attemptId?: string | null;
+    noteMd?: string | null;
+    preferenceId: string;
+  }) => call<PhoneSomethingElseDto>("plan_something_else", input),
   /** The plan's record of a skip (the desktop's skip link), serving nothing: Today reads what is next. */
   skipPlanItem: (sessionId: string, skipPracticeItemId: string, requestId: string) =>
     runLong<PhonePlanDto>("next_plan_item", { sessionId, skipPracticeItemId }, requestId),

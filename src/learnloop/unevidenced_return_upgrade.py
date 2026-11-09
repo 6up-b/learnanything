@@ -28,16 +28,16 @@ from pathlib import Path
 
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
-    PHONE_PROBES_ALGORITHM_VERSION,
+    FAILURE_SHARE_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
 from learnloop.clock import Clock
+from learnloop.failure_share_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.failure_share_upgrade import upgrade_to_failure_share
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
-from learnloop.phone_probes_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.phone_probes_upgrade import upgrade_to_phone_probes
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.vault.loader import load_vault
@@ -46,8 +46,8 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = PHONE_PROBES_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_phone_probes
+PREDECESSOR = FAILURE_SHARE_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_failure_share
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

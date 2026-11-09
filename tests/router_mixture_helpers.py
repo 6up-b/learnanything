@@ -64,3 +64,31 @@ def run(env, *, steps: int = 30):
         record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], clock.now(),
                        session_id=env.session_id)
     return record
+
+
+#: The thread RO6's deferred carried valuation runs on after a no-model serve (``ObjectiveChooser._defer_carry``).
+CARRIED_THREAD = "learnloop-objective-carried"
+
+
+def join_carried_valuations(monkeypatch) -> None:
+    """Make the carried valuation land before each serve returns, for tests that compare two twins' numbers across
+    serves (review 3, m5). In the no-model branch ``_defer_carry`` starts a daemon thread after each serve, and the next
+    decision's residual fit reads whatever has landed by then: a race, and in serving RO6's by design (each trace records
+    what it read, so replay stays exact). Here each serve joins the thread it started, so both twins read every earlier
+    carry. Production code is untouched: only the method is wrapped, for the test's duration."""
+
+    import threading
+
+    from learnloop.daily_plan import objective_chooser as OC
+
+    real = OC.ObjectiveChooser._defer_carry
+
+    def joined(self, numeric, entry, decision_id):
+        before = set(threading.enumerate())
+        out = real(self, numeric, entry, decision_id)
+        for thread in threading.enumerate():
+            if thread.name == CARRIED_THREAD and thread not in before and thread is not threading.current_thread():
+                thread.join()
+        return out
+
+    monkeypatch.setattr(OC.ObjectiveChooser, "_defer_carry", joined)

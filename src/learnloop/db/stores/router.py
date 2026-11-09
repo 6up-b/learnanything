@@ -252,6 +252,64 @@ def record_learner_pick(
     return decision_id if inserted else None
 
 
+#: A learner_pick decision written by "Something else would help" (IH3): ``learner_pick:override:<preference id>``.
+#: Distinct from a pick off an offer (``learner_pick:<scheduler candidate>``), so ``router_outcomes`` can tell the two.
+OVERRIDE_KEY_PREFIX = "learner_pick:override:"
+
+#: The columns of a ``router_learner_preferences`` row (migration 251; instruct hand-off IH3).
+PREFERENCE_COLUMNS: tuple[str, ...] = (
+    "id", "decision_id", "attempt_id", "session_id", "surface", "offered_json", "chosen_kind", "chosen_ref",
+    "note_md", "served_decision_id", "algorithm_version", "created_at",
+)
+
+
+def preferences_present(connection: sqlite3.Connection) -> bool:
+    """The preference ledger exists (a vault below migration 251, or a historical copy, has none)."""
+
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='router_learner_preferences'"
+    ).fetchone() is not None
+
+
+def insert_learner_preference(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
+    """Append one preference (IH3); a repeated ``id`` is a no-op (returns False), so a retry of the same act writes once.
+
+    Only the id's uniqueness is ignored: a row that breaks a constraint raises. The caller owns the transaction, and
+    writes the served decision in it (the preference names it)."""
+
+    cursor = connection.execute(
+        f"INSERT INTO router_learner_preferences ({','.join(PREFERENCE_COLUMNS)}) "
+        f"VALUES ({','.join('?' for _ in PREFERENCE_COLUMNS)}) ON CONFLICT(id) DO NOTHING",
+        tuple(row.get(column) for column in PREFERENCE_COLUMNS),
+    )
+    return cursor.rowcount > 0
+
+
+def learner_preference(connection: sqlite3.Connection, preference_id: str) -> dict[str, Any] | None:
+    row = connection.execute("SELECT * FROM router_learner_preferences WHERE id = ?", (preference_id,)).fetchone()
+    return dict(row) if row is not None else None
+
+
+def learner_preference_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every preference, oldest first (IH4's reader)."""
+
+    if not preferences_present(connection):
+        return []
+    rows = connection.execute("SELECT * FROM router_learner_preferences ORDER BY created_at, id").fetchall()
+    return [dict(row) for row in rows]
+
+
+def recent_learner_preferences(connection: sqlite3.Connection, *, at: str, limit: int) -> list[dict[str, Any]]:
+    """The newest ``limit`` preferences known at ``at``, oldest first (the LLM card's read, IH4)."""
+
+    if not preferences_present(connection):
+        return []
+    rows = connection.execute(
+        "SELECT * FROM router_learner_preferences WHERE created_at <= ? ORDER BY created_at DESC, id DESC LIMIT ?",
+        (at, limit)).fetchall()
+    return [dict(row) for row in reversed(rows)]
+
+
 def router_payloads_present(connection: sqlite3.Connection) -> bool:
     return connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='router_decision_payloads'"

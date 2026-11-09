@@ -181,6 +181,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `init_vault`, `load_vault`; statically calls `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `load_vault`; statically calls `load_vault`
@@ -276,7 +277,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 134 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 135 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1725,6 +1726,28 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_graph_identifiability_report_and_probe_scheduling`
   - `test_pre_first_practice_doctor_watermark`
   - `test_registry_view_flags_missing_anchor`
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
+  - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
+- [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
+  - `test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly`
+  - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
+  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
+  - `test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below`
+  - `test_the_upgrade_chains_from_an_older_link`
+  - `test_the_upgrade_publishes_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_desktop_learns_the_switch_from_its_config_only_while_on`
+  - `test_the_gate_reads_the_tag_the_switch_and_the_workbench`
+  - `test_the_switch_is_not_in_the_prefetch_key_so_it_moves_no_seed`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+- [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+  - `test_only_a_miss_since_the_last_lesson_counts`
+  - `test_the_offer_block_and_the_llms_row_carry_the_dated_words`
+  - `test_the_switch_is_not_in_the_prefetch_key_and_moves_no_seed_by_itself`
+  - `test_the_switch_needs_the_tag_defaults_on_and_is_registered`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
   - `test_selection_for_region_spans_whole_blocks`
@@ -1753,6 +1776,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_init.py](../../../../../../tests/test_init.py) — direct import
   - `test_bootstrap_completes_partial_vault_without_touching_config`
   - `test_init_creates_vault_and_applies_migration`
+- [tests/test_instruct_handoff_ih0.py](../../../../../../tests/test_instruct_handoff_ih0.py) — direct import
+  - `test_the_serve_reads_the_job_with_the_plan_view_the_prefetch_computed`
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_probe_selection_offers_both_instruments`
   - `test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item`

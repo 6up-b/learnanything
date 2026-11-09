@@ -51,6 +51,10 @@ STOP_FOR_TODAY = "stop_for_today"  # offered when minutes_left < 5 or nothing fe
 #: id is ``lesson_offer:<LO>``. Only at TE3b's tag with its switch on.
 LESSON_OFFER_SUBTYPE = "lesson_offer"
 LESSON_OFFER_PREFIX = "lesson_offer:"
+#: Instruct hand-off IH2 (spec_instruct_handoff_v1 §5): the boundary's follow-ups as one candidate against a lesson offer
+#: (``followup_contest:<first item>``; its annotation :data:`FOLLOWUP_CONTEST_NOTE` marks it). Only with IH2's switch on.
+FOLLOWUP_CONTEST_PREFIX = "followup_contest:"
+FOLLOWUP_CONTEST_NOTE = "followup_contest"
 
 #: §6.8 rule 4: STOP_FOR_TODAY is offered below this many minutes left.
 STOP_OFFER_MINUTES = 5.0
@@ -227,6 +231,8 @@ __all__ = [
     "IntentView",
     "LANES",
     "LANE_ACTIONS",
+    "FOLLOWUP_CONTEST_NOTE",
+    "FOLLOWUP_CONTEST_PREFIX",
     "LESSON_OFFER_PREFIX",
     "LESSON_OFFER_SUBTYPE",
     "Lane",

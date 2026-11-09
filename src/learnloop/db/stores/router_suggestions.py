@@ -74,7 +74,10 @@ def decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
 
 #: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer drawn at a plan block boundary is a ``plan_block``
 #: decision whose chosen ref names it (``daily_plan.types.LESSON_OFFER_PREFIX``); its card is on the row's detail.
+#: Instruct hand-off IH2 (spec_instruct_handoff_v1 §5 item 3): one drawn after a miss is a ``plan_interrupt`` decision
+#: read the same way, with its own block (``offer_block_id``: the row's ``block_id`` is the block the miss came from).
 OFFER_REF_PREFIX = "lesson_offer:"
+OFFER_DECISION_KINDS = "('plan_block', 'plan_interrupt')"
 
 
 def _offer_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]:
@@ -86,7 +89,7 @@ def _offer_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]:
     offer = detail.get("lesson_offer") or {}
     out["detail"] = {"shown": True, "plan_offer": True, "context": dict(offer.get("context") or {}),
                      "card": {"candidates": list((offer.get("card") or {}).get("candidates") or [])},
-                     "block_id": detail.get("block_id"), "plan_id": detail.get("plan_id"),
+                     "block_id": detail.get("offer_block_id") or detail.get("block_id"), "plan_id": detail.get("plan_id"),
                      "version": offer.get("version")}
     out["candidates"] = json.loads(out.get("candidates_json") or "[]")
     out["day"] = str(detail.get("local_date") or "")
@@ -94,18 +97,29 @@ def _offer_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]:
 
 
 def offer_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Every drawn lesson offer (a ``plan_block`` decision naming one), oldest first; none below TE3b's tag."""
+    """Every drawn lesson offer (a ``plan_block`` or, from IH2, ``plan_interrupt`` decision naming one), oldest first;
+    none below TE3b's tag."""
 
     return [_offer_decision(row) for row in connection.execute(
-        "SELECT * FROM router_decisions WHERE decision_kind = 'plan_block' AND chosen_ref LIKE ? "
+        f"SELECT * FROM router_decisions WHERE decision_kind IN {OFFER_DECISION_KINDS} AND chosen_ref LIKE ? "
         "ORDER BY created_at, id", (f"{OFFER_REF_PREFIX}%",))]
 
 
 def offer_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None:
     row = connection.execute(
-        "SELECT * FROM router_decisions WHERE id = ? AND decision_kind = 'plan_block' AND chosen_ref LIKE ?",
+        f"SELECT * FROM router_decisions WHERE id = ? AND decision_kind IN {OFFER_DECISION_KINDS} AND chosen_ref LIKE ?",
         (decision_id, f"{OFFER_REF_PREFIX}%")).fetchone()
     return _offer_decision(row) if row is not None else None
+
+
+def offer_drawn_since(connection: sqlite3.Connection, decision_id: str) -> bool:
+    """A lesson offer was drawn after this decision."""
+
+    return connection.execute(
+        f"SELECT 1 FROM router_decisions offer JOIN router_decisions earlier ON earlier.id = ? "
+        f"WHERE offer.decision_kind IN {OFFER_DECISION_KINDS} AND offer.chosen_ref LIKE ? "
+        "AND (offer.created_at, offer.id) > (earlier.created_at, earlier.id) LIMIT 1",
+        (decision_id, f"{OFFER_REF_PREFIX}%")).fetchone() is not None
 
 
 def all_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -219,6 +233,31 @@ def last_lesson_opened_by_learning_object(connection: sqlite3.Connection) -> dic
     return out
 
 
+def last_lesson_ended_by_learning_object(connection: sqlite3.Connection) -> dict[str, str]:
+    """Per LO, when the last lesson on it ended: the latest ``closed_at`` (``opened_at`` for one still open, which the
+    candidates leave out anyway). Every attempt made while a lesson on the LO was open is at or before this instant."""
+
+    out: dict[str, str] = {}
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='lessons'").fetchone() is None:
+        return out
+    for raw, ended in connection.execute("SELECT learning_object_ids_json, coalesce(closed_at, opened_at) FROM lessons"):
+        for lo in json.loads(raw or "[]"):
+            if str(ended) > out.get(str(lo), ""):
+                out[str(lo)] = str(ended)
+    return out
+
+
+def attempts_classified_by(connection: sqlite3.Connection, source: str) -> set[str]:
+    """The attempts with an activity classification written by ``source`` (e.g. a lesson probe answered after its
+    lesson showed text on the topic, which the system records as not independent)."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                          "AND name='causal_activity_classification_events'").fetchone() is None:
+        return set()
+    return {str(row[0]) for row in connection.execute(
+        "SELECT DISTINCT attempt_id FROM causal_activity_classification_events WHERE source = ?", (source,))}
+
+
 def attempts_by_learning_object(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
     """Each LO's attempts, oldest first (what the candidate reasons read)."""
 
@@ -238,12 +277,14 @@ __all__ = [
     "RESPONSE_KINDS",
     "all_decisions",
     "attempts_by_learning_object",
+    "attempts_classified_by",
     "decision",
     "decision_for_day",
     "decisions",
     "offer_decision",
     "offer_decisions",
     "insert_response",
+    "last_lesson_ended_by_learning_object",
     "last_lesson_opened_by_learning_object",
     "lesson_exists",
     "open_lesson_learning_objects",

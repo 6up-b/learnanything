@@ -42,8 +42,8 @@ def test_the_successor_is_one_constant_after_ro4_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.47"
     # Router objective RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51) landed after it and
     # keep it.
-    assert TAG == "mvp-0.48" == SUCCESSOR_CHAIN[-8] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
-    assert ROUTER_CALIBRATION_VERSIONS == frozenset({TAG, "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.56"})
+    assert TAG == "mvp-0.48" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
+    assert ROUTER_CALIBRATION_VERSIONS == frozenset({TAG, "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56"})
 
 
 def test_the_seeds_are_the_specs_and_validated():
@@ -67,6 +67,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     # mvp-0.47's value at this branch's base (59a0de9832), frozen here: dropping RO5's keys reproduces it.
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False)
+    from tests.test_ih5_successor import drop_ih5_keys
+
+    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
     # Router objective RO6's keys (mvp-0.49; tests/test_ro6_successor.py) are in every snapshot, inert below it.
     from tests.test_ro6_successor import RO6_KEYS
     from tests.test_rofu_successor import FOLLOWUP_KEYS
@@ -83,6 +86,12 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_te3b_successor import drop_te3b_keys
 
     drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
+    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
+    assert dumped["router"]["timeout_seconds"] == 40.0
+    dumped["router"]["timeout_seconds"] = 8.0
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
     from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
 
     drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it

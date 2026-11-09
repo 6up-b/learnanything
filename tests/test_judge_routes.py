@@ -58,7 +58,7 @@ def test_profiles_come_from_code_defaults_for_configs_that_predate_them(tmp_path
     path.write_text('schema_version = 2\n[ai]\nactive_provider = "codex"\n', encoding="utf-8")
     config = load_config(path, load_environment=False)
     assert config.ai.providers["openrouter_decider"].type == "decider"
-    assert config.ai.providers["openrouter_decider"].model == "perplexity/pplx-decider-v1.1-27b"
+    assert config.ai.providers["openrouter_decider"].model == "perplexity/pplx-decider-v1.2"
     assert config.ai.providers["openrouter_decider"].base_url == "https://openrouter.ai/api"
     assert config.ai.providers["openrouter_decider"].api_key_env == "OPENROUTER_API_KEY"
     assert config.ai.providers["openrouter_embedding"].type == "openai_embedding"
@@ -102,7 +102,7 @@ def test_decider_routes_are_explicit_ignore_the_env_and_never_fall_back(vault, m
     setattr(config.ai.routing, task, None)
     resolved = ready_client_for_task(vault.root, config, task)
     assert resolved.ready and resolved.client.provider_type == "decider"
-    assert resolved.client.model == "perplexity/pplx-decider-v1.1-27b"
+    assert resolved.client.model == "perplexity/pplx-decider-v1.2"
 
 
 @pytest.mark.parametrize("task", ["llm_probability_llm", "router_llm"])
@@ -135,7 +135,7 @@ def test_decider_readiness_is_key_presence_without_network(vault, monkeypatch):
     assert report.status == "provider_auth_required" and "OPENROUTER_API_KEY" in report.message
     monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
     report = runtime_for_provider(vault.root, vault.config, "openrouter_decider", task="router_decider")
-    assert report.ready and report.model == "perplexity/pplx-decider-v1.1-27b"
+    assert report.ready and report.model == "perplexity/pplx-decider-v1.2"
     vault.config.ai.providers["direct"] = DeciderProviderConfig(api="perplexity")
     vault.config.ai.routing.router_decider = "direct"
     report = runtime_for_provider(vault.root, vault.config, "direct", task="router_decider")
@@ -282,7 +282,7 @@ def test_judgment_ledger_accepts_the_decider_with_provenance(tmp_path):
     apply_migrations(path)
     with closing(connect(path)) as connection:
         append_judgment(connection, task="llm_probability", left_kind="probability_request", left_id="d",
-                        judge="decider", judge_model="perplexity/pplx-decider-v1.1-27b-20261006",
+                        judge="decider", judge_model="perplexity/pplx-decider-v1.2-20261016",
                         prompt_version="llm_probability_qs_v1", input_hash="h", verdict="{}", score=0.4)
         with pytest.raises(ValueError, match="decider"):
             append_judgment(connection, task="t", left_kind="k", left_id="l", judge="decider",

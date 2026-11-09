@@ -427,7 +427,7 @@ def test_decider_end_to_end_through_the_fake_endpoint(seeded, tmp_path, monkeypa
     caps = SpendCaps(max_candidates=100, max_calls=100, max_total_tokens=10**7, max_estimated_usd=1.0)
     with fake_decisions(dialect="openrouter", p_yes=0.64) as server:
         loaded.config.ai.providers["openrouter_decider"] = DeciderProviderConfig(
-            base_url=server.base_url, model="perplexity/pplx-decider-v1.1-27b")
+            base_url=server.base_url, model="perplexity/pplx-decider-v1.2")
         arms, report = prepare_or_load_probability_arms(
             loaded, replay(loaded), cache_dir=tmp_path / "cache", selection=parse_arm_selection(["decider"]),
             prepare=True, caps=caps, price_per_million=None, output_tokens=64,
@@ -436,13 +436,13 @@ def test_decider_end_to_end_through_the_fake_endpoint(seeded, tmp_path, monkeypa
     judge = report["judges"]["decider"]
     # V1 repeats an identical state for repeated items, so 21 positions need fewer requests.
     assert judge["completed"] == judge["pending"] == len(server.requests) < 21
-    assert set(judge["resolved_models"]) == {"perplexity/pplx-decider-v1.1-27b-20261006"}
+    assert set(judge["resolved_models"]) == {"perplexity/pplx-decider-v1.2-20261016"}
     assert judge["charged"]["calls"] == len(server.requests)
     for request in server.requests:
         assert set(request["body"]) == {"model", "state", "questions"}
         assert set(request["body"]["questions"]) == {"will_pass"}
         assert request["body"]["questions"]["will_pass"]["type"] == "noul"
-    assert len(arms) == 6 and {arm.model for arm in arms} == {"perplexity/pplx-decider-v1.1-27b-20261006"}
+    assert len(arms) == 6 and {arm.model for arm in arms} == {"perplexity/pplx-decider-v1.2-20261016"}
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
         judgments = connection.execute(
             "SELECT judge, judge_model, prompt_version, score FROM judgment_ledger WHERE task=?", (TASK,)).fetchall()
@@ -451,7 +451,7 @@ def test_decider_end_to_end_through_the_fake_endpoint(seeded, tmp_path, monkeypa
             (TASK,)).fetchall()
     assert len(judgments) == len(server.requests)
     assert {tuple(row[:3]) for row in judgments} == {
-        ("decider", "perplexity/pplx-decider-v1.1-27b-20261006", QUESTION_SET_VERSION)}
+        ("decider", "perplexity/pplx-decider-v1.2-20261016", QUESTION_SET_VERSION)}
     assert {row[3] for row in judgments} == {0.64}
     assert len(receipts) == len(server.requests)
     assert all(row[0] == "decider" and row[1] == QUESTION_SET_VERSION and row[2] and row[4] for row in receipts)

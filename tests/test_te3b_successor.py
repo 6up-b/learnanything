@@ -46,8 +46,8 @@ def drop_te3b_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_te3a_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.52"
     # Phone V3's successor (mvp-0.54) follows it and keeps it.
-    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
-    assert LESSON_OFFERS_VERSIONS == frozenset({TAG, "mvp-0.54", "mvp-0.56"})
+    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
+    assert LESSON_OFFERS_VERSIONS == frozenset({TAG, "mvp-0.54", "mvp-0.55", "mvp-0.56"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -67,10 +67,19 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     # router speed stage's [router_objective] held_ad_link, in every snapshot, which landed after the base).
     dumped = drop_te3b_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False))
+    from tests.test_ih5_successor import drop_ih5_keys
+
+    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
     assert dumped["router_objective"].pop("held_ad_link") is True
     from tests.test_rofu_successor import drop_rospeed2_keys
 
     drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
+    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
+    assert dumped["router"]["timeout_seconds"] == 40.0
+    dumped["router"]["timeout_seconds"] = 8.0
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
     from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
 
     drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
@@ -114,7 +123,7 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
 
     # The placement hole's link (mvp-0.56) is the chain's latest since; its completion hands this link's journal on to
-    # phone V3's (mvp-0.54), which hands it here.
+    # IH5's (mvp-0.55), then phone V3's (mvp-0.54), which hands it here.
     assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     from learnloop import phone_probes_upgrade

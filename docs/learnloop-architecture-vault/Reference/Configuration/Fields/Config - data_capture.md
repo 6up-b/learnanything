@@ -3,8 +3,8 @@ title: "Config - data_capture"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c20dbbda42a9937c118c66f6755c0136f1be9454"
-source_commit_timestamp: "2026-11-09T12:03:19-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml data_capture"
@@ -27,10 +27,10 @@ source_paths:
   - "tests/intent_fakes.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/query_student_fakes.py"
+  - "tests/router_mixture_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_fix_round5.py"
   - "tests/test_ad1_fix_round7.py"
-  - "tests/test_ad1_migration.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/data-capture"
@@ -51,8 +51,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `data_capture.receipts` | `true` | boolean | modeled default or validator seed | Turns receipts behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4172`; `src/learnloop/ai/plan_fallback.py:138` |
-| `data_capture.serving` | `true` | boolean | modeled default or validator seed | Turns serving behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4173`; `src/learnloop/ai/plan_fallback.py:138` |
+| `data_capture.receipts` | `true` | boolean | modeled default or validator seed | Turns receipts behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4173`; `src/learnloop/ai/plan_fallback.py:138` |
+| `data_capture.serving` | `true` | boolean | modeled default or validator seed | Turns serving behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4174`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -69,10 +69,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/intent_fakes.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/query_student_fakes.py`
+- `tests/router_mixture_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round5.py`
 - `tests/test_ad1_fix_round7.py`
-- `tests/test_ad1_migration.py`
 
 ## Extension and modification guidance
 

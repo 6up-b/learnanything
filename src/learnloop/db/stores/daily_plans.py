@@ -110,6 +110,14 @@ def insert_plan_block(connection: sqlite3.Connection, row: Mapping[str, Any]) ->
     )
 
 
+def next_plan_ordinal(connection: sqlite3.Connection, plan_id: str) -> int:
+    """The plan's next block ordinal, as the database holds it now."""
+
+    row = connection.execute("SELECT COALESCE(MAX(plan_ordinal), 0) + 1 FROM attention_blocks WHERE daily_plan_id = ?",
+                             (plan_id,)).fetchone()
+    return int(row[0])
+
+
 def append_block_event(
     connection: sqlite3.Connection,
     *,
@@ -183,6 +191,19 @@ def plan_blocks(connection: sqlite3.Connection, plan_ids: Iterable[str]) -> list
         block["reading"] = _loads(block.pop("reading_json", None))
         blocks.append(block)
     return blocks
+
+
+def deferred_followup_decision(connection: sqlite3.Connection, plan_id: str, practice_item_id: str) -> str | None:
+    """The decision that last let this follow-up wait for the next block (its ``followup_deferred`` event), or None."""
+
+    row = connection.execute(
+        "SELECT json_extract(event.detail_json, '$.decision_ref') FROM attention_block_events event "
+        "JOIN attention_blocks block ON block.id = event.block_id "
+        "WHERE block.daily_plan_id = ? AND event.kind = 'followup_deferred' "
+        "AND json_extract(event.detail_json, '$.practice_item_id') = ? "
+        "ORDER BY event.created_at DESC, event.block_id DESC, event.event_ordinal DESC LIMIT 1",
+        (plan_id, practice_item_id)).fetchone()
+    return str(row[0]) if row is not None and row[0] else None
 
 
 def block_events_for(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]:
@@ -272,6 +293,29 @@ def open_learner_state_hypotheses(
     return open_rows
 
 
+def open_workbench_since(connection: sqlite3.Connection, started_at: str, *,
+                         origin: str | None = None) -> dict[str, Any] | None:
+    """IH6 (spec_instruct_handoff_v1 §7b): the newest workbench problem a practice session that started at ``started_at``
+    holds open, or None. Read-only.
+
+    ``workbench_sessions.practice_session_id`` is only filled at submit, so an open problem names no session. It belongs
+    to this one when the learner opened, resumed or worked it since the session started. Status alone would not do: a
+    problem stays ``open`` for weeks after "Leave for now". One whose item was answered since (on the answer box, which
+    leaves the problem open and resumable) has no question in progress.
+
+    ``origin`` (the owner's decision 3 of Nov 9): only a problem worked there now (``'reader'``: a Reader problem), for
+    the read with no practice session open, where ``started_at`` is the start of the plan's day."""
+
+    row = connection.execute(
+        "SELECT w.id, w.practice_item_id FROM workbench_sessions w WHERE w.status = 'open' AND w.updated_at >= ? "
+        + ("AND w.origin = ? " if origin is not None else "")
+        + "AND NOT EXISTS (SELECT 1 FROM practice_attempts a WHERE a.practice_item_id = w.practice_item_id "
+        "AND a.created_at >= w.updated_at) ORDER BY w.updated_at DESC, w.id DESC LIMIT 1",
+        (started_at, *((origin,) if origin is not None else ())),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def open_diagnosed_problem_learning_object_ids(connection: sqlite3.Connection) -> frozenset[str]:
     """LOs with an open diagnosed problem: what "repair" means (owner decision 2026-10-12).
 
@@ -336,6 +380,8 @@ def plan_served_origins(connection: sqlite3.Connection) -> dict[str, list[dict[s
 
 
 __all__ = [
+    "next_plan_ordinal",
+    "open_workbench_since",
     "abandon_open_plans_before",
     "all_plans",
     "append_block_event",

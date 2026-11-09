@@ -212,6 +212,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_map_boundaries.py](../../../../../../tests/test_approach_map_boundaries.py) — direct import
   - `test_grading_prompts_never_carry_or_read_a_stored_map`
 - [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
+  - `test_a_joint_context_with_history_gives_a_blind_context_and_prompt_without_it`
   - `test_validator_rejects_unknown_criterion_and_duplicate_trace_ids`
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_missing_step_divergence_must_reference_authored_checkpoint`

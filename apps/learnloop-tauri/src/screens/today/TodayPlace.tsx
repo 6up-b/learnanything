@@ -32,6 +32,7 @@ import type {
   ScheduledItemDto,
   SessionEndSummary,
   SessionSnapshot,
+  SomethingElseChosenDto,
   StreakSummary,
   WorkbenchOpenProblemDto
 } from "../../api/dto";
@@ -44,10 +45,12 @@ import type { AskTarget } from "../../components/AskOverlay";
 import { INTERACTIVE_SELECTOR, screenLeavesKey } from "../../app/keymap";
 import { algoConfig } from "../../app/algoConfig";
 import { LessonOfferBlock } from "./LessonOfferBlock";
+import { lessonEntryFor, SomethingElse } from "./SomethingElse";
 import { LessonSuggestionCard } from "./LessonSuggestionCard";
+import { QuestionInProgress } from "./QuestionInProgress";
 import type { LessonEntry } from "../LessonScreen";
 import { todayQueueInput } from "../../app/autoAdvance";
-import { aboutMinutes, planStepAction, useDailyPlan, waitingLine } from "../../app/dailyPlan";
+import { aboutMinutes, planStepAction, questionInProgressLine, useDailyPlan, waitingLine } from "../../app/dailyPlan";
 import {
   THREADS_SHOWN,
   dayPhrase,
@@ -566,6 +569,12 @@ export function TodayPlace({
   const done = plan ? plan.status !== "open" : false;
   const current = plan?.blocks.find((block) => block.id === plan.currentBlockId) ?? null;
   const waiting = plan && !done && !current && plan.waiting ? plan.waiting : null;
+  // IH6: a read held the boundary for an open workbench. `deciding` is false, so nothing polls: closing the problem
+  // invalidates the queue, and that refetch is the next read.
+  const inProgress = plan && !done && !current ? plan.questionInProgress ?? null : null;
+  const openProblems = useCachedQuery(inProgress ? ["workbench_open_problems"] : null, () => api.workbenchOpenProblems(), { tags: [TAG.queue] });
+  const inProgressProblem = inProgress ? openProblems.data?.problems.find((problem) => problem.sessionId === inProgress.workbenchSessionId) ?? null : null;
+  const inProgressItem = inProgress?.practiceItemId ?? null;
   const rows = plan && !done ? todayRows(plan) : [];
 
   // ── The plan's actions: exactly classic Start's and Today's RPCs ────────
@@ -585,6 +594,24 @@ export function TodayPlace({
     const action = planStepAction(result?.step, { viaBlockLine: false });
     if (action.type === "practice") onOpenPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
     else if (action.type === "reader") onOpenPlanReading(action.reading);
+  }
+
+  // IH3: "Something else would help" was chosen at this plan boundary and served. A lesson opens as the learner's own start,
+  // the plan's own pick (an agreement) is served as Begin serves it, and anything else is the step the choice placed.
+  function afterSomethingElse(result: SomethingElseChosenDto) {
+    const entry = lessonEntryFor(result);
+    if (entry) {
+      onStartLesson?.(entry);
+      return;
+    }
+    if (result.preference?.outcome === "agreed") {
+      void begin();
+      return;
+    }
+    const action = planStepAction(result.step, { viaBlockLine: false });
+    if (action.type === "practice") onOpenPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
+    else if (action.type === "reader") onOpenPlanReading(action.reading);
+    else void refetchPlan().catch(() => undefined);
   }
 
   // The plan's kill switch is off: Begin opens a session for these minutes
@@ -816,11 +843,18 @@ export function TodayPlace({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text, lineHeight: 1.5 }}>
           {plan.kind === "keep_going" ? "Keep going. " : ""}
-          {waiting ? waitingLine(waiting) : sentence ?? (deciding ? "Choosing what's next…" : "Nothing planned for today.")}{" "}
+          {waiting ? waitingLine(waiting) : inProgress ? questionInProgressLine(inProgress) : sentence ?? (deciding ? "Choosing what's next…" : "Nothing planned for today.")}{" "}
           <button type="button" style={dimLink} aria-expanded={why} onClick={() => setWhy((open) => !open)}>
             why? {why ? "▾" : "▸"}
           </button>
         </div>
+        {inProgress ? (
+          <QuestionInProgress
+            question={inProgress}
+            onResume={inProgressProblem ? () => onResumeProblem(inProgressProblem) : inProgressItem ? () => onOpenPractice(inProgressItem) : undefined}
+            onError={onError}
+          />
+        ) : null}
         {why ? <PlanWhy data={data} /> : null}
         {current?.lessonOffer ? (
           <LessonOfferBlock offer={current.lessonOffer} sessionId={session?.sessionId ?? null}
@@ -851,19 +885,24 @@ export function TodayPlace({
             ))}
           </div>
         ) : null}
-        {!waiting && (rows.length > 0 || deciding) ? (
+        {!waiting && (rows.length > 0 || deciding || inProgress) ? (
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button type="button" data-testid="today-begin" style={actionButton(true)} disabled={busy} onClick={() => void begin()}>
               {busy ? "opening…" : current?.startedAt ? "Continue ↵" : "Begin ↵"}
             </button>
           </div>
         ) : null}
-        {!waiting && rows.length === 0 && !deciding ? (
+        {!waiting && rows.length === 0 && !deciding && !inProgress ? (
           <div style={{ display: "flex", gap: 10 }}>
             <button type="button" style={actionButton(true)} disabled={busy} onClick={() => void keepGoing()}>
               Keep going
             </button>
           </div>
+        ) : null}
+        {/* IH3 (spec §6): the quiet link at any plan boundary, with a session (the choice is served into it). */}
+        {session && data?.somethingElse && !waiting ? (
+          <SomethingElse sessionId={session.sessionId} surface="today" enabled canStartLesson={Boolean(onStartLesson)}
+                         hidePlansPick={Boolean(current?.lessonOffer)} onChosen={afterSomethingElse} onError={onError} />
         ) : null}
       </div>
     );

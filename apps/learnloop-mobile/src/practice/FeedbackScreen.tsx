@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommandError, DiagnosisCardDto, ElicitingResponseResultDto, FeedbackBundle, GradingClarificationDto } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { staleRefusal } from "../api/http";
-import { phone } from "../api/phone";
+import { phone, type PhoneSomethingElseDto } from "../api/phone";
+import { SomethingElse } from "./SomethingElse";
 import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
@@ -80,6 +81,8 @@ export function FeedbackScreen({
   waitLine = null,
   onNext,
   onOpenFeedback,
+  onSettled,
+  somethingElse = null,
   onError
 }: {
   attemptId: string;
@@ -90,6 +93,14 @@ export function FeedbackScreen({
   onNext: () => void;
   /** Mobile v2 V3: a probe's answer points back at the miss whose feedback it released (FG1 §3 step 8). */
   onOpenFeedback?: (attemptId: string) => void;
+  /** The grade and its diagnosis are in, and no question of this miss comes next (spec_instruct_handoff_v1 §3a). */
+  onSettled?: () => void;
+  /** IH3: the quiet "Something else would help" link, while the plan serves (absent: no link). */
+  somethingElse?: {
+    sessionId: string;
+    onServed: (reply: PhoneSomethingElseDto) => void;
+    onAgreed: () => void;
+  } | null;
   onError: (error: unknown) => void;
 }) {
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
@@ -157,6 +168,17 @@ export function FeedbackScreen({
       current = false;
     };
   }, [attemptId, diagnosisDone]);
+
+  // Spec_instruct_handoff_v1 §3a: what Next decides depends on the outcome just graded and on what its diagnosis found,
+  // and with a question still on its way Next isn't a plan boundary. Fires again if this comes back true: that's harmless.
+  // The bundle's read counts until `useFollowup` has taken it: both arrive in this same render.
+  const followupRead = followup ?? feedback?.followup;
+  const questionComing = followupRead?.held === true || followupRead?.state === "pending" || followupRead?.state === "ready";
+  const settled = feedback !== null && !pending && !questionComing;
+  useEffect(() => {
+    if (settled) onSettled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptId, settled]);
 
   async function answerClarification() {
     if (!answer.trim()) return;
@@ -247,6 +269,10 @@ export function FeedbackScreen({
       {choosing ? <p className="dim" role="status">Choosing what's next…</p> : null}
       <div className="actions">
         <button className="primary block" type="button" disabled={choosing} onClick={onNext}>Next</button>
+        {somethingElse ? (
+          <SomethingElse sessionId={somethingElse.sessionId} surface="phone_feedback" attemptId={attemptId}
+                         onServed={somethingElse.onServed} onAgreed={somethingElse.onAgreed} onError={onError} />
+        ) : null}
       </div>
     </div>
   );

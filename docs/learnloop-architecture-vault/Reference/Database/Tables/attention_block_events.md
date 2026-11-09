@@ -3,13 +3,13 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
   - "table attention_block_events"
-schema_head: 250
+schema_head: 251
 table_name: "attention_block_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -95,6 +95,7 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/ask_availability.py`
 - `src/learnloop/router_objective/checks.py`
 - `src/learnloop/router_objective/exposure.py`
+- `src/learnloop/router_objective/preference_report.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/scheduling/controller_store.py`
@@ -121,18 +122,18 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_dl2_rw4b_keyed_pick_check.py`
+- `tests/test_ih2_one_open_offer.py`
+- `tests/test_ih3_phone_host.py`
+- `tests/test_ih6_workbench_open_item.py`
+- `tests/test_instruct_handoff_ih0.py`
+- `tests/test_instruct_handoff_ih1.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
 - `tests/test_mobile_two_process.py`
 - `tests/test_mobile_v2_checks.py`
 - `tests/test_mobile_v2_plan.py`
 - `tests/test_mobile_v2_review_fixes.py`
-- `tests/test_plan_follows_path.py`
-- `tests/test_reader_rw4b_admission_idempotency.py`
-- `tests/test_reader_rw4b_fix6.py`
-- `tests/test_reader_rw6b_p2_landing.py`
-- `tests/test_ro0_codex_verify.py`
-- `tests/test_ro0_gate.py`
+- `tests/test_mobile_v4_plan.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

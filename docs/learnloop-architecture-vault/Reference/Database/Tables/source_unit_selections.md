@@ -3,13 +3,13 @@ title: "source_unit_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_selections"
   - "table source_unit_selections"
-schema_head: 250
+schema_head: 251
 table_name: "source_unit_selections"
 table_role: "workflow"
 functionality_status: "active"
@@ -132,6 +132,8 @@ Indexes and uniqueness:
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_ingest_m3.py`
+- `tests/test_mobile_v4_codex_review.py`
+- `tests/test_mobile_v4_reader.py`
 - `tests/test_reread_safety.py`
 - `tests/test_reread_safety_landing.py`
 

@@ -870,6 +870,19 @@ LESSON_OFFERS_ALGORITHM_VERSION = "mvp-0.53"
 # mvp-0.54 when main (TE3b's mvp-0.53) was merged in; ONE constant.
 PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"
 
+# mvp-0.55 (instruct hand-off IH5; owner decision 2026-11-08,
+# docs/specs/spec_instruct_handoff_v1.md §7a), on top of phone V3's mvp-0.54
+# (the chain stays linear). A failed policy's share in the router objective's
+# mix goes to the OTHER policy, no longer to staged: with the LLM policy failed
+# the numeric policy takes 1.0, with the numeric one failed the LLM policy takes
+# 1.0, with both failed staged keeps 1.0 (the floor epsilon applies in every
+# case, propensities stay exact, staged's pick is still logged and still orders
+# the support and breaks ties). The reason is that staged never picks a lesson.
+# Kill switch ``[router_objective] failure_share_to_other_policy`` (off, or below
+# the tag: mvp-0.54's mix byte for byte). No migration. Expected mvp-0.55 at
+# landing (ONE constant; renumber if another successor lands first).
+FAILURE_SHARE_ALGORITHM_VERSION = "mvp-0.55"
+
 # mvp-0.56 (the placement hole; owner decision 2026-11-09, "Fix the placement
 # bug with a successor"; docs/reviews/placement-stranded.md). Under placement an
 # answered item with no due time on an LO with no evidence (a primed first
@@ -880,10 +893,9 @@ PHONE_PROBES_ALGORITHM_VERSION = "mvp-0.54"
 # scheduler's timing may offer it (no cold follow-up holds it, its answer not
 # revealed within the cold retrieval delay). Serving only: nothing recorded
 # changes meaning and replay reads nothing new. Kill switch
-# ``placement.unevidenced_return`` (off, or below the tag: mvp-0.54's serving
-# exactly). No migration. Labelled mvp-0.56 because instruct/handoff claims
-# mvp-0.55 and lands first (the chain has skipped a label before, mvp-0.28);
-# until then its predecessor in the chain is mvp-0.54. ONE constant.
+# ``placement.unevidenced_return`` (off, or below the tag: mvp-0.55's serving
+# exactly). No migration. Placed after instruct/handoff's mvp-0.55 (IH5) when
+# main was merged in; its predecessor in the chain is mvp-0.55. ONE constant.
 UNEVIDENCED_RETURN_ALGORITHM_VERSION = "mvp-0.56"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
@@ -939,6 +951,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
+    FAILURE_SHARE_ALGORITHM_VERSION,
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
 )
 
@@ -1197,6 +1210,13 @@ LESSON_OFFERS_VERSIONS: frozenset[str] = successors_from(LESSON_OFFERS_ALGORITHM
 # v2 V3, owner decision D3), behind the phone host's ``phone_probes``. Every
 # later successor keeps them; gates must use this set, never equality.
 PHONE_PROBES_VERSIONS: frozenset[str] = successors_from(PHONE_PROBES_ALGORITHM_VERSION)
+
+# Versions whose router objective gives a failed policy's share to the other
+# policy instead of staged (instruct hand-off IH5), behind
+# ``[router_objective] failure_share_to_other_policy``. Every later successor
+# keeps it; gates must use this set, never equality.
+FAILURE_SHARE_VERSIONS: frozenset[str] = successors_from(FAILURE_SHARE_ALGORITHM_VERSION)
+
 # Versions where an answered item with no due time, on an LO with no evidence,
 # starts as learning under placement, behind ``placement.unevidenced_return``.
 # Every later successor keeps it; gates must use this set, never equality.

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/daily_plans.py"
 source_paths:
   - "src/learnloop/db/stores/daily_plans.py"
-source_commit: "7271dbc726eb6e48dfea094c1d704c879b78b5ca"
-source_commit_timestamp: "2026-10-13T22:44:21-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/daily_plans.py](../../../../../../../src/learnloop/db/stores/daily_plans.py) |
-| Source lines | 355 |
+| Source lines | 401 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `7271dbc726eb6e48dfea094c1d704c879b78b5ca` |
-| Commit timestamp | `2026-10-13T22:44:21-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
+| Commit timestamp | `2026-11-09T12:16:08-05:00` |
 
 ## Public API
 
@@ -65,28 +65,33 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `update_plan(connection: sqlite3.Connection, plan_id: str, **fields: Any) -> None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 62)
 - `abandon_open_plans_before(connection: sqlite3.Connection, local_date: str, *, now: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 78) — An open plan from an earlier day is abandoned (§6.10): progress is kept elsewhere.
 - `insert_plan_block(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 92)
-- `append_block_event(connection: sqlite3.Connection, *, event_id: str, block_id: str, kind: str, detail: Mapping[str, Any] | None, created_at: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 113)
-- `plan_by_id(connection: sqlite3.Connection, plan_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 145)
-- `plans_for_date(connection: sqlite3.Connection, local_date: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 150)
-- `latest_plan(connection: sqlite3.Connection) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 157)
-- `all_plans(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 164)
-- `plan_blocks(connection: sqlite3.Connection, plan_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 169)
-- `block_events_for(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 188)
-- `daily_plan_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 206)
-- `open_learner_state_hypotheses(connection: sqlite3.Connection, learning_object_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 219) — The unresolved causal hypotheses: THE resolution predicate (owner decision 2026-10-12).
-- `open_diagnosed_problem_learning_object_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 275) — LOs with an open diagnosed problem: what "repair" means (owner decision 2026-10-12).
-- `plan_served_origins(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 303) — Every plan ``item_served`` receipt, by practice item, oldest first.
+- `next_plan_ordinal(connection: sqlite3.Connection, plan_id: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 113) — The plan's next block ordinal, as the database holds it now.
+- `append_block_event(connection: sqlite3.Connection, *, event_id: str, block_id: str, kind: str, detail: Mapping[str, Any] | None, created_at: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 121)
+- `plan_by_id(connection: sqlite3.Connection, plan_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 153)
+- `plans_for_date(connection: sqlite3.Connection, local_date: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 158)
+- `latest_plan(connection: sqlite3.Connection) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 165)
+- `all_plans(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 172)
+- `plan_blocks(connection: sqlite3.Connection, plan_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 177)
+- `deferred_followup_decision(connection: sqlite3.Connection, plan_id: str, practice_item_id: str) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 196) — The decision that last let this follow-up wait for the next block (its ``followup_deferred`` event), or None.
+- `block_events_for(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 209)
+- `daily_plan_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 227)
+- `open_learner_state_hypotheses(connection: sqlite3.Connection, learning_object_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 240) — The unresolved causal hypotheses: THE resolution predicate (owner decision 2026-10-12).
+- `open_workbench_since(connection: sqlite3.Connection, started_at: str, *, origin: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 296) — IH6 (spec_instruct_handoff_v1 §7b): the newest workbench problem a practice session that started at ``started_at`` holds open, or None.
+- `open_diagnosed_problem_learning_object_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 319) — LOs with an open diagnosed problem: what "repair" means (owner decision 2026-10-12).
+- `plan_served_origins(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 347) — Every plan ``item_served`` receipt, by practice item, oldest first.
 
 ### Module constants
 
 - `_PLAN_COLUMNS` ([src/learnloop/db/stores/daily_plans.py](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 28)
 - `_PLAN_UPDATABLE` ([src/learnloop/db/stores/daily_plans.py](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 34)
-- `OPEN_HYPOTHESIS_STATUSES` ([src/learnloop/db/stores/daily_plans.py](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 216)
+- `OPEN_HYPOTHESIS_STATUSES` ([src/learnloop/db/stores/daily_plans.py](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 237)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `next_plan_ordinal`
+- `open_workbench_since`
 - `abandon_open_plans_before`
 - `all_plans`
 - `append_block_event`
@@ -108,14 +113,14 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `_json(value: Any) -> str` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 42)
 - `_loads(value: str | None) -> Any` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 46)
-- `_plan_dict(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 138)
+- `_plan_dict(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/daily_plans.py), line 146)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `abandon_open_plans_before`, `all_plans`, `append_block_event`, `block_events_for`, `daily_plan_tables_present`, `insert_plan`, `insert_plan_block`, `latest_plan`, `open_diagnosed_problem_learning_object_ids`, `plan_blocks`, `plan_by_id`, `plans_for_date`, `update_plan`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `abandon_open_plans_before`, `all_plans`, `append_block_event`, `block_events_for`, `daily_plan_tables_present`, `deferred_followup_decision`, `insert_plan`, `insert_plan_block`, `latest_plan`, `next_plan_ordinal`, `open_diagnosed_problem_learning_object_ids`, `open_workbench_since`, `plan_blocks`, `plan_by_id`, `plans_for_date`, `update_plan`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `append_block_event`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; statically calls `plans_for_date`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `open_learner_state_hypotheses`; statically calls `open_learner_state_hypotheses`

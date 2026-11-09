@@ -3,13 +3,13 @@ title: "source_document_assets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "152a64a89386543e4477bd9dde4a22ec7ce8337b"
-source_commit_timestamp: "2026-11-07T06:47:46-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_assets"
   - "table source_document_assets"
-schema_head: 250
+schema_head: 251
 table_name: "source_document_assets"
 table_role: "raw_ledger"
 functionality_status: "active"

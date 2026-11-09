@@ -153,6 +153,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_crash_after_the_pin_ends_the_pin_with_the_retired_item`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
 
 ## Modification guidance
 

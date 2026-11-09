@@ -206,6 +206,9 @@ import type {
   SessionSnapshot,
   StartSummaryDto,
   DailyPlanDto,
+  SomethingElseChosenDto,
+  SomethingElseKind,
+  SomethingElseOptionsDto,
   TodayHeadlineDto,
   IntentChoice,
   IntentScopeKind,
@@ -1149,6 +1152,9 @@ export const api = {
   /** RO0 row 3: Ask's availability changed on the item shown (an impression event; the same state writes nothing). */
   recordAskAvailability: (input: { sessionId?: string | null; practiceItemId: string; available: boolean; reason?: string }) =>
     call<{ version: number; recorded: boolean }>("record_ask_availability", { input }),
+  /** IH1: a lesson offer's card or page rendered (one `offer_shown` event a block and surface; never queue-invalidating). */
+  recordOfferShown: (input: { blockId: string; surface: "today" | "offer_page"; sessionId?: string | null }) =>
+    call<{ version: number; recorded: boolean }>("record_offer_shown", { input }),
   /** Router objective RO4: one decision's trace in plain words (the why's "how was this chosen?"). */
   routerObjectiveExplain: (decisionId: string) =>
     call<{ version: number; available: boolean; decisionId?: string; lines: string[] }>("router_objective_explain", {
@@ -1306,6 +1312,19 @@ export const api = {
         }
       })
     ),
+  /** IH3: what the plan could do at this boundary, in plain words, for "Something else would help" (draws nothing). */
+  planSomethingElseOptions: (sessionId?: string | null) =>
+    call<SomethingElseOptionsDto>("plan_something_else_options", { input: { sessionId: sessionId ?? null } }),
+  /** IH3: serve the action the learner chose and log it with the options then (idempotent on `preferenceId`). */
+  planSomethingElse: (input: {
+    kind: SomethingElseKind;
+    ref?: string | null;
+    surface: "feedback" | "offer_page" | "today";
+    attemptId?: string | null;
+    noteMd?: string | null;
+    preferenceId: string;
+    sessionId?: string | null;
+  }) => mutating([TAG.queue], call<SomethingElseChosenDto>("plan_something_else", { input })),
   // ── Canonical sources: proposals, passages, comparisons and tool runs.
   // Tools propose; the plan's pick path serves (spec SC1).
   findPractice: (input: PracticeRequestDto["request"] & { caller: PracticeCallerDto }) =>

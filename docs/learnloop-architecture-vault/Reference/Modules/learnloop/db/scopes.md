@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/connection_reuse.py](../../../../../../tests/connection_reuse.py) — direct import
 - [tests/test_ingest_ownership.py](../../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_a_cte_read_is_not_fenced_but_a_cte_write_is`
   - `test_a_replaced_attempt_still_saves_its_paid_checkpoint`

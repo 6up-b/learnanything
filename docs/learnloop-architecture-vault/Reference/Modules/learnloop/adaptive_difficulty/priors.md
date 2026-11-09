@@ -237,6 +237,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ad23_sim.py](../../../../../../tests/test_ad23_sim.py) — direct import
   - `test_hyperparameters_learned_on_synthetic_vaults`
+- [tests/test_ad23_sim_smoke.py](../../../../../../tests/test_ad23_sim_smoke.py) — direct import
 - [tests/test_ad2_model.py](../../../../../../tests/test_ad2_model.py) — direct import
   - `test_joint_attempt_factor_integrates_residual_once`
   - `test_overclaimed_features_do_not_lower_demand_estimate`

@@ -48,7 +48,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/screens/workbench/splitWidth|splitWidth.ts]] | `ACTIVE` | Provides `MIN_WORKBENCH_WIDTH`, `MIN_SOURCE_WIDTH`, `NARROW_BREAKPOINT`, `SPLIT_WIDTH_KEY` and related exports within the desktop's TypeScript/screens/workbench ownership area. | 0 | 4 |
 | [[Reference/Desktop/TypeScript/screens/workbench/stepModel|stepModel.ts]] | `ACTIVE` | Provides `BOOK_OPEN_ENTRIES`, `defaultBookVisible`, `LocalStep`, `fromServer` and related exports within the desktop's TypeScript/screens/workbench ownership area. | 1 | 4 |
 | [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchHelp|useWorkbenchHelp.ts]] | `ACTIVE` | Provides `UNSAVED_HELP`, `LadderState`, `HelpNotice`, `BridgeState` and related exports within the desktop's TypeScript/screens/workbench ownership area. | 4 | 4 |
-| [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|useWorkbenchSession.ts]] | `ACTIVE` | Provides `EDIT_DEBOUNCE_MS`, `leaveHeldNote`, `leftUnsavedNote`, `notSavedError` and related exports within the desktop's TypeScript/screens/workbench ownership area. | 7 | 1 |
+| [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|useWorkbenchSession.ts]] | `ACTIVE` | Provides `EDIT_DEBOUNCE_MS`, `leaveHeldNote`, `leftUnsavedNote`, `notSavedError` and related exports within the desktop's TypeScript/screens/workbench ownership area. | 8 | 1 |
 
 ## Modification guidance
 

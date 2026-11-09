@@ -213,12 +213,21 @@ npm run dev
 `marker-pdf` is not required for canonical source ingestion. Webpages, YouTube
 transcripts, Markdown, HTML, and text files do not use it, and text-based PDFs
 fall back to the base `pypdf` dependency. Marker is an optional, heavier PDF
-provider that preserves richer layout, tables, math, figures, and geometry (I would reccomend using marker when possible). It's enabled when
-`[ingest.pdf].engine` is explicitly set to `"marker"`. Install it with:
+provider that preserves richer layout, tables, math, figures, and geometry (I would reccomend using marker when possible). Under the default
+`[ingest.pdf].engine = "auto"` it's used when installed and GLM-OCR isn't;
+`"marker"` forces it. Install it with:
 
 ```bash
 uv sync --extra dev --extra pdf
 ```
+
+PDFs don't always stay on your computer. `auto` tries GLM-OCR first: with a
+z.ai key in the environment (`ZAI_API_KEY`, `ZHIPU_API_KEY` or
+`ZHIPUAI_API_KEY`) it sends the whole file to z.ai's hosted service, after a
+one-time OK that names z.ai (until then it reads the PDF locally), and with a
+self-hosted GLM-OCR server configured it uses that server. Set
+`[ingest.pdf].engine` to `"marker"` or `"pypdf"` to keep extraction local
+(and leave out the hosted Datalab route below).
 
 The Tauri shell starts the Python `learnloop_sidecar` automatically. On launch
 it opens the first of: `LEARNLOOP_VAULT` if set; the vault you last selected in
@@ -247,7 +256,7 @@ DATALAB_API_KEY='your-key' npm run dev:datalab
 
 The API key is inherited by the Python sidecar for that process only; it is not
 sent to the frontend or stored in the vault. `npm run dev` keeps the normal
-local Marker/pypdf behavior. An explicit pypdf selection in the ingest screen
+`auto` behavior above (GLM-OCR, then local Marker, then pypdf). An explicit pypdf selection in the ingest screen
 also continues to bypass Marker in either runtime.
 
 PowerShell:
@@ -544,7 +553,7 @@ Python learnloop_sidecar
 The Rust shell finds the sidecar in this order: `LEARNLOOP_PYTHON`, the active
 environment (`VIRTUAL_ENV`/`CONDA_PREFIX`, so an activated conda/venv is used),
 the repository `.venv`, then `uv`/the platform Python executable. Use
-`LEARNLOOP_SIDECAR_TIMEOUT_SECS` to override the default 240-second desktop RPC
+`LEARNLOOP_SIDECAR_TIMEOUT_SECS` to override the default 960-second desktop RPC
 timeout when debugging unusually long model calls.
 
 ## Development
@@ -555,7 +564,7 @@ the sidecar.
 
 ```bash
 uv sync --extra dev                    # install
-uv run pytest                          # full suite (~17 minutes)
+uv run pytest -n 8 --dist worksteal    # full suite (about 15 minutes; times in docs/reviews/test-suite-audit.md)
 uv run pytest tests/test_scheduler.py::test_name -x   # one test
 uv run learnloop --help                # CLI
 uv run python -m learnloop_sidecar     # sidecar directly, JSON-RPC over stdio

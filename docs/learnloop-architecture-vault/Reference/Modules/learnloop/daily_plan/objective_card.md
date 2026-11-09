@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/objective_card.py"
 source_paths:
   - "src/learnloop/daily_plan/objective_card.py"
-source_commit: "96ba40f55c3587f2e716522918d4ae4d06b172ea"
-source_commit_timestamp: "2026-11-05T05:31:58-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -50,50 +50,64 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py) |
-| Source lines | 125 |
+| Source lines | 209 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `96ba40f55c3587f2e716522918d4ae4d06b172ea` |
-| Commit timestamp | `2026-11-05T05:31:58-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
+| Commit timestamp | `2026-11-09T12:16:08-05:00` |
 
 ## Public API
 
-- `decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, goals: Mapping[str, Any], session: Mapping[str, Any], budget: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 93) — The frozen card (the state), its evidence ids and what the budget left out.
+- `learner_statements(vault: Any, repository: Any, connection: Any, *, served_at: str) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 107) — The learner's statements known at ``served_at``, oldest first, and whether the read reached its limit.
+- `statement_lines(vault: Any, repository: Any, *, served_at: str, budget: int) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 152) — The same statements for the mid-block ``plan_interrupt`` request, whose state is text: lines for the LLM's request only (never the Decider's), oldest dropped first to fit ``budget``.
+- `decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, goals: Mapping[str, Any], session: Mapping[str, Any], budget: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 170) — The frozen card (the state), its evidence ids and what the budget left out.
 
 ### Module constants
 
-- `CARD_VERSION` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 24)
-- `_SECTION_ORDER` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 26)
+- `CARD_VERSION` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 31)
+- `CARD_VERSION_STATEMENTS` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 33)
+- `STATEMENTS` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 34)
+- `STATEMENTS_NOTE` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 35)
+- `_SECTION_ORDER` ([src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py), line 40)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `CARD_VERSION`
+- `CARD_VERSION_STATEMENTS`
+- `STATEMENTS`
+- `STATEMENTS_NOTE`
 - `decision_card`
+- `learner_statements`
+- `statement_lines`
 
 ## Internal implementation anchors
 
-- `_size(state: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 32)
-- `_merged(built: Sequence[Mapping[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], list[str], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 36)
-- `_trim(state: dict[str, Any], budget: int) -> dict[str, dict[str, int]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 57) — Oldest first within each section, one entry per non-empty section per round, until it fits.
-- `_goal_entry(goal: Mapping[str, Any], titles: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 79) — One goal as the policy sees it (Codex review F10): its date, its use weights and which topics it covers, with each topic's effective weight at the date (``dated``, unless ``topic_weights`` names the topic), the same weights the numeric policy's scoring reads.
+- `_size(state: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 46)
+- `_merged(built: Sequence[Mapping[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], list[str], list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 50)
+- `_trim(state: dict[str, Any], budget: int) -> dict[str, dict[str, int]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 71) — Oldest first within each section, one entry per non-empty section per round, until it fits.
+- `_goal_entry(goal: Mapping[str, Any], titles: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 93) — One goal as the policy sees it (Codex review F10): its date, its use weights and which topics it covers, with each topic's effective weight at the date (``dated``, unless ``topic_weights`` names the topic), the same weights the numeric policy's scoring reads.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `decision_card`; statically calls `decision_card`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `decision_card`, `statement_lines`; statically calls `decision_card`, `statement_lines`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `module`; calls `decision_sections_entry`
+- [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `module`; calls `_Days`, `_excerpt`, `_topic`, `decision_sections_entry`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; calls `recent_learner_preferences`
+- [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `WITHHELD_UNREADABLE`; calls `PastWork`
+- [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `WORDS`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `preferences_inform_router_on`; calls `preferences_inform_router_on`
 
 ### Platform and third-party dependencies
 
@@ -113,6 +127,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_a_note_on_a_protected_attempt_shows_nothing_and_says_why`
+  - `test_protection_unreadable_hides_every_note`
+  - `test_the_budget_holds_oldest_first_and_says_what_it_left_out`
+  - `test_the_card_carries_the_learners_own_statements`
+  - `test_the_llm_reads_the_card_and_the_trace_names_it`
+  - `test_the_mid_block_request_carries_them_for_the_llm_alone`
+  - `test_the_read_is_bounded_by_the_card_questions_limit_and_says_so`
+  - `test_with_the_switch_off_or_none_on_record_the_card_is_the_predecessors_bytes`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f10_the_policy_card_names_each_goals_topics_and_their_weights`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import

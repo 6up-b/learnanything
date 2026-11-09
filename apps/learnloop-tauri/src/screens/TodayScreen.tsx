@@ -41,7 +41,8 @@ import { LessonSuggestionCard } from "./today/LessonSuggestionCard";
 import { ContinueLessonCard } from "./today/ContinueLessonCard";
 import type { LessonEntry } from "./LessonScreen";
 import { planStepAction, useDailyPlan } from "../app/dailyPlan";
-import type { DailyPlanDto, PlanReadingDto, PlanStepDto, TodayHeadlineDto } from "../api/dto";
+import type { DailyPlanDto, PlanReadingDto, PlanStepDto, SomethingElseChosenDto, TodayHeadlineDto } from "../api/dto";
+import { lessonEntryFor } from "./today/SomethingElse";
 
 const HOTKEYS = "123456789abcdef";
 
@@ -691,6 +692,25 @@ export function TodayScreen({
     else if (action.type === "reader") onOpenPlanReading?.(action.reading);
   }
 
+  // IH3: "Something else would help" was chosen at this plan boundary and served. A lesson opens as the learner's own start,
+  // the plan's own pick (an agreement) is served as Continue serves it, and anything else is the step the choice placed.
+  function afterSomethingElse(result: SomethingElseChosenDto) {
+    const entry = lessonEntryFor(result);
+    if (entry) {
+      onStartLesson?.(entry);
+      return;
+    }
+    if (result.preference?.outcome === "agreed") {
+      void continuePlan();
+      return;
+    }
+    const action = planStepAction(result.step, { viaBlockLine: false });
+    if (action.type === "practice")
+      onOpenPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
+    else if (action.type === "reader") onOpenPlanReading?.(action.reading);
+    else void refetchPlan().catch(() => undefined);
+  }
+
   async function skipPlanItem(practiceItemId: string) {
     await runPlan(() => api.nextPlanItem({ sessionId: session?.sessionId ?? null, skipPracticeItemId: practiceItemId }));
   }
@@ -753,6 +773,8 @@ export function TodayScreen({
           sessionId={session?.sessionId ?? null}
           onStartLesson={onStartLesson}
           onOfferAnswered={() => void refetchPlan().catch(() => undefined)}
+          onSomethingElse={afterSomethingElse}
+          onResumeQuestion={(practiceItemId) => onOpenPractice(practiceItemId, null)}
           onError={onError}
         />
       </div>

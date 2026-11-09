@@ -321,6 +321,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
   - `test_unaided_progress_is_reached_only_when_the_uncapped_records_show_no_other_help`
 - [tests/test_identifiability_doctor.py](../../../../../../tests/test_identifiability_doctor.py) — direct import
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
 - [tests/test_inference_precheck.py](../../../../../../tests/test_inference_precheck.py) — direct import
   - `test_b3_requires_a_directly_reachable_downstream_anchor`

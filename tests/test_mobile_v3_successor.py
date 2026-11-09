@@ -36,8 +36,9 @@ OLD = LESSON_OFFERS_ALGORITHM_VERSION
 
 def test_the_successor_is_one_constant_after_te3b_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.53"
-    assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
-    assert PHONE_PROBES_VERSIONS == frozenset({TAG, "mvp-0.56"})
+    # IH5's successor (mvp-0.55) follows it and keeps it, and the placement hole's (mvp-0.56) after that.
+    assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
+    assert PHONE_PROBES_VERSIONS == frozenset({TAG, "mvp-0.55", "mvp-0.56"})
 
 
 def test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone():
@@ -76,13 +77,16 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    # The placement hole's link (mvp-0.56) is the chain's latest since; its completion hands this link's journal here.
-    from learnloop import unevidenced_return_upgrade
+    # The placement hole's link (mvp-0.56) is the chain's latest since; its completion hands this link's journal on
+    # to IH5's (mvp-0.55), which hands it here.
+    from learnloop import failure_share_upgrade, unevidenced_return_upgrade
 
     assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.phone_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
+    assert "learnloop.failure_share_upgrade import complete_interrupted_activation" in inspect.getsource(
         unevidenced_return_upgrade)
+    assert "learnloop.phone_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
+        failure_share_upgrade)
     # It hands an earlier link's journal to TE3b's completion, which hands it on in turn.
     assert "learnloop.lesson_offers_upgrade import complete_interrupted_activation" in inspect.getsource(
         phone_probes_upgrade)

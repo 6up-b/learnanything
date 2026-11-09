@@ -22,6 +22,9 @@ today`` (§8.2):
 * **w_i** is ``ℓ_L + (1 − ℓ_L − ℓ_Q)·p_i`` from the weight's posterior (:mod:`learnloop.router_objective.weight`);
   with no randomized checks before RO5 no score forms and ``w`` stays at its prior, and the trace says so.
 * **κ0** is the day's seed (:mod:`learnloop.router_objective.price`), carried from the day's first decision.
+* **Preferences** (instruct hand-off IH4, :mod:`learnloop.router_objective.preferences`): frozen as a sensor in each trace,
+  entering ``π_Q`` through ``w_pref`` only as far as randomized draws support (0 until then, nothing shifted), and on the
+  LLM's card as the learner's own statements. Staged reads nothing.
 
 The chooser writes nothing: its record and its trace ride on ``BlockChoice.router_record`` to the ``plan_block``
 logger, which writes the trace (``router_objective_traces``) in the block's transaction.
@@ -80,11 +83,13 @@ from learnloop.daily_plan.router_runtime import (
 from learnloop.daily_plan.staged_frame import StagedChooser
 from learnloop.daily_plan.types import (
     CONTINUE_CURRENT,
+    FOLLOWUP_CONTEST_NOTE,
     LESSON_OFFER_SUBTYPE,
     STOP_FOR_TODAY,
     STOP_OFFER_MINUTES,
     BlockCandidate,
     BlockChoice,
+    DecisionPending,
     PlanState,
 )
 from learnloop.ids import new_ulid
@@ -95,7 +100,7 @@ from learnloop.router_objective import price as P
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import value as V
 from learnloop.router_objective import weight as W
-from learnloop.router_objective_switches import stop_coin_rate
+from learnloop.router_objective_switches import failure_share_to_other_policy_on, stop_coin_rate
 
 LOG = logging.getLogger(__name__)
 
@@ -126,7 +131,13 @@ def objective_settings(config: Any) -> dict[str, Any]:
     (landing ruling R12, ``followup_switch_snapshot``), so a flip between a prefetch and its serve starts a new job;
     below the tag the key keeps its predecessor's bytes."""
 
-    from learnloop.router_objective_switches import followup_switch_snapshot
+    from learnloop.router_objective_switches import (
+        failure_share_tag,
+        failure_share_to_other_policy_on,
+        followup_switch_snapshot,
+        lessons_compete_with_followups_on,
+        preferences_inform_router_on,
+    )
 
     section = config.router_objective
     out = {key: getattr(section, key) for key in (
@@ -138,6 +149,15 @@ def objective_settings(config: Any) -> dict[str, Any]:
     snapshot = followup_switch_snapshot(config)
     if snapshot is not None:
         out["followup_switches"] = snapshot
+    # IH5: where a failed policy's share goes serves at the decision, but the key names it too, so a flip between a
+    # prefetch and its serve starts a new job; below the tag the key keeps its predecessor's bytes.
+    if failure_share_tag(config):
+        out["failure_share_to_other_policy"] = failure_share_to_other_policy_on(config)
+        # IH2: which decisions hold a lesson offer, likewise.
+        out["lessons_compete_with_followups"] = lessons_compete_with_followups_on(config)
+        # IH4: named only while it serves, so off the key keeps its bytes (a flip still starts a new job).
+        if preferences_inform_router_on(config):
+            out["preferences_inform_router"] = True
     return out
 
 
@@ -147,14 +167,35 @@ def numeric_seed(identity: Mapping[str, Any]) -> str:
     change no value at a fixed draw count, so whatever they are the draws are main's (with both off, main's exactly);
     they stay in the key itself, the generator payload and ``serving_switches``."""
 
-    from learnloop.router_objective_switches import SEED_NEUTRAL_SWITCHES
+    from learnloop.router_objective_switches import (
+        SEED_NEUTRAL_IDENTITY_KEYS,
+        SEED_NEUTRAL_OBJECTIVE_KEYS,
+        SEED_NEUTRAL_SWITCHES,
+    )
 
     objective = identity.get("objective")
     switches = objective.get("followup_switches") if isinstance(objective, Mapping) else None
     if isinstance(switches, Mapping):
-        identity = {**identity, "objective": {**objective, "followup_switches": {
-            key: value for key, value in switches.items() if key not in SEED_NEUTRAL_SWITCHES}}}
+        objective = {**objective, "followup_switches": {
+            key: value for key, value in switches.items() if key not in SEED_NEUTRAL_SWITCHES}}
+        identity = {**identity, "objective": objective}
+    # IH4: what the key names only so a preference or a flip starts a new job (no value moves with it).
+    if isinstance(objective, Mapping) and any(key in objective for key in SEED_NEUTRAL_OBJECTIVE_KEYS):
+        identity = {**identity, "objective": {key: value for key, value in objective.items()
+                                              if key not in SEED_NEUTRAL_OBJECTIVE_KEYS}}
+    if any(key in identity for key in SEED_NEUTRAL_IDENTITY_KEYS):
+        identity = {key: value for key, value in identity.items() if key not in SEED_NEUTRAL_IDENTITY_KEYS}
     return _hash({"numeric": _hash(dict(identity))})
+
+
+def _preference_mark(repository: Any, config: Any) -> dict[str, Any]:
+    """IH4: what a boundary's identity names so a new preference starts a new job (``preferences.mark``), read on the
+    caller's connection, which a read-only prefetch can do. Nothing with the switch off or none on record."""
+
+    from learnloop.router_objective.preferences import mark
+
+    with repository.connection() as connection:
+        return mark(connection, config)
 
 
 def _local_date(now_iso: str) -> str:
@@ -418,6 +459,9 @@ class NumericPolicy:
     #: Landing ruling R12: the follow-up batch's generator switches this answer was computed under (frozen at the
     #: job's start), which the trace records, never the serving config's; None below the batch's tag.
     switches: Mapping[str, bool] | None = None
+    #: IH4 (spec_instruct_handoff_v1 §7): the choice model's frozen sensor and ``w_pref``
+    #: (:mod:`learnloop.router_objective.preferences`); None with its switch off or nothing on record
+    preference: Mapping[str, Any] | None = None
 
 
 def generator_now(config: Any, objective: str | None = None) -> str:
@@ -437,6 +481,34 @@ def generator_now(config: Any, objective: str | None = None) -> str:
         objective_definition=objective, switches=followup_generator_switches(config),
         # Teacher TE3b: the features version served (its ``lesson`` indicator: a change point once, at its tag).
         features=TD.features_version(config)))
+
+
+def _preferences_move(record: Mapping[str, Any] | None) -> bool:
+    from learnloop.router_objective.preferences import moves_the_value
+
+    return moves_the_value(record)
+
+
+def _preference_record(repository: Any, config: Any, *, state: PlanState, support: Sequence[str],
+                       candidates: Mapping[str, BlockCandidate], now_iso: str) -> Mapping[str, Any] | None:
+    """IH4: a ``plan_block`` decision's choice-model sensor and ``w_pref``, from each candidate's kind. With the switch
+    off, or nothing on record, None: nothing is read past the switch and the trace gains no key. ``w_pref`` follows RO6's
+    machinery, so it is fitted only with the learned tail on."""
+
+    from learnloop.router_objective_switches import learned_tail_on, preferences_inform_router_on
+
+    if not preferences_inform_router_on(config):
+        return None
+    from learnloop.router_objective import preferences as PF
+
+    kinds: dict[str, str] = {}
+    for ref in support:
+        candidate = candidates.get(ref)
+        kinds[ref] = PF.STOP if ref == STOP_FOR_TODAY else PF.kind_of(
+            reading=getattr(candidate, "reading", None), subtype=getattr(candidate, "subtype", None),
+            lane=getattr(candidate, "lane", None))
+    return PF.record(repository, config, kinds=kinds, minutes_left=float(state.minutes_left), now_iso=now_iso,
+                     fit=learned_tail_on(config))
 
 
 def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],
@@ -504,6 +576,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             if measurable is not None:
                 unmeasured = frozenset(measurable["unmeasured"])
                 residual_record = {**residual_record, "measurable": measurable}
+        preference_record = _preference_record(repository, config, state=state, support=support, candidates=candidates,
+                                               now_iso=now_iso) if learned_tail else None
         local_date = _local_date(now_iso)
         # The day's seed is computed once a day, so it takes the most draws (a marginal gain is a small difference
         # of two large sums; at 8 draws its noise is of the order of the signal).
@@ -530,6 +604,18 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                        "tail_argmax": V.numeric_choice(evaluation, support)[1]["argmax"]}
             else:
                 choice, tie = V.numeric_choice(evaluation, support)
+            if _preferences_move(preference_record):
+                # IH4: only once w_pref has moved; at 0 nothing above changes, bit for bit.
+                from learnloop.router_objective import preferences as PF
+                from learnloop.router_objective import tail_serve
+
+                base = (tail_serve.shifted(evaluation, residual_record) if residual_record is not None
+                        and residual_record.get("status") == "applied" else evaluation)
+                before = tie["argmax"]
+                choice, moved = V.numeric_choice(PF.shifted(base, preference_record,
+                                                            tail={row.ref: row.q for row in evaluation.valued}), support)
+                tie = {**tie, **moved, "on": "v_tail + w_hat * v_residual + w_pref * v_pref",
+                       "before_preferences_argmax": before}
             if "baselines" not in cached:
                 # The pre-action belief under the tail: no action and no correction enters it.
                 cached["baselines"] = V.baselines(used, int(section.evaluation_window_days),
@@ -538,7 +624,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                  actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
                                  baselines=cached["baselines"], corrected=corrected,
                                  latency_ms=int(round((clock() - started) * 1000)), residual=residual_record,
-                                 switches=frozen_switches)
+                                 switches=frozen_switches, preference=preference_record)
 
         def carried_compute(record: Mapping[str, Any], at_inputs: V.Inputs, at_actions: Sequence[V.Action],
                             at_cutoff: float) -> Callable[..., dict[str, Any]]:
@@ -729,6 +815,10 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
                     state=json.dumps(card["state"], sort_keys=True, ensure_ascii=False, default=str),
                     evidence=tuple(card["evidence_ids"]))
                 entry.material["policy_card"] = {key: card[key] for key in ("evidence_ids", "left_out", "bytes", "items")}
+                if card.get("statements"):
+                    entry.material["policy_card"]["statements"] = {
+                        "card": card["state"]["card"], "entries": card["statements"],
+                        "left_out": dict((card.get("left_out") or {}).get("learner_statements") or {})}
                 entry.material["policy_request"] = policy_request
                 start(LLM, policy_request, rq.parse_llm_policy)
             except Exception as exc:  # noqa: BLE001 - the card never blocks the plan: the LLM policy fails
@@ -946,6 +1036,19 @@ def _offer_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.Bl
         p_accept=float(p_accept) if p_accept is not None else None))
 
 
+def _is_contest(candidate: BlockCandidate) -> bool:
+    return bool((candidate.annotations or {}).get(FOLLOWUP_CONTEST_NOTE))
+
+
+def _contest_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption:
+    """IH2 (spec_instruct_handoff_v1 §5 item 2): the boundary's follow-ups, as the LLM policy reads them beside the offer."""
+
+    topic = ", ".join(dict.fromkeys(titles.get(lo, lo) for lo in candidate.learning_object_ids))
+    return rq.BlockOption(ref=candidate.candidate_id, description=(
+        f"Ask the follow-up question now, on {topic}, from the learner's last answer (about "
+        f"{max(1, round(candidate.est_minutes))} min). If the lesson is chosen instead, this question stays for later."))
+
+
 def _offer_trace(candidate: BlockCandidate, valued: Any, action: Any, inputs: Any,
                  topic_by_lo: Mapping[str, Any], terms: Mapping[str, Any] | None) -> dict[str, Any]:
     """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a, "what the trace records"): for a lesson offer, its sensors
@@ -970,7 +1073,10 @@ def _offer_trace(candidate: BlockCandidate, valued: Any, action: Any, inputs: An
         "version": record.get("version"),
         "sensors": {
             "p_accept": {**dict(record.get("p_accept") or {}), "priors_version": record.get("priors_version"),
-                         "updates": (record.get("model") or {}).get("updates")},
+                         "updates": (record.get("model") or {}).get("updates"),
+                         # IH4: how many of those were requests with no offer on screen (only when any were).
+                         **({"unprompted_updates": (record.get("model") or {})["unprompted_updates"]}
+                            if (record.get("model") or {}).get("unprompted_updates") else {})},
             "reason": record.get("reason"), "context": record.get("context"),
             "ad_p_bar": p_bar,
             "lesson_curve": ({"version": curve.version, "mean": list(curve.mean), "cov": [list(r) for r in curve.cov],
@@ -995,6 +1101,13 @@ def _offer_trace(candidate: BlockCandidate, valued: Any, action: Any, inputs: An
                    "mass": getattr(action, "mass", None), "accept": list(getattr(action, "accept", None) or ()),
                    "commitments": [list(c) for c in getattr(action, "commitments", ()) or ()]},
     }
+
+
+def _failure_rule_field(to_other: bool) -> dict[str, str]:
+    """IH5: the failure rule a decision was drawn under, logged only where it is not staged's (a record without the
+    key was drawn before the tag, or with the switch off, and replays under staged's rule: ``mix.recompute``)."""
+
+    return {"failure_rule": mix.OTHER_POLICY_RULE} if to_other else {}
 
 
 def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate],
@@ -1105,6 +1218,13 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                                                                     rows[ref].q if ref in rows else None)}
                 for ref, entry in (residual_record.get("candidates") or {}).items()}
         extra["residual"] = section_record
+    preference_record = numeric.preference if numeric is not None else None
+    if preference_record is not None:
+        # IH4 (spec_instruct_handoff_v1 §7 item 2): the choice model's sensor and w_pref, frozen, with V_pref at this Q̄.
+        from learnloop.router_objective import preferences as PF
+
+        extra["preference"] = (PF.with_values(preference_record, {ref: rows[ref].q for ref in rows})
+                               if preference_record.get("status") == "applied" else dict(preference_record))
     return {
         **extra,
         "candidates": candidates,
@@ -1142,7 +1262,8 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                    "weight_note": weight[1].get("note"), "w": weight[0], "effective": dict(effective),
                    "mu": dict(pi), "seed": seed, "chosen": drawn.chosen, "drawn_component": drawn.component,
                    "propensity": drawn.propensity, "u1": drawn.u1, "u2": drawn.u2,
-                   "epsilon": float(config.router.epsilon_min)},
+                   "epsilon": float(config.router.epsilon_min),
+                   **_failure_rule_field(failure_share_to_other_policy_on(config))},
         "evaluation": {"uses": uses, "window_days": window, "window_closes_at": window_closes, "c0": c0,
                        "c0_basis": "the tail's cost at the remembered minutes (no earlier window of costs at this version)",
                        "objective_version": V.OBJECTIVE_VERSION,
@@ -1185,6 +1306,8 @@ class ObjectiveChooser(RouterChooser):
         offers = [candidate for candidate in feasible if candidate.subtype == LESSON_OFFER_SUBTYPE]
         if offers:
             feasible = [candidate for candidate in feasible if candidate.subtype != LESSON_OFFER_SUBTYPE]
+        # IH2 (spec_instruct_handoff_v1 §5 item 2): follow-ups against a lesson offer: these two are the decision.
+        contest = next((candidate for candidate in feasible if _is_contest(candidate)), None)
         staged = StagedChooser(card_builder=None).choose(state, feasible)
         config = self.vault.config
         settings = router_settings(config)
@@ -1201,9 +1324,10 @@ class ObjectiveChooser(RouterChooser):
             return deterministic("single_option")
         if not (staged_candidate.annotations or {}).get("reversible", True):
             return deterministic("irreversible")
-        support = support_order(state, feasible, staged.candidate_id, k=settings["k"], stop_offered=True,
-                                ties_only=settings["ties_only"])
-        if len(support) <= 1:
+        support = ([contest.candidate_id] if contest is not None else
+                   support_order(state, feasible, staged.candidate_id, k=settings["k"], stop_offered=True,
+                                 ties_only=settings["ties_only"]))
+        if len(support) <= 1 and not (contest is not None and offers):
             return deterministic("single_option")
         if offers:
             # The offer joins the support after the blocks and before stop (ties go to staged's order first).
@@ -1213,7 +1337,8 @@ class ObjectiveChooser(RouterChooser):
             support = [*support[:at], offer.candidate_id, *support[at:]]
         # The staged rule's own pick: its lane-quota choice, or stop once the plan's minutes are used (§8.2: the
         # minutes are a suggestion the failure fallback keeps).
-        staged_ref = STOP_FOR_TODAY if state.minutes_left < STOP_OFFER_MINUTES else staged.candidate_id
+        staged_ref = (contest.candidate_id if contest is not None else
+                      STOP_FOR_TODAY if state.minutes_left < STOP_OFFER_MINUTES else staged.candidate_id)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
         identity = {
@@ -1225,11 +1350,17 @@ class ObjectiveChooser(RouterChooser):
             "staged": staged_ref, "as_of": _latest_attempt(self.repository),
             "version": config.algorithms.algorithm_version, "settings": settings,
             "objective": objective_settings(config), "ready": ready,
+            # IH4: the card reads preferences, so a new one starts a new job; no value moves with it (numeric_seed).
+            **_preference_mark(self.repository, config),
         }
         key = _hash(identity)
         # Landing ruling R2: the numeric policy's seed from the identity less the seed-neutral speed switches.
         seed = numeric_seed(identity)
         now_iso = self._now_iso()
+        if self.start_only:
+            if ready and self.runtime.lookup(self.scope, key) is None:
+                self._start_objective(key, state, feasible, support, by_id, ready, now_iso, numeric_seed=seed)
+            raise DecisionPending(key)
         if ready:
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:
@@ -1310,6 +1441,7 @@ class ObjectiveChooser(RouterChooser):
         card = _build_card(self.card_builder, state, feasible)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         options = [_offer_option(by_id[ref], titles) if ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE
+                   else _contest_option(by_id[ref], titles) if ref in by_id and _is_contest(by_id[ref])
                    else _option(by_id[ref], titles) if ref in by_id
                    else rq.BlockOption(ref=ref, description=rq.STOP_OFFER_DESCRIPTION)
                    for ref in support]
@@ -1365,7 +1497,8 @@ class ObjectiveChooser(RouterChooser):
         numeric_ok = numeric is not None and numeric.status == ANSWERED and numeric.choice in support
         failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
         w, weight_record = current_weight(self.repository, config, at=now_iso)
-        effective = mix.effective_weights(w, failed)
+        to_other = failure_share_to_other_policy_on(config)
+        effective = mix.effective_weights(w, failed, to_other_policy=to_other)
         parts = mix.components(list(support), staged_ref, llm=llm_dist,
                                numeric_ref=numeric.choice if numeric_ok and numeric is not None else None)
         decision_id = new_ulid()
@@ -1413,6 +1546,14 @@ class ObjectiveChooser(RouterChooser):
                        guard=guard_state, stop_in_support=STOP_FOR_TODAY in support, card_version=card.version)
         from learnloop.router_objective_switches import calibration_tag
 
+        contested = next((ref for ref in support if ref in by_id and _is_contest(by_id[ref])), None)
+        if policy_card.get("statements"):
+            # IH4 §7 item 6: which card the LLM read, its entries and what the budget left out of them.
+            trace["learner_statements"] = dict(policy_card["statements"])
+        if contested is not None:
+            # IH2 §5: a lesson offer against the boundary's follow-ups: the offer's declined branch is the follow-up.
+            trace["followup_contest"] = {"candidate_id": contested, "item_ids": list(by_id[contested].item_ids),
+                                         "offer_declined_branch": "the follow-up (it stays available)"}
         if calibration_tag(config):
             # RO5 §9 item 3 (Codex review F7): every active dated goal's frozen forecast, for the goal-date read,
             # whatever its distance; the policy comparison's uses keep only the window's.
@@ -1451,6 +1592,7 @@ class ObjectiveChooser(RouterChooser):
                 "boundary_key": entry.key, "support": list(support), "staged_ref": staged_ref, "k": settings["k"],
                 "epsilon": settings["epsilon_min"], "ties_only": settings["ties_only"], "effective_weights": effective,
                 "w": w, "failed": failed, "llm_distribution": llm_dist,
+                **_failure_rule_field(to_other),
                 "numeric_choice": numeric.choice if numeric_ok and numeric is not None else None,
                 "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                 "models": {name: result.summary() for name, result in sorted(results.items())},
@@ -1540,29 +1682,72 @@ class ObjectiveRestraintGate(RestraintGate):
     block now and as the current block's remaining questions with the follow-up at the next boundary. The Decider's
     ``P(yes)`` is logged as advice; refusals and ``wait_feasible = False`` stay deterministic."""
 
-    def decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool = True) -> RestraintOutcome:
+    def decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool = True,
+               offer: Any = None) -> RestraintOutcome:
+        """``offer`` (IH2, spec_instruct_handoff_v1 §5 item 3): the lesson offer this decision may hold (``offer.candidate``
+        None: none available, and ``offer.record`` says why). None: the predecessor's decision exactly."""
+
         refusals = self._refusals(item)
         if refusals:
             return self.declined(refusals)
         config = self.vault.config
         settings = router_settings(config)
         state, candidates = self._state(record, current, item)
+        lesson = getattr(offer, "candidate", None)
+        if lesson is not None:
+            return _with_offer_record(self._decide_with_lesson(record, current, item, state, candidates, lesson,
+                                                               wait_feasible=wait_feasible), offer)
         if not wait_feasible:
-            return self._no_room(state, candidates)
+            return _with_offer_record(self._no_room(state, candidates), offer)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
         identity = {"v": KEY_VERSION, "kind": "objective_interrupt", "plan_id": record.id, "block": current.id,
                     "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
                     "version": config.algorithms.algorithm_version, "settings": settings,
-                    "objective": objective_settings(config), "ready": ready}
+                    "objective": objective_settings(config), "ready": ready,
+                    **_preference_mark(self.repository, config)}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         topic = titles.get(item.learning_object_id, item.learning_object_id)
         options = [rq.BlockOption(INSERT_NOW, f"Ask the follow-up on {topic} now, inside the current block."),
                    rq.BlockOption(CONTINUE_CURRENT, "Finish the current block first; the follow-up then opens the next block.")]
         extra = [f"A follow-up question on {topic} came out of the learner's last answer."]
-        return self._mixed(state, candidates, key=key, readiness=readiness, ready=ready, topic=topic, options=options,
-                           extra=extra, seed=numeric_seed(identity))
+        return _with_offer_record(self._mixed(state, candidates, key=key, seed=numeric_seed(identity), readiness=readiness,
+                                              ready=ready, topic=topic, options=options, extra=extra), offer)
+
+    def _decide_with_lesson(self, record: Any, current: Any, item: Any, state: PlanState,
+                            candidates: list[BlockCandidate], lesson: BlockCandidate, *,
+                            wait_feasible: bool) -> RestraintOutcome:
+        """The need path's arms with the offer among them: a probability per option, the follow-up valued as its item
+        says (a probe's bundle, or a repair), the offer's "Not now" leading to the follow-up, which stays available."""
+
+        config = self.vault.config
+        settings = router_settings(config)
+        readiness = self.runtime.readiness(self.vault)
+        ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
+        insert, cont = candidates
+        support = [INSERT_NOW, *([CONTINUE_CURRENT] if wait_feasible else []), lesson.candidate_id]
+        identity = {"v": KEY_VERSION, "kind": "objective_interrupt_lesson", "plan_id": record.id, "block": current.id,
+                    "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
+                    "offer": lesson.log_row(), "support": support, "version": config.algorithms.algorithm_version,
+                    "settings": settings, "objective": objective_settings(config), "ready": ready,
+                    **_preference_mark(self.repository, config)}
+        key = _hash(identity)
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        topic = titles.get(item.learning_object_id, item.learning_object_id)
+        options = [rq.BlockOption(INSERT_NOW, f"Ask the follow-up on {topic} now, inside the current block."),
+                   *([rq.BlockOption(CONTINUE_CURRENT, "Finish the current block first; the follow-up then opens the "
+                                                       "next block.")] if wait_feasible else []),
+                   _offer_option(lesson, titles)]
+        rest = (cont,) if cont.item_ids else ()
+        sequences = {INSERT_NOW: (insert, *rest), CONTINUE_CURRENT: (*rest, insert),
+                     OI.OFFER_DECLINED_STEPS: (*rest, insert)}
+        return self._mixed(state, candidates, key=key, seed=numeric_seed(identity), readiness=readiness, ready=ready,
+                           topic=topic, options=options,
+                           extra=[f"A follow-up question on {topic} came out of the learner's last answer."],
+                           valued={INSERT_NOW: insert, CONTINUE_CURRENT: cont, lesson.candidate_id: lesson},
+                           support=support, sequences=sequences, start=self._start_choice,
+                           llm_schema=rq.LLM_POLICY_SCHEMA)
 
     def _no_room(self, state: PlanState, candidates: list[BlockCandidate]) -> RestraintOutcome:
         """``wait_feasible = False``: waiting would drop the follow-up from today's plan, so it joins now,
@@ -1630,7 +1815,8 @@ class ObjectiveRestraintGate(RestraintGate):
         numeric_ok = numeric.status == ANSWERED and numeric.choice in support
         failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
         w, weight_record = current_weight(self.repository, config, at=now_iso)
-        effective = mix.effective_weights(w, failed)
+        to_other = failure_share_to_other_policy_on(config)
+        effective = mix.effective_weights(w, failed, to_other_policy=to_other)
         parts = mix.components(support, INSERT_NOW, llm=llm_dist, numeric_ref=numeric.choice if numeric_ok else None)
         decision_id = new_ulid()
         seed = self.runtime.seed(entry.key, decision_id) if self.runtime.seed is not None else mix.seed_for(entry.key, decision_id)
@@ -1656,7 +1842,7 @@ class ObjectiveRestraintGate(RestraintGate):
             fallback_reasons={name: (llm.status if name == mix.LLM else numeric.status) for name in failed},
             mixture={"boundary_key": entry.key, "support": support, "staged_ref": INSERT_NOW, "k": len(support),
                      "epsilon": settings["epsilon_min"], "effective_weights": effective, "w": w, "failed": failed,
-                     "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
+                     **_failure_rule_field(to_other), "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
                      "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                      "models": {name: result.summary() for name, result in sorted(results.items())},
                      "rationale": {"text": rationale}},
@@ -1671,6 +1857,19 @@ class ObjectiveRestraintGate(RestraintGate):
             payloads=_payloads(results), objective_trace=trace, **_card_fields(card),
         )
         why = router_why.FOLLOWUP_WAITS if drawn.chosen == CONTINUE_CURRENT else ""
+        offer_drawn = values.get(drawn.chosen)
+        if offer_drawn is not None and offer_drawn.subtype == LESSON_OFFER_SUBTYPE:
+            # IH2 (spec_instruct_handoff_v1 §5 item 3): the offer page's words for this draw, under the block's guard.
+            _code, rule = _rule_sentence(offer_drawn, state)
+            cited = tuple(getattr(llm.parsed, "evidence_ids", ()) or ()) if llm_dist is not None else ()
+            guard = (router_why.rationale_guard(rationale, cited, {ref.attempt_id for ref in rq.evidence_from_card(card.json)})
+                     if rationale is not None else "absent")
+            if guard is None and drawn.component == mix.LLM and max(llm_dist, key=lambda ref: llm_dist[ref]) != drawn.chosen:
+                guard = "another_option"
+            why, why_kind = router_why.objective_why(drawn.component, rule, option_count=len(support), rationale=rationale,
+                                                     rationale_shown=drawn.component == mix.LLM and guard is None)
+            base["offer_why_kind"] = why_kind
+            base["lesson_offer_card"] = dict((offer_drawn.annotations or {}).get("lesson_offer") or {})
         return RestraintOutcome(drawn.chosen, 1.0 if drawn.deterministic else drawn.propensity, base, why=why)
 
     def _numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str,
@@ -1686,6 +1885,24 @@ class ObjectiveRestraintGate(RestraintGate):
                            clock=self.runtime.clock,
                            sequences={INSERT_NOW: (insert, cont), CONTINUE_CURRENT: (cont, insert)})
 
+    def _policy_state(self, card: Any, options: Sequence[Any], extra: Sequence[str], state_text: str) -> str:
+        """The LLM policy's state on a mid-block decision: the shared state, plus (IH4, §7 item 6) the learner's own
+        statements, for the LLM alone: the Decider's request keeps ``state_text``. None on record: ``state_text`` itself."""
+
+        from learnloop.clock import utc_now_iso
+        from learnloop.daily_plan.objective_card import statement_lines
+
+        config = self.vault.config
+        try:
+            lines = statement_lines(self.vault, self.repository, served_at=utc_now_iso(self.clock),
+                                    budget=int(config.router_objective.llm_card_token_budget))
+        except Exception:  # noqa: BLE001 - context never blocks the decision: the LLM reads what it read before
+            LOG.warning("router objective: the learner's statements were not read", exc_info=True)
+            return state_text
+        if not lines:
+            return state_text
+        return rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=[*extra, *lines])
+
     def _start_policy(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
                       options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
         """The two models' prefetch: the Decider's R2c restraint request (advice) and the LLM policy's v3 one."""
@@ -1695,6 +1912,7 @@ class ObjectiveRestraintGate(RestraintGate):
         options = list(options)
         state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
         material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
+        policy_state = self._policy_state(card, options, extra, state_text)
 
         def job(entry: Prefetch) -> None:
             from learnloop.daily_plan.router_chooser import _run_components
@@ -1703,7 +1921,7 @@ class ObjectiveRestraintGate(RestraintGate):
             repository = Repository.attach(self.repository.sqlite_path)
             with self.runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
                 decider_request = rq.RestraintRequest(topic=topic, state=state_text)
-                policy_request = rq.PolicyRequest(options=tuple(options), reference=options[1], state=state_text,
+                policy_request = rq.PolicyRequest(options=tuple(options), reference=options[1], state=policy_state,
                                                   restraint_topic=topic)
                 entry.request = decider_request
 
@@ -1726,6 +1944,58 @@ class ObjectiveRestraintGate(RestraintGate):
 
         return self.runtime.start(self.scope, key, kind="plan_interrupt", budget=float(config.router.prefetch_timeout_seconds),
                                   material=material, components=ready, job=job)
+
+
+    def _start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
+                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
+        """The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and
+        the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current
+        block's rest, the continuation ``π_Q``'s tail assumes)."""
+
+        config = self.vault.config
+        card = _build_card(self.card_builder, state, candidates)
+        options = list(options)
+        state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
+        material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
+        policy_state = self._policy_state(card, options, extra, state_text)
+        reference = rq.BlockOption(V.REFERENCE_REF, "the current block's remaining questions, then the plan's usual "
+                                                    "next step, with no follow-up question")
+
+        def job(entry: Prefetch) -> None:
+            from learnloop.daily_plan.router_chooser import _run_components
+            from learnloop.db.repositories import Repository
+
+            repository = Repository.attach(self.repository.sqlite_path)
+            with self.runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
+                decider_request = rq.RestraintRequest(topic=topic, state=state_text)
+                policy_request = rq.PolicyRequest(options=tuple(options), reference=reference, state=policy_state,
+                                                  evidence=tuple(rq.evidence_from_card(card.json)))
+                entry.request = decider_request
+
+                class _Both:
+                    """The Decider reads the R2c restraint request; the LLM policy its v3 choice over three."""
+
+                    question_set_version = decider_request.question_set_version
+                    llm_schema_version = policy_request.llm_schema_version
+                    decider_questions = decider_request.decider_questions
+                    llm_prompt = policy_request.llm_prompt
+                    state = state_text
+
+                _run_components(self.runtime, entry, self.vault, repository, _Both(),
+                                {DECIDER: lambda raw, _request: rq.parse_decider_restraint(raw),
+                                 LLM: lambda raw, _request: rq.parse_llm_policy(raw, policy_request)},
+                                card.card_hash)
+
+        return self.runtime.start(self.scope, key, kind="plan_interrupt", budget=float(config.router.prefetch_timeout_seconds),
+                                  material=material, components=ready, job=job)
+
+
+def _with_offer_record(outcome: RestraintOutcome, offer: Any) -> RestraintOutcome:
+    """IH2: the boundary's offer on the decision's record: its sensors, or why there was none (a ceiling bind logged)."""
+
+    if offer is not None and getattr(offer, "record", None):
+        outcome.record["lesson_offers"] = dict(offer.record)
+    return outcome
 
 
 # -- FG1's generated probe on the mix (RO4's open item 1, landing ruling R5 (1)) ------------------------------
@@ -1752,13 +2022,21 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
     (``followup_run.router._plan_context``)."""
 
     def decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool,
-                        facts: Sequence[str] = ()) -> RestraintOutcome:
+                        facts: Sequence[str] = (), offer: Any = None) -> RestraintOutcome:
+        """``offer`` (IH2, spec_instruct_handoff_v1 §5 item 3): the lesson offer this decision may hold; with one, the
+        support gains it, and no room to wait no longer makes the decision deterministic: ``{insert_now, lesson}``, a real
+        draw, before anything is generated. None, or no candidate in it: the predecessor's decision exactly."""
+
         state, candidates = self._followup_state(record, current, workflow)
         support = [INSERT_NOW, CONTINUE_CURRENT, NO_INTERVENTION]
+        lesson = getattr(offer, "candidate", None)
         offered = {"support": support if wait_feasible else [INSERT_NOW],
                    "workflow_id": workflow.get("id"), "version": "ro5_followup_objective_v2"}
-        if not wait_feasible:
-            outcome = self._no_room(state, candidates)
+        if lesson is not None:
+            support = [*(support if wait_feasible else [INSERT_NOW]), lesson.candidate_id]
+            offered["support"] = support
+        if not wait_feasible and lesson is None:
+            outcome = _with_offer_record(self._no_room(state, candidates), offer)
             outcome.record["objective_followup"] = offered
             return outcome
         config = self.vault.config
@@ -1768,7 +2046,11 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
         identity = {"v": KEY_VERSION, "kind": "objective_followup", "plan_id": record.id,
                     "workflow": workflow.get("id"), "block": current.id if current is not None else None,
                     "version": config.algorithms.algorithm_version, "settings": settings,
-                    "objective": objective_settings(config), "ready": ready}
+                    "objective": objective_settings(config), "ready": ready,
+                    # IH2: only with an offer in the support, so every other key keeps its bytes.
+                    **({"offer": lesson.log_row(), "as_of": _latest_attempt(self.repository)} if lesson is not None
+                       else {}),
+                    **_preference_mark(self.repository, config)}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         lo = str(workflow["learning_object_id"])
@@ -1790,54 +2072,23 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
                                                                   "follow-up question")
         valued = {INSERT_NOW: probe, CONTINUE_CURRENT: cont, NO_INTERVENTION: rest}
         sequences = {INSERT_NOW: (probe, cont), CONTINUE_CURRENT: (cont, probe), NO_INTERVENTION: (rest,)}
+        if lesson is not None:
+            options = [option for option in options if option.ref in support] + [_offer_option(lesson, titles)]
+            # IH2 §5 item 4: against a lesson the question that doesn't exist yet is valued by RO §8.1's probe bundle, on
+            # its LO (the kind and its terms are in the trace; no new number). A "Not now" leads back to it.
+            probe = replace(probe, annotations={**dict(probe.annotations or {}), OI.FOLLOWUP_PROBE_NOTE: True})
+            left = (cont,) if cont.item_ids else ()
+            valued = {INSERT_NOW: probe, lesson.candidate_id: lesson,
+                      **({CONTINUE_CURRENT: cont, NO_INTERVENTION: rest} if wait_feasible else {})}
+            sequences = {**({INSERT_NOW: (probe, *left)} if left else {}),
+                         **({CONTINUE_CURRENT: (cont, probe), NO_INTERVENTION: (rest,)} if wait_feasible else {}),
+                         OI.OFFER_DECLINED_STEPS: (*left, probe)}
         outcome = self._mixed(state, candidates, key=key, seed=numeric_seed(identity), readiness=readiness,
                               ready=ready, topic=topic, options=options, extra=extra, valued=valued, support=support,
-                              sequences=sequences,
-                              start=self._start_choice, llm_schema=rq.LLM_POLICY_SCHEMA)
+                              sequences=sequences, start=self._start_choice, llm_schema=rq.LLM_POLICY_SCHEMA)
+        outcome = _with_offer_record(outcome, offer)
         outcome.record["objective_followup"] = offered
-        return replace(outcome, wait_feasible=True)
-
-    def _start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str,
-                      options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...]) -> Prefetch:
-        """The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and
-        the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current
-        block's rest, the continuation ``π_Q``'s tail assumes)."""
-
-        config = self.vault.config
-        card = _build_card(self.card_builder, state, candidates)
-        options = list(options)
-        state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
-        material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
-        reference = rq.BlockOption(V.REFERENCE_REF, "the current block's remaining questions, then the plan's usual "
-                                                    "next step, with no follow-up question")
-
-        def job(entry: Prefetch) -> None:
-            from learnloop.daily_plan.router_chooser import _run_components
-            from learnloop.db.repositories import Repository
-
-            repository = Repository.attach(self.repository.sqlite_path)
-            with self.runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
-                decider_request = rq.RestraintRequest(topic=topic, state=state_text)
-                policy_request = rq.PolicyRequest(options=tuple(options), reference=reference, state=state_text,
-                                                  evidence=tuple(rq.evidence_from_card(card.json)))
-                entry.request = decider_request
-
-                class _Both:
-                    """The Decider reads the R2c restraint request; the LLM policy its v3 choice over three."""
-
-                    question_set_version = decider_request.question_set_version
-                    llm_schema_version = policy_request.llm_schema_version
-                    decider_questions = decider_request.decider_questions
-                    llm_prompt = policy_request.llm_prompt
-                    state = state_text
-
-                _run_components(self.runtime, entry, self.vault, repository, _Both(),
-                                {DECIDER: lambda raw, _request: rq.parse_decider_restraint(raw),
-                                 LLM: lambda raw, _request: rq.parse_llm_policy(raw, policy_request)},
-                                card.card_hash)
-
-        return self.runtime.start(self.scope, key, kind="plan_interrupt", budget=float(config.router.prefetch_timeout_seconds),
-                                  material=material, components=ready, job=job)
+        return replace(outcome, wait_feasible=wait_feasible)
 
     def _followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float:
         """The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on

@@ -172,6 +172,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `WITHHELD_EXAM`, `WITHHELD_RESERVED`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `withheld_items`; statically calls `withheld_items`
+- [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `PastWork`, `WITHHELD_UNREADABLE`; statically calls `PastWork`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `PastWork`, `Withheld`, `attempt_result`, `module`, `past_work_text`, `statement_text`; statically calls `PastWork`, `attempt_result`, `hypothesis_answers`, `past_work_text`, `statement_text`, `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `module`; statically calls `attempt_protection`, `withheld_items`
@@ -189,6 +190,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `WITHHELD_EXAM`, `WITHHELD_RESERVED`, `attempt_protection`, `withheld_items`; statically calls `attempt_protection`, `withheld_items`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `withheld_items`; statically calls `withheld_items`
+- [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `PastWork`, `hypothesis_answers`; statically calls `PastWork`, `hypothesis_answers`
 - [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `withheld_items`; statically calls `withheld_items`
 
@@ -215,7 +217,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] and 19 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] and 21 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -250,6 +252,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wording_an_ordinary_item_already_shows_is_no_match`
 - [tests/test_followups_batch6_review_fixes.py](../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
   - `test_f1_unreadable_protection_requeues_nothing_and_the_worker_fails_closed`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_protection_unreadable_hides_every_note`
 - [tests/test_learner_blindness_relax.py](../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_state_carries_no_stored_answer_and_unreadable_protection_carries_nothing`
 - [tests/test_learner_blindness_relax_codex_review.py](../../../../../tests/test_learner_blindness_relax_codex_review.py) — direct import
@@ -257,6 +261,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_data_relax_2.py](../../../../../tests/test_learner_data_relax_2.py) — direct import
   - `test_protection_unreadable_sends_no_answer_and_no_statement`
   - `test_protection_unreadable_withholds_reading_derived_gaps_too`
+- [tests/test_learner_protection_predicates.py](../../../../../tests/test_learner_protection_predicates.py) — direct import
+  - `test_a_predicate_that_fails_withholds_everything`
+  - `test_an_answer_graded_against_another_items_contract_has_no_pinned_question`
+  - `test_an_item_held_as_a_repairs_cold_retry_is_withheld_until_the_repair_ends`
+  - `test_an_ordinary_item_presented_as_a_probe_is_withheld`
 - [tests/test_mcp_c1a_landing.py](../../../../../tests/test_mcp_c1a_landing.py) — direct import
   - `test_a_statement_written_from_protected_work_is_withheld_by_both`
   - `test_no_reader_keeps_a_protection_of_its_own`

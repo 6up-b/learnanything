@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/decision_view.py"
 source_paths:
   - "src/learnloop/followup_run/decision_view.py"
-source_commit: "a01ecfbb27093bad0f8c7924a0558bfc49acbc22"
-source_commit_timestamp: "2026-11-04T01:43:14-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -50,18 +50,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py) |
-| Source lines | 105 |
+| Source lines | 107 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a01ecfbb27093bad0f8c7924a0558bfc49acbc22` |
-| Commit timestamp | `2026-11-04T01:43:14-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
+| Commit timestamp | `2026-11-09T12:16:08-05:00` |
 
 ## Public API
 
 - `show_router_decisions(vault: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 26)
-- `decision_view(repository: Repository, decision_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 47) — The line and its *details*, or None for a decision the ledger doesn't hold.
+- `decision_view(repository: Repository, decision_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 49) — The line and its *details*, or None for a decision the ledger doesn't hold.
 
 ### Module constants
 
@@ -80,7 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_parsed(value: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 30)
 - `_label(ref: str) -> str` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 39)
-- `_percent(value: float) -> str` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 43)
+- `_percent(value: float) -> str` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 45)
 
 ## Who imports or calls it
 

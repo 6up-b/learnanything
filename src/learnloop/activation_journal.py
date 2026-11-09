@@ -22,7 +22,8 @@ Reader CA2's ``learnloop.one_ask_upgrade`` (mvp-0.35), the kept replaced claims'
 ``learnloop.teacher_probes_upgrade`` (mvp-0.51), teacher TE3a's
 ``learnloop.lesson_opportunity_upgrade`` (mvp-0.52), teacher TE3b's
 ``learnloop.lesson_offers_upgrade`` (mvp-0.53), phone V3's
-``learnloop.phone_probes_upgrade`` (mvp-0.54) and the placement hole's
+``learnloop.phone_probes_upgrade`` (mvp-0.54), instruct hand-off IH5's
+``learnloop.failure_share_upgrade`` (mvp-0.55) and the placement hole's
 ``learnloop.unevidenced_return_upgrade`` (mvp-0.56), at the same path (the journal names its target; the installed completion is the
 chain's latest upgrade's, which hands an earlier link's journal to that link).
 A process

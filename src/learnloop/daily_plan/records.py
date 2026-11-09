@@ -161,6 +161,21 @@ class PlannedBlock:
         return self.subtype == LESSON_OFFER_SUBTYPE and self.reading is None
 
     @property
+    def interrupts(self) -> bool:
+        """IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson offer drawn after a miss with questions left in the block
+        below it: it comes first while it is open, and the block resumes after its answer."""
+
+        return self.is_lesson_offer and bool((self.chosen or {}).get("interrupts"))
+
+    @property
+    def followups_lost(self) -> tuple[str, ...]:
+        """IH2: the follow-ups this offer's draw beat: they wait while it is open, then a later decision has them."""
+
+        if not self.is_lesson_offer:
+            return ()
+        return tuple(str(item) for item in (self.chosen or {}).get("followups_lost") or ())
+
+    @property
     def withdrawn_path_reading(self) -> bool:
         """A path reading taken back unread (RW7b F1): a path switch turned off, or
         curriculum C1's fresh choice moved the plan's reading, before it was read. It
@@ -281,10 +296,33 @@ class PlanRecord:
         return max(self.budget - self.minutes_planned(), 0.0)
 
     def current_block(self) -> PlannedBlock | None:
-        for block in sorted(self.blocks, key=lambda b: b.ordinal):
-            if not block.finished:
-                return block
-        return None
+        ordered = sorted(self.blocks, key=lambda b: b.ordinal)
+        first = next((block for block in ordered if not block.finished), None)
+        if first is None or first.is_lesson_offer or any(item.served_at is not None and not item.resolved
+                                                         for item in first.items):
+            # IH2: an offer never comes over an open item (spec_instruct_handoff_v1 §4 item 7).
+            return first
+        # IH2: an offer drawn after a miss comes before the rest of the block it interrupted. None drawn so: ``first``.
+        return next((block for block in ordered if block.interrupts and not block.finished), first)
+
+    def block_below_offer(self) -> PlannedBlock | None:
+        """IH2: the unfinished block an open offer interrupted, or None. A follow-up arriving meanwhile joins it."""
+
+        return next((block for block in sorted(self.blocks, key=lambda b: b.ordinal)
+                     if not block.finished and not block.is_lesson_offer), None)
+
+    def followups_lost_to_open_offer(self) -> set[str]:
+        """IH2: what an unanswered offer's draw beat. No decision re-reads them until the offer is answered or passed."""
+
+        return {item for block in self.blocks if not block.finished for item in block.followups_lost}
+
+    def open_lesson_offer(self) -> PlannedBlock | None:
+        return next(iter(self.open_lesson_offers()), None)
+
+    def open_lesson_offers(self) -> list[PlannedBlock]:
+        """Every unanswered offer's block. At most one from IH2's tag (``engine._replace_open_offers``)."""
+
+        return [block for block in self.blocks if block.is_lesson_offer and not block.finished]
 
     def next_ordinal(self) -> int:
         return max((block.ordinal for block in self.blocks), default=0) + 1

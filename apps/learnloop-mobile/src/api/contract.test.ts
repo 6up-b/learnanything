@@ -77,6 +77,13 @@ const EXAMPLES: Record<Exclude<Wrapper, (typeof NOT_RPC)[number]>, ReadonlyArray
   followupShowAnyway: [() => phone.followupShowAnyway("a1")],
   // Mobile v2 V3.
   followupNext: [() => phone.followupNext("a1")],
+  planPrefetch: [() => phone.planPrefetch("s1")],
+  // Instruct hand-off IH3.
+  planSomethingElseOptions: [() => phone.planSomethingElseOptions("s1")],
+  planSomethingElse: [
+    () => phone.planSomethingElse({ sessionId: "s1", kind: "question", ref: "cand_1", surface: "phone_feedback", attemptId: "a1", noteMd: "A harder one.", preferenceId: "pref_1" }),
+    () => phone.planSomethingElse({ sessionId: "s1", kind: "lesson", ref: "lesson_offer:lo_1", surface: "phone_today", preferenceId: "pref_2" })
+  ],
   recordHypothesisExposure: [
     () => phone.recordHypothesisExposure({ attemptId: "a1", surface: "marks_feedback", hypothesisVersionIds: ["h1", "h2"], shownAt: "2026-11-06T12:00:00.000Z" })
   ],
@@ -161,6 +168,9 @@ const READS: Record<string, readonly string[]> = {
   followup_continue_without: ["continued"],
   followup_show_anyway: ["released"],
   followup_next: ["action", "line", "practiceItemId", "presentationId"],
+  plan_prefetch: [],
+  plan_something_else_options: ["enabled"],
+  plan_something_else: ["enabled"],
   record_hypothesis_exposure: ["recorded"],
   record_hypothesis_mark: ["recorded", "marks"],
   "practice.record_hint_reveal": ["recorded"],

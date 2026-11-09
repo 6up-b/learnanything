@@ -3,13 +3,13 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
   - "table attempt_diagnoses"
-schema_head: 250
+schema_head: 251
 table_name: "attempt_diagnoses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/hints/report_workbench.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/teacher/diagnosed_sources.py`
 - `src/learnloop/workbench/help_outcomes.py`
 
 ### Direct SQL writers
@@ -136,6 +137,7 @@ None found by exact static reference scan.
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_help_outcomes.py`
 - `tests/test_hint_feedback_texts.py`
+- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_learner_text_gaps_flow.py`
 - `tests/test_workbench_step_graph.py`
 - `tests/test_workbench_text_gaps.py`

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/objective_report.py"
 source_paths:
   - "src/learnloop/router_objective/objective_report.py"
-source_commit: "23b3b5d9482bdbd2652c8c50fb3e672f879d23f0"
-source_commit_timestamp: "2026-11-05T21:28:04-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -50,23 +50,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py) |
-| Source lines | 235 |
+| Source lines | 241 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `23b3b5d9482bdbd2652c8c50fb3e672f879d23f0` |
-| Commit timestamp | `2026-11-05T21:28:04-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
+| Commit timestamp | `2026-11-09T12:16:08-05:00` |
 
 ## Public API
 
 - `build(connection: Any, *, now: str, weight: Mapping[str, Any] | None=None, forecasts: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 37) — The report over every trace (``connection`` read-only; the traces table at migration 246).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 193)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 199)
 
 ### Module constants
 
 - `REPORT_VERSION` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 30)
-- `_POSTERIOR_MARK` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 136)
+- `_POSTERIOR_MARK` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 142)
 
 ### Explicit exports
 
@@ -79,9 +79,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_share(counter: Counter, total: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 33)
-- `_memory_model(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 139) — RO4's landing ruling R3, closed: what the rollouts' learning parameters and the memory combiner were, per decision, read from each trace's ``versions`` (``learning``: AD's fitted posterior moments of ``γ`` and the reading curve, or its priors; ``memory_model``: the combiner's ve…
-- `_kappa_seed(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 162) — Landing ruling R5: how each day's ``κ0`` seed was formed, counted over days (the first decision of a day that did not carry the day's seed), so the owner sees how often it fell back: floored at the last positive value, the tail's average marginal gain (accepted until RO5), or no…
-- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 188)
+- `_memory_model(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 145) — RO4's landing ruling R3, closed: what the rollouts' learning parameters and the memory combiner were, per decision, read from each trace's ``versions`` (``learning``: AD's fitted posterior moments of ``γ`` and the reading curve, or its priors; ``memory_model``: the combiner's ve…
+- `_kappa_seed(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 168) — Landing ruling R5: how each day's ``κ0`` seed was formed, counted over days (the first decision of a day that did not carry the day's seed), so the owner sees how often it fell back: floored at the last positive value, the tail's average marginal gain (accepted until RO5), or no…
+- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 194)
 
 ## Who imports or calls it
 

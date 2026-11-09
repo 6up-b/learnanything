@@ -126,6 +126,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+  - `test_over_budget_the_added_section_falls_to_the_outline_and_the_linked_one_stays_whole`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
 

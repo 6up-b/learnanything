@@ -94,6 +94,15 @@ def gap_for_source(connection: sqlite3.Connection, source_kind: str, source_id: 
     return found[0] if found else None
 
 
+def gaps_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> list[dict[str, Any]]:
+    """The learner texts read from one attempt (its answer, a stuck answer), in written order."""
+
+    if not gap_tables_present(connection):
+        return []
+    return _rows(connection, "SELECT * FROM learner_text_gaps WHERE attempt_id = ? ORDER BY created_at, id",
+                 (attempt_id,))
+
+
 def gaps(
     connection: sqlite3.Connection,
     *,

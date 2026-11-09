@@ -17,7 +17,7 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.params.parameter_registry import REGISTRY, classify_config_path
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_250" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_251" / "state.sqlite"
 TABLES = ("session_receipts", "decision_state_receipts", "goal_lifecycle_events")
 NEW_COLUMNS = {
     "question_events": {"reveal_state_json"},

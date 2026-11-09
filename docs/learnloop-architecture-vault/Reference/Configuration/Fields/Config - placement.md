@@ -3,8 +3,8 @@ title: "Config - placement"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c20dbbda42a9937c118c66f6755c0136f1be9454"
-source_commit_timestamp: "2026-11-09T12:03:19-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml placement"
@@ -56,7 +56,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `placement.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for F2 placement at mvp-0.11 and later; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3859`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/state.py:140` |
 | `placement.initial_probes` | `false` | boolean | modeled default or validator seed | Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3862`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/state.py:167` |
-| `placement.unevidenced_return` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.56: an answered item with no due time, on an LO with no evidence, starts as learning under placement; off (or below the tag) serves mvp-0.54 exactly. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3866`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/state.py:228` |
+| `placement.unevidenced_return` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.56: an answered item with no due time, on an LO with no evidence, starts as learning under placement; off (or below the tag) serves mvp-0.55 exactly. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3866`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/state.py:228` |
 | `placement.assumed_first_interval_days` | `14` | integer | modeled default or validator seed | Days from an assumed-known decision to its first review, which is the check (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3868`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/decisions.py:125` |
 | `placement.fast_track_min_correct` | `2` | integer | modeled default or validator seed | Clean full-marks first answers fast-track needs before the probability test (D6, at least 2). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3870`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/decisions.py:361` |
 | `placement.fast_track_q` | `0.8` | number | modeled default or validator seed | Probability the active predictor must give that the LO's ability exceeds the known threshold (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3872`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/decisions.py:121` |

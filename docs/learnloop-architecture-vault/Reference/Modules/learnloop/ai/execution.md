@@ -316,6 +316,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt`
+  - `test_a_rejected_request_keeps_its_status_and_redacted_error_on_the_receipt`
+  - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
+  - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
   - `test_receipt_carries_body_usage_cost_model_and_labels`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_inside_an_automatic_builds_request_gate_the_span_check_is_admitted_and_settled`

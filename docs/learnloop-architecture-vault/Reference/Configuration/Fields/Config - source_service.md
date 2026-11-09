@@ -3,8 +3,8 @@ title: "Config - source_service"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "c8ed55f10b84fdce46fada919c39e9004aabff65"
+source_commit_timestamp: "2026-11-09T12:16:08-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_service"
@@ -33,11 +33,11 @@ source_paths:
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/router_mixture_helpers.py"
   - "tests/router_model_fakes.py"
   - "tests/rw5c_fixtures.py"
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
-  - "tests/test_action_loss.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -92,11 +92,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/router_mixture_helpers.py`
 - `tests/router_model_fakes.py`
 - `tests/rw5c_fixtures.py`
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
-- `tests/test_action_loss.py`
 
 ## Extension and modification guidance
 

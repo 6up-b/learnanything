@@ -160,6 +160,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_arm_values_with_the_nat_scale_when_no_decision_is_at_stake`
 - [tests/test_interval_width_viability.py](../../../../../../tests/test_interval_width_viability.py) — direct import
   - `test_heuristic_width_keeps_abstention_within_budget`
+- [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import
+  - `test_each_bound_is_repeatable_for_its_own_seed`
+  - `test_the_bound_stays_inside_its_limits_on_every_seed_and_mass_with_it`
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — direct import
   - `test_mvp08_mastery_reliability_sources_certainty_lcb`
 - [tests/test_probe_robust_cutover.py](../../../../../../tests/test_probe_robust_cutover.py) — direct import

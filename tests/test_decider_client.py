@@ -39,7 +39,7 @@ def client_for(server, monkeypatch, *, api="openrouter", key_env=None, model=Non
 
 
 def test_request_body_holds_exactly_model_state_and_typed_questions():
-    body = request_body("perplexity/pplx-decider-v1.1-27b", {"review": "text"}, QUESTIONS)
+    body = request_body("perplexity/pplx-decider-v1.2", {"review": "text"}, QUESTIONS)
     assert set(body) == {"model", "state", "questions"}
     assert body["questions"]["defect"] == {
         "type": "noul", "instructions": "Does the review report a defect?",
@@ -85,7 +85,7 @@ def test_openrouter_dialect_posts_the_typed_request_and_parses_typed_answers(mon
     request = server.requests[0]
     assert request["path"] == "/api/alpha/decisions"
     assert set(request["body"]) == {"model", "state", "questions"}
-    assert request["body"]["model"] == "perplexity/pplx-decider-v1.1-27b"
+    assert request["body"]["model"] == "perplexity/pplx-decider-v1.2"
     assert request["headers"]["Authorization"] == "Bearer test-key"
     assert request["headers"]["X-Title"] == "LearnLoop"
     assert isinstance(result.answers["defect"], NoulAnswer) and result.answers["defect"].p_yes == 0.73
@@ -94,7 +94,7 @@ def test_openrouter_dialect_posts_the_typed_request_and_parses_typed_answers(mon
     assert set(choice.probabilities) == {"positive", "mixed", "negative"}
     score = result.answers["severity"]
     assert isinstance(score, ScoreAnswer) and set(score.probabilities) == {0, 1, 2} and score.score == 1.0
-    assert result.model == "perplexity/pplx-decider-v1.1-27b-20261006"
+    assert result.model == "perplexity/pplx-decider-v1.2-20261016"
     assert result.provider == "Perplexity" and result.response_id == "gen-dec-1"
     assert result.cost is not None and result.input_tokens > 0
 
@@ -105,9 +105,9 @@ def test_perplexity_dialect_uses_its_path_key_and_model(monkeypatch):
         result = client.decide("A review.", {"q": NoulQuestion("Is it a review?")}, purpose="test")
     request = server.requests[0]
     assert request["path"] == "/v1/decisions"
-    assert request["body"]["model"] == "pplx-decider-v1.1-27b"
+    assert request["body"]["model"] == "pplx-decider-v1.2"
     assert "X-Title" not in request["headers"]
-    assert result.model == "pplx-decider-v1.1-27b" and result.cost is None
+    assert result.model == "pplx-decider-v1.2" and result.cost is None
 
 
 def test_fake_endpoint_answers_400_to_an_unknown_field_and_the_client_never_sends_one(monkeypatch):
@@ -228,7 +228,7 @@ def test_receipt_carries_body_usage_cost_model_and_labels(monkeypatch):
     assert "test-key" not in json.dumps(start)
     assert finish["status"] == "completed"
     assert finish["input_tokens"] > 0 and finish["output_tokens"] == 3 and finish["cost"] > 0
-    assert finish["resolved_model"].endswith("-20261006") and finish["provider_response_id"] == "gen-dec-1"
+    assert finish["resolved_model"].endswith("-20261016") and finish["provider_response_id"] == "gen-dec-1"
 
 
 def test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt(monkeypatch):
@@ -246,15 +246,81 @@ def test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt(monkeypatch):
     assert finish["status"] == "failed" and finish["input_tokens"] == 9 and finish["cost"] == 1e-7
 
 
+def test_a_rejected_request_keeps_its_status_and_redacted_error_on_the_receipt(monkeypatch):
+    """Decider v1.2 review: a dead route (OpenRouter's 404) must be readable from receipts."""
+
+    events = []
+
+    def no_endpoints(body):
+        return 404, {"error": {"message": f"No endpoints found for {body['model']} (key test-key, "
+                                          "Bearer abc.def, sk-or-v1-0123456789abcdef)", "code": 404}}, {}
+
+    with fake_decisions(respond=no_endpoints) as server:
+        client = client_for(server, monkeypatch)
+        with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
+            with pytest.raises(DecisionRequestFailed, match="HTTP 404: No endpoints found") as failed:
+                client.decide("s", {"q": NoulQuestion("q")}, purpose="test")
+    finish = events[-1][1]
+    assert failed.value.status == 404
+    assert finish["status"] == "failed" and finish["error_type"] == "DecisionRequestFailed"
+    assert finish["finish_reason"] == "http_404"
+    assert finish["output_text"].startswith("No endpoints found for perplexity/pplx-decider-v1.2 ")
+    assert finish.get("input_tokens") is None and finish.get("cost") is None
+    for leaked in ("test-key", "abc.def", "sk-or-v1", "0123456789abcdef"):
+        assert leaked not in finish["output_text"] and leaked not in str(failed.value)
+
+
+def test_an_unreachable_endpoint_is_recorded_as_network_without_a_status(monkeypatch):
+    events = []
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    def down(*_args):
+        raise AIProviderUnavailable("Decision endpoint unreachable (TimeoutError)")
+
+    client = DeciderProviderClient("test_decider", DeciderProviderConfig(api="openrouter"), http=down)
+    with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
+        with pytest.raises(AIProviderUnavailable):
+            client.decide("s", {"q": NoulQuestion("q")}, purpose="test")
+    finish = events[-1][1]
+    assert finish["status"] == "failed" and finish["finish_reason"] == "network"
+    assert finish["output_text"] == "Decision endpoint unreachable (TimeoutError)"
+
+
+def test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller(monkeypatch):
+    """Codex review F5: the propagated exception carries the receipt's redacted text."""
+
+    events = []
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-key-123")
+
+    def leaky(*_args):
+        raise AIProviderUnavailable("proxy refused synthetic-key-123 with Bearer abc")
+
+    client = DeciderProviderClient("test_decider", DeciderProviderConfig(api="openrouter"), http=leaky)
+    with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
+        with pytest.raises(AIProviderUnavailable) as raised:
+            client.decide("s", {"q": NoulQuestion("q")}, purpose="test")
+    assert str(raised.value) == "proxy refused [redacted] with [redacted]"
+    assert raised.value.__cause__ is None and raised.value.__suppress_context__
+    assert events[-1][1]["output_text"] == str(raised.value)
+
+
+def test_redaction_keeps_slugs_and_drops_key_shapes():
+    from learnloop.ai.providers.decider import redact_key_like
+
+    text = "perplexity/pplx-decider-v1.2-20261016 Bearer xyz sk-abcdefgh " + "a" * 40
+    assert redact_key_like(text) == "perplexity/pplx-decider-v1.2-20261016 [redacted] [redacted] [redacted]"
+    assert redact_key_like("my secret short", ("secret",)) == "my [redacted] short"
+
+
 def test_settings_resolve_from_the_dialect():
     openrouter = resolved_decider_settings(openrouter_decider_provider())
     assert openrouter.url == "https://openrouter.ai/api/alpha/decisions"
     assert openrouter.api_key_env == "OPENROUTER_API_KEY"
-    assert openrouter.model == "perplexity/pplx-decider-v1.1-27b"
+    assert openrouter.model == "perplexity/pplx-decider-v1.2"
     assert openrouter.price_per_million_input == 0.02
     direct = resolved_decider_settings(DeciderProviderConfig(api="perplexity"))
     assert direct.url == "https://api.perplexity.ai/v1/decisions"
-    assert (direct.api_key_env, direct.model) == ("PERPLEXITY_API_KEY", "pplx-decider-v1.1-27b")
+    assert (direct.api_key_env, direct.model) == ("PERPLEXITY_API_KEY", "pplx-decider-v1.2")
 
 
 def test_probe_reads_the_free_listing_without_a_key():
@@ -263,7 +329,7 @@ def test_probe_reads_the_free_listing_without_a_key():
     def http(method, url, headers, body, timeout):
         seen.append((method, url, dict(headers), body))
         return 200, {}, json.dumps({"data": {
-            "id": "perplexity/pplx-decider-v1.1-27b",
+            "id": "perplexity/pplx-decider-v1.2",
             "architecture": {"output_modalities": ["decisions"]},
             "endpoints": [{"provider_name": "Perplexity", "status": 0, "pricing": {"prompt": "0.00000002"}}],
         }}).encode()
@@ -272,7 +338,7 @@ def test_probe_reads_the_free_listing_without_a_key():
     assert result["reachable"] is True and result["endpoints"][0]["provider"] == "Perplexity"
     method, url, headers, body = seen[0]
     assert method == "GET" and body is None and "Authorization" not in headers
-    assert url == "https://openrouter.ai/api/v1/models/perplexity/pplx-decider-v1.1-27b/endpoints"
+    assert url == "https://openrouter.ai/api/v1/models/perplexity/pplx-decider-v1.2/endpoints"
     chat_only = probe_decider_endpoint(
         openrouter_decider_provider(),
         http=lambda *a: (200, {}, json.dumps({"data": {"architecture": {"output_modalities": ["text"]}, "endpoints": []}}).encode()),

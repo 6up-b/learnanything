@@ -132,6 +132,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_data_capture_report.py](../../../../../../tests/test_data_capture_report.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 
 ## Modification guidance

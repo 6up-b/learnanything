@@ -407,6 +407,16 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
                       release=wf.RELEASE_NO_INTERVENTION, lane=wf.LANE_PROBE, clock=clock)
             router.record_outcome(repository, row, decision, outcome="no_intervention", clock=clock)
         return
+    if decision.lesson_offer:
+        # IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson won before anything was generated, so nothing is. What was
+        # held is released now, so nobody waits on a question nobody will serve; a later decision has the follow-up once
+        # the offer is answered or passed (``daily_plan.engine._settle_lost_followups``).
+        with repository.atomic():
+            wf.lose_to_lesson(repository, row, offer_ref=decision.chosen_ref, offer_decision_id=decision.decision_id,
+                              clock=clock)
+            wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, decision_id=decision.decision_id, clock=clock)
+            router.record_outcome(repository, row, decision, outcome="lesson_offer", clock=clock)
+        return
     if decision.wait:
         # §6.0: released now, and the later probe is labelled exposed, so it can't resolve the cause.
         wf.release_feedback(repository, workflow_id, reason=wf.RELEASE_WAIT, exposed=True, clock=clock)

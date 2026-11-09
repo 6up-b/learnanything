@@ -246,6 +246,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_ad23_sim.py](../../../../../../tests/test_ad23_sim.py) — imports consumer [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]]
+- [tests/test_ad23_sim_smoke.py](../../../../../../tests/test_ad23_sim_smoke.py) — imports consumer [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]]
 
 ## Modification guidance
 

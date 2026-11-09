@@ -153,6 +153,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_head_fixture_is_at_head_in_rollback_mode`
 - [tests/test_card_lineage.py](../../../../../../tests/test_card_lineage.py) — direct import
 - [tests/test_commitments.py](../../../../../../tests/test_commitments.py) — direct import
+- [tests/test_connection_reuse.py](../../../../../../tests/test_connection_reuse.py) — direct import
+  - `test_a_copied_fresh_schema_matches_a_built_one_and_stamps_this_builds_clock`
+  - `test_the_durability_lane_builds_every_fresh_schema_for_real`
 - [tests/test_coordinated_migrations.py](../../../../../../tests/test_coordinated_migrations.py) — direct import
   - `test_a_bare_repository_refuses_to_upgrade_and_leaves_the_database_as_it_was`
   - `test_a_bare_repository_still_creates_a_database_and_attaches_a_current_one`
@@ -223,6 +226,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_242_is_applied_and_its_tables_have_their_roles`
   - `test_242_on_the_durability_lane`
   - `test_the_head_fixture_holds_242_in_rollback_mode_with_empty_tables`
+- [tests/test_ih3_migration.py](../../../../../../tests/test_ih3_migration.py) — direct import
+  - `test_it_adds_the_table_its_indexes_and_triggers_and_nothing_else`
+  - `test_it_applies_under_production_pragmas`
+  - `test_the_head_fixture_holds_it_in_rollback_mode`
+  - `test_the_migration_is_the_head_and_the_table_is_a_raw_ledger`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_judgment_ledger_accepts_the_decider_with_provenance`
@@ -320,6 +328,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_head_fixture_holds_250_in_rollback_mode`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
+- [tests/test_narrative_rollback_overlap.py](../../../../../../tests/test_narrative_rollback_overlap.py) — direct import
 - [tests/test_persistence_open.py](../../../../../../tests/test_persistence_open.py) — direct import
   - `test_repository_attach_can_open_a_writable_scratch_copy`
   - `test_repository_attach_skips_migrations_and_can_be_physically_read_only`

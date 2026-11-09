@@ -24,7 +24,7 @@ tags:
 | Change | Primary authority | Then inspect |
 |---|---|---|
 | scoring/evidence interpretation | [[Learning System]] and `attempts/` | [[Algorithm Versions and Reproducibility]], [[Attempt Processing]] |
-| next-item policy | [[Scheduling and Selection]] and `scheduling/` | scheduler goldens, controller/constraint modules |
+| what to serve next | the plan engine (`daily_plan/engine.py`) and the router's choice (`daily_plan/objective_chooser.py`, `router_objective/`); `scheduling/` only builds the FSRS due queue (`scheduling/scheduler.py`, `build_due_queue`) | [[LearnLoop Pipeline Map]], the table below |
 | provider or route | [[AI Architecture]] | `ai/routing.py`, provider profile config, parity tests |
 | a structured AI operation | owning domain `ai_contracts.py` | [[ADR-002 Feature-owned structured AI contracts]] |
 | new persistent state | [[State and Persistence]] | table role, write owner, migration, rebuild tests |
@@ -32,6 +32,26 @@ tags:
 | CLI command | `cli/` public domain API | help snapshot and adapter-independence tests |
 | desktop screen or RPC | [[Desktop Architecture]] and [[Desktop Module Catalog]] | DTO, Rust command registration, sidecar method, serializer/RPC contract tests |
 | compatibility behavior | `substrate/compat/` | fixture-backed explicit decision |
+
+## Where to change what
+
+The sample changes from the refactor strategy's success measures (`docs/specs/refactor_strategy_v3.md` §6), with where each lives in the code today and the plumbing it also costs today. Paths are under `src/learnloop/`. The refactor moves several of these; each step that does updates its row.
+
+| Change | Where it lives today | Plumbing it also costs today |
+|---|---|---|
+| A threshold or default (the router's `timeout_seconds`) | its field in `config/schema.py` (`RouterConfig`) | 46 frozen digests in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`), the test files that read them, one generated config note |
+| A seed or prior | as a default, in `config/schema.py` | the same digests |
+| A model route | `ai/routing.py` (task and operation names), the route's default in `config/schema.py` | the digests |
+| A prompt | its own module, with its prompt version bumped | a golden for each switch-off parity test |
+| A new table | a file in `migrations/`, its role in `db/table_roles.py` (a `DERIVED` table also needs a replayer in `substrate/rebuild_orchestrator.py`), its role in `adaptive_difficulty/protected_tables.py` (`ROLES`, `COLUMNS`) when an AD operation reads it, its store under `db/stores/` | the head fixture `fixtures/migration_head_<N>/` renamed and every file naming its path updated (see `CLAUDE.md`), the generated database notes |
+| A new algorithm tag | `algorithm_versions.py` (`SUCCESSOR_CHAIN`), a root `*_upgrade.py` module, the upgrade dispatch in `cli/app.py`; follow `docs/algorithm-change-playbook.md` | frozen `*_VERSIONS` sets and "latest" pins in the successor tests, the digests |
+| What to serve next | `daily_plan/engine.py` (the plan), `daily_plan/objective_chooser.py` (`_decide_objective`: the draw, the coin, the trace) | |
+| A term of the router's objective | `router_objective/value.py` (`_terms`) | |
+| The rule that mixes the LLM and numeric policies | `router_objective/mix.py` | |
+| An action the router can choose | spread: `daily_plan/lesson_offer.py`, `daily_plan/types.py`, `records.py`, `view.py`, `daily_plan/objective_chooser.py` (its trace), `router/plan_log.py`, `requests.py`, `why.py` | about 20 files for a lesson-offer-shaped action |
+| A sensor the router reads | `daily_plan/objective_inputs.py`, `daily_plan/router_card.py`, `router/card.py`, `router_objective/trace.py`, `decision_state.py`, `tail_data.py` | two destinations with no shared definition |
+| A new signal to model contexts | each context builder separately: `diagnosis/split/context.py`, `tutor/tutor_qa.py`, `daily_plan/router_card.py`, `hints/service.py` | input hashes that include the context |
+| A new step in a pipeline | the pipeline's own seam: [[Content Pipeline]] for ingest, [[LearnLoop Pipeline Map]] for grading, diagnosis and the plan | |
 
 ## Safe change sequence
 

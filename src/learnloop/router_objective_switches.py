@@ -40,6 +40,7 @@ from typing import Any
 from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_VERSIONS,
     LESSON_OFFERS_VERSIONS,
+    FAILURE_SHARE_VERSIONS,
     ROUTER_CALIBRATION_VERSIONS,
     ROUTER_FOLLOWUPS_VERSIONS,
     ROUTER_LEARNED_TAIL_VERSIONS,
@@ -307,6 +308,12 @@ FOLLOWUP_SWITCHES: tuple[str, ...] = (*FOLLOWUP_GENERATOR_SWITCHES, "carried_in_
 #: (``objective_chooser.numeric_seed``): whatever they are, its draws are main's. They stay in the prefetch key, the
 #: generator payload and ``serving_switches``.
 SEED_NEUTRAL_SWITCHES: tuple[str, ...] = ("held_reading_map", "pooled_connections")
+#: IH4 (spec_instruct_handoff_v1 §7): what the boundary identity names only so a new preference, or a flip, starts a new
+#: job, and that moves no value at a fixed draw count (``w_pref`` at 0 and no acceptance row changes nothing, bit for
+#: bit): the switch in ``objective_settings`` and the ledger's mark beside it. ``objective_chooser.numeric_seed`` takes
+#: both out, as it takes :data:`SEED_NEUTRAL_SWITCHES` out of the follow-up batch's snapshot.
+SEED_NEUTRAL_OBJECTIVE_KEYS: tuple[str, ...] = ("preferences_inform_router",)
+SEED_NEUTRAL_IDENTITY_KEYS: tuple[str, ...] = ("preferences",)
 
 
 def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
@@ -342,6 +349,90 @@ def lesson_offers_on(config: Any) -> bool:
                 and getattr(teacher, "enabled", False))
 
 
+def failure_share_tag(config: Any) -> bool:
+    """Instruct hand-off IH5 (spec_instruct_handoff_v1 §7a): the vault is at the failure-share successor (mvp-0.55)
+    or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in FAILURE_SHARE_VERSIONS
+
+
+def failure_share_to_other_policy_on(config: Any) -> bool:
+    """IH5: a failed policy's share of the objective's mix goes to the other policy, not staged: the tag, the
+    objective serving and ``[router_objective] failure_share_to_other_policy`` (default true). Off, or below the tag,
+    mvp-0.54's mix exactly."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and objective_on(config) and bool(
+        getattr(section, "failure_share_to_other_policy", False))
+
+
+def lessons_compete_with_followups_on(config: Any) -> bool:
+    """IH2 (spec_instruct_handoff_v1 §5, the same unreleased tag as IH5): a lesson offer and a follow-up compete in one
+    logged decision wherever a lesson is available: the tag, lesson offers on (:func:`lesson_offers_on`: the objective
+    serving and TE1b's suggestions) and ``[router_objective] lessons_compete_with_followups`` (default true). Off, or
+    below the tag, mvp-0.54's boundary exactly: forced items keep offers out and take a drawn one back."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and lesson_offers_on(config) and bool(
+        getattr(section, "lessons_compete_with_followups", False))
+
+
+def learner_preferences_on(config: Any) -> bool:
+    """IH3 (spec_instruct_handoff_v1 §6, the same unreleased tag as IH5): the learner may name what would help and have
+    it served: the tag and ``[router_objective] learner_preferences`` (default true). It needs no lesson offers and no
+    objective: the options are whatever the plan can serve. Off, or below the tag, there is no link, nothing is served
+    through it and no preference is written, as mvp-0.54."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and bool(getattr(section, "learner_preferences", False))
+
+
+def workbench_is_open_item_on(config: Any) -> bool:
+    """IH6 (spec_instruct_handoff_v1 §7b, the same unreleased tag as IH5): an open workbench is an open item for the plan:
+    the tag, the workbench itself on (off, nothing can resume the problem, so it holds nothing) and
+    ``[router_objective] workbench_is_open_item`` (default true). It needs no objective: any chooser's boundary crosses on
+    a read. Off, or below the tag, mvp-0.54's reads exactly."""
+
+    section = getattr(config, "router_objective", None)
+    workbench = getattr(config, "workbench", None)
+    return failure_share_tag(config) and bool(getattr(workbench, "enabled", False)) and bool(
+        getattr(section, "workbench_is_open_item", False))
+
+
+def lesson_sources_follow_diagnosis_on(config: Any) -> bool:
+    """IH7 (spec_instruct_handoff_v1 §7c, the same unreleased tag as IH5): a lesson opened from an offer or a suggestion
+    reads the sections matching the diagnosed confusion beside the topic's linked ones: the tag and ``[router_objective]
+    lesson_sources_follow_diagnosis`` (default true). It needs no objective: it changes what a lesson reads, never what
+    the router decides. Off, or below the tag, the brief is mvp-0.54's, byte for byte."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and bool(getattr(section, "lesson_sources_follow_diagnosis", False))
+
+
+def lesson_candidate_after_cold_miss_on(config: Any) -> bool:
+    """The owner's decision 4 of Nov 9 (spec_instruct_handoff_v1 §8, the same unreleased tag as IH5): a topic with a missed
+    cold check since its last lesson is a lesson candidate, with no threshold on the miss's size, count or error type (the
+    router, the diagnosis and the teacher then decide through the algorithm), and its reason says when ("On Nov 3, a check
+    on it wasn't fully right."): the tag and ``[router_objective] lesson_candidate_after_cold_miss`` (default true). It needs no
+    objective: it says what is offerable wherever lesson candidates are built (an offer, TE1b's card, IH3's options). Off,
+    or below the tag, mvp-0.54's ``cold_failing`` rule (the two latest cold checks below full) and its wording exactly."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and bool(getattr(section, "lesson_candidate_after_cold_miss", False))
+
+
+def preferences_inform_router_on(config: Any) -> bool:
+    """IH4 (spec_instruct_handoff_v1 §7, the same unreleased tag as IH5): what the learner said would help informs the
+    objective's non-LLM parts and its LLM card: the tag, the objective serving and ``[router_objective]
+    preferences_inform_router`` (default true). Staged reads nothing, whatever this says. Off, or below the tag, the
+    acceptance model, the numeric policy, the trace and the card are the predecessor's exactly, and a preference
+    freezes no inputs for them."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and objective_on(config) and bool(getattr(section, "preferences_inform_router", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -366,10 +457,16 @@ __all__ = [
     "fitted_models_on",
     "FOLLOWUP_GENERATOR_SWITCHES",
     "FOLLOWUP_SWITCHES",
+    "SEED_NEUTRAL_IDENTITY_KEYS",
+    "SEED_NEUTRAL_OBJECTIVE_KEYS",
     "SEED_NEUTRAL_SWITCHES",
     "followup_generator_switches",
     "followup_switch_snapshot",
+    "failure_share_tag",
+    "failure_share_to_other_policy_on",
     "followup_on",
+    "learner_preferences_on",
+    "lessons_compete_with_followups_on",
     "lesson_offers_on",
     "lesson_offers_tag",
     "monotone_combiner_on",
@@ -379,6 +476,10 @@ __all__ = [
     "learned_tail_tag",
     "pick_open_share",
     "stop_coin_rate",
+    "workbench_is_open_item_on",
+    "lesson_sources_follow_diagnosis_on",
+    "lesson_candidate_after_cold_miss_on",
+    "preferences_inform_router_on",
     "known_at",
     "objective_on",
     "objective_scores_on",

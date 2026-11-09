@@ -91,7 +91,8 @@ def _history(connection: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
             if isinstance(v_tilde, (int, float)) and isinstance(v_res, (int, float)) and v_tilde:
                 shares.append(abs(float(w_hat or 0.0) * float(v_res)) / abs(float(v_tilde)))
         tie = ((trace.get("policies") or {}).get("numeric") or {}).get("tie") or {}
-        if tie.get("tail_argmax") is not None and tie.get("argmax") != tie.get("tail_argmax"):
+        # (IH4: the residual's own move, before any shift by w_pref)
+        if tie.get("tail_argmax") is not None and tie.get("before_preferences_argmax", tie.get("argmax")) != tie.get("tail_argmax"):
             moved += 1
     history = [{"local_date": day, "decisions": len(rows), "w_hat_first": rows[0]["w_hat"], "w_hat_last": rows[-1]["w_hat"],
                 "contrasts": rows[-1]["n"], "slope_mean": rows[-1]["slope_mean"], "slope_sd": rows[-1]["slope_sd"],

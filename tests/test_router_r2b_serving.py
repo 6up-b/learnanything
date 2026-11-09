@@ -133,7 +133,7 @@ def test_each_mixture_decision_stores_its_card_both_requests_and_both_raw_answer
         assert {"card", "decider_request", "decider_response", "llm_request", "llm_response"} <= set(stored)
         assert stored["card"]["content_hash"] == row["card_hash"]
         assert row["question_set_version"] == "router_qs_v2"
-        assert row["model_ids_json"]["decider"] == "perplexity/pplx-decider-v1.1-27b"
+        assert row["model_ids_json"]["decider"] == "perplexity/pplx-decider-v1.2"
         assert row["model_ids_json"]["llm_schema_version"] == "router_llm_v2"
         sensors = row["sensor_answers_json"]
         assert set(sensors) == {"decider", "llm"}

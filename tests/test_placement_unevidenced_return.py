@@ -18,8 +18,8 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
+    FAILURE_SHARE_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
-    PHONE_PROBES_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     UNEVIDENCED_RETURN_VERSIONS,
@@ -44,7 +44,7 @@ from tests.daily_plan_fakes import make_env, scheduled
 from tests.helpers import NOW, append_config_toml, create_basic_vault, create_placement_vault, set_algorithm_version
 
 TAG = UNEVIDENCED_RETURN_ALGORITHM_VERSION
-OLD = PHONE_PROBES_ALGORITHM_VERSION
+OLD = FAILURE_SHARE_ALGORITHM_VERSION
 ITEM, LO, SIBLING = "pi_spec_easy", "lo_spectral", "pi_spec_hard"
 OFF = "[placement]\nunevidenced_return = false\n"
 
@@ -65,7 +65,7 @@ def drop_unevidenced_return_keys(dumped: dict) -> dict:
 
 
 def test_the_successor_is_one_constant_after_its_predecessor_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.54"
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.55"
     assert TAG == "mvp-0.56" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
     assert UNEVIDENCED_RETURN_VERSIONS == frozenset({TAG})
 
@@ -408,7 +408,7 @@ def test_the_openers_install_this_links_completion():
 
     assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.phone_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
+    assert "learnloop.failure_share_upgrade import complete_interrupted_activation" in inspect.getsource(
         unevidenced_return_upgrade)
 
 

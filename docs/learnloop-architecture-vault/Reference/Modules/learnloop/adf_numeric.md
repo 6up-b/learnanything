@@ -96,6 +96,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] — imports `adf_update`, `normalized_log_weights`; statically calls `adf_update`, `normalized_log_weights`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `NODES`, `WEIGHTS`, `adf_update`, `gaussian_sigmoid_mean`, `logit`, `normalized_log_weights`, `sigmoid`; statically calls `adf_update`, `gaussian_sigmoid_mean`, `logit`, `normalized_log_weights`, `sigmoid`
 - [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] — imports `adf_update`, `gaussian_sigmoid_mean`, `normalized_log_weights`, `sigmoid`; statically calls `adf_update`, `gaussian_sigmoid_mean`, `normalized_log_weights`, `sigmoid`
+- [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `adf_update`, `gaussian_sigmoid_mean`, `sigmoid`; statically calls `adf_update`, `gaussian_sigmoid_mean`, `sigmoid`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `sigmoid`; statically calls `sigmoid`
 
 ## Dependencies
@@ -116,7 +117,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]], [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]], [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]], [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]], [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

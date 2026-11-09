@@ -8631,6 +8631,9 @@ export interface PlanLessonOfferStepDto {
   blockId: string;
   blockOrdinal: number;
   offer: PlanLessonOfferDto;
+  /** IH1: the router's own words for the draw (a model's rationale only when its guard passed). */
+  why?: string;
+  whyKind?: string | null;
   estMinutes: number;
   boundary: boolean;
 }
@@ -8693,6 +8696,20 @@ export interface PlanWaitingStepDto {
   learningObjectTitle: string | null;
 }
 
+/** IH6: a read found a workbench problem open in this practice session, so it held the boundary: no decision yet, and no
+ *  job. An explicit step (Next, Begin, Continue) decides at once. */
+export interface PlanQuestionInProgressStepDto {
+  kind: "question_in_progress";
+  planId: string;
+  workbenchSessionId: string;
+  /** Null for a Reader problem whose import hasn't made it an item yet. */
+  practiceItemId: string | null;
+  learningObjectTitle: string | null;
+}
+
+/** The plan body's view of that step. */
+export type PlanQuestionInProgressDto = Pick<PlanQuestionInProgressStepDto, "workbenchSessionId" | "practiceItemId" | "learningObjectTitle">;
+
 /** The plan body's view of the waiting step. */
 export interface PlanWaitingDto {
   until: string;
@@ -8706,7 +8723,8 @@ export type PlanStepDto =
   | PlanReadingStepDto
   | PlanDoneStepDto
   | PlanWaitingStepDto
-  | PlanLessonOfferStepDto;
+  | PlanLessonOfferStepDto
+  | PlanQuestionInProgressStepDto;
 
 export interface PlanTotalsDto {
   plannedMinutes: number;
@@ -8769,6 +8787,8 @@ export interface DailyPlanBodyDto {
   deciding?: boolean;
   /** UX Phase 4 round 7: nothing to do until a hold lifts later today (null otherwise). */
   waiting?: PlanWaitingDto | null;
+  /** IH6: a question is in progress in the workbench, so nothing is being chosen yet (absent otherwise). */
+  questionInProgress?: PlanQuestionInProgressDto;
   projected: PlanProjectedBlockDto[];
   /** "Block 2 of about N": chosen plus projected. */
   blockCountEstimate: number;
@@ -8780,6 +8800,45 @@ export interface DailyPlanBodyDto {
   chooser: string | null;
 }
 
+/** IH3 (spec_instruct_handoff_v1 §6): "Something else would help". */
+export type SomethingElseKind = "question" | "review" | "new" | "read" | "lesson" | "stop";
+
+export interface SomethingElseOptionDto {
+  kind: SomethingElseKind;
+  ref: string;
+  /** Plain words ("Another question", "Learn Eigenvalues"). */
+  label: string;
+  minutes: number | null;
+  /** What the waiting decision logged for it, or null. Never shown as a promise. */
+  propensity: number | null;
+  /** The plan's own drawn pick (already what comes next). */
+  plansPick: boolean;
+  /** False on a phone for what only the desktop serves. */
+  servable: boolean;
+}
+
+export interface SomethingElseOptionsDto {
+  version: number;
+  enabled: boolean;
+  drawn?: boolean;
+  decisionId?: string | null;
+  device?: "desktop" | "phone";
+  options?: SomethingElseOptionDto[];
+}
+
+export interface SomethingElseChosenDto extends DailyPlanDto {
+  preference?: {
+    id: string;
+    /** What the choice came to. A retry answers as it was made, with `replayed` set. */
+    outcome: "served" | "agreed" | "stopped" | "lesson" | "waits_on_desktop";
+    kind: SomethingElseKind | null;
+    ref: string | null;
+    servedDecisionId: string | null;
+    lesson: { learningObjectIds: string[]; title: string } | null;
+    replayed: boolean;
+  };
+}
+
 export interface DailyPlanDto {
   version: number;
   enabled: boolean;
@@ -8788,6 +8847,8 @@ export interface DailyPlanDto {
   /** Present when the plan is off: "plan_disabled" or "algorithm_version". */
   reason?: string;
   headlineEnabled?: boolean;
+  /** IH3: the quiet "Something else would help" link may show (absent with the switch off). */
+  somethingElse?: boolean;
   localDate?: string;
   plan: DailyPlanBodyDto | null;
   day?: PlanTotalsDto & { plans: number; kinds: string[]; complete: boolean };
@@ -10561,6 +10622,9 @@ export interface LessonTurnInput {
   /** Teacher TE1b: a router suggestion's Start (with `lessonId`, the id its response recorded). */
   origin?: "learner_pick" | "router_suggestion";
   suggestionDecisionId?: string;
+  /** IH7 (the owner's decision 2): a topic's lesson the learner asked for with "learn this" (its preference's id), so the
+   *  brief may read the latest diagnosed miss on the topic. */
+  preferenceId?: string;
 }
 
 // ── Teacher TE1b: the router's lesson suggestion card in Today (spec_teacher_v1 §15.1, §19) ──
@@ -10570,7 +10634,8 @@ export interface LessonSuggestionEntryDto {
   ref: string;
   title: string;
   learningObjectIds: string[];
-  reason: "new_goal" | "cold_failing" | "below_band";
+  /** `cold_missed` (the owner's decision 4, mvp-0.55): any missed cold check since the topic's last lesson. */
+  reason: "new_goal" | "cold_failing" | "below_band" | "cold_missed";
   why: string;
 }
 
