@@ -68,9 +68,12 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.54's value on the branch at IH5's base (19a812ae46), frozen here: dropping IH5's key reproduces it.
-    dumped = drop_ih5_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False))
+    # mvp-0.54's value on the branch at IH5's base (19a812ae46), frozen here: dropping IH5's key reproduces it (and router
+    # speed stage 2's switches, in every snapshot, which landed after that base).
+    from tests.test_rofu_successor import drop_rospeed2_keys
+
+    dumped = drop_rospeed2_keys(drop_ih5_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
+        mode="json", exclude_none=False)))
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP054_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
