@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ignorance_is_unknown_and_never_inferred`
   - `test_label_does_not_move_a_threshold_a_number_or_a_certification`
   - `test_pooled_prediction_that_rendered_unlabelled_now_carries_inferred`
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
 - [tests/test_predicted_facet_recall.py](../../../../../../tests/test_predicted_facet_recall.py) — direct import
   - `test_absent_mastery_falls_back_to_facet_then_half`
   - `test_facet_mass_saturation_pulls_toward_facet_mean`

@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/placement/signals.py"
   - "src/learnloop/placement/state.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T02:20:07-05:00"
+source_commit_timestamp: "2026-11-09T11:47:41-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.placement"
@@ -60,7 +60,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] | [[Reference/Modules/learnloop/placement/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/placement/rules|learnloop.placement.rules]] | [[Reference/Modules/learnloop/placement/rules#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/placement/signals|learnloop.placement.signals]] | [[Reference/Modules/learnloop/placement/signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] | [[Reference/Modules/learnloop/placement/state#^module-purpose|purpose]] | `ACTIVE` | 33 | 29 |
+| [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] | [[Reference/Modules/learnloop/placement/state#^module-purpose|purpose]] | `ACTIVE` | 33 | 30 |
 
 ## Cross-package dependencies
 

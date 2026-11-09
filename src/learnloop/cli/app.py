@@ -28,6 +28,7 @@ from learnloop.algorithm_versions import (
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
     TEACHER_PROBES_ALGORITHM_VERSION,
+    UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -127,8 +128,8 @@ def upgrade(
                 f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
                 f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
                 f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-                f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION} or "
-                f"{FAILURE_SHARE_ALGORITHM_VERSION}); "
+                f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
+                f"{FAILURE_SHARE_ALGORITHM_VERSION} or {UNEVIDENCED_RETURN_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -483,6 +484,10 @@ def upgrade(
         from learnloop.failure_share_upgrade import upgrade_to_failure_share
 
         result = upgrade_to_failure_share(_root(vault))
+    elif to == UNEVIDENCED_RETURN_ALGORITHM_VERSION:
+        from learnloop.unevidenced_return_upgrade import upgrade_to_unevidenced_return
+
+        result = upgrade_to_unevidenced_return(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -499,8 +504,8 @@ def upgrade(
             f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
             f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
             f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-            f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION} or "
-            f"{FAILURE_SHARE_ALGORITHM_VERSION}."
+            f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
+            f"{FAILURE_SHARE_ALGORITHM_VERSION} or {UNEVIDENCED_RETURN_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

@@ -48,8 +48,8 @@ def drop_te2_keys(dumped: dict) -> dict:
 def test_the_successor_is_one_constant_after_the_router_followups_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.50"
     # Teacher TE3a's AD successor (mvp-0.52) landed after it and keeps it.
-    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.55"
-    assert TEACHER_PROBES_VERSIONS == frozenset({TAG, "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55"})
+    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-6] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
+    assert TEACHER_PROBES_VERSIONS == frozenset({TAG, "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56"})
 
 
 def test_the_switch_and_the_keep_bound_and_their_validation():
@@ -78,6 +78,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_rofu_successor import drop_rospeed2_keys
 
     drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
+    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
     from tests.test_te3a_successor import drop_te3a_keys
 
     drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
@@ -119,8 +122,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to the follow-up batch's completion, which hands it on in turn.
     assert "learnloop.router_followups_upgrade import complete_interrupted_activation" in inspect.getsource(
         teacher_probes_upgrade)

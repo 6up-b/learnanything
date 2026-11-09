@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/staged_frame.py"
 source_paths:
   - "src/learnloop/daily_plan/staged_frame.py"
-source_commit: "49712bc6f1aa4fddf6356dd784057178faa27f9a"
-source_commit_timestamp: "2026-10-25T11:47:25-04:00"
+source_commit: "8c888737dc814b16cb01feb86ef4dec8d58ee540"
+source_commit_timestamp: "2026-11-09T11:47:41-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `49712bc6f1aa4fddf6356dd784057178faa27f9a` |
-| Commit timestamp | `2026-10-25T11:47:25-04:00` |
+| Source commit | `8c888737dc814b16cb01feb86ef4dec8d58ee540` |
+| Commit timestamp | `2026-11-09T11:47:41-05:00` |
 
 ## Public API
 

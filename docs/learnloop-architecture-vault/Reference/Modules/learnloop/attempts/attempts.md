@@ -584,6 +584,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_joint_fixture_replays_through_the_unchanged_path`
   - `test_the_stamped_block_is_read_from_text_or_mapping`
 - [tests/test_placement_diagnosis_decides.py](../../../../../../tests/test_placement_diagnosis_decides.py) — direct import
+- [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
 - [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import

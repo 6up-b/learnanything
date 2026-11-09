@@ -2879,6 +2879,9 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("placement.quick_check_k", "placement.quick_check_budget_minutes"),
                 "structural", "operational",
                 "optional learner-initiated quick-check length and time bound (field D4)."),
+    _ConfigRule(_exact("placement.unevidenced_return"), "structural", "operational",
+        "kill switch for mvp-0.56: an answered item with no due time, on an LO with no evidence, starts as learning "
+        "under placement instead of never coming back; off (or below the tag) mvp-0.55's serving exactly."),
     # Learner-text gaps (implementation_handoffs §4): the vault-wide shortlist
     # breadth (judges decide, R4), the daily cap on created prerequisites, the
     # created LO's delayed check and mvp-0.16's sooner-check delay. A priori,

@@ -82,7 +82,12 @@ from datetime import timedelta
 import json
 from typing import Any
 
-from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_VERSIONS, LEARNER_TEXT_GAP_VERSIONS, PLACEMENT_VERSIONS
+from learnloop.algorithm_versions import (
+    DIAGNOSIS_SPLIT_VERSIONS,
+    LEARNER_TEXT_GAP_VERSIONS,
+    PLACEMENT_VERSIONS,
+    UNEVIDENCED_RETURN_VERSIONS,
+)
 from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.clock import FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
@@ -208,6 +213,20 @@ def opening_probes_ignored(vault: LoadedVault) -> bool:
     """
 
     return placement_active(vault) and not bool(vault.config.placement.initial_probes)
+
+
+def unevidenced_return_active(vault: LoadedVault) -> bool:
+    """Whether an answered item with no due time, on an LO with no evidence, starts as learning (mvp-0.56).
+
+    The rule exists because placement stopped serving through the opening episode that used to keep such an LO in
+    the queue, so it acts only where those episodes are ignored: ``placement.initial_probes = true`` keeps its promise
+    of the predecessor's serving."""
+
+    return (
+        opening_probes_ignored(vault)
+        and vault.config.algorithms.algorithm_version in UNEVIDENCED_RETURN_VERSIONS
+        and bool(vault.config.placement.unevidenced_return)
+    )
 
 
 def unanswered_opening_episode_ids(connection: Any, episode_ids: Iterable[str] | None = None) -> frozenset[str]:

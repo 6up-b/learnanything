@@ -3,13 +3,13 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5bd724f845135d3e000d9608aa5ff2f953f65b0d"
-source_commit_timestamp: "2026-11-09T15:28:11-05:00"
+source_commit: "a121b50fc6d7aa4b4d4d5756c0da8d0de9d2d2a7"
+source_commit_timestamp: "2026-11-09T15:45:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
   - "table assessment_contract_versions"
-schema_head: 252
+schema_head: 251
 table_name: "assessment_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -109,7 +109,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner_context.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/placement/state.py`
-- `src/learnloop/recognition/ledger.py`
 
 ### Direct SQL writers
 
@@ -142,7 +141,6 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`
-- `tests/test_re0_capture.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_required_method_rereview.py`
@@ -151,6 +149,7 @@ Indexes and uniqueness:
 - `tests/test_reread_safety_landing.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_assessment_contracts.py`
+- `tests/test_measurement_corrections.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

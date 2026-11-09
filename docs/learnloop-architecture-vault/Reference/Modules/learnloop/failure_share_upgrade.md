@@ -91,8 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `upgrade_to_failure_share`; statically calls `upgrade_to_failure_share`
-- [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `complete_interrupted_activation`; statically calls `complete_interrupted_activation`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `complete_interrupted_activation`; statically calls `complete_interrupted_activation`
+- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `complete_interrupted_activation`, `upgrade_to_failure_share`; statically calls `complete_interrupted_activation`
 
 ## Dependencies
 
@@ -123,7 +122,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -131,10 +130,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ih5_successor.py](../../../../../tests/test_ih5_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
-  - `test_the_successor_is_one_constant_after_phone_v3_and_the_latest`
+  - `test_the_successor_is_one_constant_after_phone_v3`
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 
 ## Modification guidance
 

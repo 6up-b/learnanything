@@ -2789,6 +2789,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_joint_fixture_replays_through_the_unchanged_path`
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_answer_on_an_ignored_episode_is_not_held_back_for_it`
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
+  - `test_a_returned_prerequisite_moves_its_dependents_one_layer_later`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
   - `test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design`
   - `test_replay_never_reads_the_switch`

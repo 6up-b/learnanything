@@ -373,6 +373,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_pfc_unverified_unassessed.py](../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
 - [tests/test_placement_diagnosis_decides.py](../../../../../../tests/test_placement_diagnosis_decides.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
+  - `test_a_returned_prerequisite_moves_its_dependents_one_layer_later`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
 - [tests/test_practice_index_admission.py](../../../../../../tests/test_practice_index_admission.py) — direct import

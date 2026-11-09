@@ -39,8 +39,8 @@ RO6_KEYS = {"learned_tail": True, "residual_prior_sd": 0.01, "residual_weight_pr
 def test_the_successor_is_one_constant_after_ro5_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.48"
     # The follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51) landed after it and keep it.
-    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-7] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.55"
-    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG, "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55"})
+    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-8] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.56"
+    assert ROUTER_LEARNED_TAIL_VERSIONS == frozenset({TAG, "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56"})
 
 
 def test_the_seeds_are_labelled_and_validated():
@@ -83,6 +83,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.helpers import undo_decider_v12
 
     undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
+    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
+
+    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "dc39796ffa66ee54c1877cba358f697f24fe449020fba6b2e3a1f14ec521a2b1"
 
@@ -114,8 +117,8 @@ def test_the_openers_install_this_links_completion():
 
     # Teacher TE2's link (mvp-0.51) is the chain's latest; through the follow-up batch's (mvp-0.50) it hands earlier
     # journals to this link.
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.failure_share_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.unevidenced_return_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     # It hands an earlier link's journal to RO5's completion, which hands it on in turn.
     assert "learnloop.router_calibration_upgrade import complete_interrupted_activation" in inspect.getsource(
         router_learned_tail_upgrade)

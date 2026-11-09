@@ -134,6 +134,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_te3b_successor.py](../../../../../tests/test_te3b_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 
 ## Modification guidance
 
