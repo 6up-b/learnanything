@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/daily_plans.py"
 source_paths:
   - "src/learnloop/db/stores/daily_plans.py"
-source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
-source_commit_timestamp: "2026-11-09T12:16:08-05:00"
-source_worktree_state: "modified"
+source_commit: "162b4ffad6d0629011b10854b5bfd008dc1e64f1"
+source_commit_timestamp: "2026-11-09T12:03:28-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
-| Commit timestamp | `2026-11-09T12:16:08-05:00` |
+| Worktree state | `clean` |
+| Source commit | `162b4ffad6d0629011b10854b5bfd008dc1e64f1` |
+| Commit timestamp | `2026-11-09T12:03:28-05:00` |
 
 ## Public API
 

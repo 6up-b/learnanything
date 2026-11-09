@@ -82,7 +82,7 @@ source_paths:
   - "src/learnloop/voi_stopping_upgrade.py"
   - "src/learnloop/workbench_field_signals_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T12:16:08-05:00"
+source_commit_timestamp: "2026-11-09T15:45:04-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -191,7 +191,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] | [[Reference/Modules/learnloop/teacher_probes_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] | [[Reference/Modules/learnloop/teacher_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/text_canon|learnloop.text_canon]] | [[Reference/Modules/learnloop/text_canon#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
-| [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] | [[Reference/Modules/learnloop/unevidenced_return_upgrade#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
+| [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] | [[Reference/Modules/learnloop/unevidenced_return_upgrade#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] | [[Reference/Modules/learnloop/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 47 | 6 |
 | [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] | [[Reference/Modules/learnloop/voi_stopping_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] | [[Reference/Modules/learnloop/workbench_field_signals_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |

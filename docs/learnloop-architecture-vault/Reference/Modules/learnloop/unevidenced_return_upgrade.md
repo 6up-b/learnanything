@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/unevidenced_return_upgrade.py"
 source_paths:
   - "src/learnloop/unevidenced_return_upgrade.py"
-source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
-source_commit_timestamp: "2026-11-09T12:16:08-05:00"
-source_worktree_state: "modified"
+source_commit: "a121b50fc6d7aa4b4d4d5756c0da8d0de9d2d2a7"
+source_commit_timestamp: "2026-11-09T15:45:04-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
-| Commit timestamp | `2026-11-09T12:16:08-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a121b50fc6d7aa4b4d4d5756c0da8d0de9d2d2a7` |
+| Commit timestamp | `2026-11-09T15:45:04-05:00` |
 
 ## Public API
 
@@ -129,6 +129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ih5_successor.py](../../../../../tests/test_ih5_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_placement_unevidenced_return.py](../../../../../tests/test_placement_unevidenced_return.py) — direct import

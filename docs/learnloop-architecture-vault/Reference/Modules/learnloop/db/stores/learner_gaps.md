@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/learner_gaps.py"
 source_paths:
   - "src/learnloop/db/stores/learner_gaps.py"
-source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
-source_commit_timestamp: "2026-11-09T12:16:08-05:00"
-source_worktree_state: "modified"
+source_commit: "e79907584a31e88ee6c1f20792f2dc9642a671d3"
+source_commit_timestamp: "2026-11-09T03:56:19-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
-| Commit timestamp | `2026-11-09T12:16:08-05:00` |
+| Worktree state | `clean` |
+| Source commit | `e79907584a31e88ee6c1f20792f2dc9642a671d3` |
+| Commit timestamp | `2026-11-09T03:56:19-05:00` |
 
 ## Public API
 

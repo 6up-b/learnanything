@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/failure_share_upgrade.py"
 source_paths:
   - "src/learnloop/failure_share_upgrade.py"
-source_commit: "workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65"
-source_commit_timestamp: "2026-11-09T12:16:08-05:00"
-source_worktree_state: "modified"
+source_commit: "d602dc8472b09d92a6b854c9fbf969355b1ae1e0"
+source_commit_timestamp: "2026-11-08T20:56:56-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD c8ed55f10b84fdce46fada919c39e9004aabff65` |
-| Commit timestamp | `2026-11-09T12:16:08-05:00` |
+| Worktree state | `clean` |
+| Source commit | `d602dc8472b09d92a6b854c9fbf969355b1ae1e0` |
+| Commit timestamp | `2026-11-08T20:56:56-05:00` |
 
 ## Public API
 
