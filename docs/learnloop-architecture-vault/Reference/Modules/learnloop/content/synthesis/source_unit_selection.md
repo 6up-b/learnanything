@@ -189,6 +189,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_held_out_evaluation_unit_is_exam_material_whatever_its_members_role`
 - [tests/test_facet_reword_confirm_review.py](../../../../../../../tests/test_facet_reword_confirm_review.py) — direct import
   - `test_a_pending_confirm_hides_a_sources_text_once_its_unit_is_held_out`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+  - `test_a_lesson_without_added_sections_keeps_its_recap_when_the_same_section_is_held_out`
+  - `test_a_section_held_out_after_the_fact_is_revoked_for_the_lesson`
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_boundary_override_camelcase_keys_are_normalized`
   - `test_reanchor_flags_unresolved_units_for_review`

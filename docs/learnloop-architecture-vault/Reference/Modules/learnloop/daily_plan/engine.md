@@ -713,6 +713,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phone_logs_a_lesson_pick_and_hands_it_to_the_desktop`
   - `test_with_no_draw_the_options_are_what_the_plan_can_produce_and_say_so`
   - `test_with_the_switch_off_there_is_no_link_and_nothing_is_written`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_a_learner_asked_lesson_reaches_p_accept_flagged_unprompted`
+  - `test_a_real_choice_freezes_its_inputs_and_the_next_decision_reads_it`
+  - `test_a_row_written_with_the_switch_off_froze_nothing_and_is_not_read`
+  - `test_picks_are_never_in_its_cohort_and_an_overridden_draw_is`
 - [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
   - `test_a_drawn_offer_stays_as_it_is_when_a_workbench_opens`
   - `test_a_follow_up_ready_during_a_workbench_waits_then_competes_at_the_next_read`

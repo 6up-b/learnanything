@@ -3,8 +3,8 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
+source_commit_timestamp: "2026-11-09T05:06:18-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
@@ -112,6 +112,7 @@ Database triggers:
 - `src/learnloop/router_objective/checks.py`
 - `src/learnloop/router_objective/combiner_data.py`
 - `src/learnloop/router_objective/forecast_resolve.py`
+- `src/learnloop/router_objective/preference_report.py`
 - `src/learnloop/router_objective/question_state.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/router_objective/trajectory.py`

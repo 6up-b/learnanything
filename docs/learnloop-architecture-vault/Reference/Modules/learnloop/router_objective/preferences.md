@@ -192,6 +192,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_picks_are_never_in_its_cohort_and_an_overridden_draw_is`
   - `test_staged_reads_nothing`
   - `test_the_kind_chosen_rises_and_nothing_reads_a_decision_where_the_link_was_not_used`
+  - `test_the_kinds_are_the_plans_own_names`
   - `test_the_replay_reads_only_what_was_known_at_the_moment`
   - `test_the_sensor_is_frozen_in_the_trace_and_w_pref_starts_at_zero`
   - `test_v_pref_is_on_the_tails_scale_and_zero_with_no_spread`

@@ -148,6 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_from_next`
 - [tests/test_ih3_learner_preferences.py](../../../../../../tests/test_ih3_learner_preferences.py) — direct import
   - `test_the_options_are_the_plans_own_candidates_and_the_waiting_draw_is_the_parent`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_picks_are_never_in_its_cohort_and_an_overridden_draw_is`
 - [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
   - `test_a_lesson_offer_in_the_support_can_be_drawn_when_the_llm_has_no_answer`
   - `test_a_logged_decision_replays_to_its_logged_mu_under_its_own_rule`

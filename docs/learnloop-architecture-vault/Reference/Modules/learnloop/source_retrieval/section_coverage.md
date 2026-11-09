@@ -286,6 +286,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `module`; statically calls `read_protection`
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `Library`; statically calls `Library`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `CoverageError`, `Library`, `read_protection`; statically calls `Library`, `read_protection`
+- [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `module`; statically calls `search_sections`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `CoverageError`, `Library`; statically calls `Library`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `Library`, `LibraryCache`, `admission_problem`, `correct`, `correspondents`, `dismiss`, `enabled`, `judge`, `peek`, `section_learning_objects`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `Library`, `admission_problem`, `judge`
@@ -335,7 +336,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -365,6 +366,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_lo_with_no_candidate_is_searched_once_per_session_not_on_every_read`
 - [tests/test_deliverable_scope.py](../../../../../../tests/test_deliverable_scope.py) — direct import
   - `test_scope_view_lists_topics_unmatched_and_the_receipt`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+  - `test_a_section_held_out_after_the_fact_is_revoked_for_the_lesson`
+  - `test_the_query_is_the_diagnosed_statement_never_an_expected_answer_a_rubric_or_the_analysis`
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context`
 - [tests/test_notes_c2b_review5.py](../../../../../../tests/test_notes_c2b_review5.py) — direct import

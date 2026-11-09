@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
-source_commit_timestamp: "2026-11-09T03:09:29-05:00"
+source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
+source_commit_timestamp: "2026-11-09T05:06:18-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/learner_action.py"
   - "src/learnloop/daily_plan/measurement.py"
+  - "src/learnloop/daily_plan/objective_card.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
-  - "src/learnloop/daily_plan/types.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -133,6 +133,7 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/learner_action.py`
 - `src/learnloop/daily_plan/measurement.py`
+- `src/learnloop/daily_plan/objective_card.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/router.py`
@@ -146,9 +147,11 @@ None found by exact static reference scan.
 - `src/learnloop/router/plan_log.py`
 - `src/learnloop/router_objective/calibration_report.py`
 - `src/learnloop/router_objective/offer_report.py`
+- `src/learnloop/router_objective/preference_report.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
+- `src/learnloop/teacher/diagnosed_sources.py`
 
 ### Direct SQL writers
 
@@ -180,9 +183,9 @@ None found by exact static reference scan.
 - `tests/test_figure_predictions.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_ih6_workbench_open_item.py`
+- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_instruct_handoff_ih0.py`
 - `tests/test_intent_fix_round5.py`
-- `tests/test_learner_pick_proposal.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

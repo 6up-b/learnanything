@@ -3,8 +3,8 @@ title: "router_learner_preferences"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
+source_commit_timestamp: "2026-11-09T05:06:18-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_learner_preferences"
@@ -21,6 +21,8 @@ source_paths:
   - "migrations/251_router_learner_preferences.sql"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/stores/router.py"
+  - "src/learnloop/router/lesson_suggestions.py"
+  - "src/learnloop/router_objective/preferences.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -94,6 +96,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/router.py`
+- `src/learnloop/router_objective/preferences.py`
 
 ### Direct SQL writers
 
@@ -110,6 +113,7 @@ None found by exact static reference scan.
 
 - `tests/test_ih3_learner_preferences.py`
 - `tests/test_ih3_migration.py`
+- `tests/test_ih4_preferences_inform_router.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

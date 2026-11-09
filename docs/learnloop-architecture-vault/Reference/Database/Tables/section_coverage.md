@@ -3,8 +3,8 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
+source_commit_timestamp: "2026-11-09T05:06:18-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
@@ -135,6 +135,7 @@ None found by exact static reference scan.
 - `tests/test_deliverable_rpcs.py`
 - `tests/test_deliverable_scope.py`
 - `tests/test_figures_help.py`
+- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_notes_c2b_review5.py`
 - `tests/test_notes_linked.py`
@@ -143,7 +144,6 @@ None found by exact static reference scan.
 - `tests/test_reader_ca5a_find_section.py`
 - `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_section_coverage.py`
-- `tests/test_section_coverage_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

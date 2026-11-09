@@ -3,8 +3,8 @@ title: "post_attempt_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
+source_commit_timestamp: "2026-11-09T05:06:18-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite post_attempt_jobs"
@@ -101,6 +101,7 @@ None found by exact static reference scan.
 - `src/learnloop/placement/state.py`
 - `src/learnloop/remote/views.py`
 - `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/teacher/diagnosed_sources.py`
 
 ### Direct SQL writers
 
@@ -123,6 +124,7 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_reports.py`
 - `tests/test_field_split_outcomes.py`
 - `tests/test_held_grade_composition.py`
+- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_placement_diagnosis_decides.py`
 - `tests/test_placement_split_grades.py`
 - `tests/test_post_attempt_worker.py`

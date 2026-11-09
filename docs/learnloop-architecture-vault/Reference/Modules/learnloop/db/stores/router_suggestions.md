@@ -170,6 +170,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_acceptance_model_never_reads_a_superseded_offer`
 - [tests/test_ih6_workbench_open_item.py](../../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
   - `test_a_drawn_offer_stays_as_it_is_when_a_workbench_opens`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_te3b_codex_review.py](../../../../../../../tests/test_te3b_codex_review.py) — direct import
 - [tests/test_te3b_offers.py](../../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`

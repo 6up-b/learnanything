@@ -1727,6 +1727,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_registry_view_flags_missing_anchor`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
 - [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
   - `test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly`
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
@@ -1739,6 +1741,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_desktop_learns_the_switch_from_its_config_only_while_on`
   - `test_the_gate_reads_the_tag_the_switch_and_the_workbench`
   - `test_the_switch_is_not_in_the_prefetch_key_so_it_moves_no_seed`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
   - `test_selection_for_region_spans_whole_blocks`

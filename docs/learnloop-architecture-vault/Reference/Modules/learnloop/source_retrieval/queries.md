@@ -166,6 +166,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_t6_rewrite_runs_on_the_plan_with_receipts`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+  - `test_the_search_makes_no_model_call_and_writes_nothing`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import
   - `test_a_leaking_gap_statement_never_reaches_the_lookup`
   - `test_a_length_limit_never_cuts_a_statement_into_the_key`

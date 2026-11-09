@@ -186,6 +186,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Inputs`, `stored_record`, `text_sha256`; statically calls `Inputs`, `stored_record`, `text_sha256`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `stored_record`, `text_sha256`; statically calls `stored_record`, `text_sha256`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `pinned_contract_ids`; statically calls `pinned_contract_ids`
+- [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `stored_record`; statically calls `stored_record`
 
 ## Dependencies
 
@@ -206,7 +207,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -223,6 +224,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_with_exam_attempts_and_incomplete_records_reaches_the_probe_lane`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
   - `test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh`
+- [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+  - `test_a_statement_whose_inputs_cannot_be_established_is_not_searched`
 - [tests/test_learner_data_relax_2.py](../../../../../../../tests/test_learner_data_relax_2.py) — direct import
 
 ## Modification guidance

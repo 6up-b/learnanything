@@ -187,6 +187,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_taking_the_lesson_settles_the_followup_honestly`
   - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
   - `test_the_need_paths_mid_block_decision_gains_the_lesson_arm`
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_a_learner_asked_lesson_reaches_p_accept_flagged_unprompted`
 - [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_offer_shown_is_ignored_by_the_plan_and_changes_no_decision`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import

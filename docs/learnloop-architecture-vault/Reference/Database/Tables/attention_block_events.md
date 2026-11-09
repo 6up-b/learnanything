@@ -3,8 +3,8 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
-source_commit_timestamp: "2026-11-09T03:09:29-05:00"
+source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
+source_commit_timestamp: "2026-11-09T05:06:18-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
@@ -95,6 +95,7 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/ask_availability.py`
 - `src/learnloop/router_objective/checks.py`
 - `src/learnloop/router_objective/exposure.py`
+- `src/learnloop/router_objective/preference_report.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/scheduling/controller_store.py`

@@ -190,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_the_kinds_are_the_plans_own_names`
 - [tests/test_mobile_v2_landing_fixes.py](../../../../../../tests/test_mobile_v2_landing_fixes.py) — direct import
   - `test_r2_done_for_today_on_a_pending_stop_records_that_stop_accepted`
   - `test_r2_keep_going_after_done_on_a_pending_stop_is_the_overridden_response`

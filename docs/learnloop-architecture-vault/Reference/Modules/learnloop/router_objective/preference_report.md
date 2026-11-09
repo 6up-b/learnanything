@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+  - `test_the_kinds_are_the_plans_own_names`
   - `test_the_report_section_says_each_thing_and_labels_it_self_selected`
 
 ## Modification guidance
