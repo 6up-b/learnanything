@@ -232,3 +232,86 @@ Fixed on `instruct/handoff` after this review. Each finding was reproduced first
 **New in this pass, not in the review.** The old ceiling count was the only thing stopping a redraw loop. Two written probes that had each lost to a lesson passed each other's offer on every read, so reads alone would have drawn for ever once unseen offers stopped counting. Workflows an offer replaced had beaten now move to the newest offer (`engine._followups_lost`). Spec §5 "What bounds the draws" has the argument. The test fails without the change.
 
 **Left for the owner, unchanged:** whether `w_pref` acts or stays report-only; whether a learner-asked lesson uses IH7's diagnosed sections; whether an open Reader problem holds decisions when no session is open; the `cold_failing` gate at `lesson_suggestion.py:198`.
+
+## Second review (fixes)
+
+**Tip reviewed:** `6b4997dd6c` on `instruct/handoff`, against `ef0580db76`.
+
+**Result:** no blockers, 1 major, 4 minor. The major one predates the fixes and neither review's tests reach it. It should be fixed before landing, in a small change. The fixes themselves hold.
+
+Reproductions are in `/tmp/ihreview2/` (scratch, not committed): `py/test_second.py` (cases S1-S17), `py/test_stress.py`, `py/test_equal.py`, `web/offerPage2.test.tsx`. They run as the first review's do, with fakes and no model call.
+
+### Major
+
+#### R2-M1. A plan read during a follow-up's decision leaves two open offers, and taking one doesn't end the other
+
+`daily_plan/engine.py:3307` and `:3319-3330`; `followup_run/router.py:218` and `:320`.
+
+**What goes wrong.** `interrupt_offer` checks for an open offer before the job's decision starts. The decision then waits on its models, 11-15 s on the Nov 7 log and up to 40 s by §3a. Nothing checks again before `place_interrupt_offer` writes the block. A plan read at the same boundary can draw an offer during that wait. This is the same read and the same window as the first review's M4. If the job also draws the lesson, the plan holds two unanswered offers, which breaks §5's "no arm while an offer is open".
+
+**Scenario.**
+1. A miss ends a block, and the job starts its decision with the lesson arm.
+2. A plan read draws offer A.
+3. The job draws the lesson, which places offer B. The workflow now waits on B.
+4. The learner taps Start on A. The workflow doesn't settle, because it lost to B. When the lesson closes, B offers the same lesson again.
+5. If B is left unanswered it was still on screen, so it ends `ignored` and counts as a decline of the lesson just taken.
+
+**Verified.** `test_S16` draws through a plan read inside `decide_followup`, at a real boundary:
+```
+open offers [(2, <A>, False, False), (3, <B>, False, False)]
+after start lesson_offer <B> lesson:lo_diag
+wf waiting lesson_offer:lo_diag
+second offer's row ignored
+observations [True, False]
+```
+With "Not now" on A, the same run gives B at once and `observations [False, False]`, so one refusal is recorded twice. Both draws need the lesson, so its frequency depends on real read timing, which I couldn't measure. From the code only, not reproduced: a serve's `_boundary` waiting on its models can have a job's offer placed under it, with the same result.
+
+**Fix.** Check again inside the decision's transaction. If an offer is open by then, end it with `LO.supersede(..., by=<this decision>)`, the §5 item 1 mechanism, so exactly one stays open and the logged propensities stay exact. Do the same in `_boundary`'s transaction for any open offer other than the one in `superseding`. Add a test from S16.
+
+### Minor
+
+**R2-m1. "Not now" under IH6's hold makes a decision and serves an item nobody opens.** `app/dailyPlan.ts:96`, `app/App.tsx:1280`. After a decline with a workbench problem open, the read says `question_in_progress`, and `servedForExplicitStep` serves. Before M1's fix, this path stayed on Today with the resume line. §7b item 4 names Next, Begin and Continue as explicit steps, and "Not now" only declines a lesson. The new decision is drawn before the open problem's answer exists, which is what IH6 prevents. The item is also served with `boundary: true`, so `routePlanStep` stays on Today: its presentation starts with nothing on screen. Without a hold, the test "Not now with a new block next stays a read" serves nothing, so the two cases differ. Verified: `test_S10` (`question_in_progress`, then one new decision, an item with a presentation and `boundary True`) and `offerPage2.test.tsx` (`serve:false`, `serve:true`, Today showing). Fix: in `answerPlanOffer`, leave `question_in_progress` to Today and serve only `item && !boundary`. Feedback's Next has the same served-but-unopened step under a hold (IH6's own path). There the decision is allowed, but the serve should go through the block line or open the item.
+
+**R2-m2. A workflow with nothing written doesn't move to the replacing offer, unlike a written one.** `engine.py:3066-3067`, `:3242-3254`. `followups_lost` holds item ids, so a workflow with no item keeps its old offer. When a contest replaces that offer with a new one, the workflow reopens with an offer still open and its job runs with no lesson arm. So it generates a question while the lesson stands, and that question then contests the new offer in one more draw. §5 says "what an offer beat waits on its replacement too", and the next item says "the job runs again only after its offer passed", which reads as true only of the old offer. Draws stay bounded, at one extra job and one extra contest per workflow, but it spends an author call on a question the lesson may still beat. Verified: `test_S17` (`unwritten workflow pending None offer open True`; the author call is from the code). Fix: move open workflows that lost to the replaced offer as well, found through their `lesson_offer_won` event, or say in the spec that this is intended.
+
+**R2-m3. A phone "learn this" on a drawn offer reaches no model.** `daily_plan/learner_action.py:422-428`, `router/lesson_suggestions.py:432-434`. After m2's fix the outcome is `waits_on_desktop`, but the row is still an agreement, so `unprompted_observations` leaves it out because "the offer was on screen". On the phone it wasn't. If the desktop never renders the offer, it ends `never_shown`, and the learner's explicit request appears nowhere in the acceptance model. Spec §7 says requests count "including a phone's". Verified: `test_S15` (`unprompted obs 0`, `withdrawn: never_shown`, `observations []`). Fix: count an agreement made on a phone surface as a request. The offer never reached that learner on that surface, so nothing is counted twice unless a later answer on the desktop lands too, which the owner may want to rule on.
+
+**R2-m4. Two edges of a retry.** `learner_action.py:400-401`, `:617-619`.
+- A retry whose block has no served item serves it even if the plan has closed since. Verified: `test_S14`, a crash after commit and then a stop: `retry served item <presentation> plan stopped`, with one `item_served`. A third call makes no second serve. Fix: serve what is owed only on an open plan.
+- Both clients keep the key after a failed send with the panel open, and a replay never compares the kind. A lost reply followed by a tap on a different option therefore gets the first choice. From the code. Fix: start a new key when the option changes.
+
+### How many offers a learner can be shown in a day
+
+**There is no constant bound, but a bound exists:** seen offers ≤ `ceiling_per_day` + the follow-ups that became ready while an offer stood open with no questions below it. Reads alone add nothing.
+
+- A fresh offer, at a boundary or through a `plan_interrupt` arm, needs the seen count below the ceiling. Only a replacement skips that, and each replacement uses up a follow-up that hasn't yet lost: everything it beat waits on the new offer. A need item must also fit the plan's minutes. A workflow's probe has no such check.
+- The chain ends at the first answer, and then the ceiling binds. `test_S4`: default ceiling 3, 9 arrivals, 10 offers seen; "Not now" then gives `none:ceiling_bound`.
+- **In the plan's normal path** the learner can't answer plan questions while such an offer is the next step, so the extras can only be probes still being written when the offer appears. They come from recent misses. I'd expect 4-5 offers on a heavy day at ceiling 3, but that's reasoning, not measurement.
+- **From the full list** there's no upper limit. Each pick that misses while the offer stands readies one more follow-up, and that replaces the offer. `test_S7`: 5 seen after 4 picks, and still contested. Each one takes an answer from the learner, so the rate is at most one offer per answered miss.
+- R2-M1 can add one more offer per job's decision until it's fixed.
+
+### Checked and found sound
+
+- **First review's reproductions.** Rerun on the tip. R2, R3b, R4, R5, R6 and R9 now fail their assertions because those pinned the bugs, and their printed output shows each fixed. R10 draws no block, and B1's `SomethingElsePeek` goes 2 to 2 in both flag states. R7 still gets `not_found`, which is what M2's page now handles.
+- **Draws on reads.** Mixed fixtures (4 written probes, 3 need items): 25 reads gave 2 draws, then 0. Over four day rollovers with nothing answered, no objective draw. `test_stress.py` ran 24 random sequences of reads, serves, answers, Not now, arrivals and rollovers, and repeated reads after each step. One run flagged reads that kept drawing: blocks holding one item the fixture had already answered that day, which the fake pool keeps offering and the plan resolves at once. No offer or follow-up was involved (`none:ceiling_bound`, no workflows). It would need the real scheduler to re-offer an item answered that day, which I didn't test. The draw state lives in the ledger, so a restart changes nothing, and I didn't run one separately.
+- **`_followups_lost`.** A real written probe with the real `waiting_still_valid` loses a contest, and then "Not now", a seen rollover and an unseen rollover each lead to it being served (`test_S6b`). The first goes straight to the probe, the other two on the next step. After repeated "Not now" the ceiling ends the competition and the follow-up serves (`test_S2`, `test_S5`). An offer stands open at most until its day passes, so a follow-up can't wait on it for longer than that. In the stress runs, a probe left unserved at plan end was a fixture item displaced by the intent check.
+- **Seen and unseen.** `on_screen`, `never_on_screen`, the ceiling and `days_since_last` agree. A decision counts once whichever way it was seen. A seen offer that is superseded counts against the ceiling and writes no response. `record_shown` on a block that has ended is refused, so a race counts as unseen, as the spec says. The Rust passthrough exists.
+- **`never_shown` readers.** `offer_report`, `LS.observations`, the decline recovery, `pending_start`, `offer_standing`, `respond`, forecast censoring (`offer_unanswered`), `router_card`, `suggestion_report` (TE1b decisions only) and `router_outcomes` treat the row as the plan's act. Both sweeps write it.
+- **`_standing_view`.** Its reply is used only for `preference`: the phone doesn't store it for `waits_on_desktop` or `agreed`, and `stopped` and `served` carry a step and use `_current_view`. So `deciding: false` and `plan: null` reach nothing that polls.
+- **M1 and M2.** No other path opens a read's item unserved. The desktop sidecar handles requests one at a time, so a read issued before the draw has landed before the page opens, and the page can't be closed by an older read. A stale page closes on the next read or the first tap.
+- **`servedForExplicitStep`.** Used by Next and Not now. A second serve resumes the standing presentation, and a failed one leaves Today's Begin to resume.
+- **m4's owed serve.** The retry serves once, the third call writes nothing, and each write has its own transaction after the placement's commit.
+- **B1.** Feedback reads no plan. The link follows the held plan's flag, and nothing else on that screen reads the plan.
+- **Switches.** One normalized scenario (open offer, follow-up arrives, answers, rollover) on main's own tree at `mvp-0.54`, compared with the tip at `mvp-0.54`, the tip at the tag with all six off, and the tip at the tag with only `lessons_compete_with_followups` off. Trail, events and responses match in all three. Decisions match too, except for `mixture.failure_rule` in the last, which is IH5's own key, on as configured.
+- **The owner's rule.** No path maps a score, a miss count or a stuck flag to an action. What's still forced: requested items and randomized checks (§5 item 2), a decision of the follow-up's own that already weighed a lesson with no offer drawn since (§5), a phone's decisions, and the switch-off path. An arm is also absent over a check, a probe or a reading (§5 item 3). The `cold_failing` gate is already with the owner.
+- **Merge record.** `6c8962ce95` is an ancestor, the merge changed no tree, and the files both sides changed differ from main only by IH's additions and edits.
+- **Test runs.** `tests/test_ih*` and `test_te3b*`: 322 passed under `-n 4`. `lint-imports`: 43 kept, 0 broken. `tsc` clean on both apps. Vitest: the phone's `SomethingElse` (8), and the desktop's `App.offerPage`, `TodayPlace` and `dailyPlan` (70), all passed.
+
+### Could not check
+
+- Anything in a running app, on a real phone or with real models. No vault or real log was read, so how often R2-M1 happens and how many offers a real day shows are unmeasured.
+- `router.log_decisions = false` beyond one run, which ended `done` with no offer drawn. I couldn't reach an offer with logging off, so I can't rule out a redraw there, since `lost_offer_decision` would return None.
+- A rollover with a real written probe was run with a moved clock on a frozen-clock fixture, not through a full day's session.
+- The durability lane, the full suite, and the phone host racing the desktop.
+
+**For landing, not a defect.** `main` has moved to `bbb31ace19` (the test-suite audit). `git merge-tree` against it reports one conflict: `tests/cli_help_snapshot.json`, deleted on main and modified here.
