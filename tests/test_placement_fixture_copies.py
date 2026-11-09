@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.scheduling.scheduler import build_due_queue
@@ -22,7 +23,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 
-from tests.owner_vaults import owner_vault, working_vault_params
+from tests.owner_vaults import owner_vault, owner_vaults, working_vault_params
 from tests.helpers import append_config_toml, set_algorithm_version
 
 # The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
@@ -109,8 +110,11 @@ def test_placement_ignores_unanswered_opening_episodes_on_fixture_copies(tmp_pat
         and (mastery.get(lo) is None or mastery[lo].last_evidence_at is None)
     }
     # Every never-practised LO the predecessor served (behind its opening
-    # episode) now starts as learning; nothing else is new material.
-    served_before = {s.learning_object_id for s in baseline_queue} & never_practised
+    # episode) now starts as learning; nothing else is new material. New material
+    # is by item: one already answered with no evidence and no due time isn't new,
+    # the case the next test pins.
+    answered = _answered_without_due_time(on_vault, on_repository)
+    served_before = ({s.learning_object_id for s in baseline_queue} & never_practised) - answered
     new_material = {s.learning_object_id for s in queue if s.components.get("new_material")}
     assert served_before and new_material == served_before
     assert all(
@@ -118,4 +122,37 @@ def test_placement_ignores_unanswered_opening_episodes_on_fixture_copies(tmp_pat
         for s in queue if s.components.get("new_material")
     )
     # The serving change is the opening probe's admission only: the same items.
-    assert sorted(s.practice_item_id for s in queue) == sorted(s.practice_item_id for s in baseline_queue)
+    stranded = answered - {s.learning_object_id for s in queue}
+    assert sorted(s.practice_item_id for s in queue) == sorted(
+        s.practice_item_id for s in baseline_queue if s.learning_object_id not in stranded
+    )
+
+
+def _answered_without_due_time(vault, repository) -> set[str]:
+    """LOs of an active item answered at least once with nothing scheduled, and no evidence on the LO."""
+
+    mastery = repository.mastery_states()
+    found = set()
+    for item in vault.practice_items.values():
+        state = repository.practice_item_state(item.id)
+        lo = item.learning_object_id
+        if (item.status == "active" and state is not None and state.last_attempt_at and state.due_at is None
+                and (mastery.get(lo) is None or mastery[lo].last_evidence_at is None)):
+            found.add(lo)
+    return found
+
+
+@owner_vaults
+@pytest.mark.xfail(strict=True, reason=(
+    "open finding (docs/reviews/test-suite-audit.md): under placement an LO whose only item has a self_report answer, "
+    "no evidence and no due time reaches neither new material nor the routine queue, at every tag since mvp-0.11. "
+    "Serving it changes what the scheduler serves, so it needs a successor and the owner's decision."))
+def test_an_answered_lo_with_no_due_time_still_reaches_the_queue(tmp_path):
+    fixture = "arxiv_v2"
+    if not (owner_vault(fixture) / "state.sqlite").exists():
+        pytest.skip(f"{fixture} fixture absent")
+    vault, repository = _copy(tmp_path, fixture, "latest", version=LATEST_ALGORITHM_VERSION)
+    answered = _answered_without_due_time(vault, repository)
+    assert answered, "the copy no longer holds the case"
+    queue = build_due_queue(vault, repository, clock=MOMENT, persist_explanations=False)
+    assert answered <= {s.learning_object_id for s in queue}
