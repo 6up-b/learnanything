@@ -2830,8 +2830,9 @@ def record_eliciting_response(
     work; the answer is the evidence the suggestion exists to produce. Recorded
     on the same ``causal_attribution_reports`` seam as the one-tap self-report,
     because it is the same KIND of thing — the learner's own account, attached
-    to the open factor, engaging it. That shared seam is also what makes it
-    count as an engagement signal in ``causal_factor_deferral``.
+    to the factor, engaging it. That shared seam is also what makes it count as
+    an engagement signal in ``causal_factor_deferral``. It is not a typed
+    self-report: ``unresolved_cause_factors_for_attempt`` leaves it out.
 
     It is a factor RESPONSE, never a grade and never a promotion. Nothing here
     resolves the factor, moves a posterior, or confirms a candidate: the
@@ -2851,11 +2852,19 @@ def record_eliciting_response(
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
         raise ValueError("attempt does not exist")
-    factors = repository.unresolved_cause_factors_for_attempt(
-        attempt_id, status="open"
+    # The question stays on screen after a one-tap report resolves the factor,
+    # and the learner's answer is still theirs to give (owner capture
+    # 2026-11-08): an open factor first, else the one the question came from.
+    factors = next(
+        (
+            found
+            for status in ("open", "resolved", "retired")
+            if (found := repository.unresolved_cause_factors_for_attempt(attempt_id, status=status))
+        ),
+        [],
     )
     if not factors:
-        raise ValueError("attempt has no open causal factor to respond to")
+        raise ValueError("attempt has no causal factor to respond to")
     factor = factors[0]
 
     from learnloop.attempts.reveal_ledger import production_admissibility
@@ -2893,6 +2902,7 @@ def record_eliciting_response(
             "suggestion_index": suggestion_index,
             "suggestion_id": suggestion_id,
             "response_md": response_md,
+            "factor_status": factor["status"],
             "admissible_as_independent": admissibility.admissible,
             "inadmissibility_reason": admissibility.reason,
             "contaminating_reveal_event_id": admissibility.reveal_event_id,

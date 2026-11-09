@@ -976,6 +976,25 @@ def set_book(repository: Any, session_id: str, visible: bool, *, clock: Clock | 
     return session
 
 
+def count_book_passage(repository: Any, session_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
+    """The learner pressed "show me the book's way" off the Reader and a passage
+    was shown: the attempt counts the book from now on, once and for good
+    (:func:`book_counted`). In the Reader the book's own switch counts it, and
+    a problem already submitted has no attempt left to count it on."""
+
+    now = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        if session["origin"] == "reader" or session["source_shown_at"] or session["status"] != "open":
+            return session
+        store.update_session(connection, session_id, {"source_shown_at": now, "updated_at": now})
+        session = _require(connection, session_id)
+        _log(repository, session, "book_visibility_changed", clock, visible=True, counts=True,
+             after_first_step=bool(store.steps_for_session(connection, session_id)), via="book_way")
+    return session
+
+
 def leave(repository: Any, session_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
     """"Leave for now" (``Esc`` twice, navigating away, a restart): the session stays open."""
 
@@ -1575,6 +1594,7 @@ __all__ = [
     "statement_cleared",
     "bind",
     "book_counted",
+    "count_book_passage",
     "book_hints",
     "carried_hints",
     "compose_answer",

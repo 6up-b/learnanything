@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from learnloop.ingest.locators import parse_block_span
 from learnloop.content.pipeline.source_ingestion import (
@@ -50,6 +51,7 @@ def resolve_source_refs(vault, item, repository=None) -> list[dict[str, Any]]:
             "title": presentation.display_name,
             "canonical_uri": presentation.canonical_uri or canonical.get("canonical_uri"),
             "original_uri": presentation.original_uri or canonical.get("original_uri"),
+            "source_id": presentation.source_id,
         }
         kind = presentation.kind or "note"
         block_span = _resolve_block_span_ref(
@@ -108,6 +110,8 @@ def _resolve_block_span_ref(
 
     entry = _base_entry(ref, kind, note, canonical)
     entry["locator_resolved"] = True
+    entry["extraction_id"] = extraction_id
+    entry["span_id"] = blocks[0].span_id
     entry["heading_path"] = list(blocks[0].section_path)
     entry["section_md"] = "\n\n".join(block.text for block in blocks)
     entry["source_changed"] = len(blocks) != len(requested_span_ids)
@@ -135,7 +139,12 @@ def _base_entry(ref, kind: str | None, note, canonical: dict[str, Any] | None = 
         "ref_type": ref.ref_type,
         "kind": kind,
         "title": canonical.get("title") or (note.id if note is not None else ref.ref_id),
-        "external_url": canonical.get("canonical_uri") or canonical.get("original_uri"),
+        "external_url": _web_url(canonical.get("canonical_uri"), canonical.get("original_uri")),
+        # Where the Reader opens this ref. A local file has no external_url, so
+        # this is the only way to it from feedback.
+        "source_id": canonical.get("source_id"),
+        "extraction_id": None,
+        "span_id": None,
         "note_path": note.path if note is not None else None,
         "locator": ref.locator,
         "locator_resolved": False,
@@ -144,6 +153,16 @@ def _base_entry(ref, kind: str | None, note, canonical: dict[str, Any] | None = 
         "section_md": None,
         "video": None,
     }
+
+
+def _web_url(*uris: Any) -> str | None:
+    """The first address a browser can open. A local source's URI (a path or
+    ``file://``, as ingest stores it) is not one: the desktop opener refuses it."""
+
+    for uri in uris:
+        if isinstance(uri, str) and urlparse(uri).scheme in {"http", "https"}:
+            return uri
+    return None
 
 
 def _quote_fallback(ref, *, kind: str | None, note, canonical: dict[str, Any] | None = None) -> dict[str, Any]:

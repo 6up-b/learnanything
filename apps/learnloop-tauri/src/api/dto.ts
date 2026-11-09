@@ -1416,7 +1416,13 @@ export interface ResolvedSourceRefDto {
   kind: string | null;
   /** Human-facing ingest identity (original filename or captured video title). */
   title: string;
+  /** A web address a browser can open; null for a local file (see sourceId). */
   externalUrl: string | null;
+  /** The library source, for opening it in the Reader. */
+  sourceId: string | null;
+  /** The reading and block the ref cites, when it cites one. */
+  extractionId: string | null;
+  spanId: string | null;
   /** Vault path of the backing note, for the "View in Library" jump. */
   notePath: string | null;
   locator: string | null;

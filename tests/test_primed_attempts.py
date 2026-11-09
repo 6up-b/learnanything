@@ -216,6 +216,7 @@ def test_missing_note_resolves_youtube_ingest_identity(tmp_path):
 
     assert resolved["title"] == "Derivatives from First Principles — Math Channel"
     assert resolved["external_url"] == "https://www.youtube.com/watch?v=abc123"
+    assert resolved["source_id"] == registered.source_id
     assert resolved["video"] == {
         "video_id": "abc123",
         "start_seconds": 15.5,
@@ -264,6 +265,32 @@ def test_feedback_resolves_current_ingest_span_and_filename(tmp_path):
     assert resolved["title"] == "problem-set.pdf"
     assert resolved["locator_resolved"] is True
     assert "singular-value decomposition" in resolved["section_md"]
+    # A local file is opened in the Reader at the cited block, never by its URI.
+    assert resolved["external_url"] is None
+    assert resolved["source_id"] == registered.source_id
+    assert resolved["extraction_id"] == "ext_feedback"
+    assert resolved["span_id"] == span.span_id
+
+
+@pytest.mark.parametrize(
+    "local_uri",
+    ["/home/learner/books/guide.pdf", "file:///home/learner/books/guide.pdf", "guide.pdf"],
+)
+def test_local_source_uri_is_never_an_external_url(local_uri):
+    note = _note("guide", TEXT_BODY, {"kind": "pdf", "title": "Guide", "canonical_uri": local_uri, "original_uri": local_uri})
+    ref = SourceRef(ref_type="canonical_source", ref_id="guide", locator="guide/background/p2")
+    [resolved] = resolve_source_refs(_vault(note), _item([ref]))
+    assert resolved["external_url"] is None
+
+
+def test_web_original_is_used_when_the_canonical_uri_is_local():
+    note = _note(
+        "guide", TEXT_BODY,
+        {"kind": "pdf", "title": "Guide", "canonical_uri": "/tmp/guide.pdf", "original_uri": "https://x.test/guide.pdf"},
+    )
+    ref = SourceRef(ref_type="canonical_source", ref_id="guide", locator="guide/background/p2")
+    [resolved] = resolve_source_refs(_vault(note), _item([ref]))
+    assert resolved["external_url"] == "https://x.test/guide.pdf"
 
 
 def test_non_displayable_ref_types_skipped():
