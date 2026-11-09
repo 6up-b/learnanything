@@ -10,9 +10,6 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/ClaimSurface.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/ClaimSurface.tsx"
-source_commit: "96eb5c906aa28df898ce8a4485b0817efcf154bd"
-source_commit_timestamp: "2026-07-14T23:16:00-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `96eb5c906aa28df898ce8a4485b0817efcf154bd` |
-| Commit timestamp | `2026-07-14T23:16:00-04:00` |
 
 ## Activation and status evidence
 

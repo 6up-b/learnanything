@@ -10,9 +10,6 @@ area: "TypeScript"
 source_path: "apps/learnloop-tauri/src/testNodeShims.d.ts"
 source_paths:
   - "apps/learnloop-tauri/src/testNodeShims.d.ts"
-source_commit: "8427228c2d6ecbf8bf612e57a5e1d5d0c0d7fb6b"
-source_commit_timestamp: "2026-10-31T14:41:14-04:00"
-source_worktree_state: "clean"
 activation_kind: "compiler-implicit"
 activation_evidence: "tsconfig.json includes src, and this declaration types the few Node built-ins the vitest files read (the app ships no @types/node); it declares nothing the app bundle uses."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/_area|TypeScript]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `compiler-implicit` |
-| Worktree state | `clean` |
-| Source commit | `8427228c2d6ecbf8bf612e57a5e1d5d0c0d7fb6b` |
-| Commit timestamp | `2026-10-31T14:41:14-04:00` |
 
 ## Activation and status evidence
 

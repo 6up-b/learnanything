@@ -10,9 +10,6 @@ area: "TypeScript/components/pdfSelection/testing"
 source_path: "apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticPdf.ts"
 source_paths:
   - "apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticPdf.ts"
-source_commit: "e2916ff0e7ba40841036aa11af2f95256708db50"
-source_commit_timestamp: "2026-10-15T20:38:52-04:00"
-source_worktree_state: "clean"
 activation_kind: "vitest-support"
 activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/pdfSelection/testing/_area|TypeScript/components/pdfSelection/testing]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `vitest-support` |
-| Worktree state | `clean` |
-| Source commit | `e2916ff0e7ba40841036aa11af2f95256708db50` |
-| Commit timestamp | `2026-10-15T20:38:52-04:00` |
 
 ## Activation and status evidence
 

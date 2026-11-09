@@ -14,8 +14,6 @@ source_paths:
   - "src/learnloop/workbench/passage_draw.py"
   - "src/learnloop/workbench/route_example.py"
   - "src/learnloop/workbench/symbolic.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T19:56:33-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.workbench"

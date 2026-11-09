@@ -11,8 +11,6 @@ source_paths:
   - "src/learnloop/tui/state.py"
   - "src/learnloop/tui/theme.py"
   - "src/learnloop/tui/widgets.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-12T22:35:10-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.tui"

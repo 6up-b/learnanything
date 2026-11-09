@@ -18,8 +18,6 @@ source_paths:
   - "src/learnloop/ingest/resolution.py"
   - "src/learnloop/ingest/transcription.py"
   - "src/learnloop/ingest/transcripts.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-27T05:54:16-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ingest"

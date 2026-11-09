@@ -10,9 +10,6 @@ area: "TypeScript/components/pdfSelection"
 source_path: "apps/learnloop-tauri/src/components/pdfSelection/usePdfSelection.ts"
 source_paths:
   - "apps/learnloop-tauri/src/components/pdfSelection/usePdfSelection.ts"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/pdfSelection/_area|TypeScript/components/pdfSelection]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `ea590e192e7d05cf407e35bee338909582716483` |
-| Commit timestamp | `2026-10-22T23:06:34-04:00` |
 
 ## Activation and status evidence
 

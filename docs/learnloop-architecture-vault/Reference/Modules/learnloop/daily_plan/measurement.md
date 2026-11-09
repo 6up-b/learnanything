@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/measurement.py"
 source_paths:
   - "src/learnloop/daily_plan/measurement.py"
-source_commit: "be63e3aa478ec034aa69874c8751395b507d09ed"
-source_commit_timestamp: "2026-11-04T09:28:50-05:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -33,7 +30,7 @@ tags:
 # `learnloop.daily_plan.measurement`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -54,9 +51,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `be63e3aa478ec034aa69874c8751395b507d09ed` |
-| Commit timestamp | `2026-11-04T09:28:50-05:00` |
 
 ## Public API
 

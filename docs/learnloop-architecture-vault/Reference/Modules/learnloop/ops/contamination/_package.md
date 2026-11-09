@@ -12,8 +12,6 @@ source_paths:
   - "src/learnloop/ops/contamination/recipes.py"
   - "src/learnloop/ops/contamination/report.py"
   - "src/learnloop/ops/contamination/symbolic.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops.contamination"

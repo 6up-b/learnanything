@@ -3,13 +3,10 @@ title: "learning_outcome_labels"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_outcome_labels"
   - "table learning_outcome_labels"
-schema_head: 252
 table_name: "learning_outcome_labels"
 table_role: "derived"
 functionality_status: "active"

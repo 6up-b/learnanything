@@ -10,9 +10,6 @@ area: "TypeScript/components/graphedit"
 source_path: "apps/learnloop-tauri/src/components/graphedit/GeometryPreview.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/graphedit/GeometryPreview.tsx"
-source_commit: "0cdf509e3186d78939189f5a6ad5a390198da908"
-source_commit_timestamp: "2026-07-14T17:11:41-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/graphedit/_area|TypeScript/components/graphedit]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `0cdf509e3186d78939189f5a6ad5a390198da908` |
-| Commit timestamp | `2026-07-14T17:11:41-04:00` |
 
 ## Activation and status evidence
 

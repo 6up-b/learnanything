@@ -3,13 +3,10 @@ title: "cold_measurement_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunities"
   - "table cold_measurement_opportunities"
-schema_head: 252
 table_name: "cold_measurement_opportunities"
 table_role: "receipt"
 functionality_status: "active"

@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/source_render_views.py"
 source_paths:
   - "src/learnloop/reader/source_render_views.py"
-source_commit: "d16ae726e14498e51cf3777e08ea9cf4b7741c51"
-source_commit_timestamp: "2026-11-02T23:57:40-05:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -32,7 +29,7 @@ tags:
 # `learnloop.reader.source_render_views`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -53,9 +50,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `d16ae726e14498e51cf3777e08ea9cf4b7741c51` |
-| Commit timestamp | `2026-11-02T23:57:40-05:00` |
 
 ## Public API
 

@@ -10,9 +10,6 @@ area: "TypeScript/screens/reader/figures/sketch"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/sketch/engineForTests.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/sketch/engineForTests.ts"
-source_commit: "c60b8021a004c91ee8c9df4262790bcbda22e731"
-source_commit_timestamp: "2026-10-31T14:45:38-04:00"
-source_worktree_state: "clean"
 activation_kind: "vitest-support"
 activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `vitest-support` |
-| Worktree state | `clean` |
-| Source commit | `c60b8021a004c91ee8c9df4262790bcbda22e731` |
-| Commit timestamp | `2026-10-31T14:45:38-04:00` |
 
 ## Activation and status evidence
 

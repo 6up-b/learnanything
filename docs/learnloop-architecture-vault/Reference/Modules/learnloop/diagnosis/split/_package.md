@@ -25,8 +25,6 @@ source_paths:
   - "src/learnloop/diagnosis/split/snapshot.py"
   - "src/learnloop/diagnosis/split/validation.py"
   - "src/learnloop/diagnosis/split/workbench_trace.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T20:48:34-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.split"

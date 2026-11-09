@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/devices.py"
 source_paths:
   - "src/learnloop/capture/devices.py"
-source_commit: "3fde02bfe8f284fbd1cf59c96d0659d9b00fb130"
-source_commit_timestamp: "2026-10-11T23:13:46-04:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.capture"
@@ -33,7 +30,7 @@ tags:
 # `learnloop.capture.devices`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -54,9 +51,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `3fde02bfe8f284fbd1cf59c96d0659d9b00fb130` |
-| Commit timestamp | `2026-10-11T23:13:46-04:00` |
 
 ## Public API
 

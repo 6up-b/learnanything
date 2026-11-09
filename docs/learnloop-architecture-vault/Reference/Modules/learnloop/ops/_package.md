@@ -28,8 +28,6 @@ source_paths:
   - "src/learnloop/ops/startup.py"
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T17:22:45-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"

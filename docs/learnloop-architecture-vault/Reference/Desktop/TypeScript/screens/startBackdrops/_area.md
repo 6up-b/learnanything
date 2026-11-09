@@ -6,8 +6,6 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/startBackdrops"
-source_commit: "971d7c274e09873d726d43578cd080e4d8865571"
-source_commit_timestamp: "2026-07-27T06:01:19-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

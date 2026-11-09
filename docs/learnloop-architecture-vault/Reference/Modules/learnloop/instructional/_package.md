@@ -23,8 +23,6 @@ source_paths:
   - "src/learnloop/instructional/validation.py"
   - "src/learnloop/instructional/valuation.py"
   - "src/learnloop/instructional/wiring.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.instructional"

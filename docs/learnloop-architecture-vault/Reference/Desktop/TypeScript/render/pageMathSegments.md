@@ -10,9 +10,6 @@ area: "TypeScript/render"
 source_path: "apps/learnloop-tauri/src/render/pageMathSegments.ts"
 source_paths:
   - "apps/learnloop-tauri/src/render/pageMathSegments.ts"
-source_commit: "677db664814feb3446ee0469b65cf4eb5c278b16"
-source_commit_timestamp: "2026-11-02T23:12:42-05:00"
-source_worktree_state: "clean"
 activation_kind: "vitest-support"
 activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `vitest-support` |
-| Worktree state | `clean` |
-| Source commit | `677db664814feb3446ee0469b65cf4eb5c278b16` |
-| Commit timestamp | `2026-11-02T23:12:42-05:00` |
 
 ## Activation and status evidence
 

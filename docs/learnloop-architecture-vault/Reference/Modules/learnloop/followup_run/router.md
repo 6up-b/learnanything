@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/router.py"
 source_paths:
   - "src/learnloop/followup_run/router.py"
-source_commit: "867897f2287300fc9267644fd4cb983021f5e273"
-source_commit_timestamp: "2026-11-08T21:16:02-05:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -33,7 +30,7 @@ tags:
 # `learnloop.followup_run.router`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -54,9 +51,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `867897f2287300fc9267644fd4cb983021f5e273` |
-| Commit timestamp | `2026-11-08T21:16:02-05:00` |
 
 ## Public API
 

@@ -10,9 +10,6 @@ area: "TypeScript/fixtures"
 source_path: "apps/learnloop-tauri/src/fixtures/readerIntentContract.ts"
 source_paths:
   - "apps/learnloop-tauri/src/fixtures/readerIntentContract.ts"
-source_commit: "cfb103d72ab61860c77b5ddc699d2267a180e772"
-source_commit_timestamp: "2026-10-27T17:57:00-04:00"
-source_worktree_state: "clean"
 activation_kind: "vitest-support"
 activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/fixtures/_area|TypeScript/fixtures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `vitest-support` |
-| Worktree state | `clean` |
-| Source commit | `cfb103d72ab61860c77b5ddc699d2267a180e772` |
-| Commit timestamp | `2026-10-27T17:57:00-04:00` |
 
 ## Activation and status evidence
 

@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/hints/report_adaptive.py"
 source_paths:
   - "src/learnloop/hints/report_adaptive.py"
-source_commit: "f71773967d117cf4cba89cf789ded7ce66d69545"
-source_commit_timestamp: "2026-10-18T10:47:44-04:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.hints"
@@ -33,7 +30,7 @@ tags:
 # `learnloop.hints.report_adaptive`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -54,9 +51,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `f71773967d117cf4cba89cf789ded7ce66d69545` |
-| Commit timestamp | `2026-10-18T10:47:44-04:00` |
 
 ## Public API
 

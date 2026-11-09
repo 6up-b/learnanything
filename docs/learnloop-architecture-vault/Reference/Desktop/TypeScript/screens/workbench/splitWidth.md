@@ -10,9 +10,6 @@ area: "TypeScript/screens/workbench"
 source_path: "apps/learnloop-tauri/src/screens/workbench/splitWidth.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/workbench/splitWidth.ts"
-source_commit: "e6fd14844aad42f2dab12ad7edd02e250c033734"
-source_commit_timestamp: "2026-10-17T05:11:36-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `e6fd14844aad42f2dab12ad7edd02e250c033734` |
-| Commit timestamp | `2026-10-17T05:11:36-04:00` |
 
 ## Activation and status evidence
 

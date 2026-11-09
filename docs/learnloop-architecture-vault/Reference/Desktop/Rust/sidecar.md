@@ -10,9 +10,6 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/sidecar.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/sidecar.rs"
-source_commit: "fb4337393ff38b41267a7ff67cd34b72dcfdfdc0"
-source_commit_timestamp: "2026-10-13T00:58:26-04:00"
-source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
-| Worktree state | `clean` |
-| Source commit | `fb4337393ff38b41267a7ff67cd34b72dcfdfdc0` |
-| Commit timestamp | `2026-10-13T00:58:26-04:00` |
 
 ## Activation and status evidence
 

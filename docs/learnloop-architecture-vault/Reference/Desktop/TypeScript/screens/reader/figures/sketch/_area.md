@@ -6,8 +6,6 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/sketch"
-source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
-source_commit_timestamp: "2026-11-01T14:49:03-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/write_provenance.py"
 source_paths:
   - "src/learnloop/db/stores/write_provenance.py"
-source_commit: "cbbeee14aab0c7e4dca6a8b44cadc2efd8baa758"
-source_commit_timestamp: "2026-10-15T14:02:51-04:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -34,7 +31,7 @@ tags:
 # `learnloop.db.stores.write_provenance`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -55,9 +52,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `cbbeee14aab0c7e4dca6a8b44cadc2efd8baa758` |
-| Commit timestamp | `2026-10-15T14:02:51-04:00` |
 
 ## Public API
 

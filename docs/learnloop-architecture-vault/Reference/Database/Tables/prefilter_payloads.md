@@ -3,13 +3,10 @@ title: "prefilter_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite prefilter_payloads"
   - "table prefilter_payloads"
-schema_head: 252
 table_name: "prefilter_payloads"
 table_role: "receipt"
 functionality_status: "active"

@@ -6,8 +6,6 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "src/learnloop/experiments/__init__.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-21T10:23:01-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.experiments"

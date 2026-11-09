@@ -10,9 +10,6 @@ area: "TypeScript/render"
 source_path: "apps/learnloop-tauri/src/render/MathLiveEditor.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/render/MathLiveEditor.tsx"
-source_commit: "b0b0834ba8577623dad59e6a171029f6b7970b50"
-source_commit_timestamp: "2026-07-06T20:57:41-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `b0b0834ba8577623dad59e6a171029f6b7970b50` |
-| Commit timestamp | `2026-07-06T20:57:41-04:00` |
 
 ## Activation and status evidence
 

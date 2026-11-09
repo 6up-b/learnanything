@@ -7,8 +7,6 @@ version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "workspace/uncommitted @ 79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -99,7 +97,7 @@ path:"Reference/Desktop" section:("Modification guidance") "RPC"
 > The vault works without Dataview; when enabled, this produces a sortable source table.
 
 ```dataview
-TABLE language AS Language, area AS Area, source_path AS Source, source_commit_timestamp AS Commit
+TABLE language AS Language, area AS Area, source_path AS Source
 FROM "Reference/Desktop"
 WHERE type = "desktop-module-reference"
 SORT source_path ASC
@@ -121,3 +119,5 @@ SORT source_path ASC
 ```
 
 Use `desktop_generate.py --check` in CI to verify byte-for-byte reproducibility without writing files.
+
+Notes carry no commit of their own: the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].

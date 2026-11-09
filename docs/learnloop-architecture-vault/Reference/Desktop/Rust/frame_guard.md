@@ -10,9 +10,6 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/frame_guard.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/frame_guard.rs"
-source_commit: "5c246bbc0b5c8a98488a74f99a19a49e38910c3c"
-source_commit_timestamp: "2026-11-01T15:45:10-05:00"
-source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
-| Worktree state | `clean` |
-| Source commit | `5c246bbc0b5c8a98488a74f99a19a49e38910c3c` |
-| Commit timestamp | `2026-11-01T15:45:10-05:00` |
 
 ## Activation and status evidence
 

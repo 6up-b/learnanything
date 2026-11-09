@@ -21,8 +21,6 @@ source_paths:
   - "src/learnloop_sidecar/server.py"
   - "src/learnloop_sidecar/serving.py"
   - "src/learnloop_sidecar/source_identity.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T17:22:45-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar"

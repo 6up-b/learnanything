@@ -15,8 +15,6 @@ source_paths:
   - "src/learnloop/projects/probes.py"
   - "src/learnloop/projects/redaction.py"
   - "src/learnloop/projects/report.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.projects"

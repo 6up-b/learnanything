@@ -10,9 +10,6 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/ScreenErrorBoundary.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/app/ScreenErrorBoundary.tsx"
-source_commit: "4ba2554f476133243a7ab95ac094a46fbd3c970c"
-source_commit_timestamp: "2026-09-23T12:06:06-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `4ba2554f476133243a7ab95ac094a46fbd3c970c` |
-| Commit timestamp | `2026-09-23T12:06:06-04:00` |
 
 ## Activation and status evidence
 

@@ -17,8 +17,6 @@ source_paths:
   - "src/learnloop/experiments/contextual_embeddings/e1/run.py"
   - "src/learnloop/experiments/contextual_embeddings/e1/supplement.py"
   - "src/learnloop/experiments/contextual_embeddings/e1/worker.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-26T20:01:34-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.experiments.contextual_embeddings.e1"

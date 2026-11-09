@@ -34,6 +34,8 @@ Debug env vars: `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG`, `LEARNLOOP_SIDECAR_DEBUG_LO
 
 See `docs/learnloop-architecture-vault/Home.md` for information on architecture, examples of user journeys, and previous design decisions (ADRs in `Decisions/`; ADR-015 WAL + `synchronous=FULL` supersedes ADR-014). Changes to persisted meaning (scoring, scheduling, projections) follow `docs/algorithm-change-playbook.md`; feature specs are in `docs/specs/`.
 
+The vault's generated notes (`Reference/Modules`, `Reference/Desktop`, `Reference/Database/Tables`, `Reference/Configuration/Fields` and their catalogs; `_scripts/{module,desktop,db}_generate*.py`) carry no commit of their own: `Reference/_generated.md` records the newest commit that changed a generator input. Regenerate after committing the source change, and commit every note that changes; a regeneration on a clean tree changes nothing.
+
 ## Tests
 
 `tests/` is flat (~1,400 `test_*.py` files) with `conftest.py`, `helpers.py`, `structured_ai.py` (`StructuredClientFake` for AI doubles), and `openai_fakes.py` at the root. `helpers.py` has the vault-seeding builders — use them instead of hand-rolling a vault.

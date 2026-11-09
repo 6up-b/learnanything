@@ -6,8 +6,6 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "src/learnloop/content/"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T12:49:34-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content"

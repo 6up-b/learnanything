@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/ingest/transcription.py"
 source_paths:
   - "src/learnloop/ingest/transcription.py"
-source_commit: "c6c384add4980a7c65d6ceb5a52bda8eac2e5833"
-source_commit_timestamp: "2026-07-22T21:50:38-05:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ingest"
@@ -32,7 +29,7 @@ tags:
 # `learnloop.ingest.transcription`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -53,9 +50,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `c6c384add4980a7c65d6ceb5a52bda8eac2e5833` |
-| Commit timestamp | `2026-07-22T21:50:38-05:00` |
 
 ## Public API
 

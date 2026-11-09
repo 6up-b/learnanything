@@ -10,9 +10,6 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/OpenInSource.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/OpenInSource.tsx"
-source_commit: "997c73beb8d7a90781f5d5de26c7fb292fae7c46"
-source_commit_timestamp: "2026-10-26T02:15:14-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `997c73beb8d7a90781f5d5de26c7fb292fae7c46` |
-| Commit timestamp | `2026-10-26T02:15:14-04:00` |
 
 ## Activation and status evidence
 

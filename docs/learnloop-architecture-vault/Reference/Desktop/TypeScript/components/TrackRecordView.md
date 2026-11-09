@@ -10,9 +10,6 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/TrackRecordView.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/TrackRecordView.tsx"
-source_commit: "a29853775f09f6b504620b1a8b6d5e890161f912"
-source_commit_timestamp: "2026-07-14T17:11:30-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `a29853775f09f6b504620b1a8b6d5e890161f912` |
-| Commit timestamp | `2026-07-14T17:11:30-04:00` |
 
 ## Activation and status evidence
 

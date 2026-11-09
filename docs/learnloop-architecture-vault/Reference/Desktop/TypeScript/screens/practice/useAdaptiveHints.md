@@ -10,9 +10,6 @@ area: "TypeScript/screens/practice"
 source_path: "apps/learnloop-tauri/src/screens/practice/useAdaptiveHints.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/practice/useAdaptiveHints.ts"
-source_commit: "9f23467fc4ed201165b5142ad6c2d9b55d8b94bd"
-source_commit_timestamp: "2026-10-18T14:03:10-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `9f23467fc4ed201165b5142ad6c2d9b55d8b94bd` |
-| Commit timestamp | `2026-10-18T14:03:10-04:00` |
 
 ## Activation and status evidence
 

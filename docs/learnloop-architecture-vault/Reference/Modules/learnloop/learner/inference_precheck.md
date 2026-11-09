@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/inference_precheck.py"
 source_paths:
   - "src/learnloop/learner/inference_precheck.py"
-source_commit: "fa47105485871d148098d0025ab42e8da7ba6c29"
-source_commit_timestamp: "2026-09-23T12:36:54-04:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.learner"
@@ -33,7 +30,7 @@ tags:
 # `learnloop.learner.inference_precheck`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -54,9 +51,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `fa47105485871d148098d0025ab42e8da7ba6c29` |
-| Commit timestamp | `2026-09-23T12:36:54-04:00` |
 
 ## Public API
 

@@ -10,9 +10,6 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/figureLabels.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/figureLabels.tsx"
-source_commit: "3da9041670d761302c8f41993f6f9f98413a9a3d"
-source_commit_timestamp: "2026-11-03T00:02:23-05:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `3da9041670d761302c8f41993f6f9f98413a9a3d` |
-| Commit timestamp | `2026-11-03T00:02:23-05:00` |
 
 ## Activation and status evidence
 

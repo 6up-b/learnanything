@@ -18,8 +18,6 @@ source_paths:
   - "src/learnloop/local_embeddings/student_server.py"
   - "src/learnloop/local_embeddings/student_trainer.py"
   - "src/learnloop/local_embeddings/worker.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-27T02:32:10-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.local_embeddings"

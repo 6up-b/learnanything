@@ -83,8 +83,6 @@ source_paths:
   - "src/learnloop_sidecar/handlers/workbench.py"
   - "src/learnloop_sidecar/handlers/workbench_help.py"
   - "src/learnloop_sidecar/handlers/workbench_rw2c.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T12:07:21-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"

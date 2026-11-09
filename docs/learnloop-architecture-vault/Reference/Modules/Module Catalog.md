@@ -8,8 +8,6 @@ source_paths:
   - "src/learnloop"
   - "src/learnloop_sidecar"
   - "apps/learnloop-tauri"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T17:58:19-05:00"
 generated: true
 generated_at: "2026-11-02"
 tags:
@@ -143,7 +141,7 @@ path:"Reference/Modules" section:("Modification guidance") "Schema changes"
 > If the Dataview community plugin is enabled, the query below creates a sortable live table. The vault does not require the plugin.
 
 ```dataview
-TABLE refactor_status AS Status, layer AS Layer, source_path AS Source, source_commit_timestamp AS Commit
+TABLE refactor_status AS Status, layer AS Layer, source_path AS Source
 FROM "Reference/Modules"
 WHERE type = "module-reference"
 SORT file.name ASC
@@ -165,3 +163,5 @@ SORT file.name ASC
 ```
 
 The current generation discovered 1478 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+
+Notes carry no commit of their own: the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

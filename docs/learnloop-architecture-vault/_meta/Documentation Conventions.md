@@ -23,7 +23,7 @@ See [[LearnLoop Architecture Vault#^single-source-rule]].
 
 ## Frontmatter contract
 
-Every note carries the first five properties below. Authored concept, architecture, workflow, and decision notes also carry the review/version fields; generated catalogs use the equivalent generated provenance shown in their banners.
+Every hand-written note carries the first five properties below. Authored concept, architecture, workflow, and decision notes also carry the review/version fields. Generated notes carry the same properties except `source_commit_timestamp`: none of them records a commit, timestamp, or worktree state of its own, because one [[Reference/_generated|Generated Reference Provenance]] note records the commit all of them describe. Before that note, almost every regeneration rewrote hundreds of notes whose facts hadn't changed.
 
 | Property | Meaning |
 |---|---|
@@ -34,9 +34,9 @@ Every note carries the first five properties below. Authored concept, architectu
 | `tags` | hierarchical filters for search/sidebar/graph |
 | `implementation_version` | algorithm/config era described by an authored note |
 | `last_reviewed` | most recent source comparison for an authored note |
-| `source_commit` | repository HEAD or workspace state used for the inventory |
+| `source_commit` | the commit the note was compared against (hand-written notes and the provenance note only) |
 
-Generated references use boolean `generated: true`; when a generation date is stored it uses `generated_at`. They may also carry `architecture_version`, `schema_head`, `source_worktree_state`, `module`, `table_name`, `table_role`, or `refactor_status`.
+Generated references use boolean `generated: true`; when a generation date is stored it uses `generated_at`. They may also carry `architecture_version`, `module`, `table_name`, `table_role`, or `refactor_status`. The migration head appears once, in the [[Database Catalog]]'s `schema_head`, not in each table note. The module, desktop, and database validators fail a generated note that carries `source_commit`, `source_commit_timestamp`, `source_worktree_state`, or their body rows.
 
 ## Link conventions
 

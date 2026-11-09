@@ -10,9 +10,6 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/DialogueProbe.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/DialogueProbe.tsx"
-source_commit: "dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032"
-source_commit_timestamp: "2026-11-03T16:08:07-05:00"
-source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032` |
-| Commit timestamp | `2026-11-03T16:08:07-05:00` |
 
 ## Activation and status evidence
 

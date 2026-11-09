@@ -10,9 +10,6 @@ area: "TypeScript/components/recipeedit"
 source_path: "apps/learnloop-tauri/src/components/recipeedit/RecipeTreeEditor.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/recipeedit/RecipeTreeEditor.tsx"
-source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
-source_commit_timestamp: "2026-10-13T02:46:02-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/recipeedit/_area|TypeScript/components/recipeedit]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `3fa780b50a46ea4a95ff64fad57ff6e27e904dbd` |
-| Commit timestamp | `2026-10-13T02:46:02-04:00` |
 
 ## Activation and status evidence
 

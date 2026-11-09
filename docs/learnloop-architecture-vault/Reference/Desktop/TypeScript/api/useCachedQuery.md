@@ -10,9 +10,6 @@ area: "TypeScript/api"
 source_path: "apps/learnloop-tauri/src/api/useCachedQuery.ts"
 source_paths:
   - "apps/learnloop-tauri/src/api/useCachedQuery.ts"
-source_commit: "be2fa883ca438a7283fb12fdeb87841044b4cfec"
-source_commit_timestamp: "2026-10-21T14:23:34-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `be2fa883ca438a7283fb12fdeb87841044b4cfec` |
-| Commit timestamp | `2026-10-21T14:23:34-04:00` |
 
 ## Activation and status evidence
 

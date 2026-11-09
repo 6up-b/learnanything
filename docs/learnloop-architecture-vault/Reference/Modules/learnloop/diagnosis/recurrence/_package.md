@@ -16,8 +16,6 @@ source_paths:
   - "src/learnloop/diagnosis/recurrence/live.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/recurrence/upgrade.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.recurrence"

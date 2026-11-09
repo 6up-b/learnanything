@@ -10,9 +10,6 @@ area: "TypeScript/copy"
 source_path: "apps/learnloop-tauri/src/copy/denyList.ts"
 source_paths:
   - "apps/learnloop-tauri/src/copy/denyList.ts"
-source_commit: "58703c76c4954a133f0675d8ee6d0baa36bb3c4d"
-source_commit_timestamp: "2026-10-13T01:11:10-04:00"
-source_worktree_state: "clean"
 activation_kind: "vitest-support"
 activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/copy/_area|TypeScript/copy]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `vitest-support` |
-| Worktree state | `clean` |
-| Source commit | `58703c76c4954a133f0675d8ee6d0baa36bb3c4d` |
-| Commit timestamp | `2026-10-13T01:11:10-04:00` |
 
 ## Activation and status evidence
 

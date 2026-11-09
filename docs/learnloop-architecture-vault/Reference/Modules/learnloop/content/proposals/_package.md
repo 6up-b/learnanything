@@ -14,8 +14,6 @@ source_paths:
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/content/proposals/required_method_override.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-23T12:29:53-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.proposals"

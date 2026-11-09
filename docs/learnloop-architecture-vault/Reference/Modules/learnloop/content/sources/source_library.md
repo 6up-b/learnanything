@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/content/sources/source_library.py"
 source_paths:
   - "src/learnloop/content/sources/source_library.py"
-source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
-source_commit_timestamp: "2026-10-14T16:06:13-04:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.sources"
@@ -34,7 +31,7 @@ tags:
 # `learnloop.content.sources.source_library`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -55,9 +52,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `376c6835ae9c3aa1b63584584d4e63e51e79f6dd` |
-| Commit timestamp | `2026-10-14T16:06:13-04:00` |
 
 ## Public API
 

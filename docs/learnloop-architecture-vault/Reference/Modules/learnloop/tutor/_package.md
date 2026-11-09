@@ -15,8 +15,6 @@ source_paths:
   - "src/learnloop/tutor/reader_modes.py"
   - "src/learnloop/tutor/teach_back.py"
   - "src/learnloop/tutor/tutor_qa.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T01:27:28-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.tutor"

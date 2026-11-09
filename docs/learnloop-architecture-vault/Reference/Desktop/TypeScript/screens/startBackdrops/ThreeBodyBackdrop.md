@@ -10,9 +10,6 @@ area: "TypeScript/screens/startBackdrops"
 source_path: "apps/learnloop-tauri/src/screens/startBackdrops/ThreeBodyBackdrop.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/startBackdrops/ThreeBodyBackdrop.tsx"
-source_commit: "e3c6871bd2ed939ab9dcdf98d0ae9bdb19ded1ec"
-source_commit_timestamp: "2026-07-23T15:53:16-05:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "Imported through StartScreen's supported optional backdrop paths reachable from src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/startBackdrops/_area|TypeScript/screens/startBackdrops]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `e3c6871bd2ed939ab9dcdf98d0ae9bdb19ded1ec` |
-| Commit timestamp | `2026-07-23T15:53:16-05:00` |
 
 ## Activation and status evidence
 

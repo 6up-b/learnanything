@@ -10,9 +10,6 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/useGlobalAdd.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/useGlobalAdd.ts"
-source_commit: "955ee375d87f4a792f35a7d7c2a64d776e333e83"
-source_commit_timestamp: "2026-10-21T10:36:23-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `955ee375d87f4a792f35a7d7c2a64d776e333e83` |
-| Commit timestamp | `2026-10-21T10:36:23-04:00` |
 
 ## Activation and status evidence
 

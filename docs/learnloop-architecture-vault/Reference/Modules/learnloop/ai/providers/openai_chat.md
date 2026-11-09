@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/openai_chat.py"
 source_paths:
   - "src/learnloop/ai/providers/openai_chat.py"
-source_commit: "05cbb9aa2808a26a276bf61c11fc823e47175211"
-source_commit_timestamp: "2026-11-01T13:49:42-05:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai.providers"
@@ -34,7 +31,7 @@ tags:
 # `learnloop.ai.providers.openai_chat`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -55,9 +52,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `05cbb9aa2808a26a276bf61c11fc823e47175211` |
-| Commit timestamp | `2026-11-01T13:49:42-05:00` |
 
 ## Public API
 

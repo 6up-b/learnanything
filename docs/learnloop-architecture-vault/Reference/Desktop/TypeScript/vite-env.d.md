@@ -10,9 +10,6 @@ area: "TypeScript"
 source_path: "apps/learnloop-tauri/src/vite-env.d.ts"
 source_paths:
   - "apps/learnloop-tauri/src/vite-env.d.ts"
-source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
-source_commit_timestamp: "2026-11-01T14:49:03-05:00"
-source_worktree_state: "clean"
 activation_kind: "compiler-implicit"
 activation_evidence: "tsconfig.json includes src, and this declaration references vite/client for the current frontend build."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/_area|TypeScript]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `compiler-implicit` |
-| Worktree state | `clean` |
-| Source commit | `d2afa824ceecb2f6e35f7c6ff51d9008a644e70d` |
-| Commit timestamp | `2026-11-01T14:49:03-05:00` |
 
 ## Activation and status evidence
 

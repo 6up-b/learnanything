@@ -28,8 +28,6 @@ source_paths:
   - "src/learnloop/experiments/contextual_embeddings/runner.py"
   - "src/learnloop/experiments/contextual_embeddings/stop_rules.py"
   - "src/learnloop/experiments/contextual_embeddings/system_arms.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-23T21:11:25-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.experiments.contextual_embeddings"

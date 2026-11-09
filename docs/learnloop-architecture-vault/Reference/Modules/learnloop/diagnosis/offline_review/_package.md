@@ -15,8 +15,6 @@ source_paths:
   - "src/learnloop/diagnosis/offline_review/runner.py"
   - "src/learnloop/diagnosis/offline_review/spend.py"
   - "src/learnloop/diagnosis/offline_review/spot_check.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.offline_review"

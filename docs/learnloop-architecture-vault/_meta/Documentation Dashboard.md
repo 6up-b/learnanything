@@ -90,4 +90,6 @@ Each generated catalog owns its generator and strict coverage validator; the fin
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/validate_vault.py
 ```
 
+Generated notes carry no commit of their own. Each generator also rewrites [[Reference/_generated|Generated Reference Provenance]], which records the newest commit that changed a generator input, and lists any input that differs from it. So regenerate after committing the source change: a regeneration then touches only the notes whose facts changed (and the provenance note when its commit moved), and a regeneration on a clean tree changes nothing.
+
 See [[Module Catalog#Maintenance]], [[Desktop Module Catalog#Maintenance]], and [[Database#Documentation regeneration]] for catalog-specific ownership and regeneration rules.

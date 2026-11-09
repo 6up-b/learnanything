@@ -10,9 +10,6 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/pdfDocumentCache.ts"
 source_paths:
   - "apps/learnloop-tauri/src/components/pdfDocumentCache.ts"
-source_commit: "33c7456b0f78caa01172f6170de7727f002513c3"
-source_commit_timestamp: "2026-09-23T12:06:06-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `33c7456b0f78caa01172f6170de7727f002513c3` |
-| Commit timestamp | `2026-09-23T12:06:06-04:00` |
 
 ## Activation and status evidence
 

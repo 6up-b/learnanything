@@ -9,8 +9,6 @@ source_paths:
   - "src/learnloop/substrate/compat/activity_backfill.py"
   - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/substrate/compat/substrate_cutover.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.substrate.compat"

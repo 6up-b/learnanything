@@ -10,9 +10,6 @@ area: "TypeScript/fixtures"
 source_path: "apps/learnloop-tauri/src/fixtures/retryRequests.ts"
 source_paths:
   - "apps/learnloop-tauri/src/fixtures/retryRequests.ts"
-source_commit: "719233b9e6a9f5c689fc3466bf87c6e4521b93bb"
-source_commit_timestamp: "2026-10-21T13:40:43-04:00"
-source_worktree_state: "clean"
 activation_kind: "vitest-support"
 activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/fixtures/_area|TypeScript/fixtures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `vitest-support` |
-| Worktree state | `clean` |
-| Source commit | `719233b9e6a9f5c689fc3466bf87c6e4521b93bb` |
-| Commit timestamp | `2026-10-21T13:40:43-04:00` |
 
 ## Activation and status evidence
 

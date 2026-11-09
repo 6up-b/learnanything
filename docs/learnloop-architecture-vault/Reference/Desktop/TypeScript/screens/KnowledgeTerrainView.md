@@ -10,9 +10,6 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/KnowledgeTerrainView.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/KnowledgeTerrainView.tsx"
-source_commit: "aa9b47ce7ee0fb2b2b835ed297d88d76842ce297"
-source_commit_timestamp: "2026-10-11T23:14:58-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `aa9b47ce7ee0fb2b2b835ed297d88d76842ce297` |
-| Commit timestamp | `2026-10-11T23:14:58-04:00` |
 
 ## Activation and status evidence
 

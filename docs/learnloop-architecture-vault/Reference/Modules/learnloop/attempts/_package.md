@@ -35,8 +35,6 @@ source_paths:
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/attempts/surprise.py"
   - "src/learnloop/attempts/trace_evidence.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T01:27:28-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.attempts"

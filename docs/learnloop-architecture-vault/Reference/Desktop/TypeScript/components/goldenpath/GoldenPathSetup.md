@@ -10,9 +10,6 @@ area: "TypeScript/components/goldenpath"
 source_path: "apps/learnloop-tauri/src/components/goldenpath/GoldenPathSetup.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/goldenpath/GoldenPathSetup.tsx"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/goldenpath/_area|TypeScript/components/goldenpath]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
 
 ## Activation and status evidence
 

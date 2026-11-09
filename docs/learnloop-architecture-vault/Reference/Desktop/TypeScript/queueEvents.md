@@ -10,9 +10,6 @@ area: "TypeScript"
 source_path: "apps/learnloop-tauri/src/queueEvents.ts"
 source_paths:
   - "apps/learnloop-tauri/src/queueEvents.ts"
-source_commit: "ad991418ef3cb163828f9b1cf1ad9da9cce7549a"
-source_commit_timestamp: "2026-09-03T10:55:39-07:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/_area|TypeScript]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `ad991418ef3cb163828f9b1cf1ad9da9cce7549a` |
-| Commit timestamp | `2026-09-03T10:55:39-07:00` |
 
 ## Activation and status evidence
 

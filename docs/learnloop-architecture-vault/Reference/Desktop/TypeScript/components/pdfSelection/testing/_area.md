@@ -6,8 +6,6 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components/pdfSelection/testing"
-source_commit: "e2916ff0e7ba40841036aa11af2f95256708db50"
-source_commit_timestamp: "2026-10-15T20:38:52-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

@@ -24,8 +24,6 @@ source_paths:
   - "src/learnloop/goals/goal_series_store.py"
   - "src/learnloop/goals/receipt_contributions.py"
   - "src/learnloop/goals/use_weights.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-05T04:02:41-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.goals"

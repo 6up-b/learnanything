@@ -10,9 +10,6 @@ area: "TypeScript/screens/underhood"
 source_path: "apps/learnloop-tauri/src/screens/underhood/tools.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/underhood/tools.tsx"
-source_commit: "05f21f30203369be5da256b6b776c87f47a9c50b"
-source_commit_timestamp: "2026-10-21T11:29:39-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/underhood/_area|TypeScript/screens/underhood]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `05f21f30203369be5da256b6b776c87f47a9c50b` |
-| Commit timestamp | `2026-10-21T11:29:39-04:00` |
 
 ## Activation and status evidence
 

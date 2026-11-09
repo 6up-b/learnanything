@@ -14,8 +14,6 @@ source_paths:
   - "src/learnloop/ingest/extractors/marker_worker.py"
   - "src/learnloop/ingest/extractors/normalizers.py"
   - "src/learnloop/ingest/extractors/pypdf.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-15T07:39:48-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ingest.extractors"

@@ -10,9 +10,6 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/ReconnectLine.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ReconnectLine.tsx"
-source_commit: "148f7427ba6ffb1fcea9545e865f923e07eeb48b"
-source_commit_timestamp: "2026-10-13T17:25:15-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `148f7427ba6ffb1fcea9545e865f923e07eeb48b` |
-| Commit timestamp | `2026-10-13T17:25:15-04:00` |
 
 ## Activation and status evidence
 

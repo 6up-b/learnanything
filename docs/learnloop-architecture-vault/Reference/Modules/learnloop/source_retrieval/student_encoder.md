@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/source_retrieval/student_encoder.py"
 source_paths:
   - "src/learnloop/source_retrieval/student_encoder.py"
-source_commit: "bfea40a2932a1af8f9b52cd80c3de690ac7faad0"
-source_commit_timestamp: "2026-10-27T00:45:32-04:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.source_retrieval"
@@ -33,7 +30,7 @@ tags:
 # `learnloop.source_retrieval.student_encoder`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -54,9 +51,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `bfea40a2932a1af8f9b52cd80c3de690ac7faad0` |
-| Commit timestamp | `2026-10-27T00:45:32-04:00` |
 
 ## Public API
 

@@ -10,9 +10,6 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/useCloseWithFlush.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/useCloseWithFlush.ts"
-source_commit: "10b5f8cf9e1f392c5ffd54751f2d6b6e1b03a143"
-source_commit_timestamp: "2026-10-17T07:28:11-04:00"
-source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `10b5f8cf9e1f392c5ffd54751f2d6b6e1b03a143` |
-| Commit timestamp | `2026-10-17T07:28:11-04:00` |
 
 ## Activation and status evidence
 

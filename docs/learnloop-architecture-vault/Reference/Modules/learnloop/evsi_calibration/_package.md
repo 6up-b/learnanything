@@ -22,8 +22,6 @@ source_paths:
   - "src/learnloop/evsi_calibration/response_fit.py"
   - "src/learnloop/evsi_calibration/simulate.py"
   - "src/learnloop/evsi_calibration/world.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T04:43:14-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.evsi_calibration"

@@ -10,9 +10,6 @@ area: "TypeScript/screens/reader/figures/sketch"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch.worker.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch.worker.ts"
-source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
-source_commit_timestamp: "2026-11-01T14:49:03-05:00"
-source_worktree_state: "clean"
 activation_kind: "bundled worker entry"
 activation_evidence: "vite.config.mjs bundles src/screens/reader/figures/sketch/sketch.worker.ts (and what it imports) into the `virtual:sketch-worker-source` module, which sketchCompartmentClient.ts imports; the sketch compartment's frame starts it as a blob Worker."
 generated: true
@@ -47,9 +44,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `bundled worker entry` |
-| Worktree state | `clean` |
-| Source commit | `d2afa824ceecb2f6e35f7c6ff51d9008a644e70d` |
-| Commit timestamp | `2026-11-01T14:49:03-05:00` |
 
 ## Activation and status evidence
 

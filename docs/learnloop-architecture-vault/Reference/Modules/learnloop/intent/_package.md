@@ -10,8 +10,6 @@ source_paths:
   - "src/learnloop/intent/control.py"
   - "src/learnloop/intent/deadline.py"
   - "src/learnloop/intent/report.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-25T19:49:18-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.intent"

@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/facets.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/facets.py"
-source_commit: "c1619d0275bfe61eabe180738165ec480c6dc4fb"
-source_commit_timestamp: "2026-09-23T13:02:20-04:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -36,7 +33,7 @@ tags:
 # `learnloop_sidecar.handlers.facets`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -57,9 +54,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `c1619d0275bfe61eabe180738165ec480c6dc4fb` |
-| Commit timestamp | `2026-09-23T13:02:20-04:00` |
 
 ## Public API
 

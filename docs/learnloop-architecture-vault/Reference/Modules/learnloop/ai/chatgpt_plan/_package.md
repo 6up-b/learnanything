@@ -12,8 +12,6 @@ source_paths:
   - "src/learnloop/ai/chatgpt_plan/session.py"
   - "src/learnloop/ai/chatgpt_plan/store.py"
   - "src/learnloop/ai/chatgpt_plan/workspace.py"
-source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-23T10:49:09-04:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai.chatgpt_plan"

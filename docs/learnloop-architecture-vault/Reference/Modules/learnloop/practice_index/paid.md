@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/practice_index/paid.py"
 source_paths:
   - "src/learnloop/practice_index/paid.py"
-source_commit: "9abf421b507a4a4cd992b5d0f776b47437d90336"
-source_commit_timestamp: "2026-11-01T03:24:59-05:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.practice_index"
@@ -33,7 +30,7 @@ tags:
 # `learnloop.practice_index.paid`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -54,9 +51,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `9abf421b507a4a4cd992b5d0f776b47437d90336` |
-| Commit timestamp | `2026-11-01T03:24:59-05:00` |
 
 ## Public API
 

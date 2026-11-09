@@ -3,8 +3,6 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "79532f7149b554db05a40c2ae1dbde68d9efec5a"
-source_commit_timestamp: "2026-11-09T16:01:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
@@ -553,3 +551,5 @@ Validate live schema/config coverage and this vault's complete note graph:
 ```
 
 Then run `tests/test_migrations.py` and `tests/test_table_roles.py` when schema or role code changed. The first validator checks table coverage and the configuration catalog against their live authorities; the second resolves the whole vault's frontmatter, source paths, Wikilinks, headings, and blocks.
+
+Table and configuration notes carry no commit or migration head of their own: the head is stated once in this catalog, and the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].

@@ -7,9 +7,6 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/practice_leakage.py"
 source_paths:
   - "src/learnloop/content/authoring/practice_leakage.py"
-source_commit: "b18685c89ea24659f1ed763ea937199a39a96fb8"
-source_commit_timestamp: "2026-11-06T09:42:06-05:00"
-source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.authoring"
@@ -34,7 +31,7 @@ tags:
 # `learnloop.content.authoring.practice_leakage`
 
 > [!info] Generated source reference
-> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
 
 Up: [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -55,9 +52,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `b18685c89ea24659f1ed763ea937199a39a96fb8` |
-| Commit timestamp | `2026-11-06T09:42:06-05:00` |
 
 ## Public API
 
