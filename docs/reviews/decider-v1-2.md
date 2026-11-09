@@ -277,3 +277,23 @@ orchestrator runs the full gate.
   string.
 - `SettingsScreen.test.tsx` changed only a mocked string, and vitest was not
   run.
+
+## Landing onto main
+
+Gate on `7f1aba59be` (main `5af06edf3f` merged in), the orchestrator's, under the lock:
+
+| Lane | Time | Result |
+|---|---:|---|
+| Full suite, `-n 8` | 17:19 | 30,377 passed, **1 failed**, 94 skipped, 47 xfailed |
+| Durability, `-n 4` | 2:45 | 416 passed, 1 skipped |
+| Owner lane, `-n 4`, fresh backup-API copies of the mvp-0.35 set | 1:32 | 87 passed, 4 skipped, 1 xfailed |
+| Import contracts | | 43 kept |
+| Desktop typecheck and vitest (`--maxWorkers=4`) | 0:57 | 276 files, 2,787 passed |
+
+The one failure, `test_cli_json::test_doctor_json_contract`, pinned doctor's top-level keys and lacked the new `model_routes`. The final commit adds it; that file and every doctor test file then passed (75 passed, 1 skipped). The tip has no full-suite run of its own beyond that one test change.
+
+**Doctor on real receipts.** On fresh backup-API copies of the Nov 9 backup, text mode reports 7 failing Decider routes on arxiv_v2 (33 + 7 + 2 + 23 + 6 + 20 + 13 = 104 failures, every one `last completed never`) and 4 on probability (14), matching the receipts. Each line names `perplexity/pplx-decider-v1.1-27b`. These receipts predate this change, so their `finish_reason` holds no HTTP status. Doctor's exit code is 1 on both copies because of existing vault findings (`criterion:unknown_dependency` on several arxiv_v2 items), not this change.
+
+**Reference validator.** `db_validate_reference.py` gives 8 errors on this branch and 11 on main; this branch adds none and fixes 3. The 8 are sidecar citation drift already on main, left for the refactor's A1.
+
+**The owner's steps:** restart the desktop app and the phone host so the new default is read. Nothing else: no migration, no successor, no vault upgrade. A vault whose `learnloop.toml` pins `perplexity/pplx-decider-v1.1-27b` in its own provider profile keeps failing until that line is removed or changed; the Nov 9 backups set no such profile. After the first v1.2 call, `learnloop doctor --vault <path>` shows each route's state.
