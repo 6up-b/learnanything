@@ -317,7 +317,12 @@ class PlanRecord:
         return {item for block in self.blocks if not block.finished for item in block.followups_lost}
 
     def open_lesson_offer(self) -> PlannedBlock | None:
-        return next((block for block in self.blocks if block.is_lesson_offer and not block.finished), None)
+        return next(iter(self.open_lesson_offers()), None)
+
+    def open_lesson_offers(self) -> list[PlannedBlock]:
+        """Every unanswered offer's block. At most one from IH2's tag (``engine._replace_open_offers``)."""
+
+        return [block for block in self.blocks if block.is_lesson_offer and not block.finished]
 
     def next_ordinal(self) -> int:
         return max((block.ordinal for block in self.blocks), default=0) + 1

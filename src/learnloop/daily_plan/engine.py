@@ -141,6 +141,11 @@ class PlanWaiting(Exception):
         self.step = step
 
 
+class BoundaryTaken(Exception):
+    """Another decision placed this boundary's block while this one's models were out (:func:`_refuse_a_taken_boundary`).
+    Nothing was written: the next step is what took it."""
+
+
 def plan_active(vault: Any) -> bool:
     """The plan serves only at a daily-plan version with the kill switch on."""
 
@@ -2152,6 +2157,8 @@ def build_plan(
         # UX Phase 4 round 7: nothing to do until a hold lifts later today.
         # The plan stands open without a block; ``advance`` says what it waits for.
         pass
+    except BoundaryTaken:
+        pass  # another read decided it first, and that block stands
     return _reload(env, plan_id)
 
 
@@ -2769,6 +2776,66 @@ def _state_row(state: PlanState) -> dict[str, Any]:
     }
 
 
+def _replace_open_offers(env: PlanEnv, connection: Any, plan_id: str, detail: Mapping[str, Any], *,
+                         decision_ref: str | None) -> Mapping[str, Any]:
+    """IH2 §5, review R2-M1: at most one open offer. Every offer's block is written through :func:`_persist_block`, in its
+    decision's transaction (``BEGIN IMMEDIATE``), so what this reads can't change before the block commits, whatever was
+    true when the decision started: its models can be out for 40 s, and a plan read or a job can draw an offer meanwhile.
+
+    The newer decision stands, with §5 item 1's mechanism: each offer still open ends ``superseded`` naming it. That row
+    is the plan's act (``expired``), so the acceptance model never reads it as an answer, and each decision's logged
+    probabilities stay what was drawn. What the old offer had beaten waits on this one: its items join ``followups_lost``
+    and its workflows move, with or without a question written, or they would come back while this offer stands.
+    Off, or below the tag, the predecessor's writes."""
+
+    from learnloop.daily_plan import lesson_offer as LO
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    if not lessons_compete_with_followups_on(env.vault.config):
+        return detail
+    standing = _reload(env, plan_id).open_lesson_offers()
+    if not standing:
+        return detail
+    from learnloop.followup_serve import workflow as followup_workflow
+
+    lost = list(detail.get("followups_lost") or ())
+    for block in standing:
+        LO.supersede(connection, block, at=env.now_iso(), by=decision_ref)
+        lost.extend(block.followups_lost)
+        for row in followup_workflow.lost_to(env.repository, block.decision_ref):
+            followup_workflow.lose_to_lesson(env.repository, row, offer_ref=str(detail["candidate_id"]),
+                                             offer_decision_id=decision_ref, clock=env.clock)
+    return {**detail, "followups_lost": list(dict.fromkeys(lost))} if lost else detail
+
+
+def _next_ordinal(env: PlanEnv, connection: Any, record: PlanRecord) -> int:
+    """Read in the block's transaction: a decision's models can be out for 40 s, and an offer a job placed meanwhile holds
+    the ordinal ``record`` would give. Off, or below the tag, ``record``'s, as the predecessor."""
+
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    if not lessons_compete_with_followups_on(env.vault.config):
+        return record.next_ordinal()
+    return max(record.next_ordinal(), store.next_plan_ordinal(connection, record.id))
+
+
+def _refuse_a_taken_boundary(env: PlanEnv, record: PlanRecord) -> None:
+    """In the boundary decision's transaction: a boundary is decided once. If another decision of this boundary, or a pick,
+    placed a block while this one's models were out, this one is dropped whole, with nothing logged: its draw never served
+    anything (:class:`BoundaryTaken`). The ordinal's unique index stopped this before, as a failed Next. A job's
+    ``plan_interrupt`` offer isn't this boundary's decision, so it doesn't take the boundary: it decided a follow-up, and
+    both draws stand (:func:`_replace_open_offers`). Off, or below the tag, the predecessor's failure, unchanged."""
+
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    if not lessons_compete_with_followups_on(env.vault.config):
+        return
+    known = {block.id for block in record.blocks}
+    if any(block.id not in known and (block.chosen or {}).get("source") != "plan_interrupt"
+           for block in _reload(env, record.id).blocks):
+        raise BoundaryTaken()
+
+
 def _persist_block(
     env: PlanEnv,
     connection: Any,
@@ -2792,6 +2859,8 @@ def _persist_block(
 ) -> str:
     block_id = block_id or new_ulid()
     now = env.now_iso()
+    if subtype == LESSON_OFFER_SUBTYPE and reading is None:
+        detail = _replace_open_offers(env, connection, record.id, detail, decision_ref=decision_ref)
     reading_row = None
     if reading is not None:
         reading_row = {
@@ -2816,7 +2885,7 @@ def _persist_block(
             "content_hash": hashlib.sha256(hash_material.encode("utf-8")).hexdigest(),
             "created_at": now,
             "daily_plan_id": record.id,
-            "plan_ordinal": ordinal if ordinal is not None else record.next_ordinal(),
+            "plan_ordinal": ordinal if ordinal is not None else _next_ordinal(env, connection, record),
             "lane": lane,
             "chosen_by": chosen_by,
             "decision_ref": decision_ref,
@@ -3106,6 +3175,7 @@ def _boundary(
     for item, origin in items[: len(forced)]:
         los = list(dict.fromkeys([item.learning_object_id, *los]))
     with env.repository.atomic(), env.repository.connection() as connection:
+        _refuse_a_taken_boundary(env, record)
         block_id = new_ulid()
         # Router R1's hook (owner decision 2026-10-12): the decision is logged
         # as a ``plan_block`` router decision in this block's transaction.
@@ -3130,14 +3200,14 @@ def _boundary(
         if decision_ref is None and logged is not None:
             decision_ref = logged
             detail["decision_ref"] = logged
-        if superseding is not None:
-            _supersede_offer(env, connection, superseding, by=decision_ref)
+        # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
+        is_offer = subtype == LESSON_OFFER_SUBTYPE
+        if superseding is not None and not is_offer:
+            _supersede_offer(env, connection, superseding, by=decision_ref)  # a new offer ends it in ``_persist_block``
         if offer_won:
             _followups_lost(env, detail["followups_lost"], offer_ref=candidate.candidate_id,
                             offer_decision_id=decision_ref)
         arm = objectives.ARM_READING if reading is not None else objectives.ARM_PRACTICE
-        # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
-        is_offer = subtype == LESSON_OFFER_SUBTYPE
         if logged is not None and chosen_by != "learner_pick" and not is_offer and objectives.applies(frozen, arm):
             # Never an item this decision's block serves now, nor another of the plan's.
             objectives.record(env.vault, env.repository, connection, decision_id=logged, decision_kind="plan_block",
@@ -3242,8 +3312,9 @@ def _supersede_offer(env: PlanEnv, connection: Any, block: PlannedBlock, *, by: 
 def _followups_lost(env: PlanEnv, item_ids: Sequence[str], *, offer_ref: str, offer_decision_id: str | None) -> None:
     """IH2 §5: each workflow whose probe lost to the offer (in the offer's transaction): what it held is released now and
     it waits, open, on the answer. That includes what an offer it replaced had beaten: left on the old offer, which has
-    now passed, it would replace this one in turn, and two follow-ups would redraw for ever on reads alone. A follow-up
-    from a recorded need has nothing to move: it stays in the pool, and ``followups_lost`` keeps it out meanwhile."""
+    now passed, it would replace this one in turn, and two follow-ups would redraw for ever on reads alone. A workflow with
+    nothing written moves by its decision (:func:`_replace_open_offers`). A follow-up from a recorded need has nothing to
+    move: it stays in the pool, and ``followups_lost`` keeps it out meanwhile."""
 
     from learnloop.followup_serve import workflow as followup_workflow
 
@@ -3326,8 +3397,11 @@ def place_interrupt_offer(env: PlanEnv, connection: Any, record_id: str, candida
     record = _reload(env, record_id)
     if not record.is_open:
         return False
-    below = record.current_block()
-    interrupts = below is not None and not below.is_lesson_offer and any(not item.resolved for item in below.items)
+    # Read here, in the decision's transaction, since either can have changed while its models were out: the block below
+    # (an offer this one replaces keeps its place), and whether that block may be interrupted (a check drawn meanwhile).
+    below = record.block_below_offer()
+    interrupts = (below is not None and any(not item.resolved for item in below.items)
+                  and _offer_may_interrupt(env, below))
     card = dict((candidate.annotations or {}).get("lesson_offer") or {})
     detail = {
         "source": "plan_interrupt", "chooser": "router_objective_v1", "chosen_by": "mixture",
@@ -3451,6 +3525,7 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
         **_device_detail(env),
     }
     with env.repository.atomic(), env.repository.connection() as connection:
+        _refuse_a_taken_boundary(env, record)
         block_id = new_ulid()
         decision_ref = _log_plan_decision(
             connection,
@@ -5145,6 +5220,8 @@ def advance_with_context(
         try:
             block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin,
                                  ad_deferrals=ad_deferrals, superseding=superseding)
+        except BoundaryTaken:
+            return advance_with_context(env, serve=serve)  # what took it is the next step now
         except DecisionPending:
             # Router R2b: the decision's models are still out on a read. No
             # step yet: the view says the next block is being chosen.
@@ -5157,6 +5234,10 @@ def advance_with_context(
         if block_id is None:
             return record, _done_step(record), context
         block = next(b for b in record.blocks if b.id == block_id)
+        if not block.is_lesson_offer and _lessons_compete(env) and record.open_lesson_offer() is not None:
+            # Review R2-M1: a job's decision placed an offer while this one's models were out. Both draws stand, and the
+            # plan's order is the offer first, then this block: its item isn't served under an offer.
+            block = record.current_block()
         if env.device is not None:
             # One boundary per step: a block the device can't show waits for the desktop.
             if block.is_reading:

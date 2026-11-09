@@ -220,9 +220,10 @@ def _plans_pick_label(kind: str, block: Any) -> str:
     return WORDS[kind]
 
 
-def _frozen_inputs(env: Any, record: Any, lesson: BlockCandidate | None) -> dict[str, Any]:
+def _frozen_inputs(env: Any, record: Any, lesson: BlockCandidate | None, *, drawn: Any = None) -> dict[str, Any]:
     """IH4 (spec_instruct_handoff_v1 §7): what this preference's replay reads, as it stood here: the choice model's
-    features and, with a lesson on offer, the acceptance model's context and candidate. Empty with the switch off, so
+    features and, with a lesson on offer, the acceptance model's context and candidate. An offer the plan has drawn is the
+    lesson that kind names here, so its own card is what's frozen (``drawn``, its block). Empty with the switch off, so
     ``offered_json`` is IH3's. A failed read freezes nothing: the row is then not read, and the choice is still served."""
 
     from learnloop.router_objective_switches import preferences_inform_router_on
@@ -235,7 +236,8 @@ def _frozen_inputs(env: Any, record: Any, lesson: BlockCandidate | None) -> dict
         with env.repository.connection() as connection:
             out[PF.FEATURES_KEY] = PF.features_at(connection, env.vault.config, at=env.now_iso(),
                                                   minutes_left=minutes_left).as_dict()
-        card = dict((lesson.annotations or {}).get("lesson_offer") or {}) if lesson is not None else {}
+        card = dict((getattr(drawn, "chosen", None) or {}).get("lesson_offer") or {}) or (
+            dict((lesson.annotations or {}).get("lesson_offer") or {}) if lesson is not None else {})
         entries = (card.get("card") or {}).get("candidates") or ()
         if entries and card.get("context") is not None:
             out[LS.LESSON_INPUTS] = {"context": card["context"], "candidate": entries[0]}
@@ -312,7 +314,9 @@ def options(env: Any) -> Options:
     return Options(True, tuple(out), decision_id=str(parent["id"]) if parent is not None else None,
                    parent_kind=parent_kind, parent_block_id=getattr(waiting, "id", None) if parent else None,
                    parent_is_offer=bool(parent is not None and waiting is not None and waiting.is_lesson_offer),
-                   no_draw_reason=reason, device=device, frozen=_frozen_inputs(env, record, lesson),
+                   no_draw_reason=reason, device=device,
+                   frozen=_frozen_inputs(env, record, lesson,
+                                         drawn=waiting if parent is not None and waiting.is_lesson_offer else None),
                    record=record, context=context, built=built)
 
 
@@ -398,6 +402,9 @@ def choose(env: Any, *, kind: str, ref: str | None, surface: str, attempt_id: st
             raise PreferenceError("plan_off", "Something else would help is not on in this vault.")
         existing = router_store.learner_preference(connection, preference_id)
     if existing is not None:
+        if str(existing["chosen_kind"]) != kind:
+            # The key names one act. Both clients start a new one when the option changes, so this is no retry.
+            raise PreferenceError("validation_error", "That preference_id was already used for another choice.")
         return _replayed(env, existing)
     live = options(env)
     if not live.enabled:
@@ -581,7 +588,8 @@ def _serving_of(env: Any, decision_id: str | None) -> str | None:
 def _replayed(env: Any, row: Mapping[str, Any]) -> Chosen:
     """A retry of a preference already written: answered as it was made, so a lost reply loses nothing. It writes no
     second preference or decision. One thing it can finish: a crash after the placement's commit left the block's step
-    unserved, and that serve is the one the first call owed."""
+    unserved, and that serve is the one the first call owed, while its block is still open in an open plan. After that
+    nothing is owed, and the reply carries no step."""
 
     record = E.get_or_create_today(env, create=False)
     if record is not None:
@@ -610,13 +618,16 @@ def _replayed(env: Any, row: Mapping[str, Any]) -> Chosen:
                   if (b.chosen or {}).get("preference_id") == row["id"]), None)
     if block is None:
         return answered(WAITS_ON_DESKTOP if env.device is not None else "served")
+    owed = record.is_open and not block.finished
     if block.is_reading:
         if block.started_at is None:
-            return answered("served", step=_serve_step(env, record, block, E._live_context(env, record)[0]))
+            return answered("served", step=_serve_step(env, record, block, E._live_context(env, record)[0])) if owed \
+                else answered("served")
         return answered("served", step=E._reading_step(env, record, block, boundary=False))
     item = next((i for i in block.items if i.served_at is not None), None)
     if item is None:
-        return answered("served", step=_serve_step(env, record, block, E._live_context(env, record)[0]))
+        return answered("served", step=_serve_step(env, record, block, E._live_context(env, record)[0])) if owed \
+            else answered("served")
     return answered("served", step=E._item_step(env, record, block, item, boundary=False, candidate_id=None,
                                                 presentation_id=E._standing_presentation(env, block, item)))
 

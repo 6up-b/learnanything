@@ -125,7 +125,10 @@ describe("a question in progress (IH6)", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    await expect(resolve!()).resolves.toEqual(served);
+    // The serve started its presentation, so its step opens: the block line would leave it running with nothing on screen.
+    const step = await resolve!();
+    expect(step).toEqual({ ...served, boundary: false });
+    expect(planStepAction(step).type).toBe("practice");
     expect(invoke.mock.calls.filter(([command, args]) => command === "next_plan_item" && (args as { input: { serve: boolean } }).input.serve)).toHaveLength(1);
   });
 

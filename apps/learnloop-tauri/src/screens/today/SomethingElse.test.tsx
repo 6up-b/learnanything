@@ -126,6 +126,19 @@ it("a failed send keeps the same key, so a retry writes once", async () => {
   expect(onChosen).toHaveBeenCalledTimes(1);
 });
 
+it("a failed send then a different option is a new act with its own key: the learner gets what they just tapped", async () => {
+  api.planSomethingElse.mockRejectedValueOnce(new Error("sidecar busy")).mockResolvedValueOnce(SERVED());
+  const { onChosen } = mount({ enabled: true });
+  await act(async () => { fireEvent.click(screen.getByTestId("something-else-link")); });
+  await act(async () => { fireEvent.click(screen.getByTestId("something-else-option-review")); });
+  await act(async () => { fireEvent.click(screen.getByTestId("something-else-option-stop")); });
+  const [first, second] = api.planSomethingElse.mock.calls.map((call) => call[0]);
+  expect(first.kind).toBe("review");
+  expect(second.kind).toBe("stop");
+  expect(second.preferenceId).not.toBe(first.preferenceId);
+  expect(onChosen).toHaveBeenCalledTimes(1);
+});
+
 it("leaves 'learn this' off where lessons can't open, and the plan's own pick off the offer page", async () => {
   mount({ enabled: true, canStartLesson: false });
   await act(async () => { fireEvent.click(screen.getByTestId("something-else-link")); });

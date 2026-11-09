@@ -230,6 +230,21 @@ it("Not now with a new block next stays a read: the block line is shown, nothing
   expect(screen.getByTestId("today-place")).toBeTruthy();
 });
 
+it("Not now under an open problem's hold stays a read: Today says so, nothing is served, no decision is drawn", async () => {
+  // Second review R2-m1: "Not now" answers the offer and asks for nothing else. The boundary waits for that problem's answer.
+  const { nextPlanItem } = apis();
+  nextPlanItem.mockImplementation(async () => ({
+    ...PLAN, enabled: true,
+    step: { kind: "question_in_progress", planId: "p1", workbenchSessionId: "wb", practiceItemId: "pi_8", learningObjectTitle: "ReLU" }
+  }));
+  await toFeedbackNext();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Not now" })); });
+  await flush();
+  expect(nextPlanItem).not.toHaveBeenCalledWith({ sessionId: "s1", serve: true });
+  expect(screen.queryByTestId("lesson-offer-page")).toBeNull();
+  expect(screen.getByTestId("today-place")).toBeTruthy();
+});
+
 // Review M2: a read crossed the boundary while the page was up, so a newer decision superseded the offer.
 it.each([["Start"], ["Not now"]])("%s on an offer already gone closes the page and re-reads the plan, with no error", async (button) => {
   const { lessonSuggestionRespond } = apis();

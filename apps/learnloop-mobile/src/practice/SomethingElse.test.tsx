@@ -153,6 +153,21 @@ describe("the quiet link on the phone's feedback", () => {
     const [first, second] = called("plan_something_else");
     expect(second.params.preferenceId).toBe(first.params.preferenceId);
   });
+
+  it("a failed send then a different option is a new act with its own key", async () => {
+    await toFeedback(true);
+    fireEvent.click(await screen.findByTestId("something-else-link"));
+    await screen.findByTestId("something-else-option-question");
+    answers.plan_something_else = { status: 500, body: { ok: false, error: { code: "internal", message: "NOT SAVED", retryable: false } } };
+    fireEvent.click(screen.getByTestId("something-else-option-question"));
+    await waitFor(() => expect(called("plan_something_else")).toHaveLength(1));
+    await waitFor(() => expect((screen.getByTestId("something-else-option-question") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId("something-else-option-lesson"));
+    await waitFor(() => expect(called("plan_something_else")).toHaveLength(2));
+    const [first, second] = called("plan_something_else");
+    expect(second.params.kind).toBe("lesson");
+    expect(second.params.preferenceId).not.toBe(first.params.preferenceId);
+  });
 });
 
 describe("the quiet link on the phone's Today", () => {

@@ -91,10 +91,16 @@ export function readerTargetForReading(
 /**
  * What an explicit step does with what a read named. Inside the block the read's item is served now, with the offer that
  * ranked it: an item opened unserved binds its attempt to no presentation and skips the serve's eligibility decision. A
- * boundary held for an open problem (IH6) decides, since the learner asked to go on. Anything else is already the step.
+ * boundary held for an open problem (IH6) decides, since the learner asked to go on, and that decision's step opens: it
+ * is served already, so the block line would leave its presentation running with nothing on screen. Anything else is
+ * already the step.
  */
 export async function servedForExplicitStep(sessionId: string, next: PlanStepDto | null): Promise<PlanStepDto | null> {
-  if (next && (next.kind === "question_in_progress" || (next.kind === "item" && !next.boundary))) {
+  if (next && next.kind === "question_in_progress") {
+    const served = (await api.nextPlanItem({ sessionId, serve: true })).step ?? null;
+    return served && (served.kind === "item" || served.kind === "reading") ? { ...served, boundary: false } : served;
+  }
+  if (next && next.kind === "item" && !next.boundary) {
     const served = await api.nextPlanItem({ sessionId, serve: true });
     return served.step ?? null;
   }

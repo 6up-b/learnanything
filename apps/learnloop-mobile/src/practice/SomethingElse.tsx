@@ -44,7 +44,8 @@ export function SomethingElse({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
-  const key = useRef<string | null>(null);
+  // The act's own key, kept across a failed send so a retry of that option writes once. Another option is another act.
+  const key = useRef<{ kind: string; id: string } | null>(null);
   if (!sessionId) return null;
 
   async function show() {
@@ -64,11 +65,11 @@ export function SomethingElse({
   async function choose(option: SomethingElseOptionDto) {
     if (busy) return;
     setBusy(true);
-    key.current = key.current ?? newUlid();
+    if (key.current?.kind !== option.kind) key.current = { kind: option.kind, id: newUlid() };
     try {
       const reply = await phone.planSomethingElse({
         sessionId, kind: option.kind, ref: option.ref, surface, attemptId,
-        noteMd: note.trim() ? note.trim() : null, preferenceId: key.current
+        noteMd: note.trim() ? note.trim() : null, preferenceId: key.current.id
       });
       key.current = null;
       setOpen(false);

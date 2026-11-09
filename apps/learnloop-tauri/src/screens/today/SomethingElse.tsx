@@ -72,8 +72,9 @@ export function SomethingElse({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  // The act's own key, kept across a failed send so a retry writes once; a new panel is a new act.
-  const key = useRef<string | null>(null);
+  // The act's own key, kept across a failed send so a retry of that option writes once. A new panel is a new act, and so
+  // is another option: the learner changed their mind, so they get what they just tapped, not the choice they left.
+  const key = useRef<{ kind: string; id: string } | null>(null);
   if (!on || !sessionId) return null;
 
   async function show() {
@@ -93,11 +94,11 @@ export function SomethingElse({
   async function choose(option: SomethingElseOptionDto) {
     if (busy) return;
     setBusy(true);
-    key.current = key.current ?? newKey();
+    if (key.current?.kind !== option.kind) key.current = { kind: option.kind, id: newKey() };
     try {
       const result = await api.planSomethingElse({
         kind: option.kind, ref: option.ref, surface, attemptId, sessionId,
-        noteMd: note.trim() ? note.trim() : null, preferenceId: key.current
+        noteMd: note.trim() ? note.trim() : null, preferenceId: key.current.id
       });
       key.current = null;
       setOpen(false);

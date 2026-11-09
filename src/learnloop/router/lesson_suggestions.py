@@ -412,25 +412,35 @@ def observations(decisions: Mapping[str, Mapping[str, Any]],
 #: acceptance model's replay inputs under (``learner_action.Options.offered``).
 LESSON_KIND = "lesson"
 LESSON_INPUTS = "lesson_inputs"
+#: The surfaces with no offer on them (``learner_action.PHONE_SURFACES``; a test pins the two).
+PHONE_SURFACES = ("phone_feedback", "phone_today")
+#: What the learner themselves said to an offer. ``ignored`` is not one: it is the plan reading a moved-on card.
+_ANSWERS = frozenset({"accepted", "chose_alternative", "declined"})
 
 
-def unprompted_observations(preferences: Iterable[Mapping[str, Any]], *, at: str | None = None) -> list[Observation]:
+def unprompted_observations(preferences: Iterable[Mapping[str, Any]], *, at: str | None = None,
+                            responses: Iterable[Mapping[str, Any]] = ()) -> list[Observation]:
     """IH4 (spec_instruct_handoff_v1 §7 item 1): the learner's requests for a lesson as acceptance observations, oldest
     first, as of ``at``. Each is a preference of the lesson kind with the replay inputs its row froze, so a replay never
     depends on today's state, as for a response.
 
-    Left out: a choice of the lesson the plan had itself drawn (an agreement, ``served_decision_id`` the parent: an offer
-    was on screen, and its own Start or "Not now" is the response, so counting this too would count it twice) and a row
-    with no frozen inputs (written with the switch off). A request is only ever ``accepted``: nothing records the moments
-    the learner could have asked and didn't, and they are not read as refusals."""
+    Left out: a choice on the desktop of the lesson the plan had itself drawn (an agreement, ``served_decision_id`` the
+    parent: an offer was on screen, and its own Start or "Not now" is the response, so counting this too would count it
+    twice) and a row with no frozen inputs (written with the switch off). A phone shows no offer, so an agreement there
+    was asked for with nothing on screen and counts as a request, until the learner answers that offer on the desktop:
+    from then on the answer is the one observation of that offer (``responses``, as of ``at``). A request is only ever
+    ``accepted``: nothing records the moments the learner could have asked and didn't, and they are not read as refusals."""
 
+    answered = {str(row["decision_id"]) for row in responses
+                if str(row["response"]) in _ANSWERS and (at is None or str(row["responded_at"]) <= at)}
     out: list[Observation] = []
     for row in sorted(preferences, key=lambda found: (str(found["created_at"]), str(found["id"]))):
         created = str(row["created_at"])
         if str(row.get("chosen_kind")) != LESSON_KIND or (at is not None and created > at):
             continue
         parent = row.get("decision_id")
-        if parent is not None and row.get("served_decision_id") == parent:
+        if parent is not None and row.get("served_decision_id") == parent and (
+                str(row.get("surface")) not in PHONE_SURFACES or str(parent) in answered):
             continue
         inputs = json.loads(row.get("offered_json") or "{}").get(LESSON_INPUTS)
         if not isinstance(inputs, Mapping) or not isinstance(inputs.get("candidate"), Mapping):

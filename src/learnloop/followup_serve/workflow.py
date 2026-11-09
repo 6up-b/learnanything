@@ -387,6 +387,18 @@ def lost_offer_decision(repository: Repository, workflow_id: str) -> str | None:
     return json.loads(rows[-1]["detail_json"]).get("offer_decision_id") if rows else None
 
 
+def lost_to(repository: Repository, decision_id: str | None) -> list[dict[str, Any]]:
+    """The open workflows waiting on the lesson offer ``decision_id`` drew, with or without a question written."""
+
+    if not decision_id:
+        return []
+    with repository.connection() as connection:
+        if not store.present(connection):
+            return []
+        rows = store.open_workflows(connection, states=(WAITING,))
+    return [row for row in rows if lost_to_lesson(row) and lost_offer_decision(repository, str(row["id"])) == decision_id]
+
+
 def lose_to_lesson(repository: Repository, row: Mapping[str, Any], *, offer_ref: str, offer_decision_id: str | None,
                    clock: Clock | None = None) -> bool:
     """IH2 §5: the follow-up lost to a lesson offer. What was held is released now, as for a wait, so no learner waits on
@@ -570,6 +582,6 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 __all__ = [
     "CAUSES_SHOWN_BEFORE_PROBE", "CAUSE_EXPOSURES_UNREADABLE",
     "FAILED", "OPEN_STATES", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "finish", "get", "LESSON_OFFER_WON", "lesson_taken", "lose_to_lesson", "lost_offer_decision", "lost_to_lesson", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "reopen_after_lesson", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
+    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "finish", "get", "LESSON_OFFER_WON", "lesson_taken", "lose_to_lesson", "lost_offer_decision", "lost_to", "lost_to_lesson", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "reopen_after_lesson", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",
 ]

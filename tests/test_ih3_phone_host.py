@@ -302,3 +302,44 @@ def test_last_miss_reads_the_latest_graded_answer(tmp_path):
     with env.repository.connection() as connection:
         features = PF.features_at(connection, env.vault.config, at=env.now_iso(), minutes_left=float(record.minutes_left()))
     assert features.last_miss == 1.0
+
+
+# -- second review, R2-m4: a retry's two edges ------------------------------------------------------------------------
+
+
+def test_a_retry_owes_no_serve_once_the_plan_has_closed(tmp_path, monkeypatch):
+    env = _env(tmp_path)
+    E.get_or_create_today(env)
+    option = _a_question_option(env)
+    real = LA._serve_step
+
+    def crash(*_args, **_kwargs):
+        raise RuntimeError("the app stopped here")
+
+    monkeypatch.setattr(LA, "_serve_step", crash)
+    with pytest.raises(RuntimeError):
+        LA.choose(env, kind=option.kind, ref=option.ref, surface="today", attempt_id=None, note_md=None, preference_id="p1")
+    monkeypatch.setattr(LA, "_serve_step", real)
+    record = E.latest_today(env)
+    block = next(b for b in record.blocks if (b.chosen or {}).get("preference_id") == "p1")
+    E._close(env, record, status="stopped", reason="learner_stopped")
+    again = LA.choose(env, kind=option.kind, ref=option.ref, surface="today", attempt_id=None, note_md=None, preference_id="p1")
+    assert again.outcome == "served" and again.replayed and again.step is None
+    with env.repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM attention_block_events WHERE block_id = ? AND kind = 'item_served'",
+                                  (block.id,)).fetchone()[0] == 0
+
+
+def test_a_key_is_one_act_another_option_on_it_is_refused_and_writes_nothing(tmp_path):
+    env = _env(tmp_path)
+    E.get_or_create_today(env)
+    option = _a_question_option(env)
+    LA.choose(env, kind=option.kind, ref=option.ref, surface="today", attempt_id=None, note_md=None, preference_id="p1")
+    other = next(entry.kind for entry in LA.options(env).options if entry.kind != option.kind)
+    with env.repository.connection() as connection:
+        before = connection.execute("SELECT COUNT(*) FROM router_learner_preferences").fetchone()[0]
+    with pytest.raises(LA.PreferenceError) as refused:
+        LA.choose(env, kind=other, ref=None, surface="today", attempt_id=None, note_md=None, preference_id="p1")
+    assert refused.value.code == "validation_error"
+    with env.repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM router_learner_preferences").fetchone()[0] == before

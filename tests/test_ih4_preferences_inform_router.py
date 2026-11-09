@@ -29,6 +29,7 @@ from learnloop.daily_plan.engine import advance
 from learnloop.daily_plan.staged_frame import StagedChooser
 from learnloop.db.stores import router as router_store
 from learnloop.db.stores import router_objective as trace_store
+from learnloop.db.stores import router_suggestions as SUG
 from learnloop.ops.capture_report import build_report, lines
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.router import lesson_suggestions as LS
@@ -39,6 +40,7 @@ from learnloop.router_objective import preferences as PF
 from learnloop.router_objective import scores as S
 from learnloop.router_objective import tail_data as TD
 from learnloop.router_objective_switches import preferences_inform_router_on
+from learnloop.scheduling.device_eligibility import PlanStepFilter
 from learnloop.vault.loader import load_vault
 
 from tests.daily_plan_fakes import record_attempt
@@ -356,6 +358,73 @@ def test_the_kind_chosen_rises_and_nothing_reads_a_decision_where_the_link_was_n
     other, _ = PF.replay([_row(LA.LESSON, 1, offered=limited)])
     read = other.predict(features, [LA.LESSON, LA.QUESTION, LA.READ])
     assert read[LA.LESSON] > read[LA.READ] > 0.0 and read[LA.READ] >= read[LA.QUESTION]
+
+
+def _phone_agrees(env, draw):
+    """A phone's "learn this" on the offer the desktop drew: nothing on its screen showed it (second review, R2-m3)."""
+
+    step = _open_offer(env, draw)
+    desktop = env.device
+    env.device = PlanStepFilter(device_filter=None)
+    made = LA.choose(env, kind=LA.LESSON, ref=None, surface="phone_feedback", attempt_id=None, note_md=None,
+                     preference_id="phone_agrees")
+    env.device = desktop
+    assert made.outcome == LA.WAITS_ON_DESKTOP and made.served_decision_id == step["offer"]["decision_id"]
+    return step
+
+
+def _requests(env, *, at=None):
+    with env.repository.connection() as connection:
+        return LS.unprompted_observations(router_store.learner_preference_rows(connection), at=at or env.now_iso(),
+                                          responses=SUG.responses(connection))
+
+
+def _answers(env):
+    with env.repository.connection() as connection:
+        details = {str(row["id"]): row["detail"] for row in SUG.all_decisions(connection)}
+        return [row.accepted for row in LS.observations(details, SUG.responses(connection))]
+
+
+def test_the_phone_surfaces_are_the_same_list_in_both_modules():
+    assert LS.PHONE_SURFACES == LA.PHONE_SURFACES
+
+
+@pytest.mark.usefixtures("offerable")
+def test_a_phone_agreement_is_a_request_it_reaches_the_model_on_the_drawn_offers_card(tmp_path, draw):
+    env = _env(tmp_path)
+    step = _phone_agrees(env, draw)
+    (request,) = _requests(env)
+    assert request.accepted and request.unprompted
+    assert request.candidate.ref == step["offer"]["suggestion"]["ref"]
+    # The desktop never rendered it: the offer ends as the plan's act, and the request is still the learner's word.
+    env.clock.advance(60 * 26)
+    with env.repository.atomic(), env.repository.connection() as connection:
+        LO.sweep_ignored(connection, config=env.vault.config, today=env.today(), now_iso=env.now_iso())
+    assert _answers(env) == [] and len(_requests(env)) == 1
+
+
+@pytest.mark.usefixtures("offerable")
+@pytest.mark.parametrize("response, seen", [("accepted", [True]), ("declined", [False])])
+def test_an_answer_on_the_desktop_to_what_the_phone_asked_for_counts_once(tmp_path, draw, response, seen):
+    env = _env(tmp_path)
+    step = _phone_agrees(env, draw)
+    before = env.now_iso()
+    env.clock.advance(1)
+    SG.respond(env.vault, env.repository, decision_id=step["offer"]["decision_id"], response=response, clock=env.clock)
+    assert _answers(env) == seen and _requests(env) == []
+    # As of before the answer, the request was all there was.
+    assert len(_requests(env, at=before)) == 1
+
+
+@pytest.mark.usefixtures("offerable")
+def test_a_card_passed_over_is_no_answer_so_the_phones_request_still_counts(tmp_path, draw):
+    env = _env(tmp_path)
+    step = _phone_agrees(env, draw)
+    LO.record_shown(env.repository, block_id=step["block_id"], surface="today", session_id=env.session_id)
+    env.clock.advance(60 * 26)
+    with env.repository.atomic(), env.repository.connection() as connection:
+        LO.sweep_ignored(connection, config=env.vault.config, today=env.today(), now_iso=env.now_iso())
+    assert _answers(env) == [False] and len(_requests(env)) == 1
 
 
 def test_an_agreement_and_a_preference_with_no_draw_each_count_as_a_choice():

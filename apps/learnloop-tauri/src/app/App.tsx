@@ -1275,10 +1275,12 @@ export function App() {
     const sessionId = session?.sessionId ?? null;
     setPlanOffer(null);
     setTodayStage("queue");
-    // Start and an alternative both open a lesson; only "Not now" moves the plan on at once.
+    // Start and an alternative both open a lesson; only "Not now" moves the plan on at once. It answers the offer and asks
+    // for nothing else, so a boundary held for an open problem stays held (IH6): Today says so, and no decision is drawn
+    // before that problem's answer exists.
     if (response !== "declined" || !sessionId) return;
     void api.nextPlanItem({ sessionId, serve: false })
-      .then((next) => servedForExplicitStep(sessionId, next.step ?? null))
+      .then((next) => (next.step?.kind === "item" ? servedForExplicitStep(sessionId, next.step) : next.step ?? null))
       .then(
         (step) => {
           if (step && step.kind !== "lesson_offer") routePlanStep(step);

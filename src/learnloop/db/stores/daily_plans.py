@@ -110,6 +110,14 @@ def insert_plan_block(connection: sqlite3.Connection, row: Mapping[str, Any]) ->
     )
 
 
+def next_plan_ordinal(connection: sqlite3.Connection, plan_id: str) -> int:
+    """The plan's next block ordinal, as the database holds it now."""
+
+    row = connection.execute("SELECT COALESCE(MAX(plan_ordinal), 0) + 1 FROM attention_blocks WHERE daily_plan_id = ?",
+                             (plan_id,)).fetchone()
+    return int(row[0])
+
+
 def append_block_event(
     connection: sqlite3.Connection,
     *,
@@ -367,6 +375,7 @@ def plan_served_origins(connection: sqlite3.Connection) -> dict[str, list[dict[s
 
 
 __all__ = [
+    "next_plan_ordinal",
     "open_workbench_since",
     "abandon_open_plans_before",
     "all_plans",

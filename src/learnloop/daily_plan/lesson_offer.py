@@ -314,8 +314,8 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
         from learnloop.db.stores.router import learner_preference_rows
 
         with repository.connection() as connection:
-            observed = LS.with_unprompted(observed, LS.unprompted_observations(learner_preference_rows(connection),
-                                                                               at=now_iso))
+            observed = LS.with_unprompted(observed, LS.unprompted_observations(
+                learner_preference_rows(connection), at=now_iso, responses=responses))
     state = LS.replay(observed)
     now = parse_utc(now_iso)
     shown_rows = [d for d in seen if (d.get("detail") or {}).get("shown")]
