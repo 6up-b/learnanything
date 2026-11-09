@@ -45,13 +45,8 @@ def test_an_ordinary_item_presented_as_a_probe_is_withheld(world):
 
 def test_an_item_held_as_a_repairs_cold_retry_is_withheld_until_the_repair_ends(world):
     vault, repository = world
-    with repository.connection() as connection:
-        columns = {row[1]: row for row in connection.execute("PRAGMA table_info(remediation_episodes)")}
-    required = {name: "x" for name, row in columns.items() if row[3] and row[4] is None and row[5] == 0}
-    values = {**required, "id": "repair", "cold_item_id": ITEM, "state": "cold_scheduled", "case_kind": "diagnosis"}
-    names = ", ".join(values)
-    marks = ", ".join("?" for _ in values)
-    _execute(repository, (f"INSERT INTO remediation_episodes({names}) VALUES ({marks})", tuple(values.values())))
+    _insert(repository, "remediation_episodes", id="repair", cold_item_id=ITEM, state="cold_scheduled",
+            case_kind="diagnosis")
     assert LP.withheld_items(vault, repository).reason(ITEM) == LP.WITHHELD_COLD
     _execute(repository, ("UPDATE remediation_episodes SET state = 'completed' WHERE id = 'repair'", ()))
     assert LP.withheld_items(vault, repository).reason(ITEM) is None
@@ -65,3 +60,36 @@ def test_a_predicate_that_fails_withholds_everything(world, monkeypatch):
     withheld = LP.withheld_items(vault, repository)
     assert withheld.available is False
     assert LP.attempt_protection(withheld, {"item": ITEM, "type": "independent_attempt", "probe": None}) == LP.WITHHELD_UNREADABLE
+
+
+def _insert(repository, table: str, **values) -> None:
+    """A row with the columns this test means, and placeholders only where the schema insists on a value."""
+
+    with repository.connection() as connection:
+        columns = list(connection.execute(f"PRAGMA table_info({table})"))
+    filler = {"INTEGER": 1, "REAL": 1.0}
+    required = {row[1]: filler.get(row[2].upper(), "x") for row in columns if row[3] and row[4] is None and not row[5]}
+    merged = {**required, **values}
+    marks = ", ".join("?" for _ in merged)
+    _execute(repository, (f"INSERT INTO {table}({', '.join(merged)}) VALUES ({marks})", tuple(merged.values())))
+
+
+def test_an_answer_graded_against_another_items_contract_has_no_pinned_question(world):
+    """The revision an answer was graded against is the one contract of **its own** item that its evidence names. Two
+    readers rest on this: what a model context shows as the question, and what a writer's record says it read."""
+
+    from learnloop.db.stores.write_provenance import pinned_contract_ids
+
+    _vault, repository = world
+    other = "pi_transpose_001"
+    contract = '{"prompt": "ANOTHER_ITEMS_QUESTION"}'
+    for name, item in (("own", ITEM), ("foreign", other)):
+        _insert(repository, "assessment_contract_versions", id=f"contract_{name}", practice_item_id=item,
+                contract_hash=f"hash_{name}", contract_json=contract, created_at=AT)
+    for attempt, cited in (("att_own", "contract_own"), ("att_foreign", "contract_foreign")):
+        _insert(repository, "grading_evidence", id=f"evidence_{attempt}", attempt_id=attempt,
+                assessment_contract_version_id=cited, created_at=AT)
+    items = {"att_own": ITEM, "att_foreign": ITEM}
+    with repository.connection() as connection:
+        assert pinned_contract_ids(connection, items) == {"att_own": "contract_own"}
+        assert set(LP.pinned_contracts(connection, items)) == {"att_own"}

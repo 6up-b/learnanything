@@ -65,9 +65,37 @@ Each row is one change. Seconds were measured alone on this machine, so read the
 | Migration application per test | **Partly.** Upgrade tests' `_migrate` stays. The real cost was fresh schemas, now copied |
 | Subprocess-heavy tests | **Small.** `test_evsi_multisim`'s CLI test (170 s) is CPU in the model fits, not process startup |
 | xdist balance | **Not the constraint.** Sum / 8 is 97% of the wall clock |
-| Upgrade and successor tests: why they grow, and whether a shared chain helps | **The cause wasn't the chain.** `parameter_registry.refresh` opens about 816 connections per call, 64 calls per walk, which is 96% of the time. Connection reuse takes a walk from 138 s to 6.9 s, so a shared chain (which would weaken what each proves) isn't needed. Each new tag now adds about 0.15 s, not 3 s |
+| Upgrade and successor tests: why they grow, and whether a shared chain helps | **The cause wasn't the chain.** `parameter_registry.refresh` opens about 816 connections per call, 64 calls per walk, which is 96% of the time. Connection reuse takes a walk from 138 s to 6.9 s, so a shared chain (which would weaken what each proves) isn't needed. Each new tag now adds about 0.2 s, not 3 s |
 
 The same `refresh` cost is real in production: about 2 s per tag on an upgrade. A one-line `with repository.pinned():` would fix it. It's listed in §7 rather than changed here, because the brief allows no such source change.
+
+## 3. Flakes and known failures
+
+| Failure | Cause | Fix | How it was checked |
+|---|---|---|---|
+| **RO0 ULID** (`test_receipts_hold_ids_and_numbers`) | Checked a two-character title, `M2`, as a substring of a state full of random ULIDs | A whole-word match. A clause that never applied was dropped, so the check is stricter | Passes; the cause is deterministic to read. Not run enough times to show the old rate |
+| **MCP `8841`** (`test_mcp_c1a_review`, `test_mcp_c1a_narrow`, `test_diagnosis_input_provenance`) | The same bug: four digits as a substring of random ids and hashes | `names_planted_key`, a whole-word match. It still catches a leak in a title or slug, and now also checks each output leaf in the schema test | Passes, and the leak tests still fail on a planted title |
+| **Phone contract row order** | The journey took `rows[0]` of the queue, then revealed a hint on it. A hintless item sorting first gave a 422 | The journey picks an item with an authored hint | Recorded cause in `phone-v2-codex-review.md` |
+| **Phone contract under load** (RE0's agent, -n 4) | **Likely, not confirmed from its log:** a method past the host's 15 s wait answers 202, and `Phone.rpc` requires 200 | The shared helper sets a long wait for all 16 host test files; `test_mobile_jobs` keeps its own short one | Mechanism read from `host.py:591`. Not reproduced |
+| **Grader time of day** | Fixed Nov 1 (`fix-grader-date-nov1.md`) | Swept again: 157 dated files at wall clock 2027-03-01, some at other dates and times of day | One product date bomb: none. Two failures, below |
+| **Dont_know mass** (new; `test_stuck_prompt`, and very likely the failure seen in `test_stuck_prompt_replay`) | The builtin schema's id is a random ULID, which enters the calibration hash, which seeds the certainty bound. 1 hash in 600 gives a bound below certainty, so a dont_know reads 0.690, not 0.7 | Fixed id per slug in tests | Simulated over 600 hashes: min bound 0.649, 1 below certainty. The failing value itself wasn't captured, so the link is by magnitude and mechanism |
+| **`test_mobile_two_process` under time travel** | An artefact: the sweep's plugin warps only the main process, so the other process's day differs. It fails at every warped date and passes normally | None | Not a product or test bug |
+| **Thread leaks** | The guard (`tests/thread_guard.py`) reported none in the Nov 7 gate or in the targeted runs here, so `test_capture_route_recovery`'s listed leak is already gone | None | The final gate re-checks: a leak fails its test's teardown |
+| **Three races connection reuse exposed** (`test_batch3_landing`, `test_approach_map_replay`, `test_compare_sources_keep`) | Each read state while background work it had started was still writing. A slow main thread used to hide this | Each stops or waits for the work first | Batch 3 and the map fixture failed every run before the fix. Repeated runs pass |
+
+**Load flakes in older gates** (`test_reading_hardening_2_fixes::test_f1_...`, `test_reading_request_sweep`, `test_voi_v2`, `test_apply_write_ahead`): none failed in the Nov 7 gate or here. No cause was established, so they aren't claimed as fixed. Halving the suite's CPU should help, since each waited on a worker under load.
+
+### The two owner-lane failures waved through at every landing
+
+**`test_backfill_logs_attempt_duration_interaction_events`: the test was out of date.** It looked in the copy for an attempt with no observation, and none is left since practice began writing them, so its setup crashed on `None` and the backfill never ran. It now makes one legacy on its private copy, with the same assertions, and the code passes.
+
+**`test_placement_ignores_unanswered_opening_episodes_on_fixture_copies[arxiv_v2]`: the test found a real gap, and it needs the owner.**
+
+- `pi_a_preprocessing_pipeline` is the only item of `lo_prepare_and_inspect_aligned_coordinate_tensors`. Its only answer is a `self_report` from Jul 21, with no evidence.
+- So it has `last_attempt_at`, no `due_at`, and an opening episode that placement ignores. It isn't new material (not never-attempted) and it isn't routinely due.
+- **Under placement that LO never comes back,** at every tag from mvp-0.11 to mvp-0.54, on this mvp-0.35 copy. Below placement it's served.
+- A fix changes what the scheduler serves, so per the brief it stops here: no source change. The property still holds for every other LO, and a strict xfail pins the gap and goes red when it's fixed.
+- `linear_algebra` has one similar item, which is still served. `probability` has none.
 
 ## 7. Plumbing list for the refactor
 
