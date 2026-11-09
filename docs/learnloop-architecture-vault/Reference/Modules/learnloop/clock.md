@@ -493,6 +493,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `Clock`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -545,7 +546,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 439 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 440 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -822,6 +823,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_configured_share_is_the_ledgers_cap_and_one_point_zero_disables_it`
   - `test_trace_evidence_report_surfaces_unexercised_cells_and_abstains_on_concentration`
   - `test_trace_evidence_turns_the_supporting_target_into_embedded_credit`
+- [tests/test_connection_reuse.py](../../../../../tests/test_connection_reuse.py) — direct import
+  - `test_a_copied_fresh_schema_matches_a_built_one_and_stamps_this_builds_clock`
 - [tests/test_constraint_engine.py](../../../../../tests/test_constraint_engine.py) — direct import
 - [tests/test_contamination_report.py](../../../../../tests/test_contamination_report.py) — direct import
   - `test_a_reader_reveal_before_the_assessment_was_taken_stays_in_the_report`
@@ -1499,6 +1502,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_located_error_is_decided_by_its_diagnosis`
   - `test_a_regrade_to_unverified_keeps_the_topic_in_maintenance`
   - `test_the_check_follows_a_regrade_that_requeues_the_diagnosis`
+- [tests/test_placement_unevidenced_return.py](../../../../../tests/test_placement_unevidenced_return.py) — direct import
 - [tests/test_plan_determinism.py](../../../../../tests/test_plan_determinism.py) — direct import
   - `test_replay_never_reads_the_switch`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import

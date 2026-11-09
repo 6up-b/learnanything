@@ -1635,6 +1635,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ad23_fakes.py](../../../../../../tests/ad23_fakes.py) — direct import
 - [tests/ad_ingest_fakes.py](../../../../../../tests/ad_ingest_fakes.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
@@ -2744,6 +2745,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_originals_store.py](../../../../../../tests/test_originals_store.py) — direct import
   - `test_register_reuse_backfills_missing_store_copy`
   - `test_register_with_vault_root_retains_bytes`
+- [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import
+  - `test_each_bound_is_repeatable_for_its_own_seed`
+  - `test_production_mints_a_new_random_ulid_for_each_vault_and_keeps_it`
+  - `test_the_bound_stays_inside_its_limits_on_every_seed_and_mass_with_it`
+  - `test_the_lane_fixes_only_the_id_and_production_still_inserts_the_row`
 - [tests/test_output_budget.py](../../../../../../tests/test_output_budget.py) — direct import
   - `test_paid_calls_fail_on_a_second_truncation`
   - `test_paid_calls_retry_a_truncation_once_at_double_the_admitted_budget`
@@ -2779,6 +2785,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_joint_fixture_replays_through_the_unchanged_path`
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_answer_on_an_ignored_episode_is_not_held_back_for_it`
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
+  - `test_a_returned_prerequisite_moves_its_dependents_one_layer_later`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
   - `test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design`
   - `test_replay_never_reads_the_switch`
@@ -3570,6 +3578,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_workbench_attempt_carries_its_trace_under_the_suffix_and_never_a_map`
   - `test_every_other_attempt_renders_exactly_as_before`
 - [tests/ux_phase1_support.py](../../../../../../tests/ux_phase1_support.py) — direct import
+- [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
 
 ## Modification guidance
 

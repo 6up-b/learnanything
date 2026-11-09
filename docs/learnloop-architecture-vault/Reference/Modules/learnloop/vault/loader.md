@@ -237,6 +237,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `add_note`; statically calls `add_note`
+- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `load_practice_item_file`, `load_vault`; statically calls `load_practice_item_file`, `load_vault`
 - [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] — imports `load_vault`; statically calls `load_vault`
@@ -275,7 +276,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 133 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 134 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -2020,6 +2021,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_report_surfaces_the_abstention_rate`
 - [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — direct import
   - `test_capture_host_coexists_without_primary_startup_work`
+- [tests/test_mobile_phone_contract.py](../../../../../../tests/test_mobile_phone_contract.py) — direct import
+  - `test_every_reply_carries_what_the_phone_reads`
 - [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
   - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
@@ -2287,6 +2290,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_ignored_opening_episode_commissions_no_instrument_generation`
   - `test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked`
   - `test_the_causal_quick_check_stops_the_episode_being_ignored`
+- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
+  - `test_a_returned_prerequisite_moves_its_dependents_one_layer_later`
+  - `test_a_shadow_rebuild_reports_nothing_moved_for_the_shape`
+  - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
+  - `test_the_gate_is_the_tag_the_switch_and_ignored_opening_episodes`
+  - `test_the_upgrade_chains_from_an_older_link`
+  - `test_the_upgrade_publishes_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
   - `test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design`
   - `test_dl1s_draw_is_seeded_from_logged_state_and_its_log_reproduces_the_pick`
@@ -2896,7 +2907,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
-  - `test_two_weeks_before_and_after_the_batch`
+  - `test_two_weeks_after_the_batch`
 - [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
   - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
   - `test_the_pool_and_the_held_map_follow_their_switches`
@@ -3103,6 +3114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
+  - `test_a_live_database_that_changes_during_the_run_is_refused`
   - `test_shadow_rebuild_rejects_unknown_override_without_touching_live_db`
   - `test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation`
 - [tests/test_show.py](../../../../../../tests/test_show.py) — direct import
