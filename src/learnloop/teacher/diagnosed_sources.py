@@ -197,16 +197,20 @@ def _decision_time(connection: Any, decision_id: str) -> str | None:
     return None if row is None else str(row[0])
 
 
-def _miss(connection: Any, learning_object_ids: Sequence[str], decided_at: str) -> dict[str, Any] | None:
-    """The latest attempt on the lesson's topics made at or before the offer's decision."""
+def _miss(connection: Any, config: Any, learning_object_ids: Sequence[str], decided_at: str) -> dict[str, Any] | None:
+    """The latest attempt on the lesson's topics known at the offer's decision (THE availability predicate: a
+    backdated import that arrived later was not what the offer was made on)."""
+
+    from learnloop.router_objective_switches import attempt_time_sql
 
     ids = sorted(set(learning_object_ids))
     if not ids:
         return None
+    known = attempt_time_sql(config, connection)
     row = connection.execute(
         f"SELECT id, learning_object_id, practice_item_id, created_at FROM practice_attempts "
-        f"WHERE learning_object_id IN ({','.join('?' for _ in ids)}) AND created_at <= ? "
-        "ORDER BY created_at DESC, id DESC LIMIT 1", (*ids, decided_at)).fetchone()
+        f"WHERE learning_object_id IN ({','.join('?' for _ in ids)}) AND created_at <= ? AND {known} <= ? "
+        "ORDER BY created_at DESC, id DESC LIMIT 1", (*ids, decided_at, decided_at)).fetchone()
     return None if row is None else {"attempt_id": str(row[0]), "learning_object_id": str(row[1]),
                                      "practice_item_id": row[2], "at": str(row[3])}
 
@@ -298,7 +302,7 @@ def follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref
             decided_at = _decision_time(connection, origin_ref)
             if decided_at is None:
                 return result.none(NO_ORIGIN)
-            attempt = _miss(connection, learning_object_ids, decided_at)
+            attempt = _miss(connection, vault.config, learning_object_ids, decided_at)
             if attempt is None:
                 return result.none(NO_MISS)
             result.attempt_id = attempt["attempt_id"]

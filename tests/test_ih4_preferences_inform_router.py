@@ -607,6 +607,7 @@ def test_picks_are_never_in_its_cohort_and_an_overridden_draw_is(tmp_path, draw)
     env = _env(tmp_path)
     _insert(env, "seed", LA.STOP)
     env.clock.advance(1)
+    draw.prefer = ("",)  # the first of the support, never the stop that would close the plan
     _record, step = advance(env, serve=True)
     # Answer until the feedback read draws a decision with a frozen sensor, then override what it drew.
     for _ in range(8):
@@ -896,6 +897,29 @@ def test_a_new_preference_starts_a_new_job_and_moves_no_seed(make_world, spy):
     assert after["preferences"]["n"] == 1
     assert OC._hash(after) != OC._hash(before) and OC.numeric_seed(after) == OC.numeric_seed(before)
     assert len(world.runtime._entries) == len(jobs) + 1
+
+
+# -- a read IH7 left outside the availability predicate ------------------------------------------------------------------
+
+
+def test_the_miss_a_lesson_reads_is_what_was_known_at_the_decision(tmp_path):
+    """IH7's ``_miss`` (``test_ro1_availability_reads``): an answer imported after the decision, dated before it, isn't it."""
+
+    from learnloop.teacher.diagnosed_sources import _miss
+
+    env = _env(tmp_path)
+    item = next(iter(env.vault.practice_items.values()))
+    lo = item.learning_object_id
+    known = record_attempt(env.repository, item.id, lo, env.clock.now())
+    env.clock.advance(5)
+    backdated = record_attempt(env.repository, item.id, lo, env.clock.now())
+    env.clock.advance(5)
+    decided = env.now_iso()
+    env.clock.advance(60)
+    with env.repository.connection() as connection:
+        connection.execute("UPDATE practice_attempts SET received_at = ? WHERE id = ?", (env.now_iso(), backdated))
+        connection.commit()
+        assert _miss(connection, env.vault.config, [lo], decided)["attempt_id"] == known
 
 
 # -- the report --------------------------------------------------------------------------------------------------------
