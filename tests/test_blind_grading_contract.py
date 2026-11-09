@@ -110,6 +110,26 @@ def test_rendered_blind_prompt_contains_no_prior_attempt_or_hypothesis(seeded):
     assert f"prompt_version: {BLIND_GRADING_PROMPT_VERSION}" in prompt
 
 
+def test_a_joint_context_with_history_gives_a_blind_context_and_prompt_without_it(seeded):
+    """The conversion itself, on a context that really holds history: the test above reads a context built with none,
+    so copying the history into any blind field would pass it."""
+
+    from learnloop.attempts.blind_grading import blind_context_from_grading_context, blind_context_payload
+    from learnloop.attempts.grading import build_grading_context
+
+    vault, _repository = seeded
+    item = vault.practice_items["pi_svd_compute_001"]
+    joint = build_grading_context(vault, item, attempt_id="att_new", learner_answer_md="A = U Sigma V once more")
+    planted = "PLANTED_PRIOR_TRACE_7193"
+    joint = dataclasses.replace(joint, diagnostic_history=[{
+        "attempt_id": "att_prior", "learner_answer_md": planted, "error_summary": planted}])
+    blind = blind_context_from_grading_context(joint)
+    assert planted not in json.dumps(blind_context_payload(blind), sort_keys=True, default=str)
+    assert planted not in blind_grading_prompt(blind)
+    # The control: the same context shows it to the joint grader's prompt payload.
+    assert planted in json.dumps(joint.diagnostic_history)
+
+
 def test_blind_prompt_drops_every_causal_instruction(seeded):
     vault, _repository = seeded
     item = vault.practice_items["pi_svd_compute_001"]

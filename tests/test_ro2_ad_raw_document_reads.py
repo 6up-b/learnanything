@@ -12,6 +12,8 @@ The reproduction itself (a span-anchored Reader question on the textbook fake) i
 
 from __future__ import annotations
 
+import pytest
+
 import ast
 import json
 from pathlib import Path
@@ -148,6 +150,7 @@ def _reachable_raw_loads() -> tuple[set[tuple[str, str]], list[str]]:
     return seen, raw
 
 
+@pytest.mark.slow
 def test_no_code_reached_from_ads_operation_calls_a_raw_document_loader():
     """Fails before the fix: VaultReadingMap.los_for_span and los_for_section reached
     section_map.section_id_for_span and learning_objects_for_section, each calling

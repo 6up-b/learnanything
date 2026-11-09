@@ -8,6 +8,7 @@ weights serving while the learned rule is only logged. Fakes only."""
 from __future__ import annotations
 
 from contextlib import closing
+import itertools
 import json
 import sqlite3
 
@@ -383,8 +384,14 @@ def test_a_challenger_learns_its_way_up_from_resolver_receipts(tmp_path, monkeyp
     is the default; Voyage starts at zero weight. With learned fusion on, the
     Thompson draws query Voyage some of the time, its ranks are observed, the
     learner opens what Voyage ranks first, and the refit raises Voyage's
-    weight. No rank or posterior is injected: every row is the resolver's."""
+    weight. No rank or posterior is injected: every row is the resolver's.
 
+    The draws' seeds run in call order: a receipt's id is random, and the draws
+    it seeds decide the history. One gate failed here with learned_weights None
+    (0 of 259 reruns did), so the assertion must not rest on the draw."""
+
+    seeds = itertools.count(1)
+    monkeypatch.setattr(fusion, "rng_seed", lambda _receipt_id: next(seeds))
     paths, repository = _vault(tmp_path)
     client = _fallback(paths, monkeypatch, extra="\n\n[embedding.source_space]\nlearned_fusion = true")
     fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)

@@ -39,6 +39,7 @@ def _run_sequence(code_root: Path, vault_dir: Path) -> dict:
     return json.loads(done.stdout.strip().splitlines()[-1])
 
 
+@pytest.mark.slow
 def test_with_all_four_switches_off_the_sequence_equals_the_base_codes(tmp_path):
     if shutil.which("git") is None or subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", BASE],
                                                      capture_output=True).returncode != 0:

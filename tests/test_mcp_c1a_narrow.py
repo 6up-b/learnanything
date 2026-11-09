@@ -60,6 +60,7 @@ from tests.mcp_world import (
     legacy_answer,
     live_diagnosis,
     misconception_row,
+    names_planted_key,
     no_model_calls,
     payload_text,
     pinned_answer,
@@ -139,7 +140,7 @@ def test_a_snapshot_diagnosis_and_the_beliefs_drawn_from_it_are_held_back(world)
         group_row(connection, "grp_snap", "ep_snap", cause)
         connection.commit()
     context, text = _context(world)
-    assert LEGACY_KEY not in text and "8841" not in text
+    assert LEGACY_KEY not in text and not names_planted_key(text)
     own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
     assert own["answer"] == OWN_ANSWER and own["stem"] == PINNED_STEM
     assert own["diagnosis"]["status"] == "done"
@@ -194,7 +195,7 @@ def test_a_generated_title_read_from_the_snapshot_is_held_back(world):
                    receipt={"retrieval": {"neighborhood_learning_object_ids": ["lo_matrices"]}},
                    history_mode="snapshot")
     context, text = _context(world)
-    assert "8841" not in text and TITLE_WORDS not in text.lower()
+    assert not names_planted_key(text) and TITLE_WORDS not in text.lower()
     assert _slug(los["tainted"]) not in text and los["tainted"] not in text
     own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
     assert own["diagnosis"]["summary"] is None and own["diagnosis"]["summary_note"] == HELD_BACK
@@ -214,7 +215,7 @@ def test_a_generated_id_in_a_misconception_statement_is_held_back(world):
     live_diagnosis(world.repository, "att_own", "The learner mixed up two topics.",
                    receipt={"retrieval": {"neighborhood_learning_object_ids": ["lo_matrices"]}})
     context, text = _context(world)
-    assert los["tainted"] not in text and _slug(los["tainted"]) not in text and "8841" not in text
+    assert los["tainted"] not in text and _slug(los["tainted"]) not in text and not names_planted_key(text)
     named = next(m for m in context["misconceptions"] if m["misconception_id"] == "mc_named")
     assert named["statement"] is None and named["statement_note"] == HELD_BACK
 
@@ -302,7 +303,7 @@ def test_today_and_progress_never_show_a_generated_topic_s_name(tmp_path, monkey
     for result in (today, progress):
         assert not result.is_error, result.content
         text = _text(result)
-        assert "8841" not in text and GENERATED_LO not in text and "Legacy Key" not in text, text
+        assert not names_planted_key(text) and GENERATED_LO not in text and "Legacy Key" not in text, text
     (block,) = today.structured_content["plan"]["blocks"]
     assert block["topics"][0] == "M1" and block["topics"][1].startswith("a topic named from")
     # The computed why named the generated title: held back (an authored-only
@@ -389,7 +390,7 @@ def test_a_question_on_a_generated_topic_is_held_back_its_answer_is_not(world):
     assert trace["answer"] == "GEN_PINNED_7710 equal"
     assert trace["stem"] is None and trace["stem_note"] == HELD_BACK and "SEEDED_PROMPT_4402" not in text
     assert trace["topic"].startswith("a topic named from") and trace["learning_object_id"].startswith("lo_withheld_")
-    assert "8841" not in text
+    assert not names_planted_key(text)
 
 
 def test_generated_topics_are_aliased_everywhere_and_accepted_back(world):
@@ -399,8 +400,9 @@ def test_generated_topics_are_aliased_everywhere_and_accepted_back(world):
     context, text = everything.structured_content, _text(everything)
     for lo in los.values():
         assert lo not in text and _slug(lo) not in text
-    for title in ("Permutation parity basics", "Elementary matrix inverses", "8841"):
+    for title in ("Permutation parity basics", "Elementary matrix inverses"):
         assert title not in text
+    assert not names_planted_key(text)
     gaps = {gap["gap_id"]: gap for gap in context["open_learner_text_gaps"]}
     alias = gaps["gap_gen"]["learning_object_id"]
     assert alias.startswith("lo_withheld_") and alias in context["scope"]["learning_object_ids"]
@@ -411,7 +413,7 @@ def test_generated_topics_are_aliased_everywhere_and_accepted_back(world):
     assert any(m["misconception_id"] == "mc_gen" for m in named.structured_content["misconceptions"])
     assert searched.structured_content["scope"]["learning_object_count"] == 0
     for result in (named, searched):
-        assert los["tainted"] not in _text(result) and "8841" not in _text(result).replace("8841 negates", "")
+        assert los["tainted"] not in _text(result) and not names_planted_key(_text(result).replace("8841 negates", ""))
 
 
 def _as_guessed(result, guess: str) -> dict:
@@ -775,7 +777,7 @@ def _derived_everywhere(world) -> list[str]:
     live_diagnosis(world.repository, "att_own", "PLANTED_SUMMARY_3 the learner lost track of signs.",
                    receipt={"failure_attempt_ids": ["att_own"]})
     return [MISCONCEPTION, CANDIDATE, HYPOTHESIS, GAP_TEXT, correction, "PLANTED_CAUSE_2", "PLANTED_SUMMARY_3",
-            GENERATED_TITLE, "8841", "Permutation parity basics", "Elementary matrix inverses", "SEEDED_PROMPT_4402",
+            GENERATED_TITLE, "Permutation parity basics", "Elementary matrix inverses", "SEEDED_PROMPT_4402",
             "Drops the sign when pivoting", "Thinks a pivot may be zero", "Thinks pivots commute"]
 
 
@@ -852,6 +854,7 @@ def test_every_text_field_is_authored_an_answer_or_withheld_without_a_record(wor
     ContextOut.model_validate(context)
     for path, value in leaves(context):
         assert not [text for text in planted if text in value], (path, value)
+        assert not names_planted_key(value), (path, value)
     released = check(context)
     assert not [path for path, rules in released.items() if RECORDED in rules]
     assert {path for path in RELEASED_BY if RELEASED_BY[path] == {RECORDED}} & set(released) == set()
@@ -905,3 +908,10 @@ def test_each_kind_of_released_text_has_exactly_one_renderer():
     assert owners("AnswerText") == {"answer"}
     assert owners("RecordedText") == {"derived"}
     assert owners("GuardedText") == set()
+
+
+def test_the_planted_key_check_tells_a_leak_from_a_random_id():
+    for leak in ("Legacy key 8841: a row swap", "lo_ltg_legacy_key_8841_a_row_swap", '"topic": "8841 negates"'):
+        assert names_planted_key(leak), leak
+    for noise in ("01M6ZEMDX378841ZBWA09WXPXW", "att_8841abcd", "abcd8841", "0.8841", "18841"):
+        assert not names_planted_key(noise), noise

@@ -176,6 +176,7 @@ def _unruled_unreviewed(reached: Reached, tables: set[str]) -> dict[str, list[st
     return out
 
 
+@pytest.mark.slow
 def test_every_table_the_code_running_inside_an_operation_names_is_classified(tmp_path, monkeypatch):
     """Static over the code that runs (see the module docstring). Failed before this fix on
     ``scheduler_offer_receipts`` (``field.outcomes._serving``) and ``grader_calibration_alphas``

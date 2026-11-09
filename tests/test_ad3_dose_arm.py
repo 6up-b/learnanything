@@ -241,6 +241,7 @@ def _expected_n_star(curve: tuple[float, float], minutes: float, reference: floa
     return best
 
 
+@pytest.mark.slow
 def test_dose_report_recommendation_follows_fitted_curves():
     """On synthetic fitted states with known curves and minutes, the useful dose is where the
     curve's marginal gain per minute (posterior median) crosses the practice reference; moving a
@@ -268,6 +269,7 @@ def test_dose_report_recommendation_follows_fitted_curves():
     assert line.startswith("Worked examples: about ") and line.endswith(f"({DR.OBSERVATIONAL}).")
 
 
+@pytest.mark.slow
 def test_cant_tell_exactly_when_the_interval_is_wide_or_minutes_unknown():
     minutes = {"reading": 1.0, "reader_tutor_exchange": 0.5, "worked_example": 1.0, "in_passage_question": 2.0}
     curves = {kind: (0.3, 0.3) for kind in P.READING_KINDS}

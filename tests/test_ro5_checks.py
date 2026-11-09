@@ -95,6 +95,9 @@ def test_the_draw_does_not_change_with_the_action_or_either_policys_output(tmp_p
     positive = [lo for lo, r in record["r"].items() if r > 0]
     assert all(record["r"][lo] == pytest.approx(1 / len(positive)) for lo in positive)
     assert set(positive) == {lo for lo, n in record["eligible_items"].items() if n > 0}
+    # What the estimator divides by (checks.py reads the ledger's propensity as r): the topic's share of the day.
+    slots = [row for row in _check_rows(plain) if row["unit_id"].count(":") == 2]
+    assert slots and all(row["propensity"] == pytest.approx(record["r"][row["variant"]]) for row in slots)
 
 
 def test_the_check_takes_the_first_practice_slot_outside_the_mix_with_no_label(tmp_path):
