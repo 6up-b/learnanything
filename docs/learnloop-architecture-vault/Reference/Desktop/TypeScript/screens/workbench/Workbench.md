@@ -10,8 +10,8 @@ area: "TypeScript/screens/workbench"
 source_path: "apps/learnloop-tauri/src/screens/workbench/Workbench.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/workbench/Workbench.tsx"
-source_commit: "043463103e0d027baf5a33a62fe3948504d4ae03"
-source_commit_timestamp: "2026-10-26T19:03:18-04:00"
+source_commit: "5fe3a22558905593434e76e97a9375a41bf0354f"
+source_commit_timestamp: "2026-11-08T19:24:01-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/Workbench.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/Workbench.tsx) |
-| Source lines | 860 |
+| Source lines | 862 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `043463103e0d027baf5a33a62fe3948504d4ae03` |
-| Commit timestamp | `2026-10-26T19:03:18-04:00` |
+| Source commit | `5fe3a22558905593434e76e97a9375a41bf0354f` |
+| Commit timestamp | `2026-11-08T19:24:01-05:00` |
 
 ## Activation and status evidence
 
@@ -160,10 +160,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const noticeHere = helpOn && help.notice && chain !== null && (help.notice.stepId ?? focusedChain) === chain` — const, line 621
 - `const focusedVerdict = helpOn && focusedKey ? verdictFor(check, stepChain(live.find((entry)` — const, line 623
 - `const outlined = Boolean(chain && focusedVerdict?.dependsOn.includes(chain))` — const, line 624
-- `const confidenceRow = helpOn && open && !readOnly && bound ? ( <div role="radiogroup" aria-label=` — const, line 743
-- `const recordLine = ( <div style=` — const, line 757
-- `const actions = !readOnly && open ? ( <div style=` — const, line 764
-- `const reopenLine = !readOnly && session.status === "abandoned" ? ( <MeaningLabel style=` — const, line 812
+- `const confidenceRow = helpOn && open && !readOnly && bound ? ( <div role="radiogroup" aria-label=` — const, line 745
+- `const recordLine = ( <div style=` — const, line 759
+- `const actions = !readOnly && open ? ( <div style=` — const, line 766
+- `const reopenLine = !readOnly && session.status === "abandoned" ? ( <MeaningLabel style=` — const, line 814
 
 ## Who imports or calls it
 

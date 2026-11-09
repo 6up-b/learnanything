@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/lesson_offers_upgrade.py"
 source_paths:
   - "src/learnloop/lesson_offers_upgrade.py"
-source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
-source_worktree_state: "modified"
+source_commit: "8d0cf22296d907bd58068ba46f62c4d144a9adb1"
+source_commit_timestamp: "2026-11-06T13:38:45-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
-| Commit timestamp | `2026-11-07T01:13:16-05:00` |
+| Worktree state | `clean` |
+| Source commit | `8d0cf22296d907bd58068ba46f62c4d144a9adb1` |
+| Commit timestamp | `2026-11-06T13:38:45-05:00` |
 
 ## Public API
 

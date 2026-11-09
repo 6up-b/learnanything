@@ -1113,7 +1113,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import
   - `test_a_nonsense_candidate_statement_is_never_rejected`
   - `test_an_eliciting_response_after_a_reveal_is_recorded_but_not_independent`
+  - `test_an_eliciting_response_after_the_factor_was_resolved_is_recorded`
   - `test_an_empty_eliciting_response_is_refused`
+  - `test_answering_the_question_first_leaves_the_one_tap_card_open`
   - `test_submit_eliciting_response_records_a_factor_response`
 - [tests/test_difficulty_band_guards.py](../../../../../../tests/test_difficulty_band_guards.py) — direct import
   - `test_diagnostic_plan_band_is_never_degenerate`
@@ -2895,6 +2897,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_rofu_weeks.py](../../../../../../tests/test_rofu_weeks.py) — direct import
   - `test_two_weeks_before_and_after_the_batch`
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothing_after`
+  - `test_the_pool_and_the_held_map_follow_their_switches`
+- [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
 - [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_switch_reaches_every_rollout_from_the_config`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import

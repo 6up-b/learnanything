@@ -68,6 +68,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     dumped = drop_te3b_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False))
     assert dumped["router_objective"].pop("held_ad_link") is True
+    from tests.test_rofu_successor import drop_rospeed2_keys
+
+    drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP052_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).

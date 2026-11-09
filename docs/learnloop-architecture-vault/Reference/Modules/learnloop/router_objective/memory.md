@@ -184,6 +184,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_speed.py](../../../../../../tests/test_rofu_speed.py) — direct import
   - `test_the_fsrs_update_without_clip_equals_the_schedulers_scalar_formulas`
   - `test_the_merged_path_calls_the_fsrs_update_far_fewer_times`
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
 - [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
 

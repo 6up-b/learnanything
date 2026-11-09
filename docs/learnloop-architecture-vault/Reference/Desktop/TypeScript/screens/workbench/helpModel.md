@@ -10,8 +10,8 @@ area: "TypeScript/screens/workbench"
 source_path: "apps/learnloop-tauri/src/screens/workbench/helpModel.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/workbench/helpModel.ts"
-source_commit: "6ff2176bc831e03e403b4bdb79366f1cb3b673f3"
-source_commit_timestamp: "2026-10-18T21:23:50-04:00"
+source_commit: "5fe3a22558905593434e76e97a9375a41bf0354f"
+source_commit_timestamp: "2026-11-08T19:24:01-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/helpModel.ts](../../../../../../../apps/learnloop-tauri/src/screens/workbench/helpModel.ts) |
-| Source lines | 236 |
+| Source lines | 240 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `6ff2176bc831e03e403b4bdb79366f1cb3b673f3` |
-| Commit timestamp | `2026-10-18T21:23:50-04:00` |
+| Source commit | `5fe3a22558905593434e76e97a9375a41bf0354f` |
+| Commit timestamp | `2026-11-08T19:24:01-05:00` |
 
 ## Activation and status evidence
 
@@ -61,58 +61,59 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export const HELP_COPY =` — const, line 9
-- `export const STYLE_OPTIONS = [` — const, line 46
-- `export const WORKBENCH_SHORTCUTS = [` — const, line 53
-- `export const WHERE_THIS_GOES =` — const, line 62
-- `export type WhereThisGoesBox = keyof typeof WHERE_THIS_GOES` — type, line 76
-- `export const DEFAULT_RUNGS: LadderRungDto[] = [` — const, line 79
-- `export function suggestedLine(suggestion: HelpSuggestionDto | null): string | null` — function, line 89
-- `export interface LadderChoice` — interface, line 97
-- `export function chooseKey(state: LadderChoice, key: string): LadderChoice | "take" | "close" | null` — function, line 101
-- `export function verdictFor(check: CheckViewDto | null, chainId: string)` — function, line 111
-- `export const CHECKED_TEXT_CHARS = 2000` — const, line 116
-- `export function textFingerprint(text: string): string` — function, line 126
-- `export function withLocalEdits( check: CheckViewDto | null, steps: readonly` — function, line 152
-- `export function verdictMark(verdict:` — function, line 181
-- `export function claimLine(claim:` — function, line 196
-- `export function staleLine(check: CheckViewDto | null): string | null` — function, line 206
-- `export function hintLabel(hint: Pick<WorkbenchHintViewDto, "labels" | "level" | "stepLine" | "kind">): string` — function, line 222
-- `export const FORBIDDEN_WORDING = ["you don't understand", "you struggle", "weak"] as const` — const, line 236
+- `export const STYLE_OPTIONS = [` — const, line 50
+- `export const WORKBENCH_SHORTCUTS = [` — const, line 57
+- `export const WHERE_THIS_GOES =` — const, line 66
+- `export type WhereThisGoesBox = keyof typeof WHERE_THIS_GOES` — type, line 80
+- `export const DEFAULT_RUNGS: LadderRungDto[] = [` — const, line 83
+- `export function suggestedLine(suggestion: HelpSuggestionDto | null): string | null` — function, line 93
+- `export interface LadderChoice` — interface, line 101
+- `export function chooseKey(state: LadderChoice, key: string): LadderChoice | "take" | "close" | null` — function, line 105
+- `export function verdictFor(check: CheckViewDto | null, chainId: string)` — function, line 115
+- `export const CHECKED_TEXT_CHARS = 2000` — const, line 120
+- `export function textFingerprint(text: string): string` — function, line 130
+- `export function withLocalEdits( check: CheckViewDto | null, steps: readonly` — function, line 156
+- `export function verdictMark(verdict:` — function, line 185
+- `export function claimLine(claim:` — function, line 200
+- `export function staleLine(check: CheckViewDto | null): string | null` — function, line 210
+- `export function hintLabel(hint: Pick<WorkbenchHintViewDto, "labels" | "level" | "stepLine" | "kind">): string` — function, line 226
+- `export const FORBIDDEN_WORDING = ["you don't understand", "you struggle", "weak"] as const` — const, line 240
 
 ## Internal implementation anchors
 
-- `const form = [suggestion.kindLabel, suggestion.horizonLabel].filter(Boolean).join(", ")` — const, line 91
-- `const FNV_OFFSET = 0xcbf29ce484222325n` — const, line 118
-- `const FNV_PRIME = 0x100000001b3n` — const, line 119
-- `const MASK_64 = 0xffffffffffffffffn` — const, line 120
-- `const fingerprints = new Map<string, string>()` — const, line 121
-- `const known = fingerprints.get(text)` — const, line 127
-- `let value = FNV_OFFSET` — let, line 129
-- `const out = `fnv1a64:$` — const, line 134
-- `function sameAsChecked(body: string, verdict:` — function, line 144
-- `const bodies = new Map<string, string>()` — const, line 157
-- `let moved = false` — let, line 159
-- `const changed = new Set(check.changedSteps)` — const, line 160
-- `const verdicts = check.verdicts.map((verdict)` — const, line 161
-- `const body = bodies.get(verdict.chainId)` — const, line 163
-- `const edited = body === undefined || !sameAsChecked(body, verdict)` — const, line 164
-- `const CHECKED_METHODS = new Set(["checked", "checked_numerically"])` — const, line 174
-- `const MODEL_LABEL = "model's reading, not checked"` — const, line 175
-- `const mark = verdict.verdict === "valid" ? "≈" : verdict.verdict === "questionable" ? "?" : "·"` — const, line 190
-- `const checked = symbolicEnabled === true && CHECKED_METHODS.has(claim.status)` — const, line 198
-- `const mark = checked ? "✓" : "≈"` — const, line 199
-- `const label = checked ? claim.label : claim.status === "model" || CHECKED_METHODS.has(claim.status) ? MODEL_LABEL : claim.label` — const, line 200
-- `const at = check.checkedAt ? new Date(check.checkedAt) : null` — const, line 208
-- `const time = at && !Number.isNaN(at.getTime()) ? `$` — const, line 209
-- `const changed = check.changedSteps.length ? check.changedSteps.length === 1 ? `step $` — const, line 212
-- `const parts: string[] = []` — const, line 223
-- `const labels = hint.labels ??` — const, line 224
+- `const form = [suggestion.kindLabel, suggestion.horizonLabel].filter(Boolean).join(", ")` — const, line 95
+- `const FNV_OFFSET = 0xcbf29ce484222325n` — const, line 122
+- `const FNV_PRIME = 0x100000001b3n` — const, line 123
+- `const MASK_64 = 0xffffffffffffffffn` — const, line 124
+- `const fingerprints = new Map<string, string>()` — const, line 125
+- `const known = fingerprints.get(text)` — const, line 131
+- `let value = FNV_OFFSET` — let, line 133
+- `const out = `fnv1a64:$` — const, line 138
+- `function sameAsChecked(body: string, verdict:` — function, line 148
+- `const bodies = new Map<string, string>()` — const, line 161
+- `let moved = false` — let, line 163
+- `const changed = new Set(check.changedSteps)` — const, line 164
+- `const verdicts = check.verdicts.map((verdict)` — const, line 165
+- `const body = bodies.get(verdict.chainId)` — const, line 167
+- `const edited = body === undefined || !sameAsChecked(body, verdict)` — const, line 168
+- `const CHECKED_METHODS = new Set(["checked", "checked_numerically"])` — const, line 178
+- `const MODEL_LABEL = "model's reading, not checked"` — const, line 179
+- `const mark = verdict.verdict === "valid" ? "≈" : verdict.verdict === "questionable" ? "?" : "·"` — const, line 194
+- `const checked = symbolicEnabled === true && CHECKED_METHODS.has(claim.status)` — const, line 202
+- `const mark = checked ? "✓" : "≈"` — const, line 203
+- `const label = checked ? claim.label : claim.status === "model" || CHECKED_METHODS.has(claim.status) ? MODEL_LABEL : claim.label` — const, line 204
+- `const at = check.checkedAt ? new Date(check.checkedAt) : null` — const, line 212
+- `const time = at && !Number.isNaN(at.getTime()) ? `$` — const, line 213
+- `const changed = check.changedSteps.length ? check.changedSteps.length === 1 ? `step $` — const, line 216
+- `const parts: string[] = []` — const, line 227
+- `const labels = hint.labels ??` — const, line 228
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/screens/workbench/BookPassage|src/screens/workbench/BookPassage.tsx]] — import-or-re-export: `HELP_COPY`; references `HELP_COPY`
 - [[Reference/Desktop/TypeScript/screens/workbench/CheckColumn|src/screens/workbench/CheckColumn.tsx]] — import-or-re-export: `HELP_COPY`, `staleLine`, `verdictMark`; references `HELP_COPY`, `staleLine`, `verdictMark`
 - [[Reference/Desktop/TypeScript/screens/workbench/HelpLadder|src/screens/workbench/HelpLadder.tsx]] — import-or-re-export: `HELP_COPY`, `chooseKey`, `suggestedLine`; references `HELP_COPY`, `chooseKey`, `suggestedLine`
 - [[Reference/Desktop/TypeScript/screens/workbench/HelpStyleControl|src/screens/workbench/HelpStyleControl.tsx]] — import-or-re-export: `HELP_COPY`, `STYLE_OPTIONS`; references `HELP_COPY`, `STYLE_OPTIONS`
@@ -145,6 +146,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/workbench/ownerCapture1025.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/ownerCapture1025.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/workbench/fingerprint.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/workbench/fingerprint.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/workbench/HelpLadder.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/HelpLadder.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/BookPassage.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/BookPassage.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_workbench_text_gaps.py](../../../../../../../tests/test_workbench_text_gaps.py) — direct source contract: references the exact source path.
 
 ## Modification guidance

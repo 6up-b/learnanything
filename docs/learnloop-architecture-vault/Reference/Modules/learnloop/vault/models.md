@@ -583,11 +583,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bare_video_timestamp_resolves_single_cue`
   - `test_dangling_locator_falls_back_to_quote`
   - `test_feedback_resolves_current_ingest_span_and_filename`
+  - `test_local_source_uri_is_never_an_external_url`
   - `test_missing_note_falls_back_to_quote`
   - `test_missing_note_resolves_youtube_ingest_identity`
   - `test_non_displayable_ref_types_skipped`
   - `test_resolves_text_locator_to_section`
   - `test_resolves_video_time_range`
+  - `test_web_original_is_used_when_the_canonical_uri_is_local`
 - [tests/test_probe_belief_posterior.py](../../../../../../tests/test_probe_belief_posterior.py) — direct import
 - [tests/test_probe_eig.py](../../../../../../tests/test_probe_eig.py) — direct import
   - `test_probe_eig_is_deterministic_and_normalized`
@@ -626,6 +628,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
+- [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_r1_an_in_place_vault_edit_made_and_undone_within_one_map_never_reaches_a_later_job`
+  - `test_the_held_map_is_the_landing_codes_through_protection_source_and_vault_changes`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f2_a_criterion_the_grader_declares_unverified_is_unassessed_on_a_divergent_route`
   - `test_fatal_errors_keep_their_mark_downs`

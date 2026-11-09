@@ -189,8 +189,9 @@ def main() -> int:
     # Mobile v2 V2 adds screens/feedback/answerExposureGate.ts.
     # Teacher TE3b: screens/today/LessonOfferBlock.tsx (the offer card as a block of Today's plan; entry-reachable).
     # Mobile v2 V4 (Codex review F8): screens/reader/visitClock.ts (the Reader visit's clock, shared with the phone).
-    if len(ts_sources) != 324:
-        errors.append(f"source inventory drift: expected 324 TypeScript/TSX files, found {len(ts_sources)}")
+    # Owner captures (Nov 8): screens/workbench/BookPassage.tsx (the book's way, shown in Workbench help).
+    if len(ts_sources) != 325:
+        errors.append(f"source inventory drift: expected 325 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -287,7 +288,8 @@ def main() -> int:
         # Mobile v2 V2: screens/feedback/answerExposureGate.ts, the pure gate split out for the phone.
         # Teacher TE3b: screens/today/LessonOfferBlock.tsx.
         # Mobile v2 V4 (Codex review F8): screens/reader/visitClock.ts.
-        "entry-reachable build graph": 313,
+        # Owner captures (Nov 8): screens/workbench/BookPassage.tsx.
+        "entry-reachable build graph": 314,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -301,7 +303,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 330}:
+    if dict(status_counts) != {"ACTIVE": 331}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

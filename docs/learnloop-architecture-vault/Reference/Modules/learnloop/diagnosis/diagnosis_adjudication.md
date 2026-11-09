@@ -149,6 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scoreboard_groups_by_prompt_version_and_model`
   - `test_store_is_append_only_and_a_second_opinion_supersedes`
   - `test_verdict_must_agree_with_what_the_system_actually_did`
+- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import
+  - `test_an_eliciting_response_after_the_factor_was_resolved_is_recorded`
 - [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — direct import
   - `test_a_promoted_belief_is_not_resolved_away_by_the_next_posterior_pass`
   - `test_a_verdict_against_an_abstention_never_promotes`

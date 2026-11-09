@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/source_review.py"
 source_paths:
   - "src/learnloop/reader/source_review.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "880e76decaed1c003c13535091d302f83dcf8cbe"
+source_commit_timestamp: "2026-11-08T18:32:35-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,32 +49,33 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/source_review.py](../../../../../../src/learnloop/reader/source_review.py) |
-| Source lines | 232 |
+| Source lines | 251 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `880e76decaed1c003c13535091d302f83dcf8cbe` |
+| Commit timestamp | `2026-11-08T18:32:35-05:00` |
 
 ## Public API
 
-- `resolve_source_refs(vault, item, repository=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 35) — Resolve an item's source refs for display.
+- `resolve_source_refs(vault, item, repository=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 36) — Resolve an item's source refs for display.
 
 ### Module constants
 
-- `CAPTION_CONTEXT_CUES` ([src/learnloop/reader/source_review.py](../../../../../../src/learnloop/reader/source_review.py), line 30)
-- `_DISPLAYABLE_REF_TYPES` ([src/learnloop/reader/source_review.py](../../../../../../src/learnloop/reader/source_review.py), line 32)
+- `CAPTION_CONTEXT_CUES` ([src/learnloop/reader/source_review.py](../../../../../../src/learnloop/reader/source_review.py), line 31)
+- `_DISPLAYABLE_REF_TYPES` ([src/learnloop/reader/source_review.py](../../../../../../src/learnloop/reader/source_review.py), line 33)
 
 ## Internal implementation anchors
 
-- `_resolve_block_span_ref(repository, ref, *, kind: str, note, canonical: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/source_review.py), line 81) — Resolve current-ingest ``block_span_v1`` refs from the persisted IR.
-- `_base_entry(ref, kind: str | None, note, canonical: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 132)
-- `_quote_fallback(ref, *, kind: str | None, note, canonical: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 149)
-- `_resolve_text_ref(ref, note, canonical: dict[str, Any], kind: str, chunks: list[SourceChunk]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 156)
-- `_resolve_video_ref(ref, note, canonical: dict[str, Any], chunks: list[SourceChunk]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 176)
-- `_parse_time_locator_loose(locator: str | None) -> tuple[float, float | None] | None` ([source](../../../../../../src/learnloop/reader/source_review.py), line 213) — ``t=start-end`` -> (start, end); bare ``t=start`` -> (start, None).
-- `_parse_cue_range(locator: str) -> tuple[float, float] | None` ([source](../../../../../../src/learnloop/reader/source_review.py), line 228)
+- `_resolve_block_span_ref(repository, ref, *, kind: str, note, canonical: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/source_review.py), line 83) — Resolve current-ingest ``block_span_v1`` refs from the persisted IR.
+- `_base_entry(ref, kind: str | None, note, canonical: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 136)
+- `_web_url(*uris: Any) -> str | None` ([source](../../../../../../src/learnloop/reader/source_review.py), line 158) — The first address a browser can open.
+- `_quote_fallback(ref, *, kind: str | None, note, canonical: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 168)
+- `_resolve_text_ref(ref, note, canonical: dict[str, Any], kind: str, chunks: list[SourceChunk]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 175)
+- `_resolve_video_ref(ref, note, canonical: dict[str, Any], chunks: list[SourceChunk]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_review.py), line 195)
+- `_parse_time_locator_loose(locator: str | None) -> tuple[float, float | None] | None` ([source](../../../../../../src/learnloop/reader/source_review.py), line 232) — ``t=start-end`` -> (start, end); bare ``t=start`` -> (start, None).
+- `_parse_cue_range(locator: str) -> tuple[float, float] | None` ([source](../../../../../../src/learnloop/reader/source_review.py), line 247)
 
 ## Who imports or calls it
 
@@ -93,7 +94,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `hashlib`, `re`, `typing`
+- Standard library: `__future__`, `hashlib`, `re`, `typing`, `urllib`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -112,11 +113,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bare_video_timestamp_resolves_single_cue`
   - `test_dangling_locator_falls_back_to_quote`
   - `test_feedback_resolves_current_ingest_span_and_filename`
+  - `test_local_source_uri_is_never_an_external_url`
   - `test_missing_note_falls_back_to_quote`
   - `test_missing_note_resolves_youtube_ingest_identity`
   - `test_non_displayable_ref_types_skipped`
   - `test_resolves_text_locator_to_section`
   - `test_resolves_video_time_range`
+  - `test_web_original_is_used_when_the_canonical_uri_is_local`
 
 ## Modification guidance
 

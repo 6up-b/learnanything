@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/workbench.py"
 source_paths:
   - "src/learnloop/reader/workbench.py"
-source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
-source_commit_timestamp: "2026-11-04T16:51:26-05:00"
+source_commit: "5fe3a22558905593434e76e97a9375a41bf0354f"
+source_commit_timestamp: "2026-11-08T19:24:01-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py) |
-| Source lines | 1617 |
+| Source lines | 1637 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
-| Commit timestamp | `2026-11-04T16:51:26-05:00` |
+| Source commit | `5fe3a22558905593434e76e97a9375a41bf0354f` |
+| Commit timestamp | `2026-11-08T19:24:01-05:00` |
 
 ## Public API
 
@@ -88,36 +88,37 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `attempt_identities(repository: Any, *, practice_item_id: str | None, submission_id: str | None, workbench_session_id: str | None) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 827) — Every identity of the one attempt in progress that ``submission_id`` and ``workbench_session_id`` name: ``(submission ids, workbench ids)`` (Astra batch review, Medium; ``tutor_qa.AttemptAliases`` carries them).
 - `save_step(repository: Any, session_id: str, *, op: str, client_idempotency_key: str, step_id: str | None=None, after_step_id: str | None=None, kind: str='step', body_md: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 871) — Save one change to the work, as typed (spec §5.1).
 - `set_book(repository: Any, session_id: str, visible: bool, *, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 950) — Show or hide the book (``Ctrl+Shift+B``).
-- `leave(repository: Any, session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 979) — "Leave for now" (``Esc`` twice, navigating away, a restart): the session stays open.
-- `abandon(repository: Any, session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 990) — Close the problem at once, steps kept; reversible by :func:`reopen` (UX S13).
-- `reopen(repository: Any, session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1006) — An abandoned session back to ``open`` (it never wrote an attempt).
-- `import_request(session: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1025)
-- `exercise_pick(session: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1050) — The picked exercise's record, or None for every other problem.
-- `exercise_pick_due(session: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1057) — The import bound the problem to the item it wrote and the learner pick of that item was not delivered yet: the shell owes it, once.
-- `exercise_region(session: Mapping[str, Any]) -> tuple[str, list[str]] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1073) — A picked textbook exercise's region (its extraction and spans), from its stored request; None for every other problem.
-- `exercise_request_region(request: Mapping[str, Any] | None) -> tuple[str, list[str]] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1080) — The same, from an import request (a stored one, or one about to be queued).
-- `statement_cleared(vault: Any, repository: Any, session: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1092) — Whether a problem's statement may be shown now (Reader RW4b fix round 5, R2): every problem but a picked textbook exercise, and a picked one only while the one statement reader still reads its region (not exam or held-out material now, the predicate readable).
-- `record_admission_stage(repository: Any, session_id: str, stage: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1105) — Keep a step of a picked exercise's admission on the problem (fix round 5, R1): ``picked`` (the learner pick made, with its serve and practice session) and ``served``.
-- `admit_exercise_pick(repository: Any, session_id: str, *, practice_item_id: str, exposure: Mapping[str, Any] | None, serve: Mapping[str, str | None] | None=None, practice_session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1124) — Record that the learner pick of the exercise's item was made and served for THIS problem, in one transaction (RW4b fix round 4, R1): the pick's serve (its scheduler offer and plan presentation) stored on this problem, the practice session it was made in, the exposure read again…
-- `mark_import(repository: Any, session_id: str, *, status: str, batch_id: str | None=None, error: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1164) — Record the import's progress: ``pending`` on a batch, or ``failed``.
-- `ensure_contract(repository: Any, session_id: str, version_id: str | None, *, subject_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1195) — Record the assessment contract the session shows, once: a resumed problem keeps the contract it was opened (or bound) with.
-- `bind(repository: Any, session_id: str, practice_item_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1216) — Bind the session to the item its import made (UX S2).
-- `class SubmissionPlan` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1242) — What a workbench submit sends through the ordinary attempt path.
-  - `hints_used(self) -> int` (line 1265; public) — The session's hint-equivalents: the book's, the carried hints, an earlier attempt's opened help, and each shown check and level 1-3 hint (§5.4).
-  - `client_hints(self) -> int` (line 1273; public) — What the submit sends as the client's count: the session's RW2a counts only (the book's, the carried hints).
-  - `primed(self) -> bool` (line 1282; public) — Worked help (a shown level 4-5 hint) primes the attempt (§5.4).
-  - `submission_id(self) -> str` (line 1288; public)
-- `submission_id_for(session_id: str) -> str` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1292) — One submit per session, so the session names its retry key: a response lost after the commit is answered from the receipt.
-- `submission_plan(repository: Any, session_id: str) -> SubmissionPlan` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1299)
-- `help_fold(repository: Any, session_id: str) -> WorkbenchFold` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1326) — The problem's shown checks and hints (the record line's count).
-- `set_help_style(repository: Any, session_id: str, help_style: str | None, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1335) — The workbench header's help style for this problem (D31): one of the three styles, or None to follow the stored preference again.
-- `log_help_offered(repository: Any, session_id: str, *, about_step_id: str | None, offered_level: int, kind: str, chooser: str, suggestion_id: str | None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1356) — The rung the ladder suggested when Help opened (§5.5): the Reader's fallback progression reads it ("one rung above the last offered").
-- `mark_submitted(repository: Any, session_id: str, *, attempt_id: str, practice_session_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1367)
-- `session_view(repository: Any, session_id: str, *, question_hints: int=0, server_hints: int=0, earlier: int | None=None, extra: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1394) — Everything the workbench shows for one session (snake_case; the adapter camel-cases it).
-- `session_for_attempt(repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1508)
-- `sessions_for_item(repository: Any, practice_item_id: str, *, now: datetime | None=None, open_days: int=30) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1520) — The item's practice card: "resume your steps" (open) or "reopen" (abandoned).
-- `sessions_for_source(repository: Any, extraction_id: str, *, now: datetime | None=None, open_days: int=30) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1527) — The problems worked on a source and not submitted: the ``✎`` marks, the rail, and RW6a's recap (open sessions past ``open_days`` are ``unfinished``, shown without alarm and never closed).
-- `open_problems(repository: Any, *, now: datetime | None=None, open_days: int=30) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1536) — UX Phase 3 (spec ux_learnloop_v1 §7.1, §10 3.3): the open problems on every source, newest first, for Today's "Pick up a thread".
+- `count_book_passage(repository: Any, session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 979) — The learner pressed "show me the book's way" off the Reader and a passage was shown: the attempt counts the book from now on, once and for good (:func:`book_counted`).
+- `leave(repository: Any, session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 998) — "Leave for now" (``Esc`` twice, navigating away, a restart): the session stays open.
+- `abandon(repository: Any, session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1009) — Close the problem at once, steps kept; reversible by :func:`reopen` (UX S13).
+- `reopen(repository: Any, session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1025) — An abandoned session back to ``open`` (it never wrote an attempt).
+- `import_request(session: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1044)
+- `exercise_pick(session: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1069) — The picked exercise's record, or None for every other problem.
+- `exercise_pick_due(session: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1076) — The import bound the problem to the item it wrote and the learner pick of that item was not delivered yet: the shell owes it, once.
+- `exercise_region(session: Mapping[str, Any]) -> tuple[str, list[str]] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1092) — A picked textbook exercise's region (its extraction and spans), from its stored request; None for every other problem.
+- `exercise_request_region(request: Mapping[str, Any] | None) -> tuple[str, list[str]] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1099) — The same, from an import request (a stored one, or one about to be queued).
+- `statement_cleared(vault: Any, repository: Any, session: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1111) — Whether a problem's statement may be shown now (Reader RW4b fix round 5, R2): every problem but a picked textbook exercise, and a picked one only while the one statement reader still reads its region (not exam or held-out material now, the predicate readable).
+- `record_admission_stage(repository: Any, session_id: str, stage: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1124) — Keep a step of a picked exercise's admission on the problem (fix round 5, R1): ``picked`` (the learner pick made, with its serve and practice session) and ``served``.
+- `admit_exercise_pick(repository: Any, session_id: str, *, practice_item_id: str, exposure: Mapping[str, Any] | None, serve: Mapping[str, str | None] | None=None, practice_session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1143) — Record that the learner pick of the exercise's item was made and served for THIS problem, in one transaction (RW4b fix round 4, R1): the pick's serve (its scheduler offer and plan presentation) stored on this problem, the practice session it was made in, the exposure read again…
+- `mark_import(repository: Any, session_id: str, *, status: str, batch_id: str | None=None, error: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1183) — Record the import's progress: ``pending`` on a batch, or ``failed``.
+- `ensure_contract(repository: Any, session_id: str, version_id: str | None, *, subject_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1214) — Record the assessment contract the session shows, once: a resumed problem keeps the contract it was opened (or bound) with.
+- `bind(repository: Any, session_id: str, practice_item_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1235) — Bind the session to the item its import made (UX S2).
+- `class SubmissionPlan` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1261) — What a workbench submit sends through the ordinary attempt path.
+  - `hints_used(self) -> int` (line 1284; public) — The session's hint-equivalents: the book's, the carried hints, an earlier attempt's opened help, and each shown check and level 1-3 hint (§5.4).
+  - `client_hints(self) -> int` (line 1292; public) — What the submit sends as the client's count: the session's RW2a counts only (the book's, the carried hints).
+  - `primed(self) -> bool` (line 1301; public) — Worked help (a shown level 4-5 hint) primes the attempt (§5.4).
+  - `submission_id(self) -> str` (line 1307; public)
+- `submission_id_for(session_id: str) -> str` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1311) — One submit per session, so the session names its retry key: a response lost after the commit is answered from the receipt.
+- `submission_plan(repository: Any, session_id: str) -> SubmissionPlan` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1318)
+- `help_fold(repository: Any, session_id: str) -> WorkbenchFold` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1345) — The problem's shown checks and hints (the record line's count).
+- `set_help_style(repository: Any, session_id: str, help_style: str | None, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1354) — The workbench header's help style for this problem (D31): one of the three styles, or None to follow the stored preference again.
+- `log_help_offered(repository: Any, session_id: str, *, about_step_id: str | None, offered_level: int, kind: str, chooser: str, suggestion_id: str | None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1375) — The rung the ladder suggested when Help opened (§5.5): the Reader's fallback progression reads it ("one rung above the last offered").
+- `mark_submitted(repository: Any, session_id: str, *, attempt_id: str, practice_session_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1386)
+- `session_view(repository: Any, session_id: str, *, question_hints: int=0, server_hints: int=0, earlier: int | None=None, extra: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1413) — Everything the workbench shows for one session (snake_case; the adapter camel-cases it).
+- `session_for_attempt(repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1527)
+- `sessions_for_item(repository: Any, practice_item_id: str, *, now: datetime | None=None, open_days: int=30) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1539) — The item's practice card: "resume your steps" (open) or "reopen" (abandoned).
+- `sessions_for_source(repository: Any, extraction_id: str, *, now: datetime | None=None, open_days: int=30) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1546) — The problems worked on a source and not submitted: the ``✎`` marks, the rail, and RW6a's recap (open sessions past ``open_days`` are ``unfinished``, shown without alarm and never closed).
+- `open_problems(repository: Any, *, now: datetime | None=None, open_days: int=30) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1555) — UX Phase 3 (spec ux_learnloop_v1 §7.1, §10 3.3): the open problems on every source, newest first, for Today's "Pick up a thread".
 
 ### Module constants
 
@@ -141,9 +142,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `MAX_STEM_CHARS` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 106)
 - `MAX_STEP_CHARS` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 107)
 - `SERVE_COLUMNS` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 468)
-- `EXERCISE_PICK_KEY` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 1045)
-- `EXERCISE_WORKBENCH_EVENTS` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 1047)
-- `SOURCE_EXERCISE_KIND` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 1070)
+- `EXERCISE_PICK_KEY` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 1064)
+- `EXERCISE_WORKBENCH_EVENTS` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 1066)
+- `SOURCE_EXERCISE_KIND` ([src/learnloop/reader/workbench.py](../../../../../../src/learnloop/reader/workbench.py), line 1089)
 
 ### Explicit exports
 
@@ -180,6 +181,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `statement_cleared`
 - `bind`
 - `book_counted`
+- `count_book_passage`
 - `book_hints`
 - `carried_hints`
 - `compose_answer`
@@ -235,9 +237,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_draft_keys(submission_ids: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 806)
 - `_handed(repository: Any, connection: Any, session: Mapping[str, Any], submission_ids: Iterable[str], clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 811) — Record the draft keys handed into ``session`` inside the caller's transaction (:func:`record_draft_handoff`); a failure fails it whole.
 - `_ordinal_after(live: Sequence[Mapping[str, Any]], after: Mapping[str, Any] | None) -> float` ([source](../../../../../../src/learnloop/reader/workbench.py), line 862)
-- `_print_region(session: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1465) — Reader CA1 (§12.4): the learner-drawn sub-box a problem opened from a region selection was imported with, so its crop is the learner's before the import binds it; present only when there is one.
-- `_summary(session: Mapping[str, Any], rows: Sequence[Mapping[str, Any]], *, now: datetime | None, open_days: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1482)
-- `_listed(repository: Any, *, column: str, value: str, now: datetime | None, open_days: int) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1513)
+- `_print_region(session: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1484) — Reader CA1 (§12.4): the learner-drawn sub-box a problem opened from a region selection was imported with, so its crop is the learner's before the import binds it; present only when there is one.
+- `_summary(session: Mapping[str, Any], rows: Sequence[Mapping[str, Any]], *, now: datetime | None, open_days: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1501)
+- `_listed(repository: Any, *, column: str, value: str, now: datetime | None, open_days: int) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/workbench.py), line 1532)
 
 ## Who imports or calls it
 
@@ -254,7 +256,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]] — imports `module`; statically calls `session_row`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `module`; statically calls `attempt_identities`, `session_row`, `submission_id_for`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `module`; statically calls `earlier_hints`, `exercise_pick`, `exercise_pick_due`, `exercise_request_region`, `import_request`, `open_problems`, `open_session_days`, `resumable_session`, `session_for_attempt`, `sessions_for_item`, `sessions_for_source`, `statement_cleared`, `submission_id_for`, `workbench_enabled`
-- [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `module`; statically calls `log_help_offered`, `session_row`, `set_help_style`, `submission_id_for`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `module`; statically calls `count_book_passage`, `log_help_offered`, `session_row`, `set_help_style`, `submission_id_for`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_rw2c|learnloop_sidecar.handlers.workbench_rw2c]] — imports `module`; statically calls `session_row`, `submission_id_for`
 
 ## Dependencies
@@ -335,6 +337,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_workbench_hint_service.py](../../../../../../tests/test_workbench_hint_service.py) — direct import
   - `test_every_workbench_hint_comes_from_request_hint_and_the_suggestion_from_the_service`
   - `test_help_events_are_salience_only`
+  - `test_in_the_reader_the_books_way_leaves_the_books_own_count_alone`
 
 ## Modification guidance
 

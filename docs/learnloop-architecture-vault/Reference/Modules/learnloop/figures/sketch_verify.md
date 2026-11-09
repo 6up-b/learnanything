@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/sketch_verify.py"
 source_paths:
   - "src/learnloop/figures/sketch_verify.py"
-source_commit: "db1d84da96b008e4c02bf3e1feeada26bd30ba9b"
-source_commit_timestamp: "2026-10-31T19:55:24-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220"
+source_commit_timestamp: "2026-11-08T22:51:11-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -50,24 +50,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/sketch_verify.py](../../../../../../src/learnloop/figures/sketch_verify.py) |
-| Source lines | 814 |
+| Source lines | 818 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `db1d84da96b008e4c02bf3e1feeada26bd30ba9b` |
-| Commit timestamp | `2026-10-31T19:55:24-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220` |
+| Commit timestamp | `2026-11-08T22:51:11-05:00` |
 
 ## Public API
 
 - `class SketchReport` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 101) — What verification found, as stored in ``verification_report_json``.
-  - `as_dict(self) -> dict[str, Any]` (line 127; public)
-- `tested_digest(scene_text: str, probes_text: str) -> str` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 233) — One read's digest, as the desktop's ``sceneDigest`` computes it: the SHA-256 of the scene text, a NUL and the probes text (UTF-8), the first :data:`TESTED_DIGEST_HEX` hex digits.
-- `claim_entries(claim: K.CompiledClaim, probe: K.Probe, value: Any) -> int` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 406) — How many entries a claim's check at one point read evaluates (times :attr:`.sketch.CompiledClaim.entry_work`, the estimate an early refusal looks at before it runs).
-- `check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sample, budget: _Budget | None=None) -> str | None` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 419) — One claim at one point read: None when it holds, else why not.
-- `prediction_target_step(compiled: K.CompiledSketch, index: int) -> int` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 517) — The clock step a prediction is graded at (Codex review F5), shared with the desktop so its playback stops exactly there (:func:`.sketch.prediction_step`).
-- `prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: int, *, seed: int=VERIFY_SEED, record: list[tuple[int, dict[str, float], int, str, str, str]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 525) — What a sketch's prediction observes and its answer, decided by code in the engine.
-- `verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory=SketchEngine, span_texts: Mapping[str, str] | None=None) -> SketchReport` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 606) — Steps 2-5 on a parsed program (step 1's static half is :func:`.sketch.parse_sketch`): ``failed`` with the reason, or ``illustrative`` with its check lines.
+  - `as_dict(self) -> dict[str, Any]` (line 129; public)
+- `tested_digest(scene_text: str, probes_text: str) -> str` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 237) — One read's digest, as the desktop's ``sceneDigest`` computes it: the SHA-256 of the scene text, a NUL and the probes text (UTF-8), the first :data:`TESTED_DIGEST_HEX` hex digits.
+- `claim_entries(claim: K.CompiledClaim, probe: K.Probe, value: Any) -> int` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 410) — How many entries a claim's check at one point read evaluates (times :attr:`.sketch.CompiledClaim.entry_work`, the estimate an early refusal looks at before it runs).
+- `check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sample, budget: _Budget | None=None) -> str | None` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 423) — One claim at one point read: None when it holds, else why not.
+- `prediction_target_step(compiled: K.CompiledSketch, index: int) -> int` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 521) — The clock step a prediction is graded at (Codex review F5), shared with the desktop so its playback stops exactly there (:func:`.sketch.prediction_step`).
+- `prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: int, *, seed: int=VERIFY_SEED, record: list[tuple[int, dict[str, float], int, str, str, str]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 529) — What a sketch's prediction observes and its answer, decided by code in the engine.
+- `verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory=SketchEngine, span_texts: Mapping[str, str] | None=None) -> SketchReport` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 610) — Steps 2-5 on a parsed program (step 1's static half is :func:`.sketch.parse_sketch`): ``failed`` with the reason, or ``illustrative`` with its check lines.
 
 ### Module constants
 
@@ -75,7 +75,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `VERIFIER_REPORT_VERSION` ([src/learnloop/figures/sketch_verify.py](../../../../../../src/learnloop/figures/sketch_verify.py), line 89)
 - `TESTED_DIGEST_HEX` ([src/learnloop/figures/sketch_verify.py](../../../../../../src/learnloop/figures/sketch_verify.py), line 92)
 - `PROPERTY_WORDS` ([src/learnloop/figures/sketch_verify.py](../../../../../../src/learnloop/figures/sketch_verify.py), line 94)
-- `_TICK_WORK` ([src/learnloop/figures/sketch_verify.py](../../../../../../src/learnloop/figures/sketch_verify.py), line 219)
+- `_TICK_WORK` ([src/learnloop/figures/sketch_verify.py](../../../../../../src/learnloop/figures/sketch_verify.py), line 223)
 
 ### Explicit exports
 
@@ -95,23 +95,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Failed(Exception)` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 139)
-- `_point_text(point: Mapping[str, float]) -> str` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 147)
-- `_env(compiled: K.CompiledSketch, point: Mapping[str, float], step: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 151)
-- `class _Budget(G.Meter)` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 160) — Verification's own limits (Codex review F1, F2): the engine output it reads (:data:`.sketch.SKETCH_MAX_VERIFY_OUTPUT_BYTES`), the claim work it may do (:data:`.sketch.SKETCH_MAX_CLAIM_WORK`) and its wall clock (:data:`.sketch.SKETCH_VERIFY_SECONDS`, also every engine call's dead…
-- `class _Sample` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 223) — One point read: the parsed scene and probes, held only while it is validated, bound and checked (never kept: Codex review F1).
-- `_point_key(point: Mapping[str, float], step: int) -> tuple[str, int]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 242)
-- `_load(compiled: K.CompiledSketch, engine: SketchEngine, budget: _Budget) -> None` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 246)
-- `_stream(compiled: K.CompiledSketch, engine: SketchEngine, grid: Sequence[Mapping[str, float]], steps: Sequence[int], budget: _Budget, *, extra_reads: bool=False) -> Iterator[tuple[_Sample, str]]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 261) — Load, then at every grid point (in the given order) init (a freshly loaded program: :meth:`.SketchEngine.init`) and read each of ``steps`` (``view()`` then ``probes()``, as the desktop reads), validated, one at a time: each step read is yielded with its digest and dropped before…
-- `_binding_problem(compiled: K.CompiledSketch, sample: _Sample, elements: Mapping[str, Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 308)
-- `_bound_equal(element: Mapping[str, Any], value: Any, shape: str) -> bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 321)
-- `_scope(claim: K.Claim, shape: str, kind: str, on_domain: bool) -> str | None | bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 345) — The attribute a passing claim speaks for on one bound element: ``None`` (all of it), an attribute name, or False (nothing: a series claim over an index the line is not drawn at).
-- `_on_domain(claim: K.Claim, element: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 363) — A line bound to a series is drawn at the claim's index: its ``i``-th x is ``var_from + i * var_step`` (the claim's tolerance).
-- `_close(value: float, expected: float) -> bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 371)
-- `_z() -> float` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 375)
-- `_rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float], x: float, y: float, h: float, steps: int, budget: _Budget | None=None) -> list[tuple[float, float]]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 379) — The grammar's fixed-step RK4 (``spec._path``'s operation order); with a ``budget``, every stage's evaluations are metered to it.
-- `_statement(claim: K.Claim) -> str` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 509)
-- `_engine(factory: EngineFactory, budget: _Budget) -> SketchEngine` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 795)
+- `class _Failed(Exception)` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 143)
+- `_point_text(point: Mapping[str, float]) -> str` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 151)
+- `_env(compiled: K.CompiledSketch, point: Mapping[str, float], step: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 155)
+- `class _Budget(G.Meter)` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 164) — Verification's own limits (Codex review F1, F2): the engine output it reads (:data:`.sketch.SKETCH_MAX_VERIFY_OUTPUT_BYTES`), the claim work it may do (:data:`.sketch.SKETCH_MAX_CLAIM_WORK`) and its wall clock (:data:`.sketch.SKETCH_VERIFY_SECONDS`, also every engine call's dead…
+- `class _Sample` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 227) — One point read: the parsed scene and probes, held only while it is validated, bound and checked (never kept: Codex review F1).
+- `_point_key(point: Mapping[str, float], step: int) -> tuple[str, int]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 246)
+- `_load(compiled: K.CompiledSketch, engine: SketchEngine, budget: _Budget) -> None` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 250)
+- `_stream(compiled: K.CompiledSketch, engine: SketchEngine, grid: Sequence[Mapping[str, float]], steps: Sequence[int], budget: _Budget, *, extra_reads: bool=False) -> Iterator[tuple[_Sample, str]]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 265) — Load, then at every grid point (in the given order) init (a freshly loaded program: :meth:`.SketchEngine.init`) and read each of ``steps`` (``view()`` then ``probes()``, as the desktop reads), validated, one at a time: each step read is yielded with its digest and dropped before…
+- `_binding_problem(compiled: K.CompiledSketch, sample: _Sample, elements: Mapping[str, Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 312)
+- `_bound_equal(element: Mapping[str, Any], value: Any, shape: str) -> bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 325)
+- `_scope(claim: K.Claim, shape: str, kind: str, on_domain: bool) -> str | None | bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 349) — The attribute a passing claim speaks for on one bound element: ``None`` (all of it), an attribute name, or False (nothing: a series claim over an index the line is not drawn at).
+- `_on_domain(claim: K.Claim, element: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 367) — A line bound to a series is drawn at the claim's index: its ``i``-th x is ``var_from + i * var_step`` (the claim's tolerance).
+- `_close(value: float, expected: float) -> bool` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 375)
+- `_z() -> float` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 379)
+- `_rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float], x: float, y: float, h: float, steps: int, budget: _Budget | None=None) -> list[tuple[float, float]]` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 383) — The grammar's fixed-step RK4 (``spec._path``'s operation order); with a ``budget``, every stage's evaluations are metered to it.
+- `_statement(claim: K.Claim) -> str` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 513)
+- `_engine(factory: EngineFactory, budget: _Budget) -> SketchEngine` ([source](../../../../../../src/learnloop/figures/sketch_verify.py), line 799)
 
 ## Who imports or calls it
 

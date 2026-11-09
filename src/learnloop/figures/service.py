@@ -2551,9 +2551,11 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                 compiled, sketched, sketch_report = None, None, None
                 if str(output.spec_json or "").strip():
                     try:
-                        candidate = S.parse_spec(_ungrounded(output.spec_json) if grounding.mode == "none"
-                                                 else output.spec_json, advanced=advanced)
+                        candidate, dropped_notes = S.parse_author_spec(
+                            _ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json,
+                            advanced=advanced)
                         report = V.verify_numerics(candidate)
+                        report.author_predictions_dropped = dropped_notes
                         if report.outcome == V.FAILED:
                             quick_dropped = report.reason
                         else:
@@ -2570,11 +2572,13 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                 elif sketch and str(getattr(output, "sketch_json", "") or "").strip():
                     try:
                         raw = output.sketch_json
-                        candidate_sketch = K.parse_sketch(_ungrounded_sketch(raw) if grounding.mode == "none" else raw)
+                        candidate_sketch, dropped_notes = K.parse_author_sketch(
+                            _ungrounded_sketch(raw) if grounding.mode == "none" else raw)
                         from learnloop.figures import sketch_verify as SV
 
                         gate.check("sketch")
                         checked = SV.verify_sketch(candidate_sketch, span_texts=context.span_texts)
+                        checked.author_predictions_dropped = dropped_notes
                         if checked.outcome == V.FAILED:
                             quick_dropped = checked.reason
                         else:
@@ -2600,7 +2604,8 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             compiled = None
             try:
                 raw = output.sketch_json
-                sketched = K.parse_sketch(_ungrounded_sketch(raw) if grounding.mode == "none" else raw)
+                sketched, dropped_notes = K.parse_author_sketch(
+                    _ungrounded_sketch(raw) if grounding.mode == "none" else raw)
             except K.SketchError as exc:
                 problems, sketched = exc.problems, None
                 continue
@@ -2609,6 +2614,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             gate.check("sketch")
             try:
                 sketch_report = SV.verify_sketch(sketched, span_texts=context.span_texts)
+                sketch_report.author_predictions_dropped = dropped_notes
             except Exception as exc:  # noqa: BLE001 - the engine itself failed: an honest failure, never shown
                 problems, sketched = [f"the sketch could not be run: {type(exc).__name__}"], None
                 sketch_report = None
@@ -2621,12 +2627,13 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         sketched, sketch_report = None, None
         try:
             # Off, RW5b's panels are refused (the author was not told of them).
-            compiled = S.parse_spec(_ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json,
-                                    advanced=advanced)
+            compiled, dropped_notes = S.parse_author_spec(
+                _ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json, advanced=advanced)
         except S.SpecError as exc:
             problems, compiled = exc.problems, None
             continue
         report = V.verify_numerics(compiled)
+        report.author_predictions_dropped = dropped_notes
         if report.outcome == V.FAILED:
             problems = [report.reason, *report.structural[1:], *report.invariant_problems[1:]]
             compiled = None

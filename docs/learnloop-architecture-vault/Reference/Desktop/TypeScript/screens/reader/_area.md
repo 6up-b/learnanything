@@ -120,7 +120,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|useSideBySide.ts]] | `ACTIVE` | Provides `SidePaneDraft`, `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `MainPane` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/useSidePane|useSidePane.ts]] | `ACTIVE` | Provides `PaneCaptureTarget`, `SidePaneInput`, `useSidePane`, `SidePane` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/visitClock|visitClock.ts]] | `ACTIVE` | Provides `VISIT_IDLE_MS`, `VisitClock`, `accrueVisit`, `visitSeconds` within the desktop's TypeScript/screens/reader ownership area. | 0 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/voices|voices.tsx]] | `ACTIVE` | Implements the `voices` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 43 |
+| [[Reference/Desktop/TypeScript/screens/reader/voices|voices.tsx]] | `ACTIVE` | Implements the `voices` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 44 |
 
 ## Modification guidance
 

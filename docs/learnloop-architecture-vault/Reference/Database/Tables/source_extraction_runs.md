@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
+source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
+source_commit_timestamp: "2026-11-07T05:54:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -168,8 +168,8 @@ Indexes and uniqueness:
 - `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_reread_safety.py`
 - `tests/test_reread_safety_landing.py`
+- `tests/test_rospeed2_section_map.py`
 - `tests/test_sidecar_ingest_m3.py`
-- `tests/test_sidecar_quick_add.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

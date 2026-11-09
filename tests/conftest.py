@@ -119,12 +119,23 @@ _durability_active = False
 def _fast_test_connect(sqlite_path, *, read_only=False):
     connection = _durable_connect(sqlite_path, read_only=read_only)
     if not read_only and not _durability_active:
+        # A pooled connection (router speed stage 2's landing ruling R4: a PRAGMA with an argument run during a
+        # checkout closes it at release) takes the lane's settings once, as part of its open, unwatched.
+        raw = getattr(connection, "_connection", None)
+        pooled = isinstance(raw, _db_connection._PooledSqlite)
+        if pooled and getattr(raw, "_fast_lane", False):
+            return connection
+        if pooled:
+            raw.unwatch()
         connection.execute("PRAGMA synchronous=OFF")
         # A WAL database built by a durability-lane fixture stays WAL: leaving
         # WAL needs exclusive access and would silently fail while another
         # connection is open, making the mode depend on test order.
         if connection.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
             connection.execute("PRAGMA journal_mode=MEMORY")
+        if pooled:
+            raw._fast_lane = True
+            raw.watch()
     return connection
 
 

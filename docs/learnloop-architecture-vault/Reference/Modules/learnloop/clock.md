@@ -937,8 +937,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_production_after_a_reveal_is_not_independent`
   - `test_a_reveal_on_a_sibling_item_of_the_same_lo_still_contaminates`
   - `test_an_eliciting_response_after_a_reveal_is_recorded_but_not_independent`
+  - `test_an_eliciting_response_after_the_factor_was_resolved_is_recorded`
   - `test_an_embedded_prediction_stays_admissible_after_a_reveal`
   - `test_an_empty_eliciting_response_is_refused`
+  - `test_answering_the_question_first_leaves_the_one_tap_card_open`
   - `test_embedded_prediction_is_idempotent_per_question`
   - `test_submit_eliciting_response_records_a_factor_response`
 - [tests/test_discrimination_profiles.py](../../../../../tests/test_discrimination_profiles.py) — direct import

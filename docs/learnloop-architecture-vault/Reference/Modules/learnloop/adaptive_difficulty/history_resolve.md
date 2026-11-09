@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/history_resolve.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/history_resolve.py"
-source_commit: "workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d"
-source_commit_timestamp: "2026-11-07T01:13:16-05:00"
-source_worktree_state: "modified"
+source_commit: "246bdfc0b7d92c7c8514539af343fab875001cf8"
+source_commit_timestamp: "2026-11-06T20:35:00-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD bc9eadcc88232d3af229b26b721d88b037e39f7d` |
-| Commit timestamp | `2026-11-07T01:13:16-05:00` |
+| Worktree state | `clean` |
+| Source commit | `246bdfc0b7d92c7c8514539af343fab875001cf8` |
+| Commit timestamp | `2026-11-06T20:35:00-05:00` |
 
 ## Public API
 
@@ -145,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_learning.py](../../../../../../tests/test_rofu_learning.py) — direct import
   - `test_below_the_tag_the_combiner_reads_no_trace`
   - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
+- [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
+  - `test_the_opportunity_resolve_is_the_landing_codes_with_the_held_map`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
   - `test_one_decisions_builds_read_the_fit_once_and_the_next_decision_afresh`
   - `test_the_indexed_resolver_gives_the_landing_codes_rows`

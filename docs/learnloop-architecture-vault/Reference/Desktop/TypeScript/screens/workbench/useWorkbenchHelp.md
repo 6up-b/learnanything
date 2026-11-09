@@ -10,8 +10,8 @@ area: "TypeScript/screens/workbench"
 source_path: "apps/learnloop-tauri/src/screens/workbench/useWorkbenchHelp.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/workbench/useWorkbenchHelp.ts"
-source_commit: "b0e0f1e883f7a85e6feb83d0d90b0586555f276d"
-source_commit_timestamp: "2026-10-25T14:39:58-04:00"
+source_commit: "5fe3a22558905593434e76e97a9375a41bf0354f"
+source_commit_timestamp: "2026-11-08T19:24:01-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/useWorkbenchHelp.ts](../../../../../../../apps/learnloop-tauri/src/screens/workbench/useWorkbenchHelp.ts) |
-| Source lines | 428 |
+| Source lines | 436 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `b0e0f1e883f7a85e6feb83d0d90b0586555f276d` |
-| Commit timestamp | `2026-10-25T14:39:58-04:00` |
+| Source commit | `5fe3a22558905593434e76e97a9375a41bf0354f` |
+| Commit timestamp | `2026-11-08T19:24:01-05:00` |
 
 ## Activation and status evidence
 
@@ -64,64 +64,64 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface LadderState` — interface, line 43
 - `export interface HelpNotice` — interface, line 57
 - `export interface BridgeState` — interface, line 63
-- `export interface WorkbenchHelp` — interface, line 88
-- `export function useWorkbenchHelp(options:` — function, line 123
+- `export interface WorkbenchHelp` — interface, line 90
+- `export function useWorkbenchHelp(options:` — function, line 125
 
 ## Internal implementation anchors
 
 - `const FIRST_POLL_MS = 350` — const, line 39
 - `const MAX_POLL_MS = 1500` — const, line 41
-- `function drawnFields(value:` — function, line 81
-- `const closedLadder: LadderState =` — const, line 114
-- `function sleep(ms: number): Promise<void>` — function, line 119
-- `const alive = useRef(true)` — const, line 148
-- `const generation = useRef(0)` — const, line 149
-- `const onRecordRef = useRef(options.onRecord)` — const, line 150
-- `const beforeRef = useRef(options.beforeRequest)` — const, line 152
-- `const exampleJobRef = useRef(options.onExampleJob)` — const, line 154
-- `const helpStateRef = useRef(options.onHelpState)` — const, line 156
-- `const hintJob = useRef<string | null>(null)` — const, line 158
-- `const pendingJobs = useRef<Set<string>>(new Set())` — const, line 160
-- `const pending = pendingJobs.current` — const, line 164
-- `let cancelled = false` — let, line 175
-- `const restored: Record<string, BridgeState> =` — const, line 182
-- `const poll = useCallback(async (started: WorkbenchHelpJobDto, counted = false): Promise<WorkbenchHelpJobDto>` — const, line 194
-- `let job = started` — let, line 195
-- `let wait = FIRST_POLL_MS` — let, line 196
-- `const jobId = job.jobId` — const, line 197
-- `const followBridge = useCallback(async (hintAssistId: string, jobId: string)` — const, line 213
-- `const job = await poll(await api.workbenchHelpJob(jobId))` — const, line 216
-- `const result = job.result` — const, line 217
-- `const runCheck = useCallback(async ()` — const, line 230
-- `const started = await api.workbenchCheck(` — const, line 239
-- `const job = await poll(started, true)` — const, line 244
-- `const result: WorkbenchHelpResultDto | null = job.result` — const, line 245
-- `const openHelp = useCallback((focusedStepId: string | null)` — const, line 259
-- `const mine = ++generation.current` — const, line 261
-- `const job = await poll(await api.workbenchSuggestHelp(` — const, line 272
-- `const result = job.result` — const, line 274
-- `const suggestion = result.suggestion` — const, line 280
-- `const closeHelp = useCallback(()` — const, line 292
-- `const choose = useCallback((level: number)` — const, line 297
-- `const requestHint = useCallback(async (input: Omit<WorkbenchRequestHelpInput, "sessionId">, stepId: string | null, flushed = false)` — const, line 301
-- `const started = await api.workbenchRequestHelp(` — const, line 313
-- `const job = await poll(started, true)` — const, line 319
-- `const result = job.result` — const, line 322
-- `const view: WorkbenchHintViewDto =` — const, line 325
-- `const take = useCallback(async (level?: number)` — const, line 350
-- `const chosen = level ?? ladder.chosen` — const, line 352
-- `const reply = useCallback(async (hint: WorkbenchHintViewDto, value:` — const, line 366
-- `const bookWay = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 373
-- `const smallerStep = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 377
-- `const answerDiscriminating = useCallback(async (hint: WorkbenchHintViewDto, answer: string)` — const, line 381
-- `const recorded = await api.workbenchAnswerDiscriminating(` — const, line 383
-- `const cancelHint = useCallback(async ()` — const, line 393
-- `const jobId = hintJob.current` — const, line 394
-- `const ladderRef = useRef(ladder)` — const, line 403
-- `const setHelpStyle = useCallback(async (style: HelpStyle | null)` — const, line 405
-- `const previous = helpStyle` — const, line 406
-- `const saved = await api.workbenchSetHelpStyle(` — const, line 409
-- `const open = ladderRef.current` — const, line 415
+- `function drawnFields(value:` — function, line 83
+- `const closedLadder: LadderState =` — const, line 116
+- `function sleep(ms: number): Promise<void>` — function, line 121
+- `const alive = useRef(true)` — const, line 150
+- `const generation = useRef(0)` — const, line 151
+- `const onRecordRef = useRef(options.onRecord)` — const, line 152
+- `const beforeRef = useRef(options.beforeRequest)` — const, line 154
+- `const exampleJobRef = useRef(options.onExampleJob)` — const, line 156
+- `const helpStateRef = useRef(options.onHelpState)` — const, line 158
+- `const hintJob = useRef<string | null>(null)` — const, line 160
+- `const pendingJobs = useRef<Set<string>>(new Set())` — const, line 162
+- `const pending = pendingJobs.current` — const, line 166
+- `let cancelled = false` — let, line 177
+- `const restored: Record<string, BridgeState> =` — const, line 184
+- `const poll = useCallback(async (started: WorkbenchHelpJobDto, counted = false): Promise<WorkbenchHelpJobDto>` — const, line 196
+- `let job = started` — let, line 197
+- `let wait = FIRST_POLL_MS` — let, line 198
+- `const jobId = job.jobId` — const, line 199
+- `const followBridge = useCallback(async (hintAssistId: string, jobId: string)` — const, line 215
+- `const job = await poll(await api.workbenchHelpJob(jobId))` — const, line 218
+- `const result = job.result` — const, line 219
+- `const runCheck = useCallback(async ()` — const, line 233
+- `const started = await api.workbenchCheck(` — const, line 242
+- `const job = await poll(started, true)` — const, line 247
+- `const result: WorkbenchHelpResultDto | null = job.result` — const, line 248
+- `const openHelp = useCallback((focusedStepId: string | null)` — const, line 262
+- `const mine = ++generation.current` — const, line 264
+- `const job = await poll(await api.workbenchSuggestHelp(` — const, line 275
+- `const result = job.result` — const, line 277
+- `const suggestion = result.suggestion` — const, line 283
+- `const closeHelp = useCallback(()` — const, line 295
+- `const choose = useCallback((level: number)` — const, line 300
+- `const requestHint = useCallback(async (input: Omit<WorkbenchRequestHelpInput, "sessionId">, stepId: string | null, flushed = false)` — const, line 304
+- `const started = await api.workbenchRequestHelp(` — const, line 316
+- `const job = await poll(started, true)` — const, line 322
+- `const result = job.result` — const, line 325
+- `const view: WorkbenchHintViewDto =` — const, line 328
+- `const take = useCallback(async (level?: number)` — const, line 358
+- `const chosen = level ?? ladder.chosen` — const, line 360
+- `const reply = useCallback(async (hint: WorkbenchHintViewDto, value:` — const, line 374
+- `const bookWay = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 381
+- `const smallerStep = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 385
+- `const answerDiscriminating = useCallback(async (hint: WorkbenchHintViewDto, answer: string)` — const, line 389
+- `const recorded = await api.workbenchAnswerDiscriminating(` — const, line 391
+- `const cancelHint = useCallback(async ()` — const, line 401
+- `const jobId = hintJob.current` — const, line 402
+- `const ladderRef = useRef(ladder)` — const, line 411
+- `const setHelpStyle = useCallback(async (style: HelpStyle | null)` — const, line 413
+- `const previous = helpStyle` — const, line 414
+- `const saved = await api.workbenchSetHelpStyle(` — const, line 417
+- `const open = ladderRef.current` — const, line 423
 
 ## Who imports or calls it
 
