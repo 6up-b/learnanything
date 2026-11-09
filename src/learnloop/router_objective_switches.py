@@ -308,6 +308,12 @@ FOLLOWUP_SWITCHES: tuple[str, ...] = (*FOLLOWUP_GENERATOR_SWITCHES, "carried_in_
 #: (``objective_chooser.numeric_seed``): whatever they are, its draws are main's. They stay in the prefetch key, the
 #: generator payload and ``serving_switches``.
 SEED_NEUTRAL_SWITCHES: tuple[str, ...] = ("held_reading_map", "pooled_connections")
+#: IH4 (spec_instruct_handoff_v1 §7): what the boundary identity names only so a new preference, or a flip, starts a new
+#: job, and that moves no value at a fixed draw count (``w_pref`` at 0 and no acceptance row changes nothing, bit for
+#: bit): the switch in ``objective_settings`` and the ledger's mark beside it. ``objective_chooser.numeric_seed`` takes
+#: both out, as it takes :data:`SEED_NEUTRAL_SWITCHES` out of the follow-up batch's snapshot.
+SEED_NEUTRAL_OBJECTIVE_KEYS: tuple[str, ...] = ("preferences_inform_router",)
+SEED_NEUTRAL_IDENTITY_KEYS: tuple[str, ...] = ("preferences",)
 
 
 def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
@@ -404,6 +410,17 @@ def lesson_sources_follow_diagnosis_on(config: Any) -> bool:
     return failure_share_tag(config) and bool(getattr(section, "lesson_sources_follow_diagnosis", False))
 
 
+def preferences_inform_router_on(config: Any) -> bool:
+    """IH4 (spec_instruct_handoff_v1 §7, the same unreleased tag as IH5): what the learner said would help informs the
+    objective's non-LLM parts and its LLM card: the tag, the objective serving and ``[router_objective]
+    preferences_inform_router`` (default true). Staged reads nothing, whatever this says. Off, or below the tag, the
+    acceptance model, the numeric policy, the trace and the card are the predecessor's exactly, and a preference
+    freezes no inputs for them."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and objective_on(config) and bool(getattr(section, "preferences_inform_router", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -428,6 +445,8 @@ __all__ = [
     "fitted_models_on",
     "FOLLOWUP_GENERATOR_SWITCHES",
     "FOLLOWUP_SWITCHES",
+    "SEED_NEUTRAL_IDENTITY_KEYS",
+    "SEED_NEUTRAL_OBJECTIVE_KEYS",
     "SEED_NEUTRAL_SWITCHES",
     "followup_generator_switches",
     "followup_switch_snapshot",
@@ -447,6 +466,7 @@ __all__ = [
     "stop_coin_rate",
     "workbench_is_open_item_on",
     "lesson_sources_follow_diagnosis_on",
+    "preferences_inform_router_on",
     "known_at",
     "objective_on",
     "objective_scores_on",

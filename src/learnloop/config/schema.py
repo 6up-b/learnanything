@@ -4231,6 +4231,12 @@ class RouterObjectiveConfig(BaseModel):
     from an offer or a suggestion with a recent miss on its topics also loads the source sections matching the diagnosed
     confusion, beside the topic's linked ones. It changes what a lesson reads, not what the router decides. Off, or below
     the tag, the brief is byte-identical to mvp-0.54's.
+
+    Instruct hand-off IH4 (the same tag, spec_instruct_handoff_v1 §7): ``preferences_inform_router``: what the learner said
+    would help updates the lesson offers' acceptance model (a request flagged unprompted), is frozen in each decision's
+    trace as a choice model's sensor, enters the numeric value through one coefficient learned from randomized draws
+    (``w_pref``, 0 until they support more), and goes on the LLM's card as the learner's own statements. Staged reads
+    nothing. Off, or below the tag, all of it as IH3 left it.
     """
 
     receipts: bool = True
@@ -4373,6 +4379,9 @@ class RouterObjectiveConfig(BaseModel):
     #: loads the sections matching the diagnosed confusion beside the topic's linked ones (the owner's decision of Nov 8).
     #: Keyword retrieval only, no model call. Off: the brief is mvp-0.54's, byte for byte.
     lesson_sources_follow_diagnosis: bool = True
+    #: Instruct hand-off IH4 (mvp-0.55): preferences inform the acceptance model, the choice model's sensor, the numeric
+    #: value through a learned ``w_pref`` (no hand-set bonus) and the LLM's card (the owner's decisions of Nov 8).
+    preferences_inform_router: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

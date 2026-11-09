@@ -38,22 +38,14 @@ from learnloop.daily_plan.records import ORIGIN_LEARNER_PICK
 from learnloop.daily_plan.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY, BlockCandidate
 from learnloop.db.stores import router as router_store
 from learnloop.ids import new_ulid
+from learnloop.router import lesson_suggestions as LS
+from learnloop.router_objective import preferences as PF
+from learnloop.router_objective.preferences import KINDS, LESSON, NEW, QUESTION, READ, REVIEW, STOP, WORDS, kind_of
 
 LOG = logging.getLogger(__name__)
 
 PREFERENCE_VERSION = "learner_preference_v1"
 
-LESSON, QUESTION, REVIEW, NEW, READ, STOP = "lesson", "question", "review", "new", "read", "stop"
-#: The kinds, in the order they are shown. Plain words for each are in :data:`WORDS`.
-KINDS: tuple[str, ...] = (QUESTION, REVIEW, NEW, READ, LESSON, STOP)
-WORDS: Mapping[str, str] = {
-    QUESTION: "Another question",
-    REVIEW: "Review something from earlier",
-    NEW: "Something new",
-    READ: "Read the source",
-    LESSON: "Learn this",
-    STOP: "Stop for today",
-}
 #: Where the link was used, per device. The preference's ``surface`` is one of these.
 DESKTOP_SURFACES = ("feedback", "offer_page", "today")
 PHONE_SURFACES = ("phone_feedback", "phone_today")
@@ -66,21 +58,6 @@ class PreferenceError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
-
-
-def kind_of(*, reading: Any, subtype: str | None, lane: str | None) -> str:
-    """The plain kind of a block: a lesson offer, a reading, new material, a review, or another question (repair and
-    push practice). A description of the block, never a rule that picks one."""
-
-    if reading is not None:
-        return READ
-    if subtype == LESSON_OFFER_SUBTYPE:
-        return LESSON
-    if lane == "new":
-        return NEW
-    if lane == "maintain":
-        return REVIEW
-    return QUESTION
 
 
 @dataclass(frozen=True)
@@ -114,6 +91,8 @@ class Options:
     #: Why there is no parent (``none_waiting`` | ``mid_block``), for the log.
     no_draw_reason: str | None = None
     device: str = "desktop"
+    #: IH4: what ``offered_json`` freezes for the choice model and the acceptance model (empty with its switch off)
+    frozen: Mapping[str, Any] = field(default_factory=dict)
     #: Everything below is internal: the live context the chosen candidate's block is built from.
     record: Any = field(default=None, repr=False, compare=False)
     context: Any = field(default=None, repr=False, compare=False)
@@ -129,6 +108,7 @@ class Options:
             "router_pick": next(({"kind": o.kind, "ref": o.ref, "propensity": o.propensity}
                                  for o in self.options if o.plans_pick), None),
             "options": [{key: value for key, value in o.view().items() if key != "label"} for o in self.options],
+            **dict(self.frozen),
         }
 
     def view(self) -> dict[str, Any]:
@@ -234,6 +214,30 @@ def _plans_pick_label(kind: str, block: Any) -> str:
     return WORDS[kind]
 
 
+def _frozen_inputs(env: Any, record: Any, lesson: BlockCandidate | None) -> dict[str, Any]:
+    """IH4 (spec_instruct_handoff_v1 §7): what this preference's replay reads, as it stood here: the choice model's
+    features and, with a lesson on offer, the acceptance model's context and candidate. Empty with the switch off, so
+    ``offered_json`` is IH3's. A failed read freezes nothing: the row is then not read, and the choice is still served."""
+
+    from learnloop.router_objective_switches import preferences_inform_router_on
+
+    if not preferences_inform_router_on(env.vault.config):
+        return {}
+    out: dict[str, Any] = {}
+    try:
+        minutes_left = float(record.minutes_left()) if record.is_open else None
+        with env.repository.connection() as connection:
+            out[PF.FEATURES_KEY] = PF.features_at(connection, env.vault.config, at=env.now_iso(),
+                                                  minutes_left=minutes_left).as_dict()
+        card = dict((lesson.annotations or {}).get("lesson_offer") or {}) if lesson is not None else {}
+        entries = (card.get("card") or {}).get("candidates") or ()
+        if entries and card.get("context") is not None:
+            out[LS.LESSON_INPUTS] = {"context": card["context"], "candidate": entries[0]}
+    except Exception:  # noqa: BLE001 - the link never fails on what a model reads later
+        LOG.warning("learner preference: the choice model's inputs were not frozen", exc_info=True)
+    return out
+
+
 def _phone_serves(env: Any, kind: str, candidate: BlockCandidate | None) -> bool:
     """A phone serves a practice block whose first item it can show. Lessons and readings, and an item the device
     leaves for the desktop, it logs and says wait."""
@@ -297,7 +301,8 @@ def options(env: Any) -> Options:
     return Options(True, tuple(out), decision_id=str(parent["id"]) if parent is not None else None,
                    parent_kind=parent_kind, parent_block_id=getattr(waiting, "id", None) if parent else None,
                    parent_is_offer=bool(parent is not None and waiting is not None and waiting.is_lesson_offer),
-                   no_draw_reason=reason, device=device, record=record, context=context)
+                   no_draw_reason=reason, device=device, frozen=_frozen_inputs(env, record, lesson),
+                   record=record, context=context)
 
 
 # -- the choice ----------------------------------------------------------------------------------------------------

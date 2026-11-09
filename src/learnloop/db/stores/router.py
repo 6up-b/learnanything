@@ -299,6 +299,17 @@ def learner_preference_rows(connection: sqlite3.Connection) -> list[dict[str, An
     return [dict(row) for row in rows]
 
 
+def recent_learner_preferences(connection: sqlite3.Connection, *, at: str, limit: int) -> list[dict[str, Any]]:
+    """The newest ``limit`` preferences known at ``at``, oldest first (the LLM card's read, IH4)."""
+
+    if not preferences_present(connection):
+        return []
+    rows = connection.execute(
+        "SELECT * FROM router_learner_preferences WHERE created_at <= ? ORDER BY created_at DESC, id DESC LIMIT ?",
+        (at, limit)).fetchall()
+    return [dict(row) for row in reversed(rows)]
+
+
 def router_payloads_present(connection: sqlite3.Connection) -> bool:
     return connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='router_decision_payloads'"

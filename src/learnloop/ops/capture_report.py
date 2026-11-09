@@ -509,7 +509,7 @@ def hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, reposit
 
 def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str,
                  success_correctness: float) -> dict[str, Any]:
-    from learnloop.router_objective_switches import calibration_tag
+    from learnloop.router_objective_switches import calibration_tag, preferences_inform_router_on
 
     extra: dict[str, Any] = {}
     if calibration_tag(vault.config):
@@ -518,6 +518,12 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         from learnloop.router_objective import picks as ro5_picks
 
         extra["open_picks"] = ro5_picks.section(connection)
+    if preferences_inform_router_on(vault.config):
+        # Instruct hand-off IH4 (spec §7 items 4-5): agreement, overrides, follow-through and later cold results, each
+        # labelled self-selected; where w_pref stands and what would move it.
+        from learnloop.router_objective import preference_report
+
+        extra["learner_preferences"] = preference_report.section(connection)
     return {**{
         "report_version": REPORT_VERSION,
         "as_of": as_of,
@@ -588,6 +594,10 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     out.append(f"Not-ready floor: {floor['not_ready_floor']}; delayed picks: {floor['delayed_picks']}; "
                f"thin-support assignments: {floor['thin_support_assignments']}")
     out.extend(objective_report.lines(report["router_objective"]))
+    if "learner_preferences" in report:
+        from learnloop.router_objective import preference_report
+
+        out.extend(preference_report.lines(report["learner_preferences"]))
     marks = report["hypothesis_marks"]
     if marks.get("available"):
         coverage = marks["exposure_coverage"]

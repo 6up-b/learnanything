@@ -103,7 +103,7 @@ def accept_moments(state: LS.AcceptanceState, context: LS.Context, candidate: LS
     weights = state.weights()
     first = second = 0.0
     for weight, bank in zip(weights, state.banks):
-        h = LS.design_vector(context, candidate, bank.recovery_days)
+        h = state.design(bank, context, candidate)
         m, v = float(h @ bank.mean), max(float(h @ bank.cov @ h), 0.0)
         p = sigmoid(m + math.sqrt(v) * NODES)
         first += float(weight) * float((WEIGHTS * p).sum())
@@ -269,7 +269,17 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
         return Offer(None, {**base, "status": "none:no_candidate", "excluded": excluded,
                             "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": False}})
     details = {str(d["id"]): d["detail"] for d in decisions}
-    state = LS.replay(LS.observations(details, responses))
+    observed = LS.observations(details, responses)
+    from learnloop.router_objective_switches import preferences_inform_router_on
+
+    if preferences_inform_router_on(vault.config):
+        # IH4 (spec_instruct_handoff_v1 §7 item 1): the learner's requests, flagged unprompted, through the model.
+        from learnloop.db.stores.router import learner_preference_rows
+
+        with repository.connection() as connection:
+            observed = LS.with_unprompted(observed, LS.unprompted_observations(learner_preference_rows(connection),
+                                                                               at=now_iso))
+    state = LS.replay(observed)
     now = parse_utc(now_iso)
     shown_rows = [d for d in decisions if (d.get("detail") or {}).get("shown")]
     since = None
@@ -299,7 +309,7 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
     checks = [{"lo": lo, "purpose": "retention", "days": float(delayed.fallback_retention_days),
                "basis": "teacher.delayed.fallback_retention_days (the lesson's own date is set at its close)"}]
     record = {
-        **base, "status": "offered", "context": context.as_dict(), "priors_version": LS.PRIORS_VERSION,
+        **base, "status": "offered", "context": context.as_dict(), "priors_version": state.priors_version,
         "card": {"candidates": [top.as_dict(), *(entry.as_dict() for entry in alternatives)]},
         "reason": top.candidate.reason, "learning_object_id": lo,
         "p_accept": {"mean": round(mean, 9), "sd": round(sd, 9), "beta": [round(a, 9), round(b, 9)],

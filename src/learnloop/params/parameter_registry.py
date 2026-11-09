@@ -2023,6 +2023,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for instruct hand-off IH7 on mvp-0.55 (spec_instruct_handoff_v1 §7c): a lesson opened from an offer "
         "or a suggestion with a recent miss on its topics also loads the source sections matching the diagnosed "
         "confusion (keyword retrieval, no model call); off, the brief is mvp-0.54's byte for byte."),
+    _ConfigRule(_exact("router_objective.preferences_inform_router"), "structural", "operational",
+        "kill switch for instruct hand-off IH4 on mvp-0.55 (spec_instruct_handoff_v1 §7): a learner's stated preferences "
+        "update the lesson offers' acceptance model, are frozen as a choice model's sensor, enter the numeric value "
+        "through a learned coefficient starting at zero, and go on the LLM's card as the learner's own statements; "
+        "staged reads nothing; off, as IH3 left them."),
     _ConfigRule(_exact("router_objective.failure_share_to_other_policy"), "structural", "operational",
         "kill switch for instruct hand-off IH5's successor mvp-0.55 (spec_instruct_handoff_v1 §7a): a failed policy's "
         "share of the objective's mix goes to the other policy instead of staged (both failed: staged); off, mvp-0.54's "

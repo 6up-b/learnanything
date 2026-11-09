@@ -286,6 +286,8 @@ class Logged:
     previous_q_status: str | None = None
     #: where ``q_at_previous`` came from: its own trace, or a later trace's record (``later_prefetch``)
     carried_source: str = "own_trace"
+    #: instruct hand-off IH4: the decision's frozen preference sensor (``router_objective.preferences``), or None
+    preference: Mapping[str, Any] | None = None
 
 
 def _topic_map(entry: Mapping[str, Any]) -> dict[str, LT.TopicNumbers]:
@@ -479,7 +481,8 @@ def _logged(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], c
         q_at_previous=q_at_previous, phi_at_previous=phi_at_previous,
         objective=trace_objective_hash(trace, scope_extension=extension),
         q_measurable=q_measurable, carried_for=carried_for,
-        previous_q_status=str(previous.get("q_status")) if previous and previous.get("q_status") else None)
+        previous_q_status=str(previous.get("q_status")) if previous and previous.get("q_status") else None,
+        preference=trace.get("preference") if isinstance(trace.get("preference"), Mapping) else None)
 
 
 def _carried_values(previous: Mapping[str, Any] | None, support: Sequence[str], current: bool,
