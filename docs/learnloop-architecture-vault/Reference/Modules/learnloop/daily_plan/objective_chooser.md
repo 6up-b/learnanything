@@ -211,6 +211,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
   - `test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly`
   - `test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below`
+- [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_switch_is_not_in_the_prefetch_key_so_it_moves_no_seed`
 - [tests/test_ih_numeric_seed.py](../../../../../../tests/test_ih_numeric_seed.py) — direct import
   - `test_an_offer_changes_the_identity_and_so_the_seed`
   - `test_the_serve_without_a_prefetch_starts_the_same_job_the_prefetch_would`

@@ -175,6 +175,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phone_logs_a_lesson_pick_and_hands_it_to_the_desktop`
   - `test_with_no_draw_the_options_are_what_the_plan_can_produce_and_say_so`
   - `test_with_the_switch_off_there_is_no_link_and_nothing_is_written`
+- [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_options_read_draws_nothing_and_a_choice_is_still_served`
 - [tests/test_ih_numeric_seed.py](../../../../../../tests/test_ih_numeric_seed.py) — direct import
   - `test_the_learners_options_and_override_draw_nothing`
 

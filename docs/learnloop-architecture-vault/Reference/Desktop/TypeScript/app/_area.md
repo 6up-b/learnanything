@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/app"
-source_commit: "2437f516e5448a5296dbef18eae04d6969512be4"
-source_commit_timestamp: "2026-11-08T23:26:15-05:00"
+source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
+source_commit_timestamp: "2026-11-09T03:09:29-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -39,9 +39,9 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 80 | 1 |
 | [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|ScreenErrorBoundary.tsx]] | `ACTIVE` | Provides `ScreenErrorBoundary` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/ShellChromeRoot|ShellChromeRoot.tsx]] | `ACTIVE` | Provides `SHELL_CHROME_ATTRIBUTE`, `inShellChrome`, `ShellChromeRoot` within the desktop's TypeScript/app ownership area. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 27 |
+| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 28 |
 | [[Reference/Desktop/TypeScript/app/autoAdvance|autoAdvance.ts]] | `ACTIVE` | Provides `todayQueueInput`, `todayQueueKey`, `queueHead`, `NextQueueItem` and related exports within the desktop's TypeScript/app ownership area. | 5 | 4 |
-| [[Reference/Desktop/TypeScript/app/dailyPlan|dailyPlan.ts]] | `ACTIVE` | Provides `aboutMinutes`, `minutesPerDay`, `wholeMinutes`, `dailyPlanKey` and related exports within the desktop's TypeScript/app ownership area. | 5 | 9 |
+| [[Reference/Desktop/TypeScript/app/dailyPlan|dailyPlan.ts]] | `ACTIVE` | Provides `aboutMinutes`, `minutesPerDay`, `wholeMinutes`, `dailyPlanKey` and related exports within the desktop's TypeScript/app ownership area. | 6 | 11 |
 | [[Reference/Desktop/TypeScript/app/intentCheck|intentCheck.ts]] | `ACTIVE` | Provides `readerTargetForRestoration` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/keyScope|keyScope.ts]] | `ACTIVE` | Provides `keyScope` within the desktop's TypeScript/app ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/app/keyboard|keyboard.ts]] | `ACTIVE` | Centralizes keyboard-target and shortcut guards shared by desktop interactions. | 0 | 4 |

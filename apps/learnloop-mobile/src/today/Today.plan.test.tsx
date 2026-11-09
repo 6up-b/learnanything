@@ -94,6 +94,31 @@ describe("the plan's prefetch while feedback shows", () => {
   });
 });
 
+describe("a question in progress on the desktop (IH6)", () => {
+  it("says so, and the phone's Next still serves: an explicit step decides", async () => {
+    cacheSessionId("s1");
+    answers.get_session = session();
+    answers.get_daily_plan = reply({ blocks: [], currentBlockId: null, projected: [], questionInProgress: { workbenchSessionId: "wb", practiceItemId: "pi", learningObjectTitle: "ReLU" } });
+    answers.next_plan_item = reply({}, { step: itemStep() });
+    render(<App />);
+    const line = await screen.findByTestId("today-in-progress");
+    expect(line.textContent).toContain("A question is in progress on the desktop.");
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(called("next_plan_item")).toHaveLength(1));
+    expect(called("next_plan_item")[0].params).toMatchObject({ sessionId: "s1", serve: true });
+  });
+
+  it("shows no such line otherwise", async () => {
+    cacheSessionId("s1");
+    answers.get_session = session();
+    answers.get_daily_plan = reply();
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    expect(screen.queryByTestId("today-in-progress")).toBeNull();
+  });
+});
+
 describe("Today is the plan (J1)", () => {
   it("says the plan in one sentence, and Begin starts a session and serves the plan's step", async () => {
     answers.get_daily_plan = reply();

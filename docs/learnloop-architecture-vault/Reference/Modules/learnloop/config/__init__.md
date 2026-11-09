@@ -329,6 +329,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r3_f14_the_cards_details_are_plain_words`
   - `test_settings_save_the_key_and_report_it`
   - `test_the_daily_gate_prices_glm_receipts_and_local_runs_cost_nothing`
+- [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_config_loads_the_key_at_every_version`
 - [tests/test_ingest_m3.py](../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_acquisition_preview_audio_is_always_external`
   - `test_acquisition_preview_flags_potential_external_consent`

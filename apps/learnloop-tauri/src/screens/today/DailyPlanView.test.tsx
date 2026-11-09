@@ -243,6 +243,18 @@ it("while the next block is being chosen, says so and lets Begin decide it at on
   expect(props.onContinue).toHaveBeenCalledOnce();
 });
 
+it("IH6: says a question is in progress, never that a block is being chosen, and Begin still decides", () => {
+  const question = { workbenchSessionId: "wb", practiceItemId: "pi_q", learningObjectTitle: "ReLU" };
+  const onResumeQuestion = vi.fn();
+  const props = show(data(plan({ blocks: [], currentBlockId: null, deciding: false, firstBlock: null, questionInProgress: question })), { onResumeQuestion });
+  expect(screen.getByTestId("plan-in-progress").textContent).toContain("A question is in progress on ReLU.");
+  expect(screen.queryByTestId("plan-choosing")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "begin ↵" }));
+  expect(props.onContinue).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "resume ▸" }));
+  expect(onResumeQuestion).toHaveBeenCalledWith("pi_q");
+});
+
 it("offers no Begin while no block is being chosen", () => {
   show(data(plan({ blocks: [], currentBlockId: null, deciding: false, firstBlock: null })));
   expect(screen.getByTestId("plan-choosing")).toBeTruthy();

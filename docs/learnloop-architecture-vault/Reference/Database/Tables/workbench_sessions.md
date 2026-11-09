@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
+source_commit_timestamp: "2026-11-09T03:09:29-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/207_workbench.sql"
+  - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/db/stores/workbench.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/field/workbench_signals.py"
   - "src/learnloop/hints/report.py"
   - "src/learnloop/instructional/reader_followups.py"
   - "src/learnloop/reader/recap.py"
-  - "src/learnloop/source_retrieval/reader_tutor.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/hints/report.py`

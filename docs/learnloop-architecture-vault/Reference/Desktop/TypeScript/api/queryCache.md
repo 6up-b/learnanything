@@ -122,7 +122,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export: `EMPTY_STATE`, `FetchOptions`, `QueryKey`, `QueryState`, `QueryTag`, `getOrFetch`, `hashKey`, `isStale`, `peek`, `subscribe`; references `EMPTY_STATE`, `FetchOptions`, `QueryKey`, `QueryState`, `QueryTag`, `getOrFetch`, `hashKey`, `isStale`, `peek`, `subscribe`
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `clearQueryCache`, `invalidateAllQueries`; references `clearQueryCache`, `invalidateAllQueries`
 - [[Reference/Desktop/TypeScript/app/autoAdvance|src/app/autoAdvance.ts]] — import-or-re-export: `QueryKey`, `getOrFetch`, `hashKey`, `isStale`, `peek`; references `QueryKey`, `getOrFetch`, `hashKey`, `isStale`, `peek`
-- [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export: `QueryKey`, `getOrFetch`, `hashKey`, `isStale`, `peek`; references `QueryKey`, `getOrFetch`, `hashKey`, `isStale`, `peek`
+- [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export: `QueryKey`, `getOrFetch`, `hashKey`, `invalidate`, `isStale`, `peek`; references `QueryKey`, `getOrFetch`, `hashKey`, `invalidate`, `isStale`, `peek`
 - [[Reference/Desktop/TypeScript/components/DiagnosisCard|src/components/DiagnosisCard.tsx]] — import-or-re-export: `invalidate`; references `invalidate`
 - [[Reference/Desktop/TypeScript/queueEvents|src/queueEvents.ts]] — import-or-re-export: `invalidate`; references `invalidate`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `setQueryData`; references `setQueryData`

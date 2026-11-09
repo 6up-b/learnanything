@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
+source_commit_timestamp: "2026-11-09T03:09:29-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -179,10 +179,10 @@ None found by exact static reference scan.
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_followup_codex_review.py`
+- `tests/test_ih6_workbench_open_item.py`
 - `tests/test_instruct_handoff_ih0.py`
 - `tests/test_intent_fix_round5.py`
 - `tests/test_learner_pick_proposal.py`
-- `tests/test_mcp_tools.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -1735,6 +1735,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_desktop_learns_the_switch_from_its_config_only_while_on`
+  - `test_the_gate_reads_the_tag_the_switch_and_the_workbench`
+  - `test_the_switch_is_not_in_the_prefetch_key_so_it_moves_no_seed`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
   - `test_selection_for_region_spans_whole_blocks`

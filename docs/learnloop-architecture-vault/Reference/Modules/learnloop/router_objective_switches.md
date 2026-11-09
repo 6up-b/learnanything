@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective_switches.py"
 source_paths:
   - "src/learnloop/router_objective_switches.py"
-source_commit: "7772c7c7a641838f699c1d5cde165c17dcbde0e3"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
+source_commit_timestamp: "2026-11-09T03:09:29-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective_switches.py](../../../../../src/learnloop/router_objective_switches.py) |
-| Source lines | 434 |
+| Source lines | 447 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `7772c7c7a641838f699c1d5cde165c17dcbde0e3` |
-| Commit timestamp | `2026-11-09T00:34:52-05:00` |
+| Source commit | `86021e6b79512c86957d2bb83a488e23a3818a2f` |
+| Commit timestamp | `2026-11-09T03:09:29-05:00` |
 
 ## Public API
 
@@ -90,7 +90,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `failure_share_to_other_policy_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 354) — IH5: a failed policy's share of the objective's mix goes to the other policy, not staged: the tag, the objective serving and ``[router_objective] failure_share_to_other_policy`` (default true).
 - `lessons_compete_with_followups_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 364) — IH2 (spec_instruct_handoff_v1 §5, the same unreleased tag as IH5): a lesson offer and a follow-up compete in one logged decision wherever a lesson is available: the tag, lesson offers on (:func:`lesson_offers_on`: the objective serving and TE1b's suggestions) and ``[router_objec…
 - `learner_preferences_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 375) — IH3 (spec_instruct_handoff_v1 §6, the same unreleased tag as IH5): the learner may name what would help and have it served: the tag and ``[router_objective] learner_preferences`` (default true).
-- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 385) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
+- `workbench_is_open_item_on(config: Any) -> bool` ([source](../../../../../src/learnloop/router_objective_switches.py), line 385) — IH6 (spec_instruct_handoff_v1 §7b, the same unreleased tag as IH5): an open workbench is an open item for the plan: the tag, the workbench itself on (off, nothing can resume the problem, so it holds nothing) and ``[router_objective] workbench_is_open_item`` (default true).
+- `projection_switches(config: Any) -> dict[str, bool]` ([source](../../../../../src/learnloop/router_objective_switches.py), line 397) — What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed.
 
 ### Module constants
 
@@ -144,6 +145,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `learned_tail_tag`
 - `pick_open_share`
 - `stop_coin_rate`
+- `workbench_is_open_item_on`
 - `known_at`
 - `objective_on`
 - `objective_scores_on`
@@ -169,7 +171,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `interval_factor_removed`; statically calls `interval_factor_removed`
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `calibration_tag`, `learned_tail_tag`, `lesson_offers_tag`; statically calls `calibration_tag`, `learned_tail_tag`, `lesson_offers_tag`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_time_sql`; statically calls `attempt_time_sql`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHECKS_OFF`, `check_mode`, `lessons_compete_with_followups_on`; statically calls `check_mode`, `lessons_compete_with_followups_on`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHECKS_OFF`, `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`; statically calls `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `learner_preferences_on`; statically calls `learner_preferences_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `lesson_offers_on`; statically calls `lesson_offers_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `lesson_offers_on`; statically calls `lesson_offers_on`
@@ -191,6 +193,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `followup_on`, `known_at`, `lesson_offers_on`; statically calls `followup_on`, `known_at`, `lesson_offers_on`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `projection_switches`; statically calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `projection_switches`; statically calls `projection_switches`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `workbench_is_open_item_on`; statically calls `workbench_is_open_item_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `objective_on`; statically calls `objective_on`
 
 ## Dependencies
@@ -211,7 +214,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] and 24 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/reading_cache|learnloop.adaptive_difficulty.reading_cache]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] and 25 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -226,6 +229,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih5_successor.py](../../../../../tests/test_ih5_successor.py) — direct import
   - `test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly`
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
+- [tests/test_ih6_workbench_open_item.py](../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_the_gate_reads_the_tag_the_switch_and_the_workbench`
+  - `test_the_switch_is_not_in_the_prefetch_key_so_it_moves_no_seed`
 - [tests/test_ro1_availability.py](../../../../../tests/test_ro1_availability.py) — direct import
   - `test_available_at_is_received_at_else_created_at`
   - `test_exam_seeding_records_the_import_time_and_replay_keeps_it`

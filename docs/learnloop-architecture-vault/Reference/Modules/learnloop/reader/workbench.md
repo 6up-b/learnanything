@@ -295,6 +295,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
   - `test_a_problem_opened_on_another_item_leaves_the_attempt_reached`
   - `test_rebinding_an_imported_problem_to_another_item_never_flips_the_attempt`
+- [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
+  - `test_a_follow_up_ready_during_a_workbench_waits_then_competes_at_the_next_read`
+  - `test_a_long_lived_problem_in_a_long_lived_session_holds_reads_only_and_can_be_left`
+  - `test_a_problem_whose_item_was_answered_on_the_answer_box_holds_nothing`
+  - `test_a_reader_problem_that_is_not_an_item_yet_counts`
+  - `test_a_serve_decides_regardless_and_leaves_the_problem_open`
+  - `test_a_submit_lets_the_next_read_draw`
+  - `test_closing_it_lets_the_next_read_draw`
+  - `test_closing_the_workbench_lets_the_next_prefetch_start_the_job`
+  - `test_leaving_it_for_now_does_not_close_it`
+  - `test_resuming_it_in_this_session_makes_it_count`
+  - `test_the_days_first_read_builds_a_plan_with_no_block_and_a_serve_decides_it`
+  - `test_the_nov_8_shape_draws_after_the_attempt_with_that_attempt_in_its_evidence`
 - [tests/test_reader_ca1_codex_review.py](../../../../../../tests/test_reader_ca1_codex_review.py) — direct import
   - `test_the_workbench_session_carries_the_region_it_was_imported_with`
 - [tests/test_reader_ca2_astra_handoff.py](../../../../../../tests/test_reader_ca2_astra_handoff.py) — direct import
