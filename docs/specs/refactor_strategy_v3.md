@@ -4,7 +4,7 @@ Phase A, job 2. **Status: for the owner's review. No step starts until the owner
 
 ## Summary for the owner
 
-The refactor has 62 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
+The refactor has 63 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
 
 **What gets smaller**
 
@@ -30,7 +30,7 @@ The refactor has 62 small steps in eleven arcs. It can stop cleanly after any ar
 
 - **`learnloop why`.** One command answers why x was chosen and not y, from the latest decision, an attempt, a block or a figure. Your four real cases are its acceptance test.
 - **Failures leave a record.** A chooser crash, a timeout, a discarded answer or an exclusion all do.
-- **You run some things yourself.** One read-only script over your vaults, one upgrade of each vault, and a fresh backup for the acceptance test.
+- **You run some things yourself.** One read-only script over your vaults and one upgrade of each vault. The fresh backup for the acceptance test exists: `~/learnloop-backups/20261109-copy`, taken Nov 9 (owner approved; agents read backup-API copies of it, never the live vaults).
 - **An old backup needs the tag.** Restoring one below the oldest supported tag means upgrading it with the tagged old code first.
 - **Three changes affect learning behaviour, each with a report first and a kill switch.** Probes after a miss are decided by the router (G2), one belief over locked hypotheses (G4, only if the measurements call for it), and the old difficulty scalar goes (H3-H6).
 - **Next gets faster after feedback,** if F1 and F2 meet the target.
@@ -58,7 +58,7 @@ When its step comes (recommendations and evidence in §2.13):
 
 Settled since the map: RE2 is a firm step (owner, Nov 9) and RE0 lands before step 1. Not settled: RE1's placement (§2.1).
 
-**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 62 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
+**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 63 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
 
 **Where to stop if you need to.** After arc A (4% of the cost; every later change is cheaper). After B4 (10%; your four cases are answerable). After arc C (27%; dead code gone). After arc D (47%; history gone, tests on the real path). §2.14 lists them all.
 
@@ -114,6 +114,8 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 - **Who:** an Opus implementer in a worktree, then the gate; a step's named proof and the gates are its check. At the end of each arc, one read-only Codex review (`gpt-6.1-sol`) of the arc's whole diff, with a fix round for what it finds, before the next arc starts (owner, Nov 9: per arc, not per step, because the reviews have caught meaningful gaps). Steps that change persisted meaning (G2, G4, H3-H6) still land alone. "Verify" names anything beyond that, and the owner only where stated. Nothing in this document is yet approved to run.
 - **Gate per step:** targeted tests under the memory cap, `lint-imports`, the vault validators, and the step's named proof.
 - **Gate per landing batch:** the full suite and durability once, on the merged tree (owner decision 1).
+- **Gate per arc:** one full `pytest --fresh-connections` run at each arc's close, about 55 minutes, because the fast lane reuses connections (`tests/connection_reuse.py`) and only this run shows what that hides.
+- **Not in any gate (owner, Nov 9):** `openai_codex`. `test_the_real_sdk_has_the_seams_the_lockdown_replaces` keeps skipping there.
 - **Comments:** when a step touches a function, it follows the convention below, and only there. No sweep.
 - **Vault:** the step fixes each note it names, and any other note it finds it has made false. The large rewrite stays last (§5).
 - **Deleting:** before deleting anything, its step 0 proves it again at that tip: no import (including function-local and `importlib`), no string dispatch (`METHOD_REGISTRY`, Typer decorators, `MODULE_INVENTORY`, `_reg_const`), no frontend or phone caller, no replay, rebuild or upgrade path. A claim that doesn't hold moves the row to the owner's list. It never gets deleted anyway.
@@ -279,7 +281,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Problem:** item 12; T1-T4. 396 tables: 24 retired but still read, 1 dead.
 - **Files:** `scripts/table_review.py`; private output under `fixtures-local/table-review/`; the tracked part is `docs/reviews/table-review-<date>.md`, names and code facts only.
 - **Does:** for each table: role, row counts and newest date on fresh copies, DB file sizes, readers and writers at this tip, replayer or upgrade, feature, class, and whether readers tolerate its absence. It re-reads the COMPAT-labelled live tables (`practice_item_state`, `hypothesis_sets`) and corrects their role in `db/table_roles.py`: step 0 checks what each role changes in rebuild.
-- **No table is decided here.** It lists; the owner answers. **Needs:** a fresh backup. Nov 3 predates everything since migration 238.
+- **No table is decided here.** It lists; the owner answers. **Needs:** a fresh backup: `~/learnloop-backups/20261109-copy` (Nov 9, migration 250, mvp-0.54).
 
 **Stopping point 4.**
 
@@ -346,6 +348,14 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Also goes:** the pre-eligibility cold lane and hold (`scheduling/scheduler.py:1831`, `:2018`), `RouterChooser`'s mixture path and `StagedChooser` if `router.mode` and the floor leave them unreachable, with their tests, "predecessor exactly" goldens and D2b's remaining tests.
 - **Keeps:** every switch above the floor; the staged rule as the failure fallback.
 - **Proof:** P-draw with switches at default; P-shadow. Removing a switch changes behaviour only for a vault that set it, and the owner's script shows none do. **Vault:** Config generated; ADR-018 states the rule.
+
+**D8. The pinned replay gaps** (L, one landing per gap; owner, Nov 9). `docs/reviews/test-suite-audit.md` §4 pins four gaps with eight strict xfails, each of which goes red when fixed:
+- **Retired items (3, `test_rebuild_closed_row_answer`):** an item retired outside the attempt ledger has no time replay can apply it at, so replay sees it active. Needs closures as ledger events.
+- **Same-second grades (1, `test_rebuild_equivalence_review`):** two grades of one LO committed in one second in reverse id order replay in id order. Needs a persisted commit sequence.
+- **Claims that never re-anchor (2, `test_learner_report_superseded`):** made after materialization, they differ between live and replay. Design open.
+- **Provenance F2, F3 (2, `test_diagnosis_input_provenance_landing`):** the reopened gaps, waiting on the one-capture-point follow-up.
+- **Rule:** each fix that changes persisted meaning follows the algorithm-change playbook and lands alone, like G2. `test_rebuild_equivalence`'s three xfails below mvp-0.36 go with the old tags in D3, not here. The placement gap isn't here: it's being fixed separately with its own successor.
+- **Proof:** each xfail removed, because the test now passes; P-shadow on the fresh backup. **Vault:** the replay notes each fix changes.
 
 **Stopping point 5.** The largest removal is done, and the tests run on the served path.
 
