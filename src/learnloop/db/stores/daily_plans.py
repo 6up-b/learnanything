@@ -185,6 +185,19 @@ def plan_blocks(connection: sqlite3.Connection, plan_ids: Iterable[str]) -> list
     return blocks
 
 
+def deferred_followup_decision(connection: sqlite3.Connection, plan_id: str, practice_item_id: str) -> str | None:
+    """The decision that last let this follow-up wait for the next block (its ``followup_deferred`` event), or None."""
+
+    row = connection.execute(
+        "SELECT json_extract(event.detail_json, '$.decision_ref') FROM attention_block_events event "
+        "JOIN attention_blocks block ON block.id = event.block_id "
+        "WHERE block.daily_plan_id = ? AND event.kind = 'followup_deferred' "
+        "AND json_extract(event.detail_json, '$.practice_item_id') = ? "
+        "ORDER BY event.created_at DESC, event.block_id DESC, event.event_ordinal DESC LIMIT 1",
+        (plan_id, practice_item_id)).fetchone()
+    return str(row[0]) if row is not None and row[0] else None
+
+
 def block_events_for(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]:
     ids = list(block_ids)
     if not ids:

@@ -399,6 +399,57 @@ describe("a question in progress (IH6)", () => {
   });
 });
 
+describe("'Something else would help' on the default Today (IH3, review m7)", () => {
+  const SESSION = { sessionId: "s1", availableMinutes: 25 } as SessionSnapshot;
+  const OPTIONS = {
+    version: 1, enabled: true, drawn: false, decisionId: null, device: "desktop",
+    options: [{ kind: "question", ref: "cand_q", label: "Another question", minutes: 5, propensity: null, plansPick: false, servable: true }]
+  };
+
+  it("shows with a session where the plan says it may; never without one or without the flag", async () => {
+    apis(dto(body(), { somethingElse: true }));
+    show({ session: SESSION });
+    expect((await screen.findByTestId("something-else-link")).textContent).toBe("Something else would help");
+    cleanup();
+    clear();
+    apis(dto(body()));
+    show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    expect(screen.queryByTestId("something-else-link")).toBeNull();
+    cleanup();
+    clear();
+    apis(dto(body(), { somethingElse: true }));
+    show();
+    await screen.findByTestId("today-sentence");
+    expect(screen.queryByTestId("something-else-link")).toBeNull();
+  });
+
+  it("a served choice opens its step", async () => {
+    const step = { kind: "item", planId: "plan_1", blockId: "b", position: 1, practiceItemId: "pi_n", learningObjectId: "lo", learningObjectTitle: "T",
+                   estMinutes: 2, lane: "new", origin: "learner_pick", boundary: false, schedulerCandidateId: null, presentationId: "pp" };
+    apis(dto(body(), { somethingElse: true }), {
+      planSomethingElseOptions: vi.fn(async () => OPTIONS),
+      planSomethingElse: vi.fn(async () => ({ ...dto(body()), step, preference: { id: "k", outcome: "served", kind: "question", ref: "cand_q", servedDecisionId: "d", lesson: null, replayed: false } }))
+    });
+    const props = show({ session: SESSION });
+    fireEvent.click(await screen.findByTestId("something-else-link"));
+    fireEvent.click(await screen.findByTestId("something-else-option-question"));
+    await waitFor(() => expect(fns.planSomethingElse).toHaveBeenCalledWith(expect.objectContaining({ surface: "today", sessionId: "s1", kind: "question" })));
+    await waitFor(() => expect(props.onOpenPractice).toHaveBeenCalledWith("pi_n", null, null, "pp"));
+  });
+
+  it("the plan's own pick, chosen, is served as Begin serves it", async () => {
+    apis(dto(body(), { somethingElse: true }), {
+      planSomethingElseOptions: vi.fn(async () => ({ ...OPTIONS, options: [{ ...OPTIONS.options[0], plansPick: true }] })),
+      planSomethingElse: vi.fn(async () => ({ ...dto(body()), step: null, preference: { id: "k", outcome: "agreed", kind: "question", ref: "cand_q", servedDecisionId: "d", lesson: null, replayed: false } }))
+    });
+    show({ session: SESSION });
+    fireEvent.click(await screen.findByTestId("something-else-link"));
+    fireEvent.click(await screen.findByTestId("something-else-option-question"));
+    await waitFor(() => expect(fns.nextPlanItem).toHaveBeenCalledWith({ sessionId: "s1", serve: true }));
+  });
+});
+
 describe("the plan as one sentence and Enter (3.1)", () => {
   it("states the plan in minutes, in words, with the blocks as about-N-min rows and no lane names", async () => {
     apis(dto(body()));

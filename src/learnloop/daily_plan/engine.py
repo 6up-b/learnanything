@@ -2929,11 +2929,13 @@ def _boundary(
     offer = None
     # IH2 (spec_instruct_handoff_v1 §5 item 2): follow-ups a lesson hasn't yet competed with don't keep it out. Requested
     # items and randomized checks stay forced: the learner's act and the experiment's design.
-    competing = _followups_compete(env, forced, forced_origin)
+    competing = _followups_compete(env, forced, forced_origin, plan_id=record.id, superseding=superseding)
     builder = getattr(env.policy, "lesson_offer", None)
     if builder is not None:
         try:
-            offer = builder(env=env, record=record, forced=bool(forced) and not competing)
+            # A decision replacing an open offer contests the card already on offer, so the day's ceiling doesn't end it.
+            offer = builder(env=env, record=record, forced=bool(forced) and not competing,
+                            **({"replacing": True} if superseding is not None else {}))
         except Exception:  # noqa: BLE001 - an offer never blocks the plan
             logging.getLogger(__name__).warning("teacher TE3b: the boundary's lesson offer was not built", exc_info=True)
             offer = None
@@ -3131,7 +3133,8 @@ def _boundary(
         if superseding is not None:
             _supersede_offer(env, connection, superseding, by=decision_ref)
         if offer_won:
-            _followups_lost(env, forced, offer_ref=candidate.candidate_id, offer_decision_id=decision_ref)
+            _followups_lost(env, detail["followups_lost"], offer_ref=candidate.candidate_id,
+                            offer_decision_id=decision_ref)
         arm = objectives.ARM_READING if reading is not None else objectives.ARM_PRACTICE
         # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
         is_offer = subtype == LESSON_OFFER_SUBTYPE
@@ -3178,28 +3181,37 @@ def _lessons_compete(env: PlanEnv) -> bool:
     return lessons_compete_with_followups_on(env.vault.config)
 
 
-def _lesson_already_competed(env: PlanEnv, practice_item_id: str) -> bool:
+def _lesson_already_competed(env: PlanEnv, practice_item_id: str, *, plan_id: str | None = None) -> bool:
     """This follow-up's own decision held a lesson offer and drew it anyway: that draw stands, and no second draw re-runs
-    the same contest. A follow-up that lost to a lesson since carries that lesson's ref, so it competes again."""
+    the same contest, while no offer has been drawn since. A later offer is a lesson that decision never weighed, and a
+    follow-up that lost to a lesson since carries that lesson's ref, so either competes again. The decision is the
+    workflow's, or for a follow-up from a recorded need the ``plan_interrupt`` that let it wait."""
 
+    from learnloop.db.stores import router_suggestions as suggestions
     from learnloop.followup_serve import workflow as followup_workflow
     from learnloop.router.plan_log import CONTINUE_REF, INSERT_REF, held_a_lesson
 
     row = followup_workflow.workflow_of_item(env.repository, practice_item_id)
-    if row is None or row.get("chosen_ref") not in {INSERT_REF, CONTINUE_REF}:
+    if row is not None and row.get("chosen_ref") not in {INSERT_REF, CONTINUE_REF}:
         return False
     with env.repository.connection() as connection:
-        return held_a_lesson(connection, row.get("decision_id"))
+        decision_id = row.get("decision_id") if row is not None else (
+            store.deferred_followup_decision(connection, plan_id, practice_item_id) if plan_id else None)
+        return held_a_lesson(connection, decision_id) and not suggestions.offer_drawn_since(connection, str(decision_id))
 
 
-def _followups_compete(env: PlanEnv, forced: Sequence[PoolItem], forced_origin: str) -> bool:
-    """IH2 §5 item 2: these forced items are follow-ups a lesson may compete with at this boundary."""
+def _followups_compete(env: PlanEnv, forced: Sequence[PoolItem], forced_origin: str, *, plan_id: str | None = None,
+                       superseding: PlannedBlock | None = None) -> bool:
+    """IH2 §5 item 2: these forced items are follow-ups a lesson may compete with at this boundary. With an open offer
+    being replaced they always do: the owner's decision, and the offer is one their own decision never weighed."""
 
     if forced_origin != ORIGIN_FOLLOWUP or not forced or not _lessons_compete(env):
         return False
     if any(item.requested or item.check_kind for item in forced):
         return False
-    return not all(_lesson_already_competed(env, item.practice_item_id) for item in forced)
+    if superseding is not None:
+        return True
+    return not all(_lesson_already_competed(env, item.practice_item_id, plan_id=plan_id) for item in forced)
 
 
 def _followup_contest(env: PlanEnv, forced: Sequence[PoolItem]) -> BlockCandidate:
@@ -3227,14 +3239,16 @@ def _supersede_offer(env: PlanEnv, connection: Any, block: PlannedBlock, *, by: 
     LO.supersede(connection, block, at=env.now_iso(), by=by)
 
 
-def _followups_lost(env: PlanEnv, forced: Sequence[PoolItem], *, offer_ref: str, offer_decision_id: str | None) -> None:
+def _followups_lost(env: PlanEnv, item_ids: Sequence[str], *, offer_ref: str, offer_decision_id: str | None) -> None:
     """IH2 §5: each workflow whose probe lost to the offer (in the offer's transaction): what it held is released now and
-    it waits, open, on the answer. A follow-up from a recorded need has nothing to move: it stays in the pool."""
+    it waits, open, on the answer. That includes what an offer it replaced had beaten: left on the old offer, which has
+    now passed, it would replace this one in turn, and two follow-ups would redraw for ever on reads alone. A follow-up
+    from a recorded need has nothing to move: it stays in the pool, and ``followups_lost`` keeps it out meanwhile."""
 
     from learnloop.followup_serve import workflow as followup_workflow
 
-    for item in forced:
-        row = followup_workflow.workflow_of_item(env.repository, item.practice_item_id)
+    for item_id in item_ids:
+        row = followup_workflow.workflow_of_item(env.repository, item_id)
         if row is not None and row["state"] in followup_workflow.OPEN_STATES:
             followup_workflow.lose_to_lesson(env.repository, row, offer_ref=offer_ref, offer_decision_id=offer_decision_id,
                                              clock=env.clock)

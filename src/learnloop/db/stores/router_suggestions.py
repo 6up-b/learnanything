@@ -112,6 +112,16 @@ def offer_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str
     return _offer_decision(row) if row is not None else None
 
 
+def offer_drawn_since(connection: sqlite3.Connection, decision_id: str) -> bool:
+    """A lesson offer was drawn after this decision."""
+
+    return connection.execute(
+        f"SELECT 1 FROM router_decisions offer JOIN router_decisions earlier ON earlier.id = ? "
+        f"WHERE offer.decision_kind IN {OFFER_DECISION_KINDS} AND offer.chosen_ref LIKE ? "
+        "AND (offer.created_at, offer.id) > (earlier.created_at, earlier.id) LIMIT 1",
+        (decision_id, f"{OFFER_REF_PREFIX}%")).fetchone() is not None
+
+
 def all_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     """TE1b's daily decisions and TE3b's drawn offers together, oldest first (identical to :func:`decisions`
     while no offer was ever drawn)."""

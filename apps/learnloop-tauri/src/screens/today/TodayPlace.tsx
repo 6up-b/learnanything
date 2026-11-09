@@ -32,6 +32,7 @@ import type {
   ScheduledItemDto,
   SessionEndSummary,
   SessionSnapshot,
+  SomethingElseChosenDto,
   StreakSummary,
   WorkbenchOpenProblemDto
 } from "../../api/dto";
@@ -44,6 +45,7 @@ import type { AskTarget } from "../../components/AskOverlay";
 import { INTERACTIVE_SELECTOR, screenLeavesKey } from "../../app/keymap";
 import { algoConfig } from "../../app/algoConfig";
 import { LessonOfferBlock } from "./LessonOfferBlock";
+import { lessonEntryFor, SomethingElse } from "./SomethingElse";
 import { LessonSuggestionCard } from "./LessonSuggestionCard";
 import { QuestionInProgress } from "./QuestionInProgress";
 import type { LessonEntry } from "../LessonScreen";
@@ -594,6 +596,24 @@ export function TodayPlace({
     else if (action.type === "reader") onOpenPlanReading(action.reading);
   }
 
+  // IH3: "Something else would help" was chosen at this plan boundary and served. A lesson opens as the learner's own start,
+  // the plan's own pick (an agreement) is served as Begin serves it, and anything else is the step the choice placed.
+  function afterSomethingElse(result: SomethingElseChosenDto) {
+    const entry = lessonEntryFor(result);
+    if (entry) {
+      onStartLesson?.(entry);
+      return;
+    }
+    if (result.preference?.outcome === "agreed") {
+      void begin();
+      return;
+    }
+    const action = planStepAction(result.step, { viaBlockLine: false });
+    if (action.type === "practice") onOpenPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
+    else if (action.type === "reader") onOpenPlanReading(action.reading);
+    else void refetchPlan().catch(() => undefined);
+  }
+
   // The plan's kill switch is off: Begin opens a session for these minutes
   // and its queue's first question, as classic Start then Today's Enter do.
   async function beginWithoutPlan() {
@@ -878,6 +898,11 @@ export function TodayPlace({
               Keep going
             </button>
           </div>
+        ) : null}
+        {/* IH3 (spec §6): the quiet link at any plan boundary, with a session (the choice is served into it). */}
+        {session && data?.somethingElse && !waiting ? (
+          <SomethingElse sessionId={session.sessionId} surface="today" enabled canStartLesson={Boolean(onStartLesson)}
+                         hidePlansPick={Boolean(current?.lessonOffer)} onChosen={afterSomethingElse} onError={onError} />
         ) : null}
       </div>
     );

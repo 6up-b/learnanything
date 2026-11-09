@@ -258,8 +258,12 @@ def _context(env: PlanEnv, decisions: Sequence[Mapping[str, Any]]) -> LS.Context
                       reentry=bool(env.gap().due), days_since_last=since)
 
 
-def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, today: str, now_iso: str) -> int:
-    """Record each earlier day's shown card left unanswered as ``ignored`` (its day has ended)."""
+def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, config: Any, today: str,
+                   now_iso: str) -> int:
+    """Record each earlier day's shown card left unanswered as ``ignored`` (its day has ended). An offer the learner never
+    saw is released instead (IH2, review M5): this reaches a passed offer before the plan's own sweep can."""
+
+    from learnloop.daily_plan import lesson_offer as LO
 
     written = 0
     for decision in decisions:
@@ -268,6 +272,9 @@ def _sweep_ignored(connection: Any, decisions: Sequence[Mapping[str, Any]], *, t
         if store.release_for(connection, decision["id"]) is not None:
             # TE3b: an offer the plan took back unanswered (``lesson_offer.withdraw``) is not ignored by the learner.
             # A daily card has a release only after its Start, so TE1b's sweep is unchanged.
+            continue
+        if LO.never_on_screen(config, connection, decision):
+            written += int(LO.release_never_shown(connection, decision, at=now_iso))
             continue
         primary = ((decision["detail"].get("card") or {}).get("candidates") or [{}])[0]
         written += int(store.insert_response(
@@ -395,7 +402,7 @@ def _recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tupl
             if not store.tables_present(connection):
                 return True, None
             # TE3b: with the day's drawn offers (none ever drawn: TE1b's decisions exactly).
-            _sweep_ignored(connection, store.all_decisions(connection), today=today, now_iso=now_iso)
+            _sweep_ignored(connection, store.all_decisions(connection), config=vault.config, today=today, now_iso=now_iso)
             existing = store.decision_for_day(connection, today)
             if existing is not None:
                 view = card_view(connection, existing)

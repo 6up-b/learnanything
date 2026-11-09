@@ -109,7 +109,7 @@ def test_f1_a_probe_ready_after_the_prefetched_offer_is_served_next_and_the_offe
     assert ended.outcome == LO.WITHDRAWN and ended.ended_reason == LO.WITHDRAWN_FORCED
     with env.repository.connection() as connection:
         # The next boundary's sweep leaves it withdrawn (never ``ignored``).
-        assert LO.sweep_ignored(connection, today=env.today(), now_iso=env.now_iso()) == 0
+        assert LO.sweep_ignored(connection, config=env.vault.config, today=env.today(), now_iso=env.now_iso()) == 0
     assert _settlement(env, decision_id)[0] is None
 
 

@@ -170,7 +170,7 @@ def _lesson_offer_builder(vault: Any, repository: Any) -> Any:
     if not lesson_offers_on(vault.config):
         return None
 
-    def build(*, env: Any, record: Any, forced: bool, read_only: bool = False) -> Any:
+    def build(*, env: Any, record: Any, forced: bool, read_only: bool = False, replacing: bool = False) -> Any:
         from learnloop.daily_plan import lesson_offer as LO
         from learnloop.db.stores import router_suggestions as suggestions
 
@@ -182,7 +182,7 @@ def _lesson_offer_builder(vault: Any, repository: Any) -> Any:
         else:
             with repository.atomic(), repository.connection() as connection:
                 if suggestions.tables_present(connection):
-                    LO.sweep_ignored(connection, today=today, now_iso=now_iso)
+                    LO.sweep_ignored(connection, config=vault.config, today=today, now_iso=now_iso)
         if getattr(env, "device", None) is not None:
             from learnloop.router_objective_switches import lessons_compete_with_followups_on
 
@@ -193,7 +193,7 @@ def _lesson_offer_builder(vault: Any, repository: Any) -> Any:
         local = env.now().astimezone()
         minutes_left = float(record.minutes_left()) if record is not None and record.is_open else None
         return LO.build(vault, repository, today=today, now_iso=now_iso, local_hour=local.hour + local.minute / 60.0,
-                        minutes_left=minutes_left, reentry=bool(env.gap().due), forced=forced)
+                        minutes_left=minutes_left, reentry=bool(env.gap().due), forced=forced, replacing=replacing)
 
     return build
 

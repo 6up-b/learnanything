@@ -18,9 +18,10 @@ the offer's sensor, never a gate: its posterior predictive's mean and spread (mo
 Nothing here is drawn: the offer is drawn by the objective's logged mix like any candidate (G3), and answered on that
 decision (:mod:`learnloop.daily_plan.lesson_suggestion`'s ``respond``; ``ignored`` at the next boundary's step). No
 offer: below the tag or switched off; at a boundary with forced items (a follow-up, a request, a check: never inside a
-cold check, a probe or a randomized-check block); while an accepted offer's lesson waits to open; once the day's
-shown offers and cards reach ``router.lesson_suggestions.ceiling_per_day`` (``keep``; the bind is logged on the
-decision); with no candidate.
+cold check, a probe or a randomized-check block; from IH2's tag follow-ups compete instead, spec_instruct_handoff_v1 §5);
+while an accepted offer's lesson waits to open; once the day's shown offers and cards reach
+``router.lesson_suggestions.ceiling_per_day`` (``keep``; the bind is logged on the decision; from IH2's tag an offer the
+learner never saw isn't shown, and a decision replacing an open offer isn't held back by it); with no candidate.
 
 The context is read at hour resolution (:data:`CONTEXT_RESOLUTION_DAYS`, numerical: a prefetch and its serve then
 share one boundary key) and frozen with the candidate; every number the value reads is in its annotations, so the
@@ -216,9 +217,37 @@ def _quantized(context: LS.Context) -> LS.Context:
 
 
 def shown_today(decisions: Sequence[Mapping[str, Any]], today: str) -> int:
-    """The day's shown cards and drawn offers together (the ceiling's count)."""
+    """The day's shown cards and drawn offers together (the ceiling's count), among ``decisions``. From IH2's tag the
+    caller leaves out what :func:`never_on_screen` finds."""
 
     return sum(1 for decision in decisions if (decision.get("detail") or {}).get("shown") and decision["day"] == today)
+
+
+def on_screen(connection: Any, decision: Mapping[str, Any]) -> bool:
+    """A drawn offer reached the learner: its card or page rendered (IH1's ``offer_shown``), a step served it
+    (``block_started``), or they answered it. A draw alone is none of these: offers are drawn on background reads."""
+
+    if store.response_for(connection, str(decision["id"])) is not None:
+        return True
+    block_id = (decision.get("detail") or {}).get("block_id")
+    return bool(block_id) and connection.execute(
+        "SELECT 1 FROM attention_block_events WHERE block_id = ? AND kind IN (?, 'block_started') LIMIT 1",
+        (str(block_id), SHOWN_EVENT)).fetchone() is not None
+
+
+def never_on_screen(config: Any, connection: Any, decision: Mapping[str, Any]) -> bool:
+    """An offer the learner never saw, as far as the record can say: neither a seen offer against the day's ceiling nor a
+    decline. Only for an offer drawn at the tag with the switch on: a row from before ``offer_shown`` existed has no such
+    event, so it keeps its old reading (drawn is shown, unanswered is ``ignored``) and old days don't change meaning. A
+    TE1b card is not an offer: it is shown when its decision says so."""
+
+    from learnloop.algorithm_versions import FAILURE_SHARE_VERSIONS
+    from learnloop.router_objective_switches import lessons_compete_with_followups_on
+
+    return (bool((decision.get("detail") or {}).get("plan_offer"))
+            and lessons_compete_with_followups_on(config)
+            and str(decision.get("algorithm_version") or "") in FAILURE_SHARE_VERSIONS
+            and not on_screen(connection, decision))
 
 
 def pending_start(connection: Any, decisions: Sequence[Mapping[str, Any]]) -> bool:
@@ -235,12 +264,16 @@ def pending_start(connection: Any, decisions: Sequence[Mapping[str, Any]]) -> bo
 
 
 def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: float, minutes_left: float | None,
-          reentry: bool, forced: bool, learner_asked: bool = False) -> Offer:
+          reentry: bool, forced: bool, learner_asked: bool = False, replacing: bool = False) -> Offer:
     """This boundary's offer, or none with why (module docstring).
 
     ``learner_asked`` (IH3, spec_instruct_handoff_v1 §6): the learner named a lesson through "Something else would
     help", so the day's anti-nagging ceiling and a waiting lesson's reservation (both about offers the router makes
-    unasked) don't hide it. The candidate and its sensors are the router's own, read the same way."""
+    unasked) don't hide it. The candidate and its sensors are the router's own, read the same way.
+
+    ``replacing`` (IH2, §5 item 1): this decision replaces an open offer. It adds no card to the day: the card on offer
+    is contested by what became ready, so the ceiling, which limits new cards, doesn't end the open one with no contest.
+    The ceiling still counts whatever is seen, and binds at the next boundary with no open offer."""
 
     from learnloop.daily_plan import lesson_suggestion as LSS
 
@@ -257,8 +290,12 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
         decisions = store.all_decisions(connection)
         responses = store.responses(connection)
         releases = store.releases(connection)
-        shown = shown_today(decisions, today)
-        if shown >= ceiling and not learner_asked:
+        # IH2 (review M3): what the learner never saw uses up nothing, and says nothing about when they last saw a card.
+        seen = [decision for decision in decisions if not never_on_screen(vault.config, connection, decision)]
+        shown = shown_today(seen, today)
+        if replacing:
+            base["ceiling"] = {"per_day": ceiling, "replacing": True}
+        if shown >= ceiling and not learner_asked and not replacing:
             # ``keep``: the anti-nagging ceiling binds across the day's offers and cards; each bind is logged.
             return Offer(None, {**base, "status": "none:ceiling_bound",
                                 "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": True}})
@@ -267,7 +304,7 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
     candidates, excluded = LSS.build_candidates(vault, repository, now_iso=now_iso)
     if not candidates:
         return Offer(None, {**base, "status": "none:no_candidate", "excluded": excluded,
-                            "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": False}})
+                            "ceiling": {**base["ceiling"], "shown_today": shown, "bound": False}})
     details = {str(d["id"]): d["detail"] for d in decisions}
     observed = LS.observations(details, responses)
     from learnloop.router_objective_switches import preferences_inform_router_on
@@ -281,12 +318,12 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
                                                                                at=now_iso))
     state = LS.replay(observed)
     now = parse_utc(now_iso)
-    shown_rows = [d for d in decisions if (d.get("detail") or {}).get("shown")]
+    shown_rows = [d for d in seen if (d.get("detail") or {}).get("shown")]
     since = None
     if shown_rows:
         since = LS.days_between(now, parse_utc(str(shown_rows[-1]["created_at"])))
-    elif decisions:
-        since = LS.days_between(now, parse_utc(str(decisions[0]["created_at"])))
+    elif seen:
+        since = LS.days_between(now, parse_utc(str(seen[0]["created_at"])))
     context = _quantized(LS.Context(local_hour=float(local_hour), minutes_left=minutes_left, reentry=bool(reentry),
                                     days_since_last=since))
     declined = LS.declines_by_learning_object(details, [*responses, *(r for r in releases
@@ -315,7 +352,7 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
         "p_accept": {"mean": round(mean, 9), "sd": round(sd, 9), "beta": [round(a, 9), round(b, 9)],
                      "basis": "TE1b's acceptance model's posterior predictive, moment-matched to a Beta"},
         "duration": duration, "mass": mass, "checks": checks, "model": state.summary(),
-        "ceiling": {"per_day": ceiling, "shown_today": shown, "bound": False},
+        "ceiling": {**base["ceiling"], "shown_today": shown, "bound": False},
         "candidates_considered": len(candidates),
         "staged_value": round(top.value, 12),
     }
@@ -336,6 +373,8 @@ WITHDRAWN = "withdrawn"
 #: follow-up), or lesson offers no longer serve (the switch off, the objective off, below the tag).
 WITHDRAWN_FORCED = "forced_items"
 WITHDRAWN_OFF = "offers_off"
+#: IH2 (review M5): an offer whose boundary passed with no sign the learner saw it: taken back, never their ``ignored``.
+WITHDRAWN_NEVER_SHOWN = "never_shown"
 
 #: The offer block's ``block_ended`` outcomes: the learner's response, ``ignored`` (moved on without one), or
 #: ``withdrawn`` (taken back by the plan before an answer).
@@ -469,6 +508,21 @@ def record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why
     return written
 
 
+def release_never_shown(connection: Any, decision: Mapping[str, Any], *, at: str) -> bool:
+    """The boundary passed on an offer nobody saw (:func:`never_on_screen`): the plan's act, as :func:`withdraw` is. An
+    ``expired`` row, which the acceptance model and the decline recovery never read, and the block ended ``withdrawn``."""
+
+    detail = decision.get("detail") or {}
+    primary = (detail.get("card") or {}).get("candidates") or [{}]
+    written = store.insert_response(
+        connection, decision_id=str(decision["id"]), response="expired", candidate_ref=str(primary[0].get("ref") or ""),
+        learning_object_ids=list(primary[0].get("learning_object_ids") or []), responded_at=at,
+        detail={WITHDRAWN: WITHDRAWN_NEVER_SHOWN, "plan_offer": True, "block_id": detail.get("block_id"),
+                "shown_on": decision.get("day")})
+    end_block(connection, detail.get("block_id"), WITHDRAWN, at=at, reason=WITHDRAWN_NEVER_SHOWN)
+    return written
+
+
 def _sweep_decisions(connection: Any, *, today: str) -> list[Mapping[str, Any]]:
     """Every drawn offer left unanswered whose boundary has passed (its block ended, its plan no longer open, or an
     earlier day)."""
@@ -488,17 +542,21 @@ def _sweep_decisions(connection: Any, *, today: str) -> list[Mapping[str, Any]]:
 
 
 def sweep_due(connection: Any, *, today: str) -> bool:
-    """:func:`sweep_ignored` has something to write (each ``ignored`` moves the acceptance model the offer is scored by)."""
+    """:func:`sweep_ignored` has something to write (an ``ignored`` moves the acceptance model the offer is scored by)."""
 
     return bool(_sweep_decisions(connection, today=today))
 
 
-def sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int:
-    """Every offer :func:`_sweep_decisions` finds: ``ignored`` (the next boundary's step)."""
+def sweep_ignored(connection: Any, *, config: Any, today: str, now_iso: str) -> int:
+    """Every offer :func:`_sweep_decisions` finds (the next boundary's step): ``ignored`` if the learner saw it and moved
+    on; if they never did, released (:func:`release_never_shown`), since a draw on a background read is no refusal."""
 
     written = 0
     for decision in _sweep_decisions(connection, today=today):
-        written += int(record_ignored(connection, decision, at=now_iso, why="next_boundary_step"))
+        if never_on_screen(config, connection, decision):
+            written += int(release_never_shown(connection, decision, at=now_iso))
+        else:
+            written += int(record_ignored(connection, decision, at=now_iso, why="next_boundary_step"))
     return written
 
 
@@ -575,8 +633,8 @@ def record_shown(repository: Any, *, block_id: str | None, surface: str, session
 __all__ = [
     "CONTEXT_RESOLUTION_DAYS", "DURATION_LOG_SD", "DURATION_MEDIAN_PRIOR_SD", "DURATION_PRIOR_MEDIAN",
     "DURATION_VERSION", "OFFER_OPEN", "OFFER_PASSED", "OFFER_TAKEN", "OFFER_VERSION", "Offer", "SHOWN_EVENT", "SHOWN_SURFACES",
-    "SUPERSEDED", "SUPERSEDED_BY", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_OFF", "accept_moments",
-    "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
-    "lesson_active_minutes", "offer_ref", "offer_standing", "offers_on", "pending_start", "record_shown", "shown_today",
-    "supersede", "withdraw", "withdrawn",
+    "SUPERSEDED", "SUPERSEDED_BY", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_NEVER_SHOWN", "WITHDRAWN_OFF",
+    "accept_moments", "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
+    "lesson_active_minutes", "never_on_screen", "offer_ref", "offer_standing", "offers_on", "on_screen", "pending_start",
+    "record_shown", "release_never_shown", "shown_today", "supersede", "withdraw", "withdrawn",
 ]

@@ -196,7 +196,7 @@ def test_a_probe_arriving_during_an_open_offer_gets_a_new_decision_holding_both(
     with env.repository.connection() as connection:
         assert suggestions.response_for(connection, first_decision) is None
         row = LO.withdrawn(connection, first_decision)
-        assert LO.sweep_ignored(connection, today=env.today(), now_iso=env.now_iso()) == 0
+        assert LO.sweep_ignored(connection, config=env.vault.config, today=env.today(), now_iso=env.now_iso()) == 0
     detail = json.loads(row["detail_json"])
     assert row["response"] == "expired" and detail[LO.SUPERSEDED_BY] == new[0]["id"]
     assert LO.WITHDRAWN not in detail
@@ -366,7 +366,9 @@ def test_not_now_with_the_ceiling_reached_the_followup_serves(tmp_path, draw, mo
 
     monkeypatch.setattr(wf, "waiting_still_valid", lambda *_a: True)
     env = _env(tmp_path, toml=QUIET + "\n[router.lesson_suggestions]\nceiling_per_day = 2\n")
-    _open_offer(env, draw)
+    first = _open_offer(env, draw)
+    # What the ceiling counts is what the learner saw, so this one has to have been on screen.
+    assert LO.record_shown(env.repository, block_id=first["block_id"], surface="today", session_id=env.session_id)
     row = _ready_probe(env)
     env.clock.advance(1)
     draw.prefer = (OFFER,)
