@@ -10622,6 +10622,9 @@ export interface LessonTurnInput {
   /** Teacher TE1b: a router suggestion's Start (with `lessonId`, the id its response recorded). */
   origin?: "learner_pick" | "router_suggestion";
   suggestionDecisionId?: string;
+  /** IH7 (the owner's decision 2): a topic's lesson the learner asked for with "learn this" (its preference's id), so the
+   *  brief may read the latest diagnosed miss on the topic. */
+  preferenceId?: string;
 }
 
 // ── Teacher TE1b: the router's lesson suggestion card in Today (spec_teacher_v1 §15.1, §19) ──

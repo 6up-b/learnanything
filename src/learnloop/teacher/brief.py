@@ -821,7 +821,8 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
                 constraints: Mapping[str, Any],
                 notes_provider: Any = None, notes_check: NotesCheck | None = None,
                 te2: bool = False, origin: str | None = None, origin_ref: str | None = None,
-                follow_record: dict[str, Any] | None = None) -> tuple[dict[str, Any], SourceBook]:
+                follow_record: dict[str, Any] | None = None, preference_ref: str | None = None,
+                opens_at: str | None = None) -> tuple[dict[str, Any], SourceBook]:
     """``(LessonBriefV1, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
     linked notes per LO; it is injected by the service (``teacher.notes``), so the brief, and the check
     minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2).
@@ -833,7 +834,11 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
     suggestion with a diagnosed recent miss then also loads the sections matching the confusion
     (:mod:`learnloop.teacher.diagnosed_sources`). ``follow_record`` is filled with the inspectable record of what
     was added and why (empty while the switch is off or the lesson is a learner's own start); the caller keeps it
-    beside the brief. Off, the brief is the predecessor's byte for byte."""
+    beside the brief. Off, the brief is the predecessor's byte for byte.
+
+    ``preference_ref`` and ``opens_at`` (the owner's decision 2, Nov 9, under the same switch): a ``learner_pick`` lesson
+    the learner asked for through IH3's "learn this" names its preference, and reads the latest diagnosed miss on its
+    topics before ``opens_at``. A Reader selection or a typed topic names none."""
 
     from learnloop.learner.lesson_weight import read_hedges
     from learnloop.learner_protection import withheld_items
@@ -900,7 +905,8 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
             from learnloop.teacher import diagnosed_sources as DS
 
             followed = DS.follow(vault, repository, library, origin=origin, origin_ref=origin_ref,
-                                 learning_object_ids=learning_object_ids, in_hand=primaries)
+                                 learning_object_ids=learning_object_ids, in_hand=primaries,
+                                 preference_ref=preference_ref, at=opens_at)
     outcomes: list[dict[str, Any]] = []
     sources = _render_sources(library, book, primaries, list(dict.fromkeys(alternates)),
                               int(config.context.sources_tokens), extras=followed.extras if followed else (),

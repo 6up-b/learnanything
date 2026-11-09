@@ -162,7 +162,9 @@ it("a chosen lesson becomes the learner's own start, with no suggestion pre-answ
     preference: { id: "k", outcome: "lesson", kind: "lesson", ref: "lesson_offer:lo_relu", servedDecisionId: "d1",
                   lesson: { learningObjectIds: ["lo_relu"], title: "ReLU" }, replayed: false }
   }));
-  expect(entry).toEqual({ kind: "open", entry: "learning_object", learningObjectIds: ["lo_relu"], title: "ReLU" });
+  // IH7 (the owner's decision 2): it names the preference, so its brief may read the latest diagnosed miss.
+  expect(entry).toEqual({ kind: "open", entry: "learning_object", learningObjectIds: ["lo_relu"], title: "ReLU",
+                          preferenceId: "k" });
   expect(lessonEntryFor(SERVED())).toBeNull();
 });
 

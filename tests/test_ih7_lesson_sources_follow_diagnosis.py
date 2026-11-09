@@ -153,6 +153,27 @@ class World:
             constraints={}, origin=origin, origin_ref=decision_id, follow_record=record)
         return brief, book, record
 
+    def ask(self, *, minutes: float = 2.0, kind: str = "lesson", lo: str = LO, preference_id: str = "pref_learn") -> str:
+        """IH3's "learn this": the learner's preference for a lesson on ``lo`` (the row the desktop's choice writes)."""
+
+        stamp = (T0 + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _exec(self.repository,
+              "INSERT INTO router_learner_preferences (id, decision_id, attempt_id, session_id, surface, offered_json, "
+              "chosen_kind, chosen_ref, note_md, served_decision_id, algorithm_version, created_at) "
+              "VALUES (?, NULL, NULL, 's1', 'feedback', '{}', ?, ?, NULL, NULL, 'mvp-0.55', ?)",
+              (preference_id, kind, f"lesson_offer:{lo}", stamp))
+        return preference_id
+
+    def asked_brief(self, preference_id: str | None, *, at_minutes: float = 5.0, selection=None, los=(LO,),
+                    vault=None) -> tuple[dict[str, Any], SourceBook, dict[str, Any]]:
+        record: dict[str, Any] = {}
+        brief, book = build_brief(
+            vault or self.vault, self.repository, learning_object_ids=list(los), how={lo: "test" for lo in los},
+            goal_text="Rendering decision regions", selection=selection, driver="desktop", lesson_id=None,
+            constraints={}, origin="learner_pick", origin_ref=None, follow_record=record, preference_ref=preference_id,
+            opens_at=(T0 + timedelta(minutes=at_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        return brief, book, record
+
     def open(self, decision_id: str, **kwargs):
         return S.open_lesson(self.vault, self.repository, entry="learning_object", learning_object_ids=[LO],
                              clients=clients(TeacherFake([plan_turn])), origin="router", origin_ref=decision_id,
@@ -375,8 +396,8 @@ def test_nothing_matching_the_confusion_means_an_unchanged_brief(world):
 
 
 def test_a_lesson_the_learner_started_is_unchanged(world):
-    """A Reader selection, a typed topic and IH3's "Something else would help" all open as ``learner_pick`` with no
-    origin ref: nothing on record links them to a miss."""
+    """A Reader selection and a typed topic open as ``learner_pick`` with no origin ref and no preference: nothing on
+    record links them to a miss. (IH3's "learn this" names its preference: decision 2's tests below.)"""
 
     _diagnosed(world)
     plain, _b, _r = world.brief(None, origin=None)
@@ -386,6 +407,116 @@ def test_a_lesson_the_learner_started_is_unchanged(world):
     view = S.open_lesson(world.vault, world.repository, entry="learning_object", learning_object_ids=[LO],
                          clients=clients(TeacherFake([plan_turn])), clock=_clock(5))
     assert "sources_follow" not in _open_payload(world.repository, view["lesson_id"])
+
+
+# -- a lesson the learner asked for (the owner's decision 2, Nov 9) --------------------------------------------------
+
+
+def test_a_lesson_asked_for_with_learn_this_reads_the_latest_miss_on_its_topic(world):
+    """"Yes, definitely use the latest miss on that topic": a ``learner_pick`` lesson from IH3's "learn this" loads the
+    sections matching the diagnosed confusion, beside the linked one, and the record names the request."""
+
+    attempt = world.miss()
+    world.diagnose(attempt)
+    preference = world.ask()
+    brief, _book, record = world.asked_brief(preference)
+    assert _refs(brief) == [LINKED, SOFTMAX], "the topic's linked section first, the added one beside it"
+    assert record["status"] == "added" and record["miss"]["attempt_id"] == attempt
+    assert record["asked"]["preference_id"] == preference and "decision_id" not in record["miss"]
+    assert brief["sources"]["from_diagnosis"]["added"][0]["found_by"] == [CONFUSION]
+
+
+def test_the_learner_asked_lesson_keeps_its_record_in_the_open_turn(world):
+    attempt = world.miss()
+    world.diagnose(attempt)
+    preference = world.ask()
+    view = S.open_lesson(world.vault, world.repository, entry="learning_object", learning_object_ids=[LO],
+                         clients=clients(TeacherFake([plan_turn])), clock=_clock(5), preference_id=preference)
+    payload = _open_payload(world.repository, view["lesson_id"])
+    assert payload["sources_follow"]["status"] == "added" and payload["sources_follow"]["asked"]["preference_id"] == preference
+    assert payload["sources_follow"]["asked"]["lesson_opens_at"] == _clock(5).now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    lesson = _rows(world.repository, "SELECT origin, origin_ref FROM lessons WHERE id = ?", (view["lesson_id"],))[0]
+    assert lesson == {"origin": "learner_pick", "origin_ref": None}, "the lesson row is a learner's start, as before"
+
+
+def test_the_latest_miss_passes_over_a_later_correct_attempt(world):
+    """The latest attempt with a diagnosis in force: a correct attempt has none (no score is read)."""
+
+    attempt = world.miss(minutes=0)
+    world.diagnose(attempt)
+    world.miss(minutes=1.5, points=4)
+    brief, _book, record = world.asked_brief(world.ask())
+    assert record["status"] == "added" and record["miss"]["attempt_id"] == attempt and SOFTMAX in _refs(brief)
+
+
+def test_the_latest_of_two_diagnosed_misses_is_the_one_read(world):
+    first = world.miss(minutes=0)
+    world.diagnose(first, statements=("Zebras are striped.",), minutes=0.5)
+    second = world.miss(minutes=1)
+    world.diagnose(second, minutes=1.5)
+    _brief, _book, record = world.asked_brief(world.ask())
+    assert record["miss"]["attempt_id"] == second and record["status"] == "added"
+
+
+def test_a_miss_after_the_lesson_opens_is_not_behind_it(world):
+    attempt = world.miss(minutes=10)
+    world.diagnose(attempt, minutes=11)
+    plain = world.brief(None, origin=None)[0]
+    brief, _book, record = world.asked_brief(world.ask(), at_minutes=5)
+    assert _bytes(brief) == _bytes(plain) and record["status"] == "none" and "diagnosis in force" in record["why"]
+
+
+def test_a_lesson_whose_request_is_not_on_record_or_names_another_topic_adds_nothing(world):
+    attempt = world.miss()
+    world.diagnose(attempt)
+    plain = world.brief(None, origin=None)[0]
+    world.ask(preference_id="pref_other", lo="lo_eigen")
+    world.ask(preference_id="pref_item", kind="new_practice")
+    for preference in ("pref_missing", "pref_other", "pref_item"):
+        brief, _book, record = world.asked_brief(preference)
+        assert _bytes(brief) == _bytes(plain) and record["status"] == "none", preference
+        assert record["why"] == "the learner's request for this lesson is not on record", preference
+
+
+def test_a_reader_selection_or_a_typed_topic_ignores_a_preference(world):
+    """Reader-selection and typed-topic lessons stay unchanged: the service passes the preference only for a learner's
+    own start on a topic."""
+
+    attempt = world.miss()
+    world.diagnose(attempt)
+    preference = world.ask()
+    view = S.open_lesson(world.vault, world.repository, entry="reader_selection",
+                         selection={"extraction_id": "ext_ml", "span_ids": ["s2"]},
+                         clients=clients(TeacherFake([plan_turn])), clock=_clock(5), preference_id=preference)
+    assert "sources_follow" not in _open_payload(world.repository, view["lesson_id"])
+
+
+def test_a_learner_asked_lesson_with_no_diagnosed_miss_opens_as_before(world):
+    world.miss(minutes=0, points=4)
+    plain = world.brief(None, origin=None)[0]
+    brief, _book, record = world.asked_brief(world.ask())
+    assert _bytes(brief) == _bytes(plain) and record["status"] == "none"
+
+
+def test_the_lesson_ref_prefix_is_the_plans():
+    from learnloop.daily_plan.types import LESSON_OFFER_PREFIX
+    from learnloop.teacher import diagnosed_sources as DS
+
+    assert DS.LESSON_OFFER_PREFIX == LESSON_OFFER_PREFIX
+
+
+def test_switch_off_and_below_the_tag_a_learner_asked_lesson_is_byte_identical(tmp_path):
+    for name, world in (("off", World(tmp_path / "off", config="[router_objective]\nlesson_sources_follow_diagnosis = false\n")),
+                        ("below", World(tmp_path / "below", version=OLD))):
+        attempt = world.miss()
+        world.diagnose(attempt)
+        preference = world.ask()
+        plain = world.brief(None, origin=None)[0]
+        brief, _book, record = world.asked_brief(preference)
+        assert _bytes(brief) == _bytes(plain) and record == {}, name
+        view = S.open_lesson(world.vault, world.repository, entry="learning_object", learning_object_ids=[LO],
+                             clients=clients(TeacherFake([plan_turn])), clock=_clock(5), preference_id=preference)
+        assert "sources_follow" not in _open_payload(world.repository, view["lesson_id"]), name
 
 
 # -- the switch and the tag ----------------------------------------------------------------------------------------

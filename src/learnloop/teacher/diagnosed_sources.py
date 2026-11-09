@@ -11,9 +11,14 @@ lesson's ``origin_ref`` is the decision (an offer drawn at a plan block, an IH2 
 suggestion; all are ``router_decisions`` rows) and its goal topics are the response's. The miss is the latest attempt
 on those topics made at or before the decision. It counts only if a live diagnosis is in force for it: a pending,
 failed, superseded or absent diagnosis leaves the lesson as it was and the record says which. No score or stuck flag
-is read, so an attempt that was correct simply has no diagnosis. A lesson the learner starts from a Reader selection,
-on a typed topic, or from IH3's "Something else would help" is ``learner_pick`` with no ``origin_ref``: nothing links
-it to a miss, so it is unchanged.
+is read, so an attempt that was correct simply has no diagnosis. A lesson the learner starts from a Reader selection
+or on a typed topic is ``learner_pick`` with no ``origin_ref``: nothing links it to a miss, so it is unchanged.
+
+**A lesson the learner asked for** (the owner's decision 2, Nov 9: "definitely use the latest miss on that topic"): one
+started from IH3's "learn this" is ``learner_pick`` too, and its opening names the preference (``preference_ref``). The
+ledger must say it was a request for a lesson on exactly these topics (``router_learner_preferences``, kind ``lesson``),
+else nothing is added and the record says so. Its miss is the latest attempt on its topics known before the lesson
+opens that has a live diagnosis in force (a correct attempt has none, so it is passed over); the rest is as above.
 
 **What searches** (in this order): the miss's hypotheses (``causal_hypotheses``, the latest version of each, the
 learner's ``my_gap`` marks first, then the rest in the order they were written; a ``retired`` or ``demoted`` one is
@@ -45,6 +50,8 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from learnloop.clock import utc_now_iso
+
 _LOG = logging.getLogger(__name__)
 
 VERSION = "lesson_sources_follow_v1"
@@ -55,9 +62,15 @@ _SET_ASIDE = ("retired", "demoted")
 _NAMING_KINDS = ("prerequisite", "misconception")
 #: A statement shown in the record at most this long (``section_coverage.STATEMENT_CHARS``, a display bound).
 STATEMENT_CHARS = 600
+#: A lesson option's ref (``daily_plan.types.LESSON_OFFER_PREFIX``; the teacher may not import the plan, so a test pins the
+#: two equal).
+LESSON_OFFER_PREFIX = "lesson_offer:"
 
 NO_ORIGIN = "the lesson's offer is not on record"
 NO_MISS = "no attempt on these topics before the offer"
+#: The owner's decision 2 (Nov 9): a lesson the learner asked for ("learn this").
+NO_REQUEST = "the learner's request for this lesson is not on record"
+NO_DIAGNOSED_MISS = "no attempt on these topics has a diagnosis in force before the lesson opened"
 PENDING = "the diagnosis of that attempt is still being written"
 FAILED = "the diagnosis of that attempt did not complete"
 SUPERSEDED = "the diagnosis of that attempt no longer applies (the answer was regraded)"
@@ -285,13 +298,64 @@ def _statements(vault: Any, repository: Any, connection: Any, past: Any, attempt
     return out
 
 
+def _asked_lesson(connection: Any, preference_id: str, learning_object_ids: Sequence[str]) -> dict[str, Any] | None:
+    """The learner's "learn this" (IH3's ``router_learner_preferences`` row) when it names a lesson on exactly these
+    topics, else None: the client names the preference, and the ledger is what says it was a request for this lesson."""
+
+    from learnloop.db.stores import router as router_store
+
+    if not router_store.preferences_present(connection):
+        return None
+    row = router_store.learner_preference(connection, preference_id)
+    if row is None or str(row.get("chosen_kind")) != "lesson":
+        return None
+    ref = str(row.get("chosen_ref") or "")
+    lo = ref[len(LESSON_OFFER_PREFIX):] if ref.startswith(LESSON_OFFER_PREFIX) else ref
+    return dict(row) if sorted(set(learning_object_ids)) == [lo] else None
+
+
+def _latest_diagnosed_miss(connection: Any, repository: Any, config: Any, learning_object_ids: Sequence[str],
+                           at: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """The owner's decision 2 (Nov 9): the latest miss on the lesson's topics, for a lesson the learner asked for. The
+    latest attempt on those topics known before the lesson opens (THE availability predicate, as :func:`_miss`) with a
+    live diagnosis in force (``Repository.current_live_diagnosis``, the rule every reader shares), and that diagnosis. A
+    correct attempt has none, so it is passed over; no score, stuck flag or time constant is read."""
+
+    from learnloop.router_objective_switches import attempt_time_sql
+
+    ids = sorted(set(learning_object_ids))
+    if not ids or not _table(connection, "attempt_diagnoses"):
+        return None
+    known = attempt_time_sql(config, connection)
+    rows = connection.execute(
+        f"SELECT a.id, a.learning_object_id, a.practice_item_id, a.created_at FROM practice_attempts a "
+        f"WHERE a.learning_object_id IN ({','.join('?' for _ in ids)}) AND a.created_at <= ? AND {known} <= ? "
+        "AND EXISTS (SELECT 1 FROM attempt_diagnoses d WHERE d.attempt_id = a.id AND d.mode = 'live') "
+        "ORDER BY a.created_at DESC, a.id DESC", (*ids, at, at)).fetchall()
+    for row in rows:
+        live = repository.current_live_diagnosis(str(row[0]))
+        if live is not None:
+            return ({"attempt_id": str(row[0]), "learning_object_id": str(row[1]), "practice_item_id": row[2],
+                     "at": str(row[3])}, live)
+    return None
+
+
 def follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref: str | None,
-           learning_object_ids: Sequence[str], in_hand: Collection[tuple[str, str]]) -> Follow | None:
+           learning_object_ids: Sequence[str], in_hand: Collection[tuple[str, str]],
+           preference_ref: str | None = None, at: str | None = None) -> Follow | None:
     """The sections a lesson opened from this origin also reads, or None when the lesson is not one that applies
     (a learner's own start: nothing to say, so no record). ``in_hand``: the sections the lesson already gets (the
-    topic's linked ones, a Reader selection first among them), which are never added twice."""
+    topic's linked ones, a Reader selection first among them), which are never added twice.
 
-    if origin != "router" or not origin_ref:
+    ``preference_ref`` (the owner's decision 2 of Nov 9): a ``learner_pick`` lesson the learner asked for through IH3's
+    "learn this" names its preference, and reads the latest miss on its topics before the lesson opens (``at``)
+    (:func:`_latest_diagnosed_miss`). A Reader selection or a typed topic names none, so it is unchanged."""
+
+    if origin == "router" and origin_ref:
+        asked = False
+    elif origin == "learner_pick" and preference_ref:
+        asked = True
+    else:
         return None
     from learnloop.learner_protection import PastWork
     from learnloop.source_retrieval import section_coverage as SC
@@ -299,18 +363,36 @@ def follow(vault: Any, repository: Any, library: Any, *, origin: str, origin_ref
     result = Follow(record={"version": VERSION})
     try:
         with repository.connection() as connection:
-            decided_at = _decision_time(connection, origin_ref)
-            if decided_at is None:
-                return result.none(NO_ORIGIN)
-            attempt = _miss(connection, vault.config, learning_object_ids, decided_at)
-            if attempt is None:
-                return result.none(NO_MISS)
-            result.attempt_id = attempt["attempt_id"]
-            result.record["miss"] = {"attempt_id": attempt["attempt_id"], "learning_object_id": attempt["learning_object_id"],
-                                     "decision_id": origin_ref, "decision_at": decided_at, "attempt_at": attempt["at"]}
-            live = repository.current_live_diagnosis(attempt["attempt_id"])
-            if live is None:
-                return result.none(_why_no_diagnosis(connection, attempt["attempt_id"]))
+            if asked:
+                preference = _asked_lesson(connection, str(preference_ref), learning_object_ids)
+                if preference is None:
+                    return result.none(NO_REQUEST)
+                opens_at = at or utc_now_iso()
+                result.record["asked"] = {"preference_id": str(preference["id"]),
+                                          "asked_at": str(preference["created_at"]), "lesson_opens_at": opens_at}
+                found = _latest_diagnosed_miss(connection, repository, vault.config, learning_object_ids, opens_at)
+                if found is None:
+                    return result.none(NO_DIAGNOSED_MISS)
+                attempt, live = found
+                result.attempt_id = attempt["attempt_id"]
+                result.record["miss"] = {"attempt_id": attempt["attempt_id"],
+                                         "learning_object_id": attempt["learning_object_id"],
+                                         "attempt_at": attempt["at"]}
+            else:
+                decided_at = _decision_time(connection, str(origin_ref))
+                if decided_at is None:
+                    return result.none(NO_ORIGIN)
+                attempt = _miss(connection, vault.config, learning_object_ids, decided_at)
+                if attempt is None:
+                    return result.none(NO_MISS)
+                result.attempt_id = attempt["attempt_id"]
+                result.record["miss"] = {"attempt_id": attempt["attempt_id"],
+                                         "learning_object_id": attempt["learning_object_id"],
+                                         "decision_id": origin_ref, "decision_at": decided_at,
+                                         "attempt_at": attempt["at"]}
+                live = repository.current_live_diagnosis(attempt["attempt_id"])
+                if live is None:
+                    return result.none(_why_no_diagnosis(connection, attempt["attempt_id"]))
             result.record["diagnosis_id"] = str(live["id"])
             past = PastWork(connection, vault, repository)
             if not past.withheld.available or past.attempt_reason(attempt["attempt_id"]):

@@ -53,7 +53,9 @@ export type LessonEntry =
   | { kind: "open"; entry: "learning_object" | "reader_selection" | "new_topic"; learningObjectIds?: string[];
       selection?: { extractionId: string; spanIds: string[] }; title?: string;
       /** Teacher TE1b: the Start of Today's suggestion card (its decision and the lesson id its response recorded). */
-      suggestion?: { decisionId: string; lessonId: string } }
+      suggestion?: { decisionId: string; lessonId: string };
+      /** IH7 (the owner's decision 2): the "learn this" preference this lesson was asked for with. */
+      preferenceId?: string }
   | { kind: "resume"; lessonId: string }
   /** Teacher TE2: start from what the learner types. */
   | { kind: "typed" };
@@ -172,7 +174,8 @@ export function LessonScreen({
                  ...(entry.selection ? { selection: entry.selection } : {}),
                  ...(entry.suggestion ? { origin: "router_suggestion" as const,
                                           suggestionDecisionId: entry.suggestion.decisionId,
-                                          lessonId: entry.suggestion.lessonId } : {}) });
+                                          lessonId: entry.suggestion.lessonId } : {}),
+                 ...(entry.preferenceId && !entry.suggestion ? { preferenceId: entry.preferenceId } : {}) });
     }
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

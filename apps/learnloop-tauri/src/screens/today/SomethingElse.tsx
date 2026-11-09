@@ -27,8 +27,11 @@ export function useSomethingElseOn(sessionId: string | null, enabled?: boolean):
 /** The lesson a chosen "learn this" opens (a learner-started lesson on the topic: nothing is pre-answered for them). */
 export function lessonEntryFor(result: SomethingElseChosenDto): LessonEntry | null {
   const lesson = result.preference?.outcome === "lesson" ? result.preference.lesson : null;
-  return lesson
-    ? { kind: "open", entry: "learning_object", learningObjectIds: lesson.learningObjectIds, title: lesson.title }
+  // IH7 (the owner's decision 2): the lesson names the preference it was asked for with, so its brief may read the
+  // latest diagnosed miss on the topic.
+  return lesson && result.preference
+    ? { kind: "open", entry: "learning_object", learningObjectIds: lesson.learningObjectIds, title: lesson.title,
+        preferenceId: result.preference.id }
     : null;
 }
 

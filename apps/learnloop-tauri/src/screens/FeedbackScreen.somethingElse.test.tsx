@@ -178,7 +178,7 @@ it("opens a chosen lesson as the learner's own start", async () => {
   await act(async () => { fireEvent.click(link); });
   await act(async () => { fireEvent.click(screen.getByTestId("something-else-option-lesson")); });
   expect(callbacks.onStartLesson).toHaveBeenCalledWith({
-    kind: "open", entry: "learning_object", learningObjectIds: ["lo_relu"], title: "ReLU"
+    kind: "open", entry: "learning_object", learningObjectIds: ["lo_relu"], title: "ReLU", preferenceId: "k"
   });
   expect(callbacks.onPlanStep).not.toHaveBeenCalled();
 });

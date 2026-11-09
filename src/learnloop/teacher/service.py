@@ -638,12 +638,17 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
                 clients: Clients, driver: str = "desktop", clock: Clock | None = None,
                 origin: str = "learner_pick", origin_ref: str | None = None,
                 lesson_id: str | None = None, add_topics: Sequence[str] = (),
-                subject_id: str | None = None) -> dict[str, Any]:
+                subject_id: str | None = None, preference_id: str | None = None) -> dict[str, Any]:
     """Open a lesson the learner started (TE1: an LO's or a Reader selection's "Teach me this"; TE1b: the
     Start of a router suggestion, ``origin = 'router'`` with the decision id and the lesson id its
     response recorded), build its brief from the ledger and run the teacher's first turn. A failure
     after the lesson is saved carries its id (``LessonError.details``), so the screen resumes it instead
-    of opening another."""
+    of opening another.
+
+    ``preference_id`` (instruct hand-off IH7, the owner's decision 2 of Nov 9): a topic's lesson the learner asked for
+    through "Something else would help" ("learn this") names its preference, so the brief may read the latest diagnosed
+    miss on its topics (:mod:`learnloop.teacher.diagnosed_sources`, behind IH7's switch). Only for a learner's own start
+    on a topic: a Reader selection, a typed goal or a suggestion's Start ignores it."""
 
     require_active(vault)
     if origin not in ("learner_pick", "router"):
@@ -653,6 +658,8 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
         entry, learning_object_ids, selection = "learning_object", accepted["learning_object_ids"], None
     else:
         origin_ref, lesson_id = None, None
+    if origin != "learner_pick" or entry != "learning_object" or selection:
+        preference_id = None
     # Teacher TE2 (§11.5, §8.1 rev 5): typed goals, and the brief's version without vault probe headers.
     te2 = T2.on(vault)
     typed = None
@@ -698,7 +705,9 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
                               selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
                               notes_provider=your_notes, notes_check=notes_still_deliverable, te2=te2,
-                              origin=origin, origin_ref=origin_ref, follow_record=follow_record)
+                              origin=origin, origin_ref=origin_ref, follow_record=follow_record,
+                              preference_ref=preference_id or None,
+                              opens_at=utc_now_iso(clock) if preference_id else None)
     if typed is not None:
         brief["goal"]["typed"] = typed.goal
     protection = protection_state(vault, repository, brief)
