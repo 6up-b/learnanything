@@ -304,3 +304,24 @@ Checked in `src`, and consistent with the ruling:
 
 `test_outcome_schema_ids` 4 tests; `test_narrative_rollback_overlap` 4; `test_connection_reuse` 16 more cases (net of 1 moved to the new file); `test_cli_help_snapshot` 18 more cases; 1 more owner-lane parametrized test in place of the strict xfail.
 
+
+## 10. Landing onto main
+
+Gate on `0439d1ad06` (the orchestrator's, under the lock; test-only change, so no vitest, cargo or smoke):
+
+| Lane | Time | Result |
+|---|---:|---|
+| Full suite, `-n 8` | 16:36 | 30,363 passed, **1 failed**, 94 skipped, 47 xfailed |
+| Durability, serial | 7:08 | 416 passed, 1 skipped |
+| Owner lane, `-n 4`, fresh backup-API copies | 1:25 | 87 passed, 4 skipped, 1 xfailed |
+| Import contracts | | 43 kept |
+
+The one failure, `test_source_space_resolver::test_a_challenger_learns_its_way_up_from_resolver_receipts`: `learned_weights` returned None after a history drawn from seeds keyed by random receipt ids. This branch doesn't touch the test. It passed 3 of 3 alone and then no failure showed in 256 more runs (4 of them ended on a warning line rather than a pass line, so they count as no failure seen, not as passes). The link to the random receipt is inferred from the code and was not reproduced. The final commit runs the draws' seeds in call order in that test: 20 of 20 passed, and its file passed whole (17). The tip therefore has no full-suite pass of its own beyond this one test's change.
+
+One full `--fresh-connections` run at `1af4372fd0`, in a clean checkout: 52:33, 30,309 passed, 13 failed, 92 skipped, 47 xfailed. All 13 failures are in `tests/test_connection_reuse.py`, the F9 harness problem fixed in `e264fbfc69`; every other test had the fast lane's outcome (14:43, 30,322 passed, 0 failed, at the same commit). Not repeated on the fixed tip.
+
+Ruling recorded for the refactor: one full `--fresh-connections` run at each arc's close.
+
+Open for the owner: the placement gap (needs a successor), owners for the seven other strict xfails, and whether `openai_codex` joins the gate so `test_the_real_sdk_has_the_seams_the_lockdown_replaces` runs. A narrative delay on rollback-journal SQLite versions is recorded in §9; nothing shows the owner on those versions.
+
+The owner has nothing to run for this landing: no source, schema or config changed.
