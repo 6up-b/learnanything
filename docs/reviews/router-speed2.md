@@ -336,3 +336,126 @@ Old item difficulty scalar (owner, Nov 5): `git diff e9ceaf8d44 -- src migration
   decision_state_fields`, its replay snapshot), the goals' scope (`facet_diagnostics.required_facets` reads the whole
   item-state table about 40 times a job on the `la` vault, now on one pooled connection), and the decision card.
 - The copies' own numbers: rerun the landing's pinned linear_algebra week (R5's table) at the landing gate's smoke.
+
+## Landing onto main
+
+Landed by the continuation of the landing agent (the first was stopped by a usage limit on Nov 7). Merges: main
+`ccb6573987` (phone V3) at the start, then main `5fe3a22558` (owner capture fixes: feedback screen and Reader open,
+causal attribution and repositories for follow-up answers, the workbench help ladder and hints options; one frontend
+change, `BookPassage.tsx`), then main `214c206ff1` (the owner's figure author fix: a figure author's bad prediction
+costs that prediction, not the figure; both figure prompt versions bumped). The branch carries those owner commits to
+origin, so this gate is theirs too.
+
+### The time table
+
+Pinned (`SMOKE_PIN_SEED`, `SMOKE_PIN_KEY`), one run at a time with the full-suite lock held, on fresh backup-API copies
+of the mvp-0.43 backup upgraded to each code's tag. **These numbers come from the earlier tree (the branch at
+`5a9dae936f`, main `ccb6573987`, both switches on);** the later merges (owner captures, figure author) touch neither
+the router, the reading map nor the connection layer, so they were not re-measured. "Next after feedback" is Next at
+a block boundary right after a feedback (dwell 0); the 3 s column is after a 3 s dwell.
+
+| Copy | Code | Numeric policy per decision ms: median (p90, n) | Next after feedback, dwell 0: median / p90 / above 2 s | Next after a 3 s dwell: median / p90 / above 2 s | Follow-up gate ms, median (n): objective-decided / no room to wait |
+|---|---|---|---|---|---|
+| arxiv_v2 | mvp-0.49 (e7a7d7734f) | 1318 (1386, 12) | 2207 / 2207 / 1/1 | 577 / 577 / 0/1 | 750 (2) / None (0) |
+| arxiv_v2 | main (ccb6573987) | 2386 (2563, 10) | 3394 / 3430 / 2/3 | 864 / 890 / 0/3 | None (0) / 194 (2) |
+| arxiv_v2 | branch (both switches on) | 2366 (2494, 10) | 2954 / 3016 / 2/3 | 780 / 873 / 0/3 | None (0) / 195 (2) |
+| linear_algebra | mvp-0.49 (e7a7d7734f) | 674 (997, 10) | 1988 / 2400 / 1/3 | 671 / 682 / 0/3 | None (0) / 194 (2) |
+| linear_algebra | main (ccb6573987) | 1896 (2224, 10) | 2853 / 3948 / 2/3 | 731 / 856 / 0/3 | None (0) / 231 (2) |
+| linear_algebra | branch (both switches on) | 1657 (1899, 10) | 1636 / 2864 / 1/3 | 743 / 799 / 0/3 | None (0) / 199 (2) |
+| probability | mvp-0.49 (e7a7d7734f) | 200 (217, 10) | 1125 / 1146 / 0/3 | 728 / 758 / 0/3 | None (0) / 173 (2) |
+| probability | main (ccb6573987) | 612 (684, 10) | 2154 / 2265 / 2/3 | 792 / 804 / 0/3 | None (0) / 177 (2) |
+| probability | branch (both switches on) | 202 (323, 11) | 1021 / 1021 / 0/1 | 821 / 871 / 0/3 | 872 (1) / 177 (1) |
+| linear_algebra, a week | mvp-0.49 (e7a7d7734f) | 744 (1075, 60) | 2250 / 2689 / 25/30 | - | 751 (9) / 229 (19) |
+| linear_algebra, a week | main (ccb6573987) | 1632 (2089, 41) | 3685 / 4558 / 20/21 | - | 1192 (7) / 219 (8) |
+| linear_algebra, a week | branch (both switches on) | 1343 (1772, 41) | 2676 / 3040 / 16/21 | - | 1210 (7) / 222 (8) |
+
+Next right after a declined stop (keep going; no prefetch or dwell before it), all runs of a code pooled:
+  mvp-0.49 (e7a7d7734f): median / p90 / above 2 s = 1817 / 2160 / 2/8
+  main (ccb6573987): median / p90 / above 2 s = 2774 / 4283 / 4/6
+  branch (both switches on): median / p90 / above 2 s = 2572 / 2900 / 4/6
+
+Reading it: the numeric policy is the largest remaining cost on every copy, at main's level or a little under it
+(linear_algebra 1896 -> 1657 ms, week 1632 -> 1343 ms); the section map and the join are what the two switches took
+out (a week's `combiner_join` median 704 -> 134 ms, `ad_section_map` 11 -> 1 ms, objective job median 3807 -> 2366 ms,
+p90 4749 -> 3245 ms). Next right after feedback is still above 2 s on the large copies (week: 16 of 21 against main's
+20 of 21 and mvp-0.49's 25 of 30): the target of stage 1 (no worse than mvp-0.49) is **not** met by this stage either;
+the remainder is `rollouts_evaluate`/`run_numeric`, which no switch here touches. After a 3 s dwell no Next is above
+2 s on any copy. The served sequences equal main's in 6 of 7 runs with the switches on; on probability dwell 0 the
+branch served a different 7th item (gate `objective` against main's `no_room_to_wait`), a prefetch-timing difference
+of the kind recorded under identity below, not a value difference.
+
+Profile of the branch's linear_algebra job (week, cProfile, about 34 jobs): what remains is the numeric policy's per-draw
+arithmetic (about 468k calls of the draw evaluators, tens of seconds of the profiled 110 s, numpy broadcasting), then
+SQLite reads (`execute` about 13 s cumulative of 110 s, 394k calls), none of it the reading map or connection setup.
+(Full output: `smoke/out6/prof_branch_linear_algebra.json` in the landing scratch.)
+
+### Smoke (earlier tree; fresh copies; every AI route at 127.0.0.1:9 except the router LLM and the Decider, answered by in-process fakes)
+
+- **Identity, both switches off against main, draw for draw** (arxiv_v2, linear_algebra, probability; mvp-0.54 copies,
+  mixture seed pinned to the decision id): LLM requests, Decider requests, gates, prompts and every table identical on
+  arxiv_v2 and linear_algebra; eight draws per trace on all three. Set aside, as stage 1's landing set aside
+  `held_ad_link`: ids, wall times, latencies, hex digests and the boundary key, plus the two new keys
+  `held_reading_map` and `pooled_connections` wherever recorded (and RO6's generator key). The numeric seed excludes the
+  switches (R2), so the draws are main's. One difference, on probability: `router_objective_traces` differ in
+  `carried_for` (which earlier decision's prefetch was carried into a later one). Main differs from main the same way
+  between runs (three runs of main on probability gave two different carried sets, one of them the switches-off run's), so it is
+  prefetch-timing nondeterminism present on main, not the branch.
+- **Trace terms recompute / logged probabilities recompute (switches on):** `v_residual`, `v_tilde` and the calibration
+  recompute with problems 0 on all four runs (arxiv_v2 38+38+8, linear_algebra 49+49+7, a week 172+172+26).
+- **Generated probes served at most once:** every run, at most once (the week serves one of its 14 generated probes).
+- **Protection (R1):** `prot_r1.py` on fresh copies of linear_algebra and probability (arxiv_v2 has no completed
+  sections: skipped): the job's held map equals the landing map and computes nothing within the job; a held-out span
+  added between two jobs changes the next job's map (the reading maps to nothing; the next job computes afresh); an exam
+  reservation committed between two jobs moves the epoch and the next job computes every mapping afresh; a reading
+  withheld mid-job returns nothing from any memo while the others keep theirs. All ok.
+- **Unattempted-stem scan:** 0 not shown on every run.
+- **rebuild --shadow:** on all four copies, the only differences are the 14 to 27 mastery rows per copy whose
+  `algorithm_version` stamp moves (mvp-0.47 to mvp-0.54); no other field differs. Assignments and traces survive a
+  rebuild and a state sync.
+- **Real model:** 0 new model_call_receipts from a real model in all 32 runs; no non-loopback socket (the net watch
+  recorded only `powerprofilesctl` and `git` subprocesses); no Codex process of the landing's.
+
+### Gate (merged tree, tip recorded in the report)
+
+On the merged tree (main `214c206ff1` merged; the full run started at `d06faf8a52`, before the golden commit below):
+
+- `lint-imports --no-cache`: 43 contracts kept, 0 broken.
+- Full pytest (`-n 8`, 10G scope, lock held): 30220 passed, 90 skipped, 47 xfailed, **1 failed**:
+  `tests/test_rw5c_switch_off.py::test_the_views_report_clis_reuse_keys_and_prompt_equal_mains`. Cause: the owner's
+  figure author fix (`214c206ff1`) bumped both figure prompt versions and did not re-record the golden's
+  `author_prompt_sha256` and `request_hash` values; main's own tip fails it. Fixed in its own commit (the golden
+  re-recorded; the only differing keys were those four hashes); that file and `test_figure_author_predictions.py` pass
+  (22 passed) on two further runs alone. The rest of the suite was not rerun after that fixture-only commit.
+- Durability lane (`-m durability`): 409 passed, 1 skipped.
+- Owner lane (fresh backup-API copies of owner-copies-mvp035, `LEARNLOOP_OWNER_VAULTS`): 83 passed, 4 skipped, 2 failed,
+  the two known (`test_activity_backfill.py::test_backfill_logs_attempt_duration_interaction_events`,
+  `test_placement_fixture_copies.py::...[arxiv_v2]`).
+- Desktop (a frontend change came in with the merge): `npm run typecheck` clean; vitest `--maxWorkers=4` 276 files,
+  2787 tests passed; `frontend:build` built.
+- References regenerated after each merge: `db_validate_reference` errors `[]`, `desktop_validate` PASS (the review
+  gates in `desktop_validate.py` moved for `BookPassage.tsx`: 324 files, 313 entry-reachable, ACTIVE 330),
+  `module_validate` PASS, `validate_vault.py` passed; provenance-only churn left out.
+
+### Rulings (verbatim)
+
+- R1: "F1 and the protection qualification go structural: the held reading map (section->LO, span->section, section_spans) is held only within ONE objective job's decision_reads scope, as a snapshot as of that job's first read, and discarded when the job ends; nothing is held across jobs or walks of different jobs, so a vault or database edit is always seen by the next decision. Within the job, every memo return (cross-call and the existing local section/span and section_spans memos alike) is preceded by the withheld/protection check run fresh, and a protection change within the job invalidates the job's held values. A vault edit landing in the middle of one ~1 s job is read as of the job's snapshot, which is accepted (the decision is as of its inputs). Codex's reproductions are tests: the cross-walk contamination after edit and undo must be gone; the mid-job IR rewrite gives the snapshot's mapping consistently across held hits and misses; a reading withheld mid-job returns nothing from any memo. Measure what this costs against the cross-call cache on the copy-shaped vaults and at the smoke."
+- R2: "F2: the two speed switches stay in RO6's generator payload, serving_switches and the prefetch key, but the numeric policy's random seed is derived from an identity that excludes them (they change no value at a fixed draw count), so with both off the draws are main's exactly; Codex's eight-draw reproduction (main a, branch b with both off) is a test and must give main's choice."
+- R3: "F3: REAL values are encoded bit-exactly (typed binary packing), so -0.0 and 0.0 differ; a test."
+- R4: "N1: a pooled connection on which any PRAGMA with an argument (or any statement other than reads and the pool's own resets) ran during a checkout is closed at release, never returned to the pool; detect it with the authorizer's SQLITE_PRAGMA action (and the statement kind), not a list of pragmas to restore. Codex's query_only / reverse_unordered_selects reproduction is a test."
+- R5: "Item 3's exact per-table invalidation (triggers in a migration) is not built; the second join is cheap now. Recorded for the owner as a possible later migration, not queued."
+- R6: "No further Codex round; I read the R1-R4 diffs before landing, so keep each in its own commit."
+
+R3 was superseded by R1 (nothing digests stored rows any more), as recorded in `router-speed2-codex-review.md`.
+
+### What the owner does
+
+Nothing beyond restarting the app and the phone host. No migration, no successor. To turn a switch off, in the vault's
+`learnloop.toml` under `[router_objective]` set `held_reading_map = false` and/or `pooled_connections = false`; off
+serves main's code and main's draws exactly (identity above).
+
+### Open items
+
+- The stage's target (Next right after feedback no worse than mvp-0.49) is still not met on the large copies; the
+  remainder is the numeric policy (`rollouts_evaluate`, `run_numeric`), not the read path.
+- Exact per-table invalidation of the shared fit (triggers in a migration) is possible later (R5); not queued.
+- Main's own prefetch-timing nondeterminism in `carried_for` (identity, above) is worth knowing when comparing traces.
