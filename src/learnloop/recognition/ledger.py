@@ -132,8 +132,8 @@ def _checks(connection: sqlite3.Connection) -> frozenset[str]:
 
 def build(connection: sqlite3.Connection, vault: Any, repository: Any, *, window_hours: float,
           session_gap_minutes: float, attempts: list[dict[str, Any]] | None = None) -> CueLedger:
-    """The ledger of ``connection``'s records. ``window_hours`` is the warmth window (the report passes AD's seeded
-    ``WARMTH_HOURS``) and ``session_gap_minutes`` the router objective's own session rule."""
+    """The ledger of ``connection``'s records. ``window_hours`` is the warmth window (the report passes the outcome
+    contract's retention minimum) and ``session_gap_minutes`` the router objective's own session rule."""
 
     from learnloop.data_capture import reading_exposures
 

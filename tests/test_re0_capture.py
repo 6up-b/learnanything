@@ -202,7 +202,7 @@ def test_the_report_splits_method_selection_by_cue_reports_missing_and_never_imp
         ]
         for row, correctness, active in rows:
             _insert(connection, row, correctness=correctness, active=active)
-        section = R.section(connection, loaded, repository)
+        section = R.section(connection, loaded, repository, window_hours=WINDOW_HOURS)
     assert section["available"] and "observational" in section["label"]
     method = section["method_selection"]
     assert method["uncued"]["attempts"] == 1 and method["uncued"]["mean_correctness"] == 1.0
@@ -225,7 +225,7 @@ def test_the_report_reads_imported_exam_answers_as_unlabelled_goal_date_reads(tm
         connection.execute("DELETE FROM practice_attempts")
         row = _attempt("e1", 0, lo="lo_svd_definition", session=None, kind="exam_evidence")
         _insert(connection, row, correctness=0.5, active=None)
-        section = R.section(connection, loaded, repository)
+        section = R.section(connection, loaded, repository, window_hours=WINDOW_HOURS)
     reads = section["goal_date_reads"]
     assert reads["unlabelled"]["attempts"] == 1 and reads["uncued"]["attempts"] == 0
     assert section["practice_attempts"] == 0
@@ -308,3 +308,9 @@ def test_the_sidecar_carries_active_seconds_into_the_attempt_beside_its_latency(
         METHOD_REGISTRY["submit_dont_know"].params_model.model_validate({**base, "activeSeconds": -3})
     for name in ("submit_attempt", "submit_dont_know", "submit_teach_back_turn", "workbench.submit"):
         assert "active_seconds" in METHOD_REGISTRY[name].params_model.model_fields, name
+
+
+def test_the_warmth_window_is_the_outcome_contracts_retention_minimum_not_a_new_constant():
+    from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS
+
+    assert R.warmth_window_hours() == RETENTION_MIN_DELAY_SECONDS / 3600.0 == 24.0

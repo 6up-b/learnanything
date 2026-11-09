@@ -50,17 +50,29 @@ def _split(rows: Sequence[Mapping[str, Any]], labels: Mapping[str, C.AttemptCue]
     return {name: _cell(found) for name, found in by.items()}
 
 
-def section(connection: sqlite3.Connection, vault: Any, repository: Any) -> dict[str, Any]:
-    """The cue split (module docstring). Read-only; ``available`` False on a database with no attempts table."""
+def warmth_window_hours() -> float:
+    """The warmth window: the outcome contract's retention minimum, the delay under which a read is not a delayed one
+    (``RETENTION_MIN_DELAY_SECONDS``, 24 hours). So a cue is "warm" in the sense the delayed outcomes already use, and
+    no constant is invented here. (AD's 6-hour ``WARMTH_HOURS`` is a decay scale for its own forecasts, not a window,
+    and importing it would make this package depend on adaptive difficulty.)"""
 
-    from learnloop.adaptive_difficulty.priors import WARMTH_HOURS
+    from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS
 
+    return RETENTION_MIN_DELAY_SECONDS / 3600.0
+
+
+def section(connection: sqlite3.Connection, vault: Any, repository: Any, *,
+            window_hours: float | None = None) -> dict[str, Any]:
+    """The cue split (module docstring). Read-only; ``available`` False on a database with no attempts table.
+    ``window_hours`` overrides :func:`warmth_window_hours` (tests)."""
+
+    window_hours = warmth_window_hours() if window_hours is None else float(window_hours)
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'practice_attempts'"
                           ).fetchone() is None:
         return {"available": False, "reason": "no attempts"}
     attempts = L.attempt_rows(connection)
     gap = float(vault.config.router_objective.session_gap_minutes)
-    ledger = L.build(connection, vault, repository, window_hours=WARMTH_HOURS, session_gap_minutes=gap,
+    ledger = L.build(connection, vault, repository, window_hours=window_hours, session_gap_minutes=gap,
                      attempts=attempts)
     labels = C.cues([row for row in attempts if row.get("created_at")], ledger)
     rows = [row for row in attempts if str(row["id"]) in labels]
@@ -84,7 +96,7 @@ def section(connection: sqlite3.Connection, vault: Any, repository: Any) -> dict
         "cue_version": C.CUE_VERSION,
         "label": OBSERVATIONAL,
         "active_seconds_label": ACTIVE_LABEL,
-        "window_hours": WARMTH_HOURS,
+        "window_hours": float(window_hours),
         "session_gap_minutes": gap,
         "practice_attempts": len(practice),
         "labels": dict(Counter(labels[str(row["id"])].label for row in practice)),

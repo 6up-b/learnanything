@@ -14,7 +14,8 @@ The seven fields (the spec's table):
 * ``after_reading`` / ``after_lesson``: a Reader exposure or a reveal on the attempt's learning object / a lesson on it
   ended within ``window_hours`` before the attempt began. The attempt began at its time less its latency when it has
   one, so help given during the attempt (a reveal, a tutor answer) is help, not a cue, and a reveal tied to this attempt
-  is never counted. The window is the caller's (the report passes AD's seeded warmth time constant, ``WARMTH_HOURS``).
+  is never counted. The window is the caller's (the report passes the outcome contract's retention minimum, 24 hours, the delay under which
+  a read is not a delayed one).
 * ``method_stated``: the item's frozen required method (its assessment contract's), so the stem names the method.
 * ``followup_of_miss``: the attempt answered a follow-up bound to an earlier miss.
 * ``randomized_check``: the attempt answered one of RO5's randomized daily checks, the closest thing to an uncued
