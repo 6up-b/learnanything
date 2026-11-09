@@ -1,0 +1,19 @@
+{
+  "method": "reader.authored_question_action",
+  "requests": [
+    {
+      "wrapper": "authoredQuestionAction",
+      "envelope": {
+        "method": "reader.authored_question_action",
+        "params": {
+          "questionId": "aq_1",
+          "action": "answered",
+          "response": "All the linear combinations."
+        }
+      }
+    }
+  ],
+  "reads": [
+    "question"
+  ]
+}

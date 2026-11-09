@@ -106,9 +106,27 @@ export async function getLatest<T>(name: string): Promise<T | null> {
   return entry ? (entry.value as T) : null;
 }
 
-/** §1: revocation deletes the display cache with the token; the outbox stays. */
+/** Drop one "latest" copy (a reading the host now withholds whole: its guide, Codex review of V4, F2). */
+export async function deleteLatest(name: string): Promise<void> {
+  await writeAll([latestKey(name)], null);
+}
+
+/** Mobile v2 V4: the page images' cache in the service worker (`public/sw.js`), which the page can clear too. v2
+ *  holds only copies tied to their token (Codex re-review F1); v1 held copies tied to none. */
+export const PAGE_CACHE = "learnloop-pages-v2";
+const LEGACY_PAGE_CACHES = ["learnloop-pages-v1"];
+
+/** Drop every cached page and stored image (all readings: an image's URL may name the file, not the reading), and
+ *  the pre-F1 cache too, should this page run before the new worker's activate has dropped it. */
+export async function purgePageImages(): Promise<void> {
+  if (typeof caches === "undefined") return;
+  await Promise.all([PAGE_CACHE, ...LEGACY_PAGE_CACHES].map((name) => caches.delete(name).catch(() => false)));
+}
+
+/** §1: revocation deletes the display cache with the token, page images included; the outbox stays. */
 export async function clearDisplayCache(): Promise<void> {
   await txRequest(DISPLAY_STORE, "readwrite", (objects) => objects.clear());
+  await purgePageImages();
 }
 
 /** Bytes held in sections, for tests and a future Display sheet line. */

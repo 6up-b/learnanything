@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/connection.py"
 source_paths:
   - "src/learnloop/db/connection.py"
-source_commit: "a24216bed39cfcca77dd83894e13473bb6b2a1e9"
-source_commit_timestamp: "2026-11-07T06:38:50-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220"
+source_commit_timestamp: "2026-11-08T22:51:11-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a24216bed39cfcca77dd83894e13473bb6b2a1e9` |
-| Commit timestamp | `2026-11-07T06:38:50-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220` |
+| Commit timestamp | `2026-11-08T22:51:11-05:00` |
 
 ## Public API
 

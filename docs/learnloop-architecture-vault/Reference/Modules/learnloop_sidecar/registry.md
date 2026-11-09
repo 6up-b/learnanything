@@ -307,6 +307,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_carried.py](../../../../../tests/test_mobile_v3_carried.py) — direct import
   - `test_an_items_own_hint_revealed_on_the_phone_records_the_phones_surface_and_the_desktops_stays_practice`
 - [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
+- [tests/test_mobile_v4_plan.py](../../../../../tests/test_mobile_v4_plan.py) — direct import
+- [tests/test_mobile_v4_reader.py](../../../../../tests/test_mobile_v4_reader.py) — direct import
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import

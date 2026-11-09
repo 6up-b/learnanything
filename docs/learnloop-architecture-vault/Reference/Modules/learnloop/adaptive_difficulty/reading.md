@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/reading.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/reading.py"
-source_commit: "2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2"
-source_commit_timestamp: "2026-11-07T06:25:22-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220"
+source_commit_timestamp: "2026-11-08T22:51:11-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `2716ba9ea32d6365d57a5b1b441f6bd81e1a41e2` |
-| Commit timestamp | `2026-11-07T06:25:22-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220` |
+| Commit timestamp | `2026-11-08T22:51:11-05:00` |
 
 ## Public API
 
@@ -194,6 +194,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
   - `test_marking_and_release_flip_the_epoch_and_the_reading_with_it`
   - `test_probe_candidates_are_taken_in_reading_order_not_span_id_order`
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f5_a_dose_event_committed_before_a_crash_is_recorded_once_after_the_restart`
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_doses_from_the_phone_are_the_desktops_draw_and_rows`
 - [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
   - `test_the_reading_map_answers_inside_the_operation_what_the_incumbent_answers_outside`
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import

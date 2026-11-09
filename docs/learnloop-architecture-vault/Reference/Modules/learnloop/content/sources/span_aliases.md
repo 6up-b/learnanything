@@ -162,6 +162,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_epoch.py](../../../../../../../tests/test_ad_epoch.py) — direct import
   - `test_the_replay_cache_and_the_alias_memo_are_keyed_by_the_epoch`
 - [tests/test_ad_protected_readings.py](../../../../../../../tests/test_ad_protected_readings.py) — direct import
+- [tests/test_mobile_v4_reader.py](../../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_render_view_without_a_range_is_todays_reply_byte_for_byte`
 - [tests/test_reread_safety.py](../../../../../../../tests/test_reread_safety.py) — direct import
   - `test_a_new_citation_records_its_blocks_content_hash`
   - `test_citations_resolve_against_the_reading_they_were_made_on`

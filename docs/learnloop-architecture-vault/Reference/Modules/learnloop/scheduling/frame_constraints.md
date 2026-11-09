@@ -145,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_codes_vocabulary_covers_the_incumbents_reasons`
 - [tests/test_intent_fix_round7.py](../../../../../../tests/test_intent_fix_round7.py) — direct import
   - `test_f22_a_frame_error_names_its_input`
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f12_the_media_lift_admits_no_new_measurement_on_the_phone`
 
 ## Modification guidance
 

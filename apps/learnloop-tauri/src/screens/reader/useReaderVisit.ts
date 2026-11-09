@@ -17,9 +17,10 @@ import {
   setReaderActivityEnabled,
   takeReaderVisitInitiator,
 } from "./activity";
+import { accrueVisit, visitSeconds } from "./visitClock";
 
-/** A gap this long without scrolling, selecting or typing counts as idle. */
-export const VISIT_IDLE_MS = 120_000;
+// The visit's clock is one definition with the phone's Reader (mobile v2 V4): `visitClock.ts`.
+export { VISIT_IDLE_MS } from "./visitClock";
 
 export interface ReaderVisitInput {
   render: ReaderRenderViewDto | null;
@@ -79,16 +80,10 @@ export function useReaderVisit({ render, offline, inquiry, pdfView }: ReaderVisi
       },
     });
     return () => {
-      const at = Date.now();
-      const gap = at - visit.lastActive;
-      if (gap < VISIT_IDLE_MS) visit.active += gap;
-      else visit.idle += gap;
+      accrueVisit(visit, Date.now());
       logReaderActivity({
         kind: "reader_view_closed",
-        payload: {
-          visit_id: visit.id, extraction_id: visit.extractionId,
-          active_seconds: Math.round(visit.active / 1000), idle_seconds: Math.round(visit.idle / 1000),
-        },
+        payload: { visit_id: visit.id, extraction_id: visit.extractionId, ...visitSeconds(visit) },
       });
       flushReaderActivity();
       if (visitRef.current === visit) visitRef.current = null;
@@ -100,11 +95,7 @@ export function useReaderVisit({ render, offline, inquiry, pdfView }: ReaderVisi
   const touchVisit = useCallback(() => {
     const visit = visitRef.current;
     if (!visit) return;
-    const now = Date.now();
-    const gap = now - visit.lastActive;
-    if (gap < VISIT_IDLE_MS) visit.active += gap;
-    else visit.idle += gap;
-    visit.lastActive = now;
+    accrueVisit(visit, Date.now());
   }, []);
   const visitPayload = useCallback(
     () => ({ visit_id: visitRef.current?.id ?? null, extraction_id: render?.extractionId ?? null }),

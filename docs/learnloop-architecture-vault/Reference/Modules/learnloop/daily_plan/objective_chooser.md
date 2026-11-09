@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/objective_chooser.py"
 source_paths:
   - "src/learnloop/daily_plan/objective_chooser.py"
-source_commit: "bc1ceab278464791565150fcb67ce54821969a71"
-source_commit_timestamp: "2026-11-07T06:31:44-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220"
+source_commit_timestamp: "2026-11-08T22:51:11-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `bc1ceab278464791565150fcb67ce54821969a71` |
-| Commit timestamp | `2026-11-07T06:31:44-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 09d65a0994a7955cb1d38cc40405a35cf5cc5220` |
+| Commit timestamp | `2026-11-08T22:51:11-05:00` |
 
 ## Public API
 

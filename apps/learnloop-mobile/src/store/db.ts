@@ -3,10 +3,12 @@
 // display cache. Version 2 only adds the display store: an upgrade from 1 keeps the token and every
 // capture still waiting to send.
 const DB_NAME = "learnloop-phone";
-const DB_VERSION = 2;
+// Version 3 (mobile v2 V4) only adds the intents store (§5.4: reading progress, activity and dose events).
+const DB_VERSION = 3;
 export const CREDENTIAL_STORE = "credential";
 export const OUTBOX_STORE = "outbox";
 export const DISPLAY_STORE = "display";
+export const INTENT_STORE = "intents";
 
 let opened: Promise<IDBDatabase> | null = null;
 let blocked = false;
@@ -46,6 +48,7 @@ export function openDb(): Promise<IDBDatabase> {
         db.createObjectStore(OUTBOX_STORE, { keyPath: "clientCaptureId" });
       }
       if (event.oldVersion < 2) db.createObjectStore(DISPLAY_STORE, { keyPath: "key" });
+      if (event.oldVersion < 3) db.createObjectStore(INTENT_STORE, { keyPath: "id" });
     };
     request.onsuccess = () => {
       const db = request.result;

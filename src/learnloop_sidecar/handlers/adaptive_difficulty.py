@@ -12,8 +12,10 @@
 * ``adaptive_difficulty.why_item`` -- "why this item" for a served plan item:
   the one line of the draw that chose it (§12), or none (a pure read).
 
-None of them reads a salience magnitude or writes evidence (A2, A12). Desktop
-only (pinned in tests/test_mobile_allowlist.py).
+None of them reads a salience magnitude or writes evidence (A2, A12). The two
+``reader.*`` RPCs are on the phone from mobile v2 V4 (its Reader records doses
+exactly as the desktop's: the same draw, the same rows); the other two stay the
+desktop's (pinned in tests/test_mobile_allowlist.py).
 """
 
 from __future__ import annotations
@@ -125,13 +127,23 @@ def reader_dose_offer_event(ctx: SidecarContext, params: ReaderDoseOfferEventInp
     if params.event not in UPTAKE:
         raise SidecarError("validation_error", f"unknown dose offer event {params.event!r}")
     vault, repository = ctx.require_vault()
-    try:
-        # Gated at the write (fix round 10, F36): AD or the dose arm off, protection unavailable,
-        # or the offer withheld now records nothing and answers a harmless no-op.
-        row_id = record_uptake(vault, repository, params.draw_id, params.event)
-    except ValueError as exc:
-        raise SidecarError("validation_error", str(exc)) from exc
-    return versioned({"row_id": row_id, "event": params.event, "recorded": row_id is not None})
+
+    def record() -> dict[str, Any]:
+        try:
+            # Gated at the write (fix round 10, F36): AD or the dose arm off, protection unavailable,
+            # or the offer withheld now records nothing and answers a harmless no-op.
+            row_id = record_uptake(vault, repository, params.draw_id, params.event)
+        except ValueError as exc:
+            raise SidecarError("validation_error", str(exc)) from exc
+        return versioned({"row_id": row_id, "event": params.event, "recorded": row_id is not None})
+
+    if ctx.request_origin is None:
+        return record()
+    from learnloop_sidecar.phone_reader import once_per_job
+
+    # Mobile v2 V4 (Codex review F5): the phone's outbox intent and its job's receipt commit together, so a
+    # restart's re-run of the job appends no second uptake row.
+    return once_per_job(ctx, repository, record)
 
 
 class AdaptiveDifficultyReadinessInput(ParamsModel):

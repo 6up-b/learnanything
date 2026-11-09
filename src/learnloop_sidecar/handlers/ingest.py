@@ -522,9 +522,12 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
 
     from learnloop.content.pipeline import add_source as auto
 
-    # A build that applied in the background changes what Today and the map
-    # read; the shelf is polled while books are prepared, so reload here too.
-    _reload_applied_batches(ctx, ctx.ingest_jobs.list_batches(limit=10))
+    phone = ctx.request_origin is not None
+    if not getattr(ctx, "secondary", False):
+        # A build that applied in the background changes what Today and the map
+        # read; the shelf is polled while books are prepared, so reload here too.
+        # Never on the phone host's secondary attach: its ingest is the desktop's (D6).
+        _reload_applied_batches(ctx, ctx.ingest_jobs.list_batches(limit=10))
     vault, repository = ctx.require_vault()
     subject_by_source = {
         member.source_id: source_set.subject_id
@@ -583,6 +586,11 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "status_line": auto.source_status_line(repository, vault, artifact["id"]),
             }
         )
+    if phone:
+        # Mobile v2 V4: the phone's Read tab lists the books its Reader opens, as read only cards: no file
+        # location, and nothing the phone can't open (a book opted out of the Reader, one exam material covers
+        # whole). Its presses are the desktop's.
+        return versioned({"sources": _phone_cards(vault, repository, cards), "pending": []})
     # Round 5, Medium 3 (T1 redesign D): a book card's press ("Build now",
     # "Build the whole book", Retry, Add) queues work that meets the plan
     # later; the shelf's refresh shows that work's offer, once, as the action
@@ -598,6 +606,23 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                                          auto.latest_build_batch(repository, source_id)) if batch)
     plan_fallback.relay_batch_offers(shown)
     return versioned({"sources": cards, "pending": auto.pending_adds(repository)})
+
+
+def _phone_cards(vault: Any, repository: Any, cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Mobile v2 V4: the library as a phone origin gets it (``get_source_library``)."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+    from learnloop_sidecar.phone_reader import phone_withheld
+
+    out = []
+    for card in cards:
+        if not card.get("reader_enabled") or card.get("readiness") != "ready":
+            continue
+        reading = resolve_extraction_id(repository, str(card["source_id"]))
+        if reading is None or phone_withheld(vault, repository, reading).whole:
+            continue
+        out.append({**card, "canonical_uri": None, "extraction_id": reading})
+    return out
 
 
 class SourceDeletionInput(ParamsModel):

@@ -1,0 +1,19 @@
+{
+  "method": "reader.get_progress",
+  "requests": [
+    {
+      "wrapper": "readerProgress",
+      "envelope": {
+        "method": "reader.get_progress",
+        "params": {
+          "extractionId": "ext1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "sections[].sectionId",
+    "sections[].spansSeen",
+    "sections[].completedAt"
+  ]
+}

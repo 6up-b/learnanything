@@ -1,0 +1,20 @@
+{
+  "method": "reader.guide_plan",
+  "requests": [
+    {
+      "wrapper": "guidePlan",
+      "envelope": {
+        "method": "reader.guide_plan",
+        "params": {
+          "extractionId": "ext1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "extractionId",
+    "sections[].id",
+    "sections[].label",
+    "sections[].spanIds"
+  ]
+}

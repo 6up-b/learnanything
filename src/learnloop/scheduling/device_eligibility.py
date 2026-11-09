@@ -36,7 +36,7 @@ eligible.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
@@ -69,6 +69,10 @@ REFERENCES_ITEM_ASSET = "references_item_asset"
 #: switch (``practice.device_eligibility_enabled``).
 DEVICE_POLICY = "device_eligibility_v1"
 DEVICE_POLICY_OFF = "off"
+#: Mobile v2 §2.3 (V4): v1's rules with the image, page and asset reasons lifted for targets the host serves by
+#: content address (``ineligibility_reason(media=True)``), under the host's ``phone_reader``; never for a
+#: measurement (``MEASUREMENT_MODES``).
+DEVICE_POLICY_MEDIA = "device_eligibility_v2"
 
 #: What Markdown shows as text: fenced and inline code, and display and inline
 #: math, where ``n![k](x)`` is a formula. A backslash escape is matched last and
@@ -153,6 +157,119 @@ def _prompt_reason(prompt: str) -> str | None:
     return REFERENCES_ITEM_ASSET if links_asset else None
 
 
+#: Mobile v2 §2.3 (V4): the originals store's names (``canonical-sources/raw/sha256-<hex>``), which the host serves
+#: by content address: a page of a stored PDF as an image, a stored image as itself.
+STORE_NAME = re.compile(r"sha256-[0-9a-f]{64}")
+_STORE_NAME_AT_END = re.compile(r"(?:^|[/:])(sha256-[0-9a-f]{64})$")
+_LLPDF_PAGE = re.compile(r"^llpdf:(?://[^/#?]*)?/?(?:[^#?]*/)?(sha256-[0-9a-f]{64})(?:#page=([1-9][0-9]{0,4}))?$",
+                         re.IGNORECASE)
+
+
+def store_name_of(target: str) -> str | None:
+    """The store name a link or image target ends in (its query and fragment aside), or None."""
+
+    bare = target.split("#", 1)[0].split("?", 1)[0]
+    match = _STORE_NAME_AT_END.search(bare)
+    return match.group(1) if match else None
+
+
+def llpdf_page(target: str) -> tuple[str, int] | None:
+    """``llpdf://…/sha256-<hex>[#page=N]`` as ``(store name, zero-based page)`` (``#page`` counts from 1, as a
+    PDF's open parameters do; none is the first page); None for any other form."""
+
+    match = _LLPDF_PAGE.match(target.strip())
+    if match is None:
+        return None
+    return match.group(1).lower(), int(match.group(2) or 1) - 1
+
+
+@lru_cache(maxsize=4096)
+def _prompt_media(prompt: str) -> tuple[tuple[str, str], ...]:
+    """Every rendered image, page or asset target of a prompt, as ``(kind, target)``: ``page`` (an ``llpdf:``
+    link or image), ``image``, ``asset`` (a link to a file) and ``html`` (raw HTML naming either, which the phone
+    never renders). The same parse as :func:`_prompt_reason`."""
+
+    text = _LITERAL_TEXT.sub(lambda match: match.group("escape") or " ", prompt or "")
+    if "[" not in text and "<" not in text:
+        return ()
+    text = _FOOTNOTE_REFERENCE.sub("", _FOOTNOTE_DEFINITION.sub("", text))
+    found: list[tuple[str, str]] = []
+    for token in _rendered_tokens(_MARKDOWN.parse(text)):
+        if token.type == "image":
+            src = str(token.attrGet("src") or "")
+            found.append(("page" if src.lower().startswith(_LLPDF) else "image", src))
+        elif token.type == "link_open":
+            target = str(token.attrGet("href") or "")
+            if target.lower().startswith(_LLPDF):
+                found.append(("page", target))
+            elif _is_item_asset(target):
+                found.append(("asset", target))
+        elif token.type in ("html_inline", "html_block"):
+            if _LLPDF in token.content.lower() or _HTML_IMAGE.search(token.content) is not None:
+                found.append(("html", token.content))
+    return tuple(found)
+
+
+#: Mobile v2 V4 (Codex review F12): the practice modes whose serve is a measurement (the scheduler's fresh-evidence
+#: modes, ``scheduling.frame_constraints.FRESH_EVIDENCE_MODES``, pinned equal by a test). §2.3's media lift does not
+#: reach them, so the phone's measurements are mvp-0.54's exactly (the playbook's 2026-10-17 rule: a change to which
+#: items are served as measurements is a successor). Structural, not a parameter.
+MEASUREMENT_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "probe"})
+
+
+#: Mobile v2 V4 (Codex review F10): whether the host serves one target, ``(kind, digest, page) -> bool`` with
+#: ``kind`` ``"page"`` (``page`` zero-based) or ``"asset"`` (``page`` None) and ``digest`` ``sha256:<hex>``. The
+#: sidecar injects the host's own predicate (``learnloop.reader.phone_media.media_predicate``); scheduling never
+#: imports the Reader.
+MediaPredicate = Callable[[str, str, int | None], bool]
+
+
+def image_kind(head: bytes) -> str | None:
+    """The image type of a file's first bytes (PNG, JPEG, GIF or WebP), or None: the only kinds served as images."""
+
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def media_served(prompt: str, served: MediaPredicate | None) -> bool:
+    """Mobile v2 §2.3: every image, page and asset target of ``prompt`` is one the host serves by content address
+    (a page of a stored PDF, a stored image), so the phone shows the stimulus as the desktop does. Raw HTML and
+    any other target (a path, a remote image) leaves the item for the desktop, as before.
+
+    "Serves" is the host's own predicate, ``served`` (Codex review of V4, F10: the page and asset endpoints answer
+    with the same one): a page some reading of its file covers, on no reading's protected passage, of a book open
+    to the Reader, with the renderer installed; a stored image of no protected book. Without it, or when it can't
+    be read, nothing is lifted (fail closed)."""
+
+    targets = _prompt_media(prompt)
+    if not targets:
+        return True
+    if served is None:
+        return False
+    try:
+        for kind, target in targets:
+            if kind == "page":
+                page = llpdf_page(target)
+                if page is None or not served("page", "sha256:" + page[0][7:], page[1]):
+                    return False
+            elif kind in ("image", "asset"):
+                name = store_name_of(target)
+                if name is None or not served("asset", "sha256:" + name[7:], None):
+                    return False
+            else:
+                return False
+    except Exception:  # noqa: BLE001 - a predicate that can't be read lifts nothing (fail closed)
+        return False
+    return True
+
+
 @dataclass
 class DeviceFilter:
     """One queue build's device, and what it held back.
@@ -175,9 +292,16 @@ class DeviceFilter:
     #: would be the pinned head of a list that moved past it, and every answer after it a
     #: learner pick nobody made.
     left_for_desktop: frozenset[str] = frozenset()
+    #: Mobile v2 V4 (§2.3, the host's ``phone_reader``): the host serves page images and stored images by content
+    #: address, so a prompt whose every image, page or asset target is one it serves is no longer the desktop's.
+    media: bool = False
+    #: The host's own "is this target served" (Codex review F10, :data:`MediaPredicate`), which the media lift asks;
+    #: None lifts nothing.
+    served: MediaPredicate | None = None
 
     def refuses(self, item: Any) -> bool:
-        return item.id in self.left_for_desktop or ineligibility_reason(self.vault, item, self.device_class) is not None
+        return item.id in self.left_for_desktop or ineligibility_reason(
+            self.vault, item, self.device_class, media=self.media, served=self.served) is not None
 
     def holds_back(self, item: Any) -> bool:
         """``refuses``, for an item the build would otherwise serve."""
@@ -191,6 +315,9 @@ class DeviceFilter:
 #: Mobile v2 §2.2: a plan step held back because the phone has no Reader yet (V4 lifts it:
 #: "a reading block is never ineligible, because the phone has a Reader").
 READING_BEFORE_PHONE_READER = "reading_before_phone_reader"
+#: Mobile v2 V4: the phone's Reader surface, named in a phone decision's ``device`` entry when the phone takes
+#: reading blocks (the host's ``phone_reader``).
+PHONE_READER = "phone_reader"
 #: A generated follow-up probe the phone may not open: every one before V3 (or with the host's
 #: ``phone_probes`` off), as FG1 §10 said; from V3 (D3) only one already served on the desktop.
 GENERATED_PROBE = "generated_probe"
@@ -228,6 +355,15 @@ class PlanStepFilter:
     #: Teacher TE3b: lesson offer blocks this step passed over (the phone's lessons are V6's): held for the desktop
     #: like a reading block, unanswered, so the desktop shows the card.
     held_lesson_offers: set[str] = field(default_factory=set)
+    #: Mobile v2 V4 (the host's ``phone_reader``): ``reading -> bool``, whether the phone's Reader can show a
+    #: reading block (its book opens there and nothing of its section is withheld from the phone). None (V2, V3,
+    #: the switch off) holds every reading block for the desktop, as before.
+    reading: Any = None
+
+    def serves_reading(self, block: Any) -> bool:
+        """The device shows this reading block in its own Reader (V4); otherwise it waits for the desktop."""
+
+        return self.reading is not None and bool(self.reading(dict(getattr(block, "reading", None) or {})))
 
     def holds(self, item: Any) -> str | None:
         """Why the device leaves ``item`` for the desktop, or None when it can serve it."""
@@ -238,30 +374,43 @@ class PlanStepFilter:
             return None
         if item.id in self.device_filter.left_for_desktop:
             return DESKTOP_ONLY_MODE
-        return ineligibility_reason(self.device_filter.vault, item, self.device_filter.device_class)
+        return ineligibility_reason(self.device_filter.vault, item, self.device_filter.device_class,
+                                    media=self.device_filter.media, served=self.device_filter.served)
 
-    def detail(self) -> dict[str, str]:
-        """What a decision taken at a boundary under this device records (its ``device`` entry)."""
+    def detail(self) -> dict[str, Any]:
+        """What a decision taken at a boundary under this device records (its ``device`` entry). With the phone's
+        Reader on (V4) it also names it (``readings``), so a report can tell the decisions whose reading blocks the
+        phone could take from those it left for the desktop."""
 
-        return {"surface": self.surface, "device_policy": self.device_policy}
+        detail: dict[str, Any] = {"surface": self.surface, "device_policy": self.device_policy}
+        if self.reading is not None:
+            detail["readings"] = PHONE_READER
+        return detail
 
     @property
     def held_count(self) -> int:
         return len(self.held)
 
 
-def ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None:
+def ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: bool = False,
+                         served: MediaPredicate | None = None) -> str | None:
     """Why ``device_class`` cannot answer ``item``, or None when it can.
 
     Only ``phone`` has reasons: a desktop request (no origin) never reaches a
     filter, and asks here with ``desktop`` only to get None. Returns the first
     reason. ``vault`` is part of the question the spec asks (§6.4) so a later
-    reason can read the vault without every door changing; none does yet. A
-    laddered stem's stimulus is one of the reasons as a whole, so only the prompt
-    is scanned.
+    reason can read the vault without every door changing. A laddered stem's
+    stimulus is one of the reasons as a whole, so only the prompt is scanned.
+
+    ``media`` (mobile v2 §2.3, V4, the host's ``phone_reader``): an image, page or
+    asset reason is lifted when every such target is one the host serves by
+    content address (:func:`media_served` over ``served``, the host's own page
+    and asset predicate, which the sidecar injects; None lifts nothing). Never for
+    a measurement (:data:`MEASUREMENT_MODES`, Codex review F12): a probe keeps
+    its reason, so the phone's measurements stay mvp-0.54's. Off, the reasons are
+    PR-6's exactly.
     """
 
-    del vault
     if device_class != PHONE:
         return None
     if item.practice_mode in DESKTOP_ONLY_MODES:
@@ -274,4 +423,8 @@ def ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None
         return LADDERED_STEM
     if minted_for_lesson(item):
         return LESSON_CHECK
-    return _prompt_reason(item.prompt)
+    reason = _prompt_reason(item.prompt)
+    if (media and reason in (EMBEDS_IMAGE, LINKS_LLPDF, REFERENCES_ITEM_ASSET)
+            and item.practice_mode not in MEASUREMENT_MODES and media_served(item.prompt, served)):
+        return None
+    return reason

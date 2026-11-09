@@ -46,7 +46,7 @@ source_paths:
   - "src/learnloop/scheduling/unresolved_cost.py"
   - "src/learnloop/scheduling/voi_forecasts.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit_timestamp: "2026-11-07T07:08:52-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling"
@@ -91,13 +91,13 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] | [[Reference/Modules/learnloop/scheduling/controller_snapshot#^module-purpose|purpose]] | `ACTIVE` | 9 | 15 |
 | [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] | [[Reference/Modules/learnloop/scheduling/controller_store#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 | [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] | [[Reference/Modules/learnloop/scheduling/decay_pressure#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/scheduling/device_eligibility|learnloop.scheduling.device_eligibility]] | [[Reference/Modules/learnloop/scheduling/device_eligibility#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
+| [[Reference/Modules/learnloop/scheduling/device_eligibility|learnloop.scheduling.device_eligibility]] | [[Reference/Modules/learnloop/scheduling/device_eligibility#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
 | [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] | [[Reference/Modules/learnloop/scheduling/dispersion#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] | [[Reference/Modules/learnloop/scheduling/evaluation#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]] | [[Reference/Modules/learnloop/scheduling/evsi#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
 | [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] | [[Reference/Modules/learnloop/scheduling/family_memory_model#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] | [[Reference/Modules/learnloop/scheduling/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 13 | 7 |
-| [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] | [[Reference/Modules/learnloop/scheduling/frame_constraints#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] | [[Reference/Modules/learnloop/scheduling/frame_constraints#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] | [[Reference/Modules/learnloop/scheduling/fsrs#^module-purpose|purpose]] | `ACTIVE` | 28 | 31 |
 | [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] | [[Reference/Modules/learnloop/scheduling/fsrs_fitting#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/scheduling/intent_planner|learnloop.scheduling.intent_planner]] | [[Reference/Modules/learnloop/scheduling/intent_planner#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
@@ -155,7 +155,7 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 15 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 16 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 13 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 12 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 11 static module edges
@@ -178,6 +178,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 1 static module edge
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 1 static module edge
 
@@ -205,7 +206,7 @@ flowchart LR
     center -->|19| n_learnloop_substrate
     n_learnloop_diagnosis -->|12| center
     center -->|9| n_learnloop_diagnosis
-    n_learnloop_sidecar_handlers -->|15| center
+    n_learnloop_sidecar_handlers -->|16| center
     center -->|14| n_learnloop_vault
     n_learnloop_daily_plan -->|13| center
     n_learnloop_learner -->|1| center

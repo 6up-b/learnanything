@@ -60,10 +60,10 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]] | [[Reference/Modules/learnloop/ingest/detect#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] | [[Reference/Modules/learnloop/ingest/fetchers#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/ingest/hashing|learnloop.ingest.hashing]] | [[Reference/Modules/learnloop/ingest/hashing#^module-purpose|purpose]] | `ACTIVE` | 12 | 20 |
-| [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] | [[Reference/Modules/learnloop/ingest/ir#^module-purpose|purpose]] | `ACTIVE` | 18 | 67 |
+| [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] | [[Reference/Modules/learnloop/ingest/ir#^module-purpose|purpose]] | `ACTIVE` | 18 | 68 |
 | [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] | [[Reference/Modules/learnloop/ingest/locators#^module-purpose|purpose]] | `ACTIVE` | 28 | 12 |
 | [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] | [[Reference/Modules/learnloop/ingest/models#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
-| [[Reference/Modules/learnloop/ingest/originals|learnloop.ingest.originals]] | [[Reference/Modules/learnloop/ingest/originals#^module-purpose|purpose]] | `ACTIVE` | 10 | 16 |
+| [[Reference/Modules/learnloop/ingest/originals|learnloop.ingest.originals]] | [[Reference/Modules/learnloop/ingest/originals#^module-purpose|purpose]] | `ACTIVE` | 11 | 19 |
 | [[Reference/Modules/learnloop/ingest/reanchor|learnloop.ingest.reanchor]] | [[Reference/Modules/learnloop/ingest/reanchor#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/ingest/resolution|learnloop.ingest.resolution]] | [[Reference/Modules/learnloop/ingest/resolution#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop/ingest/transcription|learnloop.ingest.transcription]] | [[Reference/Modules/learnloop/ingest/transcription#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -83,8 +83,8 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 18 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 13 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 10 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 10 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 5 static module edges
@@ -117,8 +117,8 @@ flowchart LR
     center["learnloop.ingest"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_ingest_extractors["learnloop.ingest.extractors"]
-    n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_reader["learnloop.reader"]
+    n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
@@ -127,8 +127,8 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_content_pipeline -->|18| center
     n_learnloop_ingest_extractors -->|13| center
+    n_learnloop_reader -->|11| center
     n_learnloop_content_sources -->|10| center
-    n_learnloop_reader -->|10| center
     n_learnloop_source_retrieval -->|8| center
     n_learnloop_sidecar_handlers -->|6| center
     n_learnloop_content_synthesis -->|5| center

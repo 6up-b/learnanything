@@ -1,0 +1,18 @@
+{
+  "method": "practice.as_printed",
+  "requests": [
+    {
+      "wrapper": "asPrinted",
+      "envelope": {
+        "method": "practice.as_printed",
+        "params": {
+          "practiceItemId": "i1",
+          "render": true
+        }
+      }
+    }
+  ],
+  "reads": [
+    "kind"
+  ]
+}

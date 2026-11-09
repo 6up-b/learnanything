@@ -15,6 +15,7 @@ import { PairScreen } from "./pair/PairScreen";
 import { GRADING_DOWN, QuestionScreen, type QuestionTarget, type SkipOutcome, type SkipSettled } from "./practice/QuestionScreen";
 import { ProgressScreen } from "./progress/ProgressScreen";
 import { ReadScreen } from "./read/ReadScreen";
+import { ReaderScreen, type ReaderTarget } from "./read/ReaderScreen";
 import { ConnectionLine } from "./shell/ConnectionLine";
 import { markOffline, onReconnect } from "./shell/connection";
 import { DbBlockedScreen, useDbBlocked } from "./shell/DbBlocked";
@@ -138,9 +139,19 @@ function todayPath(view: View): string[] {
   return [];
 }
 
+/** Mobile v2 §4.2 (V4): `#/read/<extraction>/<section>` reopens the Reader there; a read writes nothing. */
+function readerFromFragment(): ReaderTarget | null {
+  const { tab, path } = parseFragment(window.location.hash);
+  if (tab !== "read" || !path[0]) return null;
+  return { extractionId: path[0], sourceId: null, title: "Reader", sectionId: path[1] ?? null };
+}
+
 function Phone({ credential }: { credential: Credential }) {
   const [tab, setTab] = useState<Tab>(() => parseFragment(window.location.hash).tab);
   const [view, setView] = useState<View>({ name: "today" });
+  // Mobile v2 V4: the Read place's stack: the book list, or a book open in the Reader (and its open section).
+  const [readTarget, setReadTarget] = useState<ReaderTarget | null>(readerFromFragment);
+  const [readSection, setReadSection] = useState<string | null>(() => readerFromFragment()?.sectionId ?? null);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [moved, setMoved] = useState<Moved | null>(null);
   const [elsewhere, setElsewhere] = useState<Elsewhere | null>(null);
@@ -408,7 +419,8 @@ function Phone({ credential }: { credential: Credential }) {
   }, []);
 
   // §4.2: the current view, mirrored in the fragment.
-  const path = tab === "today" ? todayPath(view) : [];
+  const path = tab === "today" ? todayPath(view)
+    : tab === "read" && readTarget ? [readTarget.extractionId, ...(readSection ? [readSection] : [])] : [];
   const pathKey = path.join("/");
   useEffect(() => {
     writeFragment(tab, pathKey ? pathKey.split("/") : []);
@@ -481,6 +493,16 @@ function Phone({ credential }: { credential: Credential }) {
   function openStep(reply: PhonePlanDto, sessionId: string) {
     setQueryData(planKey(sessionId), reply, [TAG.queue]);
     const step = reply.step;
+    if (step && step.kind === "reading" && step.reading?.extractionId) {
+      // Mobile v2 V4: the plan's reading block opens in the phone's Reader, at its section, as the desktop's does.
+      setView({ name: "today" });
+      openReader({
+        extractionId: step.reading.extractionId, sourceId: step.reading.sourceId ?? null,
+        title: step.reading.sectionTitle ?? "Today's reading", sectionId: step.reading.sectionId ?? null,
+        plan: { sessionId, sectionTitle: step.reading.sectionTitle ?? null }
+      });
+      return;
+    }
     if (step && step.kind === "item") {
       setView({
         name: "question",
@@ -495,6 +517,20 @@ function Phone({ credential }: { credential: Credential }) {
       return;
     }
     setView({ name: "today" });
+  }
+
+  function openReader(target: ReaderTarget) {
+    setReadTarget(target);
+    setReadSection(target.sectionId ?? null);
+    setTab("read");
+  }
+
+  /** The plan's reading was left or finished in the Reader: Today shows the plan's next step. */
+  function planReadingBack() {
+    setReadTarget(null);
+    setReadSection(null);
+    invalidate({ tags: [TAG.queue] });
+    setTab("today");
   }
 
   /** Mobile v2 §2.2: the plan's Next, a serve under this phone's origin (never a peek: a peek can cross a
@@ -688,10 +724,15 @@ function Phone({ credential }: { credential: Credential }) {
   // §4.2: Question and Feedback (and the wait between them) cover the tab bar, so the primary
   // action owns the bottom. Capture stays one tap away in the top bar, and the practice side stays
   // mounted under it, as M2a's tab did: an open question keeps its editor, its serve and a submit.
-  const covering = tab === "today" && view.name !== "today";
+  const reading = tab === "read" && readTarget !== null;
+  const covering = (tab === "today" && view.name !== "today") || reading;
   const toCapture: FrameAction = { label: "+", name: "Capture", onClick: () => setTab("capture") };
   const toDisplay: FrameAction = { label: "Aa", name: "Display", onClick: () => setDisplay(true) };
-  const frame = covering
+  const frame = reading
+    ? // Mobile v2 §4.2: the Reader covers the tab bar; Back is the book list.
+      { title: readTarget?.title ?? "Reader", onBack: () => { setReadTarget(null); setReadSection(null); }, backDisabled: false,
+        actions: [toCapture, toDisplay] }
+    : covering
     ? view.name === "question"
       ? { title: "Question", onBack: () => setView({ name: "today" }), backDisabled: questionBusy, actions: [toCapture] }
       : view.name === "feedback"
@@ -708,7 +749,7 @@ function Phone({ credential }: { credential: Credential }) {
         title={frame.title}
         onBack={frame.onBack}
         backDisabled={frame.backDisabled}
-        backName="Back to Today"
+        backName={reading ? "Back to your books" : "Back to Today"}
         actions={frame.actions}
       >
         <ConnectionLine outboxWaiting={outboxWaiting} />
@@ -734,7 +775,11 @@ function Phone({ credential }: { credential: Credential }) {
         ) : null}
         {notice ? <div className="banner bad" role="alert" onClick={() => setNotice(null)}>{notice}</div> : null}
         {tab === "capture" ? <CaptureScreen onSaved={flush} /> : null}
-        {tab === "read" ? <ReadScreen /> : null}
+        {tab === "read" && readTarget ? (
+          <ReaderScreen key={`${readTarget.extractionId}:${readTarget.plan ? "plan" : "book"}`} target={readTarget}
+            onSection={setReadSection} onPlanBack={planReadingBack} onError={reportError} />
+        ) : null}
+        {tab === "read" && !readTarget ? <ReadScreen onOpen={openReader} onError={reportError} /> : null}
         {tab === "progress" ? <ProgressScreen /> : null}
         {/* The practice side stays mounted under the other places. */}
         <div style={{ display: tab === "today" ? "contents" : "none" }}>

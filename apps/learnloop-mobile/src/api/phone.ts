@@ -16,10 +16,55 @@ import type {
   PracticeItemDetail,
   ProbeContractDto,
   QueueSnapshot,
+  AsPrintedViewDto,
+  ReaderAnswerDto,
+  ReaderAskHistoryDto,
+  ReaderCaptureReceiptDto,
+  ReaderDoseOfferDto,
+  ReaderDoseOfferEvent,
+  ReaderGuidePlanDto,
+  ReaderProgressListDto,
+  ReaderRenderBlockDto,
+  ReaderRenderViewDto,
   SessionEndSummary,
-  SessionSnapshot
+  SessionSnapshot,
+  SourceLibraryCard
 } from "@desktop/api/dto";
-import { call, getJson, runLong, type AcceptedJob, type JobState } from "./http";
+import { call, getJson, rpcOnce, runLong, type AcceptedJob, type JobState, type RpcOutcome } from "./http";
+
+/** Mobile v2 V4: a block as a phone origin gets it: a withheld passage's text never reaches the phone. */
+export type PhoneReaderBlock = ReaderRenderBlockDto & { readonly withheld?: boolean };
+
+/** Mobile v2 §3.2: one section of a reading (``reader.render_view`` with ``sectionId``). */
+export interface PhoneSectionDto extends Omit<ReaderRenderViewDto, "blocks"> {
+  readonly blocks: PhoneReaderBlock[];
+  readonly range?: { sectionId: string | null; fromSpanId: string | null; toSpanId: string | null; blockCount: number };
+}
+
+/** The Read tab's book (``get_source_library`` at a phone origin): only books the phone's Reader opens. */
+export interface PhoneBookDto extends SourceLibraryCard {
+  readonly extractionId: string;
+}
+
+/** Mobile v2 §3.5: what the selection sheet's Ask sends (the desktop's ``reader.ask``). */
+export interface PhoneAskInput {
+  readonly extractionId: string;
+  readonly spanId: string;
+  readonly question: string;
+  readonly selectionSpanIds?: string[];
+  readonly selectionQuote?: string | null;
+  readonly retrievalIntent?: "explain" | "alternative" | "remediate";
+  readonly parentExchangeId?: string | null;
+}
+
+/** One section's reading progress, as the desktop's Reader reports it (`reader.mark_section_progress`). */
+export interface ProgressInput {
+  readonly extractionId: string;
+  readonly sectionId: string;
+  readonly spansSeen?: number;
+  readonly spanCount?: number;
+  readonly completed?: boolean;
+}
 
 /** Mobile v2 §2.2: everything open waits for the desktop. The phone's Next crosses a boundary past it;
  *  its Skip is the desktop's own skip link, for the first of them. */
@@ -172,6 +217,45 @@ export const phone = {
     answerMd: string;
     revealedAt: string;
   }) => call<{ recorded: boolean; reason: string | null; assistId: string | null }>("practice.record_hint_reveal", input),
+  // ── Mobile v2 V4 (D4): the phone Reader, text first. Every one is the desktop's handler. ──
+  library: () => call<{ sources: PhoneBookDto[] }>("get_source_library", {}),
+  guidePlan: (extractionId: string) => call<ReaderGuidePlanDto>("reader.guide_plan", { extractionId }),
+  /** §3.2: one section's blocks, in the desktop's block shape. */
+  section: (extractionId: string, sectionId: string) =>
+    call<PhoneSectionDto>("reader.render_view", { extractionId, sectionId }),
+  readerProgress: (extractionId: string) => call<ReaderProgressListDto>("reader.get_progress", { extractionId }),
+  /** §3.4: the dose arm's draw at a section boundary (the server's, made before anything shows). */
+  doseOffer: (extractionId: string, sectionId: string, visitId: string) =>
+    call<ReaderDoseOfferDto>("reader.dose_offer", { extractionId, sectionId, visitId }),
+  /** §3.5: the desktop's Ask on the selected passages, as a job (D2: its routes and budgets). */
+  ask: (input: PhoneAskInput, requestId: string, options: { isCancelled?: () => boolean } = {}) =>
+    runLong<ReaderAnswerDto>("reader.ask", input, requestId, options),
+  askHistory: (extractionId: string) => call<ReaderAskHistoryDto>("reader.ask_history", { extractionId }),
+  /** §3.5's Save: a plain highlight of the selection (local first; the desktop drains its outbox). */
+  save: (input: {
+    sourceId: string;
+    revisionId: string;
+    extractionId: string;
+    clientIdempotencyKey: string;
+    rawSelection: { nodes: Array<{ spanId: string; quote: string }> };
+    renderViewId?: string | null;
+  }) => call<ReaderCaptureReceiptDto>("reader.capture", { ...input, action: "highlight" }),
+  /** CA7's *as printed* after feedback: what the item may show of its print, decided on the server. */
+  asPrinted: (practiceItemId: string) => call<AsPrintedViewDto>("practice.as_printed", { practiceItemId, render: true }),
+  /** The plan's reading block, ended as the desktop's banner and skip end it (DL1 §6.10). */
+  planReadingEnded: (outcome: "left_reader" | "skipped", sessionId: string | null) =>
+    call<PhonePlanDto>("plan_reading_ended", { outcome, sessionId }),
+  // §5.4's reader intents, sent by the outbox (`store/outbox.ts`, `READER_INTENT`) under the intent's own key, once
+  // per flush: an accepted job (202) is sent again under its key until the host answers its end (Codex review F7).
+  markProgress: (input: ProgressInput, requestId: string): Promise<RpcOutcome<unknown>> =>
+    rpcOnce("reader.mark_section_progress", input, requestId),
+  logActivity: (events: ReadonlyArray<Record<string, unknown>>, requestId: string): Promise<RpcOutcome<unknown>> =>
+    rpcOnce("reader.log_activity", { events }, requestId),
+  doseOfferEvent: (drawId: string, event: ReaderDoseOfferEvent, requestId: string): Promise<RpcOutcome<unknown>> =>
+    rpcOnce("reader.dose_offer_event", { drawId, event }, requestId),
+  /** A taken extra question's answer, as the desktop's quick-check card sends it (Codex review F9). */
+  authoredQuestionAction: (questionId: string, response: string) =>
+    call<{ question: unknown }>("reader.authored_question_action", { questionId, action: "answered", response }),
   queueRevision: () => getJson<{ revision: number }>("/api/v1/queue-revision"),
   submissionStatus: (submissionId: string) =>
     getJson<JobState<AttemptResultDto>>(`/api/v1/submissions/${encodeURIComponent(submissionId)}`)

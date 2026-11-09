@@ -1,0 +1,20 @@
+{
+  "method": "reader.dose_offer",
+  "requests": [
+    {
+      "wrapper": "doseOffer",
+      "envelope": {
+        "method": "reader.dose_offer",
+        "params": {
+          "extractionId": "ext1",
+          "sectionId": "u1",
+          "visitId": "visit_1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "eligible",
+    "offer"
+  ]
+}
