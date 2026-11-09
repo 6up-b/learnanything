@@ -8,9 +8,10 @@ went unnoticed for weeks because nothing ran the generator, so the whole
 cheaply (no git, no rendering): a new test helper, Worker, or ambient
 declaration must get an explicit rule in ``desktop_generate.audit_activation``.
 
-The full catalog check (``desktop_validate.py``) is not run here: its notes pin
-each source's last commit, so it goes stale at every frontend commit until the
-catalog is regenerated (a docs step, not a test gate).
+The full catalog check (``desktop_validate.py``) is not run here: its
+byte-for-byte check, and ``Reference/_generated.md``'s recorded commit, go
+stale at every frontend commit until the catalog is regenerated (a docs step,
+not a test gate).
 """
 
 from __future__ import annotations
@@ -47,7 +48,7 @@ def _audited_infos(generator):
         path = path.resolve()
         infos[path] = generator.SourceInfo(
             source=path, language=language, area=generator.area_for(path, language),
-            text=path.read_text(encoding="utf-8"), symbols=[], commit="", commit_timestamp="", worktree_state="",
+            text=path.read_text(encoding="utf-8"), symbols=[],
         )
     rust_by_stem = {path.stem: path for path, info in infos.items() if info.language == "Rust"}
     for info in infos.values():

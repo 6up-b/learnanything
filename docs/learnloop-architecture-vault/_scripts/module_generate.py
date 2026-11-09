@@ -2,9 +2,10 @@
 """Generate the Obsidian module reference catalog from the live Python tree.
 
 This script intentionally uses only the Python standard library.  It extracts
-facts (imports, definitions, docstrings, source locations, test references,
-and git provenance) instead of importing LearnLoop, so running it cannot open
-or mutate a vault.
+facts (imports, definitions, docstrings, source locations and test references)
+instead of importing LearnLoop, so running it cannot open or mutate a vault.
+The commit those facts describe goes in Reference/_generated.md
+(generated_provenance.py), never in a note.
 """
 
 from __future__ import annotations
@@ -13,12 +14,15 @@ import ast
 import json
 import os
 import re
-import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+
+# Tests load this file by path, so its directory isn't always on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import generated_provenance  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -230,19 +234,9 @@ class ModuleInfo:
     loc: int
     status: str
     layer: str
-    source_state: str
-    commit: str
-    commit_timestamp: str
     internal_dependencies: dict[str, ImportEdge] = field(default_factory=dict)
     stdlib_dependencies: set[str] = field(default_factory=set)
     external_dependencies: set[str] = field(default_factory=set)
-
-
-def run_git(*args: str) -> str:
-    result = subprocess.run(
-        ["git", *args], cwd=REPO_ROOT, check=True, text=True, capture_output=True
-    )
-    return result.stdout.strip()
 
 
 def module_name(source: Path) -> str:
@@ -403,15 +397,6 @@ def package_names(sources: list[Path]) -> set[str]:
     return result
 
 
-def git_state_sets() -> tuple[set[str], set[str], set[str]]:
-    modified = set(filter(None, run_git("diff", "--name-only").splitlines()))
-    staged = set(filter(None, run_git("diff", "--cached", "--name-only").splitlines()))
-    untracked = set(
-        filter(None, run_git("ls-files", "--others", "--exclude-standard").splitlines())
-    )
-    return modified, staged, untracked
-
-
 def classify_layer(name: str) -> str:
     if name in PRIMITIVE_MODULES:
         return "primitive"
@@ -444,8 +429,6 @@ def classify_status(name: str) -> str:
 
 
 def load_modules(sources: list[Path]) -> dict[str, ModuleInfo]:
-    modified, staged, untracked = git_state_sets()
-    head_hash, head_time = run_git("show", "-s", "--format=%H%x09%cI", "HEAD").split("\t", 1)
     modules: dict[str, ModuleInfo] = {}
     for source in sources:
         rel = source.relative_to(REPO_ROOT).as_posix()
@@ -455,23 +438,6 @@ def load_modules(sources: list[Path]) -> dict[str, ModuleInfo]:
         symbols, constants, exports = symbols_from_tree(tree)
         uncalled = UNCALLED_DEFINITIONS.get(name, set())
         symbols = [symbol for symbol in symbols if symbol.name not in uncalled]
-        if rel in untracked:
-            source_state = "untracked"
-        elif rel in modified or rel in staged:
-            source_state = "modified"
-        else:
-            source_state = "clean"
-        if source_state != "clean":
-            commit = f"workspace/uncommitted @ HEAD {head_hash}"
-            commit_timestamp = head_time
-        else:
-            history = run_git("log", "-1", "--format=%H%x09%cI", "--", rel)
-            if history:
-                commit, commit_timestamp = history.split("\t", 1)
-            else:
-                commit = f"workspace/uncommitted @ HEAD {head_hash}"
-                commit_timestamp = head_time
-                source_state = "untracked"
         modules[name] = ModuleInfo(
             name=name,
             source=source,
@@ -484,9 +450,6 @@ def load_modules(sources: list[Path]) -> dict[str, ModuleInfo]:
             loc=len(text.splitlines()),
             status=classify_status(name),
             layer=classify_layer(name),
-            source_state=source_state,
-            commit=commit,
-            commit_timestamp=commit_timestamp,
         )
     return modules
 
@@ -825,9 +788,6 @@ def render_frontmatter(info: ModuleInfo) -> list[str]:
         f"source_path: {yaml_string(rel)}",
         "source_paths:",
         *yaml_list([rel], 2),
-        f"source_commit: {yaml_string(info.commit)}",
-        f"source_commit_timestamp: {yaml_string(info.commit_timestamp)}",
-        f"source_worktree_state: {yaml_string(info.source_state)}",
         "generated: true",
         f"generated_at: {yaml_string(GENERATED_DATE)}",
         f"package: {yaml_string(info.package)}",
@@ -908,7 +868,7 @@ def render_module_note(
             f"# `{info.name}`",
             "",
             "> [!info] Generated source reference",
-            "> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.",
+            "> Facts in this note are generated from the Python AST and repository tests, at the commit in [[Reference/_generated|Generated Reference Provenance]]. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.",
             "",
             f"Up: {package_link(info.package)} · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].",
             "",
@@ -931,9 +891,6 @@ def render_module_note(
             f"| Owning package | {package_link(info.package)} |",
             f"| Architecture layer | `{info.layer}` |",
             f"| Refactor status | `{info.status}` |",
-            f"| Worktree state | `{info.source_state}` |",
-            f"| Source commit | `{info.commit}` |",
-            f"| Commit timestamp | `{info.commit_timestamp}` |",
         ]
     )
     if info.name in OPERATIONAL_SCOPE_NOTES:
@@ -1214,12 +1171,6 @@ def render_package_moc(
     members = sorted(
         [info for info in modules.values() if info.package == package], key=lambda info: info.name
     )
-    descendants = sorted(
-        (info for info in modules.values() if info.name.startswith(package + ".")),
-        key=lambda info: info.name,
-    )
-    aggregate = members or descendants
-    latest_timestamp = max((info.commit_timestamp for info in aggregate), default="unknown")
     source_paths = [info.source.relative_to(REPO_ROOT).as_posix() for info in members]
     if not source_paths:
         source_paths = ["src/" + package.replace(".", "/") + "/"]
@@ -1242,8 +1193,6 @@ def render_package_moc(
         f"version: {yaml_string(DOC_VERSION)}",
         "source_paths:",
         *yaml_list(source_paths, 2),
-        'source_commit: "aggregate; see module notes"',
-        f"source_commit_timestamp: {yaml_string(latest_timestamp)}",
         "generated: true",
         f"generated_at: {yaml_string(GENERATED_DATE)}",
         f"package: {yaml_string(package)}",
@@ -1337,7 +1286,6 @@ def render_catalog(
     modules: dict[str, ModuleInfo], packages: set[str], tests: list[PythonConsumer]
 ) -> str:
     note = CATALOG_ROOT / "Module Catalog.md"
-    latest_timestamp = max(info.commit_timestamp for info in modules.values())
     desktop_modules = desktop_source_count()
     status_counts: dict[str, int] = defaultdict(int)
     for info in modules.values():
@@ -1353,8 +1301,6 @@ def render_catalog(
         '  - "src/learnloop"',
         '  - "src/learnloop_sidecar"',
         '  - "apps/learnloop-tauri"',
-        'source_commit: "aggregate; see module notes"',
-        f"source_commit_timestamp: {yaml_string(latest_timestamp)}",
         "generated: true",
         f"generated_at: {yaml_string(GENERATED_DATE)}",
         "tags:",
@@ -1428,7 +1374,7 @@ def render_catalog(
             "> If the Dataview community plugin is enabled, the query below creates a sortable live table. The vault does not require the plugin.",
             "",
             "```dataview",
-            "TABLE refactor_status AS Status, layer AS Layer, source_path AS Source, source_commit_timestamp AS Commit",
+            "TABLE refactor_status AS Status, layer AS Layer, source_path AS Source",
             'FROM "Reference/Modules"',
             'WHERE type = "module-reference"',
             "SORT file.name ASC",
@@ -1450,6 +1396,8 @@ def render_catalog(
             "```",
             "",
             f"The current generation discovered {len(tests)} Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.",
+            "",
+            "Notes carry no commit of their own: the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.",
             "",
         ]
     )
@@ -1478,6 +1426,7 @@ def main() -> None:
     (CATALOG_ROOT / "Module Catalog.md").write_text(
         render_catalog(modules, packages, tests), encoding="utf-8"
     )
+    generated_provenance.write()
     print(
         f"Generated {len(modules)} module notes, {len(packages)} package maps, "
         f"and 1 catalog from {len(tests)} test files."

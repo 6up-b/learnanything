@@ -12,13 +12,15 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Iterable
+
+# Tests load this file by path, so its directory isn't always on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import generated_provenance  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -119,9 +121,6 @@ class SourceInfo:
     area: str
     text: str
     symbols: list[Symbol]
-    commit: str
-    commit_timestamp: str
-    worktree_state: str
     refactor_status: str = "UNREVIEWED"
     activation_kind: str = "unreviewed"
     activation_evidence: str = ""
@@ -143,12 +142,6 @@ class SourceInfo:
     def module_id(self) -> str:
         stem = self.relative.rsplit(".", 1)[0].replace("/", ".")
         return f"desktop.{stem}"
-
-
-def run_git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=REPO_ROOT, check=True, text=True, capture_output=True
-    ).stdout.strip()
 
 
 def is_vitest_file(path: Path) -> bool:
@@ -290,26 +283,6 @@ def rust_symbols(text: str) -> list[Symbol]:
     return sorted(found.values(), key=lambda item: (item.line, item.name))
 
 
-def provenance(source: Path) -> tuple[str, str, str]:
-    relative = source.relative_to(REPO_ROOT).as_posix()
-    status = run_git("status", "--porcelain=v1", "--untracked-files=all", "--", relative)
-    if not status:
-        worktree = "clean"
-    elif status.startswith("??"):
-        worktree = "untracked"
-    elif status[0] != " ":
-        worktree = "staged-or-mixed"
-    else:
-        worktree = "modified"
-    log = run_git("log", "-1", "--format=%H%n%cI", "--", relative).splitlines()
-    if len(log) >= 2:
-        commit, timestamp = log[0], log[1]
-    else:
-        head = run_git("show", "-s", "--format=%H%n%cI", "HEAD").splitlines()
-        commit, timestamp = f"workspace/uncommitted @ {head[0]}", head[1]
-    return commit, timestamp, worktree
-
-
 def resolve_typescript(source: Path, specifier: str, source_set: set[Path]) -> Path | None:
     if not specifier.startswith("."):
         return None
@@ -418,7 +391,6 @@ def collect_infos() -> dict[Path, SourceInfo]:
     for source, language in pairs:
         source = source.resolve()
         text = source.read_text(encoding="utf-8")
-        commit, timestamp, worktree = provenance(source)
         symbols = typescript_symbols(text) if language == "TypeScript" else rust_symbols(text)
         infos[source] = SourceInfo(
             source=source,
@@ -426,9 +398,6 @@ def collect_infos() -> dict[Path, SourceInfo]:
             area=area_for(source, language),
             text=text,
             symbols=symbols,
-            commit=commit,
-            commit_timestamp=timestamp,
-            worktree_state=worktree,
         )
     rust_by_stem = {path.stem: path for path, info in infos.items() if info.language == "Rust"}
     for info in infos.values():
@@ -472,7 +441,7 @@ def vitest_reachability(infos: dict[Path, SourceInfo]) -> dict[Path, Path | None
     for test in vitest_files():
         test = test.resolve()
         probe = SourceInfo(source=test, language="TypeScript", area="", text=test.read_text(encoding="utf-8"),
-                           symbols=[], commit="", commit_timestamp="", worktree_state="")
+                           symbols=[])
         add_ts_imports(probe, source_set)
         for target in sorted(probe.internal_dependencies):
             if target not in parents:
@@ -719,9 +688,6 @@ def frontmatter(info: SourceInfo) -> list[str]:
         f"source_path: {yaml_string(info.source_path)}",
         "source_paths:",
         *yaml_list([info.source_path]),
-        f"source_commit: {yaml_string(info.commit)}",
-        f"source_commit_timestamp: {yaml_string(info.commit_timestamp)}",
-        f"source_worktree_state: {yaml_string(info.worktree_state)}",
         f"activation_kind: {yaml_string(info.activation_kind)}",
         f"activation_evidence: {yaml_string(info.activation_evidence)}",
         "generated: true",
@@ -765,9 +731,6 @@ def render_module(
         f"| Area | {wikilink(area_note_path(info.area), info.area)} |",
         f"| Refactor status | `{info.refactor_status}` |",
         f"| Activation kind | `{info.activation_kind}` |",
-        f"| Worktree state | `{info.worktree_state}` |",
-        f"| Source commit | `{info.commit}` |",
-        f"| Commit timestamp | `{info.commit_timestamp}` |",
         "",
         "## Activation and status evidence",
         "",
@@ -911,7 +874,7 @@ def render_module(
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_area(area: str, members: list[SourceInfo], child_areas: list[str], head_commit: str, head_timestamp: str) -> str:
+def render_area(area: str, members: list[SourceInfo], child_areas: list[str]) -> str:
     path = area_note_path(area)
     source_dir = TS_ROOT if area == "TypeScript" else RUST_ROOT if area == "Rust" else TS_ROOT / area.removeprefix("TypeScript/")
     source_path = source_dir.relative_to(REPO_ROOT).as_posix()
@@ -924,8 +887,6 @@ def render_area(area: str, members: list[SourceInfo], child_areas: list[str], he
         f'version: "{DOC_VERSION}"',
         "source_paths:",
         *yaml_list([source_path]),
-        f"source_commit: {yaml_string(head_commit)}",
-        f"source_commit_timestamp: {yaml_string(head_timestamp)}",
         "generated: true",
         f"generated_at: {yaml_string(GENERATED_AT)}",
         "tags:",
@@ -974,7 +935,7 @@ def render_area(area: str, members: list[SourceInfo], child_areas: list[str], he
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_catalog(infos: dict[Path, SourceInfo], areas: list[str], head_commit: str, head_timestamp: str) -> str:
+def render_catalog(infos: dict[Path, SourceInfo], areas: list[str]) -> str:
     path = CATALOG_ROOT / "Desktop Module Catalog.md"
     ts_count = sum(info.language == "TypeScript" for info in infos.values())
     rust_count = sum(info.language == "Rust" for info in infos.values())
@@ -995,8 +956,6 @@ def render_catalog(infos: dict[Path, SourceInfo], areas: list[str], head_commit:
         f'version: "{DOC_VERSION}"',
         "source_paths:",
         *yaml_list(["apps/learnloop-tauri/src", "apps/learnloop-tauri/src-tauri/src"]),
-        f"source_commit: {yaml_string(head_commit)}",
-        f"source_commit_timestamp: {yaml_string(head_timestamp)}",
         "generated: true",
         f"generated_at: {yaml_string(GENERATED_AT)}",
         "tags:",
@@ -1065,7 +1024,7 @@ def render_catalog(infos: dict[Path, SourceInfo], areas: list[str], head_commit:
         "> The vault works without Dataview; when enabled, this produces a sortable source table.",
         "",
         "```dataview",
-        'TABLE language AS Language, area AS Area, source_path AS Source, source_commit_timestamp AS Commit',
+        'TABLE language AS Language, area AS Area, source_path AS Source',
         'FROM "Reference/Desktop"',
         'WHERE type = "desktop-module-reference"',
         "SORT source_path ASC",
@@ -1087,6 +1046,8 @@ def render_catalog(infos: dict[Path, SourceInfo], areas: list[str], head_commit:
         "```",
         "",
         "Use `desktop_generate.py --check` in CI to verify byte-for-byte reproducibility without writing files.",
+        "",
+        "Notes carry no commit of their own: the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].",
     ]
     return "\n".join(lines).rstrip() + "\n"
 
@@ -1113,23 +1074,15 @@ def rendered_files() -> dict[Path, str]:
             candidate for candidate in areas
             if candidate.startswith(prefix) and "/" not in candidate[len(prefix):]
         )
-        # Area and catalog notes cite the newest commit among the sources they
-        # describe, not HEAD, so a documentation-only commit leaves them current.
-        area_commit, area_timestamp = latest_provenance(
-            info for info in infos.values() if info.area == area or info.area.startswith(prefix)
-        )
-        body = render_area(area, members, children, area_commit, area_timestamp)
+        body = render_area(area, members, children)
         for info in members:
             body = body.replace(f"{{INBOUND:{info.source_path}}}", str(inbound_counts.get(info.source, 0)))
         rendered[area_note_path(area)] = body
-    catalog_commit, catalog_timestamp = latest_provenance(infos.values())
-    rendered[CATALOG_ROOT / "Desktop Module Catalog.md"] = render_catalog(infos, areas, catalog_commit, catalog_timestamp)
+    rendered[CATALOG_ROOT / "Desktop Module Catalog.md"] = render_catalog(infos, areas)
+    # The shared provenance note sits outside Reference/Desktop, so the stale-note
+    # sweep in main() never deletes it, and --check still compares it.
+    rendered[generated_provenance.NOTE_PATH] = generated_provenance.render()
     return rendered
-
-
-def latest_provenance(infos: Iterable[SourceInfo]) -> tuple[str, str]:
-    newest = max(infos, key=lambda info: (datetime.fromisoformat(info.commit_timestamp), info.commit))
-    return newest.commit, newest.commit_timestamp
 
 
 def main() -> int:

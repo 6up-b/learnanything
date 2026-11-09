@@ -13,6 +13,7 @@ from typing import Any
 from ruamel.yaml import YAML
 
 import desktop_generate as generator
+import generated_provenance
 
 
 REPO_ROOT = generator.REPO_ROOT
@@ -25,8 +26,6 @@ REQUIRED_FRONTMATTER = {
     "refactor_status",
     "version",
     "source_paths",
-    "source_commit",
-    "source_commit_timestamp",
     "generated",
     "generated_at",
     "tags",
@@ -36,7 +35,6 @@ MODULE_FRONTMATTER = {
     "language",
     "area",
     "source_path",
-    "source_worktree_state",
     "activation_kind",
     "activation_evidence",
 }
@@ -201,6 +199,7 @@ def main() -> int:
         errors.append(f"missing expected note: {path.relative_to(REPO_ROOT)}")
     for path in sorted(actual - expected):
         errors.append(f"unexpected note: {path.relative_to(REPO_ROOT)}")
+    errors.extend(generated_provenance.note_errors())
 
     covered_sources: dict[str, list[Path]] = defaultdict(list)
     yaml_checked = 0
@@ -220,8 +219,7 @@ def main() -> int:
             errors.append(f"{path.relative_to(REPO_ROOT)}: generated must be boolean true")
         if not isinstance(frontmatter.get("generated_at"), str):
             errors.append(f"{path.relative_to(REPO_ROOT)}: generated_at must be a quoted string")
-        if not isinstance(frontmatter.get("source_commit_timestamp"), str):
-            errors.append(f"{path.relative_to(REPO_ROOT)}: source_commit_timestamp must be a quoted string")
+        errors.extend(generated_provenance.stamp_errors(frontmatter, body, str(path.relative_to(REPO_ROOT))))
         if not isinstance(frontmatter.get("tags"), list) or not frontmatter.get("tags"):
             errors.append(f"{path.relative_to(REPO_ROOT)}: tags must be a non-empty list")
         source_paths = frontmatter.get("source_paths")

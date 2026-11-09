@@ -23,7 +23,6 @@ import functools
 import json
 import re
 import sqlite3
-import subprocess
 import sys
 import tomllib
 from collections import Counter, defaultdict
@@ -41,7 +40,9 @@ SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_252" / "state.sqlit
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
+sys.path.insert(0, str(SCRIPT_PATH.parent))
 
+import generated_provenance  # noqa: E402
 from learnloop.config.schema import LearnLoopConfig  # noqa: E402
 from learnloop.config.template import DEFAULT_CONFIG_TEXT  # noqa: E402
 from learnloop.db.table_roles import TABLE_ROLES, TableRole, user_table_names  # noqa: E402
@@ -51,12 +52,6 @@ from learnloop.substrate.rebuild_orchestrator import (  # noqa: E402
 )
 
 
-COMMIT = subprocess.check_output(
-    ["git", "log", "-1", "--format=%H"], cwd=REPOSITORY_ROOT, text=True
-).strip()
-COMMIT_TIMESTAMP = subprocess.check_output(
-    ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
-).strip()
 VERIFIED_DATE = "2026-09-23"
 SCHEMA_HEAD = 252
 
@@ -215,8 +210,6 @@ def frontmatter(
         f"status: {yaml_scalar(status)}",
         'doc_version: "1.0"',
         'architecture_version: "post-refactor"',
-        f"source_commit: {yaml_scalar(COMMIT)}",
-        f"source_commit_timestamp: {yaml_scalar(COMMIT_TIMESTAMP)}",
         f"last_verified: {yaml_scalar(VERIFIED_DATE)}",
     ]
     alias_values = list(dict.fromkeys(aliases))
@@ -611,8 +604,9 @@ def table_note(connection: sqlite3.Connection, table: str) -> str:
                 f"learnloop/domain/{domain}",
             ],
             source_paths=source_paths,
+            # No schema_head here: it changed all ~390 table notes at every
+            # migration. The Database Catalog carries the head once.
             extra={
-                "schema_head": SCHEMA_HEAD,
                 "table_name": table,
                 "table_role": role.value,
                 "functionality_status": status,
@@ -2275,6 +2269,8 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             "",
             "Then run `tests/test_migrations.py` and `tests/test_table_roles.py` when schema or role code changed. The first validator checks table coverage and the configuration catalog against their live authorities; the second resolves the whole vault's frontmatter, source paths, Wikilinks, headings, and blocks.",
             "",
+            "Table and configuration notes carry no commit or migration head of their own: the head is stated once in this catalog, and the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].",
+            "",
         ]
     )
     (VAULT_ROOT / "Reference" / "Database" / "Database Catalog.md").write_text(
@@ -2397,7 +2393,6 @@ def validate_generated(grouped: dict[str, list[str]], sections: list[str]) -> No
     for path in [*table_files, *config_files]:
         text = path.read_text(encoding="utf-8")
         required = (
-            "source_commit_timestamp:",
             "source_paths:",
             "tags:",
             "status:",
@@ -2416,7 +2411,9 @@ def main() -> None:
     generate_table_catalog(grouped)
     generate_config_catalog(sections)
     validate_generated(grouped, sections)
-    effective = LearnLoopConfig.model_validate(tomllib.loads(DEFAULT_CONFIG_TEXT)).model_dump(
+    generated_provenance.write()
+    commit, commit_timestamp, dirty = generated_provenance.inputs_provenance()
+    effective =LearnLoopConfig.model_validate(tomllib.loads(DEFAULT_CONFIG_TEXT)).model_dump(
         mode="json", exclude_none=False
     )
     config_status_counts = Counter(
@@ -2432,8 +2429,9 @@ def main() -> None:
                 "config_section_notes": len(sections),
                 "config_status_counts": dict(sorted(config_status_counts.items())),
                 "schema_head": SCHEMA_HEAD,
-                "source_commit": COMMIT,
-                "source_commit_timestamp": COMMIT_TIMESTAMP,
+                "source_commit": commit,
+                "source_commit_timestamp": commit_timestamp,
+                "uncommitted_inputs": len(dirty),
             },
             indent=2,
             sort_keys=True,

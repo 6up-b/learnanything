@@ -41,7 +41,9 @@ CONFIG_SCHEMA_SOURCE = REPOSITORY_ROOT / "src" / "learnloop" / "config" / "schem
 SCHEMA_HEAD = 252
 
 sys.path.insert(0, str(SRC_ROOT))
+sys.path.insert(0, str(SCRIPT_PATH.parent))
 
+import generated_provenance  # noqa: E402
 from learnloop.config.schema import LearnLoopConfig  # noqa: E402
 from learnloop.config.template import DEFAULT_CONFIG_TEXT  # noqa: E402
 from learnloop.db.table_roles import TABLE_ROLES, TableRole, user_table_names  # noqa: E402
@@ -56,12 +58,13 @@ REQUIRED_FRONTMATTER = {
     "status",
     "doc_version",
     "architecture_version",
-    "source_commit",
-    "source_commit_timestamp",
     "last_verified",
     "source_paths",
     "tags",
 }
+# Hand-written notes keep their own stamp; generated ones must not carry one
+# (Reference/_generated.md holds the single commit for all of them).
+HAND_WRITTEN_FRONTMATTER = {"source_commit", "source_commit_timestamp"}
 EXPECTED_STATUS_OVERRIDES = {
     "practice_item_state": "active-historical-seam",
     "controller_shadow_predictions": "dormant-shadow",
@@ -555,16 +558,28 @@ def validate_frontmatter(
             bool(data.get("architecture_version")),
             f"{rel}: empty architecture_version",
         )
-        errors.expect(
-            isinstance(data.get("source_commit"), str)
-            and bool(re.fullmatch(r"[0-9a-f]{40}", data["source_commit"])),
-            f"{rel}: source_commit must be a full Git hash",
-        )
-        timestamp = data.get("source_commit_timestamp")
-        try:
-            datetime.fromisoformat(str(timestamp))
-        except ValueError:
-            errors.add(f"{rel}: source_commit_timestamp is not ISO-8601")
+        if data.get("generated") is True:
+            body = path.read_text(encoding="utf-8").split("\n---\n", 1)[-1]
+            for message in generated_provenance.stamp_errors(data, body, str(rel)):
+                errors.add(message)
+            # A per-note head rewrote every table note at each migration; the
+            # Database Catalog states it once (checked in validate_database_coverage).
+            if data.get("table_name") is not None:
+                errors.expect("schema_head" not in data, f"{rel}: generated table note carries schema_head")
+        else:
+            missing_stamp = HAND_WRITTEN_FRONTMATTER - set(data)
+            if missing_stamp:
+                errors.add(f"{rel}: missing frontmatter fields {sorted(missing_stamp)}")
+            errors.expect(
+                isinstance(data.get("source_commit"), str)
+                and bool(re.fullmatch(r"[0-9a-f]{40}", data["source_commit"])),
+                f"{rel}: source_commit must be a full Git hash",
+            )
+            timestamp = data.get("source_commit_timestamp")
+            try:
+                datetime.fromisoformat(str(timestamp))
+            except ValueError:
+                errors.add(f"{rel}: source_commit_timestamp is not ISO-8601")
         tags = data.get("tags")
         errors.expect(
             isinstance(tags, list) and bool(tags) and all(isinstance(tag, str) for tag in tags),
@@ -634,7 +649,6 @@ def validate_database_coverage(
             data.get("functionality_status") == expected_status,
             f"{note.name}: functionality_status mismatch",
         )
-        errors.expect(data.get("schema_head") == SCHEMA_HEAD, f"{note.name}: schema_head mismatch")
         errors.expect(data.get("generated") is True, f"{note.name}: generated flag is not true")
         purpose_match = TABLE_PURPOSE_RE.search(note_text)
         errors.expect(purpose_match is not None, f"{note.name}: missing table-purpose block")
@@ -697,6 +711,9 @@ def validate_database_coverage(
     errors.expect(catalog.exists(), "canonical Reference/Database/Database Catalog.md is missing")
     errors.expect(catalog_data.get("title") == "Database Catalog", "catalog title is not canonical")
     errors.expect(catalog_data.get("table_count") == len(TABLE_ROLES), "catalog table_count mismatch")
+    errors.expect(catalog_data.get("schema_head") == SCHEMA_HEAD, "catalog schema_head mismatch")
+    for message in generated_provenance.note_errors():
+        errors.add(message)
     errors.expect(not (DATABASE_ROOT / "Table Catalog.md").exists(), "obsolete Table Catalog.md remains")
     for heading in ("## Role indexes", "## DERIVED tables", "## How to use this catalog"):
         errors.expect(heading in catalog_text, f"Database Catalog is missing {heading}")

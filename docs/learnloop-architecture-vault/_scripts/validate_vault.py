@@ -68,12 +68,18 @@ def main() -> int:
             errors.append(f"{path.relative_to(VAULT)}: {exc}")
             continue
         metadata[path] = data
-        for required in ("title", "status", "source_paths", "source_commit_timestamp", "tags"):
+        # Generated notes carry no stamp of their own: Reference/_generated.md holds
+        # the one commit they describe (the module, desktop and db validators check it).
+        hand_written = data.get("generated") is not True
+        required_keys = ("title", "status", "source_paths", "tags")
+        if hand_written:
+            required_keys += ("source_commit_timestamp",)
+        for required in required_keys:
             if required not in data:
                 errors.append(f"{path.relative_to(VAULT)}: missing `{required}` property")
         if "doc_version" not in data and "version" not in data:
             errors.append(f"{path.relative_to(VAULT)}: missing `doc_version` or `version`")
-        if not isinstance(data.get("source_commit_timestamp"), str):
+        if hand_written and not isinstance(data.get("source_commit_timestamp"), str):
             errors.append(
                 f"{path.relative_to(VAULT)}: `source_commit_timestamp` must be a quoted string"
             )

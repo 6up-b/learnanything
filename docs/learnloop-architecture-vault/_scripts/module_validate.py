@@ -13,6 +13,10 @@ from typing import Any
 
 from ruamel.yaml import YAML
 
+# Tests load this file by path, so its directory isn't always on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import generated_provenance  # noqa: E402
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 VAULT_ROOT = REPO_ROOT / "docs" / "learnloop-architecture-vault"
@@ -25,8 +29,6 @@ REQUIRED_FRONTMATTER = {
     "refactor_status",
     "version",
     "source_paths",
-    "source_commit",
-    "source_commit_timestamp",
     "generated",
     "tags",
 }
@@ -266,6 +268,7 @@ def main() -> int:
 
     missing_notes = [path for path in expected_paths if not path.is_file()]
     errors.extend(f"missing expected note: {path.relative_to(REPO_ROOT)}" for path in missing_notes)
+    errors.extend(generated_provenance.note_errors())
 
     actual_module_notes: dict[str, list[Path]] = defaultdict(list)
     yaml_checked = 0
@@ -290,10 +293,9 @@ def main() -> int:
             )
         if frontmatter.get("generated") is not True:
             errors.append(f"{path.relative_to(REPO_ROOT)}: generated must be boolean true")
-        if not isinstance(frontmatter.get("source_commit_timestamp"), str):
-            errors.append(
-                f"{path.relative_to(REPO_ROOT)}: source_commit_timestamp must be a quoted string"
-            )
+        errors.extend(
+            generated_provenance.stamp_errors(frontmatter, body, str(path.relative_to(REPO_ROOT)))
+        )
         if not isinstance(frontmatter.get("tags"), list) or not frontmatter.get("tags"):
             errors.append(f"{path.relative_to(REPO_ROOT)}: tags must be a non-empty list")
         if frontmatter.get("type") == "module-reference":
