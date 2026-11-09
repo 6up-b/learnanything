@@ -397,6 +397,11 @@ def test_the_options_read_draws_nothing_and_a_choice_is_still_served(world):
     assert _counts(env) == before
     view = options.view()
     assert view["enabled"] is True and view["decision_id"] is None and view["options"]
+    chosen = next(option for option in view["options"] if option["kind"] in ("question", "review", "new"))
+    made = LA.choose(env, kind=chosen["kind"], ref=chosen["ref"], surface="today", attempt_id=None, note_md=None,
+                     preference_id="pref_ih6")
+    assert made.outcome == "served" and made.step["kind"] == "item"
+    assert len(rows(env, "learner_pick")) == 1
 
 
 # -- the Nov 8 shape ----------------------------------------------------------------------------------------------------
@@ -604,7 +609,10 @@ def test_a_phone_read_holds_says_so_and_a_phone_serve_still_decides(make_world):
             break
         world.answer(world.next()["step"])
     before = world.quiet_counts()
+    world.llm.requests.clear()
+    jobs = len(world.runtime._entries)
     read = world.phone.rpc("get_daily_plan", {"sessionId": world.session})
+    assert world.llm.requests == [] and len(world.runtime._entries) == jobs, "a read started a job"
     plan = read["plan"]
     assert plan["deciding"] is False and plan["questionInProgress"]["practiceItemId"]
     assert plan["nextStep"]["kind"] == "question_in_progress"
