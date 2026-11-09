@@ -178,5 +178,268 @@ Not traced: where router and AD outcomes are written after an attempt. They're r
 | D1 | high | The plan path holds three kinds of randomness with different reproducibility: a day-seeded check draw, a ULID-salted mix draw and a clock-dependent number of numeric draws. Replaying a boundary needs stored values for the second and can't recover the third. | `src/learnloop/router_objective/checks.py:98`, `src/learnloop/router_objective/mix.py:111`, `src/learnloop/daily_plan/objective_chooser.py:442` |
 | D2 | medium | "Next" has several blocking waits stacked up: diagnoses, then the router job, then all components including advisory ones. A learner-visible delay can't be attributed from one record. | `src/learnloop_sidecar/handlers/queue.py:305`, `src/learnloop/daily_plan/router_runtime.py:165` |
 | D3 | medium | Two frontends reach the same domain code through different seams. MCP uses `remote/` and its own attach; the phone reuses sidecar handlers. Each has its own protection checks. | `src/learnloop/remote/runtime.py:99`, `src/learnloop_mobile/runtime.py:250` |
-| D4 | high | **Router speed target still unmet.** Next right after feedback stays above 2 s on the large copies (a pinned week on linear_algebra: median 2,676 ms, 16 of 21 above 2 s, against mvp-0.49's 2,250 ms and 25 of 30). The remainder is the numeric policy's per-draw arithmetic (about 468k draw-evaluator calls in about 34 profiled jobs), then SQLite reads (about 13 s of 110 s). After a 3 s dwell no Next is above 2 s on any copy. | `docs/reviews/router-speed2.md:376`, `:388`, `:437`; `src/learnloop/router_objective/value.py:1512` |
+| D4 | high | **Router speed target still unmet.** Next right after feedback stays above 2 s on the large copies (a pinned week on linear_algebra: median 2,676 ms, 16 of 21 above 2 s, against mvp-0.49's 2,250 ms and 25 of 30). The remainder is the numeric policy's per-draw arithmetic (about 468k draw-evaluator calls in about 34 profiled jobs), then SQLite reads (about 13 s of 110 s). After a 3 s dwell no Next is above 2 s on any copy. | `docs/reviews/router-speed2.md:380`, `:388`, `:458`; `src/learnloop/router_objective/value.py:1512` |
 | D5 | medium | **R4's cost.** A pooled connection on which a PRAGMA with an argument ran is closed at release, and `PRAGMA table_info(t)` is such a PRAGMA. There are 53 `table_info` sites in 39 files, including the objective's own paths, so each column check inside a job throws away a pooled connection. Measured opens per job went from 5 to 17 after R1-R4. Column checks are themselves compatibility code for older schemas. | `src/learnloop/db/connection.py:310`; `docs/reviews/router-speed2-codex-review.md:259`; `src/learnloop/router_objective/scores.py:199`, `src/learnloop/router_objective/checks.py:563`, `src/learnloop/daily_plan/router_card.py:447` |
+
+## 3. Boundary crossings
+
+### 3.1 Where policy lives
+
+| Policy | Lives in | Can it change without touching unrelated subsystems? |
+|---|---|---|
+| Objective form | `src/learnloop/router_objective/value.py:1496` (term names), `:602` (an 860-line `_Model` holds both the objective's ledger and the rollouts) | Term names stay in one file. Changing a term usually isn't local (§3.3). |
+| Mixing | `src/learnloop/router_objective/mix.py:38` | The rule is a 133-line leaf, but IH5 still touched 13 source files (§3.3). |
+| Choosing a block | `src/learnloop/daily_plan/objective_chooser.py:1331` | No. It also holds the weight read, seed, coin, guard, trace assembly and carry registration. |
+| Staged rule | `src/learnloop/scheduling/staged_policy.py:294`, `src/learnloop/daily_plan/staged_frame.py:174`, `src/learnloop/daily_plan/lanes.py:477` | Three modules, one named "legacy" though it's live. |
+| Scheduling score | `src/learnloop/scheduling/scheduler.py:186` (787 lines) | No. Ranking, exploration, propensities and persistence share one function. |
+| Memory | `src/learnloop/scheduling/fsrs.py`, and the objective's own `src/learnloop/router_objective/memory.py:287` | Two implementations of a review step exist by design: the live one and the rollouts'. |
+| Mastery | `src/learnloop/learner/mastery.py:924` (pure) | Yes for the update, no for what feeds it (`src/learnloop/attempts/attempts.py:4331`). |
+| Grading rules | `src/learnloop/attempts/grading.py:926` (725 lines), `src/learnloop/attempts/blind_grading.py:687`, `src/learnloop/held_grades.py:62` | Two validators, one per lane. |
+| Protection | `src/learnloop/learner_protection.py:190`, `src/learnloop/serve_eligibility.py:648`, `src/learnloop/scheduling/serving_exclusions.py:131`, `src/learnloop/figures/prefetch.py:290`, `V4:src/learnloop/reader/phone_media.py:64`, `V4:src/learnloop/scheduling/device_eligibility.py:330` | No. See B3. |
+| Spend | `src/learnloop/ai/spend.py:188`, `src/learnloop/daily_plan/router_runtime.py:396`, `src/learnloop/figure_admission.py:346` | Three admission styles with different records (§4). |
+| Probe deciding | `src/learnloop/diagnosis/causal_probe_coherence.py:413`, `src/learnloop/followup_run/lanes.py:59`, the follow-up gate at `src/learnloop/daily_plan/objective_chooser.py:1754` | No. See §4.4. |
+
+### 3.2 Crossings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| B1 | high | Lower modules import the objective, and the objective's switch module is imported everywhere. `router_objective_switches.py` is a 390-line root module imported by 30 modules, including evidence (`attempts/attempts.py`), replay and rebuild. It mixes kill switches with the availability predicate that AD's history reads. | `src/learnloop/attempts/attempts.py:4719`, `src/learnloop/adaptive_difficulty/history_card.py:57`, `src/learnloop/adaptive_difficulty/outside.py:93` |
+| B2 | medium | Packages below or beside the router reach into its internals: the scheduling controller cutover reads `decision_state`, the teacher reads assignments and checks, and FG1's worker lazily imports the chooser's gate. Each of these imports is function-local, so no import-linter contract sees a new layer. | `src/learnloop/scheduling/controller_cutover.py:286`, `src/learnloop/teacher/episodes.py:163`, `src/learnloop/teacher/report.py:269`, `src/learnloop/followup_run/router.py:169` |
+| B3 | high | Protection has one named authority and several other decision sites. `learner_protection` is the predicate for chat and teacher text. The plan uses eligibility and exclusions. Figures run their own candidate filter with several checks. The phone uses device eligibility and media rules. 27 source files call one of the withheld or protection reads. Phone V4's landing needed a ruling that protection "judges an Ask's complete stored provenance before any presentation switch", because the frontend's check had drifted. | `src/learnloop/learner_protection.py:190`, `src/learnloop/figures/prefetch.py:947`, `V4:src/learnloop/scheduling/device_eligibility.py:330`; commit `b1b08138a6` on `phone/v4-reader` |
+| B4 | high | Registering one table takes four to six files: the migration, `db/table_roles.py`, `adaptive_difficulty/protected_tables.py`, `adaptive_difficulty/column_classes.py`, a store, and the reference. Registering one constant adds a `_reg_const` entry (400 in the registry). A guard test enforces each. These protect real invariants, but every feature pays for AD's table firewall and the parameter ledger. | `src/learnloop/db/table_roles.py:41`, `src/learnloop/adaptive_difficulty/protected_tables.py:33`, `src/learnloop/adaptive_difficulty/column_classes.py:90`, `src/learnloop/params/parameter_registry.py:1559` |
+| B5 | medium | The dependency rules are hard to read as a whole: 43 contracts in `pyproject.toml`, with long lists of exceptions and a 251-line frozen-cycle contract. `allow_indirect_imports = true` appears throughout, so a contract says less than its name. | `pyproject.toml:1060`; `lint-imports --no-cache` reports 43 kept, 0 broken |
+| B6 | medium | Duplicated causal and probe predicates exist: `resolve_cold_probe_parameters` and `resolve_causal_probe_parameters` (noted Oct 15), and FG1 re-calls `decide_probe` with hard-coded zero inputs for a log field. | `src/learnloop/goals/certification_cold_probe.py:248`, `src/learnloop/diagnosis/causal_probe_coherence.py:151`, `src/learnloop/followup_run/router.py:111` |
+| B7 | medium | `daily_plan/engine.py` carries product policy inside its traversal. Offer withdrawal, forced items, the check draw and AD's fallback are all inline in `advance_with_context` and `_boundary`. | `src/learnloop/daily_plan/engine.py:4823`, `:3113`, `:4983` |
+| B8 | medium | Performance switches leak into a learned model's identity. Serving switches are part of RO6's generator payload and the boundary key. `held_ad_link` and the two speed-2 switches changed no decision value, yet the landing needed `SEED_NEUTRAL_SWITCHES` so the numeric seed ignored them, and RO6's generator "changes once when the new code first serves (a change point)". | `src/learnloop/daily_plan/objective_chooser.py:144`, `:223`; `docs/reviews/router-speed2.md:27` |
+| B9 | low | Two defaults for the same FSRS prior: 5.0 in the input builder and in `Topic`. | `src/learnloop/daily_plan/objective_inputs.py:719`, `src/learnloop/router_objective/value.py:262` |
+
+### 3.3 Item 6: the files each sample change edits today
+
+Each row is counted from a real commit where one exists. "Source" excludes `config/template.py`, whose snapshot lines are counted separately; these commits' test edits are in §9.
+
+| Change | Real example | Source files | What must be edited today | Local today? |
+|---|---|---:|---|---|
+| Add a sensor | `4d995af688` (TE0: confidence into the router card and model contexts); `e133e961a7` (a lesson's minutes on the objective's clock) | 11; 7 | Reader of the fact; `daily_plan/router_card.py` and `router/card.py` for the LLM's card, or `daily_plan/objective_inputs.py` and `router_objective/value.py` (`Topic`, `Inputs`) for the numeric policy; then `router_objective/trace.py`, `decision_state.py`, `tail_data.py` if the learned tail reads it; AD's guard lists if it reads a protected table | No. A sensor has two destinations with no shared definition. |
+| Change a term of the objective | `3d018ebf50` (R1), `8a19c2698b` (R9), `58b727566e` (R6), `0c448efaa7` (R11) | 3, 6, 4, 1 | Always `router_objective/value.py`; usually `daily_plan/objective_chooser.py`, `objective_inputs.py`, `router_objective_switches.py`, `config/schema.py`, `params/parameter_registry.py`; a defaults digest for a new switch | Only R11, which was a one-file correction. |
+| Swap the mixing rule | `d602dc8472` (IH5, on `instruct/handoff`) | 13 | `router_objective/mix.py`; `objective_chooser.py`; `trace.py`, `objective_report.py`; `algorithm_versions.py`, a 223-line `failure_share_upgrade.py`, `cli/app.py`, `cli/runtime.py`, `learnloop_sidecar/context.py`, `activation_journal.py`; `router_objective_switches.py`, `config/schema.py`, `params/parameter_registry.py` | No. The rule is 47 changed lines of 422. The rest is successor plumbing (§9). |
+| Add an action | `e4131322b0` (TE3b: lesson offers in the block's support) | 20 | `daily_plan/lesson_offer.py` (new), `engine.py`, `lesson_suggestion.py`, `objective_chooser.py`, `objective_inputs.py`, `policy.py`, `records.py`, `router_card.py`, `types.py`, `view.py`; `router/plan_log.py`, `requests.py`, `why.py`; `router_objective/value.py`, `trace.py`, `offer_report.py`; store, registry, CLI, sidecar context | No. An action has no module of its own to implement. |
+| Change a seed (prior) | Prior value: `llm_weight_prior`, read at `src/learnloop/router_objective/weight.py:60`, behaves as the 40 s default does (§9). Random seed: `bc1ceab278` (R2) | 2 | The default in `config/schema.py`; 46 digests in `config/template.py`; each frozen-digest test (12 for the 40 s) | The value is one line. The plumbing isn't. |
+
+**Leaks across the top layer**, from lower detail into the choice, or from the choice into lower modules:
+1. Chooser and job control are one module: `ObjectiveChooser` subclasses `RouterChooser` and runs threads, deadlines, carries and traces beside the choice. `src/learnloop/daily_plan/objective_chooser.py:45`, `:660`, `:1173`.
+2. The numeric policy's draw count depends on the clock inside the top layer. `src/learnloop/daily_plan/objective_chooser.py:442`.
+3. Trace assembly in the chooser knows every action kind and term source. `src/learnloop/daily_plan/objective_chooser.py:1000` and the offer branch at `:949`.
+4. `_Model` couples what's optimized to rollout mechanics, so the objective can't be read apart from the simulation. `src/learnloop/router_objective/value.py:602`.
+5. `value.py` holds the AD link's inverse and the lesson curve. `src/learnloop/router_objective/value.py:123`, `:285`.
+6. Serving switches enter identity (B8).
+7. `decide_probe` and its verbs make a second top layer for one decision (§4.4). `src/learnloop/diagnosis/causal_probe_coherence.py:413`.
+8. FG1's refusal keys reuse causal hard refusals, so the router's support depends on causal internals. `src/learnloop/followup_run/router.py:76`.
+9. Lessons' offers are valued in the chooser, built in `lesson_offer`, and withdrawn in the engine. `src/learnloop/daily_plan/objective_chooser.py:949`, `src/learnloop/daily_plan/lesson_offer.py:235`, `src/learnloop/daily_plan/engine.py:4823`.
+10. Attempts read a router-objective switch to decide whether the interval multiplier applies, so an evidence path depends on the router's successor tag. `src/learnloop/attempts/attempts.py:4719`.
+
+## 4. Decision points and observability (Nov 8 item 11, Nov 3 items 1-4)
+
+**Short answer: no single id links user input to reasoning to behaviour.** The only column of that name in the schema is `objective_trace_id` on lesson episodes (`migrations/247_lesson_episodes.sql:70`). The router, grading, diagnosis and figures each keep their own record. Some are very good: `ad_selections` and `router_objective_traces` store alternatives and probabilities. The gaps are at failures, exclusions and the joins between records.
+
+### 4.1 Inventory
+
+Key: **R** a persisted row, **L** a log line only, **M** memory only, **-** nothing. "Why-not" asks whether each alternative's loss or exclusion is stored with a named rule. Rows marked (o) were read by outline or grep only, not read through.
+
+| Decision or step | Code | Chosen | Alternatives and scores | Why-not | Inputs as of | Model, version, seed | Outcome link | Gap |
+|---|---|---|---|---|---|---|---|---|
+| Plan block | `src/learnloop/daily_plan/engine.py:2667`, `src/learnloop/router/plan_log.py:330` | R | R candidates with propensity | R constraint key | hash only | R; seed only if sampled | R via presentations | Chooser crash loses all reasoning (S1) |
+| Top-k support | `src/learnloop/daily_plan/router_chooser.py:130` | R | names only | R `filtered` | - | k | - | Non-support candidates are never valued |
+| Mix draw, mu, floor | `src/learnloop/daily_plan/objective_chooser.py:1363`, `src/learnloop/router_objective/mix.py:92` | R | R distributions | R failed plus status | waited ms | R weights, u1, u2, seed | R | Configured wait isn't on the row |
+| Failure share (IH5) | `IH:src/learnloop/router_objective/mix.py:54` | R | as above | `failure_rule` | as above | switch in key | - | An absent key means either pre-tag or switch off |
+| Rollouts, numeric policy | `src/learnloop/daily_plan/objective_chooser.py:442`, `src/learnloop/router_objective/value.py:1512` | R trace | R terms, q, SE, draws | tie record | sources and versions | switches; **seed not written** | R | The seed's identity excludes switches and isn't stored (`src/learnloop/daily_plan/objective_chooser.py:144`). The held reading map is "as of first read" with no stamp |
+| Stop coin | `src/learnloop/router_objective/stop_coin.py:136` | R | R mu | score note | availability frozen | R seed, u, rate | R | Ineligibility: no field |
+| Randomized checks | `src/learnloop/router_objective/checks.py:191` | R | (o) | R `non_service_type` | sensors frozen | R day seed | R | Draw or place failure: L only (`src/learnloop/daily_plan/engine.py:3133`, `:3179`) |
+| Plan fallback rule | `src/learnloop/daily_plan/engine.py:2671` | R | - | R reason | - | R | - | S1 |
+| Lesson offer build | `src/learnloop/daily_plan/lesson_offer.py:235` | R | kept only if drawn (`:313`) | R `none:*` | quantized | R | R | Builder crash: L only (`src/learnloop/daily_plan/engine.py:2896`) |
+| Offer withdrawal | `src/learnloop/daily_plan/engine.py:4823`, `src/learnloop/daily_plan/lesson_offer.py:370` | R | n/a | R `forced_items` | time | - | - | **The forced item, workflow and next decision aren't named** |
+| Learner action (IH3) | `IH:src/learnloop/daily_plan/learner_action.py:235` | R | R offered, p | note | - | R | R | A failed lesson candidate vanishes with only a log line |
+| VOI stop | `src/learnloop/diagnosis/voi_stopping.py:2176` (o) | R | in detail (o) | R | R posterior | R | - | Forecast logging failure: L only (`src/learnloop/diagnosis/voi_forecasting.py:173`) |
+| Follow-up value | `src/learnloop/diagnosis/voi_stopping.py:2274` | R | R | R | - | R | - | No router decision id |
+| Decider judgment | `src/learnloop/decider_judgments.py:231` | R | R in rationale | status word | hash only | R | - | `disabled` returns no row (`:255`). The exception text is dropped (`:279`) |
+| Grading verdict | `src/learnloop/attempts/grading.py:1570` (o) | R | - | review reason | hash | R | R | Not traced in depth |
+| Held grade | `src/learnloop/held_grades.py:62` | derived at read | - | M | - | - | R excluded from evidence | No decision row: the hold is a predicate |
+| Diagnosis attribution | `src/learnloop/diagnosis/followups.py:995` (o) | R debug payload | R support scores | - | - | - | - | Replay rebuilds it. Hook failures: L only |
+| Causal probe decision | `src/learnloop/diagnosis/causal_probe_coherence.py:413`, `src/learnloop/diagnosis/causal_orchestrator.py:1467` | R | verb only | R | R inputs | R deterministic | R pin | No router link. Shadow failure: L only (`:1507`) |
+| Probe selection | `src/learnloop/diagnosis/probe_episodes.py:1612` (o) | R | target pairs, EIG | R end reason | R posterior | R | R | Rejected instruments not checked |
+| FG1 gate | `src/learnloop/followup_run/router.py:179`, `src/learnloop/followup_run/lanes.py:59` | R | R arms | R refusal key | R | R | R bindings | A refused decision row: L only, behaviour still applies (`src/learnloop/db/stores/router.py:140`) |
+| Follow-up serve | `src/learnloop/followup_serve/workflow.py:165` (o) | R events | - | R | R | - | R | The workflow row is mutable; events carry history |
+| Learner protection | `src/learnloop/learner_protection.py:190` | M | - | M | - | - | - | A per-call read: no row of its own |
+| Serve eligibility | `src/learnloop/serve_eligibility.py:648`, `src/learnloop/daily_plan/engine.py:5069` | L; R when displaced | - | displacement only | - | - | - | Ordinary serves leave only a log line |
+| Serving exclusions | `src/learnloop/scheduling/serving_exclusions.py:131`, `src/learnloop/router/decisions.py:60` | R today offer | - | named or count only | hash | - | - | Only with offer trace. `src/learnloop/scheduling/scheduler.py:1343` `continue` has no reason |
+| Prefilter | `src/learnloop/daily_plan/engine.py:977` | R | counts, hashes | R gates | R | R | - | Read failure: L. No decision row means no receipt |
+| Device eligibility | `V4:src/learnloop/scheduling/device_eligibility.py:330` | reason code | - | R reason | - | - | - | Predicate failure fails closed, with no log |
+| Router spend | `src/learnloop/daily_plan/router_runtime.py:396` | R on admit | - | R status | - | - | - | A refused request writes no call row |
+| General spend | `src/learnloop/ai/spend.py:188` | varies | - | varies | - | - | - | A figure refusal raises and stores nothing (`src/learnloop/figures/service.py:2513`) |
+| Re-read, alias | `src/learnloop/ingest/reanchor.py:41` (o) | M | ? | M | ? | ? | ? | Alias store not confirmed |
+| AD selection | `src/learnloop/adaptive_difficulty/serving.py:181` | R | R support with p | R per failed check | R state hash | R seed, u | R | **The most complete mechanism found** |
+| AD unavailable | `src/learnloop/daily_plan/engine.py:4930`, `:4947`, `:5032` | L | - | code in log | - | - | - | The incumbent serves, with no row. Denials go to a JSONL file (`src/learnloop/adaptive_difficulty/denial_log.py:98`) |
+| AD generation | `src/learnloop/adaptive_difficulty/generation.py:173` (o) | R | - | - | - | R | R | Refusal: L only |
+| Hint ladder | `src/learnloop/hints/chooser.py:301` | R | R probabilities | R status | R hash | R seed | (o) | Missing client: no row |
+| Teacher lesson | `src/learnloop/teacher/service.py:1155` (o) | R turns, receipts | ? | ? | ? | R | ? | Not read through |
+| Lesson check | `src/learnloop/teacher/checks.py:198` | R on success | - | R failed run | - | R | (o) | Attempt-level trace not checked |
+| Figure author | `src/learnloop/figures/service.py:2496` | R | attempt 1's problems overwritten | R reason, capped | R hash | R | R predictions | "Bad prediction" isn't a typed field |
+| Prediction salvage | `src/learnloop/figures/spec.py:804`, `:842` | R | - | R dropped (capped) | - | - | - | `_flat_change` repairs silently (S10) |
+| Figure pre-build | `src/learnloop/figures/prefetch.py:1056`, `src/learnloop/figures/prefetch_model.py:459` | R | EU, propensity | **`Decision.reason` not stored** | digest only | **RNG unseeded** (`src/learnloop/figures/prefetch.py:1061`) | R | S7, S8 |
+| Reader retrieval | `src/learnloop/source_retrieval/library.py` (o) | conditional | `matched_by` in response | - | - | - | conditional | Stored only when logging is on |
+| Ingest routing | `src/learnloop/ingest/extractors/__init__.py:84` (o) | not checked | - | raises | - | - | - | No routing receipt seen |
+| Curriculum path | `src/learnloop/daily_plan/engine.py:540` (o) | status on read | label | shown | fingerprint | - | - | Unreadable path: L and a status |
+| FSRS, interval | `src/learnloop/attempts/attempts.py:4718` | R surprise row | - | - | - | switch | - | Rating and elapsed aren't frozen per attempt: they're re-derived |
+| AI route fallback | `src/learnloop/ai/routing.py:700` (o) | M | - | - | - | call row shows actual provider | - | No fallback event row |
+| Retries | `src/learnloop/ai/execution.py:364` | R parent call | - | error type | - | - | - | Linked by owner only |
+
+### 4.2 The worst silent sites
+
+| ID | Site | What's lost |
+|---|---|---|
+| S1 | `src/learnloop/daily_plan/engine.py:2671` | Any chooser exception, including a mixture error after the models answered, becomes `<error: Type>`. `router_record` is then `None`, so answers, trace and payloads are dropped. No log line. |
+| S2 | `src/learnloop/daily_plan/router_runtime.py:173` | An unanswered component becomes a synthetic timeout with no model or request payload. No log line. |
+| S3 | `src/learnloop/daily_plan/router_runtime.py:605`, `:695` | A provider failure stays in the result object. It persists only if a decision is drawn from that entry. |
+| S4 | `src/learnloop/daily_plan/router_chooser.py:304`, `src/learnloop/daily_plan/engine.py:2667` | A read whose key changes before serving leaves receipts with no decision row. |
+| S5 | `src/learnloop/daily_plan/router_runtime.py:490` | Prefetch entry eviction, no record. |
+| S6 | `src/learnloop/daily_plan/router_chooser.py:342` | `card_error` goes on the record, but no persisting reader was found. |
+| S7 | `src/learnloop/figures/prefetch.py:937`, `:947` | Early returns and a run of `continue` filters drop figure candidates with no row, including protection exclusions. |
+| S8 | `src/learnloop/figures/prefetch_model.py:465`, `:469` | The reason string, including "no measured build latency", isn't stored. |
+| S9 | `src/learnloop/figures/prefetch.py:1279` | Build stoppages go to in-memory notes. |
+| S10 | `src/learnloop/figures/spec.py:842` | A shape repair leaves no note. |
+| S11 | `src/learnloop/decider_judgments.py:255`, `:279` | A disabled Decider leaves no row; a failed call keeps no exception text. |
+| S12 | `src/learnloop/router/decisions.py:100` | On a head mismatch, the offer is published unlogged. |
+| S13 | `src/learnloop/db/stores/router.py:140`, `src/learnloop/daily_plan/engine.py:977` | A refused decision row is a log line while the behaviour still applies. |
+| S14 | `src/learnloop/followup_run/router.py:127` | The logged causal check's failure becomes `{}`. |
+| S15 | `src/learnloop/scheduling/scheduler.py:1343` | Candidates skipped with no reason. |
+
+### 4.3 Partial provenance mechanisms and the breaks between them
+
+| Mechanism | Grain | Differs by |
+|---|---|---|
+| `router_decisions`, `router_decision_payloads` | Decision | Broadest ledger. Payloads are pruned at 365 days (`src/learnloop/config/schema.py:4129`) |
+| `router_objective_traces` | Objective decision | Absent below mvp-0.47 and for deterministic picks (`src/learnloop/cli/router.py:311`) |
+| `router_outcomes` | Decision | Derived |
+| `prefilter_receipts`, `decision_state_receipts`, `session_receipts`, `decision_objectives`, `decision_measurement_events` | Decision or session | Serving lanes, behind switches |
+| `plan_presentations` | Served item | Link to attempts |
+| `router_decision_bindings`, `followup_workflows`, `followup_workflow_events` | Workflow | FG1 only |
+| `judgment_ledger` | Judgment | Keyed by entity and input hash, no decision id |
+| `model_call_receipts`, `agent_runs` | Call or run | Free-text `owner_kind` and `owner_id` |
+| `forecast_receipts`, `voi_forecasts` | Forecast | Free-text decision ref |
+| `decision_features` | Decision type plus id | No foreign key, older |
+| `followup_value_decisions` | Source attempt | No router id |
+| `causal_probe_decision_receipts`, `causal_discriminating_observations` | Causal factor | Causal ids only |
+| `ad_selections` | Slot | Links to `router_decision_id` |
+| `figure_prefetch_decisions` | Candidate | Own ledger |
+| `router_suggestion_responses` | Offer | Links to the decision |
+| `scheduler_slates`, `scheduler_slate_candidates`, `scheduler_explanations` | Slate | Good alternatives and scores, but no exclusions (no exclusion or reason column) |
+| `interaction_events` | Event | Not decisions |
+
+**The closest chain.** FG1: `practice_attempts.id` to `followup_workflows.source_attempt_id` to `decision_id` to `router_decisions.id` to bindings to presentation to attempt to `router_outcomes`. For a plan: `router_decisions.id` from `plan_presentations.router_decision_id` from `practice_attempts.plan_presentation_id`.
+
+**The breaks:**
+1. A plan decision names no triggering attempt. The attempt is only hashed into the key (`src/learnloop/daily_plan/router_chooser.py:428`, `src/learnloop/daily_plan/objective_chooser.py:1225`).
+2. Model calls happen before the decision's id exists (`src/learnloop/daily_plan/objective_chooser.py:1371`). Their receipts hold the boundary key, joined only through JSON. On a Nov 3 copy, a direct join on the decision id found none of the router's receipts, which confirms the break from data.
+3. Pending reads have no id.
+4. `decision_receipt_id` is overloaded: the learner lane passes a causal receipt id (`src/learnloop_sidecar/handlers/remediation.py:191`), FG1 passes a router decision id into the same field (`src/learnloop/followup_run/jobs.py:431`, `src/learnloop/followup_run/admission.py:417`).
+5. Learner-lane probes have no router row at acceptance.
+6. Follow-up value, judgments, decision features and pre-builds have no router column.
+
+**The entry points today.**
+- `learnloop why` takes a practice item only, covers the scheduler only, and runs `sync_vault_state` and `run_startup_maintenance` first, so it isn't a pure read (`src/learnloop/cli/app.py:2407`).
+- `learnloop router trace` is read-only and good, but covers objective decisions only (`src/learnloop/cli/router.py:311`).
+- `trace-evidence` covers evidence (`src/learnloop/cli/app.py:1841`).
+- The learner-facing "why" is a sentence (`src/learnloop/router/why.py`).
+
+### 4.4 Nov 3 items 1-4
+
+**Item 1, deciding.** `decide_probe` has two call sites: authoritative on the repair lane (`src/learnloop/diagnosis/causal_orchestrator.py:1735`), and logged only with fixed zero inputs on FG1's lane (`src/learnloop/followup_run/router.py:111`, inputs at `:115`). `causal_repair_status` has four callers (`src/learnloop/diagnosis/followups.py:1066`, `src/learnloop/diagnosis/causal_orchestrator.py:2317`, `src/learnloop/diagnosis/remediation.py:154`, `src/learnloop_sidecar/handlers/remediation.py:170`). `accept_probe_offer` has two (`src/learnloop_sidecar/handlers/remediation.py:191`, `src/learnloop/followup_run/admission.py:417`).
+
+| Question | Causal lane | Router or other |
+|---|---|---|
+| Probe at all | `probe_now` versus skip verbs | FG1 arms |
+| When | Offered at feedback, no draw | `insert_now` versus `continue_current` |
+| Worth the minutes | `skip_burden_exceeds_value` | Q-bar with minutes, `voi_stopping`, follow-up value |
+| Session budget | `defer_session_budget` | Plan minutes, stop arm |
+| Burden | `defer_recent_burden` | Coin and price, with no shared rule |
+| Hard refusals | Preference, machine checks, episode conflict | The same functions (`src/learnloop/followup_run/router.py:76`) |
+| Repair | `RemediationBlocked` holds repair (`src/learnloop/diagnosis/remediation.py:163`) | The router has no arm |
+
+A sixth path picks probe versus practice (`src/learnloop/followup_run/lanes.py:59`), and scheduler EIG reads the episode posterior (`src/learnloop/scheduling/scheduler.py:2688`). **Sev: high.** Six sites answer "should we probe?".
+
+**Item 2, measuring.** One record of each fact:
+
+| Table | Written at | Facts that overlap | Unique |
+|---|---|---|---|
+| `causal_probe_decision_receipts` | `src/learnloop/diagnosis/causal_orchestrator.py:1467` | factor and attempt; EIG (`probe_presentations`, different computation); burden minutes (trace); preference events; candidate ids (`probe_presentations`); verb (router's observational field, value verdict) | Formula and EVSI provenance |
+| `causal_discriminating_observations` | `src/learnloop/diagnosis/causal_orchestrator.py:2604`, `:2778` | attempt and presentation; features (`probe_observations`, grading evidence); independence (discount in `probe_observations`); support (diagnosis receipt) | Which prediction was confirmed |
+| `causal_probe_preference_events` | `src/learnloop/diagnosis/causal_orchestrator.py:799` | The workflow's release reason | The statement |
+| `causal_blind_prediction_bundles` | `src/learnloop/diagnosis/causal_probe_coherence.py:999` (not the orchestrator) | ids in `probe_presentations`; model in call rows | The predictions |
+| `causal_cold_verifications` | `src/learnloop/diagnosis/causal_probe_coherence.py:1961` | attempts; success (attempt score versus threshold); delayed outcome (`router_outcomes` R_cold, a separate rule) | Capability and repair updates |
+| `causal_cold_outcomes` | `src/learnloop/diagnosis/causal_orchestrator.py:3144`, `src/learnloop/diagnosis/remediation.py:780` | coldness receipts; `forecast_receipts`; `decision_measurement_events` vocabulary | Non-measured dispositions |
+
+`decision_features`, `router_outcomes` and `forecast_receipts` share no row with the first table. **Sev: medium.** The overlap is by fact, not by row.
+
+**Item 3, two belief updates.**
+
+| | Episode posterior | Discriminating observation |
+|---|---|---|
+| Function | `src/learnloop/diagnosis/probe_episodes.py:1869`, `:2074` | `src/learnloop/diagnosis/causal_probe_coherence.py:1144`, `src/learnloop/diagnosis/causal_orchestrator.py:2488`, `:2642` |
+| Rule | L_w = w·L + (1-w)·Σπ(h)L(h); π'(h) ∝ π(h)·L_w(h) | Exact key match to the pinned bundle; score 1 if matched, 0 for other measured; no prior or likelihood |
+| Stored | `probe_observations` before and after; recomputed at each read | `support_scores`, `resolved_factor` |
+| Read by | `src/learnloop/instructional/valuation.py:215`, `src/learnloop/scheduling/scheduler.py:2688`, `src/learnloop/source_retrieval/passage_cues.py:392`, others | below |
+
+**They can disagree, and nothing reconciles them. Sev: high.**
+- Different evidence models.
+- Different sets: commissioning locks with support scores (`src/learnloop/diagnosis/causal_probe_commissioning.py:669`), while `enter_episode` locks again without them (`src/learnloop/diagnosis/probe_episodes.py:296`), and each insert mints a new id (`src/learnloop/db/repositories.py:7767`).
+- Independence is a refusal in one and a discount in the other.
+- Held grades are checked in the first (`src/learnloop/diagnosis/probe_episodes.py:1926`); no held check was seen in the second.
+
+**Correction to the brief's list:** `instructional/valuation` reads the episode posterior, not the discriminating observations.
+
+**Item 4, what logs can't replace.** These guarantees need rows written before the answer:
+- bundles: `src/learnloop/diagnosis/causal_probe_coherence.py:999`, reached from `src/learnloop/diagnosis/causal_probe_commissioning.py:587` and `src/learnloop/followup_run/admission.py:354`, before acceptance at `:417`; migration 121 forces `generated_without_observation = 1`;
+- the pin of ids: `src/learnloop/diagnosis/causal_orchestrator.py:2186`;
+- the locked set: `src/learnloop/diagnosis/causal_probe_coherence.py:836`;
+- the posterior at selection, in `probe_presentations`.
+
+Readers of the discriminating observations:
+- `src/learnloop/diagnosis/scoreboard.py:1328`
+- `src/learnloop/diagnosis/failure_triage.py:439`
+- `src/learnloop/diagnosis/causal_health.py:285`
+- `src/learnloop/evsi_calibration/live_report.py:723`
+- `src/learnloop/diagnosis/causal_factor_deferral.py:351`
+- `src/learnloop/router_objective/picks.py:82`
+- `src/learnloop/ops/capture_report.py:285`
+- `src/learnloop/db/stores/hypothesis_marks.py:167`
+
+### 4.5 The four real cases and a sample of past bugs
+
+**All four real cases postdate the only permitted copy (Nov 3, mvp-0.43), so none could be tried against stored records.** The rows don't exist there. The Nov 3 copy also has no `router_objective_traces`, `prefilter_receipts` or `followup_workflows`. The answers below come from reading what the code stores, not from querying the events themselves. They're unverified against the real rows.
+
+| Case | What the code stores | Answerable from stored data alone? |
+|---|---|---|
+| **Nov 7, router LLM answers discarded by the 8 s timeout** | `router_decisions`: `fallback`, null LLM model id, `detail_json.router.fallback_reasons.llm='timeout'`, `mixture.models.llm` with status `timeout`, error "no answer within the budget", `waited_ms`, `boundary_key`. `router_objective_traces`: `llm_status='timeout'`. No LLM payloads. `model_call_receipts`: owner = the boundary key, with `output_text` once the call finished. No log line. | **Partly.** That a timeout happened: yes. What the late answer said: only by a manual JSON join from the decision to the receipt. The 8 s isn't on the row. A read that deferred writes no decision. |
+| **Nov 8, offer withdrawn with `forced_items`** | `router_suggestion_responses`: `expired`, `{withdrawn: forced_items, block_id}`. `attention_block_events`: `block_ended`, reason. The next decision's `detail.forced[]`. The workflow's rows for the probe. No log line. | **Partly.** The reason word: yes. Which probe forced it: only by time-ordering, because no id links them (`src/learnloop/daily_plan/lesson_offer.py:370`). |
+| **Nov 8, figure stored failed for a bad prediction** | `interactive_figures`: `verification='failed'`, null spec, `verification_report_json.reason` (first problem, at most 300 chars), `structural` (at most 12), prompt version, model, input hash. `judgment_ledger`: verifier, `failed`. Call rows per attempt with raw output. | **Largely, by reading text.** "Bad prediction" isn't typed. Attempt 1's problems survive only in attempt 2's prompt, if input was kept (not checked for this route). |
+| **Why automatic pre-builds started after 12 skips** | `figure_prefetch_decisions`: `skip` rows with null EU and propensity 0, then `build` rows with positive EU, and a posterior digest. | **No, only by reconstruction.** The owner's "never explained" stands. **No counter or threshold of 12 exists in the code**: there's no such constant in `src/learnloop/figures/prefetch.py`, `prefetch_ledger.py` or `prefetch_model.py`. From code: with no measured latency, every decision is a skip with reason "no measured build latency", and that reason isn't stored (`src/learnloop/figures/prefetch_model.py:465`). Once a press or a completed `figure_author` call is measured (`src/learnloop/figures/prefetch_ledger.py:241`), `waits` isn't `None`. With blocked minutes unmeasured, cost is 0, so EU = p_open·wait > 0 and every draw builds (`src/learnloop/figures/prefetch_model.py:448`). So "12" would be how many candidates were skipped before the first measurement, not a rule. That's a hypothesis from code, not checked against the rows. The filter `owner_kind NOT LIKE 'prefetch%'` may not exclude pre-builds, if their owner kind is the task name (`src/learnloop/figures/routes.py:552`); not verified. |
+
+**Past bugs tried on the Nov 3 copies.** Only outcomes are given here. Counts are in the private file.
+
+| Past bug or question | Tried | Outcome |
+|---|---|---|
+| Why was this item served? (the shape of `docs/reviews/daily-loop-bugs.md` bug 2) | From an attempt with a slate: `scheduler_slate_id`, then its `scheduler_slate_candidates` | **Answered for alternatives and scores:** every candidate has priority, reward, predicted correctness and components. **Not for exclusions:** no column names why an item never reached the slate, which was this bug's actual question. |
+| "The scheduler offer does not belong to this item/session" (`docs/reviews/owner-capture-2026-10-25-fixes.md`, B4) | Looked for a stored rejection | **No.** It raises `ValueError` (`src/learnloop/db/repositories.py:19244`) and nothing stores the refusal. |
+| "Choosing a help style changed nothing" (same review, B2: no Decider routed) | `help_assists.chooser`, `judgment_ledger` | **Not answerable on these copies:** they hold no such rows, and `decider_judgments` returns without a row when disabled (S11), so "no Decider routed" leaves no trace by construction. |
+| A router decision that fell back to a rule | `router_decisions.fallback`, payloads, outcome on `probability` | **Partly.** The decision, candidates, seed, card, requests and outcome are present. Joining to its call rows by decision id finds none (break 2). The copy's failed call rows keep an error type but no message or output. |
+| Grader tests failing at a date (`docs/reviews/fix-grader-date-nov1.md`) | n/a | **Can't be tried.** It's a test-only bug with no stored data. |
+
+### 4.6 Findings
+
+| ID | Sev | Finding |
+|---|---|---|
+| O1 | high | No common trace id, and the only joins from a model call to its decision go through JSON. |
+| O2 | high | The failure paths are where records stop: S1, S2 and S3 lose exactly the cases the owner has had to debug. |
+| O3 | high | Exclusions are mostly unrecorded outside AD's selection and the staged frame: S7, S15, and the scheduler's slate has no exclusion column. |
+| O4 | medium | Inspection tools are per-subsystem, and `learnloop why` writes before it reads. |
+| O5 | medium | Reasons are often free text or capped, so "why" needs a human reading. |
+| O6 | medium | Storage-wise: payload pruning at 365 days means "why" on old decisions keeps only a hash. |
