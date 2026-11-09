@@ -349,3 +349,118 @@ Each finding was reproduced first with the review's `test_S*` cases, and each fi
 ## The owner's decisions on what was left open (Nov 9)
 
 The five questions both reviews left for the owner were decided on Nov 9. Spec §1 holds the owner's words and §8 rows 4-8 the outcomes. `w_pref` acts as built, and the owner watches it in the data-capture report. A lesson asked for with "learn this" reads IH7's sections from the latest diagnosed miss on its topic (§7c). An open Reader problem holds reads with no session open, but only if it was touched on the plan's day (§7b). The `cold_failing` gate is removed: any missed cold check since the last lesson makes a candidate, under its own switch, and §7d states what the numeric policy and the card can and can't see of a slip. A replacement skips the ceiling, as built.
+
+## Third review (owner decisions)
+
+**Tip reviewed:** `17684910a7` on `instruct/handoff`, the stage `git diff 3b6c18e70b 17684910a7 -- src apps tests` (decisions 2, 3 and 4).
+
+**Result:** no blockers, 3 major, 5 minor. M1 and M2 are code fixes. M3 is the spec's §7d claim, which the owner will rely on and which is wrong as written. m5, the flaky test, will sometimes fail the landing gate's full suite, so fix it before landing.
+
+Reproductions are in `/tmp/ihreview3/py/` (scratch, not committed): `test_repros3.py` (R1-R5) and `test_flake.py`. They run like the earlier reviews' repros, with fakes and no model call.
+
+### Major
+
+#### M1. "Learn this" on feedback reads an older miss while the latest one's diagnosis is still being written, and the record doesn't say so
+
+`src/learnloop/teacher/diagnosed_sources.py:317-341` (`_latest_diagnosed_miss`), called at `:373`.
+
+**What goes wrong.** The owner's words are "use the latest miss on that topic". The code instead takes the latest attempt that already has a live diagnosis in force. "Learn this" is offered on the feedback screen, right after the miss. The lesson opens at once, without waiting for the diagnosis (§3a: the serve waits for it, the lesson doesn't). So in the main use of decision 2, the answer the learner is looking at usually has no diagnosis yet, and the lesson reads whichever earlier miss on the topic was diagnosed. There is no age bound: it can be weeks old, on another item, with a confusion that has since been settled (a validated hypothesis whose misconception was resolved still counts). The preference row already names the attempt the learner was looking at (`router_learner_preferences.attempt_id`, written by `learner_action.choose`), but nothing reads it. §7c labels this as a limit and says "the record names which attempt it read". That is true, but the record never says that a newer miss was passed over.
+
+**Verified.** R1: a diagnosed miss from a month earlier, then the latest miss with its live diagnosis job still `queued`, then a preference naming that latest attempt, then the lesson opens. The result is `status added`, `miss.attempt_id` = the month-old attempt, and the latest attempt's id appears nowhere in the record.
+
+**Fix.** Use the preference's `attempt_id` when there is one, and the latest attempt on the topic when there isn't. Don't read a score to decide this. If that attempt's diagnosis is pending, record `PENDING` as the router path does (`_why_no_diagnosis`), and optionally follow again once it lands. Skip an attempt only when it has no diagnosis row at all, which is what a correct answer looks like. At the very least, add a `passed_over` list (attempt id and why) to the record.
+
+#### M2. "Since the last lesson" counts the lesson's own probe misses, so a lesson's placement miss makes its topic a candidate again as soon as it closes
+
+`src/learnloop/daily_plan/lesson_suggestion.py:145` (`missed_since`) against `lessons.opened_at` (`db/stores/router_suggestions.py:230`).
+
+**What goes wrong.** TE2's in-lesson probes are recorded as `diagnostic_probe` attempts (`teacher/probes.py:49`). That is a cold type (`lesson_weight.COLD_ATTEMPT_TYPES`), and the attempt is unprimed with no hints. The boundary is when the lesson opened, so a probe missed while the lesson is open is "a missed cold check since the last lesson". When the lesson closes, the topic is immediately `cold_missed`, and its offer says "A recent check on it didn't come out right.", about a question the lesson asked in order to place the learner. `_cold` also ignores `diagnostic_exposure`, so a probe answer the system itself records as not independent (asked after the lesson showed text) still counts. The predecessor had the same boundary, but it needed two cold misses in a row. Now one placement miss is enough, and placement probes exist to find what the learner doesn't know.
+
+**Verified.** R2: a right answer, then a lesson, then a `diagnostic_probe` attempt scored 0 five minutes into it, then the lesson closes. On: `lo_det: cold_missed`. Off: no candidate. The `diagnostic_probe` type was set on the row directly; the probe's real writer was not run.
+
+**Fix.** Measure from the lesson's close (`coalesce(closed_at, opened_at)`; an open lesson already excludes its LO), or leave out attempts made while the lesson was open. Also decide whether an answer recorded as not independent is cold. Add a test for each.
+
+#### M3. Spec §7d's central claim is wrong as written
+
+`docs/specs/spec_instruct_handoff_v1.md:290-292`. See "Verdict on §7d" below. In short, the lesson offer's value can't tell a slip from a gap at the same grade, but the support it competes in can: after a gap, a repair block on the topic is a candidate, and after a slip it isn't. The claim should be narrowed before the owner relies on it.
+
+### Minor
+
+**m1. The reason's words aren't true for every `cold_missed` candidate.** `lesson_suggestion.py:73`, `:218`.
+- A cold check at 0.8 or above but below 1.0 is a success to AD, and the LLM's card calls it `correct` (`adaptive_difficulty/outside.py:160`). Yet the offer row beside it says the check "didn't come out right". R3: 0.9 gives `cold_missed` and the card says `correct`.
+- With no recency, "recent" is false too. R4: one miss 200 days ago with ten right answers since is still `cold_missed`.
+- Candidacy never lapses short of a lesson, and any partial credit counts. Over time the pool therefore approaches "every practised topic", which weakens §7d's own reason for choosing "missed" over "attempted".
+
+Fix: words that hold for every case (for example, "A check on it since your last lesson wasn't fully right."), and say in §7d that the pool grows this way.
+
+**m2. A topic below its band that also has a miss is relabelled `cold_missed`.** `lesson_suggestion.py:218-226`. The branch order hands such a topic to `cold_missed`. It then loses its `band` record and reads `reason_cold_failing` in place of `reason_below_band`, so its `P(accept)` and its words change. Under the predecessor this happened only after two misses in a row; now one partial answer is enough. This is from the code: AD's subject view isn't live in the fixture. Fix: document the precedence in §7d, or record both reasons.
+
+**m3. A preference id is accepted for any later lesson on its topic.** `diagnosed_sources.py:301-314`. Nothing ties a preference to one lesson or checks its age. R1b: the same id gives `added` five minutes later and again two weeks later. Today only `lessonEntryFor` sends it, so the harm is low. Fix: accept a preference for the first lesson it opens only, or record its reuse.
+
+**m4. Decision 3's day boundary is an hour off on daylight-saving change days.** `daily_plan/engine.py:612-617`, now read at `:5119`. `astimezone()` takes today's UTC offset, and `replace(hour=0)` applies it to midnight. Under `TZ=America/New_York`, Nov 1 2026 gives `05:00Z` where midnight was `04:00Z`, and Mar 8 2026 gives `04:00Z` where it was `05:00Z`. A Reader problem touched in that hour is counted on the wrong day. The function is inherited. Fix: `datetime.combine(local_now.date(), time()).astimezone()`.
+
+**m5. The IH4 twin tests are unsound.** See "The flaky test" below.
+
+### Verdict on §7d
+
+**Refuted as written. True in a narrower form: "a slip and a gap at the same grade give the lesson offer the same value, and the support it competes in differs."**
+
+What holds:
+- **Which candidate becomes the offer.** TE1b's staged value picks it (`LS.score`: `log P(accept) + log(1 − p)`, ties by ref). `P(accept)` reads the reason, which is one effect for every cold miss, plus the context and the declines. `p` comes from the mastery EKF, whose reliability weight is assistance.
+- **The offer's numeric value.** It reads AD's posterior (ordinal categories at 0.8 and 0.4), `γ`, the mass and TE3a's curve.
+- **No diagnosis reaches either.** Nothing in `adaptive_difficulty` (outside its table-classification modules), `learner/mastery.py`, `router_objective/value.py`, `daily_plan/objective_inputs.py` or `router/lesson_suggestions.py` reads `causal_hypotheses`, `attempt_diagnoses`, `cause_scope`, error type or severity. `router_objective/decision_state.py` reads misconceptions for its receipt only.
+
+What fails:
+- **The support depends on the diagnosis's causal class.** With the diagnosis split on, `engine._open_problems` (`engine.py:1097`) takes `open_diagnosed_problem_learning_object_ids` (`db/stores/daily_plans.py:318`). That counts only `cause_scope = 'learner_state'` hypotheses, plus open unresolved-cause factors.
+- **The repair lane follows from it.** `lanes.py:269-270` puts the topic's previously attempted items in the repair lane only then, and `objective_inputs.py:646` values a repair block as `V.REPAIR`.
+- **The LLM sees it too.** The LLM's option for that block reads "Another go at something still unclear in {topic}." (`router/why.py:32`).
+- **Reproduced.** R5, the same 0.75 answer on the same topic: diagnosed `learner_state`, the repair-lane LOs are `['lo_regions']`; diagnosed `transient_execution`, they are `[]`. So after a gap the lesson competes with a repair block on the topic, and after a slip at the same grade it doesn't. Numeric's argmax and the LLM's options can differ.
+- **The spec's framing.** §7d mentions this only as "staged's repair lane". In fact it is the support that staged's top-k, numeric and the LLM all choose from.
+- **Not run end to end.** I didn't run it through a full decision. Whether the block reaches the support also depends on the scheduler's eligibility and staged's top-k.
+
+Corrections to the LLM paragraph:
+- **Probe and exam answers.** For `diagnostic_probe` and `exam_attempt`, both cold types, the card shows the result only, with no stem and no answer (`history_card.py:26-29`). So "the LLM can see a slip in the answer itself" doesn't hold for them. That includes every follow-up probe after a miss.
+- **Result buckets.** The card calls 0.8 and above `correct` (m1).
+- **No reference solution.** The card carries none, so a slip is visible only where the stem excerpt and a 300-character answer excerpt show it.
+
+### The flaky test
+
+**The builder's explanation is wrong, and the test is unsound.** `tests/test_ih4_preferences_inform_router.py:459-467` runs with no models (`fake_runtime` with no decider or LLM). On that path the numeric policy runs on the calling thread with a 40 s deadline and no `keep_going` (`objective_chooser.py:1376`). It completes one batch of 8 draws for every decision on both twins: every trace says `precision.draws = 8`, with or without load. A deadline could only cut the first batch (`complete = False`), which would fail differently.
+
+**The cause is RO6's deferred carried valuation.** In the no-model branch, `_defer_carry` starts a daemon thread after each serve (`objective_chooser.py:1407-1414`). The next decision records the valuations that have landed (`_carried_for`), and its residual fit reads them. Whether the thread finishes before the next decision is a race. Even unloaded, decision 2 misses decision 1's carry and decision 3 picks up two.
+
+**Reproduced.** `test_flake.py::test_slow_carry_thread_in_one_twin` delays only one twin's carry thread by 4 s, with draws still 8. Decision 4 then differs at `residual.fit.coef` and at every candidate's `v_residual` (0.0 against −0.70). `test_w_pref_at_zero_changes_nothing_bit_for_bit_with_preferences_on_record` (`:500`) has the same run and comparison, so it is exposed the same way. I didn't run that one.
+
+**How to pin it.** Pinning the draw count won't help. Run the carry inline in these tests: a `threading.Thread` subclass whose `start()` calls `run()` for the thread named `learnloop-objective-carried`, monkeypatched for the run, or join that thread after each serve. Verified with `test_slow_carry_with_the_carry_drained_inline`: with the same one-twin delay, the numbers are equal. Dropping `residual` from `_numbers` would also stabilize the test, but it would stop checking what the test claims. In serving, this timing dependence is RO6's by design and is recorded in each trace, so replay stays exact. It isn't this stage's defect.
+
+### Checked and found sound
+
+- **Decision 4's condition.**
+  - `missed_since` asks only whether a cold check since the lesson was below 1.0. There is no count, slice, severity, error type or stuck flag, and the attempts it reads carry none.
+  - The acceptance model maps `cold_missed` to the existing `reason_cold_failing` effect. The prior and its centre (0) are unchanged.
+  - Old rows replay unchanged: `observations` rebuilds each candidate from its stored `reason`, and `cold_failing` sets the same term as before.
+  - `REASONS` has no other consumer.
+  - Off and below the tag, the branch is the predecessor's expression verbatim.
+  - Declined, superseded and `never_shown` offers don't reset "since" and are never read as declines (`expired`).
+  - The tag-only gate reaches TE1b's daily card and IH3's option, as §7d says.
+- **Decision 2's scope.**
+  - The lesson's topics must equal the preference's one LO exactly. So another topic's miss can't be read, and `add_topics` makes the check fail (fail closed).
+  - Unknown, missing or non-lesson ids give `NO_REQUEST`.
+  - The service drops the id for a selection, a typed goal or a suggestion's Start, and so does the sidecar.
+  - `LessonScreen` forwards the id only from `lessonEntryFor`, and the phone has no lesson path.
+  - The found attempt passes `PastWork.attempt_reason`, so a probe or exam attempt ends the search rather than being skipped. `analysis_md` stays unread, and the Library scope is unchanged.
+- **Decision 3.**
+  - With no session open, only `origin = 'reader'` problems hold, and one from an earlier day holds nothing until it is worked again.
+  - A serve still decides. `TodayPlace.begin()` with no session starts one and serves.
+  - Once a session starts, membership is the session's.
+  - The gate returns None before reading anything when off or below the tag.
+- **Runs.**
+  - pytest: `test_ih_lesson_candidate_after_cold_miss`, `test_ih7_*` and `test_ih6_*` (93 passed); `test_ih5_successor`, `test_teacher_te1b_suggestions` and `test_te3b_offers` (62 passed).
+  - vitest: `LessonScreen`, `SomethingElse` and `FeedbackScreen.somethingElse` (34 passed).
+  - `lint-imports`: 43 kept, 0 broken.
+
+### Could not check
+
+- How often the diagnosis is still pending when "learn this" is tapped (M1), and how often TE2 probes are missed before the teaching rather than after it (M2). No vault or real log was read.
+- R5 through a full objective decision, and the flake under real CPU load. I used a deterministic delay instead of loading the shared desktop.
+- Anything in a running app, the durability lane, or the full suite.
