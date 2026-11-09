@@ -19,6 +19,10 @@ import pytest
 from learnloop.adaptive_difficulty import priors as P
 from learnloop.sim import ad_gates as G
 
+# Full runs at the pre-registered n: the slow lane, in every landing gate. tests/test_ad23_sim_smoke.py runs each
+# scenario small while iterating.
+pytestmark = pytest.mark.slow
+
 FAILED_GATE = "pre-registered gate fails (docs/reviews/adaptive-difficulty-ad23.md §3): "
 #: Owner decision 2026-10-19 (the review's §3.4): the successor merges with these gates kept as
 #: monitors, their strict xfails staying with the figures; ``calibrate_below`` is 0.25 (amendment
