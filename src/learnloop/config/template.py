@@ -4159,6 +4159,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # learner_preferences (default true), in every snapshot and inert below the tag; false has no link and writes nothing.
     # Instruct hand-off IH6 (§7b) shares it too: [router_objective] workbench_is_open_item (default true), in every
     # snapshot and inert below the tag; false lets a read of the plan cross a boundary under an open workbench, as mvp-0.54.
+    # Instruct hand-off IH7 (§7c) shares it too: [router_objective] lesson_sources_follow_diagnosis (default true), in every
+    # snapshot and inert below the tag; false leaves a lesson's brief byte-identical to mvp-0.54's.
     "mvp-0.55": "4cb087a3be28237d7bb361e52b5bdf6af8b90f73c265968410a564e24b423859",
 }
 

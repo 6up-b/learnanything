@@ -693,9 +693,12 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     # The protection state the brief is built under (ruling R1): read before and after building it, so a
     # change while it is built never stands recorded as the brief's.
     before = protection_state(vault, repository)
+    # IH7: filled only while its switch is on and the lesson is a suggestion's or an offer's (the open turn keeps it).
+    follow_record: dict[str, Any] = {}
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
                               selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
-                              notes_provider=your_notes, notes_check=notes_still_deliverable, te2=te2)
+                              notes_provider=your_notes, notes_check=notes_still_deliverable, te2=te2,
+                              origin=origin, origin_ref=origin_ref, follow_record=follow_record)
     if typed is not None:
         brief["goal"]["typed"] = typed.goal
     protection = protection_state(vault, repository, brief)
@@ -718,7 +721,9 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
             "route": getattr(client, "provider_name", None), "model": _model_name(client),
             "algorithm_version": vault.config.algorithms.algorithm_version, "opened_at": now})
         store.append_turn(connection, lesson_id=lesson_id, actor="code", action="open", validation="ok",
-                          refs={"selection": selected}, payload={"brief": brief, "book": book.as_dict(), "protection": protection},
+                          refs={"selection": selected},
+                          payload={"brief": brief, "book": book.as_dict(), "protection": protection,
+                                   **({"sources_follow": follow_record} if follow_record else {})},
                           created_at=now)
     if typed is not None and typed.created:
         _record_goal_los(vault, repository, lesson_id, typed.created, clock=clock)

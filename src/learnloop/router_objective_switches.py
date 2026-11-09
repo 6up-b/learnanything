@@ -394,6 +394,16 @@ def workbench_is_open_item_on(config: Any) -> bool:
         getattr(section, "workbench_is_open_item", False))
 
 
+def lesson_sources_follow_diagnosis_on(config: Any) -> bool:
+    """IH7 (spec_instruct_handoff_v1 §7c, the same unreleased tag as IH5): a lesson opened from an offer or a suggestion
+    reads the sections matching the diagnosed confusion beside the topic's linked ones: the tag and ``[router_objective]
+    lesson_sources_follow_diagnosis`` (default true). It needs no objective: it changes what a lesson reads, never what
+    the router decides. Off, or below the tag, the brief is mvp-0.54's, byte for byte."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and bool(getattr(section, "lesson_sources_follow_diagnosis", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -436,6 +446,7 @@ __all__ = [
     "pick_open_share",
     "stop_coin_rate",
     "workbench_is_open_item_on",
+    "lesson_sources_follow_diagnosis_on",
     "known_at",
     "objective_on",
     "objective_scores_on",

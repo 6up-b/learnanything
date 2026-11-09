@@ -4226,6 +4226,11 @@ class RouterObjectiveConfig(BaseModel):
     Instruct hand-off IH6 (the same tag, spec_instruct_handoff_v1 §7b): ``workbench_is_open_item``: while a workbench
     problem of the plan's current practice session is open, a read of the plan writes no decision and starts no job, and
     says a question is in progress; an explicit step still decides. Off, or below the tag, reads as mvp-0.54's.
+
+    Instruct hand-off IH7 (the same tag, spec_instruct_handoff_v1 §7c): ``lesson_sources_follow_diagnosis``: a lesson opened
+    from an offer or a suggestion with a recent miss on its topics also loads the source sections matching the diagnosed
+    confusion, beside the topic's linked ones. It changes what a lesson reads, not what the router decides. Off, or below
+    the tag, the brief is byte-identical to mvp-0.54's.
     """
 
     receipts: bool = True
@@ -4364,6 +4369,10 @@ class RouterObjectiveConfig(BaseModel):
     #: plan doesn't cross a boundary, or start its job, under one; Next, Begin and Continue still decide. Off: reads as
     #: mvp-0.54.
     workbench_is_open_item: bool = True
+    #: Instruct hand-off IH7 (mvp-0.55): a lesson opened from an offer or a suggestion with a recent miss on its topics
+    #: loads the sections matching the diagnosed confusion beside the topic's linked ones (the owner's decision of Nov 8).
+    #: Keyword retrieval only, no model call. Off: the brief is mvp-0.54's, byte for byte.
+    lesson_sources_follow_diagnosis: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

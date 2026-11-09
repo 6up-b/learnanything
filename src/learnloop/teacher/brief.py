@@ -46,6 +46,7 @@ from learnloop.adf_numeric import sigmoid
 from learnloop.attempts.grading_admission import estimated_prompt_tokens
 from learnloop.learner.lesson_weight import predicted_success
 from learnloop.teacher.contracts import BRIEF_VERSION
+from learnloop.teacher.diagnosed_sources import OVER_BUDGET, TOPIC_FILLS_BUDGET
 from learnloop.teacher.doctrines import doctrine_identity
 
 #: How a header shows a long prompt (a size bound: the text comes through the actions).
@@ -667,29 +668,77 @@ def _section_refs(vault: Any, library: Any, learning_object_ids: Sequence[str],
     return refs
 
 
+def _whole_entry(library: Any, book: SourceBook, extraction_id: str, section_id: str,
+                 ) -> tuple[dict[str, Any], int] | None:
+    """One section's model-safe passages and their tokens, registered in ``book.sections`` (None: unreadable or
+    withheld). The one reading of a section whole; the primaries and IH7's added sections both go through it."""
+
+    reading = library.reading(extraction_id)
+    section = library.section(extraction_id, section_id)
+    if reading is None or section is None or section_id in reading.withheld:
+        return None
+    ref = f"{extraction_id}/{section_id}"
+    blocks = []
+    for span in section.span_ids:
+        text = str(reading.texts.get(span) or "").strip()
+        if not text:
+            continue
+        blocks.append({"span": span, "text": text})
+    tokens = estimated_prompt_tokens("\n".join(block["text"] for block in blocks))
+    book.sections[ref] = {"extraction_id": extraction_id, "section_id": section_id, "title": section.title,
+                          "source_title": section.source_title}
+    return {"ref": ref, "title": section.title, "source": section.source_title, "blocks": blocks}, tokens
+
+
 def _render_sources(library: Any, book: SourceBook, primaries: Sequence[tuple[str, str]],
-                    outline_only: Sequence[tuple[str, str]], budget_tokens: int) -> dict[str, Any]:
+                    outline_only: Sequence[tuple[str, str]], budget_tokens: int,
+                    extras: Sequence[tuple[str, str]] = (),
+                    extras_out: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Whole sections (model-safe passages) under the budget, else the outline; ``outline_only``
-    sections (a deliverable's alternates) are listed by title."""
+    sections (a deliverable's alternates) are listed by title.
+
+    ``extras`` (IH7: the sections matching a diagnosed confusion, in the order to try them) come after the
+    primaries and are fitted to what the primaries leave of the budget, one by one: one that does not fit goes to
+    the outline (the teacher reads it with ``read_source``), and no extra changes whether the primaries are shown
+    whole. ``extras_out`` receives each extra's outcome (``shown``: whole or outline, and why). With no extras
+    this is the predecessor exactly."""
 
     whole: list[dict[str, Any]] = []
     total = 0
     for extraction_id, section_id in primaries:
-        reading = library.reading(extraction_id)
-        section = library.section(extraction_id, section_id)
-        if reading is None or section is None or section_id in reading.withheld:
+        found = _whole_entry(library, book, extraction_id, section_id)
+        if found is None:
             continue
+        entry, tokens = found
+        total += tokens
+        whole.append(entry)
+    topic_total = total
+    outline_only = list(outline_only)
+    listed: list[tuple[str, str]] = []
+    promoted: set[str] = set()
+    for extraction_id, section_id in extras:
         ref = f"{extraction_id}/{section_id}"
-        blocks = []
-        for span in section.span_ids:
-            text = str(reading.texts.get(span) or "").strip()
-            if not text:
-                continue
-            blocks.append({"span": span, "text": text})
-        total += estimated_prompt_tokens("\n".join(block["text"] for block in blocks))
-        book.sections[ref] = {"extraction_id": extraction_id, "section_id": section_id, "title": section.title,
-                              "source_title": section.source_title}
-        whole.append({"ref": ref, "title": section.title, "source": section.source_title, "blocks": blocks})
+        found = _whole_entry(library, book, extraction_id, section_id)
+        if found is None:
+            if extras_out is not None:
+                extras_out.append({"ref": ref, "shown": "left_out", "why": "not a readable teaching section"})
+            continue
+        entry, tokens = found
+        if topic_total > budget_tokens:
+            outcome = {"ref": ref, "shown": "outline", "why": TOPIC_FILLS_BUDGET}
+        elif total + tokens > budget_tokens:
+            outcome = {"ref": ref, "shown": "outline", "why": OVER_BUDGET}
+        else:
+            total += tokens
+            whole.append(entry)
+            promoted.add(ref)
+            outcome = {"ref": ref, "shown": "whole"}
+        if outcome["shown"] == "outline":
+            listed.append((extraction_id, section_id))
+        if extras_out is not None:
+            extras_out.append(outcome)
+    outline_only = [key for key in outline_only if f"{key[0]}/{key[1]}" not in promoted]
+    outline_only += [key for key in listed if key not in outline_only]
     outline = [{"ref": f"{e}/{s}", "title": (library.section(e, s).title if library.section(e, s) else s),
                 "source": (library.section(e, s).source_title if library.section(e, s) else None)}
                for e, s in outline_only if library.section(e, s) is not None]
@@ -697,9 +746,10 @@ def _render_sources(library: Any, book: SourceBook, primaries: Sequence[tuple[st
         e, s = entry["ref"].split("/", 1)
         book.sections[entry["ref"]] = {"extraction_id": e, "section_id": s, "title": entry["title"],
                                        "source_title": entry["source"]}
-    if total > budget_tokens:
+    if topic_total > budget_tokens:
         return {"mode": "outline", "tokens": total,
-                "sections": [{"ref": w["ref"], "title": w["title"], "source": w["source"]} for w in whole],
+                "sections": [{"ref": w["ref"], "title": w["title"], "source": w["source"]}
+                             for w in whole],
                 "alternates": outline}
     rendered = []
     for section in whole:
@@ -770,12 +820,20 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
                 goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None,
                 constraints: Mapping[str, Any],
                 notes_provider: Any = None, notes_check: NotesCheck | None = None,
-                te2: bool = False) -> tuple[dict[str, Any], SourceBook]:
+                te2: bool = False, origin: str | None = None, origin_ref: str | None = None,
+                follow_record: dict[str, Any] | None = None) -> tuple[dict[str, Any], SourceBook]:
     """``(LessonBriefV1, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
     linked notes per LO; it is injected by the service (``teacher.notes``), so the brief, and the check
     minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2).
     ``notes_check`` (injected the same way): whether the notes an earlier lesson was given could still be
-    given, before its recap enters ``last_lessons`` (:func:`recap_admissible`)."""
+    given, before its recap enters ``last_lessons`` (:func:`recap_admissible`).
+
+    ``origin`` and ``origin_ref`` (the lesson's, as ``open_lesson`` records them) are read only while IH7's switch is on
+    (:func:`learnloop.router_objective_switches.lesson_sources_follow_diagnosis_on`): a lesson from an offer or a
+    suggestion with a diagnosed recent miss then also loads the sections matching the confusion
+    (:mod:`learnloop.teacher.diagnosed_sources`). ``follow_record`` is filled with the inspectable record of what
+    was added and why (empty while the switch is off or the lesson is a learner's own start); the caller keeps it
+    beside the brief. Off, the brief is the predecessor's byte for byte."""
 
     from learnloop.learner.lesson_weight import read_hedges
     from learnloop.learner_protection import withheld_items
@@ -833,8 +891,27 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
     else:
         primaries = _section_refs(vault, library, learning_object_ids, selection)
         alternates = []
-    sources = _render_sources(library, book, list(dict.fromkeys(primaries)), list(dict.fromkeys(alternates)),
-                              int(config.context.sources_tokens))
+    primaries = list(dict.fromkeys(primaries))
+    followed = None
+    if origin is not None:
+        from learnloop.router_objective_switches import lesson_sources_follow_diagnosis_on
+
+        if lesson_sources_follow_diagnosis_on(vault.config):
+            from learnloop.teacher import diagnosed_sources as DS
+
+            followed = DS.follow(vault, repository, library, origin=origin, origin_ref=origin_ref,
+                                 learning_object_ids=learning_object_ids, in_hand=primaries)
+    outcomes: list[dict[str, Any]] = []
+    sources = _render_sources(library, book, primaries, list(dict.fromkeys(alternates)),
+                              int(config.context.sources_tokens), extras=followed.extras if followed else (),
+                              extras_out=outcomes)
+    if followed is not None:
+        record = followed.settle(library, outcomes) if followed.extras else followed.record
+        if follow_record is not None:
+            follow_record.update(record)
+        entry = followed.brief_entry() if followed.extras else None
+        if entry is not None:
+            sources["from_diagnosis"] = entry
     goal: dict[str, Any] = {"text": goal_text, "learning_object_ids": list(learning_object_ids),
                             "resolved_by": dict(how)}
     if deliverable is not None:
