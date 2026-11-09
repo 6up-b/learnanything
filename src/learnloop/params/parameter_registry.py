@@ -1998,6 +1998,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch at the follow-up batch's successor mvp-0.50 (router speed item 1, Codex review F1): R9's link "
         "evaluated once per array, its values held and recomputed only where the state changed (the same values per "
         "draw; more draws within a deadline; in RO6's generator payload); off, the batch's landing code."),
+    _ConfigRule(_exact("router_objective.failure_share_to_other_policy"), "structural", "operational",
+        "kill switch for instruct hand-off IH5's successor mvp-0.55 (spec_instruct_handoff_v1 §7a): a failed policy's "
+        "share of the objective's mix goes to the other policy instead of staged (both failed: staged); off, mvp-0.54's "
+        "mix."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

@@ -4208,6 +4208,10 @@ class RouterObjectiveConfig(BaseModel):
     ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
     switch (off, or below the tag, mvp-0.49 exactly). Router speed (at the same tag): ``held_ad_link`` (off, the
     batch's landing code exactly).
+
+    Instruct hand-off IH5 (mvp-0.55, spec_instruct_handoff_v1 §7a): ``failure_share_to_other_policy``: a failed
+    policy's share of the mix goes to the other policy instead of staged (both failed: staged, as before). Off, or
+    below the tag, mvp-0.54's mix exactly.
     """
 
     receipts: bool = True
@@ -4323,6 +4327,9 @@ class RouterObjectiveConfig(BaseModel):
     #: and recomputed only where the state changed; the same values per draw, but faster, so a deadline admits more
     #: draws (part of RO6's generator payload). Off: the batch's landing code, a quadrature per read.
     held_ad_link: bool = True
+    #: Instruct hand-off IH5 (mvp-0.55): with one policy failed the other takes the whole mix (the uniform floor
+    #: kept, propensities exact), instead of staged taking the failed policy's share. Off: mvp-0.54's mix.
+    failure_share_to_other_policy: bool = True
 
     @model_validator(mode="after")
     def _mins_leave_room(self) -> "RouterObjectiveConfig":

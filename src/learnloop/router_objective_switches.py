@@ -40,6 +40,7 @@ from typing import Any
 from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_VERSIONS,
     LESSON_OFFERS_VERSIONS,
+    FAILURE_SHARE_VERSIONS,
     ROUTER_CALIBRATION_VERSIONS,
     ROUTER_FOLLOWUPS_VERSIONS,
     ROUTER_LEARNED_TAIL_VERSIONS,
@@ -334,6 +335,24 @@ def lesson_offers_on(config: Any) -> bool:
                 and getattr(teacher, "enabled", False))
 
 
+def failure_share_tag(config: Any) -> bool:
+    """Instruct hand-off IH5 (spec_instruct_handoff_v1 §7a): the vault is at the failure-share successor (mvp-0.55)
+    or later."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in FAILURE_SHARE_VERSIONS
+
+
+def failure_share_to_other_policy_on(config: Any) -> bool:
+    """IH5: a failed policy's share of the objective's mix goes to the other policy, not staged: the tag, the
+    objective serving and ``[router_objective] failure_share_to_other_policy`` (default true). Off, or below the tag,
+    mvp-0.54's mix exactly."""
+
+    section = getattr(config, "router_objective", None)
+    return failure_share_tag(config) and objective_on(config) and bool(
+        getattr(section, "failure_share_to_other_policy", False))
+
+
 def projection_switches(config: Any) -> dict[str, bool]:
     """What a whole-vault rebuild derived persisted due dates under (§5.5): whether the factor was removed."""
 
@@ -360,6 +379,8 @@ __all__ = [
     "FOLLOWUP_SWITCHES",
     "followup_generator_switches",
     "followup_switch_snapshot",
+    "failure_share_tag",
+    "failure_share_to_other_policy_on",
     "followup_on",
     "lesson_offers_on",
     "lesson_offers_tag",

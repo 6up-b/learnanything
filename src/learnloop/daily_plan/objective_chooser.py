@@ -96,7 +96,7 @@ from learnloop.router_objective import price as P
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import value as V
 from learnloop.router_objective import weight as W
-from learnloop.router_objective_switches import stop_coin_rate
+from learnloop.router_objective_switches import failure_share_to_other_policy_on, stop_coin_rate
 
 LOG = logging.getLogger(__name__)
 
@@ -127,7 +127,11 @@ def objective_settings(config: Any) -> dict[str, Any]:
     (landing ruling R12, ``followup_switch_snapshot``), so a flip between a prefetch and its serve starts a new job;
     below the tag the key keeps its predecessor's bytes."""
 
-    from learnloop.router_objective_switches import followup_switch_snapshot
+    from learnloop.router_objective_switches import (
+        failure_share_tag,
+        failure_share_to_other_policy_on,
+        followup_switch_snapshot,
+    )
 
     section = config.router_objective
     out = {key: getattr(section, key) for key in (
@@ -139,6 +143,10 @@ def objective_settings(config: Any) -> dict[str, Any]:
     snapshot = followup_switch_snapshot(config)
     if snapshot is not None:
         out["followup_switches"] = snapshot
+    # IH5: where a failed policy's share goes serves at the decision, but the key names it too, so a flip between a
+    # prefetch and its serve starts a new job; below the tag the key keeps its predecessor's bytes.
+    if failure_share_tag(config):
+        out["failure_share_to_other_policy"] = failure_share_to_other_policy_on(config)
     return out
 
 
@@ -961,6 +969,13 @@ def _offer_trace(candidate: BlockCandidate, valued: Any, action: Any, inputs: An
     }
 
 
+def _failure_rule_field(to_other: bool) -> dict[str, str]:
+    """IH5: the failure rule a decision was drawn under, logged only where it is not staged's (a record without the
+    key was drawn before the tag, or with the switch off, and replays under staged's rule: ``mix.recompute``)."""
+
+    return {"failure_rule": mix.OTHER_POLICY_RULE} if to_other else {}
+
+
 def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate],
            titles: Mapping[str, str], numeric: NumericPolicy | None, llm: ComponentResult | None,
            decider: ComponentResult | None, staged_ref: str, weight: tuple[float, Mapping[str, Any]],
@@ -1106,7 +1121,8 @@ def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasi
                    "weight_note": weight[1].get("note"), "w": weight[0], "effective": dict(effective),
                    "mu": dict(pi), "seed": seed, "chosen": drawn.chosen, "drawn_component": drawn.component,
                    "propensity": drawn.propensity, "u1": drawn.u1, "u2": drawn.u2,
-                   "epsilon": float(config.router.epsilon_min)},
+                   "epsilon": float(config.router.epsilon_min),
+                   **_failure_rule_field(failure_share_to_other_policy_on(config))},
         "evaluation": {"uses": uses, "window_days": window, "window_closes_at": window_closes, "c0": c0,
                        "c0_basis": "the tail's cost at the remembered minutes (no earlier window of costs at this version)",
                        "objective_version": V.OBJECTIVE_VERSION,
@@ -1328,7 +1344,8 @@ class ObjectiveChooser(RouterChooser):
         numeric_ok = numeric is not None and numeric.status == ANSWERED and numeric.choice in support
         failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
         w, weight_record = current_weight(self.repository, config, at=now_iso)
-        effective = mix.effective_weights(w, failed)
+        to_other = failure_share_to_other_policy_on(config)
+        effective = mix.effective_weights(w, failed, to_other_policy=to_other)
         parts = mix.components(list(support), staged_ref, llm=llm_dist,
                                numeric_ref=numeric.choice if numeric_ok and numeric is not None else None)
         decision_id = new_ulid()
@@ -1414,6 +1431,7 @@ class ObjectiveChooser(RouterChooser):
                 "boundary_key": entry.key, "support": list(support), "staged_ref": staged_ref, "k": settings["k"],
                 "epsilon": settings["epsilon_min"], "ties_only": settings["ties_only"], "effective_weights": effective,
                 "w": w, "failed": failed, "llm_distribution": llm_dist,
+                **_failure_rule_field(to_other),
                 "numeric_choice": numeric.choice if numeric_ok and numeric is not None else None,
                 "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                 "models": {name: result.summary() for name, result in sorted(results.items())},
@@ -1590,7 +1608,8 @@ class ObjectiveRestraintGate(RestraintGate):
         numeric_ok = numeric.status == ANSWERED and numeric.choice in support
         failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
         w, weight_record = current_weight(self.repository, config, at=now_iso)
-        effective = mix.effective_weights(w, failed)
+        to_other = failure_share_to_other_policy_on(config)
+        effective = mix.effective_weights(w, failed, to_other_policy=to_other)
         parts = mix.components(support, INSERT_NOW, llm=llm_dist, numeric_ref=numeric.choice if numeric_ok else None)
         decision_id = new_ulid()
         seed = self.runtime.seed(entry.key, decision_id) if self.runtime.seed is not None else mix.seed_for(entry.key, decision_id)
@@ -1616,7 +1635,7 @@ class ObjectiveRestraintGate(RestraintGate):
             fallback_reasons={name: (llm.status if name == mix.LLM else numeric.status) for name in failed},
             mixture={"boundary_key": entry.key, "support": support, "staged_ref": INSERT_NOW, "k": len(support),
                      "epsilon": settings["epsilon_min"], "effective_weights": effective, "w": w, "failed": failed,
-                     "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
+                     **_failure_rule_field(to_other), "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
                      "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                      "models": {name: result.summary() for name, result in sorted(results.items())},
                      "rationale": {"text": rationale}},

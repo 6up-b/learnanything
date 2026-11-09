@@ -376,6 +376,8 @@ Ties: candidates whose `Q̄` are within the reported paired precision of the max
 
 **Failure.** `π_L^op` is `π_L` if the request completes validly in time, else `π_S`, and likewise for `π_Q^op`. Each failure moves only that policy's share. With both failed, `μ_i = (1 − k·ε)·π_S + ε`, drawn and logged like any other decision, so the existing floor is kept (Q7). A deterministic staged choice happens only where the code already makes one: an irreversible staged pick, a single-option support, or a refused follow-up. The logged probability describes the distribution actually used, after redistribution. Both "successful LLM calls" and "the deployed policy with its fallbacks" are reported, since dropping failures would flatter it.
 
+*Amended 2026-11-08 (instruct hand-off IH5, mvp-0.55): the paragraph above is the rule through mvp-0.54 and with `[router_objective] failure_share_to_other_policy` off. From mvp-0.55, with that switch on, a lone failure moves its share to the other policy (LLM failed: numeric 1.0; numeric failed: LLM 1.0); both failed still gives staged 1.0, and the floor and the exact logged probability are unchanged. See `spec_instruct_handoff_v1.md` §7a.*
+
 **The weight.**
 
 ```

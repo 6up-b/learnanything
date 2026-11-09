@@ -806,8 +806,9 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # teacher TE1b's mvp-0.43; data capture's mvp-0.44; FG1's mvp-0.45; router objective RO1's mvp-0.46;
     # router objective RO4's mvp-0.47; router objective RO5's mvp-0.48; router objective RO6's mvp-0.49;
     # the router objective's follow-up batch's mvp-0.50; teacher TE2's mvp-0.51; teacher TE3a's lesson
-    # opportunity, mvp-0.52; teacher TE3b's lesson offers, mvp-0.53; phone V3's probes on the phone, mvp-0.54).
-    from learnloop.phone_probes_upgrade import complete_interrupted_activation
+    # opportunity, mvp-0.52; teacher TE3b's lesson offers, mvp-0.53; phone V3's probes on the phone, mvp-0.54; instruct hand-off IH5's
+    # failure share, mvp-0.55).
+    from learnloop.failure_share_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 

@@ -21,6 +21,7 @@ from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
+    FAILURE_SHARE_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
@@ -126,7 +127,8 @@ def upgrade(
                 f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
                 f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
                 f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-                f"{LESSON_OFFERS_ALGORITHM_VERSION} or {PHONE_PROBES_ALGORITHM_VERSION}); "
+                f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION} or "
+                f"{FAILURE_SHARE_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -477,6 +479,10 @@ def upgrade(
         from learnloop.phone_probes_upgrade import upgrade_to_phone_probes
 
         result = upgrade_to_phone_probes(_root(vault))
+    elif to == FAILURE_SHARE_ALGORITHM_VERSION:
+        from learnloop.failure_share_upgrade import upgrade_to_failure_share
+
+        result = upgrade_to_failure_share(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -493,7 +499,8 @@ def upgrade(
             f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
             f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
             f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-            f"{LESSON_OFFERS_ALGORITHM_VERSION} or {PHONE_PROBES_ALGORITHM_VERSION}."
+            f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION} or "
+            f"{FAILURE_SHARE_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

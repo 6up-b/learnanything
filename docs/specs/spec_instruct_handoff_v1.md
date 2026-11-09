@@ -130,6 +130,15 @@ The uniform floor `ε` applies in every row, and propensities stay exact.
 
 **Replay's limit.** Replay can recompute each logged decision's `μ` under both rules (`mix.py:118`) and report how often the served choice would change. It can't show that numeric's picks would have taught better. The data capture report splits outcomes by `drawn_component` from this tag on, so the comparison builds up after landing.
 
+**As built (IH5, `instruct/handoff`; the tag is one constant, `FAILURE_SHARE_ALGORITHM_VERSION = "mvp-0.55"`, renumbered at landing if another successor lands first).**
+
+- `router_objective/mix.py`: `effective_weights(w, failed, *, to_other_policy=False)` gives the table's rows; `recompute` reads the rule from the logged `mixture.failure_rule` (`"other_policy"`; a record without the key, drawn below the tag or with the switch off, replays under staged's rule, so every older decision still replays to its logged `μ`).
+- Switch `[router_objective] failure_share_to_other_policy` (default true, registry: structural/operational kill switch). Gate `router_objective_switches.failure_share_to_other_policy_on`: the tag, the objective serving and the switch. Off, or below the tag, the mix is mvp-0.54's and the record gains no key.
+- Both objective call sites (the plan block's and the mid-block follow-up's mix, `daily_plan/objective_chooser.py`) pass the gate. The key is logged in `mixture` and in the trace's `mixing`. The prefetch boundary key (`objective_settings`) names the switch from the tag on, so a flip starts a new job; below the tag its bytes are unchanged. The switch is not in RO6's generator payload: it changes who is drawn, not any `Q` value the learned tail fits.
+- Unchanged: staged's pick is logged on every decision (`staged_ref`, `model_distributions`), orders the top-k support and breaks ties; `fallback` and `fallback_reasons` name the policies that failed (as before), never who served. `drawn_component` now names the policy that actually drew (`numeric` or `llm` under a lone failure, where it said `staged`). The router objective report adds `policy_share_when_a_policy_failed`, the draw's component among decisions with a failed policy, because from this tag `numeric` in `policy_share` mixes numeric's own share with a lone LLM failure's. The glass-box sentence for a missing LLM answer says the estimate took its share when the rule is the new one.
+- A decision where a policy failed still carries no score for `w` (RO4's rule, unchanged), so the fallback share does not move `w`.
+- Replay: `tests/test_ih5_successor.py` recomputes `μ` under both rules and, on a synthetic history, draws every decision's seed under both and counts where the served choice differs (only decisions with exactly one policy failed can differ).
+
 ## 8. Owner decisions
 
 | # | Decision | State |

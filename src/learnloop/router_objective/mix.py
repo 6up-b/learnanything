@@ -6,8 +6,15 @@
 
 ``π_L^op`` is the LLM policy's distribution if its request completed validly in time, else the staged rule's
 one-hot ``π_S``; likewise ``π_Q^op`` for the numeric policy (its argmax, one-hot). Each failure moves only that
-policy's share, to ``staged``: with both failed ``μ = (1 − k·ε)·π_S + ε``, so the floor is kept (owner Q7). The
-logged probability is the distribution actually used, after redistribution.
+policy's share. Where the share goes is the failure rule, logged on every decision drawn under the second one
+(``mixture.failure_rule``):
+
+* ``staged`` (mvp-0.54 and below, and the switch off; a record without the key): to ``staged``, so with both failed
+  ``μ = (1 − k·ε)·π_S + ε``, the floor kept (owner Q7);
+* ``other_policy`` (instruct hand-off IH5, mvp-0.55, ``spec_instruct_handoff_v1`` §7a): with one policy failed the
+  other takes the whole mix (``μ = (1 − k·ε)·π_other + ε``); with both failed staged keeps 1.0 as before.
+
+The logged probability is the distribution actually used, after redistribution.
 
 The draw is two-stage, as R2b's (``learnloop.router.mixture``): the first uniform picks the floor's uniform
 branch with probability ``k·ε``, else a component by its effective weight; the second picks a candidate from that
@@ -30,19 +37,38 @@ STAGED = "staged"
 COMPONENTS: tuple[str, ...] = (STAGED, LLM, NUMERIC)
 POLICIES: tuple[str, ...] = (LLM, NUMERIC)
 
+#: Where a failed policy's share goes (the logged ``mixture.failure_rule``; a record without it is ``STAGED_RULE``).
+STAGED_RULE = "staged"
+OTHER_POLICY_RULE = "other_policy"
+FAILURE_RULES: tuple[str, ...] = (STAGED_RULE, OTHER_POLICY_RULE)
+
 
 class ObjectiveMixError(ValueError):
     """The mix's inputs cannot give an exact distribution."""
 
 
-def effective_weights(w: float, failed: Sequence[str] | set[str] | frozenset[str]) -> dict[str, float]:
+def failure_rule_name(to_other_policy: bool) -> str:
+    return OTHER_POLICY_RULE if to_other_policy else STAGED_RULE
+
+
+def effective_weights(w: float, failed: Sequence[str] | set[str] | frozenset[str], *,
+                      to_other_policy: bool = False) -> dict[str, float]:
     """``{staged, llm, numeric}``: ``w`` to the LLM policy and ``1 − w`` to the numeric one, each failed policy's
-    share moved to ``staged`` (failure redistribution exactly as §8.3 writes it)."""
+    share moved to ``staged`` (failure redistribution as §8.3 wrote it). With ``to_other_policy`` (IH5, mvp-0.55,
+    spec_instruct_handoff_v1 §7a) a lone failure moves its share to the other policy, so that one takes 1.0; both
+    failed still moves both to ``staged``."""
 
     w = float(w)
     if not 0.0 <= w <= 1.0:
         raise ObjectiveMixError("the weight must lie in [0, 1]")
     out = {STAGED: 0.0, LLM: w, NUMERIC: 1.0 - w}
+    lost = {name for name in failed if name in POLICIES}
+    if to_other_policy and len(lost) == 1:
+        (name,) = lost
+        other = NUMERIC if name == LLM else LLM
+        out[other] += out[name]
+        out[name] = 0.0
+        return out
     for name in failed:
         if name in POLICIES:
             out[STAGED] += out[name]
@@ -116,11 +142,15 @@ def seed_for(boundary_key: str, decision_id: str) -> str:
 
 def recompute(record: Mapping[str, Any]) -> dict[str, float]:
     """G3: ``μ`` over the support from a logged decision's own values (``support``, ``staged_ref``, ``epsilon``,
-    ``w``, ``failed``, ``llm_distribution``, ``numeric_choice``)."""
+    ``w``, ``failed``, ``llm_distribution``, ``numeric_choice``, and ``failure_rule`` when present)."""
 
     support = list(record["support"])
     failed = list(record.get("failed") or ())
-    weights = effective_weights(float(record["w"]), failed)
+    # A record without ``failure_rule`` was drawn before IH5 (or with its switch off): staged's rule.
+    rule = record.get("failure_rule") or STAGED_RULE
+    if rule not in FAILURE_RULES:
+        raise ObjectiveMixError(f"unknown failure rule {rule!r}")
+    weights = effective_weights(float(record["w"]), failed, to_other_policy=rule == OTHER_POLICY_RULE)
     parts = components(support, str(record["staged_ref"]),
                        llm=None if LLM in failed else record.get("llm_distribution"),
                        numeric_ref=None if NUMERIC in failed else record.get("numeric_choice"))
@@ -128,6 +158,7 @@ def recompute(record: Mapping[str, Any]) -> dict[str, float]:
 
 
 __all__ = [
-    "COMPONENTS", "DESIGN", "LLM", "NUMERIC", "ObjectiveMixError", "POLICIES", "POLICY", "STAGED", "components",
-    "draw", "effective_weights", "fallback_label", "mu", "one_hot", "recompute", "seed_for",
+    "COMPONENTS", "DESIGN", "FAILURE_RULES", "LLM", "NUMERIC", "ObjectiveMixError", "OTHER_POLICY_RULE", "POLICIES",
+    "POLICY", "STAGED", "STAGED_RULE", "components", "draw", "effective_weights", "failure_rule_name",
+    "fallback_label", "mu", "one_hot", "recompute", "seed_for",
 ]
