@@ -68,6 +68,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     dumped = drop_te3b_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
         mode="json", exclude_none=False))
     assert dumped["router_objective"].pop("held_ad_link") is True
+    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
+    assert dumped["router"]["timeout_seconds"] == 40.0
+    dumped["router"]["timeout_seconds"] = 8.0
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP052_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).

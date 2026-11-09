@@ -83,6 +83,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     from tests.test_te3b_successor import drop_te3b_keys
 
     drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
+    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
+    assert dumped["router"]["timeout_seconds"] == 40.0
+    dumped["router"]["timeout_seconds"] = 8.0
     digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "fa0065c811aa4288783fb0f01567c35eab688a18d941122918499efb8305bfa2"
 

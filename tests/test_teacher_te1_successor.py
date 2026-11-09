@@ -96,6 +96,9 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
 
         drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
         # (teacher TE3b's in_objective is in [router.lesson_suggestions], popped with TE1b's section)
+        # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
+        assert dumped["router"]["timeout_seconds"] == 40.0
+        dumped["router"]["timeout_seconds"] = 8.0
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM

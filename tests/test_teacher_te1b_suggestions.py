@@ -544,6 +544,9 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
         dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
         assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
+        # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
+        assert dumped["router"]["timeout_seconds"] == 40.0
+        dumped["router"]["timeout_seconds"] = 8.0
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
