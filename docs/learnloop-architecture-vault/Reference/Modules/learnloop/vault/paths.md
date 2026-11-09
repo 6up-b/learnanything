@@ -197,6 +197,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `VaultPaths`
 - [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -261,7 +262,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 136 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 137 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

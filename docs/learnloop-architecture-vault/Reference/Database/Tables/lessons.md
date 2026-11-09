@@ -3,8 +3,8 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
-source_commit_timestamp: "2026-11-09T05:06:18-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
@@ -133,6 +133,7 @@ None found by exact static reference scan.
 - `tests/test_ih2_lessons_compete.py`
 - `tests/test_ih3_learner_preferences.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
+- `tests/test_mobile_allowlist.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
 - `tests/test_te3a_lesson_opportunity.py`
@@ -142,7 +143,6 @@ None found by exact static reference scan.
 - `tests/test_te3b_value.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
-- `tests/test_teacher_te1_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

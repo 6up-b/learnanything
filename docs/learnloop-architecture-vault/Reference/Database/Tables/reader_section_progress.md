@@ -3,8 +3,8 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
@@ -88,11 +88,13 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.carry_reader_section_progress()`
+- `Repository.deferred_section_generations()`
 - `Repository.delete_source_artifact()`
 - `Repository.mark_section_generation()`
 - `Repository.reader_section_progress_for()`
 - `Repository.reader_section_progress_row()`
 - `Repository.set_section_generation_batch()`
+- `Repository.swap_section_generation()`
 - `Repository.upsert_reader_section_progress()`
 
 ### Direct SQL readers

@@ -680,7 +680,7 @@ def publish_offer(
                 },
                 inputs={
                     "teach_back_ready": teach_back_ready.value,
-                    **({} if ctx.request_origin is None else {"device_policy": device_policy(vault)}),
+                    **({} if ctx.request_origin is None else {"device_policy": device_policy(vault, ctx.request_origin)}),
                 },
                 head_served=head_served,
             )

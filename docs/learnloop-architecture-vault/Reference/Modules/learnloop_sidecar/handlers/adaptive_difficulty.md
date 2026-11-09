@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/adaptive_difficulty.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/adaptive_difficulty.py"
-source_commit: "fc54039ec677f81905caccc24c1c70b7a2a13bdf"
-source_commit_timestamp: "2026-10-21T13:03:22-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -53,28 +53,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/adaptive_difficulty.py](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py) |
-| Source lines | 192 |
+| Source lines | 204 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `fc54039ec677f81905caccc24c1c70b7a2a13bdf` |
-| Commit timestamp | `2026-10-21T13:03:22-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
+| Commit timestamp | `2026-11-09T05:59:30-05:00` |
 
 ## Public API
 
-- `class ReaderDoseOfferInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 32)
-- `reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 46) — The dose arm's draw at a section boundary (§5.12): ``offer`` is the extra to show, or null.
-- `class ReaderDoseOfferEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 114)
-- `reader_dose_offer_event(ctx: SidecarContext, params: ReaderDoseOfferEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 120) — Record that the offer was delivered, not delivered, taken or dismissed.
-- `class AdaptiveDifficultyReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 137)
-- `adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficultyReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 142) — An LO's readiness lines (predictions; "untested" where it has no answer of its own).
-- `class AdaptiveDifficultyWhyItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 162)
-- `adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficultyWhyItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 167) — "Why this item" (§12): ``{"why": null}`` when no AD draw chose the served item.
+- `class ReaderDoseOfferInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 34)
+- `reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 48) — The dose arm's draw at a section boundary (§5.12): ``offer`` is the extra to show, or null.
+- `class ReaderDoseOfferEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 116)
+- `reader_dose_offer_event(ctx: SidecarContext, params: ReaderDoseOfferEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 122) — Record that the offer was delivered, not delivered, taken or dismissed.
+- `class AdaptiveDifficultyReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 149)
+- `adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficultyReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 154) — An LO's readiness lines (predictions; "untested" where it has no answer of its own).
+- `class AdaptiveDifficultyWhyItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 174)
+- `adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficultyWhyItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 179) — "Why this item" (§12): ``{"why": null}`` when no AD draw chose the served item.
 
 ### Module constants
 
-- `AD23_RPCS` ([src/learnloop_sidecar/handlers/adaptive_difficulty.py](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 28)
+- `AD23_RPCS` ([src/learnloop_sidecar/handlers/adaptive_difficulty.py](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 30)
 
 ### Explicit exports
 
@@ -84,8 +84,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_dose_offer(vault: Any, repository: Any, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 65)
-- `_offered_question(repository: Any, view: Any, question_id: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 92)
+- `_dose_offer(vault: Any, repository: Any, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 67)
+- `_offered_question(repository: Any, view: Any, question_id: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 94)
 
 ## Who imports or calls it
 
@@ -106,6 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `once_per_job`; calls `once_per_job`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies

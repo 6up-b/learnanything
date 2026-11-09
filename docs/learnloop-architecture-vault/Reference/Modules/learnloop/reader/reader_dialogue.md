@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_dialogue.py"
 source_paths:
   - "src/learnloop/reader/reader_dialogue.py"
-source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
-source_commit_timestamp: "2026-11-04T09:17:25-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_dialogue.py](../../../../../../src/learnloop/reader/reader_dialogue.py) |
-| Source lines | 1421 |
+| Source lines | 1467 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
-| Commit timestamp | `2026-11-04T09:17:25-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
+| Commit timestamp | `2026-11-09T05:59:30-05:00` |
 
 ## Public API
 
@@ -71,16 +71,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `lexical_reserve_reveal(answer_md: str, surface_row: Mapping[str, Any], *, citations: Sequence[Mapping[str, Any]]=()) -> tuple[bool, float]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 485) — The lexical reveal floor for one reserved surface: (hit, bigram overlap).
 - `ask(vault: LoadedVault, repository: Repository, client: Any, *, extraction_id: str, span_id: str, question_md: str, answer_mode: str=READER_ANSWER_MODE_DEFAULT, target_key: str | None=None, goal_invariants: Mapping[str, Any] | None=None, revealed_surface_ids: Sequence[str]=(), selection_span_ids: Sequence[str]=(), selection_quote_md: str | None=None, parent_exchange_id: str | None=None, selection_source_quote_md: str | None=None, cold_active: bool=False, cold_attempt_id: str | None=None, learning_object_suggester: Any | None=None, tool_request_handler: Any | None=None, source_span_provider: Any | None=None, reader_tutor: Any | None=None, reader_caller: Mapping[str, Any] | None=None, reader_binding: Any | None=None, learner_state: Any | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 537) — Answer a span-grounded reader question (§7.6).
 - `ask_history(repository: Repository, *, extraction_id: str, branches: bool=True, tutor_views: bool=False) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 903) — Return every completed Reader Ask for one extraction, newest first.
-- `administer_reading_question(vault: LoadedVault, repository: Repository, item: Any, *, reading_phase: str, goal_id: str | None=None, target_contract_version_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1032) — Render an owner-placed reading question as an instructional administration (§7.6): ``source_visible=true`` + a ``reading_phase``, no new activity kind.
-- `skip_reading_question(repository: Repository, *, administration_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1102) — A skip is an interaction-policy signal, NEVER low-ability evidence (§7.6).
-- `submit_reading_question(repository: Repository, *, administration_id: str, response_md: str | None=None, target_key: str | None=None, outcome_class: str='unknown', clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1122) — Record an answer to an owner-placed reading question (source_visible instructional; primes/scaffolds, never cold evidence).
-- `choose_disposition(vault: LoadedVault, repository: Repository, *, disposition: str, subject_id: str, subject_type: str='reader_span', commitment_target: Mapping[str, Any] | None=None, goal_id: str | None=None, client_idempotency_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1156) — Apply one of the four reading dispositions -- and nothing else (§7.6).
-- `restore_source(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1225) — Restore a source span during reading.
-- `routing_prior_projection_v1(repository: Repository, *, target_key: str, as_of: str | None=None, cold_observation_at: str | None=None, halflife_days: float | None=None, max_weight: float | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1283) — Fold ``reader_answer_submitted`` events for ``target_key`` into a bounded, replay-derived routing prior (design A.1 / spec §7.6 evidence semantics).
-- `class StubReaderClient` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1385) — A deterministic ``reader`` tutor client (U-034 stub).
-  - `__init__(self, *, answer_md: str='Grounded in the span in view.') -> None` (line 1393; internal)
-  - `supports(self, capability: str) -> bool` (line 1397; public)
-  - `complete(self, request: StructuredRequest[Any]) -> TutorAnswer` (line 1400; public)
+- `ask_provenance(repository: Repository, *, extraction_id: str) -> dict[str, list[tuple[str, str]]]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 977) — Every ``(reading, span)`` each completed Reader Ask of one extraction names, by its event id.
+- `administer_reading_question(vault: LoadedVault, repository: Repository, item: Any, *, reading_phase: str, goal_id: str | None=None, target_contract_version_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1078) — Render an owner-placed reading question as an instructional administration (§7.6): ``source_visible=true`` + a ``reading_phase``, no new activity kind.
+- `skip_reading_question(repository: Repository, *, administration_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1148) — A skip is an interaction-policy signal, NEVER low-ability evidence (§7.6).
+- `submit_reading_question(repository: Repository, *, administration_id: str, response_md: str | None=None, target_key: str | None=None, outcome_class: str='unknown', clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1168) — Record an answer to an owner-placed reading question (source_visible instructional; primes/scaffolds, never cold evidence).
+- `choose_disposition(vault: LoadedVault, repository: Repository, *, disposition: str, subject_id: str, subject_type: str='reader_span', commitment_target: Mapping[str, Any] | None=None, goal_id: str | None=None, client_idempotency_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1202) — Apply one of the four reading dispositions -- and nothing else (§7.6).
+- `restore_source(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1271) — Restore a source span during reading.
+- `routing_prior_projection_v1(repository: Repository, *, target_key: str, as_of: str | None=None, cold_observation_at: str | None=None, halflife_days: float | None=None, max_weight: float | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1329) — Fold ``reader_answer_submitted`` events for ``target_key`` into a bounded, replay-derived routing prior (design A.1 / spec §7.6 evidence semantics).
+- `class StubReaderClient` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1431) — A deterministic ``reader`` tutor client (U-034 stub).
+  - `__init__(self, *, answer_md: str='Grounded in the span in view.') -> None` (line 1439; internal)
+  - `supports(self, capability: str) -> bool` (line 1443; public)
+  - `complete(self, request: StructuredRequest[Any]) -> TutorAnswer` (line 1446; public)
 
 ### Module constants
 
@@ -112,8 +113,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_verbatim_overlap(answer_md: str, statement: str) -> float` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 458) — Cheap word-bigram overlap: the share of a reserved statement's bigrams that appear in the answer (no LLM, L3).
 - `_surface_statement_text(surface_row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 469)
 - `_detect_revealed_reserves(repository: Repository, *, answer_md: str, citations: Sequence[Mapping[str, Any]], caller_supplied: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 508) — Server-side reveal detection (L3): map the answer's text + validated citations against every LIVE assessment reserve by surface_hash / fingerprint / verbatim overlap (>= ``READER_REVEAL_OVERLAP_THRESHOLD``).
-- `_record_cold_hint_equivalent(repository: Repository, *, cold_attempt_id: str, question_md: str, answer_md: str | None, span_key: str, clock: Clock | None, question_event_id: str | None=None, counts: bool=True, question_type: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 977) — Record the cold reader Ask as a hint-equivalent PRACTICE question_event tied to the cold attempt's (item, session), so the practice evidence path counts it (L6).
-- `_days_between(start_iso: str, end_iso: str) -> float` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1375)
+- `_record_cold_hint_equivalent(repository: Repository, *, cold_attempt_id: str, question_md: str, answer_md: str | None, span_key: str, clock: Clock | None, question_event_id: str | None=None, counts: bool=True, question_type: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1023) — Record the cold reader Ask as a hint-equivalent PRACTICE question_event tied to the cold attempt's (item, session), so the practice evidence path counts it (L6).
+- `_days_between(start_iso: str, end_iso: str) -> float` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1421)
 
 ## Who imports or calls it
 
@@ -123,14 +124,16 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; statically calls `ask_history`
 - [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]] — imports `lexical_reserve_reveal`, `surface_statement_text`; statically calls `lexical_reserve_reveal`, `surface_statement_text`
 - [[Reference/Modules/learnloop/ops/contamination/recipes|learnloop.ops.contamination.recipes]] — imports `surface_statement_text`; statically calls `surface_statement_text`
+- [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `module`; statically calls `reader_enabled`
 - [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] — imports `module`; statically calls `ask_history`
 - [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] — imports `module`; statically calls `ask_history`
 - [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `module`; statically calls `restore_source`
 - [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `module`; statically calls `ask_history`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `reader_enabled`
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `module`; statically calls `reader_enabled`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `reader_enabled`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `module`; statically calls `ask`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`; statically calls `administer_reading_question`, `ask`, `ask_history`, `choose_disposition`, `inquiry_enabled`, `question_control`, `reader_enabled`, `reader_prompt_contract`, `restore_source`, `routing_prior_projection_v1`, `set_answer_mode`, `set_mode`, `skip_reading_question`, `submit_reading_question`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`; statically calls `administer_reading_question`, `ask`, `ask_history`, `ask_provenance`, `choose_disposition`, `inquiry_enabled`, `question_control`, `reader_enabled`, `reader_prompt_contract`, `restore_source`, `routing_prior_projection_v1`, `set_answer_mode`, `set_mode`, `skip_reading_question`, `submit_reading_question`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `module`; statically calls `inquiry_enabled`, `reader_enabled`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]] — imports `module`; statically calls `ask_history`, `inquiry_enabled`
 - [[Reference/Modules/learnloop_sidecar/handlers/reading_paths|learnloop_sidecar.handlers.reading_paths]] — imports `module`; statically calls `reader_enabled`
@@ -168,7 +171,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]], [[Reference/Modules/learnloop/ops/contamination/recipes|learnloop.ops.contamination.recipes]], [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]], [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] and 12 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]], [[Reference/Modules/learnloop/ops/contamination/recipes|learnloop.ops.contamination.recipes]], [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]], [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -186,6 +189,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_pinned_passages_are_held_to_the_tutors_context_budget`
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f4_reopened_a_fresh_answer_is_judged_on_what_it_stored_before_the_phone_is_sent_it`
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_journey1_reading_first_session`
   - `test_journey7_tutor_exchange_to_durable`

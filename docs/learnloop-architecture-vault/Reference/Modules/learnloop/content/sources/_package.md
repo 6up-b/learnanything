@@ -62,7 +62,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/sources/__init__|learnloop.content.sources]] | [[Reference/Modules/learnloop/content/sources/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/sources/block_health|learnloop.content.sources.block_health]] | [[Reference/Modules/learnloop/content/sources/block_health#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] | [[Reference/Modules/learnloop/content/sources/exam_material#^module-purpose|purpose]] | `ACTIVE` | 59 | 42 |
+| [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] | [[Reference/Modules/learnloop/content/sources/exam_material#^module-purpose|purpose]] | `ACTIVE` | 60 | 42 |
 | [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] | [[Reference/Modules/learnloop/content/sources/exercise_statements#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/content/sources/extraction_health|learnloop.content.sources.extraction_health]] | [[Reference/Modules/learnloop/content/sources/extraction_health#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/sources/front_matter|learnloop.content.sources.front_matter]] | [[Reference/Modules/learnloop/content/sources/front_matter#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
@@ -75,7 +75,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/sources/source_outcome_analytics|learnloop.content.sources.source_outcome_analytics]] | [[Reference/Modules/learnloop/content/sources/source_outcome_analytics#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] | [[Reference/Modules/learnloop/content/sources/source_outline#^module-purpose|purpose]] | `ACTIVE` | 34 | 17 |
 | [[Reference/Modules/learnloop/content/sources/source_refs|learnloop.content.sources.source_refs]] | [[Reference/Modules/learnloop/content/sources/source_refs#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] | [[Reference/Modules/learnloop/content/sources/span_aliases#^module-purpose|purpose]] | `ACTIVE` | 14 | 4 |
+| [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] | [[Reference/Modules/learnloop/content/sources/span_aliases#^module-purpose|purpose]] | `ACTIVE` | 14 | 5 |
 
 ## Cross-package dependencies
 
@@ -95,7 +95,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 27 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 23 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 17 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 18 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 6 static module edges
@@ -139,7 +139,7 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|27| center
     n_learnloop_source_retrieval -->|23| center
     center -->|1| n_learnloop_source_retrieval
-    n_learnloop_reader -->|17| center
+    n_learnloop_reader -->|18| center
     n_learnloop_content_pipeline -->|15| center
     n_learnloop_content_synthesis -->|9| center
     center -->|2| n_learnloop_content_synthesis

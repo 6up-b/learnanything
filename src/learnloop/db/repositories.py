@@ -14166,6 +14166,41 @@ class Repository(
             )
             connection.commit()
 
+    def swap_section_generation(
+        self, *, extraction_id: str, section_id: str, from_batch_id: str, batch_id: str,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Mobile v2 D6: move a section's generation stamp from ``from_batch_id`` to
+        ``batch_id``, once: False when the stamp is no longer ``from_batch_id`` (another
+        process took it). The deferred stamp's claim, as :meth:`mark_section_generation`
+        is the untriggered one's."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE reader_section_progress
+                SET generation_batch_id = ?, updated_at = ?
+                WHERE extraction_id = ? AND section_id = ? AND generation_batch_id = ?
+                """,
+                (batch_id, utc_now_iso(clock), extraction_id, section_id, from_batch_id),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def deferred_section_generations(self, stamp: str, *, extraction_id: str | None = None) -> list[dict[str, Any]]:
+        """Mobile v2 D6: the completed sections whose generation stamp is ``stamp`` (left for
+        the primary by the phone host), oldest first."""
+
+        sql = ("SELECT extraction_id, section_id FROM reader_section_progress "
+               "WHERE generation_batch_id = ? AND completed_at IS NOT NULL")
+        args: list[Any] = [stamp]
+        if extraction_id is not None:
+            sql += " AND extraction_id = ?"
+            args.append(extraction_id)
+        with self.connection() as connection:
+            rows = connection.execute(sql + " ORDER BY completed_at, extraction_id, section_id", args).fetchall()
+        return [dict(row) for row in rows]
+
     def reader_authored_questions_for_extraction(
         self, extraction_id: str
     ) -> list[dict[str, Any]]:

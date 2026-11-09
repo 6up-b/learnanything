@@ -3,8 +3,8 @@ title: "mobile_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_jobs"
@@ -21,6 +21,9 @@ source_paths:
   - "migrations/239_mobile_jobs.sql"
   - "src/learnloop/capture/jobs.py"
   - "src/learnloop/capture/report.py"
+  - "src/learnloop_mobile/allowlist.py"
+  - "src/learnloop_sidecar/phone_reader.py"
+  - "src/learnloop_sidecar/request_origin.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -106,6 +109,7 @@ None found by exact static reference scan.
 - `tests/test_mobile_jobs.py`
 - `tests/test_mobile_jobs_migration.py`
 - `tests/test_mobile_two_process.py`
+- `tests/test_mobile_v4_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

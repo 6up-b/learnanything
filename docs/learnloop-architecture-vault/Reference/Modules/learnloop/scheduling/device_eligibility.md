@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "00d25c2f8d7411d48174672756ffefee49564220"
-source_commit_timestamp: "2026-11-07T02:14:36-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling"
@@ -50,24 +50,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py) |
-| Source lines | 277 |
+| Source lines | 430 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `00d25c2f8d7411d48174672756ffefee49564220` |
-| Commit timestamp | `2026-11-07T02:14:36-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
+| Commit timestamp | `2026-11-09T05:59:30-05:00` |
 
 ## Public API
 
-- `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 157) — One queue build's device, and what it held back.
-  - `refuses(self, item: Any) -> bool` (line 179; public)
-  - `holds_back(self, item: Any) -> bool` (line 182; public) — ``refuses``, for an item the build would otherwise serve.
-- `class PlanStepFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 203) — Mobile v2 §2.2: the phone's door into the shared plan, which filters at the step.
-  - `holds(self, item: Any) -> str | None` (line 232; public) — Why the device leaves ``item`` for the desktop, or None when it can serve it.
-  - `detail(self) -> dict[str, str]` (line 243; public) — What a decision taken at a boundary under this device records (its ``device`` entry).
-  - `held_count(self) -> int` (line 249; public)
-- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 253) — Why ``device_class`` cannot answer ``item``, or None when it can.
+- `store_name_of(target: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 168) — The store name a link or image target ends in (its query and fragment aside), or None.
+- `llpdf_page(target: str) -> tuple[str, int] | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 176) — ``llpdf://…/sha256-<hex>[#page=N]`` as ``(store name, zero-based page)`` (``#page`` counts from 1, as a PDF's open parameters do; none is the first page); None for any other form.
+- `image_kind(head: bytes) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 227) — The image type of a file's first bytes (PNG, JPEG, GIF or WebP), or None: the only kinds served as images.
+- `media_served(prompt: str, served: MediaPredicate | None) -> bool` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 241) — Mobile v2 §2.3: every image, page and asset target of ``prompt`` is one the host serves by content address (a page of a stored PDF, a stored image), so the phone shows the stimulus as the desktop does.
+- `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 274) — One queue build's device, and what it held back.
+  - `refuses(self, item: Any) -> bool` (line 302; public)
+  - `holds_back(self, item: Any) -> bool` (line 306; public) — ``refuses``, for an item the build would otherwise serve.
+- `class PlanStepFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 330) — Mobile v2 §2.2: the phone's door into the shared plan, which filters at the step.
+  - `serves_reading(self, block: Any) -> bool` (line 363; public) — The device shows this reading block in its own Reader (V4); otherwise it waits for the desktop.
+  - `holds(self, item: Any) -> str | None` (line 368; public) — Why the device leaves ``item`` for the desktop, or None when it can serve it.
+  - `detail(self) -> dict[str, Any]` (line 380; public) — What a decision taken at a boundary under this device records (its ``device`` entry).
+  - `held_count(self) -> int` (line 391; public)
+- `ineligibility_reason(vault: Any, item: Any, device_class: str, *, media: bool=False, served: MediaPredicate | None=None) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 395) — Why ``device_class`` cannot answer ``item``, or None when it can.
 
 ### Module constants
 
@@ -85,34 +90,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `REFERENCES_ITEM_ASSET` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 65)
 - `DEVICE_POLICY` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 70)
 - `DEVICE_POLICY_OFF` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 71)
-- `_LITERAL_TEXT` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 76)
-- `_FOOTNOTE_DEFINITION` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 89)
-- `_FOOTNOTE_REFERENCE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 90)
-- `_HTML_IMAGE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 91)
-- `_LLPDF` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 92)
-- `_URL_SCHEME` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 93)
-- `_LOCAL_SCHEMES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 95)
-- `_FILE_SUFFIX` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 96)
-- `_MARKDOWN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 103)
-- `READING_BEFORE_PHONE_READER` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 193)
-- `GENERATED_PROBE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 196)
-- `PHONE_PLAN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 199)
+- `DEVICE_POLICY_MEDIA` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 75)
+- `_LITERAL_TEXT` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 80)
+- `_FOOTNOTE_DEFINITION` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 93)
+- `_FOOTNOTE_REFERENCE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 94)
+- `_HTML_IMAGE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 95)
+- `_LLPDF` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 96)
+- `_URL_SCHEME` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 97)
+- `_LOCAL_SCHEMES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 99)
+- `_FILE_SUFFIX` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 100)
+- `_MARKDOWN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 107)
+- `STORE_NAME` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 162)
+- `_STORE_NAME_AT_END` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 163)
+- `_LLPDF_PAGE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 164)
+- `MEASUREMENT_MODES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 217)
+- `READING_BEFORE_PHONE_READER` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 317)
+- `PHONE_READER` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 320)
+- `GENERATED_PROBE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 323)
+- `PHONE_PLAN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 326)
 
 ## Internal implementation anchors
 
-- `_is_item_asset(target: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 107) — A link to a file: a local scheme, or a relative target that is a path.
-- `_rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 119)
-- `_prompt_reason(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 127) — Read per candidate on every phone build, and a prompt's parse never changes.
+- `_is_item_asset(target: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 111) — A link to a file: a local scheme, or a relative target that is a path.
+- `_rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 123)
+- `_prompt_reason(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 131) — Read per candidate on every phone build, and a prompt's parse never changes.
+- `_prompt_media(prompt: str) -> tuple[tuple[str, str], ...]` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 187) — Every rendered image, page or asset target of a prompt, as ``(kind, target)``: ``page`` (an ``llpdf:`` link or image), ``image``, ``asset`` (a link to a file) and ``html`` (raw HTML naming either, which the phone never renders).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `image_kind`; statically calls `image_kind`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `DeviceFilter`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `GENERATED_PROBE`, `PlanStepFilter`; statically calls `PlanStepFilter`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `PlanStepFilter`; statically calls `PlanStepFilter`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `DESKTOP`, `PHONE`, `PHONE_PLAN`
-- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `DEVICE_POLICY`, `DEVICE_POLICY_OFF`, `DeviceFilter`, `ineligibility_reason`; statically calls `DeviceFilter`, `ineligibility_reason`
+- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `DEVICE_POLICY`, `DEVICE_POLICY_MEDIA`, `DEVICE_POLICY_OFF`, `DeviceFilter`, `ineligibility_reason`; statically calls `DeviceFilter`, `ineligibility_reason`
 
 ## Dependencies
 
@@ -132,7 +146,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]], [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]], [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]], [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -167,6 +181,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_check_restored_from_its_checkpoint_the_next_day_stays_cold`
 - [tests/test_mobile_v2_review_fixes.py](../../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered`
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f10_a_page_is_phone_eligible_exactly_when_the_page_endpoint_serves_it`
+  - `test_f10_a_stored_image_of_an_exam_source_is_not_phone_eligible`
+  - `test_f12_the_media_lift_admits_no_new_measurement_on_the_phone`
+- [tests/test_mobile_v4_eligibility.py](../../../../../../tests/test_mobile_v4_eligibility.py) — direct import
+  - `test_a_target_of_the_wrong_kind_or_missing_keeps_the_reason`
+  - `test_llpdf_pages_count_from_one`
+  - `test_served_targets_lift_the_reason_only_with_the_reader_on`
+  - `test_the_desktop_never_has_a_reason`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_phone_step_holds_a_drawn_offer_for_the_desktop`
 

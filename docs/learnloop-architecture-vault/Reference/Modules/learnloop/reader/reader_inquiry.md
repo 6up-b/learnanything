@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_inquiry.py"
 source_paths:
   - "src/learnloop/reader/reader_inquiry.py"
-source_commit: "ed0e027193cb8a08703dbad143dc5896c99d39a0"
-source_commit_timestamp: "2026-11-04T18:31:07-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py) |
-| Source lines | 455 |
+| Source lines | 464 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `ed0e027193cb8a08703dbad143dc5896c99d39a0` |
-| Commit timestamp | `2026-11-04T18:31:07-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
+| Commit timestamp | `2026-11-09T05:59:30-05:00` |
 
 ## Public API
 
@@ -63,7 +63,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `resolve_inquiry_root(repository: Repository, *, extraction_id: str, exchange_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 190) — The root exchange of the inquiry ``exchange_id`` belongs to.
 - `set_inquiry_status(repository: Repository, *, extraction_id: str, exchange_id: str, resolution: str, trigger: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 217) — Set an inquiry's status on its root question (open | resolved | dismissed).
 - `answer_reconnect(repository: Repository, *, extraction_id: str, exchange_id: str, answer: str, via: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 268) — Record the learner's answer to the reconnect line.
-- `record_activity(repository: Repository, events: Sequence[Mapping[str, Any]], *, clock: Clock | None=None, config: Any=None) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 377) — Record a batch of Reader activity events; all-or-nothing validation.
+- `record_activity(repository: Repository, events: Sequence[Mapping[str, Any]], *, clock: Clock | None=None, config: Any=None, device_surface: str | None=None) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 377) — Record a batch of Reader activity events; all-or-nothing validation.
 
 ### Module constants
 
@@ -112,7 +112,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_clean_value(value: Any) -> Any` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 331)
 - `_clean_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 341)
 - `_validate(entry: Mapping[str, Any]) -> tuple[str, str | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 360)
-- `_event_times(entry: Mapping[str, Any], clock: Clock | None) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 427) — RO0 row 5: the client's stamp, if it is a time at all, and when the server had it.
+- `_event_times(entry: Mapping[str, Any], clock: Clock | None) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 436) — RO0 row 5: the client's stamp, if it is a time at all, and when the server had it.
 
 ## Who imports or calls it
 

@@ -8,6 +8,7 @@ import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
 import { Contest, FollowupPanel, FullAnswer, HypothesisMarks, useFollowup } from "./FeedbackParts";
+import { PrintedAfterFeedback } from "../read/AsPrinted";
 
 /** The desktop's own interval for a pending diagnosis (`diagnosis_card.py`: every 2-3 s). */
 const DIAGNOSIS_POLL_MS = 3000;
@@ -215,6 +216,8 @@ export function FeedbackScreen({
       <h1>{feedback.learningObjectTitle}</h1>
       <p className="score">{feedback.rubricScore} / {feedback.maxPoints}</p>
       {feedback.manualReviewReason ? <p className="dim">{feedback.manualReviewReason}</p> : null}
+      {/* Mobile v2 V4 (CA7): the problem as printed, as the desktop's Feedback shows it. */}
+      <PrintedAfterFeedback practiceItemId={feedback.practiceItemId} />
       {feedback.feedbackMd ? (
         <div className="markdown"><MarkdownMath value={feedback.feedbackMd} components={RemoteImageAsLink} /></div>
       ) : null}

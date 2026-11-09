@@ -1133,6 +1133,7 @@ mcp = [
     { name = "mcp" },
 ]
 mobile = [
+    { name = "pypdfium2" },
     { name = "python-multipart" },
     { name = "qrcode" },
     { name = "starlette" },
@@ -1163,6 +1164,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pypdf", specifier = ">=6.14.2" },
     { name = "pypdfium2", marker = "extra == 'glm-ocr'", specifier = ">=4" },
+    { name = "pypdfium2", marker = "extra == 'mobile'", specifier = ">=4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
     { name = "python-multipart", marker = "extra == 'mobile'", specifier = "==0.0.32" },

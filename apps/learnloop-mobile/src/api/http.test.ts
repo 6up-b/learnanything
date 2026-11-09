@@ -27,11 +27,11 @@ describe("call", () => {
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer tok");
   });
 
-  it("says on every /rpc that this app answers probes (mobile v2 V3; Codex review of V3, F3)", async () => {
+  it("says on every /rpc that this app answers probes and has the Reader (mobile v2 V3, V4)", async () => {
     fetchMock.mockResolvedValueOnce(json(200, { ok: true, result: { sessionId: "s" } }));
     await call("get_session", { sessionId: "s" });
     const [, init] = fetchMock.mock.calls[0];
-    expect((init?.headers as Record<string, string>)[CLIENT_CAPABILITIES_HEADER]).toBe("phone_probes");
+    expect((init?.headers as Record<string, string>)[CLIENT_CAPABILITIES_HEADER]).toBe("phone_probes,phone_reader");
   });
 
   it("turns the host's error body into the desktop's CommandError", async () => {

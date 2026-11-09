@@ -39,7 +39,7 @@ source_paths:
   - "src/learnloop/router_objective/value.py"
   - "src/learnloop/router_objective/weight.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-09T05:02:01-05:00"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router_objective"
@@ -83,7 +83,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] | [[Reference/Modules/learnloop/router_objective/checks#^module-purpose|purpose]] | `ACTIVE` | 8 | 10 |
 | [[Reference/Modules/learnloop/router_objective/cold_timing|learnloop.router_objective.cold_timing]] | [[Reference/Modules/learnloop/router_objective/cold_timing#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/router_objective/combiner_data|learnloop.router_objective.combiner_data]] | [[Reference/Modules/learnloop/router_objective/combiner_data#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] | [[Reference/Modules/learnloop/router_objective/decision_state#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
+| [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] | [[Reference/Modules/learnloop/router_objective/decision_state#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] | [[Reference/Modules/learnloop/router_objective/exposure#^module-purpose|purpose]] | `ACTIVE` | 12 | 2 |
 | [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] | [[Reference/Modules/learnloop/router_objective/forecast_resolve#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] | [[Reference/Modules/learnloop/router_objective/goal_lifecycle#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
@@ -96,7 +96,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] | [[Reference/Modules/learnloop/router_objective/picks#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/router_objective/preference_report|learnloop.router_objective.preference_report]] | [[Reference/Modules/learnloop/router_objective/preference_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] | [[Reference/Modules/learnloop/router_objective/preferences#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
-| [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] | [[Reference/Modules/learnloop/router_objective/price#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
+| [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] | [[Reference/Modules/learnloop/router_objective/price#^module-purpose|purpose]] | `ACTIVE` | 5 | 9 |
 | [[Reference/Modules/learnloop/router_objective/question_state|learnloop.router_objective.question_state]] | [[Reference/Modules/learnloop/router_objective/question_state#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]] | [[Reference/Modules/learnloop/router_objective/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] | [[Reference/Modules/learnloop/router_objective/scores#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |

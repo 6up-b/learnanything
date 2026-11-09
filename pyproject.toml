@@ -38,6 +38,9 @@ mobile = [
   "uvicorn==0.54.0",
   "python-multipart==0.0.32",
   "qrcode==8.2",
+  # Mobile v2 V4 (landing ruling R2 (b)): the host renders a book's page as an
+  # image for the phone Reader, so page images work without the pdf extras.
+  "pypdfium2>=4",
 ]
 dev = [
   "pytest>=8.0",

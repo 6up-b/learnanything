@@ -212,6 +212,22 @@ label { display: block; margin: 0.6rem 0 0.25rem; color: var(--dim); font-size: 
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+/* The Reader (mobile v2 §3.1, §4.6): one column at a readable measure, the book in its own face. Wide math and
+   tables scroll inside their own box (.markdown); the page never scrolls sideways. */
+.reader-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.book { max-width: 36em; margin: 0 auto; }
+.book-text { font-family: var(--book-face); line-height: 1.55; font-size: 1.05rem; }
+.block { margin: 0 0 0.9rem; }
+.withheld { font-style: italic; }
+button.link.quiet { font-size: 0.88rem; color: var(--dim); }
+.page-image, .stored-image { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 0.25rem; background: #fff; }
+.as-printed { margin: 0 0 0.9rem; }
+.as-printed figcaption { margin-top: 0.25rem; }
+/* The three voices (§4.1): § the book, ◇ the model, › you. The book's in its face; the others in the UI's. */
+.voice-book { font-family: var(--book-face); margin: 0 0 0.75rem; padding-left: 0.75rem; border-left: 2px solid var(--border); }
+.voice-you { margin: 0.5rem 0 0.25rem; }
+.voice-model { margin: 0 0 0.75rem; }
+
 /* Motion: only sheets and screens, and none at all when the phone asks for less (§4.6). */
 @keyframes sheet-in { from { transform: translateY(100%); } }
 @keyframes screen-in { from { opacity: 0; transform: translateX(1.5rem); } }

@@ -3,8 +3,8 @@ title: "source_span_reanchors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_span_reanchors"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `tests/test_reread_safety.py`
 - `tests/test_rospeed2_section_map.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_mobile_v4_reader.py`
 - `tests/test_reader_pdf_selection.py`
 - `tests/test_span_reanchor.py`
 

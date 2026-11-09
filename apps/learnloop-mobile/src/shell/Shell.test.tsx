@@ -91,8 +91,10 @@ describe("places (§4.2)", () => {
 
   it("each place is mirrored in the fragment, and a cold start opens it again", async () => {
     const { unmount } = render(<App />);
+    answers.get_source_library = { sources: [] };
     fireEvent.click(await screen.findByRole("button", { name: "Read" }));
-    expect(await screen.findByText("Reading on the phone is coming in a later update.")).toBeTruthy();
+    // Mobile v2 V4: the Read place lists the books the phone's Reader opens.
+    expect(await screen.findByText("No book is ready to read yet. Add one on the desktop.")).toBeTruthy();
     expect(window.location.hash).toBe("#/read");
     fireEvent.click(screen.getByRole("button", { name: "Progress" }));
     expect(window.location.hash).toBe("#/progress");
@@ -155,7 +157,7 @@ describe("the connection line (§4.4)", () => {
     reachable = false;
     await addToOutbox({ clientCaptureId: "01A", kind: "text", text: "x", capturedAt: "t" });
     render(<App />);
-    expect(await screen.findByText("Desktop offline. Capture still works. 1 capture waiting to send.")).toBeTruthy();
+    expect(await screen.findByText("Desktop offline. Reading and capture still work. 1 capture waiting to send.")).toBeTruthy();
     reachable = true;
     await act(async () => {
       window.dispatchEvent(new Event("online"));

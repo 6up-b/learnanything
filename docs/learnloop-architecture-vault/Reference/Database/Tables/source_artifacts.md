@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -126,12 +126,12 @@ Indexes and uniqueness:
 - `src/learnloop/figures/source_check.py`
 - `src/learnloop/intent/control.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/reader/phone_media.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
 - `src/learnloop/remote/sources.py`
-- `src/learnloop/remote/views.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -156,8 +156,8 @@ Indexes and uniqueness:
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_migrations.py`
-- `tests/test_notes_never_read.py`
-- `tests/test_quick_add.py`
+- `tests/test_mobile_v4_codex_review.py`
+- `tests/test_mobile_v4_plan.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

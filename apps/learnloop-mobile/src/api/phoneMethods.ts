@@ -3,7 +3,7 @@
 // file under LEARNLOOP_UPDATE_PHONE_CONTRACT=1.
 
 /** What `GET /api/v1/meta` answers when this build and the host agree (spec §5.2). */
-export const ALLOWLIST_DIGEST = "f8a606b7a96136d618056a18a1f503e5ffa8d540826c537a1c3b2575e8581795";
+export const ALLOWLIST_DIGEST = "8c72de0e5c05c655a187b77ec4ee63f36db7d3b8eae72a3db4dfed81da498fc7";
 
 /** Every method the host lets the phone call. Anything else is a 403. */
 export const PHONE_METHODS = [
@@ -24,6 +24,7 @@ export const PHONE_METHODS = [
   "get_practice_item",
   "get_probe_contract",
   "get_session",
+  "get_source_library",
   "get_start_summary",
   "get_today_headline",
   "get_today_queue",
@@ -36,8 +37,22 @@ export const PHONE_METHODS = [
   "plan_reading_ended",
   "plan_something_else",
   "plan_something_else_options",
+  "practice.as_printed",
   "practice.record_hint_reveal",
   "rate_followup",
+  "reader.ask",
+  "reader.ask_history",
+  "reader.authored_question_action",
+  "reader.capture",
+  "reader.dose_offer",
+  "reader.dose_offer_event",
+  "reader.get_progress",
+  "reader.guide_plan",
+  "reader.log_activity",
+  "reader.mark_section_progress",
+  "reader.prompt_contract",
+  "reader.render_view",
+  "reader.saved_place",
   "record_answer_display",
   "record_diagnosis_feedback",
   "record_hypothesis_exposure",
@@ -60,6 +75,10 @@ export type PhoneMethod = (typeof PHONE_METHODS)[number];
 export const LONG_METHODS = [
   "answer_grading_clarification",
   "next_plan_item",
+  "reader.ask",
+  "reader.dose_offer_event",
+  "reader.log_activity",
+  "reader.mark_section_progress",
   "submit_attempt",
   "submit_dont_know",
   "trigger_regrade",

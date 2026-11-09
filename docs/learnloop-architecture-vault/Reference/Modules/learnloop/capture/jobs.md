@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/jobs.py"
 source_paths:
   - "src/learnloop/capture/jobs.py"
-source_commit: "0b1619dcdd2e52f031e2494b89ce4d6d2e99d8b1"
-source_commit_timestamp: "2026-11-07T02:45:31-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.capture"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py) |
-| Source lines | 227 |
+| Source lines | 251 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `0b1619dcdd2e52f031e2494b89ce4d6d2e99d8b1` |
-| Commit timestamp | `2026-11-07T02:45:31-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
+| Commit timestamp | `2026-11-09T05:59:30-05:00` |
 
 ## Public API
 
@@ -67,7 +67,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `submission_in_flight(repo: Repository, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop/capture/jobs.py), line 128) — A phone's answer to ``practice_item_id`` accepted and not yet finished (mobile v2 V3; Codex review of V3, F2).
 - `start_job(repo: Repository, job_id: str, *, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 147)
 - `finish_job(repo: Repository, job_id: str, *, result: Any=None, error: dict[str, Any] | None=None, state: str | None=None, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 155) — ``state`` is only for :data:`RECORDED`, which carries an error and is no failure.
-- `recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 175) — What a starting host owes (§6.3): the jobs another run left open, to run again.
+- `job_receipt(connection: Any, job_id: str) -> Any` ([source](../../../../../../src/learnloop/capture/jobs.py), line 175) — Mobile v2 V4 (Codex review F5): the result an open job's handler already committed, or None.
+- `write_job_receipt(connection: Any, job_id: str, result: Any) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 189) — The handler's result on its open job's row, in the handler's transaction (see :func:`job_receipt`).
+- `recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 199) — What a starting host owes (§6.3): the jobs another run left open, to run again.
 
 ### Module constants
 
@@ -89,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] — imports `ACCEPTED`, `COMPLETED`, `FAILED`, `MAX_BOOTS`, `RECORDED`, `RUNNING`, `SUBMISSION_COMMITTED`, `SUBMIT_METHODS`, `accept_job`, `finish_job`, `get_job`, `job_for_request`, `recorded_error`, `recover_jobs`, `start_job`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `submission_in_flight`; statically calls `submission_in_flight`
+- [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `job_receipt`, `write_job_receipt`; statically calls `job_receipt`, `write_job_receipt`
 
 ## Dependencies
 
@@ -111,7 +114,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]], [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]].
+Static participation evidence comes from [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]], [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]], [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

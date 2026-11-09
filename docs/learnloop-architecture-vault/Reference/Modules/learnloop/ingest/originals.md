@@ -85,6 +85,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `stored_original_path`; statically calls `stored_original_path`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `store_original_bytes`; statically calls `store_original_bytes`
 - [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `canonical_source_raw_path`, `store_original_bytes`; statically calls `canonical_source_raw_path`, `store_original_bytes`
+- [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `is_pdf_file`, `stored_original_path`; statically calls `is_pdf_file`, `stored_original_path`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `is_pdf_file`, `resolve_original_file`; statically calls `is_pdf_file`, `resolve_original_file`
 - [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `is_pdf_file`, `resolve_original_file`; statically calls `is_pdf_file`, `resolve_original_file`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `canonical_source_raw_path`; statically calls `canonical_source_raw_path`
@@ -107,7 +108,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -122,6 +123,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_publication_and_capture_purge_share_writer_reservation`
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
   - `test_concurrent_original_writers_use_independent_temporary_files`
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+- [tests/test_mobile_v4_eligibility.py](../../../../../../tests/test_mobile_v4_eligibility.py) — direct import
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_a_stored_image_is_served_by_its_content_address_and_never_a_pdf`
 - [tests/test_originals_store.py](../../../../../../tests/test_originals_store.py) — direct import
   - `test_backfill_statuses`
   - `test_failed_original_write_leaves_no_temporary_file`

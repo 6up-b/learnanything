@@ -51,7 +51,21 @@ export const CLIENT_TIMING_HEADER = "LearnLoop-Client-Timing";
  * answers a probe under its contract. A host serves probes only to an app that says so, so an app cached from
  * before V3 keeps V2's doors and never burns a question it can't answer. */
 export const CLIENT_CAPABILITIES_HEADER = "LearnLoop-Capabilities";
-export const CLIENT_CAPABILITIES = "phone_probes";
+// Mobile v2 V4: `phone_reader`, it has the Reader, so the plan may hand it a reading step (a cached V3 app keeps
+// V3's plan, where every reading waits for the desktop).
+export const CLIENT_CAPABILITIES = "phone_probes,phone_reader";
+
+/** Mobile v2 §3.3, §2.3: an immutable image from the media lane (a page, a stored image), as a Blob, under the
+ *  bearer token. The service worker answers it from its page cache when it can (`public/sw.js`). */
+export async function getImage(path: string): Promise<Blob> {
+  const response = await authorizedFetch(path, { method: "GET" });
+  if (!response.ok) {
+    const error = await errorFrom(response);
+    noteError(error, response.status);
+    throw error;
+  }
+  return response.blob();
+}
 
 interface TimingSample {
   readonly method: string;

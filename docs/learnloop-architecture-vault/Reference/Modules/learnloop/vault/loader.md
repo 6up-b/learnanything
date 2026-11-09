@@ -2048,6 +2048,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_chains_from_an_older_link`
   - `test_the_upgrade_publishes_the_tag_and_completes_once`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f4_reopened_the_guide_plans_placed_question_is_judged_by_its_items_stored_source`
+- [tests/test_mobile_v4_eligibility.py](../../../../../../tests/test_mobile_v4_eligibility.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
   - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`
   - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`

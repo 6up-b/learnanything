@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/preferences.py"
 source_paths:
   - "src/learnloop/router_objective/preferences.py"
-source_commit: "43fb8416228d241d82ec9c6afe55b78bb658cdc3"
-source_commit_timestamp: "2026-11-09T05:02:01-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `43fb8416228d241d82ec9c6afe55b78bb658cdc3` |
-| Commit timestamp | `2026-11-09T05:02:01-05:00` |
+| Source commit | `ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
+| Commit timestamp | `2026-11-09T05:59:30-05:00` |
 
 ## Public API
 

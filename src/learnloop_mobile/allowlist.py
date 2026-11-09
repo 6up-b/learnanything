@@ -233,8 +233,67 @@ _IH3 = (
     MobileMethod("plan_something_else", "IH3", "short", True, _preference_key_required),
 )
 
-ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType(
-    {entry.name: entry for entry in (*_M2, *_V2, *_V3, *_IH0, *_IH3)})
+
+def _v4_short(name: str, *, retry_safe: bool, constraints=_no_constraint) -> MobileMethod:
+    return MobileMethod(name, "V4", "short", retry_safe, constraints)
+
+
+def _v4_long(name: str, constraints=_no_constraint) -> MobileMethod:
+    return MobileMethod(name, "V4", "long", True, constraints)
+
+
+def _phone_save(params: Mapping[str, Any]) -> None:
+    """The selection sheet's *Save* (§3.5) is a plain highlight: the presets that ask for synthesis and the
+    session-bound captures stay on the desktop."""
+
+    fields = _fields(params)
+    if fields.get("action") != "highlight":
+        raise ParamRejected("action", "Only a highlight is saved from the phone")
+    _reject("session_id")(params)
+
+
+def _phone_answer(params: Mapping[str, Any]) -> None:
+    """The dose arm's extra question, answered on the phone as the desktop's quick-check card answers it (Codex
+    review of V4, F9): ``answered`` with the learner's words. *Don't bring this back* stays on the desktop."""
+
+    if _fields(params).get("action") != "answered":
+        raise ParamRejected("action", "Only an answer is sent from the phone")
+
+
+#: Mobile v2 stage V4 (spec §8; owner decision D4): the phone Reader, text first. Each runs the desktop's handler;
+#: under a phone origin the handler withholds protected material (``learnloop_sidecar.phone_reader``) and records
+#: the surface. The three outbox intents (§5.4: progress, activity, a dose event) are ``long``: their acceptance is
+#: keyed by the phone's ``request_id`` (``mobile_jobs``), so an outbox replay is coalesced, never recorded twice,
+#: and the row each writes is exactly the desktop's. ``reader.ask`` is a job too (§2.1 J8): a model call under the
+#: desktop's routes and budgets (D2). A cold administration is the server's to know: the phone never sends one.
+_V4 = (
+    _v4_short("reader.prompt_contract", retry_safe=True),
+    _v4_short("reader.render_view", retry_safe=True),
+    _v4_short("reader.guide_plan", retry_safe=True),
+    _v4_short("reader.get_progress", retry_safe=True),
+    _v4_short("reader.saved_place", retry_safe=True),
+    _v4_long("reader.mark_section_progress"),
+    _v4_long("reader.log_activity"),
+    # The dose arm's draw is made once per visit and boundary before anything is shown; not retried automatically.
+    _v4_short("reader.dose_offer", retry_safe=False),
+    _v4_long("reader.dose_offer_event"),
+    # A taken extra question is answered through the desktop's quick-check action (Codex review F9): a state set on
+    # the question's row, the same answer twice is the same row, so a retry is safe.
+    _v4_short("reader.authored_question_action", retry_safe=True, constraints=_phone_answer),
+    _v4_long("reader.ask",_reject("cold_active", "cold_attempt_id", "workbench_session_id")),
+    _v4_short("reader.ask_history", retry_safe=True),
+    _v4_short("reader.capture", retry_safe=True, constraints=_phone_save),
+    # *As printed* after feedback (CA7): the desktop's Feedback reads the item's print through this, whose
+    # server decides what may show (the problem's own blocks, the cold rule); a read.
+    _v4_short("practice.as_printed", retry_safe=True),
+    # The Read tab's books (read only); V7 adds the rest of J15.
+    _v4_short("get_source_library", retry_safe=True),
+)
+
+ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2, *_V3, *_V4, *_IH0, *_IH3)})
+
+#: Mobile v2 V4: what ``phone_reader`` off refuses (``phone_reader_off``): the phone is V3's.
+READER_METHODS = frozenset(entry.name for entry in _V4)
 
 #: Mobile v2 V3: what ``phone_probes`` off refuses (``phone_probes_off``), so the phone is V2's.
 PROBE_METHODS = frozenset({"followup_next"})

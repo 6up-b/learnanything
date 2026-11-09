@@ -1,0 +1,29 @@
+{
+  "method": "reader.render_view",
+  "requests": [
+    {
+      "wrapper": "section",
+      "envelope": {
+        "method": "reader.render_view",
+        "params": {
+          "extractionId": "ext1",
+          "sectionId": "u1"
+        }
+      }
+    }
+  ],
+  "reads": [
+    "renderViewId",
+    "extractionId",
+    "revisionId",
+    "sourceId",
+    "contentHash",
+    "blocks[].displayNodeId",
+    "blocks[].spanId",
+    "blocks[].markdown",
+    "blocks[].health",
+    "blocks[].page",
+    "protection",
+    "range"
+  ]
+}

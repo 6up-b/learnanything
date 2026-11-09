@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -189,10 +189,10 @@ Indexes and uniqueness:
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_mobile_v4_codex_review.py`
+- `tests/test_mobile_v4_reader.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_branches.py`
-- `tests/test_reader_ca5_also_in_books.py`
-- `tests/test_reader_ca6_side_by_side.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

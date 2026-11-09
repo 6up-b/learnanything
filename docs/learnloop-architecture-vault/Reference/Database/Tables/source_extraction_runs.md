@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
+source_commit_timestamp: "2026-11-09T05:59:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -114,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
+- `src/learnloop/reader/phone_media.py`
 - `src/learnloop/reader/source_objects.py`
 - `src/learnloop/source_retrieval/deliverables.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
@@ -164,12 +165,12 @@ Indexes and uniqueness:
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_m3.py`
+- `tests/test_mobile_v4_codex_review.py`
+- `tests/test_mobile_v4_reader.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_reread_safety.py`
 - `tests/test_reread_safety_landing.py`
-- `tests/test_rospeed2_section_map.py`
-- `tests/test_sidecar_ingest_m3.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

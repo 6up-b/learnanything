@@ -131,6 +131,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_mixed_reading_gives_no_reading_signal_as_if_deleted`
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
   - `test_a_clean_reading_is_read_as_the_reader_and_the_incumbent_read_it`
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_once`
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import
   - `test_reader_source_refs_preserve_bounded_span_context`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import

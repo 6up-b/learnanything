@@ -147,6 +147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+  - `test_f8_a_phone_visits_active_time_reaches_the_routers_activity_readers`
 - [tests/test_ro4_price.py](../../../../../../tests/test_ro4_price.py) — direct import
   - `test_a_session_ends_after_a_gap_of_session_gap_minutes`
   - `test_the_grid_posterior_is_its_prior_with_nothing_fed_and_learns_from_choices`

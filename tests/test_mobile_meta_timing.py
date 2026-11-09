@@ -52,6 +52,8 @@ def test_meta_names_the_allowlist_the_host_enforces(world):
         "phone_plan": True,
         # Mobile v2 V3: whether the phone answers probes (the host's kill switch, mobile.toml).
         "phone_probes": True,
+        # Mobile v2 V4: whether the phone's Reader is on (the host's kill switch, mobile.toml).
+        "phone_reader": True,
     }
     assert host.schema_version == response.json()["schema_version"]
 

@@ -1,0 +1,45 @@
+{
+  "method": "reader.ask",
+  "requests": [
+    {
+      "wrapper": "ask",
+      "envelope": {
+        "method": "reader.ask",
+        "params": {
+          "extractionId": "ext1",
+          "spanId": "b1",
+          "question": "Why is it zero?",
+          "selectionSpanIds": [
+            "b1",
+            "b2"
+          ],
+          "selectionQuote": "Every vector space",
+          "retrievalIntent": "explain"
+        },
+        "request_id": "ask_1"
+      }
+    },
+    {
+      "wrapper": "ask",
+      "envelope": {
+        "method": "reader.ask",
+        "params": {
+          "extractionId": "ext1",
+          "spanId": "b1",
+          "question": "Explain it another way.",
+          "retrievalIntent": "alternative",
+          "parentExchangeId": "ex_1"
+        },
+        "request_id": "ask_2"
+      }
+    }
+  ],
+  "reads": [
+    "answerMd",
+    "readerAnswerEventId"
+  ],
+  "replyPinnedBy": [
+    "tests/test_mobile_v4_reader.py",
+    "tests/test_sidecar_reader.py"
+  ]
+}
