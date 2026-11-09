@@ -90,6 +90,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `lessonEntryFor`; references `lessonEntryFor`
 - [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|src/screens/today/DailyPlanView.tsx]] — import-or-re-export: `SomethingElse`; references `SomethingElse`
 - [[Reference/Desktop/TypeScript/screens/today/LessonOfferPage|src/screens/today/LessonOfferPage.tsx]] — import-or-re-export: `SomethingElse`; references `SomethingElse`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `SomethingElse`, `lessonEntryFor`; references `SomethingElse`, `lessonEntryFor`
 
 ## Dependencies
 
@@ -117,6 +118,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/today/SomethingElse.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/SomethingElse.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [tests/test_ih3_phone_host.py](../../../../../../../tests/test_ih3_phone_host.py) — cross-boundary name contract: references uniquely owned exported name `SomethingElse`; it does **not** directly execute this source module.
 
 ## Modification guidance
 

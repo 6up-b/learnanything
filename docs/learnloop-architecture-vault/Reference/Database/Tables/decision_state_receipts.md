@@ -3,8 +3,8 @@ title: "decision_state_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
+source_commit_timestamp: "2026-11-09T09:10:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_state_receipts"
@@ -116,6 +116,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ih3_phone_host.py`
 - `tests/test_ro0_gate.py`
 - `tests/test_ro0_report.py`
 - `tests/test_ro0_rows9_13_decision_state.py`

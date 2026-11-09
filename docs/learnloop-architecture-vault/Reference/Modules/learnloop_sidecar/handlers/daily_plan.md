@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/daily_plan.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/daily_plan.py"
-source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
-source_commit_timestamp: "2026-11-09T05:59:30-05:00"
-source_worktree_state: "modified"
+source_commit: "3fff1f3022217d06c78dc20963746a11650aad19"
+source_commit_timestamp: "2026-11-09T09:03:50-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/daily_plan.py](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py) |
-| Source lines | 955 |
+| Source lines | 970 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
-| Commit timestamp | `2026-11-09T05:59:30-05:00` |
+| Worktree state | `clean` |
+| Source commit | `3fff1f3022217d06c78dc20963746a11650aad19` |
+| Commit timestamp | `2026-11-09T09:03:50-05:00` |
 
 ## Public API
 
@@ -84,16 +84,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `set_plan_minutes(ctx: SidecarContext, params: PlanMinutesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 529) — A minutes chip (§6.6): remembered, and the remaining blocks re-planned.
 - `next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 544) — The next step: ``{"kind": "item" | "reading" | "done", ...}`` (§6.10 typed steps).
 - `plan_something_else_options(ctx: SidecarContext, params: PlanSomethingElseOptionsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 577) — IH3 (spec_instruct_handoff_v1 §6): what the plan could do at this boundary, in plain words, for "Something else would help".
-- `plan_something_else(ctx: SidecarContext, params: PlanSomethingElseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 593) — IH3: serve the action the learner chose and log it with the options then (one transaction, idempotent on ``preference_id``).
-- `record_offer_shown(ctx: SidecarContext, params: OfferShownInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 625) — Spec_instruct_handoff_v1 §4 item 6: the offer's card or page rendered.
-- `plan_prefetch(ctx: SidecarContext, params: PlanPrefetchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 643) — Spec_instruct_handoff_v1 §3a: start the next boundary's objective job while the phone shows feedback, and return.
-- `plan_reading_ended(ctx: SidecarContext, params: PlanReadingEndedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 728) — End the current reading block (left the reader, skipped, or completed).
-- `plan_keep_going(ctx: SidecarContext, params: PlanKeepGoingInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 742) — Keep going (§6.5): one more block of minutes; or "Done" (``stop``).
-- `plan_more_new(ctx: SidecarContext, params: PlanMoreNewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 758) — "More new material" (§6.3): the trade-off first, then a labelled extension.
-- `plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 774) — Open an item from the full list: a one-item learner-pick block (L3, G12).
-- `select_on_open(ctx: SidecarContext, *, practice_item_id: str, session_id: str, proposal_id: str, source_exercise_import_id: str | None=None) -> tuple[PlanLearnerPickInput, dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 900) — The open list is about to serve a picked proposal's item (the plan off): its selection, re-checked BEFORE the serve (an item reserved for a held-out exam since it was proposed is refused).
-- `deliver_on_open(ctx: SidecarContext, params: PlanLearnerPickInput, selection: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 911) — The open list served a picked proposal's item (the plan off): its delivery, recorded once after the serve (Codex re-review F10).
-- `get_today_headline(ctx: SidecarContext, _params: PlanSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 934) — The optional one-line headline (§6.7, D7).
+- `plan_something_else(ctx: SidecarContext, params: PlanSomethingElseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 608) — IH3: serve the action the learner chose and log it with the options then (one transaction, idempotent on ``preference_id``).
+- `record_offer_shown(ctx: SidecarContext, params: OfferShownInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 640) — Spec_instruct_handoff_v1 §4 item 6: the offer's card or page rendered.
+- `plan_prefetch(ctx: SidecarContext, params: PlanPrefetchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 658) — Spec_instruct_handoff_v1 §3a: start the next boundary's objective job while the phone shows feedback, and return.
+- `plan_reading_ended(ctx: SidecarContext, params: PlanReadingEndedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 743) — End the current reading block (left the reader, skipped, or completed).
+- `plan_keep_going(ctx: SidecarContext, params: PlanKeepGoingInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 757) — Keep going (§6.5): one more block of minutes; or "Done" (``stop``).
+- `plan_more_new(ctx: SidecarContext, params: PlanMoreNewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 773) — "More new material" (§6.3): the trade-off first, then a labelled extension.
+- `plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 789) — Open an item from the full list: a one-item learner-pick block (L3, G12).
+- `select_on_open(ctx: SidecarContext, *, practice_item_id: str, session_id: str, proposal_id: str, source_exercise_import_id: str | None=None) -> tuple[PlanLearnerPickInput, dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 915) — The open list is about to serve a picked proposal's item (the plan off): its selection, re-checked BEFORE the serve (an item reserved for a held-out exam since it was proposed is refused).
+- `deliver_on_open(ctx: SidecarContext, params: PlanLearnerPickInput, selection: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 926) — The open list served a picked proposal's item (the plan off): its delivery, recorded once after the serve (Codex re-review F10).
+- `get_today_headline(ctx: SidecarContext, _params: PlanSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 949) — The optional one-line headline (§6.7, D7).
 
 ### Module constants
 
@@ -121,13 +121,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_schedule_prefetch(ctx: SidecarContext, env: PlanEnv) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 436) — RW5d P5 (spec §10b.2): the stored plan's reading section and the open gaps on its topics are figure triggers.
 - `_schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 460) — Adaptive difficulty AD1 (spec §8.2, §7.2): after the response is built, the planned items' revisions are prepared for the pool in the background (feature audit, then ``llm_v1:item``), and a served step's presentation gets its ``llm_v3`` forecasts.
 - `_commission_enqueue(ctx: SidecarContext) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 507) — How a commission's generation is queued: a test's injected callable, else the vault's durable ingest queue, and nothing with ``LEARNLOOP_AD_MODELS=off`` (the suite, a copy run).
-- `_prefetch(ctx: SidecarContext, vault: Any, repository: Any, session_id: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 654)
-- `_abandon_phone_served(env: PlanEnv) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 685) — Mobile v2 V3 (owner decision D3): a generated probe this plan served on the phone, still unanswered, when the desktop (which owns the session now, checked above) asks for its next step.
-- `_answered_since(repository: Any, practice_item_id: str, served_at: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 716) — An answer committed since the plan served it (the reconcile marks it done; nothing is left to abandon).
-- `_refuse_held_pick(env: PlanEnv, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 844) — Mobile v2 §2.2 (Codex review of V2, F2): a by-id pick is a serving door too, so it refuses, before anything is served or written, what the device's step filter holds for the desktop (PR-6's rules, the diagnostic check this session left there, and a generated probe until V3).
-- `_served_decision(record: Any, step: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 871) — The router decision of the block that served the pick (its ``decision_ref``, R1's row when R1 logs plan decisions), or None.
-- `_proposal_selection(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 882) — The learner's selection, validated before serving (S0, §6.3).
-- `_proposal_delivery(ctx: SidecarContext, params: PlanLearnerPickInput, selection: dict[str, Any], *, router_decision_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 918) — S5's intervention for a served pick (after serving succeeded).
+- `_standing_view(env: PlanEnv) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 591) — The plan as it stands, with no boundary crossed: a device's choice that serves nothing places nothing, and a read at a finished block would draw its decision in the same call (§6, spec_mobile_frontend_v2 §4.5).
+- `_prefetch(ctx: SidecarContext, vault: Any, repository: Any, session_id: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 669)
+- `_abandon_phone_served(env: PlanEnv) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 700) — Mobile v2 V3 (owner decision D3): a generated probe this plan served on the phone, still unanswered, when the desktop (which owns the session now, checked above) asks for its next step.
+- `_answered_since(repository: Any, practice_item_id: str, served_at: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 731) — An answer committed since the plan served it (the reconcile marks it done; nothing is left to abandon).
+- `_refuse_held_pick(env: PlanEnv, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 859) — Mobile v2 §2.2 (Codex review of V2, F2): a by-id pick is a serving door too, so it refuses, before anything is served or written, what the device's step filter holds for the desktop (PR-6's rules, the diagnostic check this session left there, and a generated probe until V3).
+- `_served_decision(record: Any, step: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 886) — The router decision of the block that served the pick (its ``decision_ref``, R1's row when R1 logs plan decisions), or None.
+- `_proposal_selection(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 897) — The learner's selection, validated before serving (S0, §6.3).
+- `_proposal_delivery(ctx: SidecarContext, params: PlanLearnerPickInput, selection: dict[str, Any], *, router_decision_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/daily_plan.py), line 933) — S5's intervention for a served pick (after serving succeeded).
 
 ## Who imports or calls it
 
@@ -148,7 +149,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] — imports `models_off`; calls `models_off`
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `any_background_work`; calls `any_background_work`
 - [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] — imports `submission_in_flight`; calls `submission_in_flight`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `PlanInactiveError`, `PlanStillOpenError`, `advance_with_context`, `intent_view`, `keep_going`, `latest_today`, `learner_pick`, `more_new`, `picked_under`, `plan_active`, `plan_scheduler_session`, `prefetch_boundary`, `reading_ended`, `set_minutes`, `stop_today`; calls `PlanEnv`, `advance_with_context`, `intent_view`, `keep_going`, `latest_today`, `learner_pick`, `more_new`, `picked_under`, `plan_active`, `plan_scheduler_session`, `prefetch_boundary`, `reading_ended`, `set_minutes`, `stop_today`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `PlanInactiveError`, `PlanStillOpenError`, `advance_with_context`, `get_or_create_today`, `intent_view`, `keep_going`, `latest_today`, `learner_pick`, `more_new`, `picked_under`, `plan_active`, `plan_scheduler_session`, `prefetch_boundary`, `reading_ended`, `set_minutes`, `stop_today`; calls `PlanEnv`, `advance_with_context`, `get_or_create_today`, `intent_view`, `keep_going`, `latest_today`, `learner_pick`, `more_new`, `picked_under`, `plan_active`, `plan_scheduler_session`, `prefetch_boundary`, `reading_ended`, `set_minutes`, `stop_today`
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `today_headline`; calls `today_headline`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `module`; calls `choose`, `enabled`, `options`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `record_shown`

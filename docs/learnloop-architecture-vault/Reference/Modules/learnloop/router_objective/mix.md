@@ -153,6 +153,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
   - `test_a_lesson_offer_in_the_support_can_be_drawn_when_the_llm_has_no_answer`
   - `test_a_logged_decision_replays_to_its_logged_mu_under_its_own_rule`
+  - `test_a_real_chooser_with_the_llm_failing_logs_the_rule_it_drew_under`
   - `test_each_row_of_the_table_produces_its_weights`
   - `test_replay_under_both_rules_on_a_synthetic_history_reports_how_often_the_served_choice_changes`
   - `test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly`

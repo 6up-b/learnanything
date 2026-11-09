@@ -10,8 +10,8 @@ area: "TypeScript/screens/today"
 source_path: "apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx"
-source_commit: "19a812ae46c77e1e20961756f3a9897c87f085d7"
-source_commit_timestamp: "2026-11-08T19:40:43-05:00"
+source_commit: "05e1f7dbe01e8455c04a69866b2a90172bd575df"
+source_commit_timestamp: "2026-11-09T08:41:56-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx) |
-| Source lines | 126 |
+| Source lines | 131 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `19a812ae46c77e1e20961756f3a9897c87f085d7` |
-| Commit timestamp | `2026-11-08T19:40:43-05:00` |
+| Source commit | `05e1f7dbe01e8455c04a69866b2a90172bd575df` |
+| Commit timestamp | `2026-11-09T08:41:56-05:00` |
 
 ## Activation and status evidence
 
@@ -64,7 +64,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type OfferSurface = "today" | "offer_page"` — type, line 16
 - `export function useOfferShown(offer: PlanLessonOfferDto, surface: OfferSurface, sessionId: string | null)` — function, line 22
 - `export function useLessonOfferActions(` — function, line 41
-- `export function LessonOfferBlock(` — function, line 84
+- `export function LessonOfferBlock(` — function, line 89
 
 ## Internal implementation anchors
 
@@ -72,8 +72,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const sent = useRef<string | null>(null)` — const, line 24
 - `const live = Boolean(offer.decisionId) && !offer.answered && Boolean(blockId)` — const, line 25
 - `const key = `$` — const, line 28
-- `async function respond(response: OfferResponse, chosen?: LessonSuggestionEntryDto)` — function, line 58
-- `const result = await api.lessonSuggestionRespond(` — const, line 62
+- `async function respond(response: OfferResponse, chosen?: LessonSuggestionEntryDto)` — function, line 61
+- `const result = await api.lessonSuggestionRespond(` — const, line 65
+- `const failure = getCommandError(error)` — const, line 78
 
 ## Who imports or calls it
 

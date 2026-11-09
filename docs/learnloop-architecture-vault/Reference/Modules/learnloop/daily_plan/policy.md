@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/policy.py"
 source_paths:
   - "src/learnloop/daily_plan/policy.py"
-source_commit: "867897f2287300fc9267644fd4cb983021f5e273"
-source_commit_timestamp: "2026-11-08T21:16:02-05:00"
+source_commit: "4a43accdeee73f40cfc87496be678e016f93b3b3"
+source_commit_timestamp: "2026-11-09T08:57:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `867897f2287300fc9267644fd4cb983021f5e273` |
-| Commit timestamp | `2026-11-08T21:16:02-05:00` |
+| Source commit | `4a43accdeee73f40cfc87496be678e016f93b3b3` |
+| Commit timestamp | `2026-11-09T08:57:15-05:00` |
 
 ## Public API
 

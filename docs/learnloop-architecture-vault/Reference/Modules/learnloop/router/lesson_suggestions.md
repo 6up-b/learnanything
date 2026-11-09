@@ -221,6 +221,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_the_acceptance_model_never_reads_a_superseded_offer`
   - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
+- [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_a_learner_asked_lesson_reaches_p_accept_flagged_unprompted`
   - `test_a_request_is_flagged_and_moves_the_offer_only_through_its_posterior`

@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/dailyPlan.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/dailyPlan.ts"
-source_commit: "86021e6b79512c86957d2bb83a488e23a3818a2f"
-source_commit_timestamp: "2026-11-09T03:09:29-05:00"
+source_commit: "05e1f7dbe01e8455c04a69866b2a90172bd575df"
+source_commit_timestamp: "2026-11-09T08:41:56-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/dailyPlan.ts](../../../../../../apps/learnloop-tauri/src/app/dailyPlan.ts) |
-| Source lines | 189 |
+| Source lines | 191 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `86021e6b79512c86957d2bb83a488e23a3818a2f` |
-| Commit timestamp | `2026-11-09T03:09:29-05:00` |
+| Source commit | `05e1f7dbe01e8455c04a69866b2a90172bd575df` |
+| Commit timestamp | `2026-11-09T08:41:56-05:00` |
 
 ## Activation and status evidence
 
@@ -68,13 +68,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type PlanStepAction = |` — type, line 53
 - `export function planStepAction(step: PlanStepDto | null | undefined,` — function, line 64
 - `export function readerTargetForReading( reading: PlanReadingDto, library: SourceLibraryCard[] | null | undefined ):` — function, line 83
-- `export interface NextPlanStep` — interface, line 91
-- `export function useNextPlanStep(sessionId: string | null, prefetch: boolean): NextPlanStep` — function, line 106
-- `export function waitingMinutes(until: string, fallback: number, now: number = Date.now()): number` — function, line 149
-- `export function waitingLine(waiting:` — function, line 156
-- `export function questionInProgressLine(question:` — function, line 163
-- `export function rereadPlanAfterWorkbenchClosed(): void` — function, line 173
-- `export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): string` — function, line 178
+- `export async function servedForExplicitStep(sessionId: string, next: PlanStepDto | null): Promise<PlanStepDto | null>` — function, line 96
+- `export interface NextPlanStep` — interface, line 104
+- `export function useNextPlanStep(sessionId: string | null, prefetch: boolean): NextPlanStep` — function, line 119
+- `export function waitingMinutes(until: string, fallback: number, now: number = Date.now()): number` — function, line 151
+- `export function waitingLine(waiting:` — function, line 158
+- `export function questionInProgressLine(question:` — function, line 165
+- `export function rereadPlanAfterWorkbenchClosed(): void` — function, line 175
+- `export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): string` — function, line 180
 
 ## Internal implementation anchors
 
@@ -83,29 +84,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const id = sessionId ?? null` — const, line 44
 - `const key = useMemo(()` — const, line 46
 - `const card = (library ?? []).find((entry)` — const, line 87
-- `const MAX_STEP_READS = 4` — const, line 98
-- `const hash = sessionId ? hashKey(["next_plan_item", sessionId]) : null` — const, line 107
-- `const key = useMemo<QueryKey | null>(()` — const, line 109
-- `const query = useCachedQuery<DailyPlanDto>( prefetch ? key : null, ()` — const, line 110
-- `const current = query.data !== undefined && !query.refreshing` — const, line 115
-- `const step = current ? query.data?.step ?? null : null` — const, line 116
-- `const resolve = useCallback(async (): Promise<PlanStepDto | null>` — const, line 118
-- `const snapshot = await getOrFetch<DailyPlanDto>(key, ()` — const, line 121
-- `const state = peek<DailyPlanDto>(key)` — const, line 125
-- `const next = (state.data ?? snapshot)?.step ?? null` — const, line 127
-- `const served = await api.nextPlanItem(` — const, line 130
-- `const served = await api.nextPlanItem(` — const, line 135
-- `const at = Date.parse(until)` — const, line 150
-- `const minutes = waitingMinutes(waiting.until, waiting.minutes, now)` — const, line 157
-- `const what = waiting.learningObjectTitle ? `a question on $` — const, line 158
-- `const what = question.learningObjectTitle ? ` on $` — const, line 164
+- `const served = await api.nextPlanItem(` — const, line 98
+- `const MAX_STEP_READS = 4` — const, line 111
+- `const hash = sessionId ? hashKey(["next_plan_item", sessionId]) : null` — const, line 120
+- `const key = useMemo<QueryKey | null>(()` — const, line 122
+- `const query = useCachedQuery<DailyPlanDto>( prefetch ? key : null, ()` — const, line 123
+- `const current = query.data !== undefined && !query.refreshing` — const, line 128
+- `const step = current ? query.data?.step ?? null : null` — const, line 129
+- `const resolve = useCallback(async (): Promise<PlanStepDto | null>` — const, line 131
+- `const snapshot = await getOrFetch<DailyPlanDto>(key, ()` — const, line 134
+- `const state = peek<DailyPlanDto>(key)` — const, line 138
+- `const at = Date.parse(until)` — const, line 152
+- `const minutes = waitingMinutes(waiting.until, waiting.minutes, now)` — const, line 159
+- `const what = waiting.learningObjectTitle ? `a question on $` — const, line 160
+- `const what = question.learningObjectTitle ? ` on $` — const, line 166
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `planStepAction`, `readerTargetForReading`, `useDailyPlan`; references `planStepAction`, `readerTargetForReading`, `useDailyPlan`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `planStepAction`, `readerTargetForReading`, `servedForExplicitStep`, `useDailyPlan`; references `planStepAction`, `readerTargetForReading`, `servedForExplicitStep`, `useDailyPlan`
 - [[Reference/Desktop/TypeScript/app/todayPlan|src/app/todayPlan.ts]] — import-or-re-export: `aboutMinutes`, `wholeMinutes`; references `aboutMinutes`, `wholeMinutes`
 - [[Reference/Desktop/TypeScript/components/PlanReadingBanner|src/components/PlanReadingBanner.tsx]] — import-or-re-export: `aboutMinutes`; references `aboutMinutes`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `nextPlanKeyLabel`, `useNextPlanStep`; references `nextPlanKeyLabel`, `useNextPlanStep`

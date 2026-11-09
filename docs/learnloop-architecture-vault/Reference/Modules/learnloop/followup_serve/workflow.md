@@ -375,6 +375,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_taking_the_lesson_settles_the_followup_honestly`
   - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
   - `test_the_workflows_one_job_runs_again_for_a_new_decision`
+- [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
+  - `test_a_followups_draw_stands_only_while_no_offer_has_been_drawn_since`
+  - `test_reads_alone_never_redraw_two_followups_against_each_other`
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_phone_miss_opens_its_workflow_held_under_the_phones_surface`
   - `test_f3_a_ready_question_says_on_the_phone_that_it_waits_for_the_desktop_and_no_phone_door_opens_it`

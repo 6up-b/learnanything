@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
-source_commit_timestamp: "2026-11-09T05:59:30-05:00"
-source_worktree_state: "modified"
+source_commit: "38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0"
+source_commit_timestamp: "2026-11-09T06:12:48-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
-| Commit timestamp | `2026-11-09T05:59:30-05:00` |
+| Worktree state | `clean` |
+| Source commit | `38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0` |
+| Commit timestamp | `2026-11-09T06:12:48-05:00` |
 
 ## Public API
 
@@ -173,6 +173,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih3_learner_preferences.py](../../../../../../tests/test_ih3_learner_preferences.py) — direct import
   - `test_a_phone_surface_is_for_the_phone_only`
   - `test_the_phone_logs_a_lesson_pick_and_hands_it_to_the_desktop`
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
+  - `test_a_phone_choosing_the_drawn_lesson_is_told_it_waits_and_it_stays_an_agreement`
+  - `test_a_reading_is_servable_where_the_phones_reader_shows_it`
+  - `test_with_no_reader_a_reading_waits`
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
 - [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import

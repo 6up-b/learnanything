@@ -139,6 +139,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
 - [tests/test_held_grade_composition.py](../../../../../../../tests/test_held_grade_composition.py) — direct import
 - [tests/test_ih3_learner_preferences.py](../../../../../../../tests/test_ih3_learner_preferences.py) — direct import
+- [tests/test_ih3_phone_host.py](../../../../../../../tests/test_ih3_phone_host.py) — direct import
+  - `test_a_phone_choosing_the_drawn_lesson_is_told_it_waits_and_it_stays_an_agreement`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_staged_reads_nothing`
   - `test_w_itself_never_reads_a_preference_or_a_pick`

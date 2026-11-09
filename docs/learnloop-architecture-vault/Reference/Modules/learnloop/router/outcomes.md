@@ -223,6 +223,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_gives_every_logged_decision_its_logged_mu`
 - [tests/test_ih3_learner_preferences.py](../../../../../../tests/test_ih3_learner_preferences.py) — direct import
   - `test_an_override_serves_the_action_logs_both_rows_and_the_parent_reads_overridden`
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
+  - `test_a_phone_choosing_the_drawn_lesson_is_told_it_waits_and_it_stays_an_agreement`
 - [tests/test_reader_rw3a_landing.py](../../../../../../tests/test_reader_rw3a_landing.py) — direct import
   - `test_the_answer_to_a_check_binds_by_the_picks_presentation`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import

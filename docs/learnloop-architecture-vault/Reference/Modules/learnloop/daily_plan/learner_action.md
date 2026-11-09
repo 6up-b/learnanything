@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/learner_action.py"
 source_paths:
   - "src/learnloop/daily_plan/learner_action.py"
-source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
-source_commit_timestamp: "2026-11-09T05:06:18-05:00"
+source_commit: "3fff1f3022217d06c78dc20963746a11650aad19"
+source_commit_timestamp: "2026-11-09T09:03:50-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,35 +50,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py) |
-| Source lines | 556 |
+| Source lines | 627 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `85131fc655b46e81b93e56ad2675a957e2448838` |
-| Commit timestamp | `2026-11-09T05:06:18-05:00` |
+| Source commit | `3fff1f3022217d06c78dc20963746a11650aad19` |
+| Commit timestamp | `2026-11-09T09:03:50-05:00` |
 
 ## Public API
 
-- `class PreferenceError(ValueError)` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 57)
-  - `__init__(self, code: str, message: str) -> None` (line 58; internal)
-- `class Option` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 64)
-  - `view(self) -> dict[str, Any]` (line 77; public)
-- `class Options` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 83)
-  - `offered(self) -> dict[str, Any]` (line 100; public) — What ``offered_json`` keeps: the options as refs with the router's probabilities where known.
-  - `view(self) -> dict[str, Any]` (line 114; public)
-- `enabled(env: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 119) — IH3's gate (``router_objective.learner_preferences`` at the tag), and the ledger exists.
-- `options(env: Any) -> Options` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 255) — The boundary's options without drawing (module docstring).
-- `class Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 312) — What :func:`choose` did: the preference's id, how it was served, and the step (None when nothing is served).
-- `choose(env: Any, *, kind: str, ref: str | None, surface: str, attempt_id: str | None, note_md: str | None, preference_id: str | None=None) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 374) — Serve the learner's choice and log it, in one transaction (module docstring).
+- `class PreferenceError(ValueError)` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 62)
+  - `__init__(self, code: str, message: str) -> None` (line 63; internal)
+- `class Option` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 69)
+  - `view(self) -> dict[str, Any]` (line 82; public)
+- `class Options` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 88)
+  - `offered(self) -> dict[str, Any]` (line 106; public) — What ``offered_json`` keeps: the options as refs with the router's probabilities where known.
+  - `view(self) -> dict[str, Any]` (line 120; public)
+- `enabled(env: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 125) — IH3's gate (``router_objective.learner_preferences`` at the tag), and the ledger exists.
+- `options(env: Any) -> Options` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 266) — The boundary's options without drawing (module docstring).
+- `class Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 323) — What :func:`choose` did: the preference's id, how it was served, and the step (None when nothing is served).
+- `choose(env: Any, *, kind: str, ref: str | None, surface: str, attempt_id: str | None, note_md: str | None, preference_id: str | None=None) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 386) — Serve the learner's choice and log it, in one transaction (module docstring).
 
 ### Module constants
 
-- `LOG` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 45)
-- `PREFERENCE_VERSION` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 47)
-- `DESKTOP_SURFACES` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 50)
-- `PHONE_SURFACES` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 51)
-- `WAITS_ON_DESKTOP` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 54)
+- `LOG` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 46)
+- `PREFERENCE_VERSION` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 48)
+- `DESKTOP_SURFACES` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 51)
+- `PHONE_SURFACES` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 52)
+- `WAITS_ON_DESKTOP` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 55)
+- `DESKTOP_OPENS_LESSON` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 57)
+- `SERVING_STOP` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 58)
+- `SERVING_BLOCK` ([src/learnloop/daily_plan/learner_action.py](../../../../../../src/learnloop/daily_plan/learner_action.py), line 59)
 
 ### Explicit exports
 
@@ -101,22 +104,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_waiting_block(record: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 133) — The drawn block the next step would serve and nothing of which has been served, or None.
-- `_logged(connection: Any, decision_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 147)
-- `_logged_probabilities(row: Mapping[str, Any] | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 156) — The probability each ref was given by the decision (only where it logged a number).
-- `_lesson_candidate(env: Any, record: Any) -> BlockCandidate | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 170) — The router's own best lesson candidate, read without a draw.
-- `_label(kind: str, candidate: BlockCandidate | None) -> str` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 190)
-- `_plans_pick_label(kind: str, block: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 201) — The plan's own drawn pick in plain words: a lesson offer by its topic, a reading by its section, else the kind's.
-- `_frozen_inputs(env: Any, record: Any, lesson: BlockCandidate | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 217) — IH4 (spec_instruct_handoff_v1 §7): what this preference's replay reads, as it stood here: the choice model's features and, with a lesson on offer, the acceptance model's context and candidate.
-- `_phone_serves(env: Any, kind: str, candidate: BlockCandidate | None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 241) — A phone serves a practice block whose first item it can show.
-- `_decision_row(env: Any, *, decision_id: str, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any], block_id: str | None, serving: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 327)
-- `_write_decision(env: Any, connection: Any, **row_args: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 430) — The learner_pick decision, or None when the router's log is off (``router.log_decisions``).
-- `_log_only(env: Any, preference: Any, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any], serving: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 441)
-- `_stop(env: Any, live: Options, preference: Any, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any]) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 450)
-- `_end_offer(env: Any, connection: Any, live: Options, decision_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 463) — An unanswered lesson offer the choice replaces ends ``superseded`` (the plan's act, as IH2's), in the same transaction.
-- `_place(env: Any, live: Options, preference: Any, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any]) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 476)
-- `_serve_step(env: Any, record: Any, block: Any, context: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 510) — Serve the placed block's first step, as :func:`~learnloop.daily_plan.engine.learner_pick` serves its block.
-- `_replayed(env: Any, row: Mapping[str, Any]) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 526) — A retry of a preference already written: answered as it was made, writing nothing.
+- `_waiting_block(record: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 139) — The drawn block the next step would serve and nothing of which has been served, or None.
+- `_logged(connection: Any, decision_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 153)
+- `_logged_probabilities(row: Mapping[str, Any] | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 162) — The probability each ref was given by the decision (only where it logged a number).
+- `_lesson_candidate(env: Any, record: Any) -> BlockCandidate | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 176) — The router's own best lesson candidate, read without a draw.
+- `_label(kind: str, candidate: BlockCandidate | None) -> str` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 196)
+- `_plans_pick_label(kind: str, block: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 207) — The plan's own drawn pick in plain words: a lesson offer by its topic, a reading by its section, else the kind's.
+- `_frozen_inputs(env: Any, record: Any, lesson: BlockCandidate | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 223) — IH4 (spec_instruct_handoff_v1 §7): what this preference's replay reads, as it stood here: the choice model's features and, with a lesson on offer, the acceptance model's context and candidate.
+- `_phone_serves(env: Any, kind: str, candidate: BlockCandidate | None, *, block: Any=None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 247) — A phone serves a practice block whose first item it can show, and a reading its own Reader shows (V4).
+- `_decision_row(env: Any, *, decision_id: str, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any], block_id: str | None, serving: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 339)
+- `_state_receipt(env: Any, live: Options, chosen: Option) -> Any` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 442) — RO0 rows 9 and 13, as for any learner pick (:func:`~learnloop.daily_plan.engine._pick_new_block`): the state and the VOI verdict in force, read before the choice's transaction opens.
+- `_write_decision(env: Any, connection: Any, *, live: Options, state: Any, **row_args: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 455) — The learner_pick decision and its receipts, or None when the router's log is off (``router.log_decisions``).
+- `_log_only(env: Any, live: Options, preference: Any, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any], serving: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 474)
+- `_stop(env: Any, live: Options, preference: Any, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any]) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 484)
+- `_end_offer(env: Any, connection: Any, live: Options, decision_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 498) — An unanswered lesson offer the choice replaces ends ``superseded`` (the plan's act, as IH2's), in the same transaction.
+- `_place(env: Any, live: Options, preference: Any, preference_id: str, chosen: Option, parent_id: str | None, offered: Mapping[str, Any]) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 511)
+- `_serve_step(env: Any, record: Any, block: Any, context: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 546) — Serve the placed block's first step, as :func:`~learnloop.daily_plan.engine.learner_pick` serves its block.
+- `_lesson_view(env: Any, ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 562) — The lesson a chosen "learn this" opens.
+- `_serving_of(env: Any, decision_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 570) — How an override's decision says it was served, or None (no such decision: an agreement, or the log off).
+- `_replayed(env: Any, row: Mapping[str, Any]) -> Chosen` ([source](../../../../../../src/learnloop/daily_plan/learner_action.py), line 581) — A retry of a preference already written: answered as it was made, so a lost reply loses nothing.
 
 ## Who imports or calls it
 
@@ -129,7 +135,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; calls `_close`, `_device_detail`, `_done_step`, `_event`, `_feasibility`, `_item_step`, `_live_context`, `_persist_block`, `_reading_step`, `_reload`, `_serve`, `_standing_presentation`, `get_or_create_today`, `plan_active`, `reconcile`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; calls `_close`, `_decision_state`, `_device_detail`, `_done_step`, `_event`, `_feasibility`, `_item_step`, `_live_context`, `_persist_block`, `_reading_step`, `_reload`, `_serve`, `_standing_presentation`, `get_or_create_today`, `plan_active`, `reconcile`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `build`, `offers_on`, `supersede`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `offer_card_view`; calls `offer_card_view`
 - [[Reference/Modules/learnloop/daily_plan/records|learnloop.daily_plan.records]] — imports `ORIGIN_LEARNER_PICK`
@@ -143,7 +149,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `json`, `logging`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `json`, `logging`, `types`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -175,6 +181,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phone_logs_a_lesson_pick_and_hands_it_to_the_desktop`
   - `test_with_no_draw_the_options_are_what_the_plan_can_produce_and_say_so`
   - `test_with_the_switch_off_there_is_no_link_and_nothing_is_written`
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
+  - `test_a_crash_after_the_commit_is_finished_by_the_retry`
+  - `test_a_lesson_kept_at_a_finished_block_draws_nothing_through_its_reply`
+  - `test_a_phone_choosing_the_drawn_lesson_is_told_it_waits_and_it_stays_an_agreement`
+  - `test_a_reading_is_servable_where_the_phones_reader_shows_it`
+  - `test_a_retried_lesson_pick_opens_the_lesson`
+  - `test_a_retried_stop_says_stopped`
+  - `test_a_retry_of_a_kept_lesson_still_says_it_waits`
+  - `test_an_override_keeps_the_state_a_pick_keeps`
+  - `test_the_desktop_choosing_the_drawn_lesson_still_agrees`
+  - `test_with_no_reader_a_reading_waits`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_a_failed_sensor_leaves_the_numeric_policy_as_it_was`
   - `test_a_learner_asked_lesson_reaches_p_accept_flagged_unprompted`

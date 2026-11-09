@@ -54,7 +54,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 19 | 16 |
 | [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] | [[Reference/Modules/learnloop/followup_serve/marks#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
-| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 16 | 20 |
+| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 16 | 21 |
 
 ## Cross-package dependencies
 

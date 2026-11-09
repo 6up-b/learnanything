@@ -3,8 +3,8 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
-source_commit_timestamp: "2026-11-09T05:06:18-05:00"
+source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
+source_commit_timestamp: "2026-11-09T09:10:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
@@ -141,6 +141,7 @@ None found by exact static reference scan.
 - `tests/test_data_capture_codex_rereview.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_ih3_phone_host.py`
 - `tests/test_instruct_handoff_ih0.py`
 - `tests/test_mobile_v2_rereview_fixes.py`
 - `tests/test_mvp023_upgrade.py`
@@ -149,7 +150,6 @@ None found by exact static reference scan.
 - `tests/test_reader_rw4b_fix6.py`
 - `tests/test_ro0_codex_review.py`
 - `tests/test_ro0_codex_verify.py`
-- `tests/test_ro0_gate.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

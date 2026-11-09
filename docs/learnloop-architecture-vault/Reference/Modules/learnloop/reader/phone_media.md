@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/phone_media.py"
 source_paths:
   - "src/learnloop/reader/phone_media.py"
-source_commit: "workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
-source_commit_timestamp: "2026-11-09T05:59:30-05:00"
-source_worktree_state: "modified"
+source_commit: "38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0"
+source_commit_timestamp: "2026-11-09T06:12:48-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
-| Commit timestamp | `2026-11-09T05:59:30-05:00` |
+| Worktree state | `clean` |
+| Source commit | `38ccfa65f8d3889cdb161cd5db0cea3a5d0582f0` |
+| Commit timestamp | `2026-11-09T06:12:48-05:00` |
 
 ## Public API
 

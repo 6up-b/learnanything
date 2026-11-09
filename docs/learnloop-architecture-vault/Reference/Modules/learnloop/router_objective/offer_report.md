@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/offer_report.py"
 source_paths:
   - "src/learnloop/router_objective/offer_report.py"
-source_commit: "867897f2287300fc9267644fd4cb983021f5e273"
-source_commit_timestamp: "2026-11-08T21:16:02-05:00"
+source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
+source_commit_timestamp: "2026-11-09T09:10:53-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,19 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/offer_report.py](../../../../../../src/learnloop/router_objective/offer_report.py) |
-| Source lines | 133 |
+| Source lines | 135 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `867897f2287300fc9267644fd4cb983021f5e273` |
-| Commit timestamp | `2026-11-08T21:16:02-05:00` |
+| Source commit | `53be1788a536ed0c52c215db58e75dc8c80f34d3` |
+| Commit timestamp | `2026-11-09T09:10:53-05:00` |
 
 ## Public API
 
 - `binding(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 27) — A drawn offer's chain of ids and outcomes, or None when the decision drew no offer.
-- `build(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 74) — The lesson-offer rows (module docstring).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 124)
+- `build(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 76) — The lesson-offer rows (module docstring).
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 126)
 
 ### Module constants
 
@@ -113,10 +113,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No direct or one-hop consumer test was found by static import analysis.
-
-> [!caution] Test gap signal
-> Treat this as a navigation signal, not proof that behavior is untested: dynamic and higher-level coverage is outside this static map. Add focused coverage when changing isolated behavior here.
+- [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
+  - `test_an_offer_drawn_after_a_miss_and_never_rendered_is_no_decline`
 
 ## Modification guidance
 

@@ -169,6 +169,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_not_now_after_a_miss_goes_back_to_a_new_decision_and_the_block_resumes`
   - `test_taking_the_lesson_settles_the_followup_honestly`
   - `test_the_workflows_one_job_runs_again_for_a_new_decision`
+- [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
 
 ## Modification guidance
 

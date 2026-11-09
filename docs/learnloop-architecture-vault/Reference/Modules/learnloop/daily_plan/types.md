@@ -188,6 +188,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support`
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_the_kinds_are_the_plans_own_names`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import

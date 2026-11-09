@@ -199,6 +199,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
   - `test_the_need_paths_mid_block_decision_gains_the_lesson_arm`
   - `test_with_no_room_to_wait_a_lesson_makes_it_a_real_draw_and_with_none_it_stays_deterministic`
+- [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
+  - `test_a_followups_draw_stands_only_while_no_offer_has_been_drawn_since`
+  - `test_a_need_followups_draw_stands_at_the_boundary`
+  - `test_an_offer_drawn_after_the_followups_decision_is_contested`
 - [tests/test_ih_numeric_seed.py](../../../../../../tests/test_ih_numeric_seed.py) — direct import
   - `test_the_need_paths_decision_with_no_lesson_seeds_from_its_identity`
   - `test_the_workflows_arm_with_no_room_to_wait_seeds_from_its_identity`

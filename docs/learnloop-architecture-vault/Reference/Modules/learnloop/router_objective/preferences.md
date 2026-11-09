@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/preferences.py"
 source_paths:
   - "src/learnloop/router_objective/preferences.py"
-source_commit: "ffb1157597fbfdff1fbe13bcd09c5d88b295f530"
-source_commit_timestamp: "2026-11-09T05:59:30-05:00"
+source_commit: "3fff1f3022217d06c78dc20963746a11650aad19"
+source_commit_timestamp: "2026-11-09T09:03:50-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/preferences.py](../../../../../../src/learnloop/router_objective/preferences.py) |
-| Source lines | 429 |
+| Source lines | 430 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ffb1157597fbfdff1fbe13bcd09c5d88b295f530` |
-| Commit timestamp | `2026-11-09T05:59:30-05:00` |
+| Source commit | `3fff1f3022217d06c78dc20963746a11650aad19` |
+| Commit timestamp | `2026-11-09T09:03:50-05:00` |
 
 ## Public API
 
@@ -66,21 +66,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `as_dict(self) -> dict[str, Any]` (line 131; public)
   - `from_dict(cls, value: Mapping[str, Any]) -> 'Features'` (line 137; public)
 - `features_at(connection: Any, config: Any, *, at: str, minutes_left: float | None) -> Features` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 148) — The features at ``at``: its local hour (read at hour resolution, as a lesson offer's context), the plan's minutes left, and how far the latest graded answer known by then fell short (0 with none; through THE availability predicate).
-- `class ChoiceState` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 176) — The model's posterior as of some instant: per kind, the effects' Gaussian.
-  - `observe(self, features: Features, offered: Sequence[str], chosen: str) -> None` (line 182; public) — One use of the link: the chosen kind and each other offered kind, one step each.
-  - `predict(self, features: Features, kinds: Sequence[str]) -> dict[str, float]` (line 198; public) — ``P(kind | the link was used here)`` over ``kinds``: each kind's predictive, normalized over them.
-- `replay(rows: Sequence[Mapping[str, Any]], *, at: str | None=None) -> tuple[ChoiceState, dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 211) — The model as of ``at`` from ``router_learner_preferences`` rows, and what they were: ``on_record``, ``read``, ``no_frozen_features`` (written with the switch off), and of those read ``agreed`` and ``no_draw``.
-- `mark(connection: Any, config: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 235) — What a boundary's identity names so a new preference never reuses a job made before it: the ledger's size and latest row, or nothing (switch off, none on record, or the table absent), so every other key keeps its bytes.
-- `scaled(p: Mapping[str, float], q: Mapping[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 250) — ``V_pref`` per candidate: ``p`` standardized over the candidates, times the spread of their ``Q̄`` (uniform over the support: the mix's ``μ`` does not exist yet when the numeric policy answers, and depends on it).
-- `with_values(preference: Mapping[str, Any], q: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 264) — The sensor with each candidate's ``V_pref`` at the evaluation that answered (the tail's ``Q̄``), frozen exactly, so the shift and the contrasts read one number.
-- `frozen_values(row: Any) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 274) — A logged decision's frozen ``V_pref`` by ref, or None: no sensor, nothing on record then, or a candidate without one.
-- `contrast(*, decision_id: str, decided_at: str, window_closes_at: str, served: str, distribution: Mapping[str, float], values: Mapping[str, float], tail: Mapping[str, float], found: S.Bounded) -> LT.Contrast | None` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 289) — One draw's contrast (module docstring): ``Ĉ = d(A)·Ĝ`` against ``Σπ·d·Q_tail`` and ``Σπ·d²``; None with no spread under ``π`` (every candidate one kind: nothing to test, known before the draw).
-- `contrasts(connection: Any, config: Any, rows: Sequence[Any], *, at: str) -> tuple[list[LT.Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 311) — Every logged draw with a frozen sensor whose window closed before ``at`` (:class:`tail_data.Logged` rows: the mix's draws only; a pick has no trace), with its missing terms bounded (RO6's landing ruling R1).
-- `weight(connection: Any, config: Any, rows: Sequence[Any], *, at: str) -> tuple[LT.WeightFit, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 342) — ``w_pref`` as of ``at``: RO6's :func:`learned_tail.residual_weight` over :func:`contrasts`, at RO6's labelled prior (``residual_weight_prior_sd``), with its clip to ``[0, 1]`` times ``P(rank > 0)``.
-- `fitted(found: Sequence[LT.Contrast], *, prior_sd: float, at: str | None=None) -> LT.WeightFit` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 353) — :func:`learned_tail.residual_weight` over ``found``, its noise with the fit's degrees of freedom off: every row here is a draw, so with few of them a fit through the rows would otherwise report no noise and drop the prior.
-- `record(repository: Any, config: Any, *, kinds: Mapping[str, str], minutes_left: float | None, now_iso: str, fit: bool=True) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 371) — A ``plan_block`` decision's sensor and ``w_pref``, or None with nothing to say (no preference with frozen features known at ``now_iso``), so its trace and every value are the predecessor's.
-- `moves_the_value(preference: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 407) — ``w_pref`` has moved: only then does anything shift (at 0 the evaluation is handed on untouched, bit for bit).
-- `shifted(evaluation: Any, preference: Mapping[str, Any], *, tail: Mapping[str, float]) -> Any` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 414) — The evaluation the numeric policy's argmax reads: each candidate's draws moved by ``w_pref·V_pref``, a constant per candidate, so the paired precision is the tail's (as ``tail_serve.shifted``).
+- `class ChoiceState` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 177) — The model's posterior as of some instant: per kind, the effects' Gaussian.
+  - `observe(self, features: Features, offered: Sequence[str], chosen: str) -> None` (line 183; public) — One use of the link: the chosen kind and each other offered kind, one step each.
+  - `predict(self, features: Features, kinds: Sequence[str]) -> dict[str, float]` (line 199; public) — ``P(kind | the link was used here)`` over ``kinds``: each kind's predictive, normalized over them.
+- `replay(rows: Sequence[Mapping[str, Any]], *, at: str | None=None) -> tuple[ChoiceState, dict[str, int]]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 212) — The model as of ``at`` from ``router_learner_preferences`` rows, and what they were: ``on_record``, ``read``, ``no_frozen_features`` (written with the switch off), and of those read ``agreed`` and ``no_draw``.
+- `mark(connection: Any, config: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 236) — What a boundary's identity names so a new preference never reuses a job made before it: the ledger's size and latest row, or nothing (switch off, none on record, or the table absent), so every other key keeps its bytes.
+- `scaled(p: Mapping[str, float], q: Mapping[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 251) — ``V_pref`` per candidate: ``p`` standardized over the candidates, times the spread of their ``Q̄`` (uniform over the support: the mix's ``μ`` does not exist yet when the numeric policy answers, and depends on it).
+- `with_values(preference: Mapping[str, Any], q: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 265) — The sensor with each candidate's ``V_pref`` at the evaluation that answered (the tail's ``Q̄``), frozen exactly, so the shift and the contrasts read one number.
+- `frozen_values(row: Any) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 275) — A logged decision's frozen ``V_pref`` by ref, or None: no sensor, nothing on record then, or a candidate without one.
+- `contrast(*, decision_id: str, decided_at: str, window_closes_at: str, served: str, distribution: Mapping[str, float], values: Mapping[str, float], tail: Mapping[str, float], found: S.Bounded) -> LT.Contrast | None` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 290) — One draw's contrast (module docstring): ``Ĉ = d(A)·Ĝ`` against ``Σπ·d·Q_tail`` and ``Σπ·d²``; None with no spread under ``π`` (every candidate one kind: nothing to test, known before the draw).
+- `contrasts(connection: Any, config: Any, rows: Sequence[Any], *, at: str) -> tuple[list[LT.Contrast], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 312) — Every logged draw with a frozen sensor whose window closed before ``at`` (:class:`tail_data.Logged` rows: the mix's draws only; a pick has no trace), with its missing terms bounded (RO6's landing ruling R1).
+- `weight(connection: Any, config: Any, rows: Sequence[Any], *, at: str) -> tuple[LT.WeightFit, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 343) — ``w_pref`` as of ``at``: RO6's :func:`learned_tail.residual_weight` over :func:`contrasts`, at RO6's labelled prior (``residual_weight_prior_sd``), with its clip to ``[0, 1]`` times ``P(rank > 0)``.
+- `fitted(found: Sequence[LT.Contrast], *, prior_sd: float, at: str | None=None) -> LT.WeightFit` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 354) — :func:`learned_tail.residual_weight` over ``found``, its noise with the fit's degrees of freedom off: every row here is a draw, so with few of them a fit through the rows would otherwise report no noise and drop the prior.
+- `record(repository: Any, config: Any, *, kinds: Mapping[str, str], minutes_left: float | None, now_iso: str, fit: bool=True) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 372) — A ``plan_block`` decision's sensor and ``w_pref``, or None with nothing to say (no preference with frozen features known at ``now_iso``), so its trace and every value are the predecessor's.
+- `moves_the_value(preference: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 408) — ``w_pref`` has moved: only then does anything shift (at 0 the evaluation is handed on untouched, bit for bit).
+- `shifted(evaluation: Any, preference: Mapping[str, Any], *, tail: Mapping[str, float]) -> Any` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 415) — The evaluation the numeric policy's argmax reads: each candidate's draws moved by ``w_pref·V_pref``, a constant per candidate, so the paired precision is the tail's (as ``tail_serve.shifted``).
 
 ### Module constants
 
@@ -133,8 +133,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_local_hour(at: str) -> float` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 143)
-- `_prior() -> tuple[np.ndarray, np.ndarray]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 166) — One kind's seeded Gaussian.
-- `_exact(value: float) -> str` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 365) — As ``tail_serve._exact``: the trace rounds every float, and the shift must recompute.
+- `_prior() -> tuple[np.ndarray, np.ndarray]` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 167) — One kind's seeded Gaussian.
+- `_exact(value: float) -> str` ([source](../../../../../../src/learnloop/router_objective/preferences.py), line 366) — As ``tail_serve._exact``: the trace rounds every float, and the shift must recompute.
 
 ## Who imports or calls it
 
@@ -177,6 +177,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ih3_phone_host.py](../../../../../../tests/test_ih3_phone_host.py) — direct import
+  - `test_last_miss_reads_the_latest_graded_answer`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_a_decision_of_one_kind_has_nothing_to_test`
   - `test_a_failed_sensor_leaves_the_numeric_policy_as_it_was`

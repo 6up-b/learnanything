@@ -3,8 +3,8 @@ title: "router_objective_traces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "85131fc655b46e81b93e56ad2675a957e2448838"
-source_commit_timestamp: "2026-11-09T05:06:18-05:00"
+source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
+source_commit_timestamp: "2026-11-09T09:10:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_objective_traces"
@@ -139,6 +139,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ih2_lessons_compete.py`
+- `tests/test_ih3_phone_host.py`
 - `tests/test_instruct_handoff_ih0.py`
 - `tests/test_ro4_trace_report.py`
 - `tests/test_ro4_traces_migration.py`

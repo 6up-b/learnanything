@@ -3,8 +3,8 @@ title: "prefilter_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
-source_commit_timestamp: "2026-11-09T00:34:52-05:00"
+source_commit: "53be1788a536ed0c52c215db58e75dc8c80f34d3"
+source_commit_timestamp: "2026-11-09T09:10:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite prefilter_receipts"
@@ -125,6 +125,7 @@ None found by exact static reference scan.
 - `tests/test_data_capture_migration.py`
 - `tests/test_data_capture_phone.py`
 - `tests/test_data_capture_report.py`
+- `tests/test_ih3_phone_host.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
