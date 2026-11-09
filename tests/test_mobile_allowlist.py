@@ -24,7 +24,9 @@ V2_ALLOWED = frozenset({
 })
 #: Mobile v2 §8's V3 row (owner decision D3): a generated follow-up probe opened by Next on the phone.
 V3_ALLOWED = frozenset({"followup_next"})
-PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED
+#: Spec_instruct_handoff_v1 §3a: the phone's start-only prefetch, gated with the plan's other methods.
+IH0_ALLOWED = frozenset({"plan_prefetch"})
+PHONE_ALLOWED = M2_ALLOWED | V2_ALLOWED | V3_ALLOWED | IH0_ALLOWED
 
 
 def test_the_allowlist_is_the_m2_v2_and_v3_rows_and_frozen():
@@ -63,7 +65,8 @@ def test_v3_a_probe_answer_is_the_hosts_switch():
 def test_v2_constraints():
     from learnloop_mobile.allowlist import PLAN_METHODS, ParamRejected, check_parameters
 
-    assert PLAN_METHODS <= V2_ALLOWED
+    assert PLAN_METHODS <= V2_ALLOWED | IH0_ALLOWED
+    assert "plan_prefetch" in PLAN_METHODS and ALLOWLIST["plan_prefetch"].kind == "short"
     assert ALLOWLIST["next_plan_item"].kind == "long"
     assert ALLOWLIST["trigger_regrade"].kind == "long"
     with pytest.raises(ParamRejected):
@@ -179,6 +182,7 @@ DAILY_PLAN_RPCS = (
     "plan_more_new",
     "plan_learner_pick",
     "get_today_headline",
+    "plan_prefetch",
 )
 DAILY_PLAN_EXTENDED_RPCS = ("get_today_queue", "reader.mark_section_progress")
 

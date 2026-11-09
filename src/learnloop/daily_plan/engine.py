@@ -2836,18 +2836,12 @@ def _persist_block(
     return block_id
 
 
-def _boundary(
-    env: PlanEnv,
-    record: PlanRecord,
-    context: PoolContext,
-    *,
-    forced: Sequence[PoolItem] = (),
-    forced_origin: str = ORIGIN_REQUESTED,
-    ad_deferrals: Mapping[str, Any] | None = None,
-) -> str | None:
-    """Choose and persist the next block, or close the plan. Returns the block id."""
+def _forced_charges(
+    record: PlanRecord, context: PoolContext, forced: Sequence[PoolItem], forced_origin: str
+) -> tuple[PoolContext, float, dict[str, dict[str, Any] | None], dict[str, float], dict[str, float]]:
+    """What a boundary's forced items take before its choice: the context without them, their minutes, the lane
+    releases, and the allotment and spend each lane's choice sees."""
 
-    forced = list(forced)
     forced_ids = {item.practice_item_id for item in forced}
     if forced_ids:
         # Forced items (requests, follow-ups) are placed whatever is chosen, so
@@ -2876,6 +2870,24 @@ def _boundary(
             forced_spent[lane] += item.est_minutes
             lefts[lane] = max(lefts[lane] - item.est_minutes, 0.0)
             minutes_left = max(minutes_left - item.est_minutes, 0.0)
+    return context, forced_minutes, releases, forced_allotment, forced_spent
+
+
+def _boundary(
+    env: PlanEnv,
+    record: PlanRecord,
+    context: PoolContext,
+    *,
+    forced: Sequence[PoolItem] = (),
+    forced_origin: str = ORIGIN_REQUESTED,
+    ad_deferrals: Mapping[str, Any] | None = None,
+) -> str | None:
+    """Choose and persist the next block, or close the plan. Returns the block id."""
+
+    forced = list(forced)
+    forced_ids = {item.practice_item_id for item in forced}
+    context, forced_minutes, releases, forced_allotment, forced_spent = _forced_charges(
+        record, context, forced, forced_origin)
     # Router objective RO5 (spec §9 item 2): the day's randomized checks are drawn before any action draw of the
     # day and independent of it (once a day, idempotent; off, below the tag or with the objective off, nothing).
     _draw_randomized_checks(env, record, context)
@@ -3140,6 +3152,19 @@ def _draw_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolConte
 RO5_CHECK_WHY = "One question to start with."
 
 
+def _checks_to_place(env: PlanEnv, record: PlanRecord, context: PoolContext) -> list[Any]:
+    """The day's undelivered checks this boundary administers (``checks.place``)."""
+
+    from learnloop.daily_plan import objective_inputs
+    from learnloop.router_objective import checks
+
+    return checks.place(env.vault, env.repository, local_date=str(record.row.get("local_date") or env.today()),
+                        session_id=env.session_id, pool=context.pool, planned=record.planned_ids(),
+                        chooser_items=(), lane=None,
+                        eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
+                            env.vault, env.repository, los, exclude))
+
+
 def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolContext, *, forced: Sequence[PoolItem],
                             forced_origin: str, releases: Mapping[str, Mapping[str, Any] | None]) -> str | None:
     """RO5 §9 item 2 (Codex re-review F2): the day's undelivered checks, administered at this boundary BEFORE its
@@ -3157,13 +3182,8 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
         return None
     try:
         from learnloop.daily_plan import objective_inputs
-        from learnloop.router_objective import checks
 
-        placed = checks.place(env.vault, env.repository, local_date=str(record.row.get("local_date") or env.today()),
-                              session_id=env.session_id, pool=context.pool, planned=record.planned_ids(),
-                              chooser_items=(), lane=None,
-                              eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
-                                  env.vault, env.repository, los, exclude))
+        placed = _checks_to_place(env, record, context)
         if not placed:
             return None
         now = env.now_iso()
@@ -3459,6 +3479,28 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
     whichever surface served it (the plan, the full list, the TUI).
     """
 
+    writes, path_split, now = _reconcile_changes(env, record)
+    if writes or path_split is not None:
+        with env.repository.atomic(), env.repository.connection() as connection:
+            for block_id, kind, detail in writes:
+                _event(connection, block_id, kind, detail, now)
+            if path_split is not None:
+                if _path_split_reopens(path_split):
+                    # Fix round 2: the plan closed only for want of the reading
+                    # the path left out; it reopens with the predecessor's.
+                    store.update_plan(connection, record.id, split_json=path_split, status="open",
+                                      stop_reason=None, completed_at=None, updated_at=now)
+                else:
+                    store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
+        return _reload(env, record.id)
+    return record
+
+
+def _reconcile_changes(
+    env: PlanEnv, record: PlanRecord
+) -> tuple[list[tuple[str, str, dict[str, Any]]], dict[str, Any] | None, str]:
+    """What :func:`reconcile` would write, unwritten: the events, a moved reading's new split, and their time."""
+
     from learnloop.vault.lifecycle import practice_item_servable
     from learnloop.substrate.instrument_serving import unservable_reason
 
@@ -3583,20 +3625,7 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
             _end_reading_out_of_intent(env, block, intent, now, writes)
     else:
         path_split = _reading_path_switched_off(env, record, now, writes)
-    if writes or path_split is not None:
-        with env.repository.atomic(), env.repository.connection() as connection:
-            for block_id, kind, detail in writes:
-                _event(connection, block_id, kind, detail, now)
-            if path_split is not None:
-                if _path_split_reopens(path_split):
-                    # Fix round 2: the plan closed only for want of the reading
-                    # the path left out; it reopens with the predecessor's.
-                    store.update_plan(connection, record.id, split_json=path_split, status="open",
-                                      stop_reason=None, completed_at=None, updated_at=now)
-                else:
-                    store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
-        return _reload(env, record.id)
-    return record
+    return writes, path_split, now
 
 
 def _end_reading_out_of_intent(
@@ -4900,6 +4929,98 @@ def advance_with_context(
     return record, step, context
 
 
+def _reconcile_view(env: PlanEnv, record: PlanRecord) -> PlanRecord | None:
+    """The plan as :func:`reconcile` would leave it, with nothing written: its events folded over the stored ones,
+    exactly as the reload after its commit folds them. None when it would move the plan's reading (not an event)."""
+
+    writes, path_split, now = _reconcile_changes(env, record)
+    if path_split is not None:
+        return None
+    if not writes:
+        return record
+    with env.repository.connection() as connection:
+        rows = [store.plan_by_id(connection, record.id)]
+        blocks = store.plan_blocks(connection, [record.id])
+        events = store.block_events_for(connection, [block["id"] for block in blocks])
+    ordinals: dict[str, int] = {}
+    for event in events:
+        ordinals[str(event["block_id"])] = max(ordinals.get(str(event["block_id"]), 0), int(event["event_ordinal"]))
+    for block_id, kind, detail in writes:
+        ordinals[block_id] = ordinals.get(block_id, 0) + 1
+        events.append({"block_id": block_id, "event_ordinal": ordinals[block_id], "kind": kind, "detail": detail,
+                       "created_at": now})
+    (view,) = assemble(rows, blocks, events)
+    return view
+
+
+def prefetch_boundary(env: PlanEnv) -> str:
+    """Spec_instruct_handoff_v1 §3a: start the next boundary's objective job, and write nothing.
+
+    The phone's Next starts its decision's model calls too late (§3a), and a peek (``advance_with_context`` without
+    ``serve``) crosses the boundary and writes its decision. This walks :func:`advance_with_context`'s path to the
+    chooser over the same inputs, so the serve computes the same boundary key and finds the job. ``env`` is read-only
+    (its repository is attached ``read_only``, so a write fails at the database), and its chooser is ``start_only``.
+
+    Returns ``"started"`` (the job runs, or was already running), or why nothing was started. Anything on that path
+    only a write can settle ends it here: the serve then decides as it always has."""
+
+    record = latest_today(env)
+    if record is None:
+        return "no_plan"
+    record = _reconcile_view(env, record)
+    if record is None:
+        return "needs_write"
+    if not record.is_open:
+        return "plan_closed"
+    block = record.current_block()
+    if env.device is not None and block is not None:
+        block, _item = _device_block(env, record)
+        if block is None and _check_held(env, record):
+            return "held"
+    if block is not None:
+        return "not_a_boundary"
+    if _stop_pending(record) is not None:
+        return "stop_pending"
+    if not record.blocks and not record.receipts and _forced_rows(record.split):
+        return "needs_write"
+    day = [record if plan.id == record.id else plan for plan in day_records(env)]
+    built = _classified_pool(env, minutes=record.budget, lanes_allowed=record.lanes_allowed, day=day,
+                             reentry=record.kind == "reentry", record=record)
+    current = record.current_block()
+    if (current is not None and not current.is_reading and not current.is_lesson_offer
+            and _pending_followups(record, built)):
+        return "followups_pending"  # a mid-block follow-up has its own decision first (``_restrained_followups``)
+    record, forced = _insert_followups(env, record, built)
+    if _ad_selection(env) and day_ad_deferrals(env, record):
+        return "ad_deferrals"  # re-read under AD's write-lock guard (``_ad_deferrals_cleared``)
+    context = _context(env, record, built, day=())
+    from learnloop.router_objective_switches import CHECKS_OFF, check_mode
+
+    if check_mode(env.vault.config)[0] != CHECKS_OFF:
+        from learnloop.router_objective import assignments, checks
+
+        with env.repository.connection() as connection:
+            drawn = not assignments.present(connection) or checks.day_record(
+                connection, str(record.row.get("local_date") or env.today())) is not None
+        if not drawn:
+            return "needs_write"  # the day's first draw
+        if _checks_to_place(env, record, context):
+            return "randomized_check"  # the boundary administers it instead of deciding
+    context, forced_minutes, _releases, forced_allotment, forced_spent = _forced_charges(
+        record, context, forced, ORIGIN_FOLLOWUP)
+    builder = getattr(env.policy, "lesson_offer", None)
+    offer = builder(env=env, record=record, forced=bool(forced), read_only=True) if builder is not None else None
+    if getattr(offer, "needs_write", False):
+        return "needs_write"
+    try:
+        decide(record, context, env.policy, forced_minutes=forced_minutes, forced_items=len(forced),
+               forced_allotment=forced_allotment, forced_spent=forced_spent,
+               offer=getattr(offer, "candidate", None))
+    except DecisionPending:
+        return "started"
+    return "no_job"  # one option, or an irreversible one: nothing for a model to answer
+
+
 #: ``_ad_slot_serve``'s answer when AD cannot decide the slot safely (the held-out predicate or
 #: the routine exclusions could not be computed): the incumbent serves the planned item.
 _AD_UNAVAILABLE: Any = object()
@@ -5959,6 +6080,7 @@ __all__ = [
     "more_new",
     "note_reading_progress",
     "plan_active",
+    "prefetch_boundary",
     "plan_scheduler_session",
     "reading_from_furthest_active",
     "reading_path_plan_active",

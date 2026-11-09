@@ -208,7 +208,15 @@ _V3 = (
     _v3_short("followup_next", retry_safe=False),
 )
 
-ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2, *_V3)})
+#: Spec_instruct_handoff_v1 §3a (IH0): start the next boundary's objective job while feedback shows. Writes nothing and
+#: returns no step, so it isn't the peek the phone doesn't make (mobile v2 §4.5). Short: it returns once the job is
+#: started, and the model calls run on the job's own threads. Not retried: the phone ignores a failure, and the serve
+#: decides as it did before.
+_IH0 = (
+    MobileMethod("plan_prefetch", "IH0", "short", False, _no_constraint),
+)
+
+ALLOWLIST: Mapping[str, MobileMethod] = MappingProxyType({entry.name: entry for entry in (*_M2, *_V2, *_V3, *_IH0)})
 
 #: Mobile v2 V3: what ``phone_probes`` off refuses (``phone_probes_off``), so the phone is V2's.
 PROBE_METHODS = frozenset({"followup_next"})
@@ -227,7 +235,7 @@ def check_probe_parameters(name: str, params: Mapping[str, Any], *, phone_probes
 #: (``phone_plan_off``), and the phone's Today is M2a's queue again.
 PLAN_METHODS = frozenset({
     "get_daily_plan", "get_today_headline", "get_start_summary", "next_plan_item", "set_plan_minutes",
-    "plan_keep_going", "plan_more_new", "plan_reading_ended", "plan_learner_pick",
+    "plan_keep_going", "plan_more_new", "plan_reading_ended", "plan_learner_pick", "plan_prefetch",
 })
 
 #: The phone's API generation (mobile v2 §5.2). v2 adds methods and endpoints and changes no

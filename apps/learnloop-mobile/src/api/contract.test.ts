@@ -77,6 +77,7 @@ const EXAMPLES: Record<Exclude<Wrapper, (typeof NOT_RPC)[number]>, ReadonlyArray
   followupShowAnyway: [() => phone.followupShowAnyway("a1")],
   // Mobile v2 V3.
   followupNext: [() => phone.followupNext("a1")],
+  planPrefetch: [() => phone.planPrefetch("s1")],
   recordHypothesisExposure: [
     () => phone.recordHypothesisExposure({ attemptId: "a1", surface: "marks_feedback", hypothesisVersionIds: ["h1", "h2"], shownAt: "2026-11-06T12:00:00.000Z" })
   ],
@@ -134,6 +135,7 @@ const READS: Record<string, readonly string[]> = {
   followup_continue_without: ["continued"],
   followup_show_anyway: ["released"],
   followup_next: ["action", "line", "practiceItemId", "presentationId"],
+  plan_prefetch: [],
   record_hypothesis_exposure: ["recorded"],
   record_hypothesis_mark: ["recorded", "marks"],
   "practice.record_hint_reveal": ["recorded"]

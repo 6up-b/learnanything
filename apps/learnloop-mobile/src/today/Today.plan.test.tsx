@@ -41,6 +41,59 @@ async function beginPlan() {
   await screen.findByText("Define it.");
 }
 
+/** Spec_instruct_handoff_v1 §3a: while feedback shows, the next boundary's model calls start, so Next finds their answer. */
+describe("the plan's prefetch while feedback shows", () => {
+  async function answerOne() {
+    answers.get_daily_plan = reply();
+    answers.next_plan_item = reply({}, { step: itemStep() });
+    await beginPlan();
+    expect(called("plan_prefetch")).toEqual([]);
+    const editor = screen.getByRole("textbox", { name: "Your answer" });
+    editor.textContent = "My answer";
+    fireEvent.input(editor);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+  }
+
+  it("starts once the grade is on screen, not before, and only names the session", async () => {
+    await answerOne();
+    await screen.findByText("3 / 4");
+    await waitFor(() => expect(called("plan_prefetch")).toHaveLength(1));
+    expect(called("plan_prefetch")[0].params).toEqual({ sessionId: "s1" });
+    expect(called("next_plan_item")).toHaveLength(1);
+  });
+
+  it("ignores a failed call: no error shows, and Next still serves", async () => {
+    answers.plan_prefetch = { status: 500, body: { ok: false, error: { code: "internal", message: "PREFETCH BROKE", retryable: false } } };
+    await answerOne();
+    await screen.findByText("3 / 4");
+    await waitFor(() => expect(called("plan_prefetch")).toHaveLength(1));
+    expect(screen.queryByText(/PREFETCH BROKE/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    answers.next_plan_item = reply({}, { step: itemStep("i2") });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(called("next_plan_item")).toHaveLength(2));
+  });
+
+  it("waits for a pending diagnosis: what it finds can change the decision", async () => {
+    answers.get_feedback = { ...feedback(), diagnosisStatus: "pending" };
+    await answerOne();
+    await screen.findByText("3 / 4");
+    await screen.findByText(/Looking into what happened here/);
+    expect(called("plan_prefetch")).toEqual([]);
+  });
+
+  it("stays out while this miss's question is coming: Next isn't a plan boundary then", async () => {
+    answers.get_feedback = {
+      ...feedback(),
+      followup: { workflowId: "w1", state: "pending", held: false, line: "Preparing a question on this…", canShowAnyway: false, canContinueWithout: true, shownAnyway: false }
+    };
+    await answerOne();
+    await screen.findByText("3 / 4");
+    await screen.findByText(/Preparing a question on this/);
+    expect(called("plan_prefetch")).toEqual([]);
+  });
+});
+
 describe("Today is the plan (J1)", () => {
   it("says the plan in one sentence, and Begin starts a session and serves the plan's step", async () => {
     answers.get_daily_plan = reply();

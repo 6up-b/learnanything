@@ -201,6 +201,7 @@ def test_every_reply_carries_what_the_phone_reads(host_world):
     rpc("followup_status", {"attemptId": attempt_id})
     # Mobile v2 V3: Next on a miss asks its workflow (none here: it goes on).
     rpc("followup_next", {"attemptId": attempt_id})
+    rpc("plan_prefetch", {"sessionId": session_id})
     rpc("followup_continue_without", {"attemptId": attempt_id})
     rpc("followup_show_anyway", {"attemptId": attempt_id})
     rpc("record_hypothesis_exposure", {"attemptId": attempt_id, "surface": "marks_feedback", "hypothesisVersionIds": [],

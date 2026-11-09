@@ -93,7 +93,8 @@ export function installFakeHost(): void {
       acknowledge_practice_submission: { status: "cleared", acknowledged: true },
       get_feedback: feedback(),
       get_grading_clarification: { version: 1, clarification: null },
-      end_session: { attemptsRecorded: 1 }
+      end_session: { attemptsRecorded: 1 },
+      plan_prefetch: { version: 1, started: false, reason: "not_a_boundary" }
     });
     vi.stubGlobal("fetch", vi.fn(fakeFetch));
     await saveCredential({ token: "tok", deviceId: "dev", scope: "app" });

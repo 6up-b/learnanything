@@ -85,6 +85,7 @@ from learnloop.daily_plan.types import (
     STOP_OFFER_MINUTES,
     BlockCandidate,
     BlockChoice,
+    DecisionPending,
     PlanState,
 )
 from learnloop.ids import new_ulid
@@ -1190,6 +1191,10 @@ class ObjectiveChooser(RouterChooser):
             "objective": objective_settings(config), "ready": ready,
         })
         now_iso = self._now_iso()
+        if self.start_only:
+            if ready and self.runtime.lookup(self.scope, key) is None:
+                self._start_objective(key, state, feasible, support, by_id, ready, now_iso)
+            raise DecisionPending(key)
         if ready:
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:

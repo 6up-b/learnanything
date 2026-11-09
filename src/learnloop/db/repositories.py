@@ -4164,16 +4164,20 @@ class Repository(
         return self.followup_task(task_id)
 
     def due_followup_tasks(self, *, clock: Clock | None = None) -> list[dict[str, Any]]:
+        """The due tasks, each marked served, and the expired ones marked so. Those two marks are lazy and change
+        nothing this returns, so a read-only attach (the plan's prefetch) reads the same rows and leaves them."""
+
         now = utc_now_iso(clock)
         with self.connection() as connection:
-            connection.execute(
-                """
-                UPDATE followup_tasks SET status = 'expired', updated_at = ?
-                WHERE status IN ('pending', 'served') AND expires_at IS NOT NULL
-                  AND expires_at < ?
-                """,
-                (now, now),
-            )
+            if not self._read_only:
+                connection.execute(
+                    """
+                    UPDATE followup_tasks SET status = 'expired', updated_at = ?
+                    WHERE status IN ('pending', 'served') AND expires_at IS NOT NULL
+                      AND expires_at < ?
+                    """,
+                    (now, now),
+                )
             rows = connection.execute(
                 """
                 SELECT * FROM followup_tasks
@@ -4183,14 +4187,15 @@ class Repository(
                 """,
                 (now, now),
             ).fetchall()
-            ids = [row["id"] for row in rows if row["status"] == "pending"]
-            if ids:
-                placeholders = ",".join("?" for _ in ids)
-                connection.execute(
-                    f"UPDATE followup_tasks SET status = 'served', updated_at = ? WHERE id IN ({placeholders})",
-                    (now, *ids),
-                )
-            connection.commit()
+            if not self._read_only:
+                ids = [row["id"] for row in rows if row["status"] == "pending"]
+                if ids:
+                    placeholders = ",".join("?" for _ in ids)
+                    connection.execute(
+                        f"UPDATE followup_tasks SET status = 'served', updated_at = ? WHERE id IN ({placeholders})",
+                        (now, *ids),
+                    )
+                connection.commit()
         return [_decode_followup_task(row) | {"status": "served"} for row in rows]
 
     def active_followup_task_for_item(

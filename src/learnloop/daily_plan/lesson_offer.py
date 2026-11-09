@@ -87,6 +87,8 @@ class Offer:
 
     candidate: BlockCandidate | None
     record: Mapping[str, Any] = field(default_factory=dict)
+    #: Spec_instruct_handoff_v1 §3a: a read-only boundary found what only a write settles (:func:`sweep_due`).
+    needs_write: bool = False
 
 
 # =============================================================================
@@ -401,13 +403,13 @@ def record_ignored(connection: Any, decision: Mapping[str, Any], *, at: str, why
     return written
 
 
-def sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int:
+def _sweep_decisions(connection: Any, *, today: str) -> list[Mapping[str, Any]]:
     """Every drawn offer left unanswered whose boundary has passed (its block ended, its plan no longer open, or an
-    earlier day): ``ignored`` (the next boundary's step)."""
+    earlier day)."""
 
     if not store.tables_present(connection):
-        return 0
-    written = 0
+        return []
+    due = []
     for decision in store.offer_decisions(connection):
         if store.response_for(connection, str(decision["id"])) is not None:
             continue
@@ -415,7 +417,22 @@ def sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int:
             continue  # taken back by the plan (F1, F2): never the learner's ``ignored``
         ended, status = _block_state(connection, (decision.get("detail") or {}).get("block_id"))
         if ended or status != "open" or str(decision.get("day") or "") < today:
-            written += int(record_ignored(connection, decision, at=now_iso, why="next_boundary_step"))
+            due.append(decision)
+    return due
+
+
+def sweep_due(connection: Any, *, today: str) -> bool:
+    """:func:`sweep_ignored` has something to write (each ``ignored`` moves the acceptance model the offer is scored by)."""
+
+    return bool(_sweep_decisions(connection, today=today))
+
+
+def sweep_ignored(connection: Any, *, today: str, now_iso: str) -> int:
+    """Every offer :func:`_sweep_decisions` finds: ``ignored`` (the next boundary's step)."""
+
+    written = 0
+    for decision in _sweep_decisions(connection, today=today):
+        written += int(record_ignored(connection, decision, at=now_iso, why="next_boundary_step"))
     return written
 
 

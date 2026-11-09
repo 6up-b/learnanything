@@ -131,6 +131,9 @@ export const phone = {
       { sessionId, serve: true, ...(skipPracticeItemId ? { skipPracticeItemId } : {}) },
       requestId
     ),
+  /** Spec_instruct_handoff_v1 §3a: starts the next boundary's model calls while feedback shows, and returns. It
+   *  writes nothing and returns no step, so it isn't a peek. Next's serve finds the job. */
+  planPrefetch: (sessionId: string) => call<{ started: boolean; reason: string }>("plan_prefetch", { sessionId }),
   /** The plan's record of a skip (the desktop's skip link), serving nothing: Today reads what is next. */
   skipPlanItem: (sessionId: string, skipPracticeItemId: string, requestId: string) =>
     runLong<PhonePlanDto>("next_plan_item", { sessionId, skipPracticeItemId }, requestId),

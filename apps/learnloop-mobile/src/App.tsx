@@ -521,6 +521,14 @@ function Phone({ credential }: { credential: Credential }) {
     }
   }
 
+  /** Spec_instruct_handoff_v1 §3a: while feedback shows, the next boundary's model calls start, so Next finds their
+   *  answer. Nothing depends on this call: a failure is ignored, and Next decides as it did before. */
+  function planPrefetch() {
+    const open = sessionRef.current;
+    if (!open || planModeRef.current !== "plan") return;
+    void phone.planPrefetch(open.sessionId).catch(() => undefined);
+  }
+
   /** A plan read says whether Today is the plan (the first read, from wherever the app opened). */
   async function learnPlanMode(): Promise<"plan" | "queue"> {
     if (planModeRef.current !== "unknown") return planModeRef.current;
@@ -763,6 +771,7 @@ function Phone({ credential }: { credential: Credential }) {
               waitLine={followupWait}
               onNext={() => void feedbackNext(view.attemptId)}
               onOpenFeedback={(attemptId) => { setFollowupWait(null); setView({ name: "feedback", attemptId, practiceItemId: null }); }}
+              onSettled={planPrefetch}
               onError={reportError}
             />
           ) : planMode !== "queue" ? (

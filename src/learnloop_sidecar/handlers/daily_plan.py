@@ -2,7 +2,7 @@
 
 ``get_daily_plan``, ``set_plan_minutes``, ``next_plan_item``,
 ``plan_reading_ended``, ``plan_keep_going``, ``plan_more_new``,
-``plan_learner_pick`` and ``get_today_headline``. While the plan is off (a
+``plan_learner_pick``, ``get_today_headline`` and ``plan_prefetch``. While the plan is off (a
 pre-``mvp-0.14`` vault or ``plan.enabled = false``) every one of them answers
 ``enabled: false`` without building a queue or writing a row, and Today, Start
 and ``get_today_queue`` are mvp-0.13's (G1).
@@ -25,6 +25,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import replace as dataclass_replace
+import logging
 from typing import Any, Literal
 
 from pydantic import Field
@@ -40,12 +41,13 @@ from learnloop.daily_plan.engine import (
     picked_under,
     plan_active,
     plan_scheduler_session,
+    prefetch_boundary,
     reading_ended,
     set_minutes,
     stop_today,
 )
 from learnloop.daily_plan.headline import today_headline
-from learnloop.daily_plan.policy import policy_for
+from learnloop.daily_plan.policy import policy_for, prefetch_can_start
 from learnloop.daily_plan.engine import intent_view
 from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
 from learnloop.daily_plan.view import disabled_view, plan_view
@@ -70,6 +72,7 @@ DAILY_PLAN_RPCS = (
     "plan_more_new",
     "plan_learner_pick",
     "get_today_headline",
+    "plan_prefetch",
 )
 
 
@@ -83,6 +86,10 @@ class NextPlanItemInput(ParamsModel):
     #: the prefetch made while feedback shows (§6.5).
     serve: bool = False
     skip_practice_item_id: str | None = None
+
+
+class PlanPrefetchInput(ParamsModel):
+    session_id: str
 
 
 class PlanMinutesInput(ParamsModel):
@@ -127,7 +134,11 @@ class PlanLearnerPickInput(ParamsModel):
     idempotency_key: str | None = Field(default=None, max_length=200)
 
 
-def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None, *, serve: bool = False) -> PlanEnv:
+def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None, *, serve: bool = False,
+         prefetch: bool = False) -> PlanEnv:
+    """``prefetch``: the phone's (:func:`plan_prefetch`): ``repository`` is read-only, the build persists nothing and
+    the chooser only starts its job."""
+
     def eligible(minutes: float) -> list[Any]:
         # Today's own build: the same scheduler call and teach-back filter as
         # get_today_queue, so a served plan item carries the candidate id of
@@ -143,6 +154,7 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
             repository,
             session=plan_scheduler_session(vault, session_id, minutes),
             limit=None,
+            persist_explanations=not prefetch,
         )
         return filter_unready_teach_back_items(
             vault, queue, grading_provider_override=ctx.grading_provider_override
@@ -157,7 +169,7 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
         repository=repository,
         session_id=session_id,
         eligible=eligible,
-        policy=policy_for(vault, repository, session_id=session_id, serve=serve),
+        policy=policy_for(vault, repository, session_id=session_id, serve=serve, start_only=prefetch),
         device=_step_filter(ctx, vault, repository, session_id),
     )
 
@@ -405,8 +417,6 @@ def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] |
             schedule_item_preparation(vault, sqlite_path, planned, clients=clients, builds=builds,
                                       live_vault=live_vault)
     except Exception:  # noqa: BLE001 - background scheduling never reaches the plan
-        import logging
-
         logging.getLogger(__name__).warning("AD1 background work not scheduled", exc_info=True)
 
 
@@ -477,6 +487,49 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
         bind_plan_step(env.repository, step)
         _schedule_ad(ctx, env, step=step)
     return result
+
+
+@method("plan_prefetch", PlanPrefetchInput)
+def plan_prefetch(ctx: SidecarContext, params: PlanPrefetchInput) -> dict[str, Any]:
+    """Spec_instruct_handoff_v1 §3a: start the next boundary's objective job while the phone shows feedback, and
+    return. Next's serve finds the job by its boundary key. Writes nothing, returns no step, and is not a host
+    mutation. ``reason`` says why nothing started; it is for logs and tests, and the phone ignores the reply."""
+
+    vault, repository = ctx.require_vault()
+    reason = _prefetch(ctx, vault, repository, params.session_id)
+    logging.getLogger(__name__).info("plan_prefetch: %s", reason)
+    return versioned({"started": reason == "started", "reason": reason})
+
+
+def _prefetch(ctx: SidecarContext, vault: Any, repository: Any, session_id: str) -> str:
+    if not plan_active(vault):
+        return "plan_off"
+    if not prefetch_can_start(vault):
+        return "no_model"
+    from learnloop.db.repositories import Repository
+
+    # Every read below goes through a read-only attach: a write fails at the database (``connect(read_only=True)``).
+    # The job runs on its own writable attach, as every prefetch's does (``_objective_job``).
+    reader = Repository.attach(repository.sqlite_path, read_only=True)
+    session = reader.fetch_session(session_id)
+    if session is None or session.get("ended_at") is not None:
+        return "no_session"
+    try:
+        refuse_moved_session(ctx, reader, session_id)
+    except SidecarError:
+        return "session_moved"
+    if reader.pending_live_diagnoses_for_session(session_id):
+        # The serve waits for these (``_wait_for_session_diagnoses``), and what they find can change its pool, so its
+        # key. The phone asks again once its diagnosis settles.
+        return "diagnosis_pending"
+    try:
+        return prefetch_boundary(_env(ctx, vault, reader, session_id, prefetch=True))
+    except Exception as exc:  # noqa: BLE001 - never reaches the learner; the serve decides as it always has
+        # A write on the path fails here (``attempt to write a readonly database``). Only its type at the default
+        # level: a traceback can quote what the plan read.
+        logging.getLogger(__name__).warning("plan_prefetch: nothing started (%s)", type(exc).__name__)
+        logging.getLogger(__name__).debug("plan_prefetch: nothing started", exc_info=True)
+        return "unavailable"
 
 
 def _abandon_phone_served(env: PlanEnv) -> None:
