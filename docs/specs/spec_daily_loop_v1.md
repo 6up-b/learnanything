@@ -6,7 +6,7 @@
 - **`daily_loop_frictionless_defaults.md` wins** over everything else here. C1–C4, S1–S5, P1–P7 and R1–R3 are decided; this spec turns them into contracts.
 - **The recommended defaults are accepted** ("most defaults", 2026-10-12). Every open question below (Q0, Q5, Q7, Q8, Q11, Q12, and this spec's own D1–D12) has a concrete default that implementation proceeds on. Each is marked **default, owner may override**; the owner can change any of them at the phase checkpoint that uses it (§12).
 - **Codex on the owner's ChatGPT subscription** may run every paid LLM role here without a physical-request bound. Its cost is estimated from reported token usage and labelled `estimated_only` (Slice A plan §5 rule 6). Call-count caps still apply.
-- **The Decider is `perplexity/pplx-decider-v1.1-27b` on OpenRouter.** It belongs to the action router, which fills this plan's blocks (§6.8); this spec makes no Decider calls.
+- **The Decider is `perplexity/pplx-decider-v1.2` on OpenRouter** (v1.1-27b until 2026-11-09). It belongs to the action router, which fills this plan's blocks (§6.8); this spec makes no Decider calls.
 - **Honest labels, generous defaults.** Live changes go behind kill switches; there are no shadow stages by default.
 
 **Sources:**

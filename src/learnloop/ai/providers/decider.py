@@ -1,18 +1,19 @@
 """The ``decider`` transport: Perplexity's Decider over OpenRouter or direct.
 
 Pinned from the providers' documentation (checked 2026-10-12, recorded in
-``docs/reviews/router-r0.md``):
+``docs/reviews/router-r0.md``; model moved to v1.2 on 2026-11-09,
+``docs/reviews/decider-v1-2.md``):
 
 * **OpenRouter** (the owner's route, ``api = "openrouter"``): ``POST
   https://openrouter.ai/api/alpha/decisions`` ("Submit a Decisions request to
   the Decisions router"), ``Authorization: Bearer $OPENROUTER_API_KEY``. The
-  model is ``perplexity/pplx-decider-v1.1-27b`` (modality
-  ``text+image->decisions``, one provider: Perplexity). The response adds
+  model is ``perplexity/pplx-decider-v1.2`` (output modality ``decisions``;
+  providers Perplexity and Makora). The response adds
   ``id``, ``provider`` and ``usage.cost`` to Perplexity's shape, and ``model``
   is the dated slug that answered.
 * **Perplexity direct** (``api = "perplexity"``): ``POST
   https://api.perplexity.ai/v1/decisions``, ``Authorization: Bearer
-  $PERPLEXITY_API_KEY``, model ``pplx-decider-v1.1-27b``. Unknown top-level
+  $PERPLEXITY_API_KEY``, model ``pplx-decider-v1.2``. Unknown top-level
   fields return 400; the body here never has any.
 
 One ``decide`` is one physical request: no SDK, no hidden retries, no
@@ -28,6 +29,7 @@ import http.client
 import json
 import math
 import os
+import re
 from typing import Any
 import urllib.error
 import urllib.parse
@@ -36,7 +38,7 @@ import urllib.request
 from learnloop.ai.decisions import (
     DecisionResult, DecisionState, Question, parse_response, request_body, validate_questions,
 )
-from learnloop.ai.errors import AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.config import AIProviderConfig
 from learnloop.config.schema import DEFAULT_DECIDER_MODEL, DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT
@@ -55,7 +57,7 @@ _DIALECTS: dict[str, dict[str, str]] = {
         "base_url": "https://api.perplexity.ai",
         "path": "/v1/decisions",
         "api_key_env": "PERPLEXITY_API_KEY",
-        "model": "pplx-decider-v1.1-27b",
+        "model": "pplx-decider-v1.2",
     },
 }
 DEFAULT_TIMEOUT_SECONDS = 30.0
@@ -64,6 +66,13 @@ DEFAULT_TIMEOUT_SECONDS = 30.0
 BYTES_PER_TOKEN_ESTIMATE = 3
 #: Error text kept on an exception: enough to read the reason, never a body.
 _ERROR_TEXT_LIMIT = 300
+#: Key-like spans removed from provider error text before it is kept on an
+#: exception or a receipt: a bearer credential, an ``sk-``-style key, or any
+#: long unbroken token (a key, a hash, a request id; nothing a reader needs).
+_KEY_LIKE = re.compile(
+    r"(?i)\bbearer\s+\S+|\bsk-[A-Za-z0-9_\-]{6,}|[A-Za-z0-9_\-]{32,}"
+)
+_REDACTED = "[redacted]"
 
 #: (method, url, headers, body, timeout) -> (status, headers, body)
 HttpTransport = Callable[[str, str, Mapping[str, str], bytes | None, float], tuple[int, Mapping[str, str], bytes]]
@@ -149,7 +158,16 @@ def _urllib_transport(
         raise AIProviderUnavailable(f"Decision endpoint unreachable ({type(exc).__name__})") from None
 
 
-def _error_message(raw: bytes) -> str:
+def redact_key_like(text: str, secrets: tuple[str, ...] = ()) -> str:
+    """``text`` without the given secrets or anything shaped like a key."""
+
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, _REDACTED)
+    return _KEY_LIKE.sub(_REDACTED, text)
+
+
+def _error_message(raw: bytes, secrets: tuple[str, ...] = ()) -> str:
     try:
         payload = json.loads(raw.decode("utf-8")) if raw else {}
     except (UnicodeDecodeError, ValueError):
@@ -161,7 +179,9 @@ def _error_message(raw: bytes) -> str:
         text = f"{kind}: {message}" if kind else str(message)
     else:
         text = str(error or "no error object")
-    return text[:_ERROR_TEXT_LIMIT]
+    # Redacted before truncating, so a cut can never leave a key's prefix
+    # shorter than the pattern.
+    return redact_key_like(text, secrets)[:_ERROR_TEXT_LIMIT]
 
 
 def _retry_after(headers: Mapping[str, str]) -> float | None:
@@ -203,6 +223,8 @@ class DeciderProviderClient:
             if referer:
                 headers["HTTP-Referer"] = referer
         self._headers = headers
+        # Only to strip it from error text an endpoint might echo; never logged.
+        self._secrets = (key,)
         self._http: HttpTransport = http or _urllib_transport
 
     def supports(self, capability: str) -> bool:
@@ -230,12 +252,33 @@ class DeciderProviderClient:
             schema={name: question.wire() for name, question in checked.items()},
         ) as metadata:
             timeout = self.settings.timeout_seconds if timeout_seconds is None else max(float(timeout_seconds), 0.1)
-            status, headers, raw = self._http("POST", self.settings.url, self._headers, encoded, timeout)
+            try:
+                status, headers, raw = self._http("POST", self.settings.url, self._headers, encoded, timeout)
+            except AIInterrupted:
+                raise
+            except AIProviderUnavailable as exc:
+                # No HTTP status: the receipt says so (chatgpt_plan's "network").
+                # An injected transport's message could echo a credential, so
+                # the caller gets the same redacted text the receipt keeps.
+                message = redact_key_like(str(exc), self._secrets)
+                metadata.update(finish_reason="network", output_text=message)
+                if message == str(exc):
+                    raise
+                try:
+                    sanitized = type(exc)(message)
+                except Exception:  # noqa: BLE001 - a subclass with another signature
+                    sanitized = AIProviderUnavailable(message)
+                raise sanitized from None
             if status != 200:
                 # A rejected request is normally free, but its usage is
-                # unknown: the receipt keeps NULL usage rather than zero.
+                # unknown: the receipt keeps NULL usage rather than zero. The
+                # status goes in finish_reason as ``http_<status>`` (as
+                # chatgpt_plan records it) and the provider's redacted error
+                # text in output_text, which is what the endpoint answered.
+                message = _error_message(raw, self._secrets)
+                metadata.update(finish_reason=f"http_{status}", output_text=message)
                 raise DecisionRequestFailed(
-                    f"Decision request failed: HTTP {status}: {_error_message(raw)}",
+                    f"Decision request failed: HTTP {status}: {message}",
                     status=status, retry_after=_retry_after(headers),
                 )
             try:
@@ -312,5 +355,6 @@ __all__ = [
     "encode_body",
     "estimate_input_tokens",
     "probe_decider_endpoint",
+    "redact_key_like",
     "resolved_decider_settings",
 ]

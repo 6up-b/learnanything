@@ -1116,9 +1116,9 @@ class VoyageContextualEmbeddingProviderConfig(AIProviderConfig):
 DECIDER_PROFILE_TYPE = "decider"
 DEFAULT_DECIDER_PROVIDER = "openrouter_decider"
 DEFAULT_EMBEDDING_PROVIDER = "openrouter_embedding"
-DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.1-27b"
-# OpenRouter's listing for the model (checked 2026-10-12): $0.02 per million
-# input tokens, output free. Used for estimates; OpenRouter also reports cost.
+DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.2"  # pinned, never -latest; docs/reviews/decider-v1-2.md
+# OpenRouter's listing (checked 2026-11-09): $0.02 per million input tokens,
+# output free. Used for estimates; OpenRouter also reports cost.
 DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT = 0.02
 
 

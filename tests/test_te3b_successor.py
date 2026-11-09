@@ -77,6 +77,9 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
     # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
     assert dumped["router"]["timeout_seconds"] == 40.0
     dumped["router"]["timeout_seconds"] = 8.0
+    from tests.helpers import undo_decider_v12
+
+    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
     canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(canonical).hexdigest() == MVP052_BASE_DIGEST
     # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).

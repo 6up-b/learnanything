@@ -29,7 +29,7 @@ from learnloop.ai.decisions import (
 from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
 from learnloop.daily_plan.router_runtime import RouterRuntime
 
-DECIDER_MODEL = "perplexity/pplx-decider-v1.1-27b"
+DECIDER_MODEL = "perplexity/pplx-decider-v1.2"
 LLM_MODEL = "fake-router-llm"
 _OPTION = re.compile(r"^- \[([^\]]+)\] ", re.MULTILINE)
 

@@ -7,7 +7,7 @@
 **Owner decisions in force (2026-10-12):**
 - The recommended defaults recorded in each spec are accepted. The owner may override any of them at its checkpoint (§18 lists this spec's).
 - Codex on the owner's ChatGPT subscription may run every paid LLM role, with no bound on physical requests. Its cost is estimated from token usage (`estimated_only`; Slice A plan §5 rule 6).
-- The Decider is `perplexity/pplx-decider-v1.1-27b` on OpenRouter.
+- The Decider is `perplexity/pplx-decider-v1.2` on OpenRouter (v1.1-27b until 2026-11-09).
 - Frictionless defaults: honest labels and generous defaults; live changes behind kill switches; no shadow stages by default.
 
 **Standing owner preferences applied here:**

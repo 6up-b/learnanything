@@ -55,7 +55,7 @@ def test_dry_run_estimates_both_judges_without_secrets_or_clients(seeded, tmp_pa
     decider, llm = report["judges"]["decider"], report["judges"]["llm"]
     assert decider["status"] == llm["status"] == "dry_run"
     assert decider["billing"] == "metered" and decider["price_source"] == "listed_input_price"
-    assert decider["model"] == "perplexity/pplx-decider-v1.1-27b"
+    assert decider["model"] == "perplexity/pplx-decider-v1.2"
     assert llm["billing"] == "subscription" and llm["estimate"]["estimated_usd"] is None
     assert report["estimate_total"]["calls"] == decider["pending"] + llm["pending"]
     assert len(report["arms"]) == 12
@@ -167,7 +167,7 @@ def test_judges_live_check_is_one_capped_call_with_no_learner_data(seeded, monke
     assert code == 0, report
     live = report["live_decider"]
     assert live["status"] == "complete" and live["charged"]["calls"] == 1
-    assert live["resolved_model"] == "perplexity/pplx-decider-v1.1-27b-20261006"
+    assert live["resolved_model"] == "perplexity/pplx-decider-v1.2-20261016"
     assert set(live["answers"]) == {"is_check", "kind", "clarity"}
     assert len(server.requests) == 1
     assert "no learner data" in server.requests[0]["body"]["state"]
@@ -186,7 +186,7 @@ def test_judges_live_check_dry_run_estimates_without_a_key_client_or_receipt(see
     assert code == 0, report
     live = report["live_decider"]
     assert live["status"] == "dry_run" and live["learner_data"] is False
-    assert live["requested_model"] == "perplexity/pplx-decider-v1.1-27b"
+    assert live["requested_model"] == "perplexity/pplx-decider-v1.2"
     assert live["url"] == "https://openrouter.ai/api/alpha/decisions"
     assert live["estimate"]["calls"] == 1 and live["estimate"]["input_tokens"] > 0
     assert 0 < live["estimate"]["estimated_usd"] < live["caps"]["max_estimated_usd"]

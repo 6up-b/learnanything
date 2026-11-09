@@ -101,7 +101,7 @@ DECIDER_MAX_QUESTIONS = 128
 KNOWN_PRICES_PER_MILLION: dict[str, tuple[float, float]] = {
     "anthropic/claude-haiku-5.5": (0.10, 0.50),
     "anthropic/claude-haiku-4.5": (1.00, 5.00),
-    "perplexity/pplx-decider-v1.1-27b": (0.02, 0.0),
+    "perplexity/pplx-decider-v1.2": (0.02, 0.0),  # listing checked 2026-11-09
 }
 
 RULES = (

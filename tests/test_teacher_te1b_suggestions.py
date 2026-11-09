@@ -547,6 +547,9 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
         assert dumped["router"]["timeout_seconds"] == 40.0
         dumped["router"]["timeout_seconds"] = 8.0
+        from tests.helpers import undo_decider_v12
+
+        undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
