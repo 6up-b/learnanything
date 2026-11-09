@@ -45,7 +45,7 @@ Before step 1:
 When its step comes (recommendations and evidence in §2.13):
 
 3. **Oldest supported tag (D1).** I recommend the tag every live vault holds at that point, expected mvp-0.55, with the chain kept at a git tag. It needs your read-only script's output for your live and retired vaults.
-4. **TUI (C7):** remove it. It has no plan view and bypasses the router; desktop and phone cover the daily journey. The one thing lost is practice from a bare terminal.
+4. **TUI (C7):** decided, owner, Nov 9: it stays, separated as an alternative frontend like the phone and MCP. Still open: whether it gains the shared plan and router (C7a).
 5. **Collections (C7):** keep them. The build runs on one, so nothing replaces them. The UX stage can hide the word.
 6. **`projects/` (C7):** remove it if nothing is enrolled, keep it if something is. Only you know which. `learnloop project status` answers it.
 7. **31 CLI commands and `experiments/` (C7):** say which report tools you still use, and whether E1 is finished.
@@ -58,7 +58,7 @@ When its step comes (recommendations and evidence in §2.13):
 
 Settled since the map: RE2 is a firm step (owner, Nov 9) and RE0 lands before step 1. Not settled: RE1's placement (§2.1).
 
-**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 62 implementer runs, about 30 fix rounds, about 60 Codex reviews and about 20 full-suite landings, or about 5-8 weeks of queue if usage allows. This is an estimate, not a measurement (§2.15).
+**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 62 implementer runs and about 20 full-suite landings, with no Codex review of the steps (owner, Nov 9), or about 3-5 weeks of queue if usage allows (revised from 5-8; uncalibrated). This is an estimate, not a measurement (§2.15).
 
 **Where to stop if you need to.** After arc A (4% of the cost; every later change is cheaper). After B4 (10%; your four cases are answerable). After arc C (27%; dead code gone). After arc D (47%; history gone, tests on the real path). §2.14 lists them all.
 
@@ -111,7 +111,7 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 
 **Every step:**
 - **Size:** one review-and-gate cycle.
-- **Who:** an Opus implementer in a worktree, then a read-only Codex review of the diff, then the gate. "Verify" names anything beyond that, and the owner only where stated. Nothing in this document is yet approved to run.
+- **Who:** an Opus implementer in a worktree, then the gate. No Codex review of refactor steps (owner, Nov 9), so a step's named proof and the gates are the check. "Verify" names anything beyond that, and the owner only where stated. Nothing in this document is yet approved to run.
 - **Gate per step:** targeted tests under the memory cap, `lint-imports`, the vault validators, and the step's named proof.
 - **Gate per landing batch:** the full suite and durability once, on the merged tree (owner decision 1).
 - **Comments:** when a step touches a function, it follows the convention below, and only there. No sweep.
@@ -167,7 +167,7 @@ No behaviour changes, and every later step gets cheaper, so this comes first, ev
 **A4. Correct what's dangerous now** (S).
 - **Problem:** §8.1: the privacy note says PDFs stay local while `auto` uses a hosted service when a key is set. CLAUDE.md's suite time is stale (N2).
 - **Files:** Content Pipeline, Import Canonical Sources, Privacy and Trust; `CLAUDE.md`; `README.md` if it repeats it; Developer Map gets a "where to change what" table from §6 (replacing its scheduler-first row).
-- **Proof:** read against `ingest/extractors/__init__.py:84`. **Verify:** Codex, against the code.
+- **Proof:** read against `ingest/extractors/__init__.py:84`, by the implementer, with the check recorded.
 
 **Stopping point 1.**
 
@@ -226,7 +226,7 @@ Design in §3. Order is by debugging value, with the map's silent failures first
 
 **B9. One entry point, acceptance** (M).
 - **Files:** `learnloop_sidecar/handlers/why.py` (read-only RPC for the UX stage's glass-box view; not on the phone allowlist), `cli/router.py:311` and `cli/app.py:1841` become thin views over the same reader, `tests/test_why_cases.py`, `tests/test_why_real_cases.py`.
-- **Proof:** §3.6's acceptance, on the owner's fresh backup. **Verify:** a Codex reader given only `why --json` output and the questions, no code, answers the four cases and the past-bug sample. **Vault:** Workflows gets one "Debug a decision" note; Reference regenerated.
+- **Proof:** §3.6's acceptance, on the owner's fresh backup. **Verify:** a fresh agent given only `why --json` output and the questions, no code, answers the four cases and the past-bug sample. **Vault:** Workflows gets one "Debug a decision" note; Reference regenerated.
 
 **Stopping point 3.**
 
@@ -262,14 +262,14 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Problem:** compile-time off (`SHOW_GOLDEN_PATH`), 39 RPCs, tables seeded by migration (T3), `bridge_active` (`daily_plan/policy.py:36`) still read by `router_active` and the handler.
 - **Files:** `screens/GoldenPathScreen.tsx` (1,276), `components/goldenpath/`, `fixtures/goldenpath/`, `keymap.ts`, `App.tsx`; `handlers/golden_path.py`, `ladder.py`, `diagnostic.py` (check: some `diagnostic.*` may serve other screens); `daily_plan/policy.py`.
 - **Check:** `open_world_gate.py:134` imports `curriculum.golden_path_assessment` and `pattern_ladder` by name; `DoseOffer.tsx` and `ExemplarConfirmDialog.tsx` mention golden names; `bridge_active` also carries the `router.enabled` switch `router_active` needs, so its check moves, not goes. `test_p2_acceptance` goes only for what it uniquely proves.
-- **Tables:** left in place for J1. **Proof:** vitest, P-tests. **Verify:** Codex greps for a learner route left. **Vault:** User Journey Map.
+- **Tables:** left in place for J1. **Proof:** vitest, P-tests. **Verify:** a grep for a learner route left, in the step's gate. **Vault:** User Journey Map.
 
 **C6. P4 controller, kinship, shadow components** (M, conditional).
 - **Problem:** the map marks the row unverified. `scheduling/controller_cutover.py` (653), `controller_store.py` (512), `kinship_feature.py` (526), `shadow_components.py` (308); DESCOPED U-025, U-026; CLI group `controller`; references from `staged_policy.py`, `randomization_layer.py`, `router/decisions.py`, `controller_snapshot.py`.
 - **Step 0 decides:** what's actually reached on the plan path. `controller_snapshot` probably stays. Anything live stays and the row moves to the owner. If C5 removed the only caller of `controller_cutover`, it goes with its registry entry. **Proof:** P-draw, P-shadow.
 
 **C7. What the owner chose** (M, conditional on decisions 4-7).
-- **TUI, if removed:** `tui/` (2,471), `app_launch.py`'s launcher, `cli/app.py:4033`, `textual` from `pyproject.toml:14`, the `tui-keeps-the-open-queue` contract, 16 test files, `README.md:312` (`learnloop today`).
+- **TUI, separated (owner, Nov 9: "separated as an alternative frontend--similar to the phone or MCP offerings"), step C7a:** `src/learnloop/tui/` (2,471) moves to a top-level `src/learnloop_tui/`, an adapter beside `learnloop_mobile` and `learnloop_mcp`. `textual` moves from the core dependencies (`pyproject.toml:14`) to a `tui` extra, so the base install no longer carries it. Its direct domain imports (`attempts`, `scheduling`, `learner`, `diagnosis`, `placement` and others) go through the application services the other frontends use, with an import contract replacing `tui-is-independent` that enforces it. `learnloop today` stays and says how to install the extra when it's missing. `app_launch.py` and `README.md:312` update. No value a replay reads changes. Whether it gains the plan and router is the owner's call: `tui-keeps-the-open-queue` (DL1, owner decision Oct 12) stays until then, and that parity would be a feature stage after the refactor, not part of this step. **Proof:** the TUI's 16 test files pass from the new package; a test that the base install imports without `textual`.
 - **`projects/`, if removed:** the package (5,300), `cli/project.py`, `ops/startup.py:13`, `handlers/queue.py:22`, `[project]` config and routes, 16 test files.
 - **`experiments/`, if E1 is finished:** 36 files, 14,245 lines; results stay in `docs/`.
 - **CLI commands:** those the owner names.
@@ -307,7 +307,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Measured:** a random 40 of the 271 files, run with the pin changed by a scratch plugin (no source edited): baseline green on the failing files; at mvp-0.43, 11 of 441 tests failed, in 7 of the 40 files; at mvp-0.54, 14 failed, in at least 8. So expect very roughly 50 files and a few percent of their tests. The sample is small, and other files may be worse.
 - **Files:** `config/schema.py:18`'s default (to the floor or a required field), `tests/helpers.py:21`, `:75-79`, the basic vault's facets (it's "the pre-KM2 contract"), `use_init_algorithm_version`, the failing tests.
 - **Rule:** a failing test is fixed to assert the same behaviour on the real path, or, if it only ever described the old path, deleted with a line in the landing note. An assertion is never edited to whatever the code now says without reading why it differs. A difference is a finding.
-- **Proof:** P-tests; the Codex review reads every changed assertion. **Vault:** Testing.
+- **Proof:** P-tests; the landing record lists every changed assertion and why. **Vault:** Testing.
 
 **D2b. Tests that name old tags** (L) `[T]`.
 - **Problem:** 190 test files name tags at or below mvp-0.42, 143 use `set_algorithm_version`. Some mean "the predecessor serves exactly": those go when their switch goes (D7). Others just needed a tag.
@@ -333,7 +333,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Files:** `substrate/` (13 sites, including `canonical_projection.py:309`, `:319`, `:652`, `:654`, `:712`, `:1175`), `rebuild_orchestrator.py:443`, `ops/doctor.py` (5), `db/repositories.py:26949`'s gate half, `substrate/compat/` once unused.
 - **Deletes:** the pre-canonical projection path (LEGACY-ONLY row), `facet_uncertainty` and `evidence_facet_recall_state` writers (`attempts/attempts.py:3322`) if the path is their only one, for J1's list.
 - **Keeps:** every row reader that reads by shape, and `activity_backfill` (`rebuild_orchestrator.py:311`: rebuild imports it). `fixtures/mvp017_route_check_replay` must still pass.
-- **Proof:** P-shadow on all copies; the replay fixture; rebuild-equivalence tests. **Verify:** Codex specifically hunts for an old-row reader removed by mistake.
+- **Proof:** P-shadow on all copies; the replay fixture; rebuild-equivalence tests. **Verify:** step 0 inventories every old-row reader, and a test reads a fixture row through each after the removal.
 
 **D6. Constant gates: the rest, and the sets** (M) `[IH] [V4]`.
 - **Files:** `daily_plan/` (8), `diagnosis/` (4), `placement/` (4), `field/`, `goals/`, `instructional/`, `content/proposals/`, `serve_eligibility.py`, `decider_judgments.py`.
@@ -473,7 +473,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 - **Problem:** B3; D3. Figures, phone, plan and chat each carry their own checks. V4's landing needed a ruling because a check had drifted.
 - **Files:** `learner_protection.py:190`, `figures/prefetch.py:947`, `V4:scheduling/device_eligibility.py:330`, `V4:reader/phone_media.py:64`, `scheduling/serving_exclusions.py:131`, the 27 callers.
 - **Does:** each site asks `learner_protection` the "is this withheld" question, and adds only its own surface rule beside it. Fails closed everywhere. No new concept. The eligibility decision for serves stays separate, as it answers a different question.
-- **Proof:** the protection tests; a parity test of every site on a protected fixture, before and after. **Verify:** Codex adversarially, on leaks only. **Vault:** Privacy and Trust; a note on protection.
+- **Proof:** the protection tests; a parity test of every site on a protected fixture, before and after, which must include each leak the phone stages' reviews found. **Vault:** Privacy and Trust; a note on protection.
 
 **Stopping point 8.**
 
@@ -531,7 +531,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 
 | Row | Evidence | Recommendation |
 |---|---|---|
-| **TUI** | `learnloop today` is its one door (`cli/app.py:4033`), documented at `README.md:312`. A contract keeps it on the open queue with no plan view (`pyproject.toml:425`), so a session there never reaches the router, lessons or figures. 2,471 lines, 11 files, 16 test files, a hard `textual` dependency. Last behaviour change Oct 17. | **Remove.** Desktop and phone cover the daily journey and much more. The one gap is a bare terminal over SSH. If you use that, keep it. |
+| **TUI** | `learnloop today` is its one door (`cli/app.py:4033`), documented at `README.md:312`. A contract keeps it on the open queue with no plan view (`pyproject.toml:425`), so a session there never reaches the router, lessons or figures. 2,471 lines, 11 files, 16 test files, a hard `textual` dependency. Last behaviour change Oct 17. | **Decided, owner, Nov 9: keep, separated as an alternative frontend** (C7a). Open: plan and router parity. |
 | **Collections** | "Retired from UI" was the July plan, but the build still runs against a collection (`IngestScreen.tsx:474`), source-set rows are loaded (`handlers/ingest.py:530`), 43 `src` files use the name, and `source_set_synthesis.py` is built on it. Add to collection remains in `SourceLibrarySidebar` and `OutlineAndPlan`. | **Keep; it's an internal concept with no replacement.** The UX stage can hide the word and the Under-the-hood actions. |
 | **`projects/`** | Standalone: `<vault>/projects/project_store.sqlite`, no table in `state.sqlite`. A git-only sweep runs at app start and plan build (`ops/startup.py:13`, `handlers/queue.py:22`) and returns at once if nothing is enrolled. 5,300 lines, 16 test files. Last change Oct 13. A directory listing of the Nov 3 backup copies shows no `projects/` folder, which suggests no use on those vaults, though I can't tell whether that backup would include it. No replacement exists. | **Remove if nothing is enrolled; keep otherwise.** It's well isolated, so keeping it costs little. Run `learnloop project status`. |
 | **31 CLI commands, `experiments/`** | Listed at §7.4. `experiments/` is CLI-only, 14,245 lines, and you asked on Oct 21 for E1 to run. Some commands are your report tools. | Name what you use; the rest go. `experiments/` goes once E1 is finished. |
@@ -563,7 +563,7 @@ Each arc's steps also land one at a time, so an interruption mid-arc leaves a wo
 | Medium | 32 | 0.5-1M | about 24M |
 | Large | 21 | 1.5-3M | about 46M |
 
-About **50-100M Opus tokens including re-read context,** plus about 60 Codex reviews on the subscription, and about 20 landing gates (about 1 h each, shrinking as the suite does) plus two serial baselines. **I have no per-stage usage figure to calibrate against,** so treat the token numbers as an order of magnitude. Calendar: main took 1-3 stages a day on recent days, so about 5-8 weeks of queue time. D2 and D5 carry the most uncertainty: the D2 sample is small, and D5's hidden old-row readers could add fix rounds. By share: S0 and A 4%, B 13%, C and J1 10%, D 20%, E 16%, F 5%, I 6%, G 9%, H 9%, J2-4 and Z 4%.
+About **40-85M Opus tokens including re-read context** (revised, owner, Nov 9: no Codex review of steps, so the roughly 30 review-driven fix rounds go; a gate failure still costs one), and about 20 landing gates (about 1 h each, shrinking as the suite does) plus two serial baselines. **I have no per-stage usage figure to calibrate against,** so treat the token numbers as an order of magnitude. Calendar: main took 1-3 stages a day on recent days, so about 3-5 weeks of queue time now the reviews are gone (revised from 5-8; an estimate). D2 and D5 carry the most uncertainty: the D2 sample is small, and D5's hidden old-row readers could add fix rounds. By share: S0 and A 4%, B 13%, C and J1 10%, D 20%, E 16%, F 5%, I 6%, G 9%, H 9%, J2-4 and Z 4%.
 
 ### 2.16 What builds on this
 
@@ -686,7 +686,7 @@ Failures print ids and field names only. Nothing from it goes in a tracked file.
 
 **A later backup completes it:** after B4 has been live through a real timeout, withdrawal, figure failure and first build, the same test finds native records, and asserts they answer without the word "reconstructed".
 
-**Verified by a reader without the code.** A Codex reader gets only `why --json` output and the four questions, plus the past-bug sample in §6, and writes the answers. The owner judges them.
+**Verified by a reader without the code.** A fresh agent with no code access gets only `why --json` output and the four questions, plus the past-bug sample in §6, and writes the answers. The owner judges them.
 
 ### 3.7 Storage and protection
 
@@ -787,7 +787,7 @@ Measured at S0 and Z2 with one script and the same commands.
 | Measure | Map's baseline | Target |
 |---|---|---|
 | Python files, all packages | 1,268 | down 6-11% |
-| Raw lines, code lines | 624,515; 436,042 | down 5-9% (about 9% with TUI, `projects/`, `experiments/` gone) |
+| Raw lines, code lines | 624,515; 436,042 | down 5-9% (the top of that range needs `projects/` and `experiments/` gone; the TUI moves, it doesn't go) |
 | Functions over 200 lines | 81 | down, no fixed number; `build_due_queue` and `_compute_resolved_grade_application` out of the list |
 | Root `*_upgrade.py`; all upgrade modules | 40; 42 | 0; 1 table module |
 | `Repository` methods | 943 | at least 58 fewer |
