@@ -29,6 +29,7 @@ import http.client
 import json
 import math
 import os
+import re
 from typing import Any
 import urllib.error
 import urllib.parse
@@ -65,6 +66,13 @@ DEFAULT_TIMEOUT_SECONDS = 30.0
 BYTES_PER_TOKEN_ESTIMATE = 3
 #: Error text kept on an exception: enough to read the reason, never a body.
 _ERROR_TEXT_LIMIT = 300
+#: Key-like spans removed from provider error text before it is kept on an
+#: exception or a receipt: a bearer credential, an ``sk-``-style key, or any
+#: long unbroken token (a key, a hash, a request id; nothing a reader needs).
+_KEY_LIKE = re.compile(
+    r"(?i)\bbearer\s+\S+|\bsk-[A-Za-z0-9_\-]{6,}|[A-Za-z0-9_\-]{32,}"
+)
+_REDACTED = "[redacted]"
 
 #: (method, url, headers, body, timeout) -> (status, headers, body)
 HttpTransport = Callable[[str, str, Mapping[str, str], bytes | None, float], tuple[int, Mapping[str, str], bytes]]
@@ -150,7 +158,16 @@ def _urllib_transport(
         raise AIProviderUnavailable(f"Decision endpoint unreachable ({type(exc).__name__})") from None
 
 
-def _error_message(raw: bytes) -> str:
+def redact_key_like(text: str, secrets: tuple[str, ...] = ()) -> str:
+    """``text`` without the given secrets or anything shaped like a key."""
+
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, _REDACTED)
+    return _KEY_LIKE.sub(_REDACTED, text)
+
+
+def _error_message(raw: bytes, secrets: tuple[str, ...] = ()) -> str:
     try:
         payload = json.loads(raw.decode("utf-8")) if raw else {}
     except (UnicodeDecodeError, ValueError):
@@ -162,7 +179,9 @@ def _error_message(raw: bytes) -> str:
         text = f"{kind}: {message}" if kind else str(message)
     else:
         text = str(error or "no error object")
-    return text[:_ERROR_TEXT_LIMIT]
+    # Redacted before truncating, so a cut can never leave a key's prefix
+    # shorter than the pattern.
+    return redact_key_like(text, secrets)[:_ERROR_TEXT_LIMIT]
 
 
 def _retry_after(headers: Mapping[str, str]) -> float | None:
@@ -204,6 +223,8 @@ class DeciderProviderClient:
             if referer:
                 headers["HTTP-Referer"] = referer
         self._headers = headers
+        # Only to strip it from error text an endpoint might echo; never logged.
+        self._secrets = (key,)
         self._http: HttpTransport = http or _urllib_transport
 
     def supports(self, capability: str) -> bool:
@@ -231,12 +252,22 @@ class DeciderProviderClient:
             schema={name: question.wire() for name, question in checked.items()},
         ) as metadata:
             timeout = self.settings.timeout_seconds if timeout_seconds is None else max(float(timeout_seconds), 0.1)
-            status, headers, raw = self._http("POST", self.settings.url, self._headers, encoded, timeout)
+            try:
+                status, headers, raw = self._http("POST", self.settings.url, self._headers, encoded, timeout)
+            except AIProviderUnavailable as exc:
+                # No HTTP status: the receipt says so (chatgpt_plan's "network").
+                metadata.update(finish_reason="network", output_text=redact_key_like(str(exc), self._secrets))
+                raise
             if status != 200:
                 # A rejected request is normally free, but its usage is
-                # unknown: the receipt keeps NULL usage rather than zero.
+                # unknown: the receipt keeps NULL usage rather than zero. The
+                # status goes in finish_reason as ``http_<status>`` (as
+                # chatgpt_plan records it) and the provider's redacted error
+                # text in output_text, which is what the endpoint answered.
+                message = _error_message(raw, self._secrets)
+                metadata.update(finish_reason=f"http_{status}", output_text=message)
                 raise DecisionRequestFailed(
-                    f"Decision request failed: HTTP {status}: {_error_message(raw)}",
+                    f"Decision request failed: HTTP {status}: {message}",
                     status=status, retry_after=_retry_after(headers),
                 )
             try:
@@ -313,5 +344,6 @@ __all__ = [
     "encode_body",
     "estimate_input_tokens",
     "probe_decider_endpoint",
+    "redact_key_like",
     "resolved_decider_settings",
 ]

@@ -246,6 +246,54 @@ def test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt(monkeypatch):
     assert finish["status"] == "failed" and finish["input_tokens"] == 9 and finish["cost"] == 1e-7
 
 
+def test_a_rejected_request_keeps_its_status_and_redacted_error_on_the_receipt(monkeypatch):
+    """Decider v1.2 review: a dead route (OpenRouter's 404) must be readable from receipts."""
+
+    events = []
+
+    def no_endpoints(body):
+        return 404, {"error": {"message": f"No endpoints found for {body['model']} (key test-key, "
+                                          "Bearer abc.def, sk-or-v1-0123456789abcdef)", "code": 404}}, {}
+
+    with fake_decisions(respond=no_endpoints) as server:
+        client = client_for(server, monkeypatch)
+        with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
+            with pytest.raises(DecisionRequestFailed, match="HTTP 404: No endpoints found") as failed:
+                client.decide("s", {"q": NoulQuestion("q")}, purpose="test")
+    finish = events[-1][1]
+    assert failed.value.status == 404
+    assert finish["status"] == "failed" and finish["error_type"] == "DecisionRequestFailed"
+    assert finish["finish_reason"] == "http_404"
+    assert finish["output_text"].startswith("No endpoints found for perplexity/pplx-decider-v1.2 ")
+    assert finish.get("input_tokens") is None and finish.get("cost") is None
+    for leaked in ("test-key", "abc.def", "sk-or-v1", "0123456789abcdef"):
+        assert leaked not in finish["output_text"] and leaked not in str(failed.value)
+
+
+def test_an_unreachable_endpoint_is_recorded_as_network_without_a_status(monkeypatch):
+    events = []
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    def down(*_args):
+        raise AIProviderUnavailable("Decision endpoint unreachable (TimeoutError)")
+
+    client = DeciderProviderClient("test_decider", DeciderProviderConfig(api="openrouter"), http=down)
+    with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
+        with pytest.raises(AIProviderUnavailable):
+            client.decide("s", {"q": NoulQuestion("q")}, purpose="test")
+    finish = events[-1][1]
+    assert finish["status"] == "failed" and finish["finish_reason"] == "network"
+    assert finish["output_text"] == "Decision endpoint unreachable (TimeoutError)"
+
+
+def test_redaction_keeps_slugs_and_drops_key_shapes():
+    from learnloop.ai.providers.decider import redact_key_like
+
+    text = "perplexity/pplx-decider-v1.2-20261016 Bearer xyz sk-abcdefgh " + "a" * 40
+    assert redact_key_like(text) == "perplexity/pplx-decider-v1.2-20261016 [redacted] [redacted] [redacted]"
+    assert redact_key_like("my secret short", ("secret",)) == "my [redacted] short"
+
+
 def test_settings_resolve_from_the_dialect():
     openrouter = resolved_decider_settings(openrouter_decider_provider())
     assert openrouter.url == "https://openrouter.ai/api/alpha/decisions"
