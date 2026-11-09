@@ -3,8 +3,8 @@ title: "router_learner_preferences"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "53222a3c7f94a77acea81ca9d7a02c0621e4badc"
-source_commit_timestamp: "2026-11-08T23:13:15-05:00"
+source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
+source_commit_timestamp: "2026-11-09T00:34:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_learner_preferences"
@@ -108,7 +108,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_ih3_learner_preferences.py`
+- `tests/test_ih3_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "152a64a89386543e4477bd9dde4a22ec7ce8337b"
-source_commit_timestamp: "2026-11-07T06:47:46-05:00"
+source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
+source_commit_timestamp: "2026-11-09T00:34:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 250
+schema_head: 251
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"

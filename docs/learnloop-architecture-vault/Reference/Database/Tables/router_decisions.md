@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d1e02e12e427b95bf7957b96682fa15110bf543"
-source_commit_timestamp: "2026-11-07T05:54:41-05:00"
+source_commit: "c6e2e8d3f7207fd2aae6f66eee71c840f8d40e0f"
+source_commit_timestamp: "2026-11-09T00:34:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 250
+schema_head: 251
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/cli/router.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/learner_action.py"
   - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/daily_plan/types.py"
-  - "src/learnloop/db/stores/plan_presentations.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -53,7 +53,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`, `243_router_objective_receipts.sql`, `246_router_objective_traces.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`, `243_router_objective_receipts.sql`, `246_router_objective_traces.sql`, `251_router_learner_preferences.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -131,6 +131,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/cli/router.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/learner_action.py`
 - `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/plan_presentations.py`
@@ -178,10 +179,10 @@ None found by exact static reference scan.
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_followup_codex_review.py`
+- `tests/test_instruct_handoff_ih0.py`
 - `tests/test_intent_fix_round5.py`
 - `tests/test_learner_pick_proposal.py`
 - `tests/test_mcp_tools.py`
-- `tests/test_mobile_rpc.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

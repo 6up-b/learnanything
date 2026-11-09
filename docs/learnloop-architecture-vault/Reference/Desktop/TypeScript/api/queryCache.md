@@ -153,13 +153,13 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/today/SomethingElse.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/SomethingElse.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/retryWiring.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/retryWiring.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/guidePlan.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/guidePlan.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/feedback/HypothesisMarks.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/feedback/HypothesisMarks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/classicErrors.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/classicErrors.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/TodayScreen.suggestion.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/TodayScreen.suggestion.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/TodayScreen.plan.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/TodayScreen.plan.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/StartScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/StartScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

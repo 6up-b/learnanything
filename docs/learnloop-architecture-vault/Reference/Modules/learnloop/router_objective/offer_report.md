@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/offer_report.py"
 source_paths:
   - "src/learnloop/router_objective/offer_report.py"
-source_commit: "e4131322b0676d232c53ccd2d25fb8ded32f6ea6"
-source_commit_timestamp: "2026-11-06T13:48:58-05:00"
+source_commit: "867897f2287300fc9267644fd4cb983021f5e273"
+source_commit_timestamp: "2026-11-08T21:16:02-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,19 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/offer_report.py](../../../../../../src/learnloop/router_objective/offer_report.py) |
-| Source lines | 126 |
+| Source lines | 133 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e4131322b0676d232c53ccd2d25fb8ded32f6ea6` |
-| Commit timestamp | `2026-11-06T13:48:58-05:00` |
+| Source commit | `867897f2287300fc9267644fd4cb983021f5e273` |
+| Commit timestamp | `2026-11-08T21:16:02-05:00` |
 
 ## Public API
 
 - `binding(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 27) — A drawn offer's chain of ids and outcomes, or None when the decision drew no offer.
-- `build(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 67) — The lesson-offer rows (module docstring).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 117)
+- `build(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 74) — The lesson-offer rows (module docstring).
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 124)
 
 ### Module constants
 

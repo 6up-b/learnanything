@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/learner_action.py"
 source_paths:
   - "src/learnloop/daily_plan/learner_action.py"
-source_commit: "workspace/uncommitted @ HEAD 61fa903ff05ed09e0ef0eb57768019256087ffd8"
-source_commit_timestamp: "2026-11-09T00:13:32-05:00"
-source_worktree_state: "modified"
+source_commit: "843a4f3a480ed4023cc0444c9b4e628730991064"
+source_commit_timestamp: "2026-11-09T00:22:36-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 61fa903ff05ed09e0ef0eb57768019256087ffd8` |
-| Commit timestamp | `2026-11-09T00:13:32-05:00` |
+| Worktree state | `clean` |
+| Source commit | `843a4f3a480ed4023cc0444c9b4e628730991064` |
+| Commit timestamp | `2026-11-09T00:22:36-05:00` |
 
 ## Public API
 
@@ -175,6 +175,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phone_logs_a_lesson_pick_and_hands_it_to_the_desktop`
   - `test_with_no_draw_the_options_are_what_the_plan_can_produce_and_say_so`
   - `test_with_the_switch_off_there_is_no_link_and_nothing_is_written`
+- [tests/test_ih_numeric_seed.py](../../../../../../tests/test_ih_numeric_seed.py) — direct import
+  - `test_the_learners_options_and_override_draw_nothing`
 
 ## Modification guidance
 

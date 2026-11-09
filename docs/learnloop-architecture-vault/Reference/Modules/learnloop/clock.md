@@ -176,7 +176,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `parse_utc`; statically calls `parse_utc`
-- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `parse_utc`; statically calls `parse_utc`
@@ -258,6 +258,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `parse_utc`; statically calls `parse_utc`
@@ -545,7 +546,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 439 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 440 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1211,6 +1212,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_runner.py](../../../../../tests/test_ingest_runner.py) — direct import
   - `test_goal_population_handler_generates_and_applies_practice`
 - [tests/test_init.py](../../../../../tests/test_init.py) — direct import
+- [tests/test_instruct_handoff_ih0.py](../../../../../tests/test_instruct_handoff_ih0.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
 - [tests/test_intent_checks.py](../../../../../tests/test_intent_checks.py) — direct import
   - `test_an_attempt_before_the_date_does_not_answer_the_check`

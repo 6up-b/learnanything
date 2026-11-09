@@ -120,6 +120,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `offer_card_view`; statically calls `offer_card_view`
+- [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `offer_card_view`; statically calls `offer_card_view`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `card_view`, `module`; statically calls `build_candidates`, `card_view`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `suggestions_enabled`; statically calls `suggestions_enabled`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `offer_card_view`; statically calls `offer_card_view`
@@ -163,7 +164,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -176,6 +177,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_te1b_card.py](../../../../../../tests/test_followups_batch6_te1b_card.py) — direct import
   - `test_a_declined_suggestion_keeps_its_not_now_line`
   - `test_not_now_on_a_pending_card_is_its_own_line_after_the_start`
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
+  - `test_a_probe_arriving_during_an_open_offer_gets_a_new_decision_holding_both`
+  - `test_no_lesson_available_the_followup_decision_is_the_predecessors`
+  - `test_not_now_after_a_miss_goes_back_to_a_new_decision_and_the_block_resumes`
+  - `test_not_now_leaves_a_ready_probe_available_to_the_next_decision`
+  - `test_not_now_on_the_need_path_leaves_the_item_in_the_pool`
+  - `test_not_now_with_the_ceiling_reached_the_followup_serves`
+  - `test_taking_the_lesson_settles_the_followup_honestly`
+  - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
+  - `test_the_need_paths_mid_block_decision_gains_the_lesson_arm`
+- [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
+  - `test_offer_shown_is_ignored_by_the_plan_and_changes_no_decision`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
   - `test_f1_a_start_answered_before_the_plan_reads_again_keeps_the_lesson_and_the_probe_is_next`

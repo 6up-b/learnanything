@@ -223,6 +223,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_242_is_applied_and_its_tables_have_their_roles`
   - `test_242_on_the_durability_lane`
   - `test_the_head_fixture_holds_242_in_rollback_mode_with_empty_tables`
+- [tests/test_ih3_migration.py](../../../../../../tests/test_ih3_migration.py) — direct import
+  - `test_it_adds_the_table_its_indexes_and_triggers_and_nothing_else`
+  - `test_it_applies_under_production_pragmas`
+  - `test_the_head_fixture_holds_it_in_rollback_mode`
+  - `test_the_migration_is_the_head_and_the_table_is_a_raw_ledger`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_judgment_ledger_accepts_the_decider_with_provenance`

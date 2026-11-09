@@ -60,7 +60,7 @@ source_paths:
   - "src/learnloop/db/stores/workbench.py"
   - "src/learnloop/db/stores/write_provenance.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-06T14:55:42-05:00"
+source_commit_timestamp: "2026-11-08T23:13:15-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -117,7 +117,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/field_signal_receipts|learnloop.db.stores.field_signal_receipts]] | [[Reference/Modules/learnloop/db/stores/field_signal_receipts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/db/stores/figure_prefetch|learnloop.db.stores.figure_prefetch]] | [[Reference/Modules/learnloop/db/stores/figure_prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] | [[Reference/Modules/learnloop/db/stores/figures#^module-purpose|purpose]] | `ACTIVE` | 10 | 14 |
-| [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] | [[Reference/Modules/learnloop/db/stores/followup_serve#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
+| [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] | [[Reference/Modules/learnloop/db/stores/followup_serve#^module-purpose|purpose]] | `ACTIVE` | 7 | 7 |
 | [[Reference/Modules/learnloop/db/stores/followup_value|learnloop.db.stores.followup_value]] | [[Reference/Modules/learnloop/db/stores/followup_value#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] | [[Reference/Modules/learnloop/db/stores/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/db/stores/held_out_signals|learnloop.db.stores.held_out_signals]] | [[Reference/Modules/learnloop/db/stores/held_out_signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -142,9 +142,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/reading_paths|learnloop.db.stores.reading_paths]] | [[Reference/Modules/learnloop/db/stores/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] | [[Reference/Modules/learnloop/db/stores/recurrence#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop/db/stores/retrieval_spaces|learnloop.db.stores.retrieval_spaces]] | [[Reference/Modules/learnloop/db/stores/retrieval_spaces#^module-purpose|purpose]] | `ACTIVE` | 8 | 5 |
-| [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] | [[Reference/Modules/learnloop/db/stores/router#^module-purpose|purpose]] | `ACTIVE` | 6 | 11 |
-| [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] | [[Reference/Modules/learnloop/db/stores/router_objective#^module-purpose|purpose]] | `ACTIVE` | 19 | 22 |
-| [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] | [[Reference/Modules/learnloop/db/stores/router_suggestions#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
+| [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] | [[Reference/Modules/learnloop/db/stores/router#^module-purpose|purpose]] | `ACTIVE` | 7 | 12 |
+| [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] | [[Reference/Modules/learnloop/db/stores/router_objective#^module-purpose|purpose]] | `ACTIVE` | 19 | 23 |
+| [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] | [[Reference/Modules/learnloop/db/stores/router_suggestions#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop/db/stores/section_coverage|learnloop.db.stores.section_coverage]] | [[Reference/Modules/learnloop/db/stores/section_coverage#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/db/stores/session_ownership|learnloop.db.stores.session_ownership]] | [[Reference/Modules/learnloop/db/stores/session_ownership#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] | [[Reference/Modules/learnloop/db/stores/source_block_fts#^module-purpose|purpose]] | `ACTIVE` | 40 | 10 |
@@ -166,7 +166,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 29 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 25 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 18 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 19 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 16 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 14 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 14 static module edges
@@ -234,7 +234,7 @@ flowchart LR
     n_learnloop_adaptive_difficulty -->|29| center
     n_learnloop_sidecar_handlers -->|25| center
     n_learnloop_instructional -->|23| center
-    n_learnloop_daily_plan -->|18| center
+    n_learnloop_daily_plan -->|19| center
     n_learnloop_db -->|14| center
     center -->|4| n_learnloop_db
     n_learnloop_hints -->|16| center

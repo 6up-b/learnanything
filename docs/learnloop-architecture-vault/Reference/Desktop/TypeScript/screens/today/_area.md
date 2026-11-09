@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today"
-source_commit: "0394abccde203a1e4bd7d479ffe28c7035d61f2f"
-source_commit_timestamp: "2026-11-06T14:55:42-05:00"
+source_commit: "2437f516e5448a5296dbef18eae04d6969512be4"
+source_commit_timestamp: "2026-11-08T23:26:15-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -37,9 +37,11 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/today/ContinueLessonCard|ContinueLessonCard.tsx]] | `ACTIVE` | Implements the `ContinueLessonCard` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|DailyPlanView.tsx]] | `ACTIVE` | Implements the `DailyPlanView` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 2 |
-| [[Reference/Desktop/TypeScript/screens/today/LessonOfferBlock|LessonOfferBlock.tsx]] | `ACTIVE` | Implements the `LessonOfferBlock` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
+| [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|DailyPlanView.tsx]] | `ACTIVE` | Implements the `DailyPlanView` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 2 |
+| [[Reference/Desktop/TypeScript/screens/today/LessonOfferBlock|LessonOfferBlock.tsx]] | `ACTIVE` | Implements the `LessonOfferBlock` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 3 |
+| [[Reference/Desktop/TypeScript/screens/today/LessonOfferPage|LessonOfferPage.tsx]] | `ACTIVE` | Implements the `LessonOfferPage` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/today/LessonSuggestionCard|LessonSuggestionCard.tsx]] | `ACTIVE` | Implements the `LessonSuggestionCard` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
+| [[Reference/Desktop/TypeScript/screens/today/SomethingElse|SomethingElse.tsx]] | `ACTIVE` | Implements the `SomethingElse` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 5 |
 | [[Reference/Desktop/TypeScript/screens/today/TodayPlace|TodayPlace.tsx]] | `ACTIVE` | Implements the `TodayPlace` routed desktop screen and coordinates its learner-facing workflow state. | 19 | 1 |
 | [[Reference/Desktop/TypeScript/screens/today/reentry|reentry.ts]] | `ACTIVE` | Provides `reentryRefreshers`, `reentryRefresherLine` within the desktop's TypeScript/screens/today ownership area. | 1 | 1 |
 

@@ -93,6 +93,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `hypothesis_marks_on`; statically calls `hypothesis_marks_on`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `SERVING_SURFACE`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `SERVING_SURFACE`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `RIVAL_CAUSES_FACTOR_VERSION`, `WORKFLOW_SURFACES`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `hypothesis_marks_on`; statically calls `hypothesis_marks_on`
@@ -122,7 +123,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 18 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 19 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

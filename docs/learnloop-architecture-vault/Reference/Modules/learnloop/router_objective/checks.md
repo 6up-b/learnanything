@@ -165,7 +165,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `ORIGIN`, `module`; statically calls `append`, `draw_day`, `place`, `setdefault`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `ORIGIN`, `module`; statically calls `append`, `day_record`, `draw_day`, `place`, `setdefault`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `resolve`
 - [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]] — imports `module`; statically calls `administered`, `completion`, `resolve`
 - [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]] — imports `module`; statically calls `resolve`

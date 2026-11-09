@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/context.py"
 source_paths:
   - "src/learnloop_sidecar/context.py"
-source_commit: "00d25c2f8d7411d48174672756ffefee49564220"
-source_commit_timestamp: "2026-11-07T02:14:36-05:00"
+source_commit: "d602dc8472b09d92a6b854c9fbf969355b1ae1e0"
+source_commit_timestamp: "2026-11-08T20:56:56-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/context.py](../../../../../src/learnloop_sidecar/context.py) |
-| Source lines | 1380 |
+| Source lines | 1381 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `00d25c2f8d7411d48174672756ffefee49564220` |
-| Commit timestamp | `2026-11-07T02:14:36-05:00` |
+| Source commit | `d602dc8472b09d92a6b854c9fbf969355b1ae1e0` |
+| Commit timestamp | `2026-11-08T20:56:56-05:00` |
 
 ## Public API
 
@@ -90,15 +90,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `refresh_vault_files(self, relative_paths: list[str], *, expected_root: str | Path | None=None) -> dict[str, Any]` (line 594; public) — Incrementally refresh watcher-reported Practice Item files.
   - `require_vault(self) -> tuple[LoadedVault, Repository]` (line 762; public)
   - `app_snapshot(self) -> dict[str, Any]` (line 767; public)
-- `subjects_practised_first(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 850) — Subject ids, the ones the learner practises most first, then by name.
-- `vault_summary(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 873)
-- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 941)
-- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1075) — Selectable grading backends: configured AI providers, manual.
-- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1099)
-- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1230)
-- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1261)
-- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1338) — Parse a teach-back conversation envelope from checkpoint current_answer.
-- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1362)
+- `subjects_practised_first(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 851) — Subject ids, the ones the learner practises most first, then by name.
+- `vault_summary(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 874)
+- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 942)
+- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1076) — Selectable grading backends: configured AI providers, manual.
+- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1100)
+- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1231)
+- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1262)
+- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1339) — Parse a teach-back conversation envelope from checkpoint current_answer.
+- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1363)
 
 ### Module constants
 
@@ -108,15 +108,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_forget_reading_choice() -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 784) — Curriculum C1 (fix round 4): drop the plan's memoized reading choice and close its database watcher when a context loads, attaches, switches or closes, so a database restored at the same path is never watched through the old file.
 - `_complete_interrupted_activation(vault_root: Path) -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 794) — Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.42 too).
-- `_recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 818) — Finish interrupted facet merges/undos; True when the vault files may have changed.
-- `_adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 840) — Run the reader's reference-question adoption sweep; never block a load.
-- `_adaptive_difficulty_dto(config: Any) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 899)
-- `_figures_help(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 908)
-- `_cold_help_converts(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 914)
-- `_lessons_active(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 920)
-- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 926) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` while lessons may open on a typed goal and Today offers "Continue your lesson" (absent otherwise).
-- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1130) — Whether every distinct provider the app routes to is configured/ready.
-- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1180) — The health.ai dto, honoring the runtime grading override.
+- `_recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 819) — Finish interrupted facet merges/undos; True when the vault files may have changed.
+- `_adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 841) — Run the reader's reference-question adoption sweep; never block a load.
+- `_adaptive_difficulty_dto(config: Any) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 900)
+- `_figures_help(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 909)
+- `_cold_help_converts(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 915)
+- `_lessons_active(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 921)
+- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 927) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` while lessons may open on a typed goal and Today offers "Continue your lesson" (absent otherwise).
+- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1131) — Whether every distinct provider the app routes to is configured/ready.
+- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1181) — The health.ai dto, honoring the runtime grading override.
 
 ## Who imports or calls it
 
@@ -226,6 +226,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `pending_review_instance_ids`; calls `pending_review_instance_ids`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`; calls `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`
+- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `help_kind_enabled`; calls `help_kind_enabled`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `recover_pending_workflows`; calls `recover_pending_workflows`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `pending_jobs`; calls `pending_jobs`
@@ -236,7 +237,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `mastery_diagnostic_view`; calls `mastery_diagnostic_view`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`; calls `display_mastery`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`; calls `run_startup_maintenance`
-- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `adopt_reference_questions`; calls `adopt_reference_questions`
 - [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] — imports `module`; calls `sweep`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `help_converts_active`; calls `help_converts_active`
@@ -436,6 +436,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_marks.py](../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_off_means_no_key_no_rows_and_the_same_replies`
   - `test_with_no_causes_on_the_attempt_the_bundle_has_no_key`
+- [tests/test_ih5_successor.py](../../../../../tests/test_ih5_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_ingest_jobs.py](../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_batch_completion_triggers_one_vault_reload`
 - [tests/test_ingest_latency_journey.py](../../../../../tests/test_ingest_latency_journey.py) — direct import

@@ -10,8 +10,8 @@ area: "TypeScript/screens/today"
 source_path: "apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx"
-source_commit: "0394abccde203a1e4bd7d479ffe28c7035d61f2f"
-source_commit_timestamp: "2026-11-06T14:55:42-05:00"
+source_commit: "19a812ae46c77e1e20961756f3a9897c87f085d7"
+source_commit_timestamp: "2026-11-08T19:40:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,30 +42,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/LessonOfferBlock.tsx) |
-| Source lines | 79 |
+| Source lines | 126 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `0394abccde203a1e4bd7d479ffe28c7035d61f2f` |
-| Commit timestamp | `2026-11-06T14:55:42-05:00` |
+| Source commit | `19a812ae46c77e1e20961756f3a9897c87f085d7` |
+| Commit timestamp | `2026-11-08T19:40:43-05:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] → [[Reference/Desktop/TypeScript/screens/today/LessonOfferBlock|src/screens/today/LessonOfferBlock.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/today/LessonOfferPage|src/screens/today/LessonOfferPage.tsx]] → [[Reference/Desktop/TypeScript/screens/today/LessonOfferBlock|src/screens/today/LessonOfferBlock.tsx]]
 
 ## Public API
 
-- `export function LessonOfferBlock(` — function, line 15
+- `export type OfferResponse = "accepted" | "chose_alternative" | "declined"` — type, line 15
+- `export type OfferSurface = "today" | "offer_page"` — type, line 16
+- `export function useOfferShown(offer: PlanLessonOfferDto, surface: OfferSurface, sessionId: string | null)` — function, line 22
+- `export function useLessonOfferActions(` — function, line 41
+- `export function LessonOfferBlock(` — function, line 84
 
 ## Internal implementation anchors
 
-- `async function respond(response: "accepted" | "chose_alternative" | "declined", chosen?: LessonSuggestionEntryDto)` — function, line 33
-- `const result = await api.lessonSuggestionRespond(` — const, line 37
+- `const blockId = offer.blockId` — const, line 23
+- `const sent = useRef<string | null>(null)` — const, line 24
+- `const live = Boolean(offer.decisionId) && !offer.answered && Boolean(blockId)` — const, line 25
+- `const key = `$` — const, line 28
+- `async function respond(response: OfferResponse, chosen?: LessonSuggestionEntryDto)` — function, line 58
+- `const result = await api.lessonSuggestionRespond(` — const, line 62
 
 ## Who imports or calls it
 
@@ -73,6 +81,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|src/screens/today/DailyPlanView.tsx]] — import-or-re-export: `LessonOfferBlock`; references `LessonOfferBlock`
+- [[Reference/Desktop/TypeScript/screens/today/LessonOfferPage|src/screens/today/LessonOfferPage.tsx]] — import-or-re-export: `OfferResponse`, `useLessonOfferActions`, `useOfferShown`; references `OfferResponse`, `useLessonOfferActions`, `useOfferShown`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `LessonOfferBlock`; references `LessonOfferBlock`
 
 ## Dependencies
@@ -99,6 +108,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/today/LessonOfferPage.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/LessonOfferPage.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/today/LessonOfferBlock.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/LessonOfferBlock.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

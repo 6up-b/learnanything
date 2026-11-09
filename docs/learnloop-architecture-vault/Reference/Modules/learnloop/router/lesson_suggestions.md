@@ -207,6 +207,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
 - [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import
   - `test_router_report_prints_the_split_from_the_ledgers_read_only`
+- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
+  - `test_the_acceptance_model_never_reads_a_superseded_offer`
+  - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction`
 - [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import

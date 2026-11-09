@@ -108,6 +108,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/StartScreen|src/screens/StartScreen.tsx]] — import-or-re-export: `aboutMinutes`, `useDailyPlan`; references `aboutMinutes`, `useDailyPlan`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `planStepAction`, `useDailyPlan`; references `planStepAction`, `useDailyPlan`
 - [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|src/screens/today/DailyPlanView.tsx]] — import-or-re-export: `aboutMinutes`, `minutesPerDay`, `waitingLine`, `waitingMinutes`, `wholeMinutes`; references `aboutMinutes`, `minutesPerDay`, `waitingLine`, `waitingMinutes`, `wholeMinutes`
+- [[Reference/Desktop/TypeScript/screens/today/SomethingElse|src/screens/today/SomethingElse.tsx]] — import-or-re-export: `useDailyPlan`; references `useDailyPlan`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `aboutMinutes`, `planStepAction`, `useDailyPlan`, `waitingLine`; references `aboutMinutes`, `planStepAction`, `useDailyPlan`, `waitingLine`
 
 ## Dependencies
