@@ -821,12 +821,14 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
 
             with repository.connection() as connection:
                 weights, split_record = MC.value_inputs(connection, config, miss_records, learning.gamma, now_iso)
-            slopes = split_record["slopes"]
             valued = {topic.lo for topic in topics}
-            learning = replace(learning, causes=V.CauseSplit(
-                gap=(float(slopes["gap"][0]), float(slopes["gap"][1])),
-                slip=(float(slopes["slip"][0]), float(slopes["slip"][1])),
-                weights={lo: split for lo, split in weights.items() if lo in valued}))
+            weights = {lo: split for lo, split in weights.items() if lo in valued}
+            if weights:
+                slopes = split_record["slopes"]
+                learning = replace(learning, causes=V.CauseSplit(
+                    gap=(float(slopes["gap"][0]), float(slopes["gap"][1])),
+                    slip=(float(slopes["slip"][0]), float(slopes["slip"][1])),
+                    cov=float(slopes["cov"][0][1]), weights=weights))
     inputs = V.Inputs(
         topics=tuple(topics), dated=tuple(use for use in dated if use.lo in {t.lo for t in topics}),
         session_minutes=float(session_minutes),

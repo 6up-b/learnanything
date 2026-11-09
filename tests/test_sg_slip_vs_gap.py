@@ -311,6 +311,82 @@ def test_off_and_below_the_tag_the_card_is_the_predecessors(tmp_path, ledger):
         assert OCARD.miss_cause_lines(other, repository, [repair], served_at=NOW, budget=6000) == []
 
 
+def _card_bytes(vault, repository, candidates):
+    card = OCARD.decision_card(vault, repository, candidates, served_at=NOW, goals={}, session={}, budget=6000)
+    return json.dumps(card, sort_keys=True, default=str)
+
+
+def test_the_whole_card_off_and_below_the_tag_is_byte_identical_and_on_differs_by_the_section_alone(tmp_path, ledger):
+    """Codex F10: the complete card, not only the helpers: off and below the tag the same bytes; on, the predecessor's card
+    plus the section, its note, the version label and the count."""
+
+    vault, repository = ledger
+    _diagnose(repository, _attempt(repository, "att_a", "lo_a", "pi_a", at=_at(1)), [SLIP_CAUSES], at=_at(1, 1))
+    repair = BlockCandidate(candidate_id="b", lane="repair", action="practice", subtype="completion_or_repair",
+                            learning_object_ids=("lo_a",), item_ids=(), reading=None, est_minutes=5.0,
+                            planner_value=0.0, reason="")
+    variants = {}
+    for name, toml, version in (("off", OFF, TAG), ("below", "", OLD)):
+        paths = create_basic_vault(tmp_path / name)
+        set_algorithm_version(paths, version)
+        if toml:
+            append_config_toml(paths.root, toml)
+        variants[name] = _card_bytes(load_vault(paths.root), repository, [repair])
+    assert variants["off"] == variants["below"]
+    on = json.loads(_card_bytes(vault, repository, [repair]))
+    assert on["state"]["card"] == OCARD.CARD_VERSION_MISS_CAUSES and on.pop("miss_causes") == 1
+    on["state"]["history"].pop(OCARD.MISS_CAUSES)
+    on["state"].pop("miss_causes_are")
+    on["state"]["card"] = OCARD.CARD_VERSION
+    on["evidence_ids"] = [e for e in on["evidence_ids"] if e != "attempt:att_a"]
+    off = json.loads(variants["off"])
+    off["evidence_ids"] = [e for e in off["evidence_ids"] if e != "attempt:att_a"]
+    for card in (on, off):
+        card.pop("bytes")
+    assert on == off
+
+
+def test_the_interrupt_lines_fit_their_budget_heading_included(ledger):
+    vault, repository = ledger
+    _diagnose(repository, _attempt(repository, "att_a", "lo_a", "pi_a", at=_at(1)), [SLIP_CAUSES], at=_at(1, 1))
+    _diagnose(repository, _attempt(repository, "att_b", "lo_b", "pi_b", at=_at(2)), [GAP_CAUSES], at=_at(2, 1))
+    repairs = [BlockCandidate(candidate_id=f"b{lo}", lane="repair", action="practice", subtype="completion_or_repair",
+                              learning_object_ids=(lo,), item_ids=(), reading=None, est_minutes=5.0, planner_value=0.0,
+                              reason="") for lo in ("lo_a", "lo_b")]
+    full = OCARD.miss_cause_lines(vault, repository, repairs, served_at=NOW, budget=100000)
+    assert len(full) == 4 and full[0].startswith("# ")
+    size = len("\n".join(full).encode("utf-8"))
+    one = OCARD.miss_cause_lines(vault, repository, repairs, served_at=NOW, budget=size - 1)
+    assert len(one) == 3 and len("\n".join(one).encode("utf-8")) <= size - 1
+    assert '"attempt:att_a"' in one[2], "the oldest entry goes first"
+    head_only = len("\n".join(full[:2]).encode("utf-8"))
+    assert OCARD.miss_cause_lines(vault, repository, repairs, served_at=NOW, budget=head_only) == []
+
+
+def test_an_observations_posterior_is_read_while_the_episode_is_open(ledger):
+    vault, repository = ledger
+    attempt = _attempt(repository, "att_x", "lo_a", "pi_1", at=_at(3))
+    _diagnose(repository, attempt, [SLIP_CAUSES], at=_at(3, 1))
+    _factor_with_episode(repository, attempt, posterior=(0.6, 0.3, 0.1), at=_at(2), completed=False)
+    gap = repository.causal_hypotheses_for_attempt(attempt)
+    by_scope = {row["cause_scope"]: row["id"] for row in gap}
+    probe = _attempt(repository, "att_probe", "lo_a", "pi_probe", at=_at(1), attempt_type="diagnostic_probe",
+                     correctness=1.0)
+    _exec(repository, "INSERT INTO probe_presentations (id, probe_episode_id, practice_item_id, state_segment_id, status, created_at, "
+          "updated_at) VALUES ('pp1', 'ep1', 'pi_probe', 'seg1', 'submitted', ?, ?)", (_at(1), _at(1)))
+    _exec(repository, "UPDATE practice_attempts SET probe_presentation_id = 'pp1' WHERE id = ?", (probe,))
+    posterior = {by_scope["learner_state"]: 0.2, by_scope["transient_execution"]: 0.7, "other_or_unknown": 0.1}
+    _exec(repository, "INSERT INTO probe_observations (id, attempt_id, posterior_before_json, posterior_after_json, "
+          "entropy_before, entropy_after, realized_information_gain, created_at) VALUES ('po1', ?, '{}', ?, 1, 1, 0, ?)",
+          (probe, json.dumps(posterior), _at(1, 1)))
+    record = _sensor(vault, repository, ["lo_a"])["lo_a"]
+    # The probe was right (correctness 1.0), so the latest miss is still att_x, read through the episode's observation.
+    assert record["attempt_id"] == attempt and record["basis"] == MC.BASIS_POSTERIOR
+    assert record["posterior_source"] == "observation"
+    assert (record["p_gap"], record["p_slip"], record["p_unknown"]) == pytest.approx((0.2, 0.7, 0.1))
+    assert _sensor(vault, repository, ["lo_a"], now=_at(1))["lo_a"]["basis"] == MC.BASIS_PRIOR, "not yet observed"
+
+
 # -- SG2: the value ------------------------------------------------------------------------------------------------------
 
 
@@ -353,9 +429,62 @@ def test_the_nov_7_shape_a_slip_is_worth_less_than_a_gap_by_the_priors_differenc
     model_slip = V._Model(_inputs({"lo_a": (0.0, 1.0, 0.0)}), 16, "sg")
     gain_gap, believed_gap = model_gap._cause_gain(0, 0.5)
     gain_slip, believed_slip = model_slip._cause_gain(0, 0.5)
-    # By the prior's difference only: the same draws, shifted by (mean_gap - mean_slip) * mass.
-    assert np.allclose(gain_gap - gain_slip, 0.2 * 0.5) and believed_gap - believed_slip == pytest.approx(0.1)
+    # By the prior's difference only: the believed gains differ by (mean_gap - mean_slip) * mass, and the drawn ones by
+    # that plus two independent draws at the same variance (the seeded priors are independent: Codex F7).
+    assert believed_gap - believed_slip == pytest.approx(0.2 * 0.5)
+    assert np.array_equal(gain_gap, model_gap.theta.gamma * 0.5), "a pure gap draws gamma's own draws"
+    assert np.allclose(gain_slip, model_slip._slip_z * math.sqrt(0.01) * 0.5)
     assert model_gap._cause_gain(1, 0.5) is None, "a topic with no diagnosed miss keeps gamma"
+
+
+def test_the_slopes_joint_posterior_is_drawn_with_its_covariance():
+    model = V._Model(_inputs({"lo_a": (0.5, 0.5, 0.0)}, gap=(0.2, 0.01), slip=(0.0, 0.01)), 4000, "sg")
+    model.inputs = replace(model.inputs, learning=replace(model.inputs.learning, causes=replace(
+        model.inputs.learning.causes, cov=0.008)))
+    gain, _believed = model._cause_gain(0, 1.0)
+    gap = 0.2 + 0.1 * model.streams.gamma_z
+    slip = (gain - 0.5 * gap) / 0.5
+    assert np.corrcoef(gap, slip)[0, 1] == pytest.approx(0.8, abs=0.03)
+    assert np.var(slip) == pytest.approx(0.01, rel=0.1)
+    independent = V._Model(_inputs({"lo_a": (0.5, 0.5, 0.0)}), 4000, "sg")
+    gain, _believed = independent._cause_gain(0, 1.0)
+    assert np.var(gain) == pytest.approx(0.25 * 0.01 + 0.25 * 0.01, rel=0.1), "independent priors: half the variance"
+
+
+def test_a_probes_repair_branch_and_a_sequences_repair_step_split_too():
+    probe = V.Action(ref="probe", kind=V.PROBE, item_los=("lo_a",), minutes=4.0,
+                     repair=V.Action(ref="probe:repair", kind=V.REPAIR, item_los=("lo_a",), minutes=6.0))
+    sequence = V.Action(ref="seq", kind=V.SEQUENCE, item_los=("lo_a", "lo_b"), minutes=12.0, steps=(
+        V.Action(ref="s1", kind=V.REPAIR, item_los=("lo_a",), minutes=6.0),
+        V.Action(ref="s2", kind=V.REVIEW, item_los=("lo_b",), minutes=6.0)))
+
+    def q(inputs):
+        return {row.ref: row.q for row in V.evaluate(inputs, [probe, sequence], draws=64, seed="sg").valued}
+
+    gap, slip = q(_inputs({"lo_a": (1.0, 0.0, 0.0)})), q(_inputs({"lo_a": (0.0, 1.0, 0.0)}))
+    assert gap == q(_inputs()), "a pure gap at gamma's prior is the predecessor exactly"
+    assert slip["seq"] < gap["seq"] and slip["probe"] != gap["probe"]
+
+
+def test_betas_newton_converges_where_an_undamped_step_cycles():
+    """Codex F5's case: one row with p_gap = 0.9999, s = 10, the next check right. An undamped Newton step alternates
+    between about -9.9 and 0; the damped one converges to the posterior's mode, with the curvature there."""
+
+    fit = MC.fit_beta([{"p_gap": 0.9999, "s": 10.0, "missed_again": 0.0}])
+    assert fit["converged"] and fit["mean"] < -0.5
+    offset = math.log(0.9999 / 0.0001)
+    p = 1 / (1 + math.exp(-(offset + fit["mean"] * 10.0)))
+    assert -fit["mean"] - p * 10.0 == pytest.approx(0.0, abs=1e-6), "the gradient vanishes at the returned mode"
+    assert fit["variance"] == pytest.approx(1 / (1 + p * (1 - p) * 100.0))
+    assert MC.fit_beta([]) == {**MC.fit_beta([]), "mean": 0.0, "variance": 1.0, "n": 0}
+
+
+def test_a_pure_gap_by_rounding_never_crashes_the_calibration():
+    assert MC.calibrated({"p_gap": 0.9999999999999999, "p_slip": 0.0, "p_unknown": 0.0}, 1.0, 2.0) == (
+        0.9999999999999999, 0.0, 0.0)
+    p, _events = MC.prior_weights({"event_diagnoses": [{"candidate_causes": [
+        {"cause_scope": "learner_state", "prior_weight": 1.0} for _ in range(9)]}]})
+    assert p[MC.GAP] == pytest.approx(1.0)
 
 
 def test_a_mixed_diagnosis_values_between_and_unknown_mass_takes_gamma():
@@ -552,6 +681,9 @@ def test_sg2_moves_only_the_diagnosed_topics_values_and_the_logged_mu_replays(tw
     moved = 0
     for got, base in zip(on_traces, base_traces):
         split = got["miss_cause"]["in_value"]
+        if not split["fitted"]:
+            assert not split["topics"]
+            continue
         assert split["beta"]["mean"] == 0.0 and split["slopes"]["slip"][0] == 0.0
         assert split["topics"] and set(split["topics"]) <= {"lo_diag", "lo_r1"}  # the support's diagnosed topics
         if set(got["candidates"]) != set(base["candidates"]):

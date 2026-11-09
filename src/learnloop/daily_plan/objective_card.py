@@ -198,14 +198,18 @@ def miss_cause_lines(vault: Any, repository: Any, candidates: Sequence[Any], *, 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         entries = miss_cause_entries(vault, connection, candidates, served_at=served_at)
     entries.sort(key=lambda entry: -(entry.get("days_before") or 0.0))
-    while entries and _size({"entries": entries}) > int(budget):
-        entries.pop(0)
-    if not entries:
-        return []
     from learnloop.router_objective.miss_cause import CARD_NOTE
 
-    return ["# What the last miss on each topic was", CARD_NOTE.replace("Each entry of history.miss_causes", "Each line below"),
-            *(json.dumps(entry, sort_keys=True, ensure_ascii=False, default=str) for entry in entries)]
+    head = ["# What the last miss on each topic was",
+            CARD_NOTE.replace("Each entry of history.miss_causes", "Each line below")]
+
+    def lines() -> list[str]:
+        return [*head, *(json.dumps(entry, sort_keys=True, ensure_ascii=False, default=str) for entry in entries)]
+
+    # The heading and the note count against the budget too (Codex F9).
+    while entries and len("\n".join(lines()).encode("utf-8")) > int(budget):
+        entries.pop(0)
+    return lines() if entries else []
 
 
 def statement_lines(vault: Any, repository: Any, *, served_at: str, budget: int) -> list[str]:

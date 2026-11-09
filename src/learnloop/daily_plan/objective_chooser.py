@@ -237,7 +237,7 @@ def _miss_cause_mark(repository: Any, config: Any, candidates: Sequence[Any], no
     """Slip or gap: what a boundary's identity names so a change in a candidate topic's miss sensor (a diagnosis landing,
     a probe answered) starts a new job (``miss_cause.mark``). Nothing off, or below the tag."""
 
-    from learnloop.router_objective_switches import miss_cause_sensor_on
+    from learnloop.router_objective_switches import miss_cause_in_value_on, miss_cause_sensor_on
 
     if not miss_cause_sensor_on(config):
         return {}
@@ -245,7 +245,11 @@ def _miss_cause_mark(repository: Any, config: Any, candidates: Sequence[Any], no
 
     los = [lo for candidate in candidates for lo in (getattr(candidate, "learning_object_ids", ()) or ())]
     with repository.connection() as connection:
-        return {"miss_cause": MC.mark(MC.sensor(connection, config, los, now_iso))}
+        marked: dict[str, Any] = {"topics": MC.mark(MC.sensor(connection, config, los, now_iso))}
+        if miss_cause_in_value_on(config):
+            # SG2's fits read every topic's misses, diagnoses and lessons (Codex F1): their ledgers' revision too.
+            marked["ledgers"] = MC.ledger_mark(connection)
+    return {"miss_cause": marked}
 
 
 def _preference_mark(repository: Any, config: Any) -> dict[str, Any]:
@@ -1987,8 +1991,10 @@ class ObjectiveRestraintGate(RestraintGate):
             LOG.warning("router objective: the learner's statements were not read", exc_info=True)
             lines = []
         try:
+            # One budget for both additions (Codex F9): the causes get what the statements left.
+            left = budget - len("\n".join(lines).encode("utf-8"))
             causes = miss_cause_lines(self.vault, self.repository, candidates, served_at=utc_now_iso(self.clock),
-                                      budget=budget)
+                                      budget=left) if candidates else []
         except Exception:  # noqa: BLE001 - likewise: the request is the predecessor's without them
             LOG.warning("router objective: the miss causes were not read", exc_info=True)
             causes = []

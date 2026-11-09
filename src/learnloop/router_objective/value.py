@@ -324,20 +324,22 @@ class CauseSplit:
     lesson's and a repair's effect slope is the mixture over the miss's cause, ``p_gap·γ_gap + p_slip·γ_slip +
     p_unknown·γ``, instead of ``γ``.
 
-    ``gap`` and ``slip`` are ``γ_gap``'s and ``γ_slip``'s posterior (mean, variance); ``weights`` each diagnosed topic's
-    calibrated ``(p_gap, p_slip, p_unknown)``. A topic not in ``weights`` keeps ``γ`` exactly. Each slope's draw is taken
-    along ``γ``'s own stream (common random numbers), so where ``γ_gap``'s posterior is ``γ``'s a pure gap is the
-    predecessor's value draw for draw, and at the seeded priors a slip and a gap differ by the priors' means only."""
+    ``gap`` and ``slip`` are ``γ_gap``'s and ``γ_slip``'s posterior (mean, variance), ``cov`` their covariance; ``weights``
+    each diagnosed topic's calibrated ``(p_gap, p_slip, p_unknown)``. A topic not in ``weights`` keeps ``γ`` exactly. The
+    joint posterior is drawn (Codex F7): ``γ_gap`` along ``γ``'s own stream (common random numbers), so where its
+    posterior is ``γ``'s a pure gap is the predecessor's value draw for draw; ``γ_slip`` as its regression on that draw
+    plus its residual on a stream of its own (at the seeded priors, independent of ``γ_gap``)."""
 
     gap: tuple[float, float]
     slip: tuple[float, float]
     weights: Mapping[str, tuple[float, float, float]] = field(default_factory=dict)
+    cov: float = 0.0
     version: str = "miss_cause_slopes_v1"
 
     def at_mean(self) -> "CauseSplit":
         """The believed parameters (each posterior's mean, no parameter draw), as the belief's own world reads γ."""
 
-        return replace(self, gap=(self.gap[0], 0.0), slip=(self.slip[0], 0.0))
+        return replace(self, gap=(self.gap[0], 0.0), slip=(self.slip[0], 0.0), cov=0.0)
 
 
 @dataclass(frozen=True)
@@ -685,6 +687,8 @@ class _Model:
         self.dated = sorted(inputs.dated, key=lambda use: use.at_days)
         self.dated_weight = np.zeros(self.n)
         self.effect_on = inputs.effect is not None
+        #: SG2: γ_slip's residual stream, drawn on first use (:meth:`_cause_gain`)
+        self._slip_z: np.ndarray | None = None
         #: SG2: each diagnosed topic's index -> its calibrated (p_gap, p_slip, p_unknown); empty with no split
         causes = inputs.learning.causes
         self.cause_weights: dict[int, tuple[float, ...]] = (
@@ -898,8 +902,9 @@ class _Model:
 
     def _cause_gain(self, lo: int, mass: float) -> tuple[np.ndarray, float] | None:
         """SG2: a lesson's or a repair's learning on topic ``lo`` at evidence mass ``mass``, per draw and as believed,
-        when the topic's miss has a diagnosis: ``(p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ)·mass``, each slope drawn
-        along γ's stream (:class:`CauseSplit`). None: the topic keeps ``γ`` (the predecessor's expression, untouched)."""
+        when the topic's miss has a diagnosis: ``(p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ)·mass``, the slopes drawn
+        from their joint posterior (:class:`CauseSplit`). None: the topic keeps ``γ`` (the predecessor's expression,
+        untouched)."""
 
         split = self.cause_weights.get(lo)
         causes = self.inputs.learning.causes
@@ -907,8 +912,14 @@ class _Model:
             return None
         p_gap, p_slip, p_unknown = split
         z = self.streams.gamma_z
-        gap = causes.gap[0] + math.sqrt(max(causes.gap[1], 0.0)) * z
-        slip = causes.slip[0] + math.sqrt(max(causes.slip[1], 0.0)) * z
+        gap_var, slip_var = max(causes.gap[1], 0.0), max(causes.slip[1], 0.0)
+        gap = causes.gap[0] + math.sqrt(gap_var) * z
+        if self._slip_z is None:
+            # γ_slip's own stream (a parameter draw; no other stream moves), drawn once per model.
+            self._slip_z = np.random.default_rng(_seed_int(self.seed, "theta:gamma_slip")).standard_normal(self.k)
+        regression = causes.cov / gap_var if gap_var else 0.0
+        residual = math.sqrt(max(slip_var - regression * causes.cov, 0.0))
+        slip = causes.slip[0] + regression * (gap - causes.gap[0]) + residual * self._slip_z
         true = (p_gap * gap + p_slip * slip + p_unknown * self.theta.gamma) * mass
         believed = (p_gap * causes.gap[0] + p_slip * causes.slip[0]
                     + p_unknown * float(self.inputs.learning.gamma[0])) * mass

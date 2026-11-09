@@ -108,6 +108,12 @@ def _logit(p: float) -> float:
     return math.log(p) - math.log1p(-p)
 
 
+def _log_sigmoid(x: float) -> float:
+    """``log σ(x)``, stable on both tails."""
+
+    return -math.log1p(math.exp(-x)) if x >= 0 else x - math.log1p(math.exp(x))
+
+
 def _sigmoid(x: float) -> float:
     if x >= 0:
         return 1.0 / (1.0 + math.exp(-x))
@@ -140,9 +146,10 @@ def _lessons_ended(connection: Any, now_iso: str) -> dict[str, str]:
     out: dict[str, str] = {}
     if not _table(connection, "lessons"):
         return out
+    # A close after the decision is not known at it: the lesson then counts as open, ending at its opening (Codex F4).
     for raw, ended in connection.execute(
-            "SELECT learning_object_ids_json, coalesce(closed_at, opened_at) FROM lessons WHERE opened_at <= ?",
-            (now_iso,)):
+            "SELECT learning_object_ids_json, CASE WHEN closed_at IS NOT NULL AND closed_at <= ? THEN closed_at "
+            "ELSE opened_at END FROM lessons WHERE opened_at <= ?", (now_iso, now_iso)):
         for lo in _loads(raw, []) or []:
             if str(ended) > out.get(str(lo), ""):
                 out[str(lo)] = str(ended)
@@ -332,25 +339,36 @@ def my_gap_marks(connection: Any, attempt_id: str, now_iso: str) -> list[dict[st
         return []
     rows = [row for row in marks_store.marks_for_attempt(connection, attempt_id)
             if str(row.get("created_at") or "") <= now_iso]
-    keys = [str(key) for key, row in opinion.latest_marks(rows).items()
-            if key is not None and row.get("mark") == opinion.MY_GAP]
-    if not keys:
+    marked = {str(key): row for key, row in opinion.latest_marks(rows).items()
+              if key is not None and row.get("mark") == opinion.MY_GAP}
+    if not marked:
         return []
-    scopes: dict[str, str] = {}
-    if _table(connection, "causal_hypotheses"):
-        for key, scope in connection.execute(
-                f"SELECT episode_key, cause_scope FROM causal_hypotheses WHERE episode_key IN "
-                f"({','.join('?' for _ in keys)}) ORDER BY version", keys):
-            scopes[str(key)] = _class(scope)
-    return [{"hypothesis_key": key, "class": scopes.get(key, UNKNOWN)} for key in sorted(keys)]
+    out: list[dict[str, Any]] = []
+    for key in sorted(marked):
+        # The class of the version the learner marked (Codex F4), else the episode's latest version known then.
+        scope = None
+        version_id = marked[key].get("hypothesis_version_id")
+        if _table(connection, "causal_hypotheses"):
+            row = (connection.execute("SELECT cause_scope FROM causal_hypotheses WHERE id = ?", (version_id,)).fetchone()
+                   if version_id else None)
+            if row is None:
+                row = connection.execute(
+                    "SELECT cause_scope FROM causal_hypotheses WHERE episode_key = ? AND created_at <= ? "
+                    "ORDER BY version DESC LIMIT 1", (key, now_iso)).fetchone()
+            scope = row[0] if row is not None else None
+        out.append({"hypothesis_key": key, "class": _class(scope)})
+    return out
 
 
-def stored_surprise(connection: Any, attempt_id: str) -> dict[str, Any] | None:
+def stored_surprise(connection: Any, attempt_id: str, now_iso: str | None = None) -> dict[str, Any] | None:
+    """The attempt's stored surprise, as written by ``now_iso`` (None: whatever is on record)."""
+
     if not _table(connection, "attempt_surprise"):
         return None
     row = connection.execute(
-        "SELECT bayesian_surprise, predictive_surprise, surprise_direction FROM attempt_surprise WHERE attempt_id = ?",
-        (attempt_id,)).fetchone()
+        "SELECT bayesian_surprise, predictive_surprise, surprise_direction FROM attempt_surprise WHERE attempt_id = ?"
+        + (" AND created_at <= ?" if now_iso is not None else ""),
+        (attempt_id, *((now_iso,) if now_iso is not None else ()))).fetchone()
     if row is None:
         return None
     return {"bayesian": None if row[0] is None else float(row[0]),
@@ -368,7 +386,7 @@ def record_for(connection: Any, miss: Mapping[str, Any], now_iso: str) -> dict[s
         "attempt_id": attempt_id, "attempt_at": miss["at"], "attempt_type": miss["attempt_type"],
         "diagnosis_id": (diagnosis or {}).get("id"), "episode_id": None, "basis": None,
         "p_gap": None, "p_slip": None, "p_unknown": None, "events": 0,
-        "surprise": stored_surprise(connection, attempt_id),
+        "surprise": stored_surprise(connection, attempt_id, now_iso),
         "learner_marked_my_gap": my_gap_marks(connection, attempt_id, now_iso),
     }
     if status != DIAGNOSED or diagnosis is None:
@@ -387,6 +405,8 @@ def record_for(connection: Any, miss: Mapping[str, Any], now_iso: str) -> dict[s
                       posterior_source=posterior["source"], posterior_at=posterior["at"])
     else:
         record["basis"] = BASIS_PRIOR
+    total = sum(p.values())  # renormalized, so a rounded sum never puts a class above 1 (Codex F6)
+    p = {name: p[name] / total for name in CLASSES}
     record.update(p_gap=p[GAP], p_slip=p[SLIP], p_unknown=p[UNKNOWN])
     return record
 
@@ -405,6 +425,22 @@ def mark(records: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     return {lo: [record.get("status"), record.get("attempt_id"), record.get("diagnosis_id"), record.get("episode_id"),
                  record.get("posterior_at"), len(record.get("learner_marked_my_gap") or ())]
             for lo, record in sorted(records.items())}
+
+
+def ledger_mark(connection: Any) -> list[Any]:
+    """SG2 (Codex F1): what ``β``'s and the cause slopes' fits read beyond a new attempt (which the boundary's ``as_of``
+    already names): the live diagnoses on record, the lessons' openings and closes, and the stored surprises, each as a
+    count and the latest write. A diagnosis landing on any topic, or a lesson closing, starts a new job. Excluded from
+    the numeric policy's seed like the rest of the sensor's mark."""
+
+    out: list[Any] = []
+    for table, column, where in (("attempt_diagnoses", "created_at", "WHERE mode = 'live'"),
+                                 ("lessons", "coalesce(closed_at, opened_at)", ""),
+                                 ("attempt_surprise", "created_at", "")):
+        if _table(connection, table):
+            row = connection.execute(f"SELECT count(*), max({column}) FROM {table} {where}").fetchone()
+            out.append([table, int(row[0] or 0), row[1]])
+    return out
 
 
 # -- the surprise, standardized, and words ---------------------------------------------------------------------
@@ -426,17 +462,26 @@ def surprise_reference(connection: Any, config: Any, now_iso: str) -> list[float
         f"AND {known} <= ?", (*params, FULLY_RIGHT, now_iso, now_iso))]
 
 
-def standardized(value: float | None, reference: Sequence[float]) -> float:
-    """``(value − mean) / sd`` over ``reference``; 0 when there is no spread to standardize by (then ``β`` has
-    nothing to act on) or no value."""
+def moments(reference: Sequence[float]) -> tuple[float, float] | None:
+    """The reference's mean and standard deviation, computed once per decision (Codex F8); None with no spread."""
 
-    if value is None or not reference:
-        return 0.0
+    if not reference:
+        return None
     mean = sum(reference) / len(reference)
     variance = sum((x - mean) ** 2 for x in reference) / len(reference)
-    if not variance:
+    return (mean, math.sqrt(variance)) if variance else None
+
+
+def standardized(value: float | None, reference: Sequence[float] | tuple[float, float] | None) -> float:
+    """``(value − mean) / sd`` over ``reference`` (the values, or their :func:`moments`); 0 when there is no spread to
+    standardize by (then ``β`` has nothing to act on) or no value."""
+
+    if value is None or reference is None:
         return 0.0
-    return (float(value) - mean) / math.sqrt(variance)
+    stats = reference if isinstance(reference, tuple) else moments(reference)
+    if stats is None:
+        return 0.0
+    return (float(value) - stats[0]) / stats[1]
 
 
 _DIRECTION_WORDS = {"negative": "worse than the mastery model expected",
@@ -497,7 +542,7 @@ def beta_rows(connection: Any, config: Any, now_iso: str) -> tuple[list[dict[str
         f"AND a.created_at <= ? AND {known} <= ? ORDER BY a.created_at, a.id",
         (*params, FULLY_RIGHT, now_iso, now_iso)).fetchall()
     exposed = _exposed(connection) if misses else set()
-    reference = surprise_reference(connection, config, now_iso) if misses else []
+    stats = moments(surprise_reference(connection, config, now_iso)) if misses else None
     rows: list[dict[str, Any]] = []
     for attempt_id, lo, created in misses:
         attempt_id, lo, created = str(attempt_id), str(lo), str(created)
@@ -522,12 +567,12 @@ def beta_rows(connection: Any, config: Any, now_iso: str) -> tuple[list[dict[str
         if not 0.0 < p_gap < 1.0:
             counts["uninformative"] += 1
             continue
-        surprise = stored_surprise(connection, attempt_id)
+        surprise = stored_surprise(connection, attempt_id, now_iso)
         if surprise is None or surprise.get("bayesian") is None:
             counts["no_surprise"] += 1
             continue
         rows.append({"attempt_id": attempt_id, "next_attempt_id": str(nxt[0]), "p_gap": p_gap,
-                     "s": standardized(surprise["bayesian"], reference),
+                     "s": standardized(surprise["bayesian"], stats),
                      "missed_again": 1.0 if float(nxt[2]) < FULLY_RIGHT else 0.0})
     counts["rows"] = len(rows)
     return rows, counts
@@ -538,22 +583,53 @@ def beta_fit(connection: Any, config: Any, now_iso: str) -> dict[str, Any]:
     :data:`BETA_PRIOR`, by Newton's method (the log posterior is concave). With no rows, the prior."""
 
     rows, counts = beta_rows(connection, config, now_iso)
+    return {**fit_beta(rows), "counts": counts}
+
+
+def fit_beta(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """:func:`beta_fit`'s arithmetic on its rows (each ``p_gap`` in (0, 1), ``s``, ``missed_again``): pure."""
+
     m0, v0 = BETA_PRIOR
-    beta = m0
-    precision = 1.0 / v0
+    offsets = [(_logit(row["p_gap"]), row["s"], row["missed_again"]) for row in rows]
+
+    def log_posterior(b: float) -> float:
+        total = -0.5 * (b - m0) ** 2 / v0
+        for offset, s, y in offsets:
+            eta = offset + b * s
+            total += y * _log_sigmoid(eta) + (1.0 - y) * _log_sigmoid(-eta)  # log σ(η), log(1 − σ(η))
+        return total
+
+    def derivatives(b: float) -> tuple[float, float]:
+        gradient, precision = -(b - m0) / v0, 1.0 / v0
+        for offset, s, y in offsets:
+            p = _sigmoid(offset + b * s)
+            gradient += (y - p) * s
+            precision += p * (1.0 - p) * s * s
+        return gradient, precision
+
+    # Damped Newton (Codex F5): the log posterior is concave, so a step is halved until it does not lower it; the
+    # curvature reported is the one at the returned coefficient.
+    beta, converged = m0, not offsets
+    current = log_posterior(beta)
     for _ in range(_NEWTON_STEPS):
-        gradient = -(beta - m0) / v0
-        precision = 1.0 / v0
-        for row in rows:
-            p = _sigmoid(_logit(row["p_gap"]) + beta * row["s"])
-            gradient += (row["missed_again"] - p) * row["s"]
-            precision += p * (1.0 - p) * row["s"] * row["s"]
-        step = gradient / precision
-        beta += step
-        if not step:
+        if converged:
             break
+        gradient, precision = derivatives(beta)
+        step = gradient / precision
+        for _halving in range(_NEWTON_STEPS):
+            trial = beta + step
+            value = log_posterior(trial)
+            if value >= current:
+                break
+            step /= 2.0
+        else:
+            converged = True
+            break
+        converged = trial == beta
+        beta, current = trial, value
+    _gradient, precision = derivatives(beta)
     return {"version": CALIBRATION_VERSION, "mean": beta, "variance": 1.0 / precision, "prior": list(BETA_PRIOR),
-            "n": len(rows), "counts": counts, "label": SELF_SELECTED,
+            "n": len(rows), "label": SELF_SELECTED, "converged": converged,
             "model": "P(next cold check missed) = sigmoid(logit p_gap + beta * s), s the standardized Bayesian surprise"}
 
 
@@ -563,22 +639,26 @@ def calibrated(record: Mapping[str, Any], beta: float, s: float) -> tuple[float,
 
     p_gap, p_slip, p_unknown = float(record["p_gap"]), float(record["p_slip"]), float(record["p_unknown"])
     shift = beta * s
-    if not shift or p_gap in (0.0, 1.0):
+    rest = p_slip + p_unknown
+    # No mass on one side (exactly, or by rounding of a sum: Codex F6) leaves nothing to move between them.
+    if not shift or not rest or not 0.0 < p_gap < 1.0:
         return p_gap, p_slip, p_unknown
     calibrated_gap = _sigmoid(_logit(p_gap) + shift)
-    rest = p_slip + p_unknown
     scale = (1.0 - calibrated_gap) / rest
     return calibrated_gap, p_slip * scale, p_unknown * scale
 
 
-def _offer_rows(connection: Any, now_iso: str) -> list[dict[str, Any]]:
+def _offer_rows(connection: Any, config: Any, now_iso: str) -> list[dict[str, Any]]:
     """Lessons that ran from an offer whose card froze this sensor (diagnosed), closed by ``now_iso``, with the
-    first qualifying cold outcome after their close (``lesson_weight.qualifying_outcomes``)."""
+    first qualifying cold outcome after their close (``lesson_weight.qualifying_outcomes``), counted only once that
+    outcome is known at the decision (THE availability predicate; Codex F3): until then the lesson is unresolved."""
 
     from learnloop.learner.lesson_weight import qualifying_outcomes
+    from learnloop.router_objective_switches import attempt_time_sql
 
     if not (_table(connection, "lessons") and _table(connection, "router_decisions")):
         return []
+    known = attempt_time_sql(config, connection, alias="a")
     out: list[dict[str, Any]] = []
     for lesson_id, origin_ref, raw, closed in connection.execute(
             "SELECT id, origin_ref, learning_object_ids_json, closed_at FROM lessons WHERE origin = 'router' "
@@ -602,6 +682,10 @@ def _offer_rows(connection: Any, now_iso: str) -> list[dict[str, Any]]:
         outcomes = [row for row in qualifying_outcomes(connection, [lo], str(closed), until=now_iso)]
         if not outcomes:
             continue
+        seen = connection.execute(f"SELECT {known} FROM practice_attempts a WHERE a.id = ?",
+                                  (outcomes[0]["id"],)).fetchone()
+        if seen is None or str(seen[0]) > now_iso:
+            continue
         out.append({"lesson_id": str(lesson_id), "learning_object_id": lo, "p_gap": float(frozen["p_gap"]),
                     "p_slip": float(frozen["p_slip"]), "p_unknown": float(frozen["p_unknown"]),
                     "predicted": float(predicted), "mass": float(mass), "y": float(outcomes[0]["correctness"]),
@@ -609,7 +693,7 @@ def _offer_rows(connection: Any, now_iso: str) -> list[dict[str, Any]]:
     return out
 
 
-def cause_slopes(connection: Any, gamma: tuple[float, float], now_iso: str) -> dict[str, Any]:
+def cause_slopes(connection: Any, gamma: tuple[float, float], now_iso: str, config: Any = None) -> dict[str, Any]:
     """``(γ_gap, γ_slip)``'s posterior. The seeded prior: ``γ_gap ~ N(γ̄, v)``, ``γ_slip ~ N(0, v)``, independent, with
     ``(γ̄, v)`` the ``γ`` the decision reads (the owner's default, spec §6). Each lesson that ran from an offer that froze
     a diagnosed sensor, with its first later qualifying cold outcome ``y`` (the grade, continuous), is one Laplace step
@@ -621,7 +705,7 @@ def cause_slopes(connection: Any, gamma: tuple[float, float], now_iso: str) -> d
     mean = [gm, 0.0]
     cov = [[gv, 0.0], [0.0, gv]]
     prior = {"gap": [gm, gv], "slip": [0.0, gv]}
-    rows = _offer_rows(connection, now_iso)
+    rows = _offer_rows(connection, config, now_iso)
     for row in rows:
         m = row["mass"]
         eta = _logit(row["predicted"]) + m * (row["p_gap"] * mean[0] + row["p_slip"] * mean[1] + row["p_unknown"] * gm)
@@ -649,17 +733,22 @@ def value_inputs(connection: Any, config: Any, records: Mapping[str, Mapping[str
 
     diagnosed = {lo: record for lo, record in records.items() if record.get("status") == DIAGNOSED
                  and record.get("p_gap") is not None}
+    if not diagnosed:
+        # Nothing to split: no fit is run on the decision path (Codex F8) and every topic keeps gamma.
+        return {}, {"topics": {}, "fitted": False,
+                    "why": "no candidate topic's latest miss has a diagnosis in force"}
     beta = beta_fit(connection, config, now_iso)
-    reference = surprise_reference(connection, config, now_iso) if diagnosed else []
+    reference = surprise_reference(connection, config, now_iso)
+    stats = moments(reference)
     weights: dict[str, tuple[float, float, float]] = {}
     topics: dict[str, Any] = {}
     for lo, record in sorted(diagnosed.items()):
-        s = standardized((record.get("surprise") or {}).get("bayesian"), reference)
+        s = standardized((record.get("surprise") or {}).get("bayesian"), stats)
         weights[lo] = calibrated(record, float(beta["mean"]), s)
         topics[lo] = {"s": s, "calibrated": list(weights[lo]),
                       "diagnosis": [record["p_gap"], record["p_slip"], record["p_unknown"]]}
-    slopes = cause_slopes(connection, gamma, now_iso)
-    return weights, {"beta": beta, "slopes": slopes, "topics": topics,
+    slopes = cause_slopes(connection, gamma, now_iso, config)
+    return weights, {"beta": beta, "slopes": slopes, "topics": topics, "fitted": True,
                      "surprise_reference": {"n": len(reference)}}
 
 
@@ -702,6 +791,7 @@ __all__ = [
     "BASIS_POSTERIOR", "BASIS_PRIOR", "BETA_PRIOR", "CALIBRATION_VERSION", "CARD_NOTE", "CLASSES", "CLASS_WORDS",
     "DIAGNOSED", "FAILED", "FULLY_RIGHT", "GAP", "NONE", "NOT_APPLICABLE", "OBSERVATIONAL", "PENDING", "SELF_SELECTED",
     "SLIP", "SLOPES_VERSION", "STATUSES", "UNKNOWN", "VERSION", "beta_fit", "beta_rows", "calibrated", "card_entry",
-    "cause_slopes", "diagnosis_state", "latest_misses", "mark", "my_gap_marks", "prior_weights", "probe_posterior",
+    "cause_slopes", "diagnosis_state", "fit_beta", "latest_misses", "ledger_mark", "mark", "moments", "my_gap_marks",
+    "prior_weights", "probe_posterior",
     "record_for", "sensor", "standardized", "stored_surprise", "surprise_reference", "surprise_words", "value_inputs",
 ]
