@@ -878,6 +878,13 @@ def _reset_ids(monkeypatch, stage: int = 0) -> None:
 
     monkeypatch.setattr(ids, "_last_timestamp_ms", 1_790_000_000_000 + 1_000 * stage)
     monkeypatch.setattr(ids, "_last_randomness", 0)
+    # Decision records and traces draw from a stream of their own (arc B fix 3), reset the same way.
+    from learnloop import provenance
+
+    records = ids.UlidStream()
+    records._last_ms, records._last_randomness = 1_790_000_000_500 + 1_000 * stage, 0
+    records._random = SimpleNamespace(getrandbits=lambda bits: 0)
+    monkeypatch.setattr(provenance, "_RECORD_IDS", records)
     counter = iter(range(10**6))
     minted = lambda: uuid.UUID(int=(stage << 64) + next(counter))  # noqa: E731
     for module in (judgments, execution):

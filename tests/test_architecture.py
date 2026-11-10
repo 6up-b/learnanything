@@ -60,6 +60,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Refactor B1 (migration 253, ADR-017): the decision record's one insert, in the leaf every layer
         # writes through, inside a savepoint on the caller's connection.
         "src/learnloop/provenance.py",
+        # Arc B fix round (migration 254): retention's one update of the decision records (their payload columns).
+        "src/learnloop/db/stores/provenance.py",
         "src/learnloop/db/stores/collection.py",
         "src/learnloop/db/stores/embedding_vectors.py",
         # Local contextual retrieval P1a (migration 220): the embedding space

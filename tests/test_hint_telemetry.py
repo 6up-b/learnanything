@@ -380,6 +380,11 @@ def _deterministic_ids(monkeypatch) -> None:
     monkeypatch.setattr(ids, "_last_randomness", 0)
     own = iter(range(1, 10**9))
     monkeypatch.setattr(telemetry, "new_ulid", lambda: f"TELEMETRY{next(own):017d}")
+    # Decision records and traces draw from a stream of their own (arc B fix 3): restarted per run the same way.
+    from learnloop import provenance
+
+    records = iter(range(1, 10**9))
+    monkeypatch.setattr(provenance, "_RECORD_IDS", lambda: f"RECORD{next(records):020d}")
 
 
 def _dump(database: Path) -> dict[str, list[str]]:
