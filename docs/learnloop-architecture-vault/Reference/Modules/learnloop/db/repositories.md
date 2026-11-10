@@ -3095,6 +3095,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
 - [tests/test_recurrence_groups.py](../../../../../../tests/test_recurrence_groups.py) — direct import
 - [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_registry_audit.py](../../../../../../tests/test_registry_audit.py) — direct import
   - `test_migration_069_idempotent_on_copy`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import

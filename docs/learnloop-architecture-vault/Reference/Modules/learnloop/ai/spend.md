@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py) |
-| Source lines | 656 |
+| Source lines | 683 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -63,41 +63,42 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `class SpendEstimate` ([source](../../../../../../src/learnloop/ai/spend.py), line 128)
   - `__post_init__(self) -> None` (line 136; internal)
 - `class SpendLimitExceeded(ValueError)` ([source](../../../../../../src/learnloop/ai/spend.py), line 143) — The next request cannot be admitted under the declared caps.
-- `class SpendCancelled(AIInterrupted)` ([source](../../../../../../src/learnloop/ai/spend.py), line 147) — Cancellation was observed before admitting another request.
-- `class SpendBudget` ([source](../../../../../../src/learnloop/ai/spend.py), line 151)
-  - `__init__(self, caps: SpendCaps, *, cancelled: Callable[[], bool] | None=None, subscription: bool=False) -> None` (line 152; internal)
-  - `caps(self) -> SpendCaps` (line 166; public)
-  - `subscription(self) -> bool` (line 170; public)
-  - `used(self) -> SpendEstimate` (line 174; public)
-  - `declared(self) -> dict[str, object]` (line 177; public) — The caps in force, as recorded on receipts' ``budget_json``.
-  - `check(self, estimate: SpendEstimate) -> SpendEstimate` (line 188; public) — Check additional work without reserving it or making any calls.
-  - `request(self, estimate: SpendEstimate, *, subscription_route: bool=False) -> Iterator[SpendCharge]` (line 212; public) — Reserve one physical attempt before entering the paid-call body.
-- `class SpendCharge` ([source](../../../../../../src/learnloop/ai/spend.py), line 261) — An admitted attempt; reconciliation is monotonic and idempotent.
-  - `__init__(self, budget: SpendBudget, estimate: SpendEstimate, *, envelopes: tuple[tuple[SpendEnvelope, object], ...]=(), subscription: bool | None=None) -> None` (line 264; internal)
-  - `note_estimated_only(self, *, total_tokens: int, estimated_usd: float | None) -> None` (line 280; public) — A subscription attempt's estimated usage (cumulative, ``estimated_only``) for the active envelopes' reports.
-  - `reconcile(self, *, total_tokens: int | None=None, estimated_usd: float | None=None) -> None` (line 294; public) — Supply cumulative actual usage for this attempt, not usage deltas.
-- `class SpendEnvelope` ([source](../../../../../../src/learnloop/ai/spend.py), line 331) — A money bound shared by every ``SpendBudget`` admitted while it is active.
-  - `__init__(self, name: str, max_usd: float, *, observed: Callable[[], float] | None=None) -> None` (line 344; internal)
-  - `_total(self) -> Decimal` (line 356; internal)
-  - `remaining(self) -> float` (line 361; public)
-  - `reserve(self, usd: Decimal) -> object` (line 365; public) — Reserve ``usd`` before a request is sent; returns the reservation's handle (passed back to ``unreserve``, ``charge`` and ``settle``).
-  - `reservation_ref(self, handle: object) -> str | None` (line 379; public) — A durable name for the reservation, recorded on the request's root receipt (``budget_json.envelope_reservations``) so a ledger that counts the reservation never counts the receipt again.
-  - `unreserve(self, handle: object) -> None` (line 386; public) — Undo a reservation whose request was never sent (another envelope refused it).
-  - `charge(self, usd: Decimal, handle: object=None) -> None` (line 395; public) — Usage above the reservation (reconciliation; never a refund).
-  - `settle(self, handle: object, actual: Decimal | None=None) -> None` (line 404; public) — The request finished and its receipt is written (``actual``: its reconciled cost, when the provider reported one).
-  - `note_estimated_only(self, tokens: int, usd: Decimal | None) -> None` (line 412; public)
-  - `report(self) -> dict[str, object]` (line 420; public)
-- `spend_envelopes(*envelopes: SpendEnvelope | None) -> Iterator[tuple[SpendEnvelope, ...]]` ([source](../../../../../../src/learnloop/ai/spend.py), line 439) — Activate envelopes for this context (added to any already active).
-- `active_envelopes() -> tuple[SpendEnvelope, ...]` ([source](../../../../../../src/learnloop/ai/spend.py), line 454)
-- `class RequestAdmission` ([source](../../../../../../src/learnloop/ai/spend.py), line 496) — One admitted physical request: what it reserved, priced at its route.
-- `class MeteredRequestGate` ([source](../../../../../../src/learnloop/ai/spend.py), line 506) — Per-request admission for one unit of paid work (a job attempt).
-  - `__init__(self, *, limit_usd: float | None, price_per_token: Callable[[str | None], float | None], is_subscription: Callable[[Any], bool], default_output_tokens: int=0, spent_before_usd: float=0.0, cancelled: Callable[[], bool] | None=None) -> None` (line 535; internal)
-  - `spent_usd(self) -> float` (line 563; public)
-  - `limit_usd(self) -> float | None` (line 568; public)
-  - `estimate_tokens(self, client: Any, *, prompt: Any, budget: int | None) -> int` (line 571; public) — Input (from the request's text) plus the output ceiling.
-  - `estimate_usd(self, client: Any, *, prompt: Any, budget: int | None) -> float` (line 589; public)
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> RequestAdmission | None` (line 595; public)
-  - `settle(self, admission: RequestAdmission | None, usage: Mapping[str, Any]) -> None` (line 631; public)
+  - `__init__(self, message: object='', *, rule: str | None=None, limit: float | None=None, used: float | None=None, requested: float | None=None, scope: str | None=None) -> None` (line 153; internal)
+- `class SpendCancelled(AIInterrupted)` ([source](../../../../../../src/learnloop/ai/spend.py), line 163) — Cancellation was observed before admitting another request.
+- `class SpendBudget` ([source](../../../../../../src/learnloop/ai/spend.py), line 167)
+  - `__init__(self, caps: SpendCaps, *, cancelled: Callable[[], bool] | None=None, subscription: bool=False) -> None` (line 168; internal)
+  - `caps(self) -> SpendCaps` (line 182; public)
+  - `subscription(self) -> bool` (line 186; public)
+  - `used(self) -> SpendEstimate` (line 190; public)
+  - `declared(self) -> dict[str, object]` (line 193; public) — The caps in force, as recorded on receipts' ``budget_json``.
+  - `check(self, estimate: SpendEstimate) -> SpendEstimate` (line 204; public) — Check additional work without reserving it or making any calls.
+  - `request(self, estimate: SpendEstimate, *, subscription_route: bool=False) -> Iterator[SpendCharge]` (line 232; public) — Reserve one physical attempt before entering the paid-call body.
+- `class SpendCharge` ([source](../../../../../../src/learnloop/ai/spend.py), line 281) — An admitted attempt; reconciliation is monotonic and idempotent.
+  - `__init__(self, budget: SpendBudget, estimate: SpendEstimate, *, envelopes: tuple[tuple[SpendEnvelope, object], ...]=(), subscription: bool | None=None) -> None` (line 284; internal)
+  - `note_estimated_only(self, *, total_tokens: int, estimated_usd: float | None) -> None` (line 300; public) — A subscription attempt's estimated usage (cumulative, ``estimated_only``) for the active envelopes' reports.
+  - `reconcile(self, *, total_tokens: int | None=None, estimated_usd: float | None=None) -> None` (line 314; public) — Supply cumulative actual usage for this attempt, not usage deltas.
+- `class SpendEnvelope` ([source](../../../../../../src/learnloop/ai/spend.py), line 351) — A money bound shared by every ``SpendBudget`` admitted while it is active.
+  - `__init__(self, name: str, max_usd: float, *, observed: Callable[[], float] | None=None) -> None` (line 364; internal)
+  - `_total(self) -> Decimal` (line 376; internal)
+  - `remaining(self) -> float` (line 381; public)
+  - `reserve(self, usd: Decimal) -> object` (line 385; public) — Reserve ``usd`` before a request is sent; returns the reservation's handle (passed back to ``unreserve``, ``charge`` and ``settle``).
+  - `reservation_ref(self, handle: object) -> str | None` (line 401; public) — A durable name for the reservation, recorded on the request's root receipt (``budget_json.envelope_reservations``) so a ledger that counts the reservation never counts the receipt again.
+  - `unreserve(self, handle: object) -> None` (line 408; public) — Undo a reservation whose request was never sent (another envelope refused it).
+  - `charge(self, usd: Decimal, handle: object=None) -> None` (line 417; public) — Usage above the reservation (reconciliation; never a refund).
+  - `settle(self, handle: object, actual: Decimal | None=None) -> None` (line 426; public) — The request finished and its receipt is written (``actual``: its reconciled cost, when the provider reported one).
+  - `note_estimated_only(self, tokens: int, usd: Decimal | None) -> None` (line 434; public)
+  - `report(self) -> dict[str, object]` (line 442; public)
+- `spend_envelopes(*envelopes: SpendEnvelope | None) -> Iterator[tuple[SpendEnvelope, ...]]` ([source](../../../../../../src/learnloop/ai/spend.py), line 461) — Activate envelopes for this context (added to any already active).
+- `active_envelopes() -> tuple[SpendEnvelope, ...]` ([source](../../../../../../src/learnloop/ai/spend.py), line 476)
+- `class RequestAdmission` ([source](../../../../../../src/learnloop/ai/spend.py), line 519) — One admitted physical request: what it reserved, priced at its route.
+- `class MeteredRequestGate` ([source](../../../../../../src/learnloop/ai/spend.py), line 529) — Per-request admission for one unit of paid work (a job attempt).
+  - `__init__(self, *, limit_usd: float | None, price_per_token: Callable[[str | None], float | None], is_subscription: Callable[[Any], bool], default_output_tokens: int=0, spent_before_usd: float=0.0, cancelled: Callable[[], bool] | None=None) -> None` (line 558; internal)
+  - `spent_usd(self) -> float` (line 586; public)
+  - `limit_usd(self) -> float | None` (line 591; public)
+  - `estimate_tokens(self, client: Any, *, prompt: Any, budget: int | None) -> int` (line 594; public) — Input (from the request's text) plus the output ceiling.
+  - `estimate_usd(self, client: Any, *, prompt: Any, budget: int | None) -> float` (line 612; public)
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> RequestAdmission | None` (line 619; public)
+  - `settle(self, admission: RequestAdmission | None, usage: Mapping[str, Any]) -> None` (line 658; public)
 
 ### Module constants
 
@@ -107,16 +108,16 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `SUBSCRIPTION_UNENFORCED_CAPS` ([src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py), line 65)
 - `ESTIMATED_ONLY` ([src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py), line 66)
 - `RESERVATIONS_KEY` ([src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py), line 68)
-- `NO_RESERVATION` ([src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py), line 466)
-- `_CHARS_PER_TOKEN` ([src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py), line 492)
+- `NO_RESERVATION` ([src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py), line 488)
+- `_CHARS_PER_TOKEN` ([src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py), line 515)
 
 ## Internal implementation anchors
 
 - `_count(name: str, value: int) -> None` ([source](../../../../../../src/learnloop/ai/spend.py), line 96)
 - `_money(name: str, value: float) -> None` ([source](../../../../../../src/learnloop/ai/spend.py), line 101)
-- `class _NoReservation` ([source](../../../../../../src/learnloop/ai/spend.py), line 458) — A subscription request's place in an envelope: nothing reserved, so nothing to settle (its usage is tallied ``estimated_only``).
-- `_reserve_in(envelopes: tuple[SpendEnvelope, ...], estimate: SpendEstimate, *, subscription: bool) -> tuple[tuple[SpendEnvelope, object], ...]` ([source](../../../../../../src/learnloop/ai/spend.py), line 469) — Reserve a metered estimate in every envelope, all or none; returns each envelope with its reservation handle.
-- `_reported_usd(usage: Mapping[str, Any], price_per_token: float) -> Decimal | None` ([source](../../../../../../src/learnloop/ai/spend.py), line 640) — What a finished request cost: the provider's cost, else its tokens at the price; ``None`` when it reported nothing (the reservation stands).
+- `class _NoReservation` ([source](../../../../../../src/learnloop/ai/spend.py), line 480) — A subscription request's place in an envelope: nothing reserved, so nothing to settle (its usage is tallied ``estimated_only``).
+- `_reserve_in(envelopes: tuple[SpendEnvelope, ...], estimate: SpendEstimate, *, subscription: bool) -> tuple[tuple[SpendEnvelope, object], ...]` ([source](../../../../../../src/learnloop/ai/spend.py), line 491) — Reserve a metered estimate in every envelope, all or none; returns each envelope with its reservation handle.
+- `_reported_usd(usage: Mapping[str, Any], price_per_token: float) -> Decimal | None` ([source](../../../../../../src/learnloop/ai/spend.py), line 667) — What a finished request cost: the provider's cost, else its tokens at the price; ``None`` when it reported nothing (the reservation stands).
 
 ## Who imports or calls it
 
@@ -446,6 +447,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_exhausted_command_budget_stops_the_judge`
   - `test_the_dry_run_plans_the_recurrence_work_on_the_same_caps`
   - `test_the_judge_runs_on_the_commands_budget_and_shows_in_its_summary`
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
+  - `test_a_spend_refusal_names_the_cap_and_its_numbers_and_keeps_its_message`
+  - `test_no_decider_routed_and_a_spend_cap_each_name_their_rule`
 - [tests/test_required_method_reopened.py](../../../../../../tests/test_required_method_reopened.py) — direct import
   - `test_f17_a_failed_judgment_leaves_the_job_retryable_and_a_rerun_resumes_without_regenerating`
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import

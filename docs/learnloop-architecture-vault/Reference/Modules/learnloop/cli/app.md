@@ -737,6 +737,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_command_defaults_to_the_latest`
   - `test_the_upgrade_command_prints_the_advisory_guard_status`
   - `test_the_upgrade_command_takes_the_target`
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_upgrade_command_reaches_the_successor`
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import

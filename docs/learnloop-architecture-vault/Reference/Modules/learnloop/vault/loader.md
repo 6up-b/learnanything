@@ -2741,6 +2741,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_escalation_card_switch_hides_the_block`
 - [tests/test_recurrence_merge_composition.py](../../../../../../tests/test_recurrence_merge_composition.py) — direct import
 - [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_registry_audit.py](../../../../../../tests/test_registry_audit.py) — direct import
 - [tests/test_regrade_contract_replay.py](../../../../../../tests/test_regrade_contract_replay.py) — direct import
   - `test_case1_a_model_grade_regraded_above_its_original_maximum_is_saved`

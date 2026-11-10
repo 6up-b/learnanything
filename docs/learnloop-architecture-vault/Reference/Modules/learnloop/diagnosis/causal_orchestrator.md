@@ -359,6 +359,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_pinned_probe_declines_to_classify_an_unassessed_criterion`
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_the_causal_quick_check_stops_the_episode_being_ignored`
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
+  - `test_a_hard_refusal_and_no_plan_each_leave_the_gates_record`
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
   - `test_a_deferred_cold_retry_still_expires_on_its_original_window`
   - `test_repair_status_reports_episode_reveal_spend_against_the_budget`

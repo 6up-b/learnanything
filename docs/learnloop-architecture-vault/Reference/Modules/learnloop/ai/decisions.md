@@ -197,6 +197,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
 - [tests/test_facet_span_support.py](../../../../../../tests/test_facet_span_support.py) — direct import
 - [tests/test_reader_ca3_compare_anywhere.py](../../../../../../tests/test_reader_ca3_compare_anywhere.py) — direct import
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
 - [tests/test_router_g7_fallback.py](../../../../../../tests/test_router_g7_fallback.py) — direct import
   - `test_an_error_or_an_invalid_answer_falls_back`

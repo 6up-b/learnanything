@@ -796,6 +796,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_regrade_against_an_edited_unverified_key_never_certifies`
   - `test_a_regrade_never_raises_an_attempts_status`
   - `test_attempts_record_the_key_status_and_unverified_ones_never_certify`
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
+  - `test_a_row_the_ledger_refuses_leaves_a_record_and_the_callers_work_commits`
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_after_the_upgrade_a_rebuild_settles_and_stays`
   - `test_head_fixture_predecessor_to_successor_path`

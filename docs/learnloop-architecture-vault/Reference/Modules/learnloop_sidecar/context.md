@@ -550,6 +550,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_wrap_up.py](../../../../../tests/test_reader_wrap_up.py) — direct import
   - `test_the_card_off_leaves_wrap_up_on_its_own_switch`
 - [tests/test_reading_request_sweep.py](../../../../../tests/test_reading_request_sweep.py) — direct import
+- [tests/test_refusal_records.py](../../../../../tests/test_refusal_records.py) — direct import
+  - `test_past_bug_b2_no_decider_routed_now_leaves_a_record`
 - [tests/test_regrade_contract_replay.py](../../../../../tests/test_regrade_contract_replay.py) — direct import
   - `test_case1_a_contest_of_a_model_grade_above_its_original_maximum_looks_again`
 - [tests/test_regrade_contract_successor.py](../../../../../tests/test_regrade_contract_successor.py) — direct import

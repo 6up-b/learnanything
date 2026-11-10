@@ -78,14 +78,14 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/hints/state|learnloop.hints.state]] | [[Reference/Modules/learnloop/hints/state#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 | [[Reference/Modules/learnloop/hints/telemetry|learnloop.hints.telemetry]] | [[Reference/Modules/learnloop/hints/telemetry#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/hints/workbench|learnloop.hints.workbench]] | [[Reference/Modules/learnloop/hints/workbench#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
-| [[Reference/Modules/learnloop/hints/writer|learnloop.hints.writer]] | [[Reference/Modules/learnloop/hints/writer#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
+| [[Reference/Modules/learnloop/hints/writer|learnloop.hints.writer]] | [[Reference/Modules/learnloop/hints/writer#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 24 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 17 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 18 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 13 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 11 static module edges
@@ -123,7 +123,7 @@ flowchart LR
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_placement["learnloop.placement"]
     center -->|24| n_learnloop_ai
-    center -->|17| n_learnloop
+    center -->|18| n_learnloop
     center -->|16| n_learnloop_db_stores
     center -->|13| n_learnloop_db
     center -->|11| n_learnloop_vault

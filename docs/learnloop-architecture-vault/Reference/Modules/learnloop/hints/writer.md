@@ -117,6 +117,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `models_off`; statically calls `models_off`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `models_off`; statically calls `models_off`
 - [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]] — imports `PROMPT_VERSION`
 - [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] — imports `HintWriterOutputV1`, `PROMPT_VERSION`, `WriterRoute`, `WriterUnavailable`, `build_prompt`, `models_off`; statically calls `WriterRoute`, `build_prompt`, `models_off`
@@ -144,7 +145,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]], [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]], [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]], [[Reference/Modules/learnloop/hints/workbench|learnloop.hints.workbench]].
+Static participation evidence comes from [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]], [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]], [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]], [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]], [[Reference/Modules/learnloop/hints/workbench|learnloop.hints.workbench]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

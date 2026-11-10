@@ -404,6 +404,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_metered_check_is_one_admitted_physical_request_held_to_its_output_allowance`
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b1_ignores_cache_rows_without_a_writer`
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
   - `test_the_daily_guard_counts_todays_router_receipts`

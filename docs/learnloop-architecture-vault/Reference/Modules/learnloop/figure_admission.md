@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py) |
-| Source lines | 458 |
+| Source lines | 476 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -76,12 +76,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `manim_opt_in(vault: Any) -> str | None` ([source](../../../../../src/learnloop/figure_admission.py), line 314) — Reader RW5d P2b: the learner's standing opt-in for Manim figures (``"standing"``), their "not now" (``"declined"``), or None (not asked).
 - `text_key(vault: Any) -> Hashable` ([source](../../../../../src/learnloop/figure_admission.py), line 323) — What a figure prediction's learner-text reading depends on: the vault and the switch (its money cap is ``learner_text_gaps``'s, as on main).
 - `class FiguresChanged(BaseException)` ([source](../../../../../src/learnloop/figure_admission.py), line 330) — A figure-derived request refused before it was sent: the configuration its unit of work started under has changed (the switch turned off, the route, cap or price changed, or another vault is open).
-- `class FiguresGate` ([source](../../../../../src/learnloop/figure_admission.py), line 346) — Admit a figure-derived unit of work's requests only while its key holds.
-  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None, wait: Callable[[], Any] | None=None) -> None` (line 366; internal)
-  - `_current(self) -> Any | None` (line 383; internal)
-  - `check(self, purpose: str='request') -> None` (line 393; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 414; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 427; public)
+- `class FiguresGate` ([source](../../../../../src/learnloop/figure_admission.py), line 350) — Admit a figure-derived unit of work's requests only while its key holds.
+  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None, wait: Callable[[], Any] | None=None, repository: Any=None) -> None` (line 374; internal)
+  - `_current(self) -> Any | None` (line 395; internal)
+  - `check(self, purpose: str='request') -> None` (line 405; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 432; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 445; public)
 
 ### Module constants
 
@@ -91,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `TUTOR_EXPLORABLE_TASK` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 206)
 - `TUTOR_FIGURE_GOAL_TASK` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 241)
 - `FIGURE_GOAL_OFFERED` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 243)
+- `GATE_RULES` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 347)
 
 ### Explicit exports
 
@@ -158,6 +159,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]] — imports `judgments_by_ids`; calls `judgments_by_ids`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `blocks_by_key`; calls `blocks_by_key`
+- [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `module`; calls `figure_gate_record`, `write`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 
 ### Platform and third-party dependencies
@@ -191,6 +193,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_goal_in_the_view_with_no_ledger_row_is_refused`
   - `test_f6_no_goal_writes_no_goal_row`
   - `test_f6_the_tutors_goal_has_one_ledger_row_and_the_press_reads_it`
+- [tests/test_refusal_records.py](../../../../../tests/test_refusal_records.py) — direct import
+  - `test_the_figure_gate_records_its_first_refusal_once`
 - [tests/test_rw5c_source_check.py](../../../../../tests/test_rw5c_source_check.py) — direct import
 
 ## Modification guidance

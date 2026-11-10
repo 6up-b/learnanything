@@ -216,6 +216,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_open_set_arm_survives_apply_attempt_into_the_probe_path`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_the_cold_verification_guard_refuses_an_unassessed_attempt_directly`
+- [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
+  - `test_a_value_check_that_fails_is_named_on_the_gates_record`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import

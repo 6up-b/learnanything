@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py) |
-| Source lines | 393 |
+| Source lines | 401 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -57,19 +57,19 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `insert_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 110) — Append one decision; a repeated ``receipt_key`` is a no-op (returns False).
 - `append_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 132) — Append one decision inside the caller's transaction, never failing it.
-- `record_learner_pick(connection: sqlite3.Connection, *, scheduler_candidate_id: str, practice_item_id: str, session_id: str, entry_surface: str, submission_id: str | None, created_at: str) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 155) — Log a learner pick that overrides a logged Today offer's choice.
-- `preferences_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 266) — The preference ledger exists (a vault below migration 251, or a historical copy, has none).
-- `insert_learner_preference(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 274) — Append one preference (IH3); a repeated ``id`` is a no-op (returns False), so a retry of the same act writes once.
-- `learner_preference(connection: sqlite3.Connection, preference_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 288)
-- `learner_preference_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 293) — Every preference, oldest first (IH4's reader).
-- `recent_learner_preferences(connection: sqlite3.Connection, *, at: str, limit: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 302) — The newest ``limit`` preferences known at ``at``, oldest first (the LLM card's read, IH4).
-- `router_payloads_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 313)
-- `append_router_payload(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 319) — Store one decision payload (router R2a: its learner-state card) inside the caller's transaction, never failing it: a refused row rolls back alone with a warning.
-- `prune_router_payloads(connection: sqlite3.Connection, *, before: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 344) — Delete payloads stored before ``before`` (``router.payload_retention_days``).
-- `router_payload(connection: sqlite3.Connection, decision_id: str, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 355)
-- `replace_router_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 364) — Replace the derived outcome cache whole (its one replayer only).
-- `router_decision_rows(connection: sqlite3.Connection, *, limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 377) — Decisions oldest first (the newest ``limit`` when given).
-- `router_outcome_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 391)
+- `record_learner_pick(connection: sqlite3.Connection, *, scheduler_candidate_id: str, practice_item_id: str, session_id: str, entry_surface: str, submission_id: str | None, created_at: str) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 163) — Log a learner pick that overrides a logged Today offer's choice.
+- `preferences_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 274) — The preference ledger exists (a vault below migration 251, or a historical copy, has none).
+- `insert_learner_preference(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 282) — Append one preference (IH3); a repeated ``id`` is a no-op (returns False), so a retry of the same act writes once.
+- `learner_preference(connection: sqlite3.Connection, preference_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 296)
+- `learner_preference_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 301) — Every preference, oldest first (IH4's reader).
+- `recent_learner_preferences(connection: sqlite3.Connection, *, at: str, limit: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 310) — The newest ``limit`` preferences known at ``at``, oldest first (the LLM card's read, IH4).
+- `router_payloads_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 321)
+- `append_router_payload(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 327) — Store one decision payload (router R2a: its learner-state card) inside the caller's transaction, never failing it: a refused row rolls back alone with a warning.
+- `prune_router_payloads(connection: sqlite3.Connection, *, before: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 352) — Delete payloads stored before ``before`` (``router.payload_retention_days``).
+- `router_payload(connection: sqlite3.Connection, decision_id: str, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 363)
+- `replace_router_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 372) — Replace the derived outcome cache whole (its one replayer only).
+- `router_decision_rows(connection: sqlite3.Connection, *, limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 385) — Decisions oldest first (the newest ``limit`` when given).
+- `router_outcome_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 399)
 
 ### Module constants
 
@@ -78,8 +78,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `DECISION_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 71)
 - `OUTCOME_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 84)
 - `PAYLOAD_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 105)
-- `OVERRIDE_KEY_PREFIX` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 257)
-- `PREFERENCE_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 260)
+- `OVERRIDE_KEY_PREFIX` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 265)
+- `PREFERENCE_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 268)
 
 ## Internal implementation anchors
 
@@ -108,6 +108,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `module`; calls `router_row_record`, `write_on`
 
 ### Platform and third-party dependencies
 
@@ -139,6 +140,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_staged_reads_nothing`
   - `test_w_itself_never_reads_a_preference_or_a_pick`
+- [tests/test_refusal_records.py](../../../../../../../tests/test_refusal_records.py) — direct import
+  - `test_a_row_the_ledger_refuses_leaves_a_record_and_the_callers_work_commits`
 - [tests/test_ro0_codex_review.py](../../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_staged_decision_keeps_its_ad_numbers`
 - [tests/test_router_coldness_covariates.py](../../../../../../../tests/test_router_coldness_covariates.py) — direct import
