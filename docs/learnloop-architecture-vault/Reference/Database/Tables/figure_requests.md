@@ -127,6 +127,7 @@ None found by exact static reference scan.
 - `tests/test_figure_rich_contract.py`
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
+- `tests/test_figure_wait_estimate.py`
 - `tests/test_figures_help.py`
 - `tests/test_figures_help_codex_review.py`
 - `tests/test_figures_prefetch.py`

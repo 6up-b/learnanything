@@ -179,6 +179,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_figure_rich_rereview_fixes.py](../../../../../../../tests/test_figure_rich_rereview_fixes.py) — direct import
 - [tests/test_figure_rich_review_fixes.py](../../../../../../../tests/test_figure_rich_review_fixes.py) — direct import
+- [tests/test_figure_wait_estimate.py](../../../../../../../tests/test_figure_wait_estimate.py) — direct import
+  - `test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build`
 - [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — direct import
   - `test_f7_a_paid_answer_survives_a_crash_before_the_row`
 - [tests/test_figures_fix_round2.py](../../../../../../../tests/test_figures_fix_round2.py) — direct import

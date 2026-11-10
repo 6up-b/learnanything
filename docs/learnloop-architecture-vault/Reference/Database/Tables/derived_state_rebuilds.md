@@ -101,6 +101,7 @@ Indexes and uniqueness:
 - `src/learnloop/deliverable_plan_upgrade.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/failure_share_upgrade.py`
+- `src/learnloop/figure_wait_upgrade.py`
 - `src/learnloop/followup_serve_upgrade.py`
 - `src/learnloop/help_fold_attach_upgrade.py`
 - `src/learnloop/lesson_offers_upgrade.py`

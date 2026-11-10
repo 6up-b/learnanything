@@ -512,6 +512,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rebuild_never_reads_the_workbench_tables`
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_the_recorded_seed_redraws_the_pass_exactly`
+- [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
+  - `test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build`
+  - `test_each_author_call_is_named_by_its_builds_mode_from_the_ledger`
+  - `test_the_reader_report_reads_the_ledger_as_the_decisions_do`
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
   - `test_f4_a_later_success_disagrees_with_a_named_gap_and_the_plain_report_says_what_came_after`
 - [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import

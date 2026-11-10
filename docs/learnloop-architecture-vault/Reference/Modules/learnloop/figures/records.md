@@ -47,82 +47,82 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py) |
-| Source lines | 423 |
+| Source lines | 435 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/figures/records.py), line 110) — ``value`` when it is an id or a code constant (``provenance.check_no_prose``), else a short hash of it, so a ref that happens to hold text never carries the text and never drops the record.
-- `number(value: Any, digits: int | None=None) -> float | None` ([source](../../../../../../src/learnloop/figures/records.py), line 122) — A finite float (rounded to ``digits`` when given), or None.
-- `write_records(repository: Any, records: Iterable[provenance.DecisionRecord]) -> list[str | None]` ([source](../../../../../../src/learnloop/figures/records.py), line 136) — Write each record with its own short transaction (``write_decision``); never raises.
-- `in_one_trace(records: Sequence[provenance.DecisionRecord]) -> list[provenance.DecisionRecord]` ([source](../../../../../../src/learnloop/figures/records.py), line 142) — The records under the current trace, or one trace born for all of them (outside every entry point each write would otherwise birth its own).
-- `prebuild_record(row: Mapping[str, Any], decision: Any, model: Any, *, draw_index: int, seed: str | None, builds_left: int, render_left: float, on_mains: bool, plan_waiting: bool, expected_requests: float) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/figures/records.py), line 154) — The ``figure_prebuild`` record of one decided candidate (``row`` is its ledger row).
-- `class FilterLog` ([source](../../../../../../src/learnloop/figures/records.py), line 206) — One filter pass's exclusions by rule (request keys), and what it kept.
-  - `exclude(self, rule: str, candidate: Any) -> None` (line 214; public)
-  - `record(self) -> provenance.DecisionRecord | None` (line 221; public) — The ``figure_prefetch_filter`` record, or None when nothing was excluded.
-- `build_stop_record(rule: str, status: str, decision_id: str, *, waiting: Sequence[str]=(), error: BaseException | None=None, refusal: str | None=None) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/figures/records.py), line 242) — A ``figure_prebuild_stop`` record: the build of ``decision_id`` stopped (``deferred``: it and the queue after it wait for a later pass), passed over (``excluded``), refused or failed.
-- `spec_problem(problems: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/records.py), line 263) — A parser's problems as a code: a prediction's own problem, or the spec's.
-- `sketch_problem(problems: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/records.py), line 269)
-- `class AuthorAttempts` ([source](../../../../../../src/learnloop/figures/records.py), line 284) — What each author attempt came to, noted as the loop runs (list appends only: nothing here can change the loop's control flow), and written as ``figure_author`` records when the build ends.
-  - `start(self, number: int) -> None` (line 291; public)
-  - `current(self) -> _Attempt | None` (line 295; public)
-  - `end(self, rule: str, *, status: str | None=None, error: BaseException | None=None, problems: int | None=None) -> None` (line 298; public) — The current attempt's verdict: ``rule`` its code (a retry follows, or it was the last).
-  - `extra(self, problem: str) -> None` (line 309; public)
-  - `fact(self, **facts: Any) -> None` (line 313; public)
-  - `records(self, *, request: Any, request_id: str | None, model: Any, outcome: Any=None, error: BaseException | None=None) -> list[provenance.DecisionRecord]` (line 317; public) — One record per attempt (one for the refusal when the build stopped before any).
-  - `write(self, repository: Any, **kwargs: Any) -> None` (line 370; public) — :meth:`records`, written; never raises (a record never changes the build it describes).
+- `code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/figures/records.py), line 113) — ``value`` when it is an id or a code constant (``provenance.check_no_prose``), else a short hash of it, so a ref that happens to hold text never carries the text and never drops the record.
+- `number(value: Any, digits: int | None=None) -> float | None` ([source](../../../../../../src/learnloop/figures/records.py), line 125) — A finite float (rounded to ``digits`` when given), or None.
+- `write_records(repository: Any, records: Iterable[provenance.DecisionRecord]) -> list[str | None]` ([source](../../../../../../src/learnloop/figures/records.py), line 139) — Write each record with its own short transaction (``write_decision``); never raises.
+- `in_one_trace(records: Sequence[provenance.DecisionRecord]) -> list[provenance.DecisionRecord]` ([source](../../../../../../src/learnloop/figures/records.py), line 145) — The records under the current trace, or one trace born for all of them (outside every entry point each write would otherwise birth its own).
+- `prebuild_record(row: Mapping[str, Any], decision: Any, model: Any, *, draw_index: int, seed: str | None, builds_left: int, render_left: float, on_mains: bool, plan_waiting: bool, expected_requests: float) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/figures/records.py), line 157) — The ``figure_prebuild`` record of one decided candidate (``row`` is its ledger row).
+- `class FilterLog` ([source](../../../../../../src/learnloop/figures/records.py), line 218) — One filter pass's exclusions by rule (request keys), and what it kept.
+  - `exclude(self, rule: str, candidate: Any) -> None` (line 226; public)
+  - `record(self) -> provenance.DecisionRecord | None` (line 233; public) — The ``figure_prefetch_filter`` record, or None when nothing was excluded.
+- `build_stop_record(rule: str, status: str, decision_id: str, *, waiting: Sequence[str]=(), error: BaseException | None=None, refusal: str | None=None) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/figures/records.py), line 254) — A ``figure_prebuild_stop`` record: the build of ``decision_id`` stopped (``deferred``: it and the queue after it wait for a later pass), passed over (``excluded``), refused or failed.
+- `spec_problem(problems: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/records.py), line 275) — A parser's problems as a code: a prediction's own problem, or the spec's.
+- `sketch_problem(problems: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/records.py), line 281)
+- `class AuthorAttempts` ([source](../../../../../../src/learnloop/figures/records.py), line 296) — What each author attempt came to, noted as the loop runs (list appends only: nothing here can change the loop's control flow), and written as ``figure_author`` records when the build ends.
+  - `start(self, number: int) -> None` (line 303; public)
+  - `current(self) -> _Attempt | None` (line 307; public)
+  - `end(self, rule: str, *, status: str | None=None, error: BaseException | None=None, problems: int | None=None) -> None` (line 310; public) — The current attempt's verdict: ``rule`` its code (a retry follows, or it was the last).
+  - `extra(self, problem: str) -> None` (line 321; public)
+  - `fact(self, **facts: Any) -> None` (line 325; public)
+  - `records(self, *, request: Any, request_id: str | None, model: Any, outcome: Any=None, error: BaseException | None=None) -> list[provenance.DecisionRecord]` (line 329; public) — One record per attempt (one for the refusal when the build stopped before any).
+  - `write(self, repository: Any, **kwargs: Any) -> None` (line 382; public) — :meth:`records`, written; never raises (a record never changes the build it describes).
 
 ### Module constants
 
-- `_LOG` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 34)
-- `KIND_PREBUILD` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 36)
-- `KIND_FILTER` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 37)
-- `KIND_BUILD_STOP` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 38)
-- `KIND_AUTHOR` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 39)
-- `MAX_KEYS_PER_RULE` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 42)
-- `FILTER_PROTECTION_UNAVAILABLE` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 45)
-- `FILTER_DUPLICATE` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 46)
-- `FILTER_OPEN_HORIZON` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 47)
-- `FILTER_DECIDED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 48)
-- `FILTER_NO_SPANS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 49)
-- `FILTER_SHOW_ME_OFF` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 50)
-- `FILTER_WITHHELD` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 51)
-- `FILTER_GROUNDING_WITHHELD` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 52)
-- `FILTER_ITEM_PROTECTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 53)
-- `FILTER_ALREADY_BUILT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 54)
-- `STOP_FOREGROUND` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 57)
-- `STOP_RICH_IN_FLIGHT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 58)
-- `STOP_OFF_MAINS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 59)
-- `STOP_AUTHOR_NOT_PLAN` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 60)
-- `STOP_ITEM_PROTECTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 61)
-- `STOP_BUILT_ALREADY` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 62)
-- `STOP_RENDER_MINUTES` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 63)
-- `STOP_DAILY_BUILDS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 64)
-- `STOP_BUILD_REFUSED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 65)
-- `STOP_BUILD_FAILED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 66)
-- `STOP_RICH_JOB_RUNNING` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 67)
-- `MODEL_FAILED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 71)
-- `STATUS_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 73)
-- `TIER_REASON_MISSING` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 75)
-- `LABEL_TEXT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 77)
-- `LABEL_TEXT_STRIPPED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 79)
-- `PREDICTION_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 81)
-- `PREDICTION_DROPPED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 83)
-- `SPEC_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 85)
-- `SKETCH_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 87)
-- `BRIEF_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 89)
-- `VERIFICATION_FAILED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 91)
-- `SOURCE_DIFFERS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 93)
-- `QUICK_DROPPED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 95)
-- `ACCEPTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 97)
-- `UNSUPPORTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 98)
-- `BUILD_ERROR` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 100)
-- `INTERRUPTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 102)
-- `_KEPT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 104)
-- `_AUTHOR_STATUSES` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 106)
-- `_PREDICTION_PROBLEM` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 107)
+- `_LOG` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 37)
+- `KIND_PREBUILD` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 39)
+- `KIND_FILTER` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 40)
+- `KIND_BUILD_STOP` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 41)
+- `KIND_AUTHOR` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 42)
+- `MAX_KEYS_PER_RULE` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 45)
+- `FILTER_PROTECTION_UNAVAILABLE` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 48)
+- `FILTER_DUPLICATE` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 49)
+- `FILTER_OPEN_HORIZON` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 50)
+- `FILTER_DECIDED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 51)
+- `FILTER_NO_SPANS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 52)
+- `FILTER_SHOW_ME_OFF` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 53)
+- `FILTER_WITHHELD` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 54)
+- `FILTER_GROUNDING_WITHHELD` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 55)
+- `FILTER_ITEM_PROTECTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 56)
+- `FILTER_ALREADY_BUILT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 57)
+- `STOP_FOREGROUND` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 60)
+- `STOP_RICH_IN_FLIGHT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 61)
+- `STOP_OFF_MAINS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 62)
+- `STOP_AUTHOR_NOT_PLAN` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 63)
+- `STOP_ITEM_PROTECTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 64)
+- `STOP_BUILT_ALREADY` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 65)
+- `STOP_RENDER_MINUTES` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 66)
+- `STOP_DAILY_BUILDS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 67)
+- `STOP_BUILD_REFUSED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 68)
+- `STOP_BUILD_FAILED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 69)
+- `STOP_RICH_JOB_RUNNING` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 70)
+- `MODEL_FAILED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 74)
+- `STATUS_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 76)
+- `TIER_REASON_MISSING` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 78)
+- `LABEL_TEXT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 80)
+- `LABEL_TEXT_STRIPPED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 82)
+- `PREDICTION_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 84)
+- `PREDICTION_DROPPED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 86)
+- `SPEC_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 88)
+- `SKETCH_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 90)
+- `BRIEF_INVALID` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 92)
+- `VERIFICATION_FAILED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 94)
+- `SOURCE_DIFFERS` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 96)
+- `QUICK_DROPPED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 98)
+- `ACCEPTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 100)
+- `UNSUPPORTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 101)
+- `BUILD_ERROR` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 103)
+- `INTERRUPTED` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 105)
+- `_KEPT` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 107)
+- `_AUTHOR_STATUSES` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 109)
+- `_PREDICTION_PROBLEM` ([src/learnloop/figures/records.py](../../../../../../src/learnloop/figures/records.py), line 110)
 
 ### Explicit exports
 
@@ -154,10 +154,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_measurements(waits: Any) -> int` ([source](../../../../../../src/learnloop/figures/records.py), line 189) — The measured latencies behind W: the quick tiers share one sample (the author call's duration counts for grammar and sketch alike), each rich tier's are its own requests.
-- `_posterior_draws() -> int` ([source](../../../../../../src/learnloop/figures/records.py), line 199)
-- `class _Attempt` ([source](../../../../../../src/learnloop/figures/records.py), line 274)
-- `_outcome(outcome: Any, error: BaseException | None) -> tuple[str | None, str | None, str]` ([source](../../../../../../src/learnloop/figures/records.py), line 382) — The stored (or reused) figure's id, a rich-only build's job id, and the build's result as a code.
+- `_measurements(waits: Any) -> int` ([source](../../../../../../src/learnloop/figures/records.py), line 201) — The measured latencies behind W: the quick tiers share one sample (the author call's duration counts for grammar and sketch alike), each rich tier's are its own requests.
+- `_posterior_draws() -> int` ([source](../../../../../../src/learnloop/figures/records.py), line 211)
+- `class _Attempt` ([source](../../../../../../src/learnloop/figures/records.py), line 286)
+- `_outcome(outcome: Any, error: BaseException | None) -> tuple[str | None, str | None, str]` ([source](../../../../../../src/learnloop/figures/records.py), line 394) — The stored (or reused) figure's id, a rich-only build's job id, and the build's result as a code.
 
 ## Who imports or calls it
 
@@ -210,6 +210,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_records_that_cannot_be_built_or_written_change_no_decision_build_or_prompt`
   - `test_the_recorded_seed_redraws_the_pass_exactly`
   - `test_unreadable_protection_cuts_the_whole_pass_and_says_so`
+- [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 
 ## Modification guidance
 

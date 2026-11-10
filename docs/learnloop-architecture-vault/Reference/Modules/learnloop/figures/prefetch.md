@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py) |
-| Source lines | 1859 |
+| Source lines | 1862 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -88,18 +88,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `open_request_keys(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 890) — Requests already decided whose horizon has not closed.
 - `already_built(repository: Repository, candidate: Candidate) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 908) — A shown figure exists for this passage and goal (any origin): nothing to build.
 - `filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys: set[str]) -> list[Candidate]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 938) — The code filters (spec §10b.2), before any build call; the build repeats the protection.
-- `observe_pause(env: PrefetchEnv) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1030) — Append the plan session's latest usage-limit pause, once (by its hit time); return it with ``active`` (whether it still holds now).
-- `decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: bool, plan_wait: str | None, result: PassResult) -> list[tuple[dict[str, Any], Candidate]]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1095) — Decide every kept candidate (spec §10b.3), apply the power, plan and cap conditions in sampled-EU order, and append one decision row each, with its ``figure_prebuild`` record in the same transaction.
-- `pending_builds(env: PrefetchEnv) -> list[tuple[dict[str, Any], Candidate]]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1191) — Decisions to build that no build has served yet, while their horizon is open: the queue yielded, the cap or the power or the plan went away mid-queue, or (Codex review F5; follow-ups batch 7 (A)) the decision itself was deferred for the power, the plan or today's caps.
-- `started_today(env: PrefetchEnv) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1238) — The decisions whose build started today (local day).
-- `reserve_build(env: PrefetchEnv, decision_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1247) — Spend one of today's builds on this decision, or False when the cap is used up.
-- `rich_in_flight(env: PrefetchEnv) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1264) — A prebuild's durable rich job is queued or running (Codex review F7: background work is one pipeline at a time, so nothing else starts until it ends).
-- `link_stored_requests(env: PrefetchEnv) -> int` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1312) — Link every open decision whose build stored its request and whose pass died before :func:`_link` (Codex review F1).
-- `run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate]], result: PassResult) -> None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1347) — The queue, one build at a time: each waits for no foreground work, and starts only on mains, with the switch on and today's caps with room (rechecked on the vault as configured now).
-- `horizon_at(env: PrefetchEnv, connection: Any, row: Mapping[str, Any], open_gaps: set[str] | None) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1503) — When the decision's structural horizon passed (spec §10b.5), or None while it is open.
-- `close_horizons(env: PrefetchEnv, result: PassResult | None=None) -> int` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1622) — Close every open decision whose horizon has passed, once (spec §10b.5).
-- `retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1701) — Follow-ups batch 6 (D, P5 F17): ask the plan again for prebuilds' rich jobs left waiting for it, from the pass itself, whether or not their source is open in the Reader.
-- `run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1759) — One pass for one trigger (module docstring).
+- `observe_pause(env: PrefetchEnv) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1031) — Append the plan session's latest usage-limit pause, once (by its hit time); return it with ``active`` (whether it still holds now).
+- `decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: bool, plan_wait: str | None, result: PassResult) -> list[tuple[dict[str, Any], Candidate]]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1096) — Decide every kept candidate (spec §10b.3), apply the power, plan and cap conditions in sampled-EU order, and append one decision row each, with its ``figure_prebuild`` record in the same transaction.
+- `pending_builds(env: PrefetchEnv) -> list[tuple[dict[str, Any], Candidate]]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1193) — Decisions to build that no build has served yet, while their horizon is open: the queue yielded, the cap or the power or the plan went away mid-queue, or (Codex review F5; follow-ups batch 7 (A)) the decision itself was deferred for the power, the plan or today's caps.
+- `started_today(env: PrefetchEnv) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1240) — The decisions whose build started today (local day).
+- `reserve_build(env: PrefetchEnv, decision_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1249) — Spend one of today's builds on this decision, or False when the cap is used up.
+- `rich_in_flight(env: PrefetchEnv) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1266) — A prebuild's durable rich job is queued or running (Codex review F7: background work is one pipeline at a time, so nothing else starts until it ends).
+- `link_stored_requests(env: PrefetchEnv) -> int` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1314) — Link every open decision whose build stored its request and whose pass died before :func:`_link` (Codex review F1).
+- `run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate]], result: PassResult) -> None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1349) — The queue, one build at a time: each waits for no foreground work, and starts only on mains, with the switch on and today's caps with room (rechecked on the vault as configured now).
+- `horizon_at(env: PrefetchEnv, connection: Any, row: Mapping[str, Any], open_gaps: set[str] | None) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1505) — When the decision's structural horizon passed (spec §10b.5), or None while it is open.
+- `close_horizons(env: PrefetchEnv, result: PassResult | None=None) -> int` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1624) — Close every open decision whose horizon has passed, once (spec §10b.5).
+- `retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1703) — Follow-ups batch 6 (D, P5 F17): ask the plan again for prebuilds' rich jobs left waiting for it, from the pass itself, whether or not their source is open in the Reader.
+- `run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1761) — One pass for one trigger (module docstring).
 
 ### Module constants
 
@@ -122,9 +122,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PLAN_BILLING` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 155)
 - `_SECTION_INSTRUCTIONS` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 381)
 - `_GAP_INSTRUCTIONS` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 390)
-- `_BUILD_SLOTS` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 1229)
-- `_CAP_LOCK` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 1234)
-- `_STARTED` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 1235)
+- `_BUILD_SLOTS` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 1231)
+- `_CAP_LOCK` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 1236)
+- `_STARTED` ([src/learnloop/figures/prefetch.py](../../../../../../src/learnloop/figures/prefetch.py), line 1237)
 
 ### Explicit exports
 
@@ -171,6 +171,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `open_request_keys`
 - `pending_builds`
 - `plan_providers`
+- `pressed_waits_on`
 - `run_builds`
 - `run_trigger`
 
@@ -195,30 +196,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_span_list(raw: Any) -> list[str]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 900)
 - `_key_list(raw: Any) -> list[list[str]]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 930)
 - `_filtered(env: PrefetchEnv, found: Sequence[Candidate], *, open_keys: set[str], log: FR.FilterLog) -> list[Candidate]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 957)
-- `_pause_minutes(vault: Any) -> int` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1014)
-- `_default_pause_reader() -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1024)
-- `_source_key(repository: Repository, extraction_id: str) -> str` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1060)
-- `_author_ready(env: PrefetchEnv) -> str | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1069) — Why the figure author can't take a prebuild now (it waits), or None: the route must be the plan (never metered) and resolvable.
-- `_rich_spawn(env: PrefetchEnv) -> Callable[[dict[str, Any]], str] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1084) — A background rich job only when the rich author's route is the plan too (never metered).
-- `_prebuild_records(rows: Sequence[Mapping[str, Any]], decided: Sequence[tuple[Candidate, PM.Decision]], order: Sequence[int], model: PM.Model, *, seed: str | None, builds_left: Sequence[int], render_left: float, on_mains: bool, plan_waiting: bool) -> list[Any]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1173) — Each row's ``figure_prebuild`` record (built before the transaction: a record that can't be built is logged and left out, and the decisions are written as they would be without it).
-- `_requests_of(connection: Any, decision_id: str) -> list[tuple[str, Any, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1274) — The decision's stored requests as (id, figure's input hash, figure id), one naming a figure first, then oldest first.
-- `_served_request(env: PrefetchEnv, connection: Any, decision_id: str) -> tuple[str, Any, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1284) — The request that served this decision: the one to link, or None while none did.
-- `_link(env: PrefetchEnv, decision_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1300) — Set the decision's request and the figure's input hash, once each.
-- `_build_started(env: PrefetchEnv, decision_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1339) — A request for this decision is stored (a pass that died before it linked the request).
-- `_day_end(env: PrefetchEnv, local_date: str) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1453) — The instant a local day ends (its next midnight, in this machine's offset).
-- `_session_end(connection: Any, extraction_id: str | None, created: datetime) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1463) — The end of the reading session the offer was made in (RW6b's session digest of that source spanning the decision), or None while no such session has ended.
-- `_plan_row(connection: Any, plan_id: Any) -> Any` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1479)
-- `_plan_end(env: PrefetchEnv, plan: Any) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1484) — The instant a stored plan stopped being next: its local day ended, or it was completed or stopped, whichever is first.
-- `_plan_ended(env: PrefetchEnv, plan_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1494) — Whether a plan just read has ended, by the instant its decisions close on.
-- `_figure_ids(connection: Any, request_id: str) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1554)
-- `_between(value: Any, since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1562)
-- `_opened(connection: Any, figure_ids: set[str], since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1567)
-- `_delivered(connection: Any, figure_ids: set[str], since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1585) — Landing ruling R5: a lesson's step delivered the prebuilt figure (its own request reused it) before the horizon: the lesson showed it, the lesson's equivalent of opening it.
-- `_asked(connection: Any, row: Mapping[str, Any], since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1600) — A pressed request for this very input (its passage, and its goal or none) before the horizon.
-- `_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1679)
-- `_pass_hold(env: PrefetchEnv) -> Callable[[Any], str | None]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1685) — The pass's hold before every physical request (the judge's, a quick build's author): the switch, the power and foreground work in flight (``power.background_hold``).
-- `_judge_admitted(env: PrefetchEnv) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1695)
-- `_run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1769)
+- `_pause_minutes(vault: Any) -> int` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1015)
+- `_default_pause_reader() -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1025)
+- `_source_key(repository: Repository, extraction_id: str) -> str` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1061)
+- `_author_ready(env: PrefetchEnv) -> str | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1070) — Why the figure author can't take a prebuild now (it waits), or None: the route must be the plan (never metered) and resolvable.
+- `_rich_spawn(env: PrefetchEnv) -> Callable[[dict[str, Any]], str] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1085) — A background rich job only when the rich author's route is the plan too (never metered).
+- `_prebuild_records(rows: Sequence[Mapping[str, Any]], decided: Sequence[tuple[Candidate, PM.Decision]], order: Sequence[int], model: PM.Model, *, seed: str | None, builds_left: Sequence[int], render_left: float, on_mains: bool, plan_waiting: bool) -> list[Any]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1175) — Each row's ``figure_prebuild`` record (built before the transaction: a record that can't be built is logged and left out, and the decisions are written as they would be without it).
+- `_requests_of(connection: Any, decision_id: str) -> list[tuple[str, Any, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1276) — The decision's stored requests as (id, figure's input hash, figure id), one naming a figure first, then oldest first.
+- `_served_request(env: PrefetchEnv, connection: Any, decision_id: str) -> tuple[str, Any, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1286) — The request that served this decision: the one to link, or None while none did.
+- `_link(env: PrefetchEnv, decision_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1302) — Set the decision's request and the figure's input hash, once each.
+- `_build_started(env: PrefetchEnv, decision_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1341) — A request for this decision is stored (a pass that died before it linked the request).
+- `_day_end(env: PrefetchEnv, local_date: str) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1455) — The instant a local day ends (its next midnight, in this machine's offset).
+- `_session_end(connection: Any, extraction_id: str | None, created: datetime) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1465) — The end of the reading session the offer was made in (RW6b's session digest of that source spanning the decision), or None while no such session has ended.
+- `_plan_row(connection: Any, plan_id: Any) -> Any` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1481)
+- `_plan_end(env: PrefetchEnv, plan: Any) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1486) — The instant a stored plan stopped being next: its local day ended, or it was completed or stopped, whichever is first.
+- `_plan_ended(env: PrefetchEnv, plan_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1496) — Whether a plan just read has ended, by the instant its decisions close on.
+- `_figure_ids(connection: Any, request_id: str) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1556)
+- `_between(value: Any, since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1564)
+- `_opened(connection: Any, figure_ids: set[str], since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1569)
+- `_delivered(connection: Any, figure_ids: set[str], since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1587) — Landing ruling R5: a lesson's step delivered the prebuilt figure (its own request reused it) before the horizon: the lesson showed it, the lesson's equivalent of opening it.
+- `_asked(connection: Any, row: Mapping[str, Any], since: datetime, until: datetime) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1602) — A pressed request for this very input (its passage, and its goal or none) before the horizon.
+- `_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1681)
+- `_pass_hold(env: PrefetchEnv) -> Callable[[Any], str | None]` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1687) — The pass's hold before every physical request (the judge's, a quick build's author): the switch, the power and foreground work in flight (``power.background_hold``).
+- `_judge_admitted(env: PrefetchEnv) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1697)
+- `_run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult` ([source](../../../../../../src/learnloop/figures/prefetch.py), line 1771)
 
 ## Who imports or calls it
 
@@ -294,6 +295,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_recorded_seed_redraws_the_pass_exactly`
   - `test_unreadable_protection_cuts_the_whole_pass_and_says_so`
 - [tests/test_figure_prompts_golden.py](../../../../../../tests/test_figure_prompts_golden.py) — direct import
+- [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_a_judge_that_never_answers_well_decides_nothing`
   - `test_a_metered_author_route_defers_for_the_plan`

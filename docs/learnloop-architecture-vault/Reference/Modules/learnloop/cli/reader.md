@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/reader.py](../../../../../../src/learnloop/cli/reader.py) |
-| Source lines | 219 |
+| Source lines | 220 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `reader_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], since: Annotated[str | None, typer.Option('--since', help='Only activity at or after this ISO time, or a span such as 7d or 24h.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 38) — Workflows with denominators: selection -> action -> result -> back to reading, inquiries, detours (return rate, cost), proactive load, waiting behaviour, visits.
-- `figure_checks(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], recheck: Annotated[bool, typer.Option('--recheck', help='Recheck stored grammar figures by code (no model client): those with no check at the current certification version.')]=False, dry_run: Annotated[bool, typer.Option('--dry-run', help='With --recheck: look at every stored grammar figure and report by reason key; write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 95) — Reader RW5c: what "matches the book's equation (checked)" covers (spec §12).
-- `cues_discover(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to discover cue links for.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='List the targets, their keyword shortlists and a spend plan; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 148) — Find a source's discovered margin-cue links now (what opening it in the Reader does in the background): the open targets, each one's shortlist and one cue judgment each, under cues.max_calls_per_source_open (every request, a retry included) and cues.max_daily_cost_usd (query emb…
-- `reader_label_roles(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to label.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Give the batch plan, its estimated tokens and dollars and the cap; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 185) — Label a source's passages with instructional roles now (RW4e).
+- `figure_checks(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], recheck: Annotated[bool, typer.Option('--recheck', help='Recheck stored grammar figures by code (no model client): those with no check at the current certification version.')]=False, dry_run: Annotated[bool, typer.Option('--dry-run', help='With --recheck: look at every stored grammar figure and report by reason key; write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 96) — Reader RW5c: what "matches the book's equation (checked)" covers (spec §12).
+- `cues_discover(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to discover cue links for.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='List the targets, their keyword shortlists and a spend plan; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 149) — Find a source's discovered margin-cue links now (what opening it in the Reader does in the background): the open targets, each one's shortlist and one cue judgment each, under cues.max_calls_per_source_open (every request, a retry included) and cues.max_daily_cost_usd (query emb…
+- `reader_label_roles(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to label.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Give the batch plan, its estimated tokens and dollars and the cap; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 186) — Label a source's passages with instructional roles now (RW4e).
 
 ### Module constants
 
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_since(value: str | None, now: datetime) -> str | None` ([source](../../../../../../src/learnloop/cli/reader.py), line 27)
-- `_plan_providers(loaded: object) -> list[str]` ([source](../../../../../../src/learnloop/cli/reader.py), line 139) — RW5d P5: the vault's plan profiles (the prefetch block reads the plan's load from their receipts).
+- `_plan_providers(loaded: object) -> list[str]` ([source](../../../../../../src/learnloop/cli/reader.py), line 140) — RW5d P5: the vault's plan profiles (the prefetch block reads the plan's load from their receipts).
 
 ## Who imports or calls it
 
@@ -80,7 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `add_report_block`, `plan_providers`; calls `add_report_block`, `plan_providers`
+- [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `add_report_block`, `plan_providers`, `pressed_waits_on`; calls `add_report_block`, `plan_providers`, `pressed_waits_on`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `row_withheld`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `add_report_block`, `module`; calls `add_report_block`, `audit`, `coverage`, `enabled`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `planning_repository`; calls `planning_repository`

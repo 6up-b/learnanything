@@ -43,7 +43,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `capture.test_me_later_days` | `7` | integer | modeled default or validator seed | Sets the test me later duration in days for daily-loop capture: DL2's "Check once" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3929`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/intent/control.py:328` |
+| `capture.test_me_later_days` | `7` | integer | modeled default or validator seed | Sets the test me later duration in days for daily-loop capture: DL2's "Check once" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3939`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/intent/control.py:328` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.

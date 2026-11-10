@@ -263,6 +263,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
   - `test_allowing_where_manim_cannot_run_is_refused`
   - `test_without_a_grant_the_job_belongs_to_no_action_waits_and_a_read_asks_again`
+- [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
+  - `test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build`
 - [tests/test_figures_help_codex_review.py](../../../../../../tests/test_figures_help_codex_review.py) — direct import
   - `test_s0_a_legacy_queued_attempt_rich_job_stops_before_any_model_request`
   - `test_s0_an_attempt_hosted_payload_is_refused_by_its_flag_too`

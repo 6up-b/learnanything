@@ -175,6 +175,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sidecar_records_a_rejected_probe_value`
 - [tests/test_figure_decision_records.py](../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
+- [tests/test_figure_wait_estimate.py](../../../../../tests/test_figure_wait_estimate.py) — direct import
+  - `test_at_the_tag_the_rows_say_v2_and_the_records_carry_ws_basis`
 - [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_withdrawal_names_the_forced_probe_its_workflow_and_the_next_decision_points_to_it`
   - `test_the_builders_keep_ids_numbers_and_codes_only`

@@ -324,6 +324,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `module`; statically calls `row_withheld`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `module`; statically calls `advanced_off_row`, `drawable_now`, `rich_row`, `row_withheld`, `show_me_enabled`, `show_me_row`, `sketch_off_row`, `source_rejected`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `keys_withheld`, `module`, `withheld_message`; statically calls `FigureRequest`, `build_prefetch_figure`, `item_passages`, `keys_withheld`, `prefetch_plan_waits`, `source_context`, `withheld_message`
+- [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `ALL_SPEC_VERSIONS`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `keys_withheld`, `rich_base_item_protected`, `withheld_message`; statically calls `keys_withheld`, `rich_base_item_protected`, `withheld_message`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `FigureRequest`, `module`; statically calls `FigureRequest`, `enabled`, `figure_view`, `figure_withheld`, `rich_row`, `show_me_enabled`, `teacher_visuals_switch`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `enabled`, `section_figures`
@@ -387,7 +388,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -446,6 +447,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reading_a_source_starts_a_rich_job_whose_enqueue_never_happened`
 - [tests/test_figure_verification.py](../../../../../../tests/test_figure_verification.py) — direct import
   - `test_g23_holds_vacuously_a_reconstruction_is_an_illustration`
+- [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 - [tests/test_figures_codex_review.py](../../../../../../tests/test_figures_codex_review.py) — direct import
   - `test_f7_a_paid_answer_survives_a_crash_before_the_row`
   - `test_f7_a_stored_failure_is_a_new_generation_that_asks_afresh`

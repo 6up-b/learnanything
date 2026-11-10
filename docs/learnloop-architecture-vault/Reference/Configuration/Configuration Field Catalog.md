@@ -10,8 +10,8 @@ aliases:
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
 section_count: 81
-field_count: 1195
-field_status_counts: {"ACTIVE": 1169, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
+field_count: 1196
+field_status_counts: {"ACTIVE": 1170, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -32,17 +32,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 1195 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 1196 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1169 | Canonical typed input to current behavior. |
+| `ACTIVE` | 1170 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 7 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1195-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1196-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -110,7 +110,7 @@ Every one of the 1195 effective leaves has a semantic Function, a runtime/refact
 | [[Config - reader_formative|`reader_formative`]] | 1 | Runtime configuration |
 | [[Config - library_ask|`library_ask`]] | 4 | Runtime configuration |
 | [[Config - library_exercises|`library_exercises`]] | 2 | Runtime configuration |
-| [[Config - figures|`figures`]] | 19 | Runtime configuration |
+| [[Config - figures|`figures`]] | 20 | Runtime configuration |
 | [[Config - reader_compare|`reader_compare`]] | 7 | Runtime configuration |
 | [[Config - practice|`practice`]] | 4 | Runtime configuration |
 | [[Config - roles|`roles`]] | 3 | Runtime configuration |
