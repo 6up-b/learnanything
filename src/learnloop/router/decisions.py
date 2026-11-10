@@ -37,6 +37,7 @@ from typing import Any
 from learnloop.clock import utc_now_iso
 from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
 from learnloop.ids import new_ulid
+from learnloop.provenance import DecisionRecord, is_code
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +104,64 @@ class OfferHeadMismatch(RuntimeError):
     """The recomposed realized outcome does not reproduce the served head.
 
     Raised instead of logging a propensity that would not be the probability of
-    what was served; the caller logs a warning and publishes the offer unlogged.
+    what was served; the caller logs a warning, publishes the offer unlogged and
+    writes a ``today_offer`` decision record naming both heads
+    (:func:`offer_failure_record`).
     """
+
+    def __init__(self, message: str, *, realized_head: str | None = None, served_head: str | None = None,
+                 slate_id: str | None = None) -> None:
+        super().__init__(message)
+        self.realized_head = realized_head
+        self.served_head = served_head
+        self.slate_id = slate_id
+
+
+#: The decision record of a Today offer published unlogged (the map's S12).
+TODAY_OFFER_RECORD = "today_offer"
+HEAD_MISMATCH = "head_mismatch"
+DECISION_NOT_BUILT = "decision_not_built"
+
+
+def offer_failure_record(exc: BaseException, *, slate_id: str | None, surface: str | None,
+                         parent_id: str | None = None) -> DecisionRecord:
+    """A Today offer whose router decision could not be logged, so it was published without one (``failed``): a head
+    mismatch names the recomposed and the served heads; any other failure its type and where. Pure; never raises."""
+
+    mismatch = isinstance(exc, OfferHeadMismatch)
+
+    def code(value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value)
+        return text if is_code(text) else "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+    where = None
+    if not mismatch:
+        from learnloop.provenance import where as raised_at
+
+        where = raised_at(exc)
+        where = "".join(ch if (ch.isalnum() or ch in "_.:/@+#=-") else "_" for ch in where)[:160] if where else None
+    return DecisionRecord(
+        kind=TODAY_OFFER_RECORD,
+        status="failed",
+        subject_kind="slate" if slate_id else None,
+        subject_id=code(slate_id),
+        chosen_ref=code(getattr(exc, "served_head", None)) if mismatch else None,
+        decided_by=DESIGN_SCHEDULER_EXPLORATION,
+        rule=HEAD_MISMATCH if mismatch else DECISION_NOT_BUILT,
+        facts={key: value for key, value in {
+            "served_head": code(getattr(exc, "served_head", None)),
+            "realized_head": code(getattr(exc, "realized_head", None)),
+            "surface": surface if is_code(surface) else None,
+            "published_unlogged": True,
+        }.items() if value is not None},
+        detail_table="scheduler_slates" if slate_id else None,
+        detail_id=code(slate_id),
+        error_type=None if mismatch else (type(exc).__name__ if is_code(type(exc).__name__) else None),
+        error_where=where,
+        parent_id=parent_id,
+    )
 
 
 def _round(value: Any) -> Any:
@@ -209,7 +266,8 @@ def build_today_offer_decision(
     realized_head = head_of(trace.outcomes[trace.realized].composed)
     if realized_head != served_head:
         raise OfferHeadMismatch(
-            f"recomposed head {realized_head!r} != served head {served_head!r} (slate {trace.slate_id})"
+            f"recomposed head {realized_head!r} != served head {served_head!r} (slate {trace.slate_id})",
+            realized_head=realized_head, served_head=served_head, slate_id=trace.slate_id,
         )
     offered_rank = {item.practice_item_id: rank for rank, item in enumerate(offered, start=1)}
     realized_rank = {
@@ -666,8 +724,12 @@ __all__ = [
     "MODE_LEGACY_QUEUE",
     "MODE_STAGED",
     "NOT_SERVED",
+    "DECISION_NOT_BUILT",
+    "HEAD_MISMATCH",
     "OfferHeadMismatch",
     "STOP_REF",
+    "TODAY_OFFER_RECORD",
+    "offer_failure_record",
     "build_staged_p2_decision",
     "build_today_offer_decision",
     "head_distribution",

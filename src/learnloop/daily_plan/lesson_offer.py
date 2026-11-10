@@ -39,8 +39,10 @@ from typing import Any
 
 import numpy as np
 
+from learnloop import provenance
 from learnloop.adf_numeric import NODES, WEIGHTS, sigmoid
 from learnloop.clock import parse_utc
+from learnloop.daily_plan import plan_records
 from learnloop.daily_plan.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, BlockCandidate
 from learnloop.db.stores import router_suggestions as store
 from learnloop.router import lesson_suggestions as LS
@@ -438,12 +440,46 @@ def withdrawn(connection: Any, decision_id: str) -> dict[str, Any] | None:
     return row if detail.get(WITHDRAWN) or detail.get(SUPERSEDED_BY) else None
 
 
-def withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool:
+def _record_taken_back(connection: Any, *, why: str, block_id: Any, decision_id: Any, shown_on: Any = None,
+                       forced: Sequence[Mapping[str, Any]] = (), superseded_by: Any = None,
+                       expired_row: bool | None = None) -> str | None:
+    """The ``offer_withdrawn`` decision record of an offer taken back or replaced, in the act's own transaction, its
+    parent the offer's own ``plan_block`` record when there is one. Never raises: a record never changes the act."""
+
+    try:
+        drawn = provenance.read(connection, f"block:{block_id}", kind="plan_block") if block_id else []
+        record = plan_records.offer_withdrawn(
+            why=why, block_id=block_id, offer_decision_id=decision_id, forced=forced, superseded_by=superseded_by,
+            shown_on=shown_on, expired_row=expired_row, parent_id=drawn[-1].id if drawn else None)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the act it describes
+        LOG.warning("offer_withdrawn decision record not built (trace %s): %s", provenance.current_trace(),
+                    type(exc).__name__)
+        return None
+    return provenance.write(connection, record)
+
+
+def taken_back_record(connection: Any, block: Any) -> str | None:
+    """The newest ``offer_withdrawn`` record of ``block``'s offer (:func:`withdraw`), or None: the parent the next
+    boundary's record names."""
+
+    decision_ref, block_id = getattr(block, "decision_ref", None), getattr(block, "id", None)
+    subject = f"offer:{decision_ref}" if decision_ref else f"block:{block_id}"
+    try:
+        records = provenance.read(connection, subject, kind=plan_records.OFFER_WITHDRAWN)
+    except Exception:  # noqa: BLE001 - a record never changes the act it describes
+        return None
+    return records[-1].id if records else None
+
+
+def withdraw(connection: Any, block: Any, *, at: str, why: str, forced: Sequence[Mapping[str, Any]] = ()) -> bool:
     """Take back a drawn offer nobody answered (Codex review F1, F2): forced items arrived after it was drawn (a probe
     FG1 made ready while the offer waited, a follow-up), or offers no longer serve (switch off: the predecessor's
     boundary decides next). Its block ends ``withdrawn`` and its decision gets an ``expired`` row naming why: the
     plan's act, never the learner's answer, so the acceptance model and the decline recovery never read it, the
-    forecast stays censored, and a late Start on the card is refused. Returns whether a row was written."""
+    forecast stays censored, and a late Start on the card is refused. Returns whether a row was written.
+
+    Its ``offer_withdrawn`` decision record names ``forced`` (``boundary_records.forced_entry``: each forced item, its
+    follow-up workflow and source attempt), so "which probe took the offer's place" is a read, not a time-ordering."""
 
     decision = store.offer_decision(connection, str(block.decision_ref)) if getattr(block, "decision_ref", None) else None
     written = False
@@ -456,14 +492,19 @@ def withdraw(connection: Any, block: Any, *, at: str, why: str) -> bool:
             detail={WITHDRAWN: why, "plan_offer": True, "block_id": getattr(block, "id", None),
                     "shown_on": decision.get("day")})
     end_block(connection, getattr(block, "id", None), WITHDRAWN, at=at, reason=why)
+    _record_taken_back(connection, why=why, block_id=getattr(block, "id", None),
+                       decision_id=getattr(block, "decision_ref", None),
+                       shown_on=decision.get("day") if decision else None, forced=forced, expired_row=bool(written))
     return written
 
 
-def supersede(connection: Any, block: Any, *, at: str, by: str | None) -> bool:
+def supersede(connection: Any, block: Any, *, at: str, by: str | None,
+              forced: Sequence[Mapping[str, Any]] = ()) -> bool:
     """IH2 §5 item 1: a newer decision replaces an offer nobody answered, in that decision's own transaction. Its block
     ends ``superseded`` and its decision gets an ``expired`` row naming the newer decision (``superseded_by_decision``).
     As :func:`withdraw`, the plan's act: the acceptance model and the decline recovery never read it, the forecast stays
-    censored, and a late Start on the card is refused. Returns whether a row was written."""
+    censored, and a late Start on the card is refused. Returns whether a row was written. Its ``offer_withdrawn``
+    record names the newer decision (``chosen_ref``) and, from IH2's contest, the follow-ups that contested it."""
 
     decision = store.offer_decision(connection, str(block.decision_ref)) if getattr(block, "decision_ref", None) else None
     written = False
@@ -477,6 +518,10 @@ def supersede(connection: Any, block: Any, *, at: str, by: str | None) -> bool:
                     "shown_on": decision.get("day")})
     end_block(connection, getattr(block, "id", None), SUPERSEDED, at=at, reason=SUPERSEDED_BY,
               extra={SUPERSEDED_BY: by})
+    _record_taken_back(connection, why=SUPERSEDED_BY, block_id=getattr(block, "id", None),
+                       decision_id=getattr(block, "decision_ref", None),
+                       shown_on=decision.get("day") if decision else None, forced=forced, superseded_by=by,
+                       expired_row=bool(written))
     return written
 
 
@@ -530,6 +575,8 @@ def release_never_shown(connection: Any, decision: Mapping[str, Any], *, at: str
         detail={WITHDRAWN: WITHDRAWN_NEVER_SHOWN, "plan_offer": True, "block_id": detail.get("block_id"),
                 "shown_on": decision.get("day")})
     end_block(connection, detail.get("block_id"), WITHDRAWN, at=at, reason=WITHDRAWN_NEVER_SHOWN)
+    _record_taken_back(connection, why=WITHDRAWN_NEVER_SHOWN, block_id=detail.get("block_id"),
+                       decision_id=decision.get("id"), shown_on=decision.get("day"), expired_row=bool(written))
     return written
 
 
@@ -646,5 +693,5 @@ __all__ = [
     "SUPERSEDED", "SUPERSEDED_BY", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_NEVER_SHOWN", "WITHDRAWN_OFF",
     "accept_moments", "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
     "lesson_active_minutes", "never_on_screen", "offer_ref", "offer_standing", "offers_on", "on_screen", "pending_start",
-    "record_shown", "release_never_shown", "shown_today", "supersede", "withdraw", "withdrawn",
+    "record_shown", "release_never_shown", "shown_today", "supersede", "taken_back_record", "withdraw", "withdrawn",
 ]

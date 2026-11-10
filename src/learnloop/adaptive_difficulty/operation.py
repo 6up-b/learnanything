@@ -662,6 +662,22 @@ DENIALS: list[dict[str, Any]] = []
 OBSERVERS: list[Callable[[Operation], None]] = []
 
 
+#: This context's denials since the plan last took them (:func:`take_denials`), so the plan's record of an AD
+#: phase it found unavailable can name what the guard refused there. A context variable, not the process list
+#: above: a background AD job's denials must never be told as the serving request's. Only the refusal's codes
+#: (verb, table, reader, entry): its ``why`` is prose and stays in the log.
+_TAKEN: ContextVar[tuple[dict[str, Any], ...]] = ContextVar("ad_guard_denials_untaken", default=())
+_TAKEN_MAX = 50
+
+
+def take_denials() -> tuple[dict[str, Any], ...]:
+    """The guard's denials in this context since the last call (verb, table, reader, entry), and forget them."""
+
+    denials = _TAKEN.get()
+    _TAKEN.set(())
+    return denials
+
+
 def _record_denials(op: Operation) -> None:
     for observer in list(OBSERVERS):
         observer(op)
@@ -669,6 +685,9 @@ def _record_denials(op: Operation) -> None:
         return
     entry_point = op.guard.entry or None
     DENIALS.extend({**denial, "entry": entry_point} for denial in op.guard.denials)
+    _TAKEN.set((*_TAKEN.get(), *({"verb": denial.get("verb"), "table": denial.get("table"),
+                                  "reader": denial.get("reader"), "entry": entry_point}
+                                 for denial in op.guard.denials))[-_TAKEN_MAX:])
     try:
         # Each line names the refused operation (owner decision 2026-10-27): the log is read without
         # the process that wrote it, so the line carries its own entry point.
@@ -791,4 +810,4 @@ def _is_protection(value: Any) -> bool:
 
 __all__ = ["EPOCH_VERSION", "GuardDenied", "OBSERVERS", "Operation", "OperationPoisoned", "RULES_MARKER", "ad_operation", "current",
            "Scope", "ViewDenied", "ViewFailure", "denial_count", "entry", "epoch_of", "is_denial", "scoped", "optional_operation",
-           "own_write", "rules", "suspended"]
+           "own_write", "rules", "suspended", "take_denials"]
