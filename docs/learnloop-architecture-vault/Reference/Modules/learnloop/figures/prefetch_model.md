@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/prefetch_model.py](../../../../../../src/learnloop/figures/prefetch_model.py) |
-| Source lines | 503 |
+| Source lines | 528 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,18 +71,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `pause_posterior(days: Sequence[PlanDay]) -> PausePosterior` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 292)
 - `class Waits` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 313) — Per tier, the log-normal mean of the measured pressed build latency (minutes), and the tier mixes.
   - `expected(self, trigger_kind: str) -> float | None` (line 321; public) — The expected minutes a prebuild for this trigger kind saves, or None (no measured tier).
-  - `summary(self) -> dict[str, Any]` (line 336; public)
-- `lognormal_mean(minutes: Sequence[float]) -> float | None` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 344)
-- `waits(latencies: Mapping[str, Sequence[float]], pressed_tiers: Sequence[str], prefetch_tiers_by_kind: Mapping[str, Sequence[str]] | None=None) -> Waits` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 360)
-- `class Incremental` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 378) — What one prebuild adds to the plan's load, measured (Codex review F14): the figure author's calls per authored request (a repair is a second call), and the rich author's calls per rich job.
-  - `expected(self, rich_share: float) -> float` (line 386; public)
-- `class Candidate` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 391)
-- `class Decision` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 400)
-- `class Model` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 411) — Everything a decision reads, recomputed from the ledger.
-  - `expected_requests(self, trigger_kind: str) -> float` (line 424; public) — The plan requests a prebuild for this trigger kind is expected to make: the author's measured calls, plus the rich calls times the kind's measured rich share (else the pressed builds' share).
-  - `digest(self) -> str` (line 432; public) — The posterior's identity, so an audit can recompute a decision.
-  - `_draw(self, rng: np.random.Generator, candidate: Candidate, wait: float) -> tuple[float, float, float]` (line 448; internal)
-  - `decide(self, candidate: Candidate, rng: np.random.Generator) -> Decision` (line 459; public) — One Thompson draw decides (build iff its EU > 0); the propensity is the share of :data:`POSTERIOR_DRAWS` further draws that would build.
+  - `basis(self, trigger_kind: str) -> str` (line 336; public) — Which measurement :meth:`expected` reads for this kind: ``kind_mix``, ``pressed_mix``, ``author_call`` (no tier mix yet) or ``none`` (no measured tier: no estimate).
+  - `summary(self) -> dict[str, Any]` (line 347; public)
+- `lognormal_mean(minutes: Sequence[float]) -> float | None` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 355)
+- `waits(latencies: Mapping[str, Sequence[float]], pressed_tiers: Sequence[str], prefetch_tiers_by_kind: Mapping[str, Sequence[str]] | None=None) -> Waits` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 371)
+- `class Incremental` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 389) — What one prebuild adds to the plan's load, measured (Codex review F14): the figure author's calls per authored request (a repair is a second call), and the rich author's calls per rich job.
+  - `expected(self, rich_share: float) -> float` (line 397; public)
+- `class Candidate` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 402)
+- `class Decision` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 418)
+- `class Model` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 431) — Everything a decision reads, recomputed from the ledger.
+  - `expected_requests(self, trigger_kind: str) -> float` (line 444; public) — The plan requests a prebuild for this trigger kind is expected to make: the author's measured calls, plus the rich calls times the kind's measured rich share (else the pressed builds' share).
+  - `digest(self) -> str` (line 452; public) — The posterior's identity, so an audit can recompute a decision.
+  - `_draw(self, rng: np.random.Generator, candidate: Candidate, wait: float) -> tuple[float, float, float]` (line 468; internal)
+  - `decide(self, candidate: Candidate, rng: np.random.Generator) -> Decision` (line 479; public) — One Thompson draw decides (build iff its EU > 0); the propensity is the share of :data:`POSTERIOR_DRAWS` further draws that would build.
 
 ### Module constants
 
@@ -101,6 +102,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PAUSE_SLOPE_PRIOR_SD` ([src/learnloop/figures/prefetch_model.py](../../../../../../src/learnloop/figures/prefetch_model.py), line 90)
 - `POSTERIOR_DRAWS` ([src/learnloop/figures/prefetch_model.py](../../../../../../src/learnloop/figures/prefetch_model.py), line 92)
 - `P_CONTENT_CLIP` ([src/learnloop/figures/prefetch_model.py](../../../../../../src/learnloop/figures/prefetch_model.py), line 94)
+- `RULE_NO_MEASURED_LATENCY` ([src/learnloop/figures/prefetch_model.py](../../../../../../src/learnloop/figures/prefetch_model.py), line 412)
+- `RULE_SAMPLED_EU_POSITIVE` ([src/learnloop/figures/prefetch_model.py](../../../../../../src/learnloop/figures/prefetch_model.py), line 413)
+- `RULE_SAMPLED_EU_NOT_POSITIVE` ([src/learnloop/figures/prefetch_model.py](../../../../../../src/learnloop/figures/prefetch_model.py), line 414)
 
 ### Explicit exports
 
@@ -120,6 +124,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `P_CONTENT_CLIP`
 - `QUICK_TIERS`
 - `RICH_TIERS`
+- `RULE_NO_MEASURED_LATENCY`
+- `RULE_SAMPLED_EU_NOT_POSITIVE`
+- `RULE_SAMPLED_EU_POSITIVE`
 - `TRIGGER_KINDS`
 - `Candidate`
 - `Decision`
@@ -144,7 +151,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_log_lik(y: int)` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 109)
 - `class _Filter` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 131)
 - `_prior(sources: Sequence[str], tau: float, sigma: float) -> _Filter` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 194)
-- `_mix(tiers: Iterable[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 353)
+- `_mix(tiers: Iterable[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/figures/prefetch_model.py), line 364)
 
 ## Who imports or calls it
 
@@ -153,6 +160,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `Candidate`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `module`; statically calls `Incremental`, `Model`, `Observation`, `PlanDay`, `open_posterior`, `pause_posterior`, `waits`
+- [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `POSTERIOR_DRAWS`, `QUICK_TIERS`
 
 ## Dependencies
 
@@ -172,12 +180,16 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]], [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
+  - `test_deferred_and_capped_decisions_are_deferred_records`
+  - `test_prebuilds_record_no_measured_latency_then_sampled_eu_positive_with_the_wait_and_seed`
+  - `test_the_recorded_seed_redraws_the_pass_exactly`
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_no_measured_wait_means_no_prebuild`
   - `test_plan_trigger_judges_the_reading_section_decides_logs_and_builds`

@@ -76,6 +76,11 @@ the keyboard), nor does the gap worker's drain (its poll tick fires one even for
 it carries no sign of who started it). So a pass never asks while the learner is away; a retry that
 came due waits for their next action, a read of its source in the Reader, or a press.
 
+**Records** (ADR-017, :mod:`.records`): each decided candidate is a ``figure_prebuild`` record
+beside its row (the model's rule, EU, propensity, the measured wait and the pass's RNG seed); a
+filter pass's exclusions one ``figure_prefetch_filter`` record by rule; a build the queue stops at
+or passes over a ``figure_prebuild_stop``. A pass runs under one trace. Never read back by a pass.
+
 **Plan pauses.** The plan session keeps only its latest usage-limit pause;
 each pass appends any new one to ``plan_usage_pauses`` (idempotent by its
 hit time), the pause-risk model's data.
@@ -100,6 +105,7 @@ from typing import Any, Literal
 import numpy as np
 from pydantic import Field
 
+from learnloop import provenance
 from learnloop.ai.execution import content_key, gate_model_requests
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
@@ -112,6 +118,7 @@ from learnloop.figures import foreground as FG
 from learnloop.figures import power as P
 from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
+from learnloop.figures import records as FR
 from learnloop.figures import routes as R
 from learnloop.ids import new_ulid
 
@@ -929,36 +936,69 @@ def _key_list(raw: Any) -> list[list[str]]:
 
 
 def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys: set[str]) -> list[Candidate]:
-    """The code filters (spec §10b.2), before any build call; the build repeats the protection."""
+    """The code filters (spec §10b.2), before any build call; the build repeats the protection.
+    What a pass excludes is one ``figure_prefetch_filter`` record, by rule (S7)."""
 
+    found = list(found)
+    log = FR.FilterLog(found=len(found), trigger_kinds={candidate.trigger_kind for candidate in found})
+    kept = _filtered(env, found, open_keys=open_keys, log=log)
+    log.kept = len(kept)
+    try:
+        record = log.record()
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        _LOG.warning("figure_prefetch_filter record not built (trace %s): %s", provenance.current_trace(),
+                     type(exc).__name__)
+        record = None
+    if record is not None:
+        FR.write_records(env.repository, [record])
+    return kept
+
+
+def _filtered(env: PrefetchEnv, found: Sequence[Candidate], *, open_keys: set[str],
+              log: FR.FilterLog) -> list[Candidate]:
     from learnloop.figures.service import keys_withheld, withheld_message
 
     vault = env.vault
     if not enabled(vault):
-        return []
+        return []  # switched off: no record either (off, a pass writes nothing)
     protection = item_protection(env)
     if not protection.available:
+        for candidate in found:
+            log.exclude(FR.FILTER_PROTECTION_UNAVAILABLE, candidate)
         return []  # fail closed
     decided = decided_requests(env.repository)
     kept: list[Candidate] = []
     seen: set[str] = set()
     for candidate in found:
         key = candidate.request_key
-        if key in seen or key in open_keys or (candidate.trigger_kind, candidate.trigger_ref, key) in decided:
+        if key in seen:
+            log.exclude(FR.FILTER_DUPLICATE, candidate)
+            continue
+        if key in open_keys:
+            log.exclude(FR.FILTER_OPEN_HORIZON, candidate)
+            continue
+        if (candidate.trigger_kind, candidate.trigger_ref, key) in decided:
+            log.exclude(FR.FILTER_DECIDED, candidate)
             continue
         seen.add(key)
         if not candidate.span_ids:
+            log.exclude(FR.FILTER_NO_SPANS, candidate)
             continue
         if candidate.goal_text and not vault.config.figures.show_me_enabled:
+            log.exclude(FR.FILTER_SHOW_ME_OFF, candidate)
             continue
         if withheld_message(vault, env.repository, candidate.extraction_id, candidate.span_ids) is not None:
+            log.exclude(FR.FILTER_WITHHELD, candidate)
             continue
         if candidate.grounding_keys is not None and keys_withheld(vault, env.repository,
                                                                   list(candidate.grounding_keys)) is not None:
+            log.exclude(FR.FILTER_GROUNDING_WITHHELD, candidate)
             continue  # landing ruling R5: every grounding passage of a planned visual
         if protected(env, candidate, protection):
+            log.exclude(FR.FILTER_ITEM_PROTECTED, candidate)
             continue  # the author's whole context, its neighbours too (Codex review F4)
         if already_built(env.repository, candidate):
+            log.exclude(FR.FILTER_ALREADY_BUILT, candidate)
             continue
         kept.append(candidate)
     return kept
@@ -1055,10 +1095,20 @@ def _rich_spawn(env: PrefetchEnv) -> Callable[[dict[str, Any]], str] | None:
 def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: bool, plan_wait: str | None,
                    result: PassResult) -> list[tuple[dict[str, Any], Candidate]]:
     """Decide every kept candidate (spec §10b.3), apply the power, plan and cap conditions in
-    sampled-EU order, and append one decision row each. Returns the rows to build, in order."""
+    sampled-EU order, and append one decision row each, with its ``figure_prebuild`` record in the
+    same transaction. Returns the rows to build, in order."""
 
     vault = env.vault
-    rng = env.rng if env.rng is not None else np.random.default_rng()
+    seed: str | None = None
+    if env.rng is not None:
+        rng = env.rng
+    else:
+        # The seed is drawn once and recorded, so the pass's draws can be redrawn. default_rng(entropy)
+        # is exactly the generator default_rng() builds from that same OS entropy (one SeedSequence
+        # either way), so nothing changes statistically.
+        entropy = np.random.SeedSequence().entropy
+        seed = str(entropy)
+        rng = np.random.default_rng(entropy)
     providers = plan_providers(vault)
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
         model = PL.load_model(connection, providers, now=env.now(), offset=env.offset())
@@ -1077,9 +1127,11 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
     render_left = float(section.max_daily_render_minutes) - render_today
     rows: list[dict[str, Any]] = []
     to_build: list[tuple[dict[str, Any], Candidate]] = []
+    builds_left: list[int] = []
     now = utc_now_iso(env.clock)
     for index in order:
         candidate, decision = decided[index]
+        builds_left.append(remaining)
         verdict = "build" if decision.build else "skip"
         if verdict == "build":
             if not on_mains:
@@ -1105,11 +1157,35 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
         rows.append(row)
         if verdict == "build":
             to_build.append((row, candidate))
+    records = _prebuild_records(rows, [decided[index] for index in order], order, model, seed=seed,
+                                builds_left=builds_left, render_left=render_left, on_mains=on_mains,
+                                plan_waiting=plan_wait is not None)
     if rows:
         with env.repository.atomic():
-            store.insert_decisions(env.repository.connection(), rows)
+            connection = env.repository.connection()
+            store.insert_decisions(connection, rows)
+            for record in records:
+                provenance.write(connection, record)  # never raises: the decisions commit either way
     result.decisions.extend(rows)
     return to_build
+
+
+def _prebuild_records(rows: Sequence[Mapping[str, Any]], decided: Sequence[tuple[Candidate, PM.Decision]],
+                      order: Sequence[int], model: PM.Model, *, seed: str | None, builds_left: Sequence[int],
+                      render_left: float, on_mains: bool, plan_waiting: bool) -> list[Any]:
+    """Each row's ``figure_prebuild`` record (built before the transaction: a record that can't be
+    built is logged and left out, and the decisions are written as they would be without it)."""
+
+    try:
+        return FR.in_one_trace([
+            FR.prebuild_record(row, decision, model, draw_index=draw_index, seed=seed, builds_left=left,
+                               render_left=render_left, on_mains=on_mains, plan_waiting=plan_waiting,
+                               expected_requests=model.expected_requests(candidate.trigger_kind))
+            for row, (candidate, decision), draw_index, left in zip(rows, decided, order, builds_left, strict=True)])
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        _LOG.warning("figure_prebuild records not built (trace %s): %s", provenance.current_trace(),
+                     type(exc).__name__)
+        return []
 
 
 def pending_builds(env: PrefetchEnv) -> list[tuple[dict[str, Any], Candidate]]:
@@ -1274,41 +1350,65 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
 
     from learnloop.figures import service as FS
 
-    for row, candidate in queue:
+    ids = [str(row["id"]) for row, _candidate in queue]
+
+    def stop(position: int, rule: str, status: str = "deferred", *, rest: bool = True,
+             error: BaseException | None = None, refusal: str | None = None) -> None:
+        # S9: each stop the notes name is also a figure_prebuild_stop record. A stop that ends the
+        # queue leaves this row and the rest waiting (ids[position:]); the others concern this row.
+        waiting = ids[position:] if rest else ids[position:position + 1]
+        try:
+            record = FR.build_stop_record(rule, status, ids[position], waiting=waiting, error=error,
+                                          refusal=refusal)
+        except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+            _LOG.warning("figure_prebuild_stop record not built (trace %s): %s", provenance.current_trace(),
+                         type(exc).__name__)
+            return
+        FR.write_records(env.repository, [record])
+
+    for position, (row, candidate) in enumerate(queue):
         if env.is_cancelled():
             result.notes.append("cancelled")
-            return
+            return  # no record: the vault is closing or being switched
         if not FG.wait_idle(env.foreground_wait_seconds, cancelled=env.is_cancelled):
             result.notes.append("yielded to foreground work: the rest wait for the next trigger")
+            stop(position, FR.STOP_FOREGROUND)
             return
         if rich_in_flight(env):
             result.notes.append("a background animation is still building: the rest wait for the next trigger")
+            stop(position, FR.STOP_RICH_IN_FLIGHT)
             return
         current = env.current_vault()
         if current is None or not enabled(current):
             result.notes.append("switched off")
-            return
+            return  # no record: off, a pass writes nothing
         if not P.power_state().on_mains:
             result.notes.append("left mains power")
+            stop(position, FR.STOP_OFF_MAINS)
             return
         if _author_ready(env) is not None:
             result.notes.append("the figure author is not the plan now: the rest wait")
+            stop(position, FR.STOP_AUTHOR_NOT_PLAN)
             return
         now = replace(env, vault=current) if current is not env.vault else env
         if protected(now, candidate, item_protection(now)):
             result.notes.append(f"{row['id']}: an item's own passage now")
+            stop(position, FR.STOP_ITEM_PROTECTED, "excluded", rest=False)
             continue
         if already_built(env.repository, candidate) and not _build_started(env, str(row["id"])):
             # Follow-ups batch 7 (A): the learner pressed for it while this waited. It needs no
             # build, spends none of today's, and its horizon closes it ``asked`` (demand without
             # the cue): reusing it would turn the press into an observation of opening a prebuild.
             result.notes.append(f"{row['id']}: built already")
+            stop(position, FR.STOP_BUILT_ALREADY, "excluded", rest=False)
             continue
         if PL.render_minutes_left(current, env.repository.sqlite_path, now=env.now()) <= 0:
             result.notes.append("today's background render minutes are used up: the rest wait")
+            stop(position, FR.STOP_RENDER_MINUTES)
             return
         if not reserve_build(env, str(row["id"])):
             result.notes.append("today's prebuilds are used up: the rest wait")
+            stop(position, FR.STOP_DAILY_BUILDS)
             return
         if candidate.grounding_keys is not None:
             # Landing ruling R5: the lesson step's own request (no passage, its grounding keys);
@@ -1331,16 +1431,19 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
                                          spawn_rich=spawn)
             except FS.FigureRefused as exc:
                 result.notes.append(f"{row['id']}: {exc.code}")
+                stop(position, FR.STOP_BUILD_REFUSED, "refused", rest=False, refusal=exc.code)
                 continue
-            except Exception:  # noqa: BLE001 - one failed prebuild never stops the queue or the sidecar
+            except Exception as exc:  # noqa: BLE001 - one failed prebuild never stops the queue or the sidecar
                 _LOG.warning("a figure prebuild failed", exc_info=True)
                 result.notes.append(f"{row['id']}: failed")
+                stop(position, FR.STOP_BUILD_FAILED, "failed", rest=False, error=exc)
                 continue
         if _link(env, str(row["id"])):
             result.built.append(str(row["id"]))
         else:
             # Only another request's rich job is running for this input: this row waits for its figure.
             result.notes.append(f"{row['id']}: waits for a rich job already running")
+            stop(position, FR.STOP_RICH_JOB_RUNNING, rest=False)
 
 
 # ---------------------------------------------------------------------------
@@ -1654,8 +1757,16 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
 
 
 def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
-    """One pass for one trigger (module docstring). Never raises for a model or build failure."""
+    """One pass for one trigger (module docstring). Never raises for a model or build failure.
 
+    The pass runs under the trace it was started in, or one of its own (the sidecar drains the queue
+    on a bare thread), so its records, judge and author calls share one trace."""
+
+    with provenance.trace_scope(provenance.current_trace()):
+        return _run_trigger(env, trigger)
+
+
+def _run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
     from learnloop.ai import plan_fallback
     from learnloop.figure_admission import FiguresChanged, FiguresGate
 

@@ -551,6 +551,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_one_explicit_legacy_fallback_for_every_report`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_upgrade_from_the_predecessor_and_through_the_chain`
+- [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
 - [tests/test_figures_final_round.py](../../../../../../tests/test_figures_final_round.py) — direct import
   - `test_the_report_cli_never_shows_verified`
 - [tests/test_figures_switch_off.py](../../../../../../tests/test_figures_switch_off.py) — direct import

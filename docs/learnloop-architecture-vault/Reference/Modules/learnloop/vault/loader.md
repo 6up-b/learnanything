@@ -1361,6 +1361,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_practice_screen_payload_marks_help_before_work`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_upgrade_from_the_predecessor_and_through_the_chain`
+- [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
+  - `test_a_refused_build_leaves_a_refused_record`
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_f3_a_stored_label_like_sketch_is_presented_without_that_text`
   - `test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_reused`

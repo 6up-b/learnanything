@@ -179,6 +179,7 @@ from learnloop.figure_admission import show_me_enabled as admission_show_me_enab
 from learnloop.figures import elements as E
 from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
+from learnloop.figures import records as FR
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
 from learnloop.figures import sketch as K
@@ -2461,12 +2462,35 @@ def _step_three(vault: Any, repository: Repository, compiled: S.CompiledFigure, 
 
 
 def _author_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
-                      author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
-                      image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
-                      request_id: str, clock: Clock | None, gate: FiguresGate,
-                      advanced: bool = False, grounding: Grounding | None = None,
-                      sketch: bool = False, tiers: Sequence[str] | None = None,
-                      spawn_rich: SpawnRich | None = None, generation: int = 0) -> BuildOutcome:
+                      author: R.FigureRoute, *, request_id: str, **kwargs: Any) -> BuildOutcome:
+    """:func:`_author_attempts_and_store`, then one ``figure_author`` record per attempt (ADR-017),
+    written once the build has ended, refused or failed, so a record never changes the build. A
+    build stopped by :class:`FiguresChanged` (a ``BaseException``: the switch or the route changed
+    under it) writes none, since a switched-off feature writes nothing."""
+
+    attempts = FR.AuthorAttempts()
+    try:
+        outcome = _author_attempts_and_store(vault, repository, request, context, author, request_id=request_id,
+                                             attempts=attempts, **kwargs)
+    except Exception as exc:
+        attempts.write(repository, request=request, request_id=request_id, model=author.model, error=exc)
+        raise
+    attempts.write(repository, request=request, request_id=request_id, model=author.model, outcome=outcome)
+    return outcome
+
+
+def _author_attempts_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
+                               author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
+                               image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None,
+                               input_hash: str, request_id: str, clock: Clock | None, gate: FiguresGate,
+                               attempts: FR.AuthorAttempts, advanced: bool = False,
+                               grounding: Grounding | None = None, sketch: bool = False,
+                               tiers: Sequence[str] | None = None, spawn_rich: SpawnRich | None = None,
+                               generation: int = 0) -> BuildOutcome:
+    """At most two author calls, the second told the first's problems; then the figure is stored,
+    shown or failed. Each attempt's verdict is noted in ``attempts`` (codes only) beside the
+    ``problems`` the next prompt carries: a note is a list append, so it never steers the loop."""
+
     problem = author.problem()
     if problem is not None:
         raise FigureRefused(problem.reason, problem.message)
@@ -2476,6 +2500,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     learner = bool(request.learner_state)
     prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers,
                                              learner=learner)
+    attempts.prompt_version = prompt_version
     # RW5d P2b: with a rich tier on the menu the contract is V3 (the tier judgment, always receipted).
     v3 = tiers is not None
     request.tiers_allowed = tuple(tiers) if v3 else (("grammar", "sketch") if sketch else ("grammar",))
@@ -2493,6 +2518,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     sketch_report: Any = None
     verdict: tuple[str, str] | None = None
     for attempt in range(R.MAX_AUTHOR_ATTEMPTS):
+        attempts.start(attempt + 1)
         prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id,
                                                  grounding=grounding),
                                  advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers, learner=learner)
@@ -2502,21 +2528,25 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         except FiguresChanged:
             raise  # the configuration changed: nothing more is asked, nothing stored
         except R.FigureUnavailable as exc:
+            attempts.end(FR.code(exc.reason) or "unavailable", status="refused")
             if attempt == 0:
                 raise FigureRefused(exc.reason, exc.message) from exc
             break
         except SpendLimitExceeded as exc:
             # The daily envelope refused it before sending (another process
             # spent the rest of the day meanwhile).
+            attempts.end("capped", status="refused")
             if attempt == 0:
                 raise FigureRefused("capped", f"Today's figure budget is used ({exc}).") from exc
             break
         except Exception as exc:  # noqa: BLE001 - a failed call ends the attempts, honestly labelled
             problems = [f"the figure model failed: {type(exc).__name__}"]
+            attempts.end(FR.MODEL_FAILED, error=exc)
             if attempt == 0:
                 continue
             break
         status = str(output.status).strip().lower()
+        attempts.fact(author_status=status)
         # The free-text label rule (spec §9b.4, P2b ruling R2): free text
         # that reads like a code-owned check label is the repair call's
         # problem, in code's words; still there after it, the figure is
@@ -2525,7 +2555,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         if labelled:
             if attempt < R.MAX_AUTHOR_ATTEMPTS - 1:
                 problems = labelled
+                attempts.end(FR.LABEL_TEXT, problems=len(labelled))
                 continue
+            attempts.extra(FR.LABEL_TEXT_STRIPPED)
             output = _without_label_text(output)
         if v3:
             # RW5d P2b: the status is the medium chosen; why_this_tier its reason.
@@ -2535,15 +2567,18 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             verdict = (status if status in menu_statuses else "invalid", reason)
             if status not in menu_statuses:
                 problems = [f"status {status!r} is not one of the media offered ({sorted(menu_statuses)})"]
+                attempts.end(FR.STATUS_INVALID)
                 continue
             if status != "unsupported" and not reason:
                 problems = ["why_this_tier is empty: say in one sentence why this medium explains the idea best"]
+                attempts.end(FR.TIER_REASON_MISSING)
                 continue
             if status in RICH.RICH_TIERS:
                 brief, brief_problems = RICH.parse_brief(output.rich_json, tiers or (), status,
                                                          grounded=grounding.mode != "none")
                 if brief is None:
                     problems = brief_problems
+                    attempts.end(FR.BRIEF_INVALID, problems=len(brief_problems))
                     continue
                 # The optional quick figure (Q20): verified and shown as any spec
                 # or sketch; one that fails is dropped (the rich half carries on).
@@ -2553,6 +2588,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                         candidate, dropped_notes = S.parse_author_spec(
                             _ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json,
                             advanced=advanced)
+                        attempts.fact(predictions_dropped=len(dropped_notes))
                         report = V.verify_numerics(candidate)
                         report.author_predictions_dropped = dropped_notes
                         if report.outcome == V.FAILED:
@@ -2576,6 +2612,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                         from learnloop.figures import sketch_verify as SV
 
                         gate.check("sketch")
+                        attempts.fact(predictions_dropped=len(dropped_notes))
                         checked = SV.verify_sketch(candidate_sketch, span_texts=context.span_texts)
                         checked.author_predictions_dropped = dropped_notes
                         if checked.outcome == V.FAILED:
@@ -2588,6 +2625,8 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                         raise
                     except Exception as exc:  # noqa: BLE001 - the quick sketch could not run: dropped
                         quick_dropped = f"the quick sketch could not be run: {type(exc).__name__}"
+                if quick_dropped is not None:
+                    attempts.extra(FR.QUICK_DROPPED)
                 break
         elif sketch:
             # The author's status is the tier judgment (its receipt: figure_tier).
@@ -2595,9 +2634,12 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                       else " ".join(str(output.unsupported_reason or "").split())[:400] if status == "unsupported"
                       else "")
             verdict = (status if status in ("spec", "sketch", "unsupported") else "invalid", reason)
+            if verdict[0] == "invalid":
+                attempts.extra(FR.STATUS_INVALID)
         if status == "unsupported":
             unsupported = (" ".join(str(output.unsupported_kind or "").split())[:80] or "something else",
                            " ".join(str(output.unsupported_reason or "").split())[:400])
+            attempts.end(FR.UNSUPPORTED)
             break
         if sketch and status == "sketch":
             compiled = None
@@ -2607,7 +2649,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                     _ungrounded_sketch(raw) if grounding.mode == "none" else raw)
             except K.SketchError as exc:
                 problems, sketched = exc.problems, None
+                attempts.end(FR.sketch_problem(exc.problems), problems=len(exc.problems))
                 continue
+            attempts.fact(predictions_dropped=len(dropped_notes))
             from learnloop.figures import sketch_verify as SV
 
             gate.check("sketch")
@@ -2617,10 +2661,12 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             except Exception as exc:  # noqa: BLE001 - the engine itself failed: an honest failure, never shown
                 problems, sketched = [f"the sketch could not be run: {type(exc).__name__}"], None
                 sketch_report = None
+                attempts.end(FR.VERIFICATION_FAILED, error=exc)
                 continue
             if sketch_report.outcome == V.FAILED:
                 problems = list(sketch_report.problems) or [sketch_report.reason]
                 sketched = None
+                attempts.end(FR.VERIFICATION_FAILED, problems=len(problems))
                 continue
             break
         sketched, sketch_report = None, None
@@ -2630,12 +2676,15 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                 _ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json, advanced=advanced)
         except S.SpecError as exc:
             problems, compiled = exc.problems, None
+            attempts.end(FR.spec_problem(exc.problems), problems=len(exc.problems))
             continue
+        attempts.fact(predictions_dropped=len(dropped_notes))
         report = V.verify_numerics(compiled)
         report.author_predictions_dropped = dropped_notes
         if report.outcome == V.FAILED:
             problems = [report.reason, *report.structural[1:], *report.invariant_problems[1:]]
             compiled = None
+            attempts.end(FR.VERIFICATION_FAILED, problems=len(problems))
             continue
         # RW5c: step 3, inside the loop (§6.6): a stated claim proved different is
         # one more problem for the second attempt. Its only spend is that attempt,
@@ -2643,7 +2692,10 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         source_check = _step_three(vault, repository, compiled, context, request, grounding, gate)
         if source_check is not None and source_check.outcome == SC.DIFFERS and attempt < R.MAX_AUTHOR_ATTEMPTS - 1:
             problems = source_check.problems or [SC.REJECTED_REASON]
+            attempts.end(FR.SOURCE_DIFFERS, problems=len(problems))
             continue
+        if source_check is not None and source_check.outcome == SC.DIFFERS:
+            attempts.extra(FR.SOURCE_DIFFERS)
         break
     figure_id = FIGURE_PREFIX + new_ulid()
     asked = _request_row(request, grounding, figure_id=None, clock=clock)

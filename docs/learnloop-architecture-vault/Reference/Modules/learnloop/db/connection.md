@@ -503,6 +503,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rereview_f3_the_subject_is_the_one_frozen_with_the_contract`
   - `test_review_f1_a_worked_example_after_real_work_is_not_early_help`
   - `test_the_rebuild_never_reads_the_workbench_tables`
+- [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
+  - `test_the_recorded_seed_redraws_the_pass_exactly`
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
   - `test_f4_a_later_success_disagrees_with_a_named_gap_and_the_plain_report_says_what_came_after`
 - [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import
