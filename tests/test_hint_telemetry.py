@@ -1266,7 +1266,7 @@ def test_a_workbench_problem_opened_only_after_the_submit_plays_no_part(tmp_path
 
 
 def test_a_workbench_problem_with_an_unreadable_time_could_have_been_open(tmp_path, monkeypatch):
-    now = _moving_clock(monkeypatch, FROZEN)
+    _moving_clock(monkeypatch, FROZEN)
     paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
     ctx, session_id = _sidecar(paths.root)
     _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T08:59:40Z")

@@ -204,7 +204,6 @@ def author_edge_instances(
     batch = request_depth_edge_instances(client, context)
 
     stored: list[dict[str, Any]] = []
-    template_by_id = {row["id"]: row for row in template_versions}
     for payload in batch.instances[: max(count, len(batch.instances))]:
         # Attribute each instance to the first template whose gates it passes,
         # falling back to the first template's report when none admit.

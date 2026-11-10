@@ -551,7 +551,7 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
     program = compiled.program
     prediction = program.predictions[index]
     observe = prediction.observe
-    probe = compiled.probes[observe.probe]
+    compiled.probes[observe.probe]  # an unknown probe raises KeyError here, before the program runs
     defaults = compiled.defaults
     clock = program.clock
     change = dict(prediction.change)

@@ -936,7 +936,6 @@ def render_area(area: str, members: list[SourceInfo], child_areas: list[str]) ->
 
 
 def render_catalog(infos: dict[Path, SourceInfo], areas: list[str]) -> str:
-    path = CATALOG_ROOT / "Desktop Module Catalog.md"
     ts_count = sum(info.language == "TypeScript" for info in infos.values())
     rust_count = sum(info.language == "Rust" for info in infos.values())
     status_counts = Counter(info.refactor_status for info in infos.values())

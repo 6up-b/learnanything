@@ -94,7 +94,7 @@ def test_admit_marks_surface_admitted_and_rotation_eligible(repo):
 
 def test_anchored_candidate_passes_comparative_and_verbatim_rubric(repo):
     _, _, cv, anchor = _card_and_surface(repo, hash_suffix="d")
-    request_id = SM.request_candidates(repo, card_version_id=cv, anchor_surface_id=anchor, clock=CLOCK)
+    SM.request_candidates(repo, card_version_id=cv, anchor_surface_id=anchor, clock=CLOCK)
     job = SM.claim_next_mint_job(repo, worker_id="w1", clock=CLOCK)
     candidate = {
         "surface_id": repo.ensure_activity_surface(card_version_id=cv, surface_hash="sh-d-cand",
@@ -275,7 +275,7 @@ def test_reprocessing_admitted_job_never_double_admits(repo):
     # from one request. With the status/lease re-read guard the re-run refuses and
     # writes nothing.
     _, _, cv, anchor = _card_and_surface(repo, hash_suffix="dbladmit")
-    request_id = SM.request_candidates(repo, card_version_id=cv, anchor_surface_id=anchor, clock=CLOCK)
+    SM.request_candidates(repo, card_version_id=cv, anchor_surface_id=anchor, clock=CLOCK)
     job = SM.claim_next_mint_job(repo, worker_id="w1", clock=CLOCK)
     c1 = repo.ensure_activity_surface(card_version_id=cv, surface_hash="sh-da-1", fingerprint=None,
                                       surface_json="{}", clock=CLOCK)

@@ -373,7 +373,6 @@ def _compare_sources(
 
     # Counterparts: every source in scope (CA3: the named ones), one shared
     # query embedding.
-    started = time.monotonic()
     vectors: dict[str, Any] | None = None
     if vault.config.embedding.enabled or embedder is not None:
         vectors, embedding = embed_query_texts(vault, repository, {"query": query}, embedder=embedder,

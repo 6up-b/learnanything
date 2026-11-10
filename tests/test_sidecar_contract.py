@@ -135,7 +135,7 @@ def test_sidecar_initialize_start_session_and_queue(tmp_path):
 
 def test_sidecar_checkpoint_patch_preserves_omitted_fields_and_hints(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    create_basic_vault(vault_root)
 
     first = _rpc(
         [

@@ -185,7 +185,7 @@ class ReaderLookup:
         return learner_query(self.question, ancestors=self.ancestors)
 
     def __call__(self, inputs: Mapping[str, Any] | None = None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
-        vault, repository = self.vault, self.repository
+        vault = self.vault
         gaps = self.gaps if inputs is None else inputs.get("gaps") or []
         misconceptions = self.misconceptions if inputs is None else inputs.get("misconceptions")
         # Bound: the query and the practice question exactly as the plan

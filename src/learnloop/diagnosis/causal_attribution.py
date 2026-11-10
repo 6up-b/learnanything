@@ -805,7 +805,6 @@ def select_minimal_repair(
             depth = _backtracking_depth(trace_contract, changed_checkpoints)
         edit_cost = _trace_edit_cost(before, after) if before or after else None
         minutes = validated_suggestion.get("expected_minutes")
-        burden = float(minutes) if isinstance(minutes, (int, float)) else float("inf")
         # An unavailable deterministic key must never win by being absent.
         deterministic_rank = (
             int(contradiction),

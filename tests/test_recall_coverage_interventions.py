@@ -170,7 +170,7 @@ def test_repeated_failure_triggers_intervention_need_without_surprise(tmp_path):
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
 
-    first = complete_self_graded_attempt(
+    complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft("pi_svd_define_001", "I do not know", attempt_type="dont_know"),

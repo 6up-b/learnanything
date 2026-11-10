@@ -196,7 +196,7 @@ def _assess_and_pass(vault, repo, run_id):
 
 def test_boundary_diff_is_deterministic_and_reliability_aware(tmp_path):
     vault, repo, receipt = _build_run(tmp_path)
-    admin = _assess_and_pass(vault, repo, receipt.run_id)
+    _assess_and_pass(vault, repo, receipt.run_id)
     r1 = GRstr.restore(repo, run_id=receipt.run_id, idempotency_key="restore1", clock=CLOCK)
 
     # A second restore is idempotent (no duplicate artifact) and byte-identical diff.

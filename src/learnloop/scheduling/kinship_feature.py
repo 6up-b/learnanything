@@ -489,7 +489,6 @@ def run_admission_gate(
         )
         return AdmissionOutcome(False, outcome.refusal_reason)
 
-    now = utc_now_iso(clock)
     with repository.connection() as connection:
         connection.execute(
             "UPDATE familiarity_kernel_models SET status = 'simulation_validated', "

@@ -2752,8 +2752,6 @@ def handle_extraction_repair(ctx: JobContext) -> dict[str, Any]:
     if revision is None:
         raise IngestRunnerError(f"revision '{revision_id}' does not exist.")
     artifact = ctx.repo.get_source_artifact(revision["source_id"])
-    acquisition_kind = artifact.get("acquisition_kind") if artifact else "pdf"
-
     parent_id = payload.get("parent_extraction_id") or _latest_completed_extraction(ctx.repo, revision_id)
     if not parent_id:
         raise IngestRunnerError(f"revision '{revision_id}' has no completed extraction to repair.")

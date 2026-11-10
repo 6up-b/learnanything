@@ -120,10 +120,6 @@ def _topological_order(
     order_key = {
         item_id: _proposal_apply_order(requested_by_id[item_id]) for item_id in apply_set
     }
-    ready = sorted(
-        (i for i in apply_set if not (set(deps.get(i, [])) & apply_set)),
-        key=lambda i: order_key[i],
-    )
     result: list[str] = []
     placed: set[str] = set()
     remaining = set(apply_set)

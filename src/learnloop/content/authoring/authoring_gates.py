@@ -157,14 +157,6 @@ def _strip_selected_response_surface(payload: dict[str, Any]) -> list[str] | Non
     itself) — in which case the payload is left byte-identical.
     """
 
-    original = {
-        "prompt": payload.get("prompt"),
-        "expected_answer": payload.get("expected_answer"),
-        "practice_mode": payload.get("practice_mode"),
-        "task_features": dict(payload["task_features"])
-        if isinstance(payload.get("task_features"), dict)
-        else payload.get("task_features"),
-    }
     actions: list[str] = []
     prompt = str(payload.get("prompt") or "")
     stripped = _OPTION_LINE.sub("", prompt)

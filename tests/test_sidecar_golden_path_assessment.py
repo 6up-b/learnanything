@@ -112,7 +112,7 @@ def test_assess_restore_and_depth_invitation_over_rpc(tmp_path):
 def test_practice_only_assess_open_returns_stable_error(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    vault = load_vault(vault_root)
+    load_vault(vault_root)
     repo = Repository(paths.sqlite_path)
     spec = {
         "source_rev": "rev-1", "unit_id": "unit-a", "family_key": "method-selection",

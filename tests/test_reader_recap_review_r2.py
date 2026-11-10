@@ -252,7 +252,7 @@ def test_f3_r2_embedded_credit_that_banks_answers_the_claim(tmp_path):
     """)
     vault = load_vault(vault.root)
     session = _assisted_session(vault, repo)
-    facet = vault.canonical_facet_id("recall")
+    vault.canonical_facet_id("recall")
     own = _self_graded(vault, repo, EMBEDDED_ITEM, 200, "c1", 4)
     repo.insert_trace_exercised_facets(own, [{"facet_id": "recall", "observation_scope": "opportunistic",
                                               "evidence": "the trace shows it"}], clock=at(200))

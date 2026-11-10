@@ -1737,7 +1737,7 @@ class MaterialView:
         (receipts are frozen: a deleted source leaves them, §5.11; Codex verify F30); one that cannot
         be read is withheld (fail closed)."""
 
-        table, source, kind = str(row.get("source_table")), str(row.get("source_id") or ""), str(row.get("kind"))
+        table, source = str(row.get("source_table")), str(row.get("source_id") or "")
         try:
             if table == "reader_section_progress":
                 extraction, _sep, _rest = source.partition("/")

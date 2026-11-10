@@ -9583,7 +9583,6 @@ class Repository(
         returned = [
             row for row in rows if float((row.get("components") or {}).get("selected") or 0.0) > 0.0
         ]
-        selected_practice_item_id = returned[0]["practice_item_id"] if returned else None
         returned_rank_by_id = {
             row["practice_item_id"]: rank
             for rank, row in enumerate(returned, start=1)

@@ -245,7 +245,7 @@ def test_f9_an_older_retry_never_erases_a_newer_deferred_position(tmp_path, monk
             queued.set()
             assert resume.wait(10)
 
-    calls = _failing_enqueue(monkeypatch, failures=1, after=pause_the_retry)
+    _failing_enqueue(monkeypatch, failures=1, after=pause_the_retry)
     planners = _planners(ctx)
 
     _report(ctx, extraction_id, 1, section_id="u3")  # the Reader's ask fails: u3 waits for a retry

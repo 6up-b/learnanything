@@ -438,7 +438,6 @@ def test_annotations_reanchor_automatically(studied):
 
 
 def test_the_saved_reading_place_translates_through_the_aliases(studied):
-    repo = studied["repo"]
     _reread(studied)
     ctx = SidecarContext()
     ctx.load(studied["root"])
@@ -1285,7 +1284,7 @@ def test_f7_doctor_fix_state_finishes_a_carry_over_left_owed(card_book, monkeypa
     from learnloop.content.pipeline import reread
     from learnloop.ops.doctor import run_doctor
 
-    ctx, source_id, clock = card_book["ctx"], card_book["source_id"], card_book["clock"]
+    ctx, source_id = card_book["ctx"], card_book["source_id"]
     repo = ctx.repository
     first = resolve_extraction_id(repo, source_id)
     repo.upsert_reader_section_progress(extraction_id=first, section_id="u1", spans_seen=4, span_count=4,

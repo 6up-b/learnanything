@@ -1333,7 +1333,6 @@ def generate_cross_source_practice_proposal(
         span_count += len(spans)
 
     held_out = build_held_out_inventory(vault, repository, subject_ids=subjects)
-    lo_by_client: dict[str, str] = {}
     blocked: list[LeakageBlock] = []
 
     def _leakage_gate(rows: list[dict[str, Any]]) -> None:

@@ -1179,7 +1179,7 @@ def synthesize_repair_command(
     )
 
     vault_root = _root(vault)
-    loaded = load_vault(vault_root)
+    load_vault(vault_root)  # a vault that doesn't load stops the command before its repository opens
     repository = _repository(vault_root)
     explicit_ops: list[dict] = []
     if ops_file is not None:
@@ -1439,7 +1439,7 @@ def resolve_conflict_command(
     from learnloop.content.proposals.conflict_resolution import ConflictResolutionError, resolve_conflict
 
     vault_root = _root(vault)
-    loaded = load_vault(vault_root)
+    load_vault(vault_root)  # a vault that doesn't load stops the command before its repository opens
     repository = _repository(vault_root)
     payload = jsonlib.loads(resolution_file.read_text(encoding="utf-8")) if resolution_file else {}
     try:

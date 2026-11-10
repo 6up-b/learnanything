@@ -1285,7 +1285,6 @@ def render_package_moc(
 def render_catalog(
     modules: dict[str, ModuleInfo], packages: set[str], tests: list[PythonConsumer]
 ) -> str:
-    note = CATALOG_ROOT / "Module Catalog.md"
     desktop_modules = desktop_source_count()
     status_counts: dict[str, int] = defaultdict(int)
     for info in modules.values():

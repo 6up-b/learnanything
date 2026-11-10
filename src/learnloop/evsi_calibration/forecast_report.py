@@ -711,7 +711,6 @@ _BINARY_EVENT = {FR.DIAGNOSIS_NEXT_OBSERVATION: "pass", FR.REPAIR_COLD_OUTCOME: 
 
 
 def _score(kind: str, rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]:
-    states = Counter(resolution["state"] for _, resolution in rows)
     reasons: dict[str, Counter] = {state: Counter() for state in (PENDING, HELD, CENSORED)}
     resolved = [(receipt, resolution) for receipt, resolution in rows if resolution["state"] == RESOLVED]
     for _, resolution in rows:

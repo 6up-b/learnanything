@@ -816,7 +816,6 @@ def _normalize_compositional(
         )
         if candidate is None:
             continue
-        candidate_id = candidate["id"]
         promotion_candidate = candidate
         if diagnostic_probe:
             promotion_candidate = {

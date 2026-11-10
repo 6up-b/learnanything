@@ -148,7 +148,7 @@ def test_long_running_handler_emits_periodic_heartbeats(tmp_path, monkeypatch):
 
 def test_lease_expiry_marks_interrupted(tmp_path):
     runner = _runner(tmp_path, handlers={"fake": _ok_handler({})}, clock=_clock())
-    batch_id = runner.enqueue_batch("import", [JobSpec("fake")])
+    runner.enqueue_batch("import", [JobSpec("fake")])
 
     # Simulate a crash mid-run: claim the job (sets running + heartbeat) but never finish it.
     claimed = runner.repo.claim_next_ingest_job(
@@ -375,7 +375,7 @@ def test_waiting_for_input_holds_no_lease(tmp_path):
 def test_sidecar_and_cli_never_drain_concurrently(tmp_path):
     calls: dict[str, int] = {}
     sidecar = _runner(tmp_path, worker_id="sidecar", handlers={"fake": _ok_handler(calls)})
-    batch_id = sidecar.enqueue_batch("import", [JobSpec("fake")])
+    sidecar.enqueue_batch("import", [JobSpec("fake")])
 
     # The sidecar claims the job and holds a live lease (in-progress).
     claimed = sidecar.repo.claim_next_ingest_job(
