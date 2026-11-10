@@ -62,6 +62,23 @@ def test_a_rename_lists_the_old_path_too(selector, tmp_path, monkeypatch):
     assert {"src/learnloop/old_name.py", "src/learnloop/new_name.py"} <= set(module.changed_paths("HEAD~1"))
 
 
+def test_a_module_named_by_its_source_path_reaches_the_tests_of_the_code_naming_it(selector):
+    # params/parameter_registry.py names local_embeddings/pins.py only as a path in
+    # MODULE_INVENTORY, then imports it and reads its source; the registry audit guards
+    # pins.py's numeric constants through it.
+    module, graph = selector
+    assert "learnloop.local_embeddings.pins" in graph.imports["learnloop.params.parameter_registry"]
+    assert "tests/test_registry_audit.py" in module.select(["src/learnloop/local_embeddings/pins.py"], graph)["tests"]
+    # A source guard naming the file it reads is selected by a change to that file.
+    assert "learnloop.source_retrieval.note_gaps" in graph.imports["tests.test_notes_never_read"]
+
+
+def test_a_module_attribute_string_names_its_module(selector):
+    # "learnloop.daily_plan.estimates:load_duration_evidence" names the module before the colon.
+    module, graph = selector
+    assert "learnloop.daily_plan.estimates" in graph.imports["tests.test_ad_guard_reachable_reads"]
+
+
 def test_a_module_selects_the_tests_importing_it_and_nothing_unrelated(selector):
     module, graph = selector
     result = module.select(["src/learnloop/hints/chooser.py"], graph)
@@ -82,7 +99,9 @@ def test_depth_widens_the_selection_and_never_narrows_it(selector):
 
 def test_a_changed_test_file_selects_itself_and_a_doc_selects_only_tests_naming_it(selector):
     module, graph = selector
-    assert module.select(["tests/test_rofu_weeks.py"], graph)["tests"] == ["tests/test_rofu_weeks.py"]
+    # Built here: a literal path would make this file a source guard of it (it names it).
+    changed = "/".join(("tests", "test_rofu_weeks.py"))
+    assert module.select([changed], graph)["tests"] == [changed]
     named = module.select(["tests/cli_surface.json"], graph)["tests"]
     assert "tests/test_cli_help_snapshot.py" in named
     assert all("cli_surface.json" in (ROOT / path).read_text(encoding="utf-8") for path in named)

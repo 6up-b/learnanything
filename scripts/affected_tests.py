@@ -36,7 +36,10 @@ modules; pass ``--depth 2`` for a change to a widely used module's behaviour.
 
 Imports are read from the source (``ast``), function-local ones included, plus any
 string constant naming a module (``importlib.import_module("learnloop.x")``,
-``monkeypatch.setattr("learnloop.x.y", ...)``). Importing ``a.b.c`` also runs
+``monkeypatch.setattr("learnloop.x.y", ...)``, ``"learnloop.x:attr"``) or its source
+path (``"src/learnloop/x.py"``: ``params/parameter_registry.py``'s ``MODULE_INVENTORY``
+names the modules it imports and reads that way, and source guards in ``tests/``
+name the files they scan). Importing ``a.b.c`` also runs
 ``a`` and ``a.b``, so a package's ``__init__.py`` is imported by everything under
 it.
 
@@ -143,6 +146,19 @@ class Graph:
         found = [p for p in [*_parents(dotted), dotted] if p in self.modules]
         return found
 
+    def _named_by_string(self, value: str) -> list[str]:
+        """The modules a string constant names: a dotted name (``"learnloop.x"``, ``"learnloop.x.y:attr"``),
+        or a source path (``"src/learnloop/x.py"``, ``"learnloop/x.py"``), which is how path registries such
+        as ``params/parameter_registry.py``'s ``MODULE_INVENTORY`` name the modules they import and read,
+        and how source guards in ``tests/`` name the files they scan."""
+
+        if value.endswith(".py") and "/" in value:
+            path = value.removeprefix("./")
+            return [m for m in (module_name(path), module_name(f"src/{path}")) if m in self.modules]
+        if value.split(".", 1)[0] in (*PACKAGES, "tests"):
+            return self._known(value.partition(":")[0])
+        return []
+
     def _read(self, name: str, path: str) -> set[str]:
         try:
             tree = ast.parse((ROOT / path).read_text(encoding="utf-8"), filename=path)
@@ -165,8 +181,8 @@ class Graph:
                 for alias in node.names:
                     deps.update(self._known(f"{base}.{alias.name}"))
             elif isinstance(node, ast.Constant) and isinstance(node.value, str) and "." in node.value \
-                    and node.value.split(".", 1)[0] in (*PACKAGES, "tests") and " " not in node.value:
-                deps.update(self._known(node.value))
+                    and not any(c.isspace() for c in node.value):
+                deps.update(self._named_by_string(node.value))
         deps.discard(name)
         return deps
 
