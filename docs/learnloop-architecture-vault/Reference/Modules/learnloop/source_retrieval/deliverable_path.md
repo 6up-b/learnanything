@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py) |
-| Source lines | 1962 |
+| Source lines | 2047 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -114,7 +114,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `plan_deliverable(vault: Any, repository: Repository, *, clock: Clock | None=None) -> tuple[DeliverablePlanPath | None, list[DeliverablePlanPath]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1783) — Which deliverable the plan follows (§7.6): the nearest active goal among goals with a fresh deliverable path (or a withheld one, which is followed and plans nothing).
 - `plan_refresh_reason(vault: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1818) — Why C1's daily re-judgment does not run (None: it does).
 - `plan_refresh_route_problem(vault: Any, client: Any | None=None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1830) — Why C1's automatic refresh may not send its judgment on the route the path judge resolves to (None: it may).
-- `refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None, in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None=None, still_wanted: Callable[[Any], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1843) — C1's daily job (§7.6): the deliverable path's key includes learner state (the days left among it), so a path the plan would follow goes stale; once a day, before the plan is built, the nearest deliverable whose path is in play is judged again, **quietly** (``plan_fallback.quiet`…
+- `refresh_record(result: Mapping[str, Any] | None, *, error: BaseException | None=None) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1853) — The daily re-judgment's outcome as a decision record (pure): ids and codes only; a reason that is prose (the switch's sentence) is left out, the status says it.
+- `refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None, in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None=None, still_wanted: Callable[[Any], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1891) — C1's daily re-judgment (:func:`_refresh_for_plan`), with its outcome kept as a ``curriculum_path_refresh`` record when it decided something (never ``none`` or ``fresh``).
 
 ### Module constants
 
@@ -147,6 +148,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PLAN_PATH_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1624)
 - `IN_PLAY_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1628)
 - `REFRESH_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1814)
+- `REFRESH_RECORD` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1845)
+- `_UNRECORDED_REFRESH` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1847)
+- `_REFRESH_RECORD_STATUS` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1848)
 
 ### Explicit exports
 
@@ -218,6 +222,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_unjudged_lines(repository: Repository, inputs: PathInputs, chosen: Mapping[str, Mapping[str, Any]], *, placed: set[str], start: int) -> list[EffectiveLine]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1208) — The scope's LOs that have an eligible section but no line in the judgment shown (a topic added since: Codex review F9), each on code's first eligible section with code's line, until the next judgment places it.
 - `_line_view(vault: Any, repository: Repository, line: EffectiveLine, inputs: PathInputs, done: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1250)
 - `_nearest_key(goal: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1766) — The existing nearest-goal rule (``learnloop_sidecar.handlers.goals._nearest_active_goal``): the nearest due date first (no date last), ties to the higher priority; the id last, so the order is total.
+- `_write_refresh_record(write: Callable[[Any, Any], Any], repository: Any, result: Mapping[str, Any] | None, error: BaseException | None) -> None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1912)
+- `_refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None, in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None=None, still_wanted: Callable[[Any], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1928) — C1's daily job (§7.6): the deliverable path's key includes learner state (the days left among it), so a path the plan would follow goes stale; once a day, before the plan is built, the nearest deliverable whose path is in play is judged again, **quietly** (``plan_fallback.quiet`…
 
 ## Who imports or calls it
 
@@ -247,11 +253,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `module`; calls `daily_plan_tables_present`, `latest_plan`
 - [[Reference/Modules/learnloop/db/stores/deliverables|learnloop.db.stores.deliverables]] — imports `module`; calls `all_path_rows`, `insert_path_row`, `judged`, `latest_judged`, `overrides`, `rows_naming`, `tables_present`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
+- [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `write_decision`
 - [[Reference/Modules/learnloop/db/stores/section_coverage|learnloop.db.stores.section_coverage]] — imports `module`; calls `judged_states`, `table_present`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `plan_route`; calls `plan_route`
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `DecisionRecord`, `current_trace`, `is_code`, `where`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_by_section`; calls `learning_objects_by_section`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `interval_for_retention`; calls `interval_for_retention`
 - [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] — imports `load_snapshots`; calls `load_snapshots`
@@ -353,9 +361,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_report_rows_are_aggregates_only`
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context`
+- [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
+  - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
   - `test_i_a_check_once_on_the_follow_ups_own_item_replaces_the_automatic_check`
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
+  - `test_every_b8_builder_passes_the_prose_check_with_learner_text_planted`
+  - `test_the_daily_re_judgment_records_what_it_decided_and_nothing_for_none_or_fresh`
 
 ## Modification guidance
 

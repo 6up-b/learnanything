@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/service_spend.py](../../../../../../src/learnloop/source_retrieval/service_spend.py) |
-| Source lines | 375 |
+| Source lines | 395 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,24 +55,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `class SharedDailyEnvelope(SpendEnvelope)` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 153) — The daily cap, reserved transactionally in the vault database.
-  - `__init__(self, vault: LoadedVault, repository: Repository, *, day: str, cap: float, clock: Clock | None=None, name: str=DAILY_ENVELOPE, owner_kinds: Sequence[str] | None=SERVICE_OWNER_KINDS, price_per_million: float | None | object=_SERVICE_PRICE) -> None` (line 164; internal)
-  - `_now(self) -> str` (line 184; internal)
-  - `accounting(self, connection: sqlite3.Connection, now: str | None=None) -> dict[str, Any]` (line 187; public)
-  - `_total(self) -> Decimal` (line 191; internal)
-  - `reservation_ref(self, handle: object) -> str | None` (line 195; public)
-  - `reserve(self, usd: Decimal) -> object` (line 198; public)
-  - `unreserve(self, handle: object) -> None` (line 215; public)
-  - `charge(self, usd: Decimal, handle: object=None) -> None` (line 223; public)
-  - `settle(self, handle: object, actual: Decimal | None=None) -> None` (line 229; public)
-  - `report(self) -> dict[str, object]` (line 238; public) — The inherited report (this process's refusals and ``estimated_only`` tally), with the day's total and its full breakdown (``accounting``: reservations by state, pending recovery, legacy coverage, pricing) from one read of ``service_spend_accounting``.
-- `daily_accounting(connection: sqlite3.Connection, vault: LoadedVault, since: str, *, envelope: str=DAILY_ENVELOPE, now: str | None=None, owner_kinds: Sequence[str] | None=SERVICE_OWNER_KINDS, price_per_million: float | None | object=_SERVICE_PRICE) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 256) — The daily cap's total since ``since`` (UTC midnight): the one function admission, recovery and every report read.
-- `subscription_providers(vault: LoadedVault) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 271) — Provider names whose profile bills the owner's subscription.
-- `midnight(clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 278)
-- `service_spend_today(vault: LoadedVault, repository: Repository, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 282) — The service's spend since UTC midnight, as the daily cap counts it: metered dollars (``usd``: ``reservations_usd``, every reservation counted once with its receipts, plus ``unlinked_receipts_usd``) and the subscription's ``estimated_only`` tokens and dollars.
-- `spend_report(vault: LoadedVault, repository: Repository, *, days: int=7, top: int=5, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 292) — The service's actual spend over the last ``days`` UTC days (today included), for setting caps from real use (owner, 2026-10-13): per day the metered receipt cost and the reservations, reserved vs settled; the largest operations; and today's daily guard (what admission counts, th…
-- `daily_envelope(vault: LoadedVault, repository: Repository, clock: Clock | None=None) -> SpendEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 330) — The daily envelope for this database and UTC day, shared through the database by every process (one object per process for its threads).
-- `service_spend(vault: LoadedVault, repository: Repository, *, max_usd: float | None=None, name: str='operation', clock: Clock | None=None) -> Iterator[dict[str, SpendEnvelope]]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 347) — The daily envelope, plus one for this operation when ``max_usd`` is given.
-- `batch_envelope(name: str, max_usd: float) -> SpendEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 358)
+  - `__init__(self, vault: LoadedVault, repository: Repository, *, day: str, cap: float, clock: Clock | None=None, name: str=DAILY_ENVELOPE, owner_kinds: Sequence[str] | None=SERVICE_OWNER_KINDS, price_per_million: float | None | object=_SERVICE_PRICE, record_refusals: bool=True) -> None` (line 171; internal)
+  - `_now(self) -> str` (line 193; internal)
+  - `accounting(self, connection: sqlite3.Connection, now: str | None=None) -> dict[str, Any]` (line 196; public)
+  - `_total(self) -> Decimal` (line 200; internal)
+  - `reservation_ref(self, handle: object) -> str | None` (line 204; public)
+  - `reserve(self, usd: Decimal) -> object` (line 207; public)
+  - `unreserve(self, handle: object) -> None` (line 235; public)
+  - `charge(self, usd: Decimal, handle: object=None) -> None` (line 243; public)
+  - `settle(self, handle: object, actual: Decimal | None=None) -> None` (line 249; public)
+  - `report(self) -> dict[str, object]` (line 258; public) — The inherited report (this process's refusals and ``estimated_only`` tally), with the day's total and its full breakdown (``accounting``: reservations by state, pending recovery, legacy coverage, pricing) from one read of ``service_spend_accounting``.
+- `daily_accounting(connection: sqlite3.Connection, vault: LoadedVault, since: str, *, envelope: str=DAILY_ENVELOPE, now: str | None=None, owner_kinds: Sequence[str] | None=SERVICE_OWNER_KINDS, price_per_million: float | None | object=_SERVICE_PRICE) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 276) — The daily cap's total since ``since`` (UTC midnight): the one function admission, recovery and every report read.
+- `subscription_providers(vault: LoadedVault) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 291) — Provider names whose profile bills the owner's subscription.
+- `midnight(clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 298)
+- `service_spend_today(vault: LoadedVault, repository: Repository, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 302) — The service's spend since UTC midnight, as the daily cap counts it: metered dollars (``usd``: ``reservations_usd``, every reservation counted once with its receipts, plus ``unlinked_receipts_usd``) and the subscription's ``estimated_only`` tokens and dollars.
+- `spend_report(vault: LoadedVault, repository: Repository, *, days: int=7, top: int=5, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 312) — The service's actual spend over the last ``days`` UTC days (today included), for setting caps from real use (owner, 2026-10-13): per day the metered receipt cost and the reservations, reserved vs settled; the largest operations; and today's daily guard (what admission counts, th…
+- `daily_envelope(vault: LoadedVault, repository: Repository, clock: Clock | None=None) -> SpendEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 350) — The daily envelope for this database and UTC day, shared through the database by every process (one object per process for its threads).
+- `service_spend(vault: LoadedVault, repository: Repository, *, max_usd: float | None=None, name: str='operation', clock: Clock | None=None) -> Iterator[dict[str, SpendEnvelope]]` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 367) — The daily envelope, plus one for this operation when ``max_usd`` is given.
+- `batch_envelope(name: str, max_usd: float) -> SpendEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 378)
 
 ### Module constants
 
@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `class _Leases` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 87) — This process's reservations in flight, whose leases it renews while it lives.
-- `_clock_key(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 323) — One shared envelope per database and day for the system clock; an injected clock (a test's, a replay's) gets its own, stamped by it.
+- `_clock_key(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/service_spend.py), line 343) — One shared envelope per database and day for the system clock; an injected clock (a test's, a replay's) gets its own, stamped by it.
 
 ## Who imports or calls it
 
@@ -145,6 +145,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `SERVICE_OWNER_KINDS`, `charge_service_spend`, `release_service_spend`, `renew_service_spend_leases`, `reserve_service_spend`, `service_spend_accounting`, `service_spend_report`, `settle_service_spend`; calls `charge_service_spend`, `release_service_spend`, `renew_service_spend_leases`, `reserve_service_spend`, `service_spend_accounting`, `service_spend_report`, `settle_service_spend`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `SUBSCRIPTION_PROFILE_TYPES`
+- [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `module`; calls `envelope_record`, `write_on`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
@@ -167,6 +168,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_the_daily_envelope_stamps_its_rows_with_the_injected_clock`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
 - [tests/test_sidecar_idle_threads.py](../../../../../../tests/test_sidecar_idle_threads.py) — direct import
   - `test_the_lease_heartbeat_ends_when_its_last_lease_is_dropped`
 - [tests/test_source_service_spend_accounting.py](../../../../../../tests/test_source_service_spend_accounting.py) — direct import

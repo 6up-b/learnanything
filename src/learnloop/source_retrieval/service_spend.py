@@ -159,13 +159,22 @@ class SharedDailyEnvelope(SpendEnvelope):
     process's heartbeat keeps leased; its writes (charge, settle) are fenced
     by this process's token. Subscription requests reserve nothing
     (``estimated_only``).
+
+    A refusal leaves a ``spend_admission`` record in the reservation's own
+    transaction (refactor B8): every caller turns it into its own status
+    (``over_budget``, ``capped``, an empty result) and nothing was sent, so no
+    other row names the cap. ``record_refusals=False`` for an envelope reserved
+    inside an AD operation (AD's own), whose guard denies the record's table:
+    a denied write there would poison the operation and change what is served.
     """
 
     def __init__(self, vault: LoadedVault, repository: Repository, *, day: str, cap: float,
                  clock: Clock | None = None, name: str = DAILY_ENVELOPE,
                  owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
-                 price_per_million: float | None | object = _SERVICE_PRICE) -> None:
+                 price_per_million: float | None | object = _SERVICE_PRICE,
+                 record_refusals: bool = True) -> None:
         super().__init__(name, cap)
+        self._record_refusals = record_refusals
         self._vault = vault
         self._repository = repository
         self._since = day  # UTC midnight
@@ -198,17 +207,28 @@ class SharedDailyEnvelope(SpendEnvelope):
     def reserve(self, usd: Decimal) -> object:
         handle = "ssp_" + new_ulid()
         with self._repository.atomic():
+            connection = self._repository.connection()
             admitted, total = reserve_service_spend(
-                self._repository.connection(), id=handle, envelope=self.name, day=self._day, since=self._since,
+                connection, id=handle, envelope=self.name, day=self._day, since=self._since,
                 usd=float(usd), cap=float(self.max_usd), process=PROCESS, now=self._now(),
                 lease_seconds=LEASE_SECONDS, price_per_million=self._price,
                 subscription_providers=subscription_providers(self._vault), owner_kinds=self._owner_kinds)
+            if not admitted and self._record_refusals:
+                # In the reservation's BEGIN IMMEDIATE, which already holds the lock: no new wait. Never raises.
+                from learnloop import refusal_records
+
+                refusal_records.write_on(connection, refusal_records.SPEND_ADMISSION,
+                                         lambda: refusal_records.envelope_record(
+                                             envelope=self.name, cap_usd=float(self.max_usd), spent_usd=total,
+                                             request_usd=float(usd), owner_kinds=self._owner_kinds))
         if not admitted:
             with self._lock:
                 self._refused += 1
             raise SpendLimitExceeded(
                 f"{self.name}: ${total + float(usd):.4f} would pass the ${float(self.max_usd):.4f} cap "
-                "(shared by every process using this vault)")
+                "(shared by every process using this vault)",
+                rule="envelope_cap", limit=float(self.max_usd), used=float(total), requested=float(usd),
+                scope=self.name)
         _LEASES.hold(self._repository, handle)
         return handle
 

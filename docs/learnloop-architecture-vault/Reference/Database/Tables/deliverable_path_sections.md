@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/deliverables.py"
+  - "src/learnloop/source_retrieval/deliverable_path.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"

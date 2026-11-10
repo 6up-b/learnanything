@@ -3104,6 +3104,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
   - `test_upgrade_with_nothing_to_reinterpret_replays_nothing`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
+  - `test_a_commission_job_that_generated_nothing_says_why`
+  - `test_ads_envelope_records_no_refusal_since_its_guard_denies_the_table`
+  - `test_the_daily_re_judgment_records_what_it_decided_and_nothing_for_none_or_fresh`
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
 - [tests/test_replay.py](../../../../../../tests/test_replay.py) — direct import
   - `test_compute_attempt_application_materializes_outputs_without_persisting`

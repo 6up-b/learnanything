@@ -978,22 +978,37 @@ def unregister_plan_decision_logger(logger: PlanDecisionLogger) -> None:
         _PLAN_DECISION_LOGGERS.remove(logger)
 
 
+def _record_logger_failure(connection: Any, *, decision_kind: str, block_id: Any, plan_id: Any, logger: Any,
+                           exc: BaseException, logged_ref: Any = None) -> None:
+    """The logger's failure as a record, on the block's connection inside its transaction (after the decision, so
+    neither the write nor its lock wait can change it); never raises."""
+
+    from learnloop import refusal_records
+
+    refusal_records.write_on(connection, refusal_records.ROUTER_DECISION_ROW,
+                             lambda: refusal_records.plan_logger_record(
+                                 decision_kind=decision_kind, block_id=block_id, plan_id=plan_id, logger=logger,
+                                 exc=exc, logged_ref=logged_ref))
+
+
 def _log_plan_decision(connection: Any, decision: PlanBlockDecision) -> str | None:
     """Hand one decision to the registered loggers; the first id written wins.
 
     Router R1 registers its ``plan_block`` logger below. With no logger
     registered this is a no-op. A logger that fails never blocks the plan: its
-    decision goes unlogged and is reported.
+    decision goes unlogged and is reported, in the log and as a
+    ``router_decision_row`` record on the block (without it, a block with no
+    ledger row said nowhere why).
     """
 
     ref: str | None = None
     for logger in list(_PLAN_DECISION_LOGGERS):
         try:
             written = logger(connection, decision)
-        except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
-            import logging
-
+        except Exception as exc:  # noqa: BLE001 - logging never blocks the learner's plan
             logging.getLogger(__name__).warning("plan decision logger failed", exc_info=True)
+            _record_logger_failure(connection, decision_kind=decision.kind, block_id=decision.block_id,
+                                   plan_id=decision.plan_id, logger=logger, exc=exc)
             continue
         if ref is None and written:
             ref = str(written)
@@ -4978,6 +4993,7 @@ def _log_interrupt(
 
     from learnloop.router.plan_log import drawn_lesson_on, log_plan_interrupt_decision
 
+    decision_ref: str | None = None
     try:
         # IH2: a follow-up that lost to a lesson on this block gets a new receipt, naming the decision it lost.
         redraw_of = drawn_lesson_on(connection, current.id, item.practice_item_id) if _lessons_compete(env) else None
@@ -5037,8 +5053,11 @@ def _log_interrupt(
                     exclude={*record.planned_ids(), item.practice_item_id},
                 )
         return decision_ref
-    except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
+    except Exception as exc:  # noqa: BLE001 - logging never blocks the learner's plan
         logging.getLogger(__name__).warning("plan_interrupt decision not logged", exc_info=True)
+        # ``decision_ref`` set means the row was written and a linked row (prefilter, state, trace) failed after it.
+        _record_logger_failure(connection, decision_kind="plan_interrupt", block_id=current.id, plan_id=record.id,
+                               logger=log_plan_interrupt_decision, exc=exc, logged_ref=decision_ref)
         return None
 
 

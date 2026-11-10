@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/serving.py"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/ad_slot.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/stores/ad_serving.py"
@@ -131,6 +132,7 @@ None found by exact static reference scan.
 - `tests/test_ad2_serving.py`
 - `tests/test_ad_guard.py`
 - `tests/test_architecture.py`
+- `tests/test_remaining_decision_records.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

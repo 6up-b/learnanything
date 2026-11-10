@@ -120,6 +120,7 @@ None found by exact static reference scan.
 - `tests/test_forced_withdrawal_records.py`
 - `tests/test_provenance.py`
 - `tests/test_refusal_records.py`
+- `tests/test_remaining_decision_records.py`
 - `tests/test_slate_record.py`
 - `tests/test_why_cases.py`
 - `tests/test_why_reader.py`

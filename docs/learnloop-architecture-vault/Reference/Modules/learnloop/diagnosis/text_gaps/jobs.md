@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py) |
-| Source lines | 823 |
+| Source lines | 824 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -75,9 +75,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, stuck_source: StuckTextSource | None=None, include_history: bool=False, dry_run: bool=False, kinds: tuple[str, ...]=BACKLOG_KINDS + NOTE_BACKLOG_KINDS) -> dict[str, int]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 358) — Queue unread learner texts (``learnloop gaps run --backlog``).
 - `calls_today(repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 493) — The pipeline's logical model calls since today's UTC midnight (receipts).
 - `process_next_gap_job(root: Path, repository: Repository, *, owner: str, clients: PipelineClients | None=None, budget_factory: Callable[[LoadedVault], TextBudget] | None=None, clock: Clock | None=None, source: tuple[str, str] | None=None, stuck_source: StuckTextSource | None=None, cancelled: Callable[[], bool] | None=None) -> GapJobOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 501) — Lease and run the next runnable gap job (or ``source``'s); None when none is.
-- `run_pending(root: Path, repository: Repository, *, owner: str, max_jobs: int=50, **kwargs: Any) -> list[GapJobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 748)
-- `pending_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 764)
-- `plan(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 769) — A no-call plan of the queue: what would be read and the call ceiling.
+- `run_pending(root: Path, repository: Repository, *, owner: str, max_jobs: int=50, **kwargs: Any) -> list[GapJobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 749)
+- `pending_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 765)
+- `plan(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 770) — A no-call plan of the queue: what would be read and the call ceiling.
 
 ### Module constants
 
@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 294)
 - `NOTE_BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 299)
 - `UNLINKED` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 317)
-- `_CONTEXT_JUDGE` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 699)
+- `_CONTEXT_JUDGE` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 700)
 
 ### Explicit exports
 
@@ -124,8 +124,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[str, str], Mapping[str, Any]], gap_rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 453) — The ``<prediction id>:explained`` sources the backlog owes (fix round 2, F5): a "what changed?" saved after its prediction's reading started or finished, while nothing queued it (gap reading was off then).
 - `_later(seconds: float, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 484)
 - `_next_day(clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 488)
-- `_retry_or_fail(repository: Repository, job: Mapping[str, Any], text: Any, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, error: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 667) — Back off and retry; after the last attempt log the text as ``failed``, naming whatever its earlier attempts already wrote (F3).
-- `_skip(repository: Repository, job: Mapping[str, Any], text: LearnerText | None, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, reason: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 704) — The job reads nothing more: the pipeline is switched off, or the text is gone.
+- `_retry_or_fail(repository: Repository, job: Mapping[str, Any], text: Any, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, error: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 668) — Back off and retry; after the last attempt log the text as ``failed``, naming whatever its earlier attempts already wrote (F3).
+- `_skip(repository: Repository, job: Mapping[str, Any], text: LearnerText | None, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, reason: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 705) — The job reads nothing more: the pipeline is switched off, or the text is gone.
 
 ## Who imports or calls it
 
@@ -273,6 +273,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_the_backlog_sweep_recovers_a_missed_answer_without_a_job`
 - [tests/test_reader_rw3b_review_fixes.py](../../../../../../../tests/test_reader_rw3b_review_fixes.py) — direct import
   - `test_the_plan_says_when_background_work_can_still_name_a_target`
+- [tests/test_remaining_decision_records.py](../../../../../../../tests/test_remaining_decision_records.py) — direct import
+  - `test_the_gap_readings_figure_gate_records_its_refusal_in_the_jobs_trace`
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
   - `test_a_stopped_worker_leases_no_gap_job`
 - [tests/test_teacher_te2_lessons.py](../../../../../../../tests/test_teacher_te2_lessons.py) — direct import

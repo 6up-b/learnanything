@@ -591,6 +591,9 @@ class AttemptApplication:
     #: grade held because its contract is unrecorded: no channel write.
     rubric: Rubric | None = None
     grade_contract_unrecorded: bool = False
+    #: The FSRS review this attempt applied or skipped, as numbers and codes (``_fsrs_review_summary``), for the
+    #: live grade's decision record; nothing persists it otherwise, and replay never reads it.
+    fsrs_review: dict[str, Any] | None = None
 
 
 class AttemptServiceNotReady(RuntimeError):
@@ -3572,7 +3575,7 @@ def _record_grade_decision(
         unverified_criterion_ids=attempt.unverified_criterion_ids,
         plan_presentation_id=draft.plan_presentation_id, probe_presentation_id=draft.probe_presentation_id,
         session_id=draft.session_id, algorithm_version=vault.config.algorithms.algorithm_version,
-        grader_identity=attempt.grader_identity,
+        grader_identity=attempt.grader_identity, fsrs=application.fsrs_review,
     )
 
 
@@ -4807,6 +4810,7 @@ def _compute_resolved_grade_application(
             * surprise.fsrs_interval_factor
         )
         due_at = (observed_at + timedelta(days=interval_days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        review_skipped = None
     else:
         # LIVE mvp-0.8 + ineligible observation: scheduling state is left EXACTLY as it
         # was (§3.8). A first-ever ineligible observation creates NO memory state
@@ -4815,6 +4819,16 @@ def _compute_resolved_grade_application(
         next_memory = previous_memory
         interval_days = None
         due_at = previous_state.due_at if previous_state is not None else None
+        review_skipped = ("held" if held else "causal_activity" if not causal_activity.eligible_for_fsrs
+                          else "ineligible_observation")
+    # The review as of now, for the grade's decision record only (refactor B8): the item's state row is overwritten
+    # by the next review and the elapsed time is never stored, so "why is this due then?" had no stored answer.
+    fsrs_review = _fsrs_review_summary(
+        grade.rubric_score, rubric.max_points, draft.hints_used, rating=fsrs_rating,
+        elapsed_days=elapsed_days, previous_state=previous_state, next_memory=next_memory,
+        interval_days=interval_days, interval_factor=surprise.fsrs_interval_factor, due_at=due_at,
+        weights_fitted=fsrs_weights_fitted, skipped=review_skipped,
+    )
 
     attempt_record = {
         "id": attempt_id,
@@ -5135,7 +5149,36 @@ def _compute_resolved_grade_application(
         grade_held=held,
         rubric=rubric,
         grade_contract_unrecorded=grade_contract_unrecorded,
+        fsrs_review=fsrs_review,
     )
+
+
+def _fsrs_review_summary(rubric_score: Any, max_points: Any, hints_used: int, *, rating: Any,
+                         elapsed_days: float, previous_state: PracticeItemState | None, next_memory: Any,
+                         interval_days: float | None, interval_factor: Any, due_at: str | None,
+                         weights_fitted: bool, skipped: str | None) -> dict[str, Any] | None:
+    """What the FSRS review saw and did, for the grade's record: the rating and the one before the item's hint cap,
+    the elapsed days, the state before and after, the interval and its factor, the due time; ``skipped`` names why no
+    review applied. Never raises (None instead): it describes the review and must never change it."""
+
+    def number(value: Any) -> float | None:
+        return None if value is None else round(float(value), 6)
+
+    try:
+        return {
+            "applied": skipped is None, "skipped": skipped,
+            "rating": int(rating), "rating_uncapped": int(rating_from_score(rubric_score, max_points)),
+            "hints_used": int(hints_used or 0), "elapsed_days": number(elapsed_days),
+            "weights": "fitted" if weights_fitted else "default",
+            "prior_stability": number(getattr(previous_state, "stability", None)),
+            "prior_difficulty": number(getattr(previous_state, "difficulty", None)),
+            "prior_due_at": getattr(previous_state, "due_at", None),
+            "stability": number(getattr(next_memory, "stability", None)),
+            "difficulty": number(getattr(next_memory, "difficulty", None)),
+            "interval_days": number(interval_days), "interval_factor": number(interval_factor), "due_at": due_at,
+        }
+    except Exception:  # noqa: BLE001 - a record never changes the decision it describes
+        return None
 
 
 def _self_grade_attributions(

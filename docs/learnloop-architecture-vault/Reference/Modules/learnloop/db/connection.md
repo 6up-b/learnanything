@@ -801,6 +801,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_after_the_upgrade_a_rebuild_settles_and_stays`
   - `test_head_fixture_predecessor_to_successor_path`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
 - [tests/test_repository_scopes.py](../../../../../../tests/test_repository_scopes.py) — direct import
   - `test_atomic_scope_rolls_back_nested_commits_and_serializes_writers`
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import

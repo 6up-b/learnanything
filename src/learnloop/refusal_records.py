@@ -10,10 +10,13 @@ answer. Each record names the rule that refused and the limit it refused at, as 
   ``failed`` (the request raised: the exception's class and ``module:function:line``, never its message). An
   answered judgment writes none: ``judgment_ledger`` holds it.
 * **spend_admission**: the router's daily guard refused a metered request before it was sent: the cap, what the
-  day had spent and what the request would add.
+  day had spent and what the request would add. The same kind for a shared daily envelope's refusal
+  (``SharedDailyEnvelope``: the source service's, the hints', the figures', the Reader's caps; B8) and for the lesson
+  envelope's refusal that closes a lesson with ``budget`` (B8).
 * **figure_admission**: the figure gate refused a figure-derived request (figures switched off, the route, cap or
   price changed, the vault closed, a hold).
-* **router_decision_row**: the router's ledger refused a decision row while the behaviour it describes still applied.
+* **router_decision_row**: the router's ledger refused a decision row while the behaviour it describes still applied,
+  or (B8) a plan decision's logger raised before its row reached the ledger (``failed``/``logger_error``).
 * **followup_gate**: the follow-up gate's decision (``followup_run.router``): the arm, the rule (a hard refusal's
   reason, ``no_plan``, ``router_off``, or the component the mixture drew from), the arms' probabilities, and the
   components' answers by reference (their statuses here, their payloads on the ``router_decisions`` row).
@@ -68,6 +71,10 @@ TIME_BOX = "time_box"
 SPEND_REFUSED = "spend_refused"
 #: The router's daily guard (``router.max_daily_cost_usd``).
 ROUTER_DAILY_CAP = "router_daily_cap"
+#: A plan decision's logger raised before its row reached the ledger (the block stands, unlogged).
+LOGGER_ERROR = "logger_error"
+#: A shared daily envelope's cap (``SpendEnvelope``'s own rule name, kept for the shared one).
+ENVELOPE_CAP = "envelope_cap"
 
 
 def _ref(value: Any) -> str | None:
@@ -208,6 +215,53 @@ def router_spend_record(*, cap_usd: Any, spent_usd: Any, request_usd: Any, owner
     )
 
 
+def envelope_record(*, envelope: Any, cap_usd: Any, spent_usd: Any, request_usd: Any,
+                    owner_kinds: Any = None) -> DecisionRecord:
+    """A shared daily cap (``source_service.max_daily_cost_usd``, ``hints.max_daily_cost_usd``, the figures', the
+    Reader's, ...) refused a metered request before it was sent: no call row exists, and each caller turns the
+    refusal into its own status (``over_budget``, ``capped``, an empty result), so this is the row that names the
+    cap, the day's total and the request's estimate."""
+
+    kinds = [kind for kind in (owner_kinds or ()) if provenance.is_code(kind)]
+    return DecisionRecord(
+        kind=SPEND_ADMISSION,
+        status="refused",
+        decided_by=_code(envelope) or "shared_daily_envelope",
+        rule=ENVELOPE_CAP,
+        facts=_compact({
+            "limit_usd": _number(cap_usd), "spent_usd": _number(spent_usd), "request_usd": _number(request_usd),
+            "scope": _code(envelope), "owner_kinds": kinds or None,
+        }),
+    )
+
+
+def lesson_budget_record(*, lesson_id: Any, exc: BaseException | None, refusal: Mapping[str, Any] | None
+                         ) -> DecisionRecord:
+    """A lesson's own envelope (or a cap below it) refused its next request, so the lesson closed with ``budget``:
+    the close receipt says ``budget``, and this names which request (its purpose), the rule and the numbers."""
+
+    seen, spend = exc, None
+    while seen is not None and spend is None:
+        if getattr(seen, "rule", None) is not None or type(seen).__name__ == "SpendLimitExceeded":
+            spend = seen
+        seen = seen.__cause__ or seen.__context__
+    rule, facts = spend_rule(spend) if spend is not None else (SPEND_REFUSED, {})
+    gate = dict(refusal or {})
+    if spend is None and gate.get("reason") == "unknown_price":
+        rule = "unknown_price"
+    return DecisionRecord(
+        kind=SPEND_ADMISSION,
+        status="refused",
+        decided_by="lesson_envelope",
+        rule=rule,
+        facts=_compact({
+            **facts, "lesson_id": _ref(lesson_id), "purpose": _code(gate.get("purpose")),
+            "provider": _ref(gate.get("provider")), "request_usd": _number(gate.get("request_estimate_usd")),
+            "committed_usd": _number(gate.get("committed_usd")), "limit_usd": _number(gate.get("limit_usd")),
+        }),
+    )
+
+
 def figure_gate_record(*, rule: str, purpose: Any) -> DecisionRecord:
     """The figure gate refused a figure-derived request; every later request of the unit is refused with it."""
 
@@ -237,6 +291,31 @@ def router_row_record(row: Mapping[str, Any], exc: BaseException) -> DecisionRec
         versions=_compact({"algorithm_version": _code(row.get("algorithm_version")),
                            "log_version": _code(row.get("log_version"))}),
         detail_table="router_decisions",
+        error_type=error_type,
+        error_where=error_where,
+    )
+
+
+def plan_logger_record(*, decision_kind: str, block_id: Any, plan_id: Any, logger: Any, exc: BaseException,
+                       logged_ref: Any = None) -> DecisionRecord:
+    """A plan decision's logger raised: the block it describes is served all the same, with no ledger row (or, for a
+    follow-up's interrupt, with a row whose linked rows stopped at ``logged_ref``). Before this the warning line was
+    the only trace that the block's ``router_decisions`` row was missing, and why."""
+
+    error_type, error_where = _error(exc)
+    return DecisionRecord(
+        kind=ROUTER_DECISION_ROW,
+        status="failed",
+        subject_kind="block" if block_id else None,
+        subject_id=_ref(block_id),
+        decided_by="plan_decision_logger",
+        rule=LOGGER_ERROR,
+        facts=_compact({
+            "decision_kind": _code(decision_kind), "plan_id": _ref(plan_id),
+            "logger": _code(getattr(logger, "__name__", logger)), "logged_ref": _ref(logged_ref), "applied": True,
+        }),
+        detail_table="router_decisions",
+        detail_id=_ref(logged_ref),
         error_type=error_type,
         error_where=error_where,
     )
@@ -350,9 +429,10 @@ def write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) ->
 
 
 __all__ = [
-    "BELOW_VERSION", "DECIDER_JUDGMENT", "DECIDER_NOT_READY", "FIGURE_ADMISSION", "FOLLOWUP_GATE", "MODELS_OFF",
-    "NOT_A_DECIDER_TASK", "NO_DECIDER_ROUTED", "PROVIDER_UNAVAILABLE", "REQUEST_FAILED", "ROUTER_DAILY_CAP",
-    "ROUTER_DECISION_ROW", "SPEND_ADMISSION", "SPEND_REFUSED", "SWITCH_OFF", "TIME_BOX", "decider_record",
-    "disabled_rule", "route_rule", "figure_gate_record", "followup_gate_record", "router_row_record",
-    "router_spend_record", "spend_rule", "write", "write_on",
+    "BELOW_VERSION", "DECIDER_JUDGMENT", "DECIDER_NOT_READY", "ENVELOPE_CAP", "FIGURE_ADMISSION", "FOLLOWUP_GATE",
+    "LOGGER_ERROR", "MODELS_OFF", "NOT_A_DECIDER_TASK", "NO_DECIDER_ROUTED", "PROVIDER_UNAVAILABLE", "REQUEST_FAILED",
+    "ROUTER_DAILY_CAP", "ROUTER_DECISION_ROW", "SPEND_ADMISSION", "SPEND_REFUSED", "SWITCH_OFF", "TIME_BOX",
+    "decider_record", "disabled_rule", "envelope_record", "figure_gate_record", "followup_gate_record",
+    "lesson_budget_record", "plan_logger_record", "route_rule", "router_row_record", "router_spend_record",
+    "spend_rule", "write", "write_on",
 ]

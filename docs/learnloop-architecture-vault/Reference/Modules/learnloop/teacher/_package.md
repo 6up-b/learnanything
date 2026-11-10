@@ -82,7 +82,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 28 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 29 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 9 static module edges
@@ -130,7 +130,7 @@ flowchart LR
     n_learnloop_figures["learnloop.figures"]
     n_learnloop_followup_serve["learnloop.followup_serve"]
     n_learnloop_scheduling["learnloop.scheduling"]
-    center -->|28| n_learnloop
+    center -->|29| n_learnloop
     center -->|16| n_learnloop_db_stores
     center -->|11| n_learnloop_source_retrieval
     center -->|9| n_learnloop_ai

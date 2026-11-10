@@ -732,17 +732,20 @@ Failures print ids and field names only. Nothing from it goes in a tracked file.
 
 ### 3.8 Inventory: what has no record today, and where it's covered
 
-| Gap (map) | Debugging value | Step |
-|---|---|---|
-| Chooser crash S1; timeout S2; provider failure S3; `card_error` S6 | Highest: cost the owner real time | B2 |
-| Orphan calls S4; eviction S5 | High; derived at read, no write | B1, B2 |
-| Withdrawal; check draw or place failure; lesson builder crash; AD unavailable; head mismatch S12; eligibility on ordinary serves | High | B3 |
-| Figure filter S7; reason S8; stoppages S9; salvage S10; author refusal; unseeded RNG | High | B4 |
-| Disabled Decider and lost text S11; refused decision row S13; lost logged check S14; refused spend | Medium | B5 |
-| Scheduler skip S15; slate exclusions; serving exclusions outside offers | High (daily-loop bug 2) | B6 |
-| Held grade; grading verdict; diagnosis attribution; follow-up value; VOI forecast failure; causal probe's router link; probe selection; AD generation refusal; hint ladder's missing client; `decision_receipt_id`'s overload | Medium to high; several read only by outline | B6, B7 |
-| Teacher lesson and check; Reader retrieval; ingest routing; route fallback; retries; re-read and alias; curriculum path; FSRS rating and elapsed; device eligibility's failure | Lower; read first, record or write down why not | B8 |
-| Learner protection, a per-call read | Recorded only where it excludes something from a decision (B4, B6). Not per read | none alone |
+Status after B8: every row below is either recorded or written down in ADR-017 with the rows that answer it instead ("B8: boundaries with no record, and why not"), so the inventory has no silent gap.
+
+| Gap (map) | Debugging value | Step | Status |
+|---|---|---|---|
+| Chooser crash S1; timeout S2; provider failure S3; `card_error` S6 | Highest: cost the owner real time | B2 | Recorded (`plan_block`, `model_answer`) |
+| Orphan calls S4; eviction S5 | High; derived at read, no write | B1, B2 | Derived by `why` (`discarded`, `unclaimed`) |
+| Withdrawal; check draw or place failure; lesson builder crash; AD unavailable; head mismatch S12; eligibility on ordinary serves | High | B3 | Recorded (`offer_withdrawn`, failed children, `ad_slot`, `serve_eligibility`); a plain `SERVE` is its presentation row |
+| Figure filter S7; reason S8; stoppages S9; salvage S10; author refusal; unseeded RNG | High | B4 | Recorded (`figure_prebuild`, `figure_prefetch_filter`, `figure_prebuild_stop`, `figure_author`); rich jobs' per-attempt codes are B8's open item |
+| Disabled Decider and lost text S11; refused decision row S13; lost logged check S14; refused spend | Medium | B5, B8 | Recorded (`decider_judgment`, `router_decision_row`, `followup_gate`, `spend_admission`); B8 added S13's other half (a plan logger that raised) and the shared daily caps' and the lesson envelope's refusals. The other spend catchers keep their own rows (ADR-017) |
+| Scheduler skip S15; slate exclusions; serving exclusions outside offers | High (daily-loop bug 2) | B6 | Recorded (`slate`); the quick check and `find_practice` are learner-initiated selectors whose exclusions `why item:<id>` re-derives (ADR-017) |
+| Held grade; grading verdict; diagnosis attribution; follow-up value; VOI forecast failure; causal probe's router link; probe selection; AD generation refusal; hint ladder's missing client; `decision_receipt_id`'s overload | Medium to high; several read only by outline | B6, B7, B8 | Recorded (`grade`, `grade_held`, `diagnosis`, `followup_value`, `voi_forecast`, `probe_offer`, `probe_value`; B6 split the parameter). AD generation refusal and the missing hint client are answered by `ingest_jobs` and `help_assists` rows; B8 added `ad_commission_skip` where the job's result mislabelled a guard denial |
+| Teacher lesson and check; Reader retrieval; ingest routing; route fallback; retries; re-read and alias; curriculum path; FSRS rating and elapsed; device eligibility's failure | Lower; read first, record or write down why not | B8 | Recorded: the lesson's `budget` close, the curriculum path's daily re-judgment (`curriculum_path_refresh`), the FSRS review on the grade (`facts.fsrs`). Written down in ADR-017 with the rows that answer them: the rest. Open: the route fallback on the receipt (a migration), ingest's primary-failure class |
+| Background AD denials outside the plan's phases | Low; the JSONL counts them | B3, B8 | `ad_guard_denials.jsonl`, by the owner's 2026-10-21 decision (ADR-017) |
+| Learner protection, a per-call read | Recorded only where it excludes something from a decision (B4, B6). Not per read | none alone | As stated |
 
 **What it replaces.**
 - **Kept:** `router_decisions` and payloads, `router_objective_traces`, `ad_selections` (the model for the shape), `judgment_ledger`, `plan_presentations`, the causal receipts and the other rows in the map's §4.3. They're ledgers with guarantees, and the playbook keeps them immutable.
